@@ -1,0 +1,364 @@
+# テストシナリオフェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書と設計書から、詳細なテストシナリオを作成してください。**Phase 2で決定されたテスト戦略に基づいて**、適切なテスト種別のシナリオを作成します。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-7/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-7/01_requirements/output/requirements.md
+
+### 設計書
+@.ai-workflow/issue-7/02_design/output/design.md
+
+### テスト戦略（Phase 2で決定）
+**UNIT_INTEGRATION**
+
+### GitHub Issue情報（参考）
+## Issue概要
+
+- **Issue番号**: #7
+- **タイトル**: カスタムブランチ名での作業をサポート
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/7
+- **ラベル**: enhancement
+
+### 本文
+
+## 概要
+
+現在、AI Workflow は Issue URL に基づいて自動的にブランチ名（ai-workflow/issue-7）を生成しますが、任意のブランチ名を指定して作業できるようにしたいです。
+
+## 背景
+
+### 現在の動作
+
+AI Workflow を実行すると、以下の形式でブランチが自動作成されます：
+- ブランチ名: ai-workflow/issue-{issue_number}
+- 例: Issue #123 の場合 → ai-workflow/issue-123
+
+### 問題点
+
+以下のようなケースでカスタムブランチ名が必要になります：
+
+1. **既存ブランチでの作業**: 既に作成済みのブランチ（feature/new-api など）で AI Workflow を実行したい
+2. **命名規則への対応**: チームのブランチ命名規則（feature/, bugfix/, hotfix/ など）に合わせたい
+3. **複数 Issue の統合作業**: 複数の Issue をまとめて1つのブランチで作業したい（例: feature/user-auth で Issue #10, #11, #12 を対応）
+4. **ブランチ名の可読性**: より説明的なブランチ名を使いたい（例: feature/add-aws-credentials-support）
+
+## 要件
+
+### 機能要件
+
+**FR-1: CLI オプションの追加**
+- --branch オプションを追加し、カスタムブランチ名を指定可能にする
+- 例: ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/my-branch
+
+**FR-2: デフォルト動作の維持**
+- --branch オプションが指定されない場合、現在の動作（ai-workflow/issue-{issue_number}）を維持
+- 後方互換性を保つ
+
+**FR-3: ブランチ存在チェック**
+- 指定されたブランチが存在する場合: そのブランチに checkout
+- 指定されたブランチが存在しない場合: 新規作成
+- リモートにのみ存在する場合: fetch して checkout
+
+**FR-4: メタデータ保存**
+- 指定されたブランチ名を metadata.json の branch_name フィールドに保存
+- execute コマンドは保存されたブランチ名を使用
+
+**FR-5: Jenkins パラメータ対応**
+- Jenkinsfile に BRANCH_NAME パラメータを追加（任意、Job DSL で定義）
+- パラメータが指定された場合、init コマンドに --branch オプションとして渡す
+
+### 受け入れ基準
+
+**AC-1: CLI でカスタムブランチ名を指定できる**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom-branch
+→ feature/custom-branch が作成/checkout される
+```
+
+**AC-2: デフォルト動作が変わらない**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123
+→ ai-workflow/issue-123 が作成される（従来通り）
+```
+
+**AC-3: 既存ブランチに切り替えられる**
+```
+git checkout -b feature/existing-branch
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/existing-branch
+→ 既存の feature/existing-branch で作業が開始される
+```
+
+**AC-4: メタデータに保存される**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom
+cat .ai-workflow/issue-123/metadata.json | jq .branch_name
+→ "feature/custom"
+```
+
+**AC-5: Jenkins でブランチ名を指定できる**
+- Jenkins Job の BRANCH_NAME パラメータに feature/custom-branch を入力
+- AI Workflow が指定されたブランチで実行される
+
+**AC-6: ブランチ名のバリデーション**
+- 不正なブランチ名（空白、特殊文字など）を検証してエラーメッセージを表示
+- Git の命名規則に従ったブランチ名のみ受け入れる
+
+## 実装アプローチ
+
+### 1. CLI オプションの追加（src/main.ts）
+
+init コマンドに --branch オプションを追加
+
+### 2. ブランチ名解決ロジック（src/main.ts）
+
+カスタムブランチ名が指定された場合はそれを使用し、未指定の場合はデフォルト（ai-workflow/issue-{issue_number}）を使用。ブランチ名のバリデーションを実装。
+
+Git ブランチ名の命名規則：
+- 空白を含まない
+- .. を含まない
+- ~, ^, :, ?, *, [ を含まない
+- / で始まらない、終わらない
+
+### 3. Git Manager の更新（src/core/git-manager.ts）
+
+既存の createBranch() メソッドと switchBranch() メソッドを使用してカスタムブランチに対応。
+
+### 4. メタデータ管理（src/core/metadata-manager.ts）
+
+branch_name フィールドにカスタムブランチ名を保存（既存のフィールドを使用）。
+
+### 5. Jenkinsfile の更新
+
+Initialize Workflow stage で BRANCH_NAME パラメータが指定されている場合、--branch オプションとして渡す
+
+### 6. Job DSL の更新（参考、実装はスコープ外）
+
+BRANCH_NAME パラメータを string 型で追加（任意、デフォルト: 空文字列）
+
+## スコープ外
+
+以下は今回のスコープに含めません：
+
+- Job DSL ファイルの実装（別ファイルで管理されているため、ドキュメント参照のみ）
+- ブランチ保護ルールのチェック
+- PR 作成時のベースブランチ自動判定
+- 複数リポジトリでのブランチ名統一
+
+## 関連ファイル
+
+- src/main.ts: CLI コマンド定義、init コマンド処理
+- src/core/git-manager.ts: ブランチ作成・切り替え処理
+- src/core/metadata-manager.ts: メタデータ管理
+- Jenkinsfile: パイプライン定義、Initialize Workflow stage
+- jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy: Job DSL（参考）
+
+## 期待される成果
+
+1. CLI で --branch オプションを使ってカスタムブランチ名を指定できる
+2. デフォルト動作（自動ブランチ名生成）が維持される
+3. Jenkins でブランチ名をパラメータとして受け入れる
+4. ブランチ名のバリデーションが実装される
+5. 既存ブランチでの作業が可能になる
+
+## テストシナリオ
+
+### シナリオ1: デフォルトブランチ名（後方互換性）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123
+git branch --show-current
+Expected: ai-workflow/issue-123
+```
+
+### シナリオ2: カスタムブランチ名（新規作成）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/add-logging
+git branch --show-current
+Expected: feature/add-logging
+```
+
+### シナリオ3: 既存ブランチでの作業
+```
+git checkout -b feature/existing-work
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/existing-work
+git branch --show-current
+Expected: feature/existing-work（既存ブランチを使用）
+```
+
+### シナリオ4: 不正なブランチ名
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch "invalid branch name"
+Expected: Error: Invalid branch name: invalid branch name
+```
+
+### シナリオ5: Jenkins パラメータ
+- Jenkins Job で BRANCH_NAME = feature/jenkins-custom を指定
+- AI Workflow が feature/jenkins-custom ブランチで実行される
+- metadata.json の branch_name が feature/jenkins-custom になる
+
+## 優先度
+
+**Medium** - 既存機能の拡張であり、デフォルト動作に影響しない
+
+## テスト戦略別の対応
+
+Phase 2で決定されたテスト戦略に応じて、以下のテストシナリオを作成してください：
+
+### UNIT_ONLY: Unitテストのみ
+- 各関数・メソッド単位のテストケース
+- 正常系・異常系・境界値テスト
+- モック/スタブを使用した単体テスト
+
+### INTEGRATION_ONLY: Integrationテストのみ
+- コンポーネント間の連携テスト
+- 外部システムとの統合テスト
+- データフローの検証
+
+### BDD_ONLY: BDDテストのみ
+- ユーザーストーリーベースのシナリオ
+- Given-When-Then形式
+- ビジネス要件との対応
+
+### UNIT_INTEGRATION: Unit + Integration
+- Unitテストシナリオ（上記）
+- Integrationテストシナリオ（上記）
+
+### UNIT_BDD: Unit + BDD
+- Unitテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+### INTEGRATION_BDD: Integration + BDD
+- Integrationテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+### ALL: すべて
+- Unitテストシナリオ（上記）
+- Integrationテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+## テストシナリオの構成
+
+### 1. テスト戦略サマリー
+- 選択されたテスト戦略（Phase 2から引用）
+- テスト対象の範囲
+- テストの目的
+
+### 2. Unitテストシナリオ（該当する場合）
+
+各関数・メソッドについて：
+
+**テストケース名**: （関数名_正常系/異常系/境界値）
+
+- **目的**: このテストで検証すること
+- **前提条件**: テスト実行前の状態
+- **入力**: 関数への入力パラメータ
+- **期待結果**: 期待される出力・状態変化
+- **テストデータ**: 使用するテストデータ
+
+**例**:
+```
+テストケース名: calculate_total_正常系
+目的: 合計金額が正しく計算されることを検証
+前提条件: 商品リストが存在する
+入力: items = [{price: 100, quantity: 2}, {price: 200, quantity: 1}]
+期待結果: 400が返される
+テストデータ: 上記items
+```
+
+### 3. Integrationテストシナリオ（該当する場合）
+
+各統合ポイントについて：
+
+**シナリオ名**: （統合する2つのコンポーネント名）
+
+- **目的**: この統合で検証すること
+- **前提条件**: 統合テスト実行前の状態
+- **テスト手順**: ステップバイステップの手順
+- **期待結果**: 統合後の期待される動作
+- **確認項目**: 確認すべきポイントのチェックリスト
+
+### 4. BDDシナリオ（該当する場合）
+
+ユーザーストーリーごとに：
+
+**Feature**: （機能名）
+
+**Scenario**: （シナリオ名）
+
+- **Given** (前提条件): システムの初期状態
+- **When** (操作): ユーザーが実行するアクション
+- **Then** (結果): 期待される結果
+
+**例**:
+```gherkin
+Feature: ユーザー登録機能
+
+Scenario: 新規ユーザーが正常に登録できる
+  Given ユーザーがログインしていない
+  When ユーザーが有効なメールアドレスとパスワードで登録フォームを送信する
+  Then ユーザーアカウントが作成される
+  And 確認メールが送信される
+  And ユーザーがログイン画面にリダイレクトされる
+```
+
+### 5. テストデータ
+- 各テストシナリオで使用するテストデータ
+- 正常データ、異常データ、境界値データ
+
+### 6. テスト環境要件
+- 必要なテスト環境（ローカル、CI/CD等）
+- 必要な外部サービス・データベース
+- モック/スタブの必要性
+
+## 品質ゲート（Phase 3）
+
+テストシナリオは以下の品質ゲートを満たす必要があります：
+
+- [ ] **Phase 2の戦略に沿ったテストシナリオである**
+- [ ] **主要な正常系がカバーされている**
+- [ ] **主要な異常系がカバーされている**
+- [ ] **期待結果が明確である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **戦略準拠**: Phase 2のテスト戦略を厳守してください
+   - 戦略に含まれないテスト種別は作成不要
+   - 例: UNIT_ONLYの場合、Integration/BDDシナリオは不要
+
+2. **要件との対応**: 要件定義書の各要件がテストでカバーされていることを確認
+   - 受け入れ基準がテストシナリオに反映されているか
+   - 機能要件がすべてテスト対象に含まれているか
+
+3. **実行可能性**: 実際に実行可能なテストシナリオを記述
+   - 曖昧な表現を避ける
+   - 具体的な入力・出力を記載
+   - 検証可能な期待結果
+
+4. **優先度**: すべてのエッジケースではなく、主要なケースに注目
+   - 80点で十分（完璧を目指さない）
+   - クリティカルパス優先
+   - 高リスク領域を優先的にカバー
+
+5. **レビューされることを意識**: テストシナリオはクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+
+## 出力形式
+
+テストシナリオを `.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。
+
+## 実装開始
+
+上記を踏まえ、テストシナリオを作成してください。
