@@ -150,6 +150,24 @@ Report Phase（Phase 8）完了後、`cleanupWorkflowLogs()` が自動的にデ�
 - **保持対象**: `metadata.json`、`output/*.md`、`00_planning/` ディレクトリ全体
 - **効果**: リポジトリサイズを約 70% 削減、PR をクリーンに
 
+### ワークフローディレクトリの完全削除（v0.3.0）
+
+Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*` ディレクトリ全体を削除可能:
+- **CLI オプション**: `--cleanup-on-complete`, `--cleanup-on-complete-force`
+- **削除対象**: `.ai-workflow/issue-<NUM>/` ディレクトリ全体（`metadata.json`、`output/*.md` を含む）
+- **確認プロンプト**: 対話的環境では削除前に確認を求める（CI環境では自動スキップ）
+- **実装**: `BasePhase.cleanupWorkflowArtifacts()` メソッド、`EvaluationPhase.run()` で統合
+- **セキュリティ**: パス検証（正規表現）、シンボリックリンクチェック
+
+**Report Phase クリーンアップとの違い**:
+
+| 項目 | Report Phase (Phase 8) | Evaluation Phase (Phase 9) |
+|------|------------------------|----------------------------|
+| **削除対象** | デバッグログ（`execute/`, `review/`, `revise/`） | ワークフロー全体（`.ai-workflow/issue-<NUM>/`） |
+| **実行タイミング** | Report Phase 完了時（常に実行） | Evaluation Phase 完了時（オプション指定時のみ） |
+| **目的** | PR レビューの負荷軽減（約 70% 削減） | ワークフロー完了後のクリーンアップ（完全削除） |
+| **保護対象** | `00_planning/`, `metadata.json`, `output/*.md` | なし（全て削除） |
+
 ## 環境変数
 
 ### 必須

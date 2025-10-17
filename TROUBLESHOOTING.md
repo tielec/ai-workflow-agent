@@ -161,7 +161,58 @@ Report Phase (Phase 8) 完了後、`execute/`, `review/`, `revise/` ディレク
 
 現在の実装では、Report Phase 実行時に常にクリーンアップが実行されます。スキップする方法はありません。デバッグログを保持したい場合は、Report Phase 実行前に手動でバックアップを取得してください。
 
-## 9. デバッグのヒント
+## 9. Evaluation Phase クリーンアップ関連（v0.3.0）
+
+### ワークフローディレクトリ全体が削除された
+
+Evaluation Phase で `--cleanup-on-complete` オプションを使用すると、`.ai-workflow/issue-*` ディレクトリ全体が削除されます。
+
+- **対処法**: 削除は Git にコミットされるため、必要に応じて Git の履歴から復元できます:
+  ```bash
+  # 削除される前のコミットを確認
+  git log --all --full-history -- .ai-workflow/issue-123/
+
+  # 特定のコミットからファイルを復元
+  git checkout <commit-hash> -- .ai-workflow/issue-123/
+  ```
+- **注意**: デフォルトでは削除されません。`--cleanup-on-complete` オプションを明示的に指定した場合のみ実行されます。
+
+### 確認プロンプトが表示されて CI ビルドがハングする
+
+CI環境で確認プロンプトが表示されると、ビルドが無期限に待機します。
+
+- **対処法**: CI環境では以下のいずれかを使用してください:
+  1. `--cleanup-on-complete-force` オプションで確認をスキップ:
+     ```bash
+     node dist/index.js execute --issue 123 --phase evaluation \
+       --cleanup-on-complete --cleanup-on-complete-force
+     ```
+  2. 環境変数 `CI=true` を設定（自動的に確認をスキップ）:
+     ```bash
+     export CI=true
+     node dist/index.js execute --issue 123 --phase evaluation --cleanup-on-complete
+     ```
+
+### クリーンアップで不正なパスエラー
+
+`Invalid workflow directory path` エラーが発生する場合、メタデータの `workflowDir` が不正な形式です。
+
+- **原因**: `.ai-workflow/issue-<NUM>` 形式以外のパスが設定されている
+- **対処法**: `metadata.json` の `workflowDir` フィールドを確認し、正しい形式に修正してください:
+  ```json
+  {
+    "workflowDir": ".ai-workflow/issue-123"
+  }
+  ```
+
+### シンボリックリンクエラー
+
+`Workflow directory is a symbolic link` エラーが発生する場合、セキュリティ保護が動作しています。
+
+- **原因**: `.ai-workflow/issue-*` がシンボリックリンクになっている
+- **対処法**: セキュリティ上の理由により、シンボリックリンクのクリーンアップは禁止されています。実際のディレクトリを使用してください。
+
+## 10. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。

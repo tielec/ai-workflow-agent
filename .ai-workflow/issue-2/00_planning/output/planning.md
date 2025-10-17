@@ -257,12 +257,12 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: README.md の更新 (0.25~0.5h)
+- [x] Task 7-1: README.md の更新 (0.25~0.5h)
   - `--cleanup-on-complete` オプションの説明を追加
   - `--cleanup-on-complete-force` オプションの説明を追加
   - 使用例を追加（Jenkins CI/CD、ローカル開発）
 
-- [ ] Task 7-2: CLAUDE.md の更新 (0.25~0.5h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.25~0.5h)
   - クリーンアップ機能の概要を追加
   - Evaluation Phase完了後の動作説明を追加
   - Report Phaseのクリーンアップとの違いを明記
