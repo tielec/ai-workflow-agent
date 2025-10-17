@@ -118,6 +118,16 @@ export async function runCli(): Promise<void> {
     .option('--requirements-doc <path>', 'External requirements document path')
     .option('--design-doc <path>', 'External design document path')
     .option('--test-scenario-doc <path>', 'External test scenario document path')
+    .option(
+      '--cleanup-on-complete',
+      'Delete .ai-workflow directory after evaluation phase completes',
+      false,
+    )
+    .option(
+      '--cleanup-on-complete-force',
+      'Skip confirmation prompt before cleanup (for CI environments)',
+      false,
+    )
     .action(async (options) => {
       try {
         await handleExecuteCommand(options);
@@ -369,6 +379,8 @@ async function handleExecuteCommand(options: any): Promise<void> {
   const skipDependencyCheck = Boolean(options.skipDependencyCheck);
   const ignoreDependencies = Boolean(options.ignoreDependencies);
   const forceReset = Boolean(options.forceReset);
+  const cleanupOnComplete = Boolean(options.cleanupOnComplete);
+  const cleanupOnCompleteForce = Boolean(options.cleanupOnCompleteForce);
 
   if (presetOption && phaseOption !== 'all') {
     console.error("[ERROR] Options '--preset' and '--phase' are mutually exclusive.");
@@ -622,7 +634,13 @@ async function handleExecuteCommand(options: any): Promise<void> {
       presetPhases: targetPhases,
     };
 
-    const summary = await executePhasesSequential(targetPhases, presetContext, gitManager);
+    const summary = await executePhasesSequential(
+      targetPhases,
+      presetContext,
+      gitManager,
+      cleanupOnComplete,
+      cleanupOnCompleteForce,
+    );
     reportExecutionSummary(summary);
     process.exit(summary.success ? 0 : 1);
   }
@@ -631,7 +649,13 @@ async function handleExecuteCommand(options: any): Promise<void> {
     const resumeManager = new ResumeManager(metadataManager);
 
     if (forceReset) {
-      const summary = await executePhasesSequential(PHASE_ORDER, context, gitManager);
+      const summary = await executePhasesSequential(
+        PHASE_ORDER,
+        context,
+        gitManager,
+        cleanupOnComplete,
+        cleanupOnCompleteForce,
+      );
       reportExecutionSummary(summary);
       process.exit(summary.success ? 0 : 1);
     }
@@ -656,13 +680,25 @@ async function handleExecuteCommand(options: any): Promise<void> {
       }
       console.info(`[INFO] Resuming from phase: ${resumePhase}`);
 
-      const summary = await executePhasesFrom(resumePhase, context, gitManager);
+      const summary = await executePhasesFrom(
+        resumePhase,
+        context,
+        gitManager,
+        cleanupOnComplete,
+        cleanupOnCompleteForce,
+      );
       reportExecutionSummary(summary);
       process.exit(summary.success ? 0 : 1);
     }
 
     console.info('[INFO] Starting all phases execution.');
-    const summary = await executePhasesSequential(PHASE_ORDER, context, gitManager);
+    const summary = await executePhasesSequential(
+      PHASE_ORDER,
+      context,
+      gitManager,
+      cleanupOnComplete,
+      cleanupOnCompleteForce,
+    );
     reportExecutionSummary(summary);
     process.exit(summary.success ? 0 : 1);
   }
@@ -673,7 +709,13 @@ async function handleExecuteCommand(options: any): Promise<void> {
   }
 
   const phaseName = phaseOption as PhaseName;
-  const summary = await executePhasesSequential([phaseName], context, gitManager);
+  const summary = await executePhasesSequential(
+    [phaseName],
+    context,
+    gitManager,
+    cleanupOnComplete,
+    cleanupOnCompleteForce,
+  );
   reportExecutionSummary(summary);
   process.exit(summary.success ? 0 : 1);
 }
@@ -701,13 +743,19 @@ async function executePhasesSequential(
   phases: PhaseName[],
   context: PhaseContext,
   gitManager: GitManager,
+  cleanupOnComplete?: boolean,
+  cleanupOnCompleteForce?: boolean,
 ): Promise<ExecutionSummary> {
   const results: PhaseResultMap = {} as PhaseResultMap;
 
   for (const phaseName of phases) {
     try {
       const phaseInstance = createPhaseInstance(phaseName, context);
-      const success = await phaseInstance.run({ gitManager });
+      const success = await phaseInstance.run({
+        gitManager,
+        cleanupOnComplete,
+        cleanupOnCompleteForce,
+      });
       results[phaseName] = { success };
       if (!success) {
         return {
@@ -735,6 +783,8 @@ async function executePhasesFrom(
   startPhase: PhaseName,
   context: PhaseContext,
   gitManager: GitManager,
+  cleanupOnComplete?: boolean,
+  cleanupOnCompleteForce?: boolean,
 ): Promise<ExecutionSummary> {
   const startIndex = PHASE_ORDER.indexOf(startPhase);
   if (startIndex === -1) {
@@ -747,7 +797,13 @@ async function executePhasesFrom(
   }
 
   const remainingPhases = PHASE_ORDER.slice(startIndex);
-  return executePhasesSequential(remainingPhases, context, gitManager);
+  return executePhasesSequential(
+    remainingPhases,
+    context,
+    gitManager,
+    cleanupOnComplete,
+    cleanupOnCompleteForce,
+  );
 }
 
 function createPhaseInstance(phaseName: PhaseName, context: PhaseContext) {
