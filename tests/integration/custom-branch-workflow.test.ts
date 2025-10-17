@@ -20,6 +20,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import * as fsNode from 'fs';
 import { simpleGit, SimpleGit } from 'simple-git';
 import { execSync } from 'child_process';
 
@@ -39,7 +40,7 @@ async function setupTestRepository(): Promise<SimpleGit> {
   await git.addConfig('user.email', 'test@example.com');
 
   // 初期コミット作成
-  await fs.writeFile(path.join(TEST_REPO, 'README.md'), '# Test Repository');
+  await fs.outputFile(path.join(TEST_REPO, 'README.md'), '# Test Repository');
   await git.add('README.md');
   await git.commit('Initial commit');
 
@@ -89,7 +90,8 @@ describe('Scenario 3.1.1: Default branch name (backward compatibility)', () => {
 
     // resolveBranchName(undefined, 123) の動作を模擬
     // デフォルトブランチ名が生成されることを確認
-    const branchName = undefined ? 'custom-branch' : `ai-workflow/issue-${issueNumber}`;
+    const customBranch: string | undefined = undefined;
+    const branchName = customBranch ? 'custom-branch' : `ai-workflow/issue-${issueNumber}`;
 
     // Then: デフォルトブランチ名が生成される
     expect(branchName).toBe(expectedBranchName);
@@ -122,9 +124,9 @@ describe('Scenario 3.1.1: Default branch name (backward compatibility)', () => {
       issue_url: `https://github.com/test/repo/issues/${issueNumber}`,
     };
 
-    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+    await fs.outputFile(metadataPath, JSON.stringify(metadata, null, 2));
 
-    const loadedMetadata = await fs.readJson(metadataPath);
+    const loadedMetadata = JSON.parse(fsNode.readFileSync(metadataPath, 'utf-8'));
     expect(loadedMetadata.branch_name).toBe(defaultBranchName);
   });
 });
@@ -173,9 +175,9 @@ describe('Scenario 3.1.2: Custom branch name (new branch)', () => {
       issue_url: `https://github.com/test/repo/issues/${issueNumber}`,
     };
 
-    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+    await fs.outputFile(metadataPath, JSON.stringify(metadata, null, 2));
 
-    const loadedMetadata = await fs.readJson(metadataPath);
+    const loadedMetadata = JSON.parse(fsNode.readFileSync(metadataPath, 'utf-8'));
     expect(loadedMetadata.branch_name).toBe(customBranchName);
 
     // ログメッセージの確認
@@ -220,10 +222,10 @@ describe('Scenario 3.1.5: Invalid branch name error handling', () => {
   describe('Branch name validation: Invalid characters', () => {
     test('should reject empty branch name', () => {
       // Given: 空文字列
-      const branchName = '';
+      const branchName: string = '';
 
       // When: バリデーション
-      const isValid = branchName && branchName.trim() !== '';
+      const isValid = branchName.trim() !== '';
 
       // Then: バリデーションエラー
       expect(isValid).toBe(false);
@@ -440,9 +442,9 @@ describe('Scenario 3.3.1: Multi-repository workflow with custom branches', () =>
       },
     };
 
-    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+    await fs.outputFile(metadataPath, JSON.stringify(metadata, null, 2));
 
-    const loadedMetadata = await fs.readJson(metadataPath);
+    const loadedMetadata = JSON.parse(fsNode.readFileSync(metadataPath, 'utf-8'));
     expect(loadedMetadata.branch_name).toBe(customBranchName);
     expect(loadedMetadata.target_repository).toBeDefined();
     expect(loadedMetadata.target_repository.path).toBe(TEST_REPO);
@@ -481,9 +483,9 @@ describe('Scenario 3.3.2: Multi-repository workflow with default branch (backwar
       },
     };
 
-    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+    await fs.outputFile(metadataPath, JSON.stringify(metadata, null, 2));
 
-    const loadedMetadata = await fs.readJson(metadataPath);
+    const loadedMetadata = JSON.parse(fsNode.readFileSync(metadataPath, 'utf-8'));
     expect(loadedMetadata.branch_name).toBe(defaultBranchName);
 
     // 後方互換性の確認
