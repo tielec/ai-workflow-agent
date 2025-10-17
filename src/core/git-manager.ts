@@ -10,6 +10,7 @@ import simpleGit, {
 import { minimatch } from 'minimatch';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, StepName } from '../types.js';
+import { SecretMasker } from './secret-masker.js';
 
 interface CommitResult {
   success: boolean;
@@ -42,6 +43,7 @@ export class GitManager {
   private readonly metadata: MetadataManager;
   private readonly config: Record<string, unknown>;
   private readonly git: SimpleGit;
+  private readonly secretMasker: SecretMasker;
 
   constructor(
     repoPath: string,
@@ -52,6 +54,7 @@ export class GitManager {
     this.metadata = metadataManager;
     this.config = config;
     this.git = simpleGit({ baseDir: repoPath });
+    this.secretMasker = new SecretMasker();
 
     // Fire and forget setup of credentials (best-effort).
     this.setupGithubCredentials().catch((error) => {
@@ -250,6 +253,25 @@ export class GitManager {
         commit_hash: null,
         files_committed: [],
       };
+    }
+
+    // Issue #12: Mask secrets before commit
+    const workflowDir = join(workingDir, '.ai-workflow', `issue-${issueNumber}`);
+    try {
+      const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+      if (maskingResult.filesProcessed > 0) {
+        console.info(
+          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        );
+      }
+      if (maskingResult.errors.length > 0) {
+        console.warn(
+          `[WARNING] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        );
+      }
+    } catch (error) {
+      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      // Continue with commit (don't block)
     }
 
     await this.git.add(targetFiles);
