@@ -287,12 +287,39 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
 
 describe('isCIEnvironment メソッドテスト', () => {
   let originalEnv: NodeJS.ProcessEnv;
+  let metadataManager: MetadataManager;
+  let githubClient: GitHubClient;
+  let dummyMetadataPath: string;
 
-  before(() => {
+  before(async () => {
     originalEnv = { ...process.env };
+
+    // ダミーのmetadata.jsonを作成
+    dummyMetadataPath = path.join(TEST_DIR, 'dummy-metadata.json');
+    const dummyWorkflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-dummy`);
+    await fs.ensureDir(dummyWorkflowDir);
+
+    const dummyMetadata = {
+      version: '0.2.0',
+      issue_number: 'dummy',
+      issue_url: 'https://github.com/test/repo/issues/dummy',
+      issue_title: 'Dummy Issue for isCIEnvironment test',
+      workflow_dir: dummyWorkflowDir,
+      phases: {},
+      costs: {
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        total_cost_usd: 0,
+      },
+    };
+
+    await fs.writeJSON(dummyMetadataPath, dummyMetadata, { spaces: 2 });
+    metadataManager = new MetadataManager(dummyMetadataPath);
+    githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
   });
 
-  after(() => {
+  after(async () => {
+    await fs.remove(dummyMetadataPath);
     process.env = originalEnv;
   });
 
@@ -305,10 +332,6 @@ describe('isCIEnvironment メソッドテスト', () => {
     process.env.CI = 'true';
 
     // When: isCIEnvironmentを呼び出す
-    const metadataManager = new MetadataManager(
-      path.join(TEST_DIR, 'dummy-metadata.json')
-    );
-    const githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
     const phase = new EvaluationPhase({
       workingDir: TEST_DIR,
       metadataManager,
@@ -329,10 +352,6 @@ describe('isCIEnvironment メソッドテスト', () => {
     // Given: CI=1
     process.env.CI = '1';
 
-    const metadataManager = new MetadataManager(
-      path.join(TEST_DIR, 'dummy-metadata.json')
-    );
-    const githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
     const phase = new EvaluationPhase({
       workingDir: TEST_DIR,
       metadataManager,
@@ -353,10 +372,6 @@ describe('isCIEnvironment メソッドテスト', () => {
     // Given: CIが未設定
     delete process.env.CI;
 
-    const metadataManager = new MetadataManager(
-      path.join(TEST_DIR, 'dummy-metadata.json')
-    );
-    const githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
     const phase = new EvaluationPhase({
       workingDir: TEST_DIR,
       metadataManager,
@@ -377,10 +392,6 @@ describe('isCIEnvironment メソッドテスト', () => {
     // Given: CI=false
     process.env.CI = 'false';
 
-    const metadataManager = new MetadataManager(
-      path.join(TEST_DIR, 'dummy-metadata.json')
-    );
-    const githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
     const phase = new EvaluationPhase({
       workingDir: TEST_DIR,
       metadataManager,
