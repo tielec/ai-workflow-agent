@@ -281,8 +281,13 @@ pipeline {
                             // ワークフロー初期化またはマイグレーション
                             // - metadata.jsonが存在しない場合: 新規作成
                             // - metadata.jsonが存在する場合: スキーママイグレーション実行
+                            // BRANCH_NAME パラメータが指定されている場合、--branch オプションを追加
+                            def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+
                             sh """
-                                node dist/index.js init --issue-url ${params.ISSUE_URL}
+                                node dist/index.js init \
+                                    --issue-url ${params.ISSUE_URL} \
+                                    ${branchOption}
                             """
                         }
                     }

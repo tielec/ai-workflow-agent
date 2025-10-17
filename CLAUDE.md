@@ -33,7 +33,15 @@ CLI バイナリは `ai-workflow` です（ローカル実行時は `node dist/i
 ```bash
 # Issue に対してワークフローを初期化（メタデータ、ブランチ、ドラフト PR を作成）
 node dist/index.js init --issue-url <GITHUB_ISSUE_URL>
+
+# カスタムブランチ名を指定（v0.2.0 で追加）
+node dist/index.js init --issue-url <GITHUB_ISSUE_URL> --branch <BRANCH_NAME>
 ```
+
+**`--branch` オプション**:
+- **未指定時**: デフォルトブランチ名 `ai-workflow/issue-{issue_number}` を使用
+- **指定時**: カスタムブランチ名を使用（既存ブランチにも切り替え可能）
+- **バリデーション**: Git 命名規則（空白不可、連続ドット不可、不正文字不可）に従う
 
 ### フェーズ実行
 ```bash

@@ -9,7 +9,9 @@ CLI (src/main.ts)
  ├─ init コマンド … メタデータ初期化 + ブランチ作成 + 対象リポジトリ判定
  │    ├─ Issue URL を解析（parseIssueUrl）
  │    ├─ ローカルリポジトリパスを解決（resolveLocalRepoPath）
- │    └─ target_repository をメタデータに保存
+ │    ├─ ブランチ名を解決（resolveBranchName: カスタム or デフォルト）
+ │    ├─ ブランチ名をバリデーション（validateBranchName: Git 命名規則チェック）
+ │    └─ target_repository と branch_name をメタデータに保存
  ├─ execute コマンド
  │    ├─ メタデータ探索（findWorkflowMetadata）
  │    ├─ .ai-workflow/issue-*/metadata.json を読み込み
