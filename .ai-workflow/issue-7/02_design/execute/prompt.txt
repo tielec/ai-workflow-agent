@@ -1,0 +1,383 @@
+# 詳細設計フェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書とGitHub Issueの内容から、詳細な設計書を作成してください。このフェーズでは、**実装戦略・テスト戦略・テストコード戦略の判断**も行います。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-7/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-7/01_requirements/output/requirements.md
+
+### GitHub Issue情報
+## Issue概要
+
+- **Issue番号**: #7
+- **タイトル**: カスタムブランチ名での作業をサポート
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/7
+- **ラベル**: enhancement
+
+### 本文
+
+## 概要
+
+現在、AI Workflow は Issue URL に基づいて自動的にブランチ名（ai-workflow/issue-7）を生成しますが、任意のブランチ名を指定して作業できるようにしたいです。
+
+## 背景
+
+### 現在の動作
+
+AI Workflow を実行すると、以下の形式でブランチが自動作成されます：
+- ブランチ名: ai-workflow/issue-{issue_number}
+- 例: Issue #123 の場合 → ai-workflow/issue-123
+
+### 問題点
+
+以下のようなケースでカスタムブランチ名が必要になります：
+
+1. **既存ブランチでの作業**: 既に作成済みのブランチ（feature/new-api など）で AI Workflow を実行したい
+2. **命名規則への対応**: チームのブランチ命名規則（feature/, bugfix/, hotfix/ など）に合わせたい
+3. **複数 Issue の統合作業**: 複数の Issue をまとめて1つのブランチで作業したい（例: feature/user-auth で Issue #10, #11, #12 を対応）
+4. **ブランチ名の可読性**: より説明的なブランチ名を使いたい（例: feature/add-aws-credentials-support）
+
+## 要件
+
+### 機能要件
+
+**FR-1: CLI オプションの追加**
+- --branch オプションを追加し、カスタムブランチ名を指定可能にする
+- 例: ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/my-branch
+
+**FR-2: デフォルト動作の維持**
+- --branch オプションが指定されない場合、現在の動作（ai-workflow/issue-{issue_number}）を維持
+- 後方互換性を保つ
+
+**FR-3: ブランチ存在チェック**
+- 指定されたブランチが存在する場合: そのブランチに checkout
+- 指定されたブランチが存在しない場合: 新規作成
+- リモートにのみ存在する場合: fetch して checkout
+
+**FR-4: メタデータ保存**
+- 指定されたブランチ名を metadata.json の branch_name フィールドに保存
+- execute コマンドは保存されたブランチ名を使用
+
+**FR-5: Jenkins パラメータ対応**
+- Jenkinsfile に BRANCH_NAME パラメータを追加（任意、Job DSL で定義）
+- パラメータが指定された場合、init コマンドに --branch オプションとして渡す
+
+### 受け入れ基準
+
+**AC-1: CLI でカスタムブランチ名を指定できる**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom-branch
+→ feature/custom-branch が作成/checkout される
+```
+
+**AC-2: デフォルト動作が変わらない**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123
+→ ai-workflow/issue-123 が作成される（従来通り）
+```
+
+**AC-3: 既存ブランチに切り替えられる**
+```
+git checkout -b feature/existing-branch
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/existing-branch
+→ 既存の feature/existing-branch で作業が開始される
+```
+
+**AC-4: メタデータに保存される**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom
+cat .ai-workflow/issue-123/metadata.json | jq .branch_name
+→ "feature/custom"
+```
+
+**AC-5: Jenkins でブランチ名を指定できる**
+- Jenkins Job の BRANCH_NAME パラメータに feature/custom-branch を入力
+- AI Workflow が指定されたブランチで実行される
+
+**AC-6: ブランチ名のバリデーション**
+- 不正なブランチ名（空白、特殊文字など）を検証してエラーメッセージを表示
+- Git の命名規則に従ったブランチ名のみ受け入れる
+
+## 実装アプローチ
+
+### 1. CLI オプションの追加（src/main.ts）
+
+init コマンドに --branch オプションを追加
+
+### 2. ブランチ名解決ロジック（src/main.ts）
+
+カスタムブランチ名が指定された場合はそれを使用し、未指定の場合はデフォルト（ai-workflow/issue-{issue_number}）を使用。ブランチ名のバリデーションを実装。
+
+Git ブランチ名の命名規則：
+- 空白を含まない
+- .. を含まない
+- ~, ^, :, ?, *, [ を含まない
+- / で始まらない、終わらない
+
+### 3. Git Manager の更新（src/core/git-manager.ts）
+
+既存の createBranch() メソッドと switchBranch() メソッドを使用してカスタムブランチに対応。
+
+### 4. メタデータ管理（src/core/metadata-manager.ts）
+
+branch_name フィールドにカスタムブランチ名を保存（既存のフィールドを使用）。
+
+### 5. Jenkinsfile の更新
+
+Initialize Workflow stage で BRANCH_NAME パラメータが指定されている場合、--branch オプションとして渡す
+
+### 6. Job DSL の更新（参考、実装はスコープ外）
+
+BRANCH_NAME パラメータを string 型で追加（任意、デフォルト: 空文字列）
+
+## スコープ外
+
+以下は今回のスコープに含めません：
+
+- Job DSL ファイルの実装（別ファイルで管理されているため、ドキュメント参照のみ）
+- ブランチ保護ルールのチェック
+- PR 作成時のベースブランチ自動判定
+- 複数リポジトリでのブランチ名統一
+
+## 関連ファイル
+
+- src/main.ts: CLI コマンド定義、init コマンド処理
+- src/core/git-manager.ts: ブランチ作成・切り替え処理
+- src/core/metadata-manager.ts: メタデータ管理
+- Jenkinsfile: パイプライン定義、Initialize Workflow stage
+- jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy: Job DSL（参考）
+
+## 期待される成果
+
+1. CLI で --branch オプションを使ってカスタムブランチ名を指定できる
+2. デフォルト動作（自動ブランチ名生成）が維持される
+3. Jenkins でブランチ名をパラメータとして受け入れる
+4. ブランチ名のバリデーションが実装される
+5. 既存ブランチでの作業が可能になる
+
+## テストシナリオ
+
+### シナリオ1: デフォルトブランチ名（後方互換性）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123
+git branch --show-current
+Expected: ai-workflow/issue-123
+```
+
+### シナリオ2: カスタムブランチ名（新規作成）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/add-logging
+git branch --show-current
+Expected: feature/add-logging
+```
+
+### シナリオ3: 既存ブランチでの作業
+```
+git checkout -b feature/existing-work
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/existing-work
+git branch --show-current
+Expected: feature/existing-work（既存ブランチを使用）
+```
+
+### シナリオ4: 不正なブランチ名
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch "invalid branch name"
+Expected: Error: Invalid branch name: invalid branch name
+```
+
+### シナリオ5: Jenkins パラメータ
+- Jenkins Job で BRANCH_NAME = feature/jenkins-custom を指定
+- AI Workflow が feature/jenkins-custom ブランチで実行される
+- metadata.json の branch_name が feature/jenkins-custom になる
+
+## 優先度
+
+**Medium** - 既存機能の拡張であり、デフォルト動作に影響しない
+
+### 既存コードベースの理解
+
+このリポジトリのプロジェクト構造、アーキテクチャ、コーディング規約を理解するため、以下のドキュメントを参照してください：
+
+- プロジェクト全体のガイドライン: @CLAUDE.md（存在する場合）
+- アーキテクチャ設計: @ARCHITECTURE.md（存在する場合）
+- プロジェクトREADME: @README.md
+- その他、関連するREADME、CONTRIBUTION.md等のドキュメント
+
+上記ドキュメントから以下を把握してください：
+- プロジェクトの目的とアーキテクチャ
+- ディレクトリ構造とコンポーネント構成
+- 既存のコーディング規約やパターン
+- 開発ワークフロー
+
+## 設計書作成手順
+
+### 1. 既存コードベース分析
+
+要件定義書とIssue内容から、以下を分析してください：
+
+1. **影響範囲の特定**
+   - どのコンポーネント（Ansible/Pulumi/Jenkins/Scripts）が影響を受けるか
+   - 既存ファイルの修正が必要か、新規ファイルの作成が必要か
+   - 依存関係のあるコンポーネントは何か
+
+2. **既存パターンの調査**
+   - 類似の機能実装がないか調査
+   - 既存のコーディング規約やパターンを確認
+   - 再利用可能なコンポーネントの特定
+
+### 2. 実装戦略の判断（必須）
+
+以下の3つから選択し、**判断根拠を明記**してください：
+
+- **CREATE（新規作成）**: 既存コードとの依存関係がなく、完全に新しい機能
+- **EXTEND（拡張）**: 既存コードを拡張・修正する必要がある
+- **REFACTOR（リファクタリング）**: 既存コードの構造改善が主目的
+
+**判断基準**：
+- 既存ファイルへの影響範囲
+- 新規ファイルの作成数
+- 既存機能との統合度
+
+**出力形式**：
+```markdown
+### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 3. テスト戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **UNIT_ONLY**: Unitテストのみ
+- **INTEGRATION_ONLY**: Integrationテストのみ
+- **BDD_ONLY**: BDDテストのみ
+- **UNIT_INTEGRATION**: Unit + Integration
+- **UNIT_BDD**: Unit + BDD
+- **INTEGRATION_BDD**: Integration + BDD
+- **ALL**: すべて
+
+**判断基準**：
+- 機能の複雑度
+- ユーザーストーリーの有無
+- 既存テストとの整合性
+
+**出力形式**：
+```markdown
+### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 4. テストコード戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **EXTEND_TEST（既存テストの拡張）**: 既存テストファイルに追加
+- **CREATE_TEST（新規テスト作成）**: 新しいテストファイルを作成
+- **BOTH_TEST（両方）**: 既存テストの拡張と新規テストの作成
+
+**判断基準**：
+- 既存テストファイルの有無
+- 既存テストとの関連性
+
+**出力形式**：
+```markdown
+### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 5. 設計書の構成
+
+以下のセクションを含む設計書を作成してください：
+
+#### 必須セクション：
+
+1. **アーキテクチャ設計**
+   - システム全体図
+   - コンポーネント間の関係
+   - データフロー
+
+2. **実装戦略判断**（セクション2で記載）
+
+3. **テスト戦略判断**（セクション3で記載）
+
+4. **テストコード戦略判断**（セクション4で記載）
+
+5. **影響範囲分析**
+   - 既存コードへの影響
+   - 依存関係の変更
+   - マイグレーション要否
+
+6. **変更・追加ファイルリスト**
+   - 新規作成ファイル（相対パス）
+   - 修正が必要な既存ファイル（相対パス）
+   - 削除が必要なファイル（相対パス）
+
+7. **詳細設計**
+   - クラス設計（必要な場合）
+   - 関数設計（主要な関数のみ）
+   - データ構造設計
+   - インターフェース設計
+
+8. **セキュリティ考慮事項**
+   - 認証・認可
+   - データ保護
+   - セキュリティリスクと対策
+
+9. **非機能要件への対応**
+   - パフォーマンス
+   - スケーラビリティ
+   - 保守性
+
+10. **実装の順序**
+    - 実装順序の推奨
+    - 依存関係の考慮
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **既存プロジェクト構造を尊重**: 既存のディレクトリ構造やコーディング規約に従ってください
+2. **トレーサビリティ**: 要件定義書の各要件に対応する設計を明示してください
+3. **実装可能性**: 実装できない設計や曖昧な設計は避けてください
+4. **判断の明示**: 3つの戦略判断（実装・テスト・テストコード）は必ず明記してください
+5. **レビューされることを意識**: 設計書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（5つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 判断根拠は具体的かつ論理的に記載すること
+
+## 出力形式
+
+設計書は `.ai-workflow/issue-{issue_number}/02_design/output/design.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。図表が必要な場合はMarkdownのコードブロックやテーブルを活用してください。
+
+## 実装開始
+
+上記を踏まえ、詳細設計書を作成してください。

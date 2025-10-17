@@ -1,0 +1,503 @@
+# 詳細設計フェーズ - レビュープロンプト
+
+## レビュー対象
+設計書をクリティカルシンキングの観点からレビューしてください。
+
+### 設計書
+@.ai-workflow/issue-7/02_design/output/design.md
+
+### 要件定義書（参考）
+@.ai-workflow/issue-7/01_requirements/output/requirements.md
+
+### GitHub Issue情報（参考）
+## Issue概要
+
+- **Issue番号**: #7
+- **タイトル**: カスタムブランチ名での作業をサポート
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/7
+- **ラベル**: enhancement
+
+### 本文
+
+## 概要
+
+現在、AI Workflow は Issue URL に基づいて自動的にブランチ名（ai-workflow/issue-7）を生成しますが、任意のブランチ名を指定して作業できるようにしたいです。
+
+## 背景
+
+### 現在の動作
+
+AI Workflow を実行すると、以下の形式でブランチが自動作成されます：
+- ブランチ名: ai-workflow/issue-{issue_number}
+- 例: Issue #123 の場合 → ai-workflow/issue-123
+
+### 問題点
+
+以下のようなケースでカスタムブランチ名が必要になります：
+
+1. **既存ブランチでの作業**: 既に作成済みのブランチ（feature/new-api など）で AI Workflow を実行したい
+2. **命名規則への対応**: チームのブランチ命名規則（feature/, bugfix/, hotfix/ など）に合わせたい
+3. **複数 Issue の統合作業**: 複数の Issue をまとめて1つのブランチで作業したい（例: feature/user-auth で Issue #10, #11, #12 を対応）
+4. **ブランチ名の可読性**: より説明的なブランチ名を使いたい（例: feature/add-aws-credentials-support）
+
+## 要件
+
+### 機能要件
+
+**FR-1: CLI オプションの追加**
+- --branch オプションを追加し、カスタムブランチ名を指定可能にする
+- 例: ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/my-branch
+
+**FR-2: デフォルト動作の維持**
+- --branch オプションが指定されない場合、現在の動作（ai-workflow/issue-{issue_number}）を維持
+- 後方互換性を保つ
+
+**FR-3: ブランチ存在チェック**
+- 指定されたブランチが存在する場合: そのブランチに checkout
+- 指定されたブランチが存在しない場合: 新規作成
+- リモートにのみ存在する場合: fetch して checkout
+
+**FR-4: メタデータ保存**
+- 指定されたブランチ名を metadata.json の branch_name フィールドに保存
+- execute コマンドは保存されたブランチ名を使用
+
+**FR-5: Jenkins パラメータ対応**
+- Jenkinsfile に BRANCH_NAME パラメータを追加（任意、Job DSL で定義）
+- パラメータが指定された場合、init コマンドに --branch オプションとして渡す
+
+### 受け入れ基準
+
+**AC-1: CLI でカスタムブランチ名を指定できる**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom-branch
+→ feature/custom-branch が作成/checkout される
+```
+
+**AC-2: デフォルト動作が変わらない**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123
+→ ai-workflow/issue-123 が作成される（従来通り）
+```
+
+**AC-3: 既存ブランチに切り替えられる**
+```
+git checkout -b feature/existing-branch
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/existing-branch
+→ 既存の feature/existing-branch で作業が開始される
+```
+
+**AC-4: メタデータに保存される**
+```
+ai-workflow-v2 init --issue-url https://github.com/org/repo/issues/123 --branch feature/custom
+cat .ai-workflow/issue-123/metadata.json | jq .branch_name
+→ "feature/custom"
+```
+
+**AC-5: Jenkins でブランチ名を指定できる**
+- Jenkins Job の BRANCH_NAME パラメータに feature/custom-branch を入力
+- AI Workflow が指定されたブランチで実行される
+
+**AC-6: ブランチ名のバリデーション**
+- 不正なブランチ名（空白、特殊文字など）を検証してエラーメッセージを表示
+- Git の命名規則に従ったブランチ名のみ受け入れる
+
+## 実装アプローチ
+
+### 1. CLI オプションの追加（src/main.ts）
+
+init コマンドに --branch オプションを追加
+
+### 2. ブランチ名解決ロジック（src/main.ts）
+
+カスタムブランチ名が指定された場合はそれを使用し、未指定の場合はデフォルト（ai-workflow/issue-{issue_number}）を使用。ブランチ名のバリデーションを実装。
+
+Git ブランチ名の命名規則：
+- 空白を含まない
+- .. を含まない
+- ~, ^, :, ?, *, [ を含まない
+- / で始まらない、終わらない
+
+### 3. Git Manager の更新（src/core/git-manager.ts）
+
+既存の createBranch() メソッドと switchBranch() メソッドを使用してカスタムブランチに対応。
+
+### 4. メタデータ管理（src/core/metadata-manager.ts）
+
+branch_name フィールドにカスタムブランチ名を保存（既存のフィールドを使用）。
+
+### 5. Jenkinsfile の更新
+
+Initialize Workflow stage で BRANCH_NAME パラメータが指定されている場合、--branch オプションとして渡す
+
+### 6. Job DSL の更新（参考、実装はスコープ外）
+
+BRANCH_NAME パラメータを string 型で追加（任意、デフォルト: 空文字列）
+
+## スコープ外
+
+以下は今回のスコープに含めません：
+
+- Job DSL ファイルの実装（別ファイルで管理されているため、ドキュメント参照のみ）
+- ブランチ保護ルールのチェック
+- PR 作成時のベースブランチ自動判定
+- 複数リポジトリでのブランチ名統一
+
+## 関連ファイル
+
+- src/main.ts: CLI コマンド定義、init コマンド処理
+- src/core/git-manager.ts: ブランチ作成・切り替え処理
+- src/core/metadata-manager.ts: メタデータ管理
+- Jenkinsfile: パイプライン定義、Initialize Workflow stage
+- jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy: Job DSL（参考）
+
+## 期待される成果
+
+1. CLI で --branch オプションを使ってカスタムブランチ名を指定できる
+2. デフォルト動作（自動ブランチ名生成）が維持される
+3. Jenkins でブランチ名をパラメータとして受け入れる
+4. ブランチ名のバリデーションが実装される
+5. 既存ブランチでの作業が可能になる
+
+## テストシナリオ
+
+### シナリオ1: デフォルトブランチ名（後方互換性）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123
+git branch --show-current
+Expected: ai-workflow/issue-123
+```
+
+### シナリオ2: カスタムブランチ名（新規作成）
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/add-logging
+git branch --show-current
+Expected: feature/add-logging
+```
+
+### シナリオ3: 既存ブランチでの作業
+```
+git checkout -b feature/existing-work
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch feature/existing-work
+git branch --show-current
+Expected: feature/existing-work（既存ブランチを使用）
+```
+
+### シナリオ4: 不正なブランチ名
+```
+ai-workflow-v2 init --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 --branch "invalid branch name"
+Expected: Error: Invalid branch name: invalid branch name
+```
+
+### シナリオ5: Jenkins パラメータ
+- Jenkins Job で BRANCH_NAME = feature/jenkins-custom を指定
+- AI Workflow が feature/jenkins-custom ブランチで実行される
+- metadata.json の branch_name が feature/jenkins-custom になる
+
+## 優先度
+
+**Medium** - 既存機能の拡張であり、デフォルト動作に影響しない
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートをクリアする必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+## ⚠️ 重要: Planning Phaseチェックリストとの照合（必須）
+
+### 1. Planning.mdの読み込み
+
+以下のファイルを読み込んでください：
+- @.ai-workflow/issue-7/00_planning/output/planning.md
+
+### 2. 該当フェーズのチェックリストを抽出
+
+Planning.mdから、現在のフェーズ（"### Phase 2:" または "## Phase 2:"）のセクションを見つけ、タスクチェックリストを抽出してください。
+
+**注意**: チェックリストが見つからない場合は、このチェックをスキップしてください。
+
+### 3. 設計内容との照合
+
+設計書（design.md）と照合し、各タスクが完了しているかチェックしてください。
+
+**完了の判定基準**:
+- Task記載の設計項目が記述されているか
+- Task記載の戦略判断が明記されているか
+- サブタスクがすべて完了しているか
+
+### 4. Planning.mdの更新
+
+照合結果に基づき、planning.mdのチェックボックスを更新してください：
+
+- 完了したタスク: `- [ ]` → `- [x]`
+- 未完了のタスク: `- [ ]` のまま
+
+**Editツールを使用**して、該当フェーズのセクションを更新してください。
+
+### 5. レビュー判定への反映
+
+- **すべてのタスクが完了**（全て `[x]`）: PASS または PASS_WITH_SUGGESTIONS
+- **未完了タスクがある**（`[ ]` が残っている）: FAIL
+  - レビューフィードバックに未完了タスクをリストアップ
+  - 具体的に何が不足しているか説明
+
+**例（FAIL時のフィードバック）**:
+```
+## Planning Phaseチェックリスト照合結果: FAIL
+
+以下のタスクが未完了です：
+
+- [ ] Task 2-2: テスト戦略の決定
+  - 不足: テスト戦略の判断根拠が記載されていません
+- [ ] Task 2-3: 影響範囲分析
+  - 不足: 既存コードへの影響範囲が分析されていません
+
+これらのタスクを完了してから再提出してください。
+```
+
+### ⚠️ 重要: Planning.mdの内容はレビュー結果に含めない
+
+Planning.mdの読み込みと照合作業は必要ですが、**planning.mdの全文やPlanning Phaseのレビュー内容をレビュー結果に含めないでください**。
+
+レビュー結果には以下のみを含めること:
+- 設計書（design.md）に対する評価
+- Planning.mdとの照合で発見した未完了タスク（FAIL時のみ）
+- 設計書固有の改善提案
+
+Planning Phaseのレビュー詳細やplanning.mdの内容全体は出力しないこと。
+
+## レビュー姿勢
+
+このレビューは「**80点で十分**」の原則に基づいて実施してください：
+
+1. **完璧ではなく、十分を目指す**
+   - 設計書が次フェーズ（テストシナリオ作成）に進める状態であれば合格
+   - 細かい表現の改善は改善提案として記載（ブロッカーにしない）
+
+2. **ブロッカーと改善提案を明確に区別**
+   - ブロッカー: 次フェーズ（テストシナリオ）に進めない重大な問題
+   - 改善提案: 次フェーズに進めるが、改善が望ましい事項
+
+3. **実用的でバランスの取れた判断**
+   - プロジェクトを前に進めることを最優先
+   - 実装フェーズで対応可能な問題はブロッカーにしない
+
+4. **建設的なフィードバック**
+   - 「ダメ」ではなく「こうすればより良い」という表現
+   - 具体的な改善案を提示
+
+## レビュー観点
+
+### 1. 戦略判断の妥当性（最重要）
+
+**実装戦略（CREATE/EXTEND/REFACTOR）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 要件定義書の内容と整合しているか
+- 既存コードへの影響が適切に評価されているか
+
+**テスト戦略（UNIT_ONLY/INTEGRATION_ONLY/BDD_ONLY/UNIT_INTEGRATION/UNIT_BDD/INTEGRATION_BDD/ALL）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 機能の複雑度に見合ったテスト戦略か
+- 要件定義の受け入れ基準と整合しているか
+
+**テストコード戦略（EXTEND_TEST/CREATE_TEST/BOTH_TEST）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 既存テストとの関係が明確か
+
+### 2. 影響範囲分析の適切性
+
+- 既存コードへの影響が網羅的に分析されているか
+- 依存関係が正しく把握されているか
+- マイグレーションの必要性が評価されているか
+
+### 3. ファイルリストの完全性
+
+- 新規作成ファイルがリストアップされているか
+- 修正が必要な既存ファイルがリストアップされているか
+- パスが具体的で実装可能か
+
+### 4. 設計の実装可能性
+
+- 設計が具体的で実装者が迷わないか
+- 技術的に実装可能な設計か
+- 既存プロジェクトの規約・パターンに準拠しているか
+
+### 5. 要件との対応（トレーサビリティ）
+
+- 要件定義書の各要件に対応する設計があるか
+- 要件の漏れがないか
+
+### 6. セキュリティ考慮
+
+- セキュリティリスクが識別されているか
+- 対策が具体的か
+
+### 7. 非機能要件への対応
+
+- パフォーマンス考慮があるか
+- スケーラビリティ考慮があるか
+- 保守性考慮があるか
+
+## ブロッカー（BLOCKER）と改善提案（SUGGESTION）の区別
+
+### ブロッカー（BLOCKER）: 次フェーズに進めない重大な問題
+
+**ブロッカーの例**:
+- 3つの戦略判断（実装・テスト・テストコード）のいずれかが欠落
+- 判断根拠が記載されていない、または論理的に破綻している
+- 変更ファイルリストが未記載
+- 設計が実装不可能（技術的制約に違反）
+- 既存システムを破壊する設計
+- 重大なセキュリティリスクが未対策
+- 要件との対応が不明確
+
+### 改善提案（SUGGESTION）: 次フェーズに進めるが、改善が望ましい事項
+
+**改善提案の例**:
+- より良い設計パターンの提案
+- パフォーマンス最適化の余地
+- ドキュメントの充実（例: 図表追加）
+- エッジケースの追加考慮
+- より詳細な影響範囲分析
+- セキュリティ対策の強化
+
+## 出力フォーマット
+
+以下の形式で出力してください：
+
+```markdown
+## 品質ゲート評価
+
+- [x/  ] **実装戦略の判断根拠が明記されている**: PASS/FAIL - （コメント）
+- [x/  ] **テスト戦略の判断根拠が明記されている**: PASS/FAIL - （コメント）
+- [x/  ] **既存コードへの影響範囲が分析されている**: PASS/FAIL - （コメント）
+- [x/  ] **変更が必要なファイルがリストアップされている**: PASS/FAIL - （コメント）
+- [x/  ] **設計が実装可能である**: PASS/FAIL - （コメント）
+
+## 詳細レビュー
+
+### 1. 戦略判断の妥当性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 2. 影響範囲分析の適切性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 3. ファイルリストの完全性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 4. 設計の実装可能性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 5. 要件との対応
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 6. セキュリティ考慮
+
+**良好な点**:
+- （具体的な良い点）
+
+**改善の余地**:
+- （改善提案があれば記載）
+
+### 7. 非機能要件への対応
+
+**良好な点**:
+- （具体的な良い点）
+
+**改善の余地**:
+- （改善提案があれば記載）
+
+## ブロッカー（BLOCKER）
+
+**次フェーズに進めない重大な問題**
+
+（ブロッカーがある場合のみ記載）
+1. **（ブロッカー1のタイトル）**
+   - 問題: （具体的な問題）
+   - 影響: （次フェーズにどう影響するか）
+   - 対策: （どう修正すべきか）
+
+## 改善提案（SUGGESTION）
+
+**次フェーズに進めるが、改善が望ましい事項**
+
+（改善提案がある場合のみ記載）
+1. **（提案1のタイトル）**
+   - 現状: （現在の状態）
+   - 提案: （こうすればより良い）
+   - 効果: （改善による効果）
+
+## 総合評価
+
+（設計書全体の総合的な評価）
+
+**主な強み**:
+- （良い点をまとめる）
+
+**主な改善提案**:
+- （改善提案をまとめる）
+
+（総括コメント）
+
+---
+**判定: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+## レビュー実施
+
+上記フォーマットに従って、設計書のクリティカルシンキングレビューを実施してください。
+
+## ⚠️ 重要: 判定の出力は必須
+
+**レビュー結果の最後に、必ず以下のいずれかの形式で判定を出力してください：**
+
+```
+---
+**判定: PASS**
+```
+
+または
+
+```
+---
+**判定: PASS_WITH_SUGGESTIONS**
+```
+
+または
+
+```
+---
+**判定: FAIL**
+```
+
+**この判定がないと、レビュー結果が正しく処理されません。必ず3つのいずれかの判定を、上記の正確な形式で明示的に出力してください。**
