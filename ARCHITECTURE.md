@@ -90,7 +90,7 @@ CLI (src/main.ts)
 
 `BasePhase` クラスの `buildOptionalContext()` メソッドは、前段フェーズの成果物が存在しない場合でもフェーズを実行できるようにします。ファイルが存在する場合は `@filepath` 形式で参照し、存在しない場合はフォールバックメッセージを返します。これにより `quick-fix` プリセットなどで、依存関係を無視した柔軟な実行が可能になります。
 
-**適用済みPhase**（Issue #398で完了）:
+**適用済みPhase**:
 - `ImplementationPhase` - requirements、design、test_scenario を参照
 - `TestImplementationPhase` - requirements、design、test_scenario、implementation を参照
 - `TestingPhase` - test_implementation、implementation、test_scenario を参照
@@ -122,7 +122,7 @@ CLI (src/main.ts)
 - `github_integration` … 進捗コメントの ID など
 - `target_repository` … 対象リポジトリ情報（path、github_name、remote_url、owner、repo）（v0.2.0 で追加）
 
-### ワークフローログクリーンアップ（Issue #405）
+### ワークフローログクリーンアップ
 
 Report Phase (Phase 8) 完了後、`cleanupWorkflowLogs()` メソッドが自動的に実行され、デバッグログを削除します：
 
