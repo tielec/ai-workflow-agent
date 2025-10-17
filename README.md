@@ -72,7 +72,8 @@ node dist/index.js execute --phase all --issue 123
 
 ```bash
 ai-workflow init \
-  --issue-url <URL>
+  --issue-url <URL> \
+  [--branch <name>]
 
 ai-workflow execute \
   --issue <number> \
@@ -93,6 +94,35 @@ ai-workflow review \
   --phase <name> \
   --issue <number>
 ```
+
+### ブランチ名のカスタマイズ
+
+`init` コマンドで `--branch` オプションを使用すると、カスタムブランチ名でワークフローを開始できます（v0.2.0 で追加）：
+
+```bash
+# カスタムブランチ名を指定
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1 \
+  --branch feature/add-logging
+
+# 既存ブランチでワークフローを開始
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1 \
+  --branch feature/existing-work
+
+# デフォルト（未指定時は ai-workflow/issue-{issue_number}）
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1
+```
+
+**ブランチ名のバリデーション**:
+
+Git 命名規則に従わないブランチ名はエラーになります：
+- 空白を含まない
+- `..`（連続ドット）を含まない
+- 不正文字（`~`, `^`, `:`, `?`, `*`, `[`, `\`, `@{`）を含まない
+- `/` で始まらない、終わらない
+- `.` で終わらない
 
 ### エージェントモード
 
