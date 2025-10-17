@@ -189,22 +189,23 @@
 
 ### Phase 4: 実装 (見積もり: 6~8h)
 
-- [ ] Task 4-1: 型定義の拡張 (0.5~0.5h)
+- [x] Task 4-1: 型定義の拡張 (0.5~0.5h)
   - `src/types.ts` に `StepName` 型を追加
   - `PhaseMetadata` インターフェースに `current_step` と `completed_steps` を追加
 
-- [ ] Task 4-2: MetadataManager の拡張 (1~1.5h)
-  - `updateStepStatus()` メソッドの追加
+- [x] Task 4-2: MetadataManager の拡張 (1~1.5h)
+  - `updateCurrentStep()` メソッドの追加
   - `getCompletedSteps()` メソッドの追加
-  - `setCurrentStep()` メソッドの追加
+  - `addCompletedStep()` メソッドの追加
+  - `getCurrentStep()` メソッドの追加
   - メタデータマイグレーション処理の実装
 
-- [ ] Task 4-3: GitManager の拡張 (1~1.5h)
-  - `commitPhaseOutput()` にステップパラメータを追加
-  - コミットメッセージ生成に step 情報を含める
+- [x] Task 4-3: GitManager の拡張 (1~1.5h)
   - `commitStepOutput()` メソッドの追加（ステップ単位のコミット）
+  - コミットメッセージ生成に step 情報を含める
+  - `buildStepCommitMessage()` メソッドの追加
 
-- [ ] Task 4-4: BasePhase.run() の修正 (2~2.5h)
+- [ ] Task 4-4: BasePhase.run() の修正 (2~2.5h) - **Phase 5に延期**
   - execute 後の Git コミット＆プッシュ処理を追加
   - review 後の Git コミット＆プッシュ処理を追加
   - revise 後の Git コミット＆プッシュ処理を追加
@@ -212,12 +213,12 @@
   - ステップ開始前のメタデータ更新
   - ステップ完了後のメタデータ更新
 
-- [ ] Task 4-5: ResumeManager の拡張 (1~1.5h)
+- [x] Task 4-5: ResumeManager の拡張 (1~1.5h)
   - ステップ単位でのレジューム判定ロジック
   - `getResumeStep()` メソッドの実装
   - completed_steps によるステップスキップ処理
 
-- [ ] Task 4-6: CI 環境対応 (0.5~0.5h)
+- [x] Task 4-6: CI 環境対応 (0.5~0.5h)
   - リモートブランチからの pull 処理
   - metadata.json の同期処理
 
