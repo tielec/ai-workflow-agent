@@ -8,9 +8,6 @@ dist/
 .env
 .env.local
 
-# Workflow metadata
-.ai-workflow/
-
 # Sandbox
 sandbox/
 
