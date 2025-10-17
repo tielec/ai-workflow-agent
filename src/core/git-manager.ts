@@ -75,6 +75,11 @@ export class GitManager {
     }
 
     const changedFiles = await this.getChangedFiles();
+    console.info(`[DEBUG] Git status detected ${changedFiles.length} changed files`);
+    if (changedFiles.length > 0) {
+      console.info(`[DEBUG] Changed files: ${changedFiles.slice(0, 5).join(', ')}${changedFiles.length > 5 ? '...' : ''}`);
+    }
+
     const targetFiles = new Set(
       this.filterPhaseFiles(changedFiles, issueNumber),
     );
@@ -82,7 +87,13 @@ export class GitManager {
     const phaseSpecific = await this.getPhaseSpecificFiles(phaseName);
     phaseSpecific.forEach((file) => targetFiles.add(file));
 
+    console.info(`[DEBUG] Target files for commit: ${targetFiles.size} files`);
+    if (targetFiles.size > 0) {
+      console.info(`[DEBUG] Files to commit: ${Array.from(targetFiles).slice(0, 5).join(', ')}${targetFiles.size > 5 ? '...' : ''}`);
+    }
+
     if (targetFiles.size === 0) {
+      console.warn('[WARNING] No files to commit. This may indicate that files were not staged correctly.');
       return {
         success: true,
         commit_hash: null,
@@ -105,12 +116,16 @@ export class GitManager {
         '--no-verify': null,
       });
 
+      console.info(`[DEBUG] Commit created: ${commitResponse.commit ?? 'unknown'}`);
+      console.info(`[DEBUG] Commit summary: ${commitResponse.summary?.changes ?? 0} changes, ${commitResponse.summary?.insertions ?? 0} insertions, ${commitResponse.summary?.deletions ?? 0} deletions`);
+
       return {
         success: true,
         commit_hash: commitResponse.commit ?? null,
         files_committed: filesToCommit,
       };
     } catch (error) {
+      console.error(`[ERROR] Git commit failed: ${(error as Error).message}`);
       return {
         success: false,
         commit_hash: null,
@@ -130,6 +145,8 @@ export class GitManager {
       status.current ?? this.metadata.data.branch_name ?? null;
     const needsUpstream = !status.tracking;
 
+    console.info(`[DEBUG] Push to remote: branch=${branchName}, needsUpstream=${needsUpstream}, ahead=${status.ahead}, behind=${status.behind}`);
+
     while (retries <= maxRetries) {
       try {
         if (!branchName) {
@@ -137,21 +154,30 @@ export class GitManager {
         }
 
         if (needsUpstream && retries === 0) {
-          await this.git.raw(['push', '--set-upstream', 'origin', branchName]);
+          console.info(`[DEBUG] Setting upstream and pushing to origin/${branchName}`);
+          const pushResult = await this.git.raw(['push', '--set-upstream', 'origin', branchName]);
+          console.info(`[DEBUG] Push --set-upstream result: ${pushResult}`);
           return { success: true, retries };
         }
 
+        console.info(`[DEBUG] Pushing to origin/${branchName}...`);
         const result = (await this.git.push(
           'origin',
           branchName,
         )) as PushResult;
 
+        console.info(`[DEBUG] Push result: pushed=${result.pushed?.length ?? 0}, remoteMessages=${JSON.stringify(result.remoteMessages ?? {})}`);
+
         if (result.pushed?.length || result.remoteMessages?.all?.length) {
+          console.info('[DEBUG] Push completed successfully with changes');
           return { success: true, retries };
         }
 
+        console.warn('[WARNING] Push completed but no changes were pushed. This may indicate nothing to push.');
         return { success: true, retries };
       } catch (error) {
+        console.error(`[ERROR] Push failed: ${(error as Error).message}`);
+
         if (!branchName) {
           return {
             success: false,
@@ -167,6 +193,7 @@ export class GitManager {
           console.warn('[WARNING] Push rejected (non-fast-forward). Pulling remote changes...');
           const pullResult = await this.pullLatest(branchName);
           if (!pullResult.success) {
+            console.error(`[ERROR] Failed to pull: ${pullResult.error}`);
             return {
               success: false,
               retries,
@@ -179,6 +206,7 @@ export class GitManager {
         }
 
         if (!this.isRetriableError(error) || retries === maxRetries) {
+          console.error(`[ERROR] Push failed permanently: ${(error as Error).message}`);
           return {
             success: false,
             retries,
@@ -186,6 +214,7 @@ export class GitManager {
           };
         }
 
+        console.warn(`[WARNING] Retriable error, retrying (${retries + 1}/${maxRetries})...`);
         retries += 1;
         await delay(retryDelay);
       }
