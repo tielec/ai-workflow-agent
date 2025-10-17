@@ -139,6 +139,26 @@ Report Phase (Phase 8) 完了後、`cleanupWorkflowLogs()` メソッドが自動
 
 **エラーハンドリング**: クリーンアップ失敗時も WARNING ログのみ出力し、ワークフロー全体は継続します。
 
+### Evaluation Phase 完了後のクリーンアップ（v0.3.0）
+
+Evaluation Phase (Phase 9) 完了後、`--cleanup-on-complete` オプションでワークフローディレクトリ全体を削除できます：
+
+**実行フロー**:
+1. `EvaluationPhase.run(options)` 実行
+2. `super.run(options)` でフェーズ完了
+3. `options.cleanupOnComplete === true` の場合、`BasePhase.cleanupWorkflowArtifacts()` 呼び出し
+4. CI環境判定（`process.env.CI`）
+5. 確認プロンプト表示（`force=false` かつ非CI環境の場合のみ）
+6. パス検証（正規表現 `\.ai-workflow[\/\\]issue-\d+$`）とシンボリックリンクチェック
+7. `.ai-workflow/issue-<NUM>/` ディレクトリ削除
+8. Git コミット & プッシュ
+
+**エラーハンドリング**: クリーンアップ失敗時もワークフロー全体は成功として扱う（Report Phaseと同様）
+
+**セキュリティ対策**:
+- パストラバーサル攻撃防止（正規表現によるパス検証）
+- シンボリックリンク攻撃防止（`fs.lstatSync()` による検証）
+
 ## 外部サービスとの連携
 
 ### Codex CLI

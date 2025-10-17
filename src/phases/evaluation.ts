@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'node:path';
-import { BasePhase, type PhaseInitializationParams } from './base-phase.js';
+import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult, RemainingTask, PhaseName } from '../types.js';
 
 type PhaseOutputInfo = {
@@ -13,6 +13,34 @@ type PhaseOutputMap = Record<string, PhaseOutputInfo>;
 export class EvaluationPhase extends BasePhase {
   constructor(params: PhaseInitializationParams) {
     super({ ...params, phaseName: 'evaluation' });
+  }
+
+  public async run(options: PhaseRunOptions = {}): Promise<boolean> {
+    // 親クラスの run() を実行（execute + review cycle）
+    const success = await super.run(options);
+
+    // 全ての処理が成功した場合のみ、クリーンアップを実行（Issue #2）
+    if (success && options.cleanupOnComplete) {
+      const gitManager = options.gitManager ?? null;
+      const force = options.cleanupOnCompleteForce ?? false;
+
+      try {
+        await this.cleanupWorkflowArtifacts(force);
+        console.info('[INFO] Workflow artifacts cleanup completed.');
+
+        // クリーンアップによる削除をコミット・プッシュ（Issue #2）
+        if (gitManager) {
+          await this.autoCommitAndPush(gitManager, null);
+          console.info('[INFO] Cleanup changes committed and pushed.');
+        }
+      } catch (error) {
+        const message = (error as Error).message ?? String(error);
+        console.warn(`[WARNING] Failed to cleanup workflow artifacts: ${message}`);
+        // エラーでもワークフローは成功として扱う
+      }
+    }
+
+    return success;
   }
 
   protected async execute(): Promise<PhaseExecutionResult> {

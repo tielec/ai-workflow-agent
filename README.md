@@ -81,6 +81,8 @@ ai-workflow execute \
   [--preset <name>] \
   [--force-reset] \
   [--skip-dependency-check|--ignore-dependencies] \
+  [--cleanup-on-complete] \
+  [--cleanup-on-complete-force] \
   [--requirements-doc <path>] [...] \
   [--git-user <name>] [--git-email <email>]
 
@@ -176,6 +178,29 @@ Report Phase (Phase 8) 完了後、リポジトリサイズを削減するため
 - **効果**: リポジトリサイズを約70%削減、PRレビューを成果物に集中
 
 クリーンアップは非破壊的に動作し、失敗してもワークフロー全体は継続します。
+
+### ワークフローディレクトリの完全削除（オプション）
+
+Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*` ディレクトリ全体を削除できます（v0.3.0で追加）：
+
+```bash
+# Evaluation Phase 完了後にワークフローディレクトリを完全削除
+node dist/index.js execute --issue 123 --phase evaluation --cleanup-on-complete
+
+# 確認プロンプトをスキップ（CI環境用）
+node dist/index.js execute --issue 123 --phase evaluation \
+  --cleanup-on-complete --cleanup-on-complete-force
+
+# 全フェーズ実行時にも適用可能
+node dist/index.js execute --issue 123 --phase all --cleanup-on-complete
+```
+
+- **削除対象**: `.ai-workflow/issue-<NUM>/` ディレクトリ全体（`metadata.json`、`output/*.md` を含む）
+- **実行タイミング**: Evaluation Phase完了後、`--cleanup-on-complete` オプション指定時のみ
+- **確認プロンプト**: 対話的環境では削除前に確認を求める（`--cleanup-on-complete-force` でスキップ可能、CI環境では自動スキップ）
+- **Git 自動コミット**: クリーンアップ後に削除を自動コミット＆プッシュ
+
+**注意**: デフォルトでは成果物を保持します（`--cleanup-on-complete` オプション未指定時）。
 
 ## Docker での実行
 
