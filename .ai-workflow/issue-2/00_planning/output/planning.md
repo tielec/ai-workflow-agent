@@ -231,13 +231,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~2h)
 
-- [ ] Task 5-1: ユニットテストの実装 (0.5~1h)
+- [x] Task 5-1: ユニットテストの実装 (0.5~1h)
   - `tests/unit/cleanup-workflow-artifacts.test.ts` を作成
   - 正常系テストの実装
   - 異常系テスト（ディレクトリ不在、削除権限なし）の実装
   - 確認プロンプトロジックのテスト
 
-- [ ] Task 5-2: インテグレーションテストの実装 (0.5~1h)
+- [x] Task 5-2: インテグレーションテストの実装 (0.5~1h)
   - `tests/integration/evaluation-phase-cleanup.test.ts` を作成
   - エンドツーエンドテストの実装
   - Git統合テストの実装
