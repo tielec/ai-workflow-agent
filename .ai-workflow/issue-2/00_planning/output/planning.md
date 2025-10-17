@@ -208,23 +208,23 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: CLI オプションの追加 (0.5~1h)
+- [x] Task 4-1: CLI オプションの追加 (0.5~1h)
   - `src/main.ts` に `--cleanup-on-complete` オプションを追加
   - `src/main.ts` に `--cleanup-on-complete-force` オプションを追加
   - オプションのヘルプテキストを記載
 
-- [ ] Task 4-2: クリーンアップメソッドの実装 (1.5~2h)
+- [x] Task 4-2: クリーンアップメソッドの実装 (1.5~2h)
   - `cleanupWorkflowArtifacts()` メソッドを実装（`base-phase.ts` または `evaluation.ts`）
   - ディレクトリ削除処理の実装（`fs-extra.removeSync()`）
   - エラーハンドリングの実装
   - ログ出力の実装（INFO/WARNING/ERROR）
 
-- [ ] Task 4-3: 確認プロンプトの実装 (0.5~1h)
+- [x] Task 4-3: 確認プロンプトの実装 (0.5~1h)
   - CI環境判定ロジックの実装（環境変数 `CI` をチェック）
   - 対話的環境での確認プロンプト表示
   - `--cleanup-on-complete-force` による確認スキップ
 
-- [ ] Task 4-4: Evaluation Phaseへの統合 (0.5~1h)
+- [x] Task 4-4: Evaluation Phaseへの統合 (0.5~1h)
   - `src/phases/evaluation.ts` の `run()` メソッドにクリーンアップ呼び出しを追加
   - フェーズ完了判定後のクリーンアップ実行
   - Git コミット & プッシュの実行

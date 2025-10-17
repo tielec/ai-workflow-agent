@@ -23,6 +23,8 @@ const MAX_RETRIES = 3;
 export interface PhaseRunOptions {
   gitManager?: GitManager | null;
   skipReview?: boolean;
+  cleanupOnComplete?: boolean;  // Issue #2: Cleanup workflow artifacts after evaluation phase
+  cleanupOnCompleteForce?: boolean;  // Issue #2: Skip confirmation prompt for cleanup
 }
 
 export type BasePhaseConstructorParams = {
@@ -941,6 +943,99 @@ export abstract class BasePhase {
     if (!pushResult.success) {
       throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
     }
+  }
+
+  /**
+   * ワークフローアーティファクト全体をクリーンアップ（Issue #2）
+   *
+   * Evaluation Phase完了後に実行され、.ai-workflow/issue-<NUM>/ ディレクトリ全体を削除します。
+   * Report Phaseのクリーンアップ（cleanupWorkflowLogs）とは異なり、metadata.jsonや
+   * output/*.mdファイルを含むすべてのファイルを削除します。
+   *
+   * @param force - 確認プロンプトをスキップする場合は true（CI環境用）
+   */
+  protected async cleanupWorkflowArtifacts(force: boolean = false): Promise<void> {
+    const workflowDir = this.metadata.workflowDir; // .ai-workflow/issue-<NUM>
+
+    // パス検証: .ai-workflow/issue-<NUM> 形式であることを確認
+    const pattern = /\.ai-workflow[\/\\]issue-\d+$/;
+    if (!pattern.test(workflowDir)) {
+      console.error(`[ERROR] Invalid workflow directory path: ${workflowDir}`);
+      throw new Error(`Invalid workflow directory path: ${workflowDir}`);
+    }
+
+    // シンボリックリンクチェック
+    if (fs.existsSync(workflowDir)) {
+      const stats = fs.lstatSync(workflowDir);
+      if (stats.isSymbolicLink()) {
+        console.error(`[ERROR] Workflow directory is a symbolic link: ${workflowDir}`);
+        throw new Error(`Workflow directory is a symbolic link: ${workflowDir}`);
+      }
+    }
+
+    // CI環境判定
+    const isCIEnvironment = this.isCIEnvironment();
+
+    // 確認プロンプト表示（force=false かつ非CI環境の場合のみ）
+    if (!force && !isCIEnvironment) {
+      const confirmed = await this.promptUserConfirmation(workflowDir);
+      if (!confirmed) {
+        console.info('[INFO] Cleanup cancelled by user.');
+        return;
+      }
+    }
+
+    // ディレクトリ削除
+    try {
+      console.info(`[INFO] Deleting workflow artifacts: ${workflowDir}`);
+
+      // ディレクトリ存在確認
+      if (!fs.existsSync(workflowDir)) {
+        console.warn(`[WARNING] Workflow directory does not exist: ${workflowDir}`);
+        return;
+      }
+
+      // 削除実行
+      fs.removeSync(workflowDir);
+      console.info('[OK] Workflow artifacts deleted successfully.');
+    } catch (error) {
+      const message = (error as Error).message ?? String(error);
+      console.error(`[ERROR] Failed to delete workflow artifacts: ${message}`);
+      // エラーでもワークフローは継続（Report Phaseのクリーンアップと同様）
+    }
+  }
+
+  /**
+   * CI環境かどうかを判定
+   * @returns CI環境の場合は true
+   */
+  private isCIEnvironment(): boolean {
+    // 環境変数 CI が設定されている場合はCI環境と判定
+    return process.env.CI === 'true' || process.env.CI === '1';
+  }
+
+  /**
+   * ユーザーに確認プロンプトを表示
+   * @param workflowDir - 削除対象のワークフローディレクトリ
+   * @returns ユーザーが "yes" を入力した場合は true
+   */
+  private async promptUserConfirmation(workflowDir: string): Promise<boolean> {
+    const readline = await import('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    console.warn(`[WARNING] About to delete workflow directory: ${workflowDir}`);
+    console.warn('[WARNING] This action cannot be undone.');
+
+    return new Promise((resolve) => {
+      rl.question('Proceed? (yes/no): ', (answer) => {
+        rl.close();
+        const normalized = answer.trim().toLowerCase();
+        resolve(normalized === 'yes' || normalized === 'y');
+      });
+    });
   }
 
   private async performReviewCycle(
