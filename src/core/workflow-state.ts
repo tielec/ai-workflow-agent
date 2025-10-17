@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';
 import {
   PhaseMetadata,
@@ -9,6 +9,17 @@ import {
   PhasesMetadata,
   EvaluationPhaseMetadata,
 } from '../types.js';
+
+const formatTimestampForFilename = (date = new Date()): string => {
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('') +
+    '_' +
+    [pad(date.getHours()), pad(date.getMinutes()), pad(date.getSeconds())].join('');
+};
 
 const METADATA_TEMPLATE_PATH = resolveProjectPath('metadata.json.template');
 
@@ -194,7 +205,46 @@ export class WorkflowState {
       migrated = true;
     }
 
+    // Issue #10: ステップ管理フィールドのマイグレーション
+    for (const [phaseName, phaseData] of Object.entries(phases)) {
+      let phaseChanged = false;
+
+      // current_stepフィールドの追加
+      if (!('current_step' in phaseData)) {
+        console.info(`[INFO] Migrating metadata.json: Adding current_step to ${phaseName}`);
+        phaseData.current_step = null;
+        phaseChanged = true;
+      }
+
+      // completed_stepsフィールドの追加
+      if (!('completed_steps' in phaseData)) {
+        console.info(`[INFO] Migrating metadata.json: Adding completed_steps to ${phaseName}`);
+
+        // ステータスに応じて初期値を設定
+        if (phaseData.status === 'completed') {
+          phaseData.completed_steps = ['execute', 'review', 'revise'];
+        } else if (phaseData.status === 'in_progress') {
+          phaseData.completed_steps = [];
+          phaseData.current_step = 'execute';
+        } else {
+          phaseData.completed_steps = [];
+        }
+
+        phaseChanged = true;
+      }
+
+      if (phaseChanged) {
+        migrated = true;
+      }
+    }
+
     if (migrated) {
+      // バックアップ作成
+      const timestamp = formatTimestampForFilename();
+      const backupPath = join(dirname(this.metadataPath), `metadata.json.backup_${timestamp}`);
+      fs.copyFileSync(this.metadataPath, backupPath);
+      console.info(`[INFO] Metadata backup created: ${backupPath}`);
+
       this.save();
       console.info('[OK] metadata.json migrated successfully');
     }

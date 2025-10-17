@@ -4,6 +4,7 @@ import { WorkflowState } from './workflow-state.js';
 import {
   PhaseName,
   PhaseStatus,
+  StepName,
   WorkflowMetadata,
   RemainingTask,
 } from '../types.js';
@@ -208,5 +209,55 @@ export class MetadataManager {
 
   public getProgressCommentId(): number | null {
     return this.state.data.github_integration?.progress_comment_id ?? null;
+  }
+
+  /**
+   * Issue #10: ステップ開始時にcurrent_stepを更新
+   */
+  public updateCurrentStep(
+    phaseName: PhaseName,
+    step: StepName | null,
+  ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    phaseData.current_step = step;
+    this.save();
+  }
+
+  /**
+   * Issue #10: ステップ完了時にcompleted_stepsに追加
+   */
+  public addCompletedStep(
+    phaseName: PhaseName,
+    step: StepName,
+  ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    if (!phaseData.completed_steps) {
+      phaseData.completed_steps = [];
+    }
+
+    // 重複チェック（冪等性の確保）
+    if (!phaseData.completed_steps.includes(step)) {
+      phaseData.completed_steps.push(step);
+    }
+
+    // current_stepをnullにリセット
+    phaseData.current_step = null;
+    this.save();
+  }
+
+  /**
+   * Issue #10: completed_stepsを取得
+   */
+  public getCompletedSteps(phaseName: PhaseName): StepName[] {
+    const phaseData = this.state.data.phases[phaseName];
+    return phaseData.completed_steps ?? [];
+  }
+
+  /**
+   * Issue #10: current_stepを取得
+   */
+  public getCurrentStep(phaseName: PhaseName): StepName | null {
+    const phaseData = this.state.data.phases[phaseName];
+    return phaseData.current_step ?? null;
   }
 }
