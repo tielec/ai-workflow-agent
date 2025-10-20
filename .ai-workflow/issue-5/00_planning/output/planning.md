@@ -107,11 +107,11 @@
 
 ### Phase 3: テストシナリオ (見積もり: 1h)
 
-- [ ] Task 3-1: ユニットテストシナリオ策定 (0.5h)
+- [x] Task 3-1: ユニットテストシナリオ策定 (0.5h)
   - ContentParser.parseEvaluationDecision() のテスト（PASS、PASS_WITH_ISSUES、FAIL_PHASE_*、ABORT の各パターン）
   - ファイル保存検証ロジックのテスト
 
-- [ ] Task 3-2: インテグレーションテストシナリオ策定 (0.5h)
+- [x] Task 3-2: インテグレーションテストシナリオ策定 (0.5h)
   - Evaluation Phase の execute() → ファイル保存 → review() サイクル全体のテスト
   - エージェントログの分析（Write ツール呼び出しの検証）
   - 失敗ケース（ファイル未保存）の再現テスト
