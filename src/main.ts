@@ -289,10 +289,10 @@ async function handleInitCommand(issueUrl: string, customBranch?: string): Promi
 
   const git = simpleGit(repoRoot);
 
-  // リモートブランチの存在確認
-  await git.fetch();
-  const remoteBranches = await git.branch(['-r']);
-  const remoteBranchExists = remoteBranches.all.some(ref => ref.includes(`origin/${branchName}`));
+  // リモートブランチの存在確認（git ls-remoteを使用してより確実にチェック）
+  await git.fetch(['--prune']);
+  const lsRemoteResult = await git.raw(['ls-remote', '--heads', 'origin', branchName]);
+  const remoteBranchExists = lsRemoteResult.trim().length > 0;
 
   if (remoteBranchExists) {
     // リモートブランチが存在する場合: チェックアウト → pull → metadata確認
