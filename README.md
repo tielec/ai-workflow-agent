@@ -223,10 +223,9 @@ ai-workflow execute --issue 2 --preset review-requirements
 
 Report Phase (Phase 8) 完了後、リポジトリサイズを削減するためにワークフローログが自動的にクリーンアップされます：
 
-- **削除対象**: 各フェーズ（01_requirements 〜 08_report）の `execute/`, `review/`, `revise/` ディレクトリ
-- **保持対象**: `metadata.json` と `output/*.md`（成果物ファイル）
-- **保護対象**: `00_planning` ディレクトリ（Issue参照ソースとして保持）
-- **効果**: リポジトリサイズを約70%削減、PRレビューを成果物に集中
+- **削除対象**: 各フェーズ（00_planning 〜 08_report）の `execute/`, `review/`, `revise/` ディレクトリ
+- **保持対象**: `metadata.json` と `output/*.md`（成果物ファイル、Planning Phaseの `output/planning.md` を含む）
+- **効果**: リポジトリサイズを約75%削減、PRレビューを成果物に集中
 
 クリーンアップは非破壊的に動作し、失敗してもワークフロー全体は継続します。
 
