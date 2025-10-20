@@ -384,10 +384,10 @@ async function handleInitCommand(issueUrl: string, customBranch?: string): Promi
   };
   metadataManager.save();
 
-  // コミット & プッシュ
+  // コミット & プッシュ (Issue #16: commitWorkflowInit を使用)
   const gitManager = new GitManager(repoRoot, metadataManager);
   console.info('[INFO] Committing metadata.json...');
-  const commitResult = await gitManager.commitPhaseOutput('planning', 'completed', 'N/A');
+  const commitResult = await gitManager.commitWorkflowInit(issueNumber, branchName);
   if (!commitResult.success) {
     throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
   }

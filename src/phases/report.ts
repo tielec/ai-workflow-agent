@@ -27,9 +27,19 @@ export class ReportPhase extends BasePhase {
         await this.cleanupWorkflowLogs(issueNumber);
         console.info('[INFO] Workflow logs cleaned up successfully.');
 
-        // ログクリーンナップによる削除をコミット・プッシュ（Issue #411）
+        // ログクリーンナップによる削除をコミット・プッシュ（Issue #16: commitCleanupLogs を使用）
         if (gitManager) {
-          await this.autoCommitAndPush(gitManager, null);
+          const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'report');
+
+          if (!commitResult.success) {
+            throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
+          }
+
+          const pushResult = await gitManager.pushToRemote();
+          if (!pushResult.success) {
+            throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
+          }
+
           console.info('[INFO] Cleanup changes committed and pushed.');
         }
       } catch (error) {
@@ -320,8 +330,10 @@ export class ReportPhase extends BasePhase {
   private async cleanupWorkflowLogs(issueNumber: number): Promise<void> {
     const baseDir = path.resolve(this.metadata.workflowDir, '..', `issue-${issueNumber}`);
 
-    // Planning フェーズ（00_planning）は削除対象外（Issue参照ソースとして保持）
+    // すべてのフェーズ（00-08）の実行ログを削除（Issue #16）
+    // ※ output/planning.md は保持される（targetSubdirsに'output'が含まれないため）
     const phaseDirectories = [
+      '00_planning',
       '01_requirements',
       '02_design',
       '03_test_scenario',

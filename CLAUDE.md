@@ -177,9 +177,10 @@ node dist/index.js list-presets
 ### ワークフローログクリーンアップ
 
 Report Phase（Phase 8）完了後、`cleanupWorkflowLogs()` が自動的にデバッグログを削除:
-- **削除対象**: phases 01-08 の `execute/`、`review/`、`revise/` ディレクトリ
-- **保持対象**: `metadata.json`、`output/*.md`、`00_planning/` ディレクトリ全体
-- **効果**: リポジトリサイズを約 70% 削減、PR をクリーンに
+- **削除対象**: phases 00-08（00_planning 〜 08_report）の `execute/`、`review/`、`revise/` ディレクトリ
+- **保持対象**: `metadata.json`、`output/*.md`（Planning Phaseの `output/planning.md` も保持）
+- **効果**: リポジトリサイズを約 75% 削減、PR をクリーンに
+- **Git コミット**: 削除後、`[ai-workflow] Clean up workflow execution logs` メッセージで自動コミット＆プッシュ（Phase 8: report）
 
 ### ワークフローディレクトリの完全削除（v0.3.0）
 
@@ -194,10 +195,11 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 
 | 項目 | Report Phase (Phase 8) | Evaluation Phase (Phase 9) |
 |------|------------------------|----------------------------|
-| **削除対象** | デバッグログ（`execute/`, `review/`, `revise/`） | ワークフロー全体（`.ai-workflow/issue-<NUM>/`） |
+| **削除対象** | phases 00-08 のデバッグログ（`execute/`, `review/`, `revise/`） | ワークフロー全体（`.ai-workflow/issue-<NUM>/`） |
 | **実行タイミング** | Report Phase 完了時（常に実行） | Evaluation Phase 完了時（オプション指定時のみ） |
-| **目的** | PR レビューの負荷軽減（約 70% 削減） | ワークフロー完了後のクリーンアップ（完全削除） |
-| **保護対象** | `00_planning/`, `metadata.json`, `output/*.md` | なし（全て削除） |
+| **目的** | PR レビューの負荷軽減（約 75% 削減） | ワークフロー完了後のクリーンアップ（完全削除） |
+| **保護対象** | `metadata.json`, `output/*.md` | なし（全て削除） |
+| **Git コミットメッセージ** | `[ai-workflow] Clean up workflow execution logs` (Phase 8: report) | `[ai-workflow] Clean up all workflow artifacts` |
 
 ## 環境変数
 
