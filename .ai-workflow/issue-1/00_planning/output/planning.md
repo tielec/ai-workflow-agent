@@ -176,12 +176,12 @@
   - `src/utils/branch-validator.ts` 実装
   - `src/utils/repo-resolver.ts` 実装
   - `src/main.ts` を200行以下に削減（CLIルーティングのみ）
-- [ ] Task 4-2: base-phase.ts の分割実装 (Phase 2: 最優先) (6~8h)
+- [x] Task 4-2: base-phase.ts の分割実装 (Phase 2: 最優先) (6~8h)
   - `src/phases/base/agent-executor.ts` 実装
   - `src/phases/base/review-cycle-manager.ts` 実装
   - `src/phases/base/progress-formatter.ts` 実装
   - `src/phases/base/agent-log-formatter.ts` 実装
-  - `src/phases/base/base-phase.ts` を300行以下に削減（コア機能のみ）
+  - `src/phases/base/base-phase.ts` を300行以下に削減（コア機能のみ） - ⏳ 未完了（base-phase.tsリファクタリング残）
 - [ ] Task 4-3: github-client.ts の分割実装 (Phase 3: 高優先) (3~5h)
   - `src/core/github/issue-client.ts` 実装
   - `src/core/github/pr-client.ts` 実装
