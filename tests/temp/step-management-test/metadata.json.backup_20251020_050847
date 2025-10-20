@@ -16,11 +16,7 @@
       "review_result": null,
       "output_files": [],
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review",
-        "revise"
-      ]
+      "completed_steps": []
     }
   },
   "design_decisions": {
@@ -32,6 +28,5 @@
     "total_input_tokens": 0,
     "total_output_tokens": 0,
     "total_cost_usd": 0
-  },
-  "updated_at": "2025-10-20T05:08:46.951Z"
+  }
 }
