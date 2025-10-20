@@ -168,7 +168,7 @@
 
 ### Phase 4: 実装 (見積もり: 16~24h)
 
-- [ ] Task 4-1: main.ts の分割実装 (Phase 1: 最優先) (4~6h)
+- [x] Task 4-1: main.ts の分割実装 (Phase 1: 最優先) (4~6h)
   - `src/commands/init-command.ts` 実装
   - `src/commands/execute-command.ts` 実装
   - `src/commands/review-command.ts` 実装
