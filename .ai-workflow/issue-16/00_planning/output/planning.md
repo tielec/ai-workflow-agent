@@ -132,13 +132,13 @@
 
 ### Phase 2: 設計 (見積もり: 1.5~2h)
 
-- [ ] Task 2-1: `GitManager`の新メソッド設計 (1~1.5h)
+- [x] Task 2-1: `GitManager`の新メソッド設計 (1~1.5h)
   - `commitWorkflowInit(issueNumber, branchName)` の詳細設計
   - `commitCleanupLogs(issueNumber, phase)` の詳細設計
   - `createInitCommitMessage()` のフォーマット設計
   - `createCleanupCommitMessage()` のフォーマット設計
   - 戻り値型（`CommitResult`）の整合性確認
-- [ ] Task 2-2: 呼び出し側の修正設計 (0.5h)
+- [x] Task 2-2: 呼び出し側の修正設計 (0.5h)
   - `src/main.ts:390` の修正方法
   - `src/phases/report.ts:32-33` の修正方法
   - `src/phases/evaluation.ts` の新規ログクリーンアップ処理設計
