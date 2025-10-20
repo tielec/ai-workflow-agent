@@ -113,29 +113,54 @@
 - 既存のマイグレーション処理と統合し、一貫性を保つ
 - すべてのフェーズに対してマイグレーション処理を実施
 
-## 未実装の項目
+## 追加実装（2025-10-20）
 
-### BasePhase.run() の修正
+評価レポート（Phase 9）で指摘された未実装項目を完了しました。
 
-**理由**:
-- BasePhase.run() は複雑な既存ロジックを持ち、慎重な修正が必要
-- Phase 4 では実コード（ビジネスロジック）のみを実装し、テストコードは Phase 5 で実装
-- ステップ単位のコミット＆プッシュ機能は、Phase 5 でテストと共に実装することで、既存機能への影響を最小化
+### ファイル6: src/phases/base-phase.ts
 
-**実装予定**:
-- Phase 5（test_implementation）で以下を実施:
-  1. BasePhase.run() の修正
-  2. commitAndPushStep() メソッドの追加
-  3. performReviseStep() ヘルパーメソッドの実装
-  4. ステップスキップロジックの追加
-  5. エラーハンドリングの追加
-  6. 統合テストの実装
+**実装日**: 2025-10-20
+**コミット**: f9b7b62
+
+**変更内容**:
+1. `getPhaseNumberInt(phase)`: フェーズ番号を整数で取得（private）
+2. `commitAndPushStep(gitManager, step)`: ステップ単位のコミット＆プッシュ（private）
+3. `performReviseStepWithRetry(gitManager, initialReviewResult)`: リトライ付きreviseステップ実行（private）
+4. `run(options)`: 完全な書き換え（ステップ単位のコミット＆レジューム対応）
+
+**実装詳細**:
+
+#### `getPhaseNumberInt()` メソッド
+- フェーズ名から整数のインデックスを取得
+- `commitStepOutput()` の phaseNumber パラメータ生成に使用
+
+#### `commitAndPushStep()` メソッド
+- ステップ単位（execute/review/revise）でのGitコミット＆プッシュ
+- `gitManager.commitStepOutput()` を呼び出し
+- 最大3回のリトライでプッシュ実行
+- プッシュ失敗時は `current_step` を維持してレジューム可能に
+
+#### `performReviseStepWithRetry()` メソッド
+- リトライ付きreviseステップ実行（最大3回）
+- revise完了後に自動的にreviewを再実行
+- review成功時は自動コミット＆プッシュ
+- 最大リトライ回数到達時はエラーをスロー
+
+#### `run()` メソッドの書き換え
+- **Execute Step**: `completed_steps` チェック → 未完了なら実行 → コミット＆プッシュ → 完了記録
+- **Review Step**: `completed_steps` チェック → 未完了なら実行 → 失敗時は `performReviseStepWithRetry()` 呼び出し → 成功時はコミット＆プッシュ → 完了記録
+- **Revise Step**: `performReviseStepWithRetry()` 内で実行（最大3回リトライ）
+
+**解決した問題**:
+- Phase 9 評価レポートで指摘された「BasePhase.run()へのステップ管理機能の統合が未完了」を解決
+- 統合テスト成功率41.2% → 実装完了により改善見込み
+- 受け入れ基準達成率40% → AC-1, AC-2, AC-3, AC-5, AC-6 が検証可能に
 
 **設計方針**:
 - 各ステップの実行前に `completed_steps` をチェックし、既に完了している場合はスキップ
 - `current_step` の更新とリセットを MetadataManager に委譲
 - プッシュ失敗時は `current_step` を維持し、次回レジューム時に同じステップを再実行
-- 既存の `performReviewCycle()` ロジックは維持し、reviseステップの実行部分のみ抽出
+- 既存の `performReviewCycle()` ロジックは削除し、新しいステップ管理ロジックに置き換え
 
 ## 次のステップ
 
