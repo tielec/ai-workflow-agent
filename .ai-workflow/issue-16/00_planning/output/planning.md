@@ -157,18 +157,18 @@
 
 ### Phase 4: 実装 (見積もり: 2.5~3.5h)
 
-- [ ] Task 4-1: `GitManager`の新メソッド実装 (1.5~2h)
+- [x] Task 4-1: `GitManager`の新メソッド実装 (1.5~2h)
   - `commitWorkflowInit()` メソッド実装
   - `commitCleanupLogs()` メソッド実装
   - `createInitCommitMessage()` メソッド実装
   - `createCleanupCommitMessage()` メソッド実装
-- [ ] Task 4-2: `src/main.ts` の修正 (0.5h)
+- [x] Task 4-2: `src/main.ts` の修正 (0.5h)
   - 行390のコミット呼び出しを`commitWorkflowInit()`に置き換え
   - コミット失敗時のエラーハンドリング確認
-- [ ] Task 4-3: `src/phases/report.ts` の修正 (0.5h)
+- [x] Task 4-3: `src/phases/report.ts` の修正 (0.5h)
   - 行32-33のコミット処理を`commitCleanupLogs()` + 手動プッシュに置き換え
   - Planning Phase（Phase 0）をクリーンアップ対象に追加（行324に`'00_planning'`追加）
-- [ ] Task 4-4: `src/phases/evaluation.ts` の修正 (0.5~1h)
+- [x] Task 4-4: `src/phases/evaluation.ts` の修正 (0.5~1h)
   - `cleanupWorkflowLogs()` メソッド実装（Report Phaseと同じパターン）
   - `run()` メソッド拡張（`--cleanup-on-complete`未指定時のログクリーンアップ処理追加）
   - 行32-33のコミット処理を`commitCleanupLogs()` + 手動プッシュに置き換え
