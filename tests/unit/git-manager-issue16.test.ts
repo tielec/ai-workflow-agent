@@ -81,9 +81,9 @@ describe('GitManager.commitWorkflowInit() - Issue #16', () => {
     expect(result.files_committed.length).toBeGreaterThan(0);
     expect(result.error).toBeUndefined();
 
-    // コミットメッセージを確認
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    // コミットメッセージを確認（bodyフィールドを使用）
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
     expect(commitMessage).toContain('[ai-workflow] Initialize workflow for issue #16');
     expect(commitMessage).toContain('Issue: #16');
     expect(commitMessage).toContain('Action: Create workflow metadata and directory structure');
@@ -122,8 +122,8 @@ describe('GitManager.commitWorkflowInit() - Issue #16', () => {
     expect(result.success).toBe(true);
     expect(result.commit_hash).not.toBeNull();
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
 
     // 検証項目
     const lines = commitMessage.split('\n');
@@ -208,9 +208,9 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     expect(result.files_committed.length).toBeGreaterThan(0);
     expect(result.error).toBeUndefined();
 
-    // コミットメッセージを確認
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    // コミットメッセージを確認（bodyフィールドを使用）
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
     expect(commitMessage).toContain('[ai-workflow] Clean up workflow execution logs');
     expect(commitMessage).toContain('Issue: #16');
     expect(commitMessage).toContain('Phase: 8 (report)'); // Phase 9ではない
@@ -234,8 +234,8 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     expect(result.success).toBe(true);
     expect(result.commit_hash).not.toBeNull();
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
     expect(commitMessage).toContain('Phase: 9 (evaluation)');
   });
 
@@ -273,8 +273,8 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     // Then: コミットメッセージが正しいフォーマットになっている
     expect(result.success).toBe(true);
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
 
     // 検証項目
     const lines = commitMessage.split('\n');
@@ -298,8 +298,8 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     // Then: コミットメッセージが正しいフォーマットになっている
     expect(result.success).toBe(true);
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
 
     // 検証項目
     const lines = commitMessage.split('\n');
@@ -322,8 +322,8 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     const reportResult = await gitManager.commitCleanupLogs(16, 'report');
     expect(reportResult.success).toBe(true);
 
-    let log = await git.log(['-1', '--pretty=%B']);
-    let commitMessage = log.latest?.message ?? '';
+    let log = await git.log(['-1']);
+    let commitMessage = log.latest?.body ?? '';
     expect(commitMessage).toContain('Phase: 8 (report)');
 
     // ケース2: Evaluation Phase
@@ -333,8 +333,8 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
     const evalResult = await gitManager.commitCleanupLogs(16, 'evaluation');
     expect(evalResult.success).toBe(true);
 
-    log = await git.log(['-1', '--pretty=%B']);
-    commitMessage = log.latest?.message ?? '';
+    log = await git.log(['-1']);
+    commitMessage = log.latest?.body ?? '';
     expect(commitMessage).toContain('Phase: 9 (evaluation)');
   });
 });
@@ -406,8 +406,8 @@ describe('GitManager既存機能への影響検証 - Issue #16', () => {
     expect(result.success).toBe(true);
     expect(result.commit_hash).not.toBeNull();
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
 
     // 既存のコミットメッセージフォーマット
     expect(commitMessage).toContain('[ai-workflow] Phase 1 (requirements) - completed');
@@ -433,8 +433,8 @@ describe('GitManager既存機能への影響検証 - Issue #16', () => {
     expect(result.success).toBe(true);
     expect(result.commit_hash).not.toBeNull();
 
-    const log = await git.log(['-1', '--pretty=%B']);
-    const commitMessage = log.latest?.message ?? '';
+    const log = await git.log(['-1']);
+    const commitMessage = log.latest?.body ?? '';
 
     // 既存のコミットメッセージフォーマット
     expect(commitMessage).toContain('[ai-workflow] Phase 2 (design) - execute completed');
