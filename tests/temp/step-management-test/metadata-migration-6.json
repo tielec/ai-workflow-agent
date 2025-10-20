@@ -1,0 +1,101 @@
+{
+  "version": "0.2.0",
+  "workflow_version": "0.3.0",
+  "issue_number": "123",
+  "issue_url": "https://github.com/test/repo/issues/123",
+  "issue_title": "Test Issue",
+  "workflow_dir": "/tmp/jenkins-a250cebd/workspace/AI_Workflow/ai_workflow_orchestrator/tests/temp/step-management-test",
+  "branch_name": "ai-workflow/issue-123",
+  "target_repository": null,
+  "phases": {
+    "planning": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "requirements": {
+      "status": "in_progress",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "output_files": [],
+      "current_step": null,
+      "completed_steps": []
+    },
+    "design": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "test_scenario": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "implementation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "test_implementation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "testing": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "documentation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "report": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "evaluation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "decision": null,
+      "failed_phase": null,
+      "remaining_tasks": [],
+      "created_issue_url": null,
+      "abort_reason": null
+    }
+  },
+  "design_decisions": {
+    "implementation_strategy": null,
+    "test_strategy": null,
+    "test_code_strategy": null
+  },
+  "cost_tracking": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "total_cost_usd": 0
+  },
+  "updated_at": "2025-10-20T04:26:08.139Z"
+}

@@ -9,8 +9,7 @@
  * - buildWarningMessage関数
  */
 
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import {
@@ -28,39 +27,39 @@ import { PhaseName } from '../../src/types.js';
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-dependencies-test');
 
 describe('PHASE_PRESETS定義テスト', () => {
-  it('1.1.1: 新規プリセット定義の正確性', () => {
+  test('1.1.1: 新規プリセット定義の正確性', () => {
     // Given: PHASE_PRESETSが定義されている
     // When: 各プリセットを確認
     // Then: 正しいPhaseリストを持つ
-    assert.deepEqual(PHASE_PRESETS['review-requirements'], ['planning', 'requirements']);
-    assert.deepEqual(PHASE_PRESETS['review-design'], ['planning', 'requirements', 'design']);
-    assert.deepEqual(PHASE_PRESETS['review-test-scenario'], ['planning', 'requirements', 'design', 'test_scenario']);
-    assert.deepEqual(PHASE_PRESETS['quick-fix'], ['implementation', 'documentation', 'report']);
-    assert.deepEqual(PHASE_PRESETS['implementation'], ['implementation', 'test_implementation', 'testing', 'documentation', 'report']);
-    assert.deepEqual(PHASE_PRESETS['testing'], ['test_implementation', 'testing']);
-    assert.deepEqual(PHASE_PRESETS['finalize'], ['documentation', 'report', 'evaluation']);
+    expect(PHASE_PRESETS['review-requirements']).toEqual(['planning', 'requirements']);
+    expect(PHASE_PRESETS['review-design']).toEqual(['planning', 'requirements', 'design']);
+    expect(PHASE_PRESETS['review-test-scenario']).toEqual(['planning', 'requirements', 'design', 'test_scenario']);
+    expect(PHASE_PRESETS['quick-fix']).toEqual(['implementation', 'documentation', 'report']);
+    expect(PHASE_PRESETS['implementation']).toEqual(['implementation', 'test_implementation', 'testing', 'documentation', 'report']);
+    expect(PHASE_PRESETS['testing']).toEqual(['test_implementation', 'testing']);
+    expect(PHASE_PRESETS['finalize']).toEqual(['documentation', 'report', 'evaluation']);
   });
 
-  it('1.1.2: プリセット説明マップの存在確認', () => {
+  test('1.1.2: プリセット説明マップの存在確認', () => {
     // Given: PHASE_PRESETSの全キー
     // When: 各プリセット名に対する説明を確認
     // Then: 説明文字列が存在する
     for (const presetName of Object.keys(PHASE_PRESETS)) {
-      assert.ok(PRESET_DESCRIPTIONS[presetName], `プリセット "${presetName}" の説明が存在しません`);
-      assert.ok(PRESET_DESCRIPTIONS[presetName].length > 0, `プリセット "${presetName}" の説明が空です`);
+      expect(PRESET_DESCRIPTIONS[presetName]).toBeTruthy();
+      expect(PRESET_DESCRIPTIONS[presetName].length > 0).toBeTruthy();
     }
   });
 });
 
 describe('後方互換性テスト', () => {
-  it('1.2.1: DEPRECATED_PRESETSマップが正しく定義されている', () => {
+  test('1.2.1: DEPRECATED_PRESETSマップが正しく定義されている', () => {
     // Given: DEPRECATED_PRESETSが定義されている
     // When: エイリアスマップを確認
     // Then: 期待されるエイリアスが存在する
-    assert.equal(DEPRECATED_PRESETS['requirements-only'], 'review-requirements');
-    assert.equal(DEPRECATED_PRESETS['design-phase'], 'review-design');
-    assert.equal(DEPRECATED_PRESETS['implementation-phase'], 'implementation');
-    assert.equal(DEPRECATED_PRESETS['full-workflow'], '--phase all');
+    expect(DEPRECATED_PRESETS['requirements-only']).toBe('review-requirements');
+    expect(DEPRECATED_PRESETS['design-phase']).toBe('review-design');
+    expect(DEPRECATED_PRESETS['implementation-phase']).toBe('implementation');
+    expect(DEPRECATED_PRESETS['full-workflow']).toBe('--phase all');
   });
 });
 
@@ -68,7 +67,7 @@ describe('依存関係チェックテスト', () => {
   let metadataManager: MetadataManager;
   let testMetadataPath: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     await fs.ensureDir(TEST_DIR);
     testMetadataPath = path.join(TEST_DIR, 'metadata.json');
@@ -91,12 +90,12 @@ describe('依存関係チェックテスト', () => {
     metadataManager = new MetadataManager(testMetadataPath);
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
 
-  it('1.4.1: 全依存関係が満たされている場合', () => {
+  test('1.4.1: 全依存関係が満たされている場合', () => {
     // Given: 全ての依存Phaseが完了している
     metadataManager.updatePhaseStatus('planning', 'completed');
     metadataManager.updatePhaseStatus('requirements', 'completed');
@@ -107,16 +106,16 @@ describe('依存関係チェックテスト', () => {
     const result = validatePhaseDependencies('implementation', metadataManager);
 
     // Then: チェックが成功する
-    assert.equal(result.valid, true);
-    assert.equal(result.missing_phases?.length || 0, 0);
-    assert.equal(result.missing_files?.length || 0, 0);
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+    expect(result.missing_files?.length || 0).toBe(0);
   });
 
-  it('1.4.2: 依存関係が不足している場合', () => {
+  test('1.4.2: 依存関係が不足している場合', () => {
     // Given: 依存Phaseが未完了
     const freshMetadata = new MetadataManager(testMetadataPath);
     // metadataをリセット
-    freshMetadata.data.phases = {};
+    freshMetadata.data.phases = {} as any;
     freshMetadata.save();
     freshMetadata.updatePhaseStatus('planning', 'pending');
 
@@ -124,17 +123,17 @@ describe('依存関係チェックテスト', () => {
     const result = validatePhaseDependencies('implementation', freshMetadata);
 
     // Then: エラーが返される
-    assert.equal(result.valid, false);
-    assert.ok(result.error);
-    assert.ok(result.error.includes('[ERROR] Phase "implementation" requires the following phases to be completed'));
-    assert.ok(result.error.includes('NOT COMPLETED'));
-    assert.ok(result.missing_phases && result.missing_phases.length > 0);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(result.error?.includes('[ERROR] Phase "implementation" requires the following phases to be completed')).toBeTruthy();
+    expect(result.error?.includes('NOT COMPLETED')).toBeTruthy();
+    expect(result.missing_phases && result.missing_phases.length > 0).toBeTruthy();
   });
 
-  it('1.4.3: ignoreViolationsオプション使用時', () => {
+  test('1.4.3: ignoreViolationsオプション使用時', () => {
     // Given: 依存Phaseが未完了だが、ignoreViolations=true
     const freshMetadata = new MetadataManager(testMetadataPath);
-    freshMetadata.data.phases = {};
+    freshMetadata.data.phases = {} as any;
     freshMetadata.save();
 
     const options: DependencyValidationOptions = {
@@ -145,17 +144,17 @@ describe('依存関係チェックテスト', () => {
     const result = validatePhaseDependencies('implementation', freshMetadata, options);
 
     // Then: 警告のみで継続
-    assert.equal(result.valid, true);
-    assert.ok(result.warning);
-    assert.ok(result.warning.includes('[WARNING] Phase "implementation" has unmet dependencies'));
-    assert.equal(result.ignored, true);
-    assert.ok(result.missing_phases && result.missing_phases.length > 0);
+    expect(result.valid).toBe(true);
+    expect(result.warning).toBeTruthy();
+    expect(result.warning?.includes('[WARNING] Phase "implementation" has unmet dependencies')).toBeTruthy();
+    expect(result.ignored).toBe(true);
+    expect(result.missing_phases && result.missing_phases.length > 0).toBeTruthy();
   });
 
-  it('1.4.5: skipCheckオプション使用時', () => {
+  test('1.4.5: skipCheckオプション使用時', () => {
     // Given: 全依存が未完了だが、skipCheck=true
     const freshMetadata = new MetadataManager(testMetadataPath);
-    freshMetadata.data.phases = {};
+    freshMetadata.data.phases = {} as any;
     freshMetadata.save();
 
     const options: DependencyValidationOptions = {
@@ -166,14 +165,14 @@ describe('依存関係チェックテスト', () => {
     const result = validatePhaseDependencies('implementation', freshMetadata, options);
 
     // Then: チェックがスキップされる
-    assert.equal(result.valid, true);
-    assert.equal(result.missing_phases?.length || 0, 0);
-    assert.equal(result.missing_files?.length || 0, 0);
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+    expect(result.missing_files?.length || 0).toBe(0);
   });
 });
 
 describe('PHASE_DEPENDENCIES定義の整合性', () => {
-  it('全Phaseが定義されている', () => {
+  test('全Phaseが定義されている', () => {
     // Given: 期待されるPhase名リスト
     const expectedPhases: PhaseName[] = [
       'planning',
@@ -193,11 +192,11 @@ describe('PHASE_DEPENDENCIES定義の整合性', () => {
 
     // Then: 全てのPhaseが定義されている
     for (const phase of expectedPhases) {
-      assert.ok(actualPhases.includes(phase), `Phase "${phase}" がPHASE_DEPENDENCIESに定義されていません`);
+      expect(actualPhases.includes(phase)).toBeTruthy();
     }
   });
 
-  it('循環依存が存在しない', () => {
+  test('循環依存が存在しない', () => {
     // Given: PHASE_DEPENDENCIESが定義されている
     // When: 各Phaseの依存関係を確認
     // Then: 循環依存が存在しない
@@ -231,13 +230,13 @@ describe('PHASE_DEPENDENCIES定義の整合性', () => {
 
     for (const phase of Object.keys(PHASE_DEPENDENCIES) as PhaseName[]) {
       const hasCycle = dfs(phase);
-      assert.equal(hasCycle, false, `循環依存が検出されました: Phase "${phase}"`);
+      expect(hasCycle).toBe(false);
     }
   });
 });
 
 describe('プリセットとPhaseの整合性', () => {
-  it('プリセットに含まれるPhaseが全て有効である', () => {
+  test('プリセットに含まれるPhaseが全て有効である', () => {
     // Given: PHASE_PRESETSが定義されている
     // When: 各プリセットのPhaseリストを確認
     // Then: 全てのPhase名がPHASE_DEPENDENCIESに定義されている
@@ -246,10 +245,7 @@ describe('プリセットとPhaseの整合性', () => {
 
     for (const [presetName, phases] of Object.entries(PHASE_PRESETS)) {
       for (const phase of phases) {
-        assert.ok(
-          validPhases.includes(phase as PhaseName),
-          `プリセット "${presetName}" に無効なPhase "${phase}" が含まれています`
-        );
+        expect(validPhases.includes(phase as PhaseName)).toBeTruthy();
       }
     }
   });

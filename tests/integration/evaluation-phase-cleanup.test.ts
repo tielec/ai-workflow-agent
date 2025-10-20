@@ -8,8 +8,7 @@
  * - ファイルシステム操作との統合
  */
 
-import { describe, it, before, after, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll, afterEach } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -30,7 +29,7 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
   let workflowDir: string;
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(async () => {
+  beforeAll(async () => {
     originalEnv = { ...process.env };
     process.env.CI = 'true';
 
@@ -89,7 +88,7 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
     process.env = originalEnv;
   });
@@ -98,7 +97,7 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
     delete process.env.CI;
   });
 
-  it('3.1.1: E2E - クリーンアップ成功（CI環境）', async () => {
+  test('3.1.1: E2E - クリーンアップ成功（CI環境）', async () => {
     // Given: CI環境、ワークフローディレクトリが存在する
     process.env.CI = 'true';
 
@@ -137,14 +136,10 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
 
     // Then: ワークフローディレクトリ全体が削除されている
     const exists = fs.existsSync(workflowDir);
-    assert.equal(
-      exists,
-      false,
-      'ワークフローディレクトリが削除されていません'
-    );
+    expect(exists).toBe(false);
   });
 
-  it('3.1.2: E2E - デフォルト動作（クリーンアップなし）', async () => {
+  test('3.1.2: E2E - デフォルト動作（クリーンアップなし）', async () => {
     // Given: cleanupOnComplete=false（デフォルト）
     process.env.CI = 'true';
 
@@ -167,18 +162,11 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
 
     // Then: ワークフローディレクトリが保持されている
     const exists = fs.existsSync(workflowDir);
-    assert.equal(
-      exists,
-      true,
-      'デフォルト動作でワークフローディレクトリが削除されてしまいました'
-    );
-    assert.ok(
-      fs.existsSync(path.join(workflowDir, 'metadata.json')),
-      'metadata.jsonが削除されてしまいました'
-    );
+    expect(exists).toBe(true);
+    expect(fs.existsSync(path.join(workflowDir, 'metadata.json'))).toBeTruthy();
   });
 
-  it('3.1.3: E2E - forceフラグでプロンプトスキップ', async () => {
+  test('3.1.3: E2E - forceフラグでプロンプトスキップ', async () => {
     // Given: 非CI環境、forceフラグ=true
     delete process.env.CI;
 
@@ -194,11 +182,7 @@ describe('Evaluation Phase クリーンアップ統合テスト（Issue #2）', 
 
     // Then: 確認プロンプトなしで削除されている
     const exists = fs.existsSync(workflowDir);
-    assert.equal(
-      exists,
-      false,
-      'forceフラグ時にワークフローディレクトリが削除されていません'
-    );
+    expect(exists).toBe(false);
   });
 });
 
@@ -210,7 +194,7 @@ describe('ファイルシステム統合テスト', () => {
   let workflowDir: string;
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(async () => {
+  beforeAll(async () => {
     originalEnv = { ...process.env };
     process.env.CI = 'true';
 
@@ -248,12 +232,12 @@ describe('ファイルシステム統合テスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
     process.env = originalEnv;
   });
 
-  it('3.3.1: FS統合 - 実際のディレクトリ削除', async () => {
+  test('3.3.1: FS統合 - 実際のディレクトリ削除', async () => {
     // Given: 複数のファイル・ディレクトリを持つワークフローディレクトリ
     await fs.ensureDir(workflowDir);
 
@@ -283,24 +267,16 @@ describe('ファイルシステム統合テスト', () => {
     await (evaluationPhase as any).cleanupWorkflowArtifacts(true);
 
     // Then: ディレクトリとすべてのファイルが削除される
-    assert.equal(
-      fs.existsSync(workflowDir),
-      false,
-      'ワークフローディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(workflowDir)).toBe(false);
 
     // サブディレクトリも削除されている
     for (const subDir of subDirs) {
       const dirPath = path.join(workflowDir, subDir);
-      assert.equal(
-        fs.existsSync(dirPath),
-        false,
-        `${subDir} が削除されていません`
-      );
+      expect(fs.existsSync(dirPath)).toBe(false);
     }
   });
 
-  it('3.3.2: FS統合 - 削除失敗時のエラーハンドリング', async () => {
+  test('3.3.2: FS統合 - 削除失敗時のエラーハンドリング', async () => {
     // Given: 読み取り専用ディレクトリ（権限エラーをシミュレート）
     // 注: 実際の環境では権限エラーのシミュレートが困難なため、
     // このテストは存在しないディレクトリでのエラーハンドリングを確認
@@ -319,11 +295,7 @@ describe('ファイルシステム統合テスト', () => {
     }
 
     // Then: エラーがスローされない（正常終了）
-    assert.equal(
-      error,
-      null,
-      `削除失敗時にエラーが発生しました: ${error?.message}`
-    );
+    expect(error).toBeNull();
   });
 });
 
@@ -335,7 +307,7 @@ describe('エラーシナリオ統合テスト', () => {
   let workflowDir: string;
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(async () => {
+  beforeAll(async () => {
     originalEnv = { ...process.env };
     process.env.CI = 'true';
 
@@ -378,12 +350,12 @@ describe('エラーシナリオ統合テスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
     process.env = originalEnv;
   });
 
-  it('3.4.1: エラーシナリオ - ワークフローディレクトリ不在でも正常終了', async () => {
+  test('3.4.1: エラーシナリオ - ワークフローディレクトリ不在でも正常終了', async () => {
     // Given: ワークフローディレクトリが存在しない
     if (fs.existsSync(workflowDir)) {
       await fs.remove(workflowDir);
@@ -398,17 +370,13 @@ describe('エラーシナリオ統合テスト', () => {
     }
 
     // Then: エラーがスローされない
-    assert.equal(
-      error,
-      null,
-      `ディレクトリ不在時にエラーが発生しました: ${error?.message}`
-    );
+    expect(error).toBeNull();
 
     // Evaluation Phaseは成功として扱われる
     // （実際のrun()メソッドのテストでは、フェーズステータスがcompletedになることを確認）
   });
 
-  it('3.4.2: エラーシナリオ - 不正なパスでのクリーンアップ', async () => {
+  test('3.4.2: エラーシナリオ - 不正なパスでのクリーンアップ', async () => {
     // Given: 不正なワークフローパス
     const invalidMetadataPath = path.join(TEST_DIR, 'invalid-metadata.json');
     const invalidMetadata = {
@@ -448,11 +416,7 @@ describe('エラーシナリオ統合テスト', () => {
     }
 
     // Then: パス検証エラーがスローされる
-    assert.notEqual(
-      error,
-      null,
-      '不正なパスでのクリーンアップが防御されていません'
-    );
+    expect(error).toBeTruthy();
 
     // クリーンアップ
     await fs.remove(invalidMetadataPath);
@@ -462,17 +426,17 @@ describe('エラーシナリオ統合テスト', () => {
 describe('複数ワークフロー同時実行テスト', () => {
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(() => {
+  beforeAll(() => {
     originalEnv = { ...process.env };
     process.env.CI = 'true';
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
     process.env = originalEnv;
   });
 
-  it('4.1: 複数のIssueのワークフローディレクトリを並行削除', async () => {
+  test('4.1: 複数のIssueのワークフローディレクトリを並行削除', async () => {
     // Given: 複数のIssueのワークフローディレクトリが存在する
     const issueNumbers = ['101', '102', '103'];
     const phases: EvaluationPhase[] = [];
@@ -521,11 +485,7 @@ describe('複数ワークフロー同時実行テスト', () => {
     // Then: すべてのワークフローディレクトリが削除される
     for (const issueNum of issueNumbers) {
       const workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${issueNum}`);
-      assert.equal(
-        fs.existsSync(workflowDir),
-        false,
-        `Issue #${issueNum} のワークフローディレクトリが削除されていません`
-      );
+      expect(fs.existsSync(workflowDir)).toBe(false);
     }
   });
 });

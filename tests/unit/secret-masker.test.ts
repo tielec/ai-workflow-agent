@@ -8,8 +8,7 @@
  * - ファイル内のシークレット置換
  */
 
-import { describe, it, before, after, beforeEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { SecretMasker } from '../../src/core/secret-masker.js';
@@ -29,12 +28,12 @@ describe('SecretMasker環境変数検出テスト', () => {
     delete process.env.AWS_ACCESS_KEY_ID;
   });
 
-  after(() => {
+  afterAll(() => {
     // 環境変数を復元
     process.env = originalEnv;
   });
 
-  it('2.1.1: 環境変数が設定されている場合、シークレットを検出する', () => {
+  test('2.1.1: 環境変数が設定されている場合、シークレットを検出する', () => {
     // Given: 環境変数にシークレットが設定されている
     process.env.GITHUB_TOKEN = 'ghp_test1234567890abcdefghij';
     process.env.OPENAI_API_KEY = 'sk-proj-test1234567890abcdefghij';
@@ -44,22 +43,22 @@ describe('SecretMasker環境変数検出テスト', () => {
     const secrets = masker.getSecretList();
 
     // Then: 2つのシークレットが検出される
-    assert.equal(secrets.length, 2);
-    assert.ok(secrets.some((s) => s.name === 'GITHUB_TOKEN' && s.value === 'ghp_test1234567890abcdefghij'));
-    assert.ok(secrets.some((s) => s.name === 'OPENAI_API_KEY' && s.value === 'sk-proj-test1234567890abcdefghij'));
+    expect(secrets.length).toBe(2);
+    expect(secrets.some((s) => s.name === 'GITHUB_TOKEN' && s.value === 'ghp_test1234567890abcdefghij')).toBeTruthy();
+    expect(secrets.some((s) => s.name === 'OPENAI_API_KEY' && s.value === 'sk-proj-test1234567890abcdefghij')).toBeTruthy();
   });
 
-  it('2.1.2: 環境変数が空の場合、シークレットを検出しない', () => {
+  test('2.1.2: 環境変数が空の場合、シークレットを検出しない', () => {
     // Given: 環境変数が未設定
     // When: シークレットリストを取得
     const masker = new SecretMasker();
     const secrets = masker.getSecretList();
 
     // Then: シークレットが検出されない
-    assert.equal(secrets.length, 0);
+    expect(secrets.length).toBe(0);
   });
 
-  it('2.1.3: 短い値(10文字以下)は無視される', () => {
+  test('2.1.3: 短い値(10文字以下)は無視される', () => {
     // Given: 短いシークレット値
     process.env.GITHUB_TOKEN = 'short123';
 
@@ -68,10 +67,10 @@ describe('SecretMasker環境変数検出テスト', () => {
     const secrets = masker.getSecretList();
 
     // Then: シークレットが検出されない
-    assert.equal(secrets.length, 0);
+    expect(secrets.length).toBe(0);
   });
 
-  it('2.1.4: AWS認証情報を含む複数のシークレットを検出', () => {
+  test('2.1.4: AWS認証情報を含む複数のシークレットを検出', () => {
     // Given: 複数の環境変数が設定されている
     process.env.GITHUB_TOKEN = 'ghp_test1234567890abcdefghij';
     process.env.AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
@@ -82,10 +81,10 @@ describe('SecretMasker環境変数検出テスト', () => {
     const secrets = masker.getSecretList();
 
     // Then: 3つのシークレットが検出される
-    assert.equal(secrets.length, 3);
-    assert.ok(secrets.some((s) => s.name === 'GITHUB_TOKEN'));
-    assert.ok(secrets.some((s) => s.name === 'AWS_ACCESS_KEY_ID'));
-    assert.ok(secrets.some((s) => s.name === 'AWS_SECRET_ACCESS_KEY'));
+    expect(secrets.length).toBe(3);
+    expect(secrets.some((s) => s.name === 'GITHUB_TOKEN')).toBeTruthy();
+    expect(secrets.some((s) => s.name === 'AWS_ACCESS_KEY_ID')).toBeTruthy();
+    expect(secrets.some((s) => s.name === 'AWS_SECRET_ACCESS_KEY')).toBeTruthy();
   });
 });
 
@@ -93,7 +92,7 @@ describe('SecretMaskerファイル処理テスト', () => {
   const originalEnv = { ...process.env };
   let workflowDir: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリを作成
     workflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-999');
     await fs.ensureDir(workflowDir);
@@ -115,14 +114,14 @@ describe('SecretMaskerファイル処理テスト', () => {
     await fs.ensureDir(workflowDir);
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
     // 環境変数を復元
     process.env = originalEnv;
   });
 
-  it('2.2.1: agent_log_raw.txt内のシークレットをマスキング', async () => {
+  test('2.2.1: agent_log_raw.txt内のシークレットをマスキング', async () => {
     // Given: シークレットを含むファイル
     process.env.GITHUB_TOKEN = 'ghp_secret123456789';
     const testFile = path.join(workflowDir, '01_requirements', 'execute', 'agent_log_raw.txt');
@@ -137,15 +136,15 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: シークレットがマスキングされる
-    assert.equal(result.filesProcessed, 1);
-    assert.equal(result.secretsMasked, 2); // 2回出現
+    expect(result.filesProcessed).toBe(1);
+    expect(result.secretsMasked).toBe(2); // 2回出現
 
     const content = await fs.readFile(testFile, 'utf-8');
-    assert.ok(content.includes('[REDACTED_GITHUB_TOKEN]'));
-    assert.ok(!content.includes('ghp_secret123456789'));
+    expect(content.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
+    expect(!content.includes('ghp_secret123456789')).toBeTruthy();
   });
 
-  it('2.2.2: 複数ファイルの複数シークレットをマスキング', async () => {
+  test('2.2.2: 複数ファイルの複数シークレットをマスキング', async () => {
     // Given: 複数のシークレットと複数のファイル
     process.env.GITHUB_TOKEN = 'ghp_abc1234567890';
     process.env.OPENAI_API_KEY = 'sk-proj-xyz789';
@@ -164,18 +163,18 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: 両方のファイルがマスキングされる
-    assert.equal(result.filesProcessed, 2);
-    assert.equal(result.secretsMasked, 3); // file1に2回、file2に1回
+    expect(result.filesProcessed).toBe(2);
+    expect(result.secretsMasked).toBe(3); // file1に2回、file2に1回
 
     const content1 = await fs.readFile(file1, 'utf-8');
-    assert.ok(content1.includes('[REDACTED_GITHUB_TOKEN]'));
-    assert.ok(content1.includes('[REDACTED_OPENAI_API_KEY]'));
+    expect(content1.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
+    expect(content1.includes('[REDACTED_OPENAI_API_KEY]')).toBeTruthy();
 
     const content2 = await fs.readFile(file2, 'utf-8');
-    assert.ok(content2.includes('[REDACTED_OPENAI_API_KEY]'));
+    expect(content2.includes('[REDACTED_OPENAI_API_KEY]')).toBeTruthy();
   });
 
-  it('2.2.3: シークレットが含まれていない場合、ファイルを変更しない', async () => {
+  test('2.2.3: シークレットが含まれていない場合、ファイルを変更しない', async () => {
     // Given: シークレットを含まないファイル
     process.env.GITHUB_TOKEN = 'ghp_secret999';
 
@@ -189,14 +188,14 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: ファイルは処理されない
-    assert.equal(result.filesProcessed, 0);
-    assert.equal(result.secretsMasked, 0);
+    expect(result.filesProcessed).toBe(0);
+    expect(result.secretsMasked).toBe(0);
 
     const content = await fs.readFile(testFile, 'utf-8');
-    assert.equal(content, originalContent);
+    expect(content).toBe(originalContent);
   });
 
-  it('2.2.4: 環境変数が未設定の場合、何もマスキングしない', async () => {
+  test('2.2.4: 環境変数が未設定の場合、何もマスキングしない', async () => {
     // Given: 環境変数が未設定
     delete process.env.GITHUB_TOKEN;
     delete process.env.OPENAI_API_KEY;
@@ -210,11 +209,11 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: 何も処理されない
-    assert.equal(result.filesProcessed, 0);
-    assert.equal(result.secretsMasked, 0);
+    expect(result.filesProcessed).toBe(0);
+    expect(result.secretsMasked).toBe(0);
   });
 
-  it('2.2.5: ファイルが存在しない場合、エラーを返さない', async () => {
+  test('2.2.5: ファイルが存在しない場合、エラーを返さない', async () => {
     // Given: ファイルが存在しないディレクトリ
     process.env.GITHUB_TOKEN = 'ghp_test123456';
     const emptyDir = path.join(TEST_DIR, '.ai-workflow', 'issue-888');
@@ -225,12 +224,12 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(emptyDir);
 
     // Then: エラーなく完了
-    assert.equal(result.filesProcessed, 0);
-    assert.equal(result.secretsMasked, 0);
-    assert.equal(result.errors.length, 0);
+    expect(result.filesProcessed).toBe(0);
+    expect(result.secretsMasked).toBe(0);
+    expect(result.errors.length).toBe(0);
   });
 
-  it('2.2.6: prompt.txtファイルもマスキング対象', async () => {
+  test('2.2.6: prompt.txtファイルもマスキング対象', async () => {
     // Given: prompt.txtにシークレットが含まれる
     process.env.OPENAI_API_KEY = 'sk-test-key-12345678';
 
@@ -243,11 +242,11 @@ describe('SecretMaskerファイル処理テスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: prompt.txtがマスキングされる
-    assert.equal(result.filesProcessed, 1);
+    expect(result.filesProcessed).toBe(1);
 
     const content = await fs.readFile(testFile, 'utf-8');
-    assert.ok(content.includes('[REDACTED_OPENAI_API_KEY]'));
-    assert.ok(!content.includes('sk-test-key-12345678'));
+    expect(content.includes('[REDACTED_OPENAI_API_KEY]')).toBeTruthy();
+    expect(!content.includes('sk-test-key-12345678')).toBeTruthy();
   });
 });
 
@@ -258,11 +257,11 @@ describe('SecretMaskerエラーハンドリングテスト', () => {
     process.env = { ...originalEnv };
   });
 
-  after(() => {
+  afterAll(() => {
     process.env = originalEnv;
   });
 
-  it('2.3.1: 読み取り専用ファイルの場合、エラーを記録', async () => {
+  test('2.3.1: 読み取り専用ファイルの場合、エラーを記録', async () => {
     // Given: 読み取り専用ファイル (Windowsではfs.chmodが効かない場合があるのでスキップ)
     // このテストはLinux/Mac環境でのみ有効
     if (process.platform === 'win32') {
@@ -283,14 +282,14 @@ describe('SecretMaskerエラーハンドリングテスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(workflowDir);
 
     // Then: エラーが記録される
-    assert.ok(result.errors.length > 0);
+    expect(result.errors.length > 0).toBeTruthy();
 
     // Cleanup
     await fs.chmod(testFile, 0o644);
     await fs.remove(workflowDir);
   });
 
-  it('2.3.2: 存在しないディレクトリでもエラーを発生させない', async () => {
+  test('2.3.2: 存在しないディレクトリでもエラーを発生させない', async () => {
     // Given: 存在しないディレクトリ
     process.env.GITHUB_TOKEN = 'ghp_nonexistent';
     const nonExistentDir = path.join(TEST_DIR, 'nonexistent-dir');
@@ -300,7 +299,7 @@ describe('SecretMaskerエラーハンドリングテスト', () => {
     const result = await masker.maskSecretsInWorkflowDir(nonExistentDir);
 
     // Then: エラーなく完了
-    assert.equal(result.filesProcessed, 0);
-    assert.equal(result.errors.length, 0);
+    expect(result.filesProcessed).toBe(0);
+    expect(result.errors.length).toBe(0);
   });
 });
