@@ -105,6 +105,26 @@ export class GitManager {
     }
 
     const filesToCommit = Array.from(targetFiles);
+
+    // Issue #12: Mask secrets before commit
+    const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
+    try {
+      const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+      if (maskingResult.filesProcessed > 0) {
+        console.info(
+          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        );
+      }
+      if (maskingResult.errors.length > 0) {
+        console.warn(
+          `[WARNING] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        );
+      }
+    } catch (error) {
+      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      // Continue with commit (don't block)
+    }
+
     await this.git.add(filesToCommit);
     await this.ensureGitConfig();
 
