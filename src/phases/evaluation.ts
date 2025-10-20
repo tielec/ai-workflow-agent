@@ -105,15 +105,33 @@ export class EvaluationPhase extends BasePhase {
       .replace('{documentation_update_log_path}', relPaths.documentation)
       .replace('{report_document_path}', relPaths.report);
 
+    console.info(`[INFO] Phase ${this.phaseName}: Starting agent execution with maxTurns=50`);
+    console.info(`[INFO] Expected output file: ${path.join(this.outputDir, 'evaluation_report.md')}`);
+
     await this.executeWithAgent(executePrompt, { maxTurns: 50 });
 
+    console.info(`[INFO] Phase ${this.phaseName}: Agent execution completed`);
     const evaluationFile = path.join(this.outputDir, 'evaluation_report.md');
+    console.info(`[INFO] Checking for output file existence: ${evaluationFile}`);
+
     if (!fs.existsSync(evaluationFile)) {
+      // エージェントログのパスを取得
+      const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+      const agentLogExists = fs.existsSync(agentLogPath);
+
+      console.error(`[ERROR] Phase ${this.phaseName}: Output file not found: ${evaluationFile}`);
+      console.error(`[ERROR] Agent may not have called Write tool`);
+      console.error(`[ERROR] Agent log path: ${agentLogPath} (exists: ${agentLogExists})`);
+
       return {
         success: false,
         output: null,
         decision: null,
-        error: `evaluation_report.md が見つかりません: ${evaluationFile}`,
+        error: [
+          `evaluation_report.md が見つかりません: ${evaluationFile}`,
+          `エージェントが Write ツールを呼び出していない可能性があります。`,
+          `エージェントログを確認してください: ${agentLogPath}`,
+        ].join('\n'),
       };
     }
 
