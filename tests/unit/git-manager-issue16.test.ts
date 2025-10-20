@@ -59,7 +59,7 @@ describe('GitManager.commitWorkflowInit() - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    metadataManager = new MetadataManager(testRepoDir, 16);
+    metadataManager = new MetadataManager(metadataPath);
     gitManager = new GitManager(testRepoDir, metadataManager);
   });
 
@@ -181,7 +181,7 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    metadataManager = new MetadataManager(testRepoDir, 16);
+    metadataManager = new MetadataManager(metadataPath);
     gitManager = new GitManager(testRepoDir, metadataManager);
   });
 
@@ -382,7 +382,7 @@ describe('GitManager既存機能への影響検証 - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    metadataManager = new MetadataManager(testRepoDir, 16);
+    metadataManager = new MetadataManager(metadataPath);
     gitManager = new GitManager(testRepoDir, metadataManager);
   });
 

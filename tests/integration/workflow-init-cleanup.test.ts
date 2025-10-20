@@ -62,7 +62,7 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    const metadataManager = new MetadataManager(testRepoDir, 16);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
 
     const commitResult = await gitManager.commitWorkflowInit(16, 'ai-workflow/issue-16');
@@ -104,7 +104,7 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    const metadataManager = new MetadataManager(testRepoDir, 17);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
 
     // When: commitWorkflowInit を呼び出す
@@ -196,7 +196,7 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
     // Phase 1の実行ログを削除
     await fs.remove(path.join(reqDir, 'execute'));
 
-    const metadataManager = new MetadataManager(testRepoDir, 18);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
 
     const commitResult = await gitManager.commitCleanupLogs(18, 'report');
@@ -263,7 +263,7 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
     await fs.remove(path.join(planningDir, 'review'));
     await fs.remove(path.join(planningDir, 'revise'));
 
-    const metadataManager = new MetadataManager(testRepoDir, 19);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
     await gitManager.commitCleanupLogs(19, 'report');
 
@@ -344,7 +344,7 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
     await fs.remove(path.join(evalDir, 'review'));
     await fs.remove(path.join(evalDir, 'revise'));
 
-    const metadataManager = new MetadataManager(testRepoDir, 20);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
 
     const commitResult = await gitManager.commitCleanupLogs(20, 'evaluation');
@@ -423,7 +423,7 @@ describe('エンドツーエンドテスト - Issue #16', () => {
       created_at: new Date().toISOString(),
     });
 
-    const metadataManager = new MetadataManager(testRepoDir, 21);
+    const metadataManager = new MetadataManager(metadataPath);
     const gitManager = new GitManager(testRepoDir, metadataManager);
 
     const initResult = await gitManager.commitWorkflowInit(21, 'ai-workflow/issue-21');
@@ -431,7 +431,9 @@ describe('エンドツーエンドテスト - Issue #16', () => {
 
     // 初期化コミットを確認
     let log = await git.log(['-1', '--oneline']);
-    let commitOneLine = log.latest?.hash.substring(0, 7) + ' ' + log.latest?.message.split('\n')[0] ?? '';
+    const hash1 = log.latest?.hash.substring(0, 7) ?? '';
+    const msg1 = log.latest?.message.split('\n')[0] ?? '';
+    let commitOneLine = hash1 + ' ' + msg1;
     expect(commitOneLine).toContain('[ai-workflow] Initialize workflow for issue #21');
 
     // Step 2: Phase 1-8を順次実行（シミュレート）
@@ -465,7 +467,9 @@ describe('エンドツーエンドテスト - Issue #16', () => {
 
     // クリーンアップコミットを確認
     log = await git.log(['-1', '--oneline']);
-    commitOneLine = log.latest?.hash.substring(0, 7) + ' ' + log.latest?.message.split('\n')[0] ?? '';
+    const hash2 = log.latest?.hash.substring(0, 7) ?? '';
+    const msg2 = log.latest?.message.split('\n')[0] ?? '';
+    commitOneLine = hash2 + ' ' + msg2;
     expect(commitOneLine).toContain('[ai-workflow] Clean up workflow execution logs');
 
     // Step 4: ファイルシステムを確認
