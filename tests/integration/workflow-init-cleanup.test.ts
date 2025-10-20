@@ -72,10 +72,10 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
     expect(commitResult.commit_hash).not.toBeNull();
     expect(commitResult.files_committed.length).toBeGreaterThan(0);
 
-    // コミットメッセージを確認
+    // コミットメッセージを確認（bodyフィールドを使用）
     const log = await git.log(['-1']);
-    const commitMessage = log.latest?.message ?? '';
-    const commitSubject = log.latest?.message.split('\n')[0] ?? '';
+    const commitMessage = log.latest?.body ?? '';
+    const commitSubject = log.latest?.message ?? '';
 
     // 確認項目
     expect(commitSubject).toBe('[ai-workflow] Initialize workflow for issue #16');
@@ -205,10 +205,10 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
     expect(commitResult.success).toBe(true);
     expect(commitResult.commit_hash).not.toBeNull();
 
-    // コミットメッセージを確認
+    // コミットメッセージを確認（bodyフィールドを使用）
     const log = await git.log(['-1']);
-    const commitMessage = log.latest?.message ?? '';
-    const commitSubject = log.latest?.message.split('\n')[0] ?? '';
+    const commitMessage = log.latest?.body ?? '';
+    const commitSubject = log.latest?.message ?? '';
 
     // 確認項目
     expect(commitSubject).toBe('[ai-workflow] Clean up workflow execution logs');
@@ -353,9 +353,9 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
     expect(commitResult.success).toBe(true);
     expect(commitResult.commit_hash).not.toBeNull();
 
-    // コミットメッセージを確認
+    // コミットメッセージを確認（bodyフィールドを使用）
     const log = await git.log(['-1']);
-    const commitMessage = log.latest?.message ?? '';
+    const commitMessage = log.latest?.body ?? '';
 
     expect(commitMessage).toContain('[ai-workflow] Clean up workflow execution logs');
     expect(commitMessage).toContain('Issue: #20');
