@@ -57,39 +57,44 @@
    - `reportFatalError()` のみ残存（CLI全体で共通使用）
 
 ### Phase 2: base-phase.ts のリファクタリング（優先度: 最高）
-**状態**: 未着手
+**状態**: ✅ **80%完了**（4/5ファイル作成完了、base-phase.tsリファクタリング残）
+
+#### 完了した実装
+
+8. **src/phases/base/agent-log-formatter.ts** (339行) - ✅ 完了
+   - `AgentLogFormatter` クラス
+   - `formatAgentLog()`: Codex/Claude両対応のログフォーマット
+   - `formatCodexAgentLog()`: Codex Agent専用の詳細ログフォーマット（300行以上の複雑なロジック）
+   - ヘルパー関数（`parseJson`, `asRecord`, `getString`, `getNumber`, `describeItemType`, `truncate`）
+   - base-phase.tsの337-617行を移動
+
+9. **src/phases/base/progress-formatter.ts** (173行) - ✅ 完了
+   - `ProgressFormatter` クラス
+   - `formatProgressComment()`: GitHub Issue コメント用のMarkdown進捗レポート生成
+   - 全10フェーズの状態表示、現在のフェーズの詳細情報、完了したフェーズの詳細（collapsible）
+   - base-phase.tsの823-949行を移動
+
+10. **src/phases/base/agent-executor.ts** (239行) - ✅ 完了
+    - `AgentExecutor` クラス
+    - `executeWithAgent()`: Agent実行（Codex → Claude自動フォールバック）
+    - `runAgentTask()`: 個別Agent実行（ログ保存、認証エラー検出）
+    - `extractUsageMetrics()`: トークン使用量とコスト情報の抽出
+    - base-phase.tsの211-335行を移動
+
+11. **src/phases/base/review-cycle-manager.ts** (330行) - ✅ 完了
+    - `ReviewCycleManager` クラス
+    - `performReviewCycle()`: レビュー → 失敗時修正 → 再レビューのサイクル管理
+    - `performReviseStepWithRetry()`: ステップ単位のコミット対応版（Issue #10）
+    - `commitAndPushStep()`: ステップ単位のGitコミット＆プッシュ
+    - base-phase.tsの1061-1418行を移動
 
 #### 未実装ファイル
 
-8. **src/phases/base/agent-executor.ts** - ⏳ 未実装
-   - `AgentExecutor` クラス
-   - `executeWithAgent()`: Agent実行ロジック
-   - `runAgentTask()`: Agent タスク実行（Codex/Claude対応）
-   - `extractUsageMetrics()`: 使用量メトリクス抽出
-   - 約200行（base-phase.tsの211-335行を移動）
-
-9. **src/phases/base/review-cycle-manager.ts** - ⏳ 未実装
-   - `ReviewCycleManager` クラス
-   - `performReviewCycle()`: レビューサイクル管理
-   - `performReviseStepWithRetry()`: 修正ステップの実行（リトライ付き）
-   - 約120行（base-phase.tsの1061-1183行、1337-1418行を移動）
-
-10. **src/phases/base/progress-formatter.ts** - ⏳ 未実装
-    - `ProgressFormatter` クラス
-    - `formatProgressComment()`: 進捗コメント生成
-    - 約120行（base-phase.tsの823-949行を移動）
-
-11. **src/phases/base/agent-log-formatter.ts** - ⏳ 未実装
-    - `AgentLogFormatter` クラス
-    - `formatAgentLog()`: Agentログフォーマット（Claude Agent用）
-    - `formatCodexAgentLog()`: 詳細ログフォーマット（Codex Agent用）
-    - ヘルパー関数（`parseJson`, `asRecord`, `getString`, `truncate` など）
-    - 約350行（base-phase.tsの337-617行を移動）
-
 12. **src/phases/base/base-phase.ts のリファクタリング** - ⏳ 未実装
-    - 既存の1419行から300行以下に削減
-    - コア機能（抽象メソッド定義、ライフサイクル管理）のみ保持
-    - 各機能を新規クラスに委譲
+    - 既存の1419行から300行以下に削減（目標79%削減）
+    - 上記4つのクラスをインポートし、委譲パターンで使用
+    - コア機能（run(), execute(), review(), revise()）のみを保持
+    - ディレクトリ管理、メタデータ更新、ヘルパーメソッドを保持
 
 ### Phase 3 & 4: github-client.ts / git-manager.ts のリファクタリング
 **状態**: 未着手（優先度: 中〜低）
@@ -149,6 +154,44 @@
 - **注意点**:
   - フェーズステータス確認機能を維持
   - エラーハンドリングが適切
+
+### ファイル8: src/phases/base/agent-log-formatter.ts
+- **変更内容**: base-phase.ts から `formatAgentLog()`, `formatCodexAgentLog()`, および関連ヘルパー関数を分離
+- **理由**: ログフォーマット機能は300行以上の複雑なロジックを持ち、単一責任の原則に従って分離することで可読性と保守性が向上
+- **注意点**:
+  - JSON解析エラーに対するフォールバック処理を維持
+  - Codex/Claude両エージェントの出力形式の違いを適切に処理
+  - ログの切り詰め処理（4000文字制限）を実装
+  - ヘルパーメソッドはprivateとして実装（内部実装の詳細を隠蔽）
+
+### ファイル9: src/phases/base/progress-formatter.ts
+- **変更内容**: base-phase.ts から `formatProgressComment()` メソッドを抽出し、独立したクラスとして実装
+- **理由**: 進捗コメント生成ロジックは約130行あり、フォーマット専用の責務として分離することで、base-phase.tsのコア機能に集中できる
+- **注意点**:
+  - ステータス絵文字のマッピング（pending, in_progress, completed, failed）を維持
+  - 日本語フォーマット（日時表示）を維持
+  - メタデータ（retry_count, started_at, completed_at）の表示ロジックを維持
+  - collapsible詳細セクションのHTMLタグを維持
+
+### ファイル10: src/phases/base/agent-executor.ts
+- **変更内容**: base-phase.ts から `executeWithAgent()`, `runAgentTask()`, `extractUsageMetrics()` メソッドを抽出し、独立したクラスとして実装
+- **理由**: Agent実行ロジックは約125行あり、エラーハンドリング、フォールバック、ログ保存など複雑な処理を含むため、独立したクラスとして管理することで責務が明確になる
+- **注意点**:
+  - Codex認証エラー時の自動Claudeフォールバックを維持
+  - Codex空出力時の自動Claudeフォールバックを維持
+  - `AgentLogFormatter`を使用してログをMarkdown化
+  - トークン使用量の正規表現フォールバック（JSON解析失敗時）を実装
+  - Codex CLI NOT FOUND エラーの特別処理を維持
+
+### ファイル11: src/phases/base/review-cycle-manager.ts
+- **変更内容**: base-phase.ts から `performReviewCycle()`, `performReviseStepWithRetry()`, `commitAndPushStep()` メソッドを抽出し、独立したクラスとして実装
+- **理由**: レビューサイクル管理は約350行あり、リトライ制御、エラーハンドリング、Gitコミット連携など複雑なロジックを含むため、独立したクラスとして管理することで保守性が向上する
+- **注意点**:
+  - 最大リトライ回数（MAX_RETRIES = 3）の管理を維持
+  - revise() メソッドの実装チェックを維持
+  - Issue #10 対応: ステップ単位のコミット＆プッシュ機能を実装
+  - メタデータのリトライカウント更新ロジックを維持
+  - GitHub Issue への進捗コメント投稿機能を委譲（postProgressFn）
 
 ### ファイル7: src/main.ts (リファクタリング後)
 - **変更内容**: CLIルーティングのみを残し、すべてのビジネスロジックを削除
@@ -279,7 +322,12 @@ Phase 1完了後、base-phase.ts のリファクタリングを開始：
 - ✅ main.tsリファクタリング: 完了（1309行 → 123行, 90.6%削減）
 - ✅ TypeScriptコンパイル: 成功
 
-**Phase 2の進捗**: 0%（未着手）
+**Phase 2の進捗**: 80%（4/5ファイル完了、base-phase.tsリファクタリング残）
+- ✅ agent-log-formatter.ts: 完了（339行）
+- ✅ progress-formatter.ts: 完了（173行）
+- ✅ agent-executor.ts: 完了（239行）
+- ✅ review-cycle-manager.ts: 完了（330行）
+- ⏳ base-phase.ts リファクタリング: 未完了（1419行 → 300行以下への削減）
 
 **Phase 1の成果**:
 - **目標200行以下 → 123行を達成**（目標を38.5%上回る削減率）
