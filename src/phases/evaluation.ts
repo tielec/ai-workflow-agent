@@ -19,7 +19,38 @@ export class EvaluationPhase extends BasePhase {
     // 親クラスの run() を実行（execute + review cycle）
     const success = await super.run(options);
 
-    // 全ての処理が成功した場合のみ、クリーンアップを実行（Issue #2）
+    // すべての処理が成功し、かつ --cleanup-on-complete 未指定の場合、ログをクリーンアップ（Issue #16）
+    if (success && !options.cleanupOnComplete) {
+      const gitManager = options.gitManager ?? null;
+      const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+
+      try {
+        await this.cleanupWorkflowLogs(issueNumber);
+        console.info('[INFO] Workflow logs cleaned up successfully.');
+
+        // ログクリーンナップによる削除をコミット・プッシュ（Issue #16）
+        if (gitManager) {
+          const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'evaluation');
+
+          if (!commitResult.success) {
+            throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
+          }
+
+          const pushResult = await gitManager.pushToRemote();
+          if (!pushResult.success) {
+            throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
+          }
+
+          console.info('[INFO] Cleanup changes committed and pushed.');
+        }
+      } catch (error) {
+        const message = (error as Error).message ?? String(error);
+        console.warn(`[WARNING] Failed to cleanup workflow logs: ${message}`);
+        // クリーンアップ失敗時もワークフロー全体は成功として扱う（Report Phaseと同じパターン）
+      }
+    }
+
+    // オプションが指定されている場合は、ワークフロー全体を削除（Issue #2）
     if (success && options.cleanupOnComplete) {
       const gitManager = options.gitManager ?? null;
       const force = options.cleanupOnCompleteForce ?? false;
@@ -388,5 +419,60 @@ export class EvaluationPhase extends BasePhase {
       .split('_')
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' ');
+  }
+
+  /**
+   * ワークフローログをクリーンアップ（Issue #16）
+   * Report Phaseと同じパターンで、すべてのフェーズ（00-09）の実行ログを削除
+   */
+  private async cleanupWorkflowLogs(issueNumber: number): Promise<void> {
+    const baseDir = path.resolve(this.metadata.workflowDir, '..', `issue-${issueNumber}`);
+
+    // すべてのフェーズ（00-09）の実行ログを削除
+    const phaseDirectories = [
+      '00_planning',
+      '01_requirements',
+      '02_design',
+      '03_test_scenario',
+      '04_implementation',
+      '05_test_implementation',
+      '06_testing',
+      '07_documentation',
+      '08_report',
+      '09_evaluation',
+    ];
+
+    const targetSubdirs = ['execute', 'review', 'revise'];
+
+    let deletedCount = 0;
+    let skippedCount = 0;
+
+    for (const phaseDir of phaseDirectories) {
+      const phasePath = path.join(baseDir, phaseDir);
+
+      if (!fs.existsSync(phasePath)) {
+        skippedCount++;
+        continue;
+      }
+
+      for (const subdir of targetSubdirs) {
+        const subdirPath = path.join(phasePath, subdir);
+
+        if (fs.existsSync(subdirPath)) {
+          try {
+            fs.removeSync(subdirPath);
+            deletedCount++;
+            console.info(`[INFO] Deleted: ${path.relative(baseDir, subdirPath)}`);
+          } catch (error) {
+            const message = (error as Error).message ?? String(error);
+            console.warn(`[WARNING] Failed to delete ${subdirPath}: ${message}`);
+          }
+        }
+      }
+    }
+
+    console.info(
+      `[INFO] Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
+    );
   }
 }
