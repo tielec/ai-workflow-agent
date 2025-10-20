@@ -155,14 +155,14 @@
 
 ### Phase 3: テストシナリオ (見積もり: 4~6h)
 
-- [ ] Task 3-1: main.ts リファクタリング後のテストシナリオ作成 (1~2h)
+- [x] Task 3-1: main.ts リファクタリング後のテストシナリオ作成 (1~2h)
   - InitCommand, ExecuteCommand の単体テスト
   - branchValidator, repoResolver の単体テスト
   - 既存の `branch-validation.test.ts`, `repository-resolution.test.ts` の修正内容を定義
-- [ ] Task 3-2: base-phase.ts リファクタリング後のテストシナリオ作成 (2~3h)
+- [x] Task 3-2: base-phase.ts リファクタリング後のテストシナリオ作成 (2~3h)
   - AgentExecutor, ReviewCycleManager の単体テスト
   - 既存の `step-management.test.ts`, `base-phase-optional-context.test.ts` の修正内容を定義
-- [ ] Task 3-3: 統合テストシナリオの確認 (1~1h)
+- [x] Task 3-3: 統合テストシナリオの確認 (1~1h)
   - 既存の7ファイルの統合テストが、リファクタリング後も動作することを確認
   - `preset-execution.test.ts`, `multi-repo-workflow.test.ts` の修正内容を定義
 
@@ -345,9 +345,9 @@ graph TD
 
 ### Phase 3: テストシナリオ
 
-- [ ] 新規クラスに対するテストシナリオが定義されている
-- [ ] 既存テストの修正内容が明確に定義されている
-- [ ] 統合テストの修正内容が明確に定義されている
+- [x] 新規クラスに対するテストシナリオが定義されている
+- [x] 既存テストの修正内容が明確に定義されている
+- [x] 統合テストの修正内容が明確に定義されている
 
 ### Phase 4: 実装
 
