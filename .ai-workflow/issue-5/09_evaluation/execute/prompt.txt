@@ -4,14 +4,22 @@
 
 ## コンテキスト
 
-- **Issue**: #{issue_number} - {issue_title}
-- **リポジトリ**: {repo_name}
-- **ブランチ**: {branch_name}
-- **ワークフローディレクトリ**: {workflow_dir}
+- **Issue**: #5 - Issue #5
+- **リポジトリ**: tielec/ai-workflow-agent
+- **ブランチ**: ai-workflow/issue-5
+- **ワークフローディレクトリ**: /tmp/jenkins-98becc80/workspace/AI_Workflow/ai_workflow_orchestrator/.ai-workflow/issue-5
 
 ## 評価対象のフェーズ成果物
 
-{phase_outputs}
+- **Planning**: @.ai-workflow/issue-5/00_planning/output/planning.md
+- **Requirements**: @.ai-workflow/issue-5/01_requirements/output/requirements.md
+- **Design**: @.ai-workflow/issue-5/02_design/output/design.md
+- **Test Scenario**: @.ai-workflow/issue-5/03_test_scenario/output/test-scenario.md
+- **Implementation**: @.ai-workflow/issue-5/04_implementation/output/implementation.md
+- **Test Implementation**: @.ai-workflow/issue-5/05_test_implementation/output/test-implementation.md
+- **Testing**: @.ai-workflow/issue-5/06_testing/output/test-result.md
+- **Documentation**: @.ai-workflow/issue-5/07_documentation/output/documentation-update-log.md
+- **Report**: @.ai-workflow/issue-5/08_report/output/report.md
 
 ## 評価基準
 
