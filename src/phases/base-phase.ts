@@ -132,45 +132,65 @@ export abstract class BasePhase {
     this.updatePhaseStatus('in_progress');
     await this.postProgress('in_progress', `${this.phaseName} フェーズを開始します。`);
 
-    let currentOutputFile: string | null = null;
-
     try {
-      console.info(`[INFO] Phase ${this.phaseName}: Starting execute...`);
-      const executeResult = await this.execute();
-      if (!executeResult.success) {
-        console.error(`[ERROR] Phase ${this.phaseName}: Execute failed: ${executeResult.error ?? 'Unknown error'}`);
-        await this.handleFailure(executeResult.error ?? 'Unknown execute error');
-        return false;
-      }
-      console.info(`[INFO] Phase ${this.phaseName}: Execute completed successfully`);
+      // Execute Step (Issue #10: ステップ単位のコミット＆レジューム)
+      const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+      if (!completedSteps.includes('execute')) {
+        console.info(`[INFO] Phase ${this.phaseName}: Starting execute step...`);
+        this.metadata.updateCurrentStep(this.phaseName, 'execute');
 
-      currentOutputFile = executeResult.output ?? null;
-
-      let reviewResult: PhaseExecutionResult | null = null;
-      if (!options.skipReview && (await this.shouldRunReview())) {
-        console.info(`[INFO] Phase ${this.phaseName}: Starting review cycle (max retries: ${MAX_RETRIES})...`);
-        const reviewOutcome = await this.performReviewCycle(currentOutputFile, MAX_RETRIES);
-        if (!reviewOutcome.success) {
-          console.error(`[ERROR] Phase ${this.phaseName}: Review cycle failed: ${reviewOutcome.error ?? 'Unknown error'}`);
-          await this.handleFailure(reviewOutcome.error ?? 'Review failed');
+        const executeResult = await this.execute();
+        if (!executeResult.success) {
+          console.error(`[ERROR] Phase ${this.phaseName}: Execute failed: ${executeResult.error ?? 'Unknown error'}`);
+          await this.handleFailure(executeResult.error ?? 'Unknown execute error');
           return false;
         }
-        console.info(`[INFO] Phase ${this.phaseName}: Review cycle completed successfully`);
-        reviewResult = reviewOutcome.reviewResult;
-        currentOutputFile = reviewOutcome.outputFile ?? currentOutputFile;
+
+        console.info(`[INFO] Phase ${this.phaseName}: Execute completed successfully`);
+
+        // Commit & Push after execute (Issue #10)
+        if (gitManager) {
+          await this.commitAndPushStep(gitManager, 'execute');
+        }
+
+        this.metadata.addCompletedStep(this.phaseName, 'execute');
+      } else {
+        console.info(`[INFO] Phase ${this.phaseName}: Skipping execute step (already completed)`);
+      }
+
+      // Review Step (if enabled)
+      if (!options.skipReview && (await this.shouldRunReview())) {
+        const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+        if (!completedSteps.includes('review')) {
+          console.info(`[INFO] Phase ${this.phaseName}: Starting review step...`);
+          this.metadata.updateCurrentStep(this.phaseName, 'review');
+
+          const reviewResult = await this.review();
+          if (!reviewResult.success) {
+            console.warn(`[WARNING] Phase ${this.phaseName}: Review failed: ${reviewResult.error ?? 'Unknown error'}`);
+
+            // Revise Step (if review failed) - Issue #10
+            await this.performReviseStepWithRetry(gitManager, reviewResult);
+          } else {
+            console.info(`[INFO] Phase ${this.phaseName}: Review completed successfully`);
+
+            // Commit & Push after review (Issue #10)
+            if (gitManager) {
+              await this.commitAndPushStep(gitManager, 'review');
+            }
+
+            this.metadata.addCompletedStep(this.phaseName, 'review');
+          }
+        } else {
+          console.info(`[INFO] Phase ${this.phaseName}: Skipping review step (already completed)`);
+        }
       } else {
         console.info(`[INFO] Phase ${this.phaseName}: Skipping review (skipReview=${options.skipReview})`);
       }
 
-      this.updatePhaseStatus('completed', {
-        reviewResult: reviewResult?.output ?? null,
-        outputFile: currentOutputFile ?? undefined,
-      });
+      // フェーズ完了
+      this.updatePhaseStatus('completed');
       await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
-
-      if (gitManager) {
-        await this.autoCommitAndPush(gitManager, reviewResult?.output ?? null);
-      }
 
       return true;
     } catch (error) {
@@ -1247,5 +1267,153 @@ export abstract class BasePhase {
     if (metrics.inputTokens > 0 || metrics.outputTokens > 0 || metrics.totalCostUsd > 0) {
       this.metadata.addCost(metrics.inputTokens, metrics.outputTokens, metrics.totalCostUsd);
     }
+  }
+
+  /**
+   * Issue #10: フェーズ番号を整数で取得
+   */
+  private getPhaseNumberInt(phase: PhaseName): number {
+    const phaseOrder: PhaseName[] = [
+      'planning',
+      'requirements',
+      'design',
+      'test_scenario',
+      'implementation',
+      'test_implementation',
+      'testing',
+      'documentation',
+      'report',
+      'evaluation',
+    ];
+    return phaseOrder.indexOf(phase);
+  }
+
+  /**
+   * Issue #10: ステップ単位のコミット＆プッシュ
+   */
+  private async commitAndPushStep(
+    gitManager: GitManager,
+    step: 'execute' | 'review' | 'revise'
+  ): Promise<void> {
+    const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+    const phaseNumber = this.getPhaseNumberInt(this.phaseName);
+
+    console.info(`[INFO] Phase ${this.phaseName}: Committing ${step} step...`);
+
+    const commitResult = await gitManager.commitStepOutput(
+      this.phaseName,
+      phaseNumber,
+      step,
+      issueNumber,
+      this.workingDir
+    );
+
+    if (!commitResult.success) {
+      throw new Error(`Git commit failed for step ${step}: ${commitResult.error ?? 'unknown error'}`);
+    }
+
+    console.info(`[INFO] Phase ${this.phaseName}: Pushing ${step} step to remote...`);
+
+    try {
+      const pushResult = await gitManager.pushToRemote(3); // 最大3回リトライ
+      if (!pushResult.success) {
+        throw new Error(`Git push failed for step ${step}: ${pushResult.error ?? 'unknown error'}`);
+      }
+      console.info(`[INFO] Phase ${this.phaseName}: Step ${step} pushed successfully`);
+    } catch (error) {
+      // プッシュ失敗時の処理
+      console.error(`[ERROR] Phase ${this.phaseName}: Failed to push step ${step}: ${(error as Error).message}`);
+
+      // current_stepを維持（次回レジューム時に同じステップを再実行）
+      this.metadata.updateCurrentStep(this.phaseName, step);
+
+      throw error;
+    }
+  }
+
+  /**
+   * Issue #10: Reviseステップの実行（リトライ付き）
+   */
+  private async performReviseStepWithRetry(
+    gitManager: GitManager | null,
+    initialReviewResult: PhaseExecutionResult
+  ): Promise<void> {
+    const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+
+    // reviseステップが既に完了している場合はスキップ
+    if (completedSteps.includes('revise')) {
+      console.info(`[INFO] Phase ${this.phaseName}: Skipping revise step (already completed)`);
+      return;
+    }
+
+    let retryCount = 0;
+    let reviewResult = initialReviewResult;
+
+    while (retryCount < MAX_RETRIES) {
+      console.info(`[INFO] Phase ${this.phaseName}: Starting revise step (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+      this.metadata.updateCurrentStep(this.phaseName, 'revise');
+
+      // Increment retry count in metadata
+      const currentRetryCount = this.metadata.incrementRetryCount(this.phaseName);
+      await this.postProgress(
+        'in_progress',
+        `レビュー不合格のため修正を実施します（${currentRetryCount}/${MAX_RETRIES}回目）。`,
+      );
+
+      const feedback = reviewResult.error ?? 'レビューで不合格となりました。';
+
+      // Get revise function
+      const reviseFn = this.getReviseFunction();
+      if (!reviseFn) {
+        console.error(`[ERROR] Phase ${this.phaseName}: revise() method not implemented.`);
+        throw new Error('revise() method not implemented');
+      }
+
+      // Execute revise
+      const reviseResult = await reviseFn(feedback);
+      if (!reviseResult.success) {
+        console.error(`[ERROR] Phase ${this.phaseName}: Revise failed: ${reviseResult.error ?? 'Unknown error'}`);
+        throw new Error(reviseResult.error ?? 'Revise failed');
+      }
+
+      console.info(`[INFO] Phase ${this.phaseName}: Revise completed successfully`);
+
+      // Commit & Push after revise (Issue #10)
+      if (gitManager) {
+        await this.commitAndPushStep(gitManager, 'revise');
+      }
+
+      this.metadata.addCompletedStep(this.phaseName, 'revise');
+
+      // Re-run review after revise
+      console.info(`[INFO] Phase ${this.phaseName}: Re-running review after revise...`);
+      reviewResult = await this.review();
+
+      if (reviewResult.success) {
+        console.info(`[INFO] Phase ${this.phaseName}: Review passed after revise`);
+
+        // Mark review as completed
+        this.metadata.addCompletedStep(this.phaseName, 'review');
+
+        // Commit & Push after successful review (Issue #10)
+        if (gitManager) {
+          await this.commitAndPushStep(gitManager, 'review');
+        }
+
+        return;
+      }
+
+      console.warn(`[WARNING] Phase ${this.phaseName}: Review still failed after revise (attempt ${retryCount + 1})`);
+
+      // Clear revise from completed steps to allow retry
+      const steps = this.metadata.getCompletedSteps(this.phaseName).filter(s => s !== 'revise');
+      this.metadata.data.phases[this.phaseName].completed_steps = steps;
+
+      retryCount++;
+    }
+
+    // Max retries reached
+    console.error(`[ERROR] Phase ${this.phaseName}: Max revise retries (${MAX_RETRIES}) reached`);
+    throw new Error(`Review failed after ${MAX_RETRIES} revise attempts`);
   }
 }
