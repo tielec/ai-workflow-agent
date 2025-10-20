@@ -10,8 +10,7 @@
  * このテストでは、同等のロジックを再現してテストします。
  */
 
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect } from '@jest/globals';
 import {
   PHASE_PRESETS,
   DEPRECATED_PRESETS,
@@ -55,7 +54,7 @@ function resolvePresetName(presetName: string): {
 }
 
 describe('resolvePresetName関数テスト', () => {
-  it('1.2.1: 現行プリセット名の解決（正常系）', () => {
+  test('1.2.1: 現行プリセット名の解決（正常系）', () => {
     // Given: 現行プリセット名
     const presetName = 'quick-fix';
 
@@ -63,11 +62,11 @@ describe('resolvePresetName関数テスト', () => {
     const result = resolvePresetName(presetName);
 
     // Then: 警告なしで解決される
-    assert.equal(result.resolvedName, 'quick-fix');
-    assert.equal(result.warning, undefined);
+    expect(result.resolvedName).toBe('quick-fix');
+    expect(result.warning).toBe(undefined);
   });
 
-  it('1.2.2: 非推奨プリセット名の解決（警告付き）', () => {
+  test('1.2.2: 非推奨プリセット名の解決（警告付き）', () => {
     // Given: 非推奨プリセット名
     const presetName = 'requirements-only';
 
@@ -75,14 +74,14 @@ describe('resolvePresetName関数テスト', () => {
     const result = resolvePresetName(presetName);
 
     // Then: 新プリセット名に解決され、警告が表示される
-    assert.equal(result.resolvedName, 'review-requirements');
-    assert.ok(result.warning);
-    assert.ok(result.warning.includes('deprecated'));
-    assert.ok(result.warning.includes('review-requirements'));
-    assert.ok(result.warning.includes('6 months'));
+    expect(result.resolvedName).toBe('review-requirements');
+    expect(result.warning).toBeTruthy();
+    expect(result.warning?.includes('deprecated')).toBeTruthy();
+    expect(result.warning?.includes('review-requirements')).toBeTruthy();
+    expect(result.warning?.includes('6 months')).toBeTruthy();
   });
 
-  it('1.2.2-2: 非推奨プリセット名（design-phase）の解決', () => {
+  test('1.2.2-2: 非推奨プリセット名（design-phase）の解決', () => {
     // Given: 非推奨プリセット名
     const presetName = 'design-phase';
 
@@ -90,12 +89,12 @@ describe('resolvePresetName関数テスト', () => {
     const result = resolvePresetName(presetName);
 
     // Then: 新プリセット名に解決され、警告が表示される
-    assert.equal(result.resolvedName, 'review-design');
-    assert.ok(result.warning);
-    assert.ok(result.warning.includes('deprecated'));
+    expect(result.resolvedName).toBe('review-design');
+    expect(result.warning).toBeTruthy();
+    expect(result.warning?.includes('deprecated')).toBeTruthy();
   });
 
-  it('1.2.2-3: 非推奨プリセット名（implementation-phase）の解決', () => {
+  test('1.2.2-3: 非推奨プリセット名（implementation-phase）の解決', () => {
     // Given: 非推奨プリセット名
     const presetName = 'implementation-phase';
 
@@ -103,12 +102,12 @@ describe('resolvePresetName関数テスト', () => {
     const result = resolvePresetName(presetName);
 
     // Then: 新プリセット名に解決され、警告が表示される
-    assert.equal(result.resolvedName, 'implementation');
-    assert.ok(result.warning);
-    assert.ok(result.warning.includes('deprecated'));
+    expect(result.resolvedName).toBe('implementation');
+    expect(result.warning).toBeTruthy();
+    expect(result.warning?.includes('deprecated')).toBeTruthy();
   });
 
-  it('1.2.3: full-workflowプリセットの特殊処理', () => {
+  test('1.2.3: full-workflowプリセットの特殊処理', () => {
     // Given: full-workflowプリセット名
     const presetName = 'full-workflow';
 
@@ -116,35 +115,35 @@ describe('resolvePresetName関数テスト', () => {
     const result = resolvePresetName(presetName);
 
     // Then: 空文字列に解決され、--phase allへの移行メッセージが表示される
-    assert.equal(result.resolvedName, '');
-    assert.ok(result.warning);
-    assert.ok(result.warning.includes('--phase all'));
-    assert.ok(result.warning.includes('deprecated'));
+    expect(result.resolvedName).toBe('');
+    expect(result.warning).toBeTruthy();
+    expect(result.warning?.includes('--phase all')).toBeTruthy();
+    expect(result.warning?.includes('deprecated')).toBeTruthy();
   });
 
-  it('1.2.4: 存在しないプリセット名のエラー', () => {
+  test('1.2.4: 存在しないプリセット名のエラー', () => {
     // Given: 存在しないプリセット名
     const presetName = 'unknown-preset';
 
     // When/Then: エラーが投げられる
-    assert.throws(() => {
+    expect(() => {
       resolvePresetName(presetName);
-    }, /Unknown preset/);
+    }).toThrow(/Unknown preset/);
   });
 
-  it('1.2.4-2: 空文字列プリセット名のエラー', () => {
+  test('1.2.4-2: 空文字列プリセット名のエラー', () => {
     // Given: 空文字列
     const presetName = '';
 
     // When/Then: エラーが投げられる
-    assert.throws(() => {
+    expect(() => {
       resolvePresetName(presetName);
-    }, /Unknown preset/);
+    }).toThrow(/Unknown preset/);
   });
 });
 
 describe('プリセット一覧表示機能テスト', () => {
-  it('1.6.1: listPresets関数のロジック検証', () => {
+  test('1.6.1: listPresets関数のロジック検証', () => {
     // Given: PHASE_PRESETSとDEPRECATED_PRESETSが定義されている
     // When: プリセット一覧を生成
     const presetList: string[] = [];
@@ -160,47 +159,44 @@ describe('プリセット一覧表示機能テスト', () => {
     }
 
     // Then: プリセット一覧が正しく生成される
-    assert.ok(presetList.length > 0, 'プリセット一覧が空です');
-    assert.ok(deprecatedList.length > 0, '非推奨プリセット一覧が空です');
+    expect(presetList.length > 0).toBeTruthy();
+    expect(deprecatedList.length > 0).toBeTruthy();
 
     // 各プリセットに説明が含まれていることを確認
     for (const item of presetList) {
-      assert.ok(item.includes(':'), `プリセット項目にコロンが含まれていません: ${item}`);
-      assert.ok(item.includes('→'), `プリセット項目に→が含まれていません: ${item}`);
+      expect(item.includes(':')).toBeTruthy();
+      expect(item.includes('→')).toBeTruthy();
     }
 
     // 非推奨プリセットに移行先が含まれていることを確認
     for (const item of deprecatedList) {
-      assert.ok(item.includes('→'), `非推奨プリセット項目に→が含まれていません: ${item}`);
+      expect(item.includes('→')).toBeTruthy();
     }
   });
 
-  it('全プリセットに説明が存在する', () => {
+  test('全プリセットに説明が存在する', () => {
     // Given: PHASE_PRESETSが定義されている
     // When: 各プリセットの説明を確認
     // Then: 全てのプリセットに説明が存在する
     for (const presetName of Object.keys(PHASE_PRESETS)) {
-      assert.ok(
-        PRESET_DESCRIPTIONS[presetName],
-        `プリセット "${presetName}" の説明がPRESET_DESCRIPTIONSに存在しません`
-      );
+      expect(PRESET_DESCRIPTIONS[presetName]).toBeTruthy();
     }
   });
 });
 
 describe('プリセット名の境界値テスト', () => {
-  it('全ての現行プリセット名が解決できる', () => {
+  test('全ての現行プリセット名が解決できる', () => {
     // Given: PHASE_PRESETSの全キー
     // When: 各プリセット名を解決
     // Then: 全て警告なしで解決される
     for (const presetName of Object.keys(PHASE_PRESETS)) {
       const result = resolvePresetName(presetName);
-      assert.equal(result.resolvedName, presetName);
-      assert.equal(result.warning, undefined);
+      expect(result.resolvedName).toBe(presetName);
+      expect(result.warning).toBe(undefined);
     }
   });
 
-  it('全ての非推奨プリセット名が解決できる', () => {
+  test('全ての非推奨プリセット名が解決できる', () => {
     // Given: DEPRECATED_PRESETSの全キー
     // When: 各非推奨プリセット名を解決
     // Then: 全て新プリセット名に解決され、警告が表示される
@@ -209,14 +205,14 @@ describe('プリセット名の境界値テスト', () => {
 
       if (oldName === 'full-workflow') {
         // 特殊ケース
-        assert.equal(result.resolvedName, '');
-        assert.ok(result.warning);
-        assert.ok(result.warning.includes('--phase all'));
+        expect(result.resolvedName).toBe('');
+        expect(result.warning).toBeTruthy();
+        expect(result.warning?.includes('--phase all')).toBeTruthy();
       } else {
         // 通常ケース
-        assert.ok(result.resolvedName);
-        assert.ok(result.warning);
-        assert.ok(result.warning.includes('deprecated'));
+        expect(result.resolvedName).toBeTruthy();
+        expect(result.warning).toBeTruthy();
+        expect(result.warning?.includes('deprecated')).toBeTruthy();
       }
     }
   });

@@ -9,8 +9,7 @@
  * - セキュリティチェック（パストラバーサル、シンボリックリンク）
  */
 
-import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -29,7 +28,7 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
   let workflowDir: string;
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(async () => {
+  beforeAll(async () => {
     // 環境変数の元の値を保存
     originalEnv = { ...process.env };
 
@@ -78,7 +77,7 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
     // 環境変数を復元
@@ -90,7 +89,7 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
     delete process.env.CI;
   });
 
-  it('2.1.1: 正常系 - CI環境でディレクトリ削除成功', async () => {
+  test('2.1.1: 正常系 - CI環境でディレクトリ削除成功', async () => {
     // Given: CI環境（CI=true）
     process.env.CI = 'true';
 
@@ -106,14 +105,10 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
 
     // Then: ディレクトリが削除されている
     const exists = fs.existsSync(workflowDir);
-    assert.equal(
-      exists,
-      false,
-      'ワークフローディレクトリが削除されていません'
-    );
+    expect(exists).toBe(false);
   });
 
-  it('2.1.2: 正常系 - forceフラグで確認スキップ', async () => {
+  test('2.1.2: 正常系 - forceフラグで確認スキップ', async () => {
     // Given: 非CI環境、force=true
     delete process.env.CI;
 
@@ -129,14 +124,10 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
 
     // Then: 確認プロンプトなしで削除されている
     const exists = fs.existsSync(workflowDir);
-    assert.equal(
-      exists,
-      false,
-      'forceフラグ時にワークフローディレクトリが削除されていません'
-    );
+    expect(exists).toBe(false);
   });
 
-  it('2.1.5: 異常系 - ディレクトリが存在しない', async () => {
+  test('2.1.5: 異常系 - ディレクトリが存在しない', async () => {
     // Given: CI環境、ワークフローディレクトリが存在しない
     process.env.CI = 'true';
 
@@ -154,14 +145,10 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
     }
 
     // Then: エラーがスローされない（正常終了）
-    assert.equal(
-      error,
-      null,
-      `ディレクトリ不在時にエラーが発生しました: ${error?.message}`
-    );
+    expect(error).toBeNull();
   });
 
-  it('2.1.7: セキュリティ - パストラバーサル攻撃', async () => {
+  test('2.1.7: セキュリティ - パストラバーサル攻撃', async () => {
     // Given: 不正なパスを持つメタデータ
     process.env.CI = 'true';
 
@@ -205,22 +192,14 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
     }
 
     // Then: エラーがスローされる
-    assert.notEqual(
-      error,
-      null,
-      'パストラバーサル攻撃が防御されていません'
-    );
-    assert.match(
-      error?.message || '',
-      /Invalid workflow directory path/i,
-      'エラーメッセージが不正なパスを示していません'
-    );
+    expect(error).not.toBeNull();
+    expect(error?.message || '').toMatch(/Invalid workflow directory path/i);
 
     // クリーンアップ
     await fs.remove(maliciousMetadataPath);
   });
 
-  it('2.1.8: セキュリティ - シンボリックリンク攻撃', async () => {
+  test('2.1.8: セキュリティ - シンボリックリンク攻撃', async () => {
     // Given: シンボリックリンクのワークフローディレクトリ
     process.env.CI = 'true';
 
@@ -258,26 +237,12 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
     }
 
     // Then: エラーがスローされる
-    assert.notEqual(
-      error,
-      null,
-      'シンボリックリンク攻撃が防御されていません'
-    );
-    assert.match(
-      error?.message || '',
-      /symbolic link/i,
-      'エラーメッセージがシンボリックリンクを示していません'
-    );
+    expect(error).not.toBeNull();
+    expect(error?.message || '').toMatch(/symbolic link/i);
 
     // 実際のディレクトリは保護されている
-    assert.ok(
-      fs.existsSync(realDir),
-      '実際のディレクトリが削除されてしまいました'
-    );
-    assert.ok(
-      fs.existsSync(path.join(realDir, 'important-file.txt')),
-      '重要なファイルが削除されてしまいました'
-    );
+    expect(fs.existsSync(realDir)).toBeTruthy();
+    expect(fs.existsSync(path.join(realDir, 'important-file.txt'))).toBeTruthy();
 
     // クリーンアップ
     await fs.remove(symlinkPath);
@@ -291,7 +256,7 @@ describe('isCIEnvironment メソッドテスト', () => {
   let githubClient: GitHubClient;
   let dummyMetadataPath: string;
 
-  before(async () => {
+  beforeAll(async () => {
     originalEnv = { ...process.env };
 
     // ダミーのmetadata.jsonを作成
@@ -318,7 +283,7 @@ describe('isCIEnvironment メソッドテスト', () => {
     githubClient = new GitHubClient('test-token', 'test-owner/test-repo');
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(dummyMetadataPath);
     process.env = originalEnv;
   });
@@ -327,7 +292,7 @@ describe('isCIEnvironment メソッドテスト', () => {
     delete process.env.CI;
   });
 
-  it('2.2.1: CI環境判定 - CI=true', () => {
+  test('2.2.1: CI環境判定 - CI=true', () => {
     // Given: CI=true
     process.env.CI = 'true';
 
@@ -345,10 +310,10 @@ describe('isCIEnvironment メソッドテスト', () => {
     const result = (phase as any).isCIEnvironment();
 
     // Then: trueが返される
-    assert.equal(result, true, 'CI=true時にCI環境と判定されません');
+    expect(result).toBe(true);
   });
 
-  it('2.2.2: CI環境判定 - CI=1', () => {
+  test('2.2.2: CI環境判定 - CI=1', () => {
     // Given: CI=1
     process.env.CI = '1';
 
@@ -365,10 +330,10 @@ describe('isCIEnvironment メソッドテスト', () => {
     const result = (phase as any).isCIEnvironment();
 
     // Then: trueが返される
-    assert.equal(result, true, 'CI=1時にCI環境と判定されません');
+    expect(result).toBe(true);
   });
 
-  it('2.2.3: CI環境判定 - CI未設定', () => {
+  test('2.2.3: CI環境判定 - CI未設定', () => {
     // Given: CIが未設定
     delete process.env.CI;
 
@@ -385,10 +350,10 @@ describe('isCIEnvironment メソッドテスト', () => {
     const result = (phase as any).isCIEnvironment();
 
     // Then: falseが返される
-    assert.equal(result, false, 'CI未設定時にCI環境と判定されました');
+    expect(result).toBe(false);
   });
 
-  it('2.2.4: CI環境判定 - CI=false', () => {
+  test('2.2.4: CI環境判定 - CI=false', () => {
     // Given: CI=false
     process.env.CI = 'false';
 
@@ -405,7 +370,7 @@ describe('isCIEnvironment メソッドテスト', () => {
     const result = (phase as any).isCIEnvironment();
 
     // Then: falseが返される
-    assert.equal(result, false, 'CI=false時にCI環境と判定されました');
+    expect(result).toBe(false);
   });
 });
 
@@ -417,7 +382,7 @@ describe('エッジケーステスト', () => {
   let workflowDir: string;
   let originalEnv: NodeJS.ProcessEnv;
 
-  before(async () => {
+  beforeAll(async () => {
     originalEnv = { ...process.env };
     process.env.CI = 'true';
 
@@ -455,12 +420,12 @@ describe('エッジケーステスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
     process.env = originalEnv;
   });
 
-  it('3.1: 空のワークフローディレクトリも正しく削除される', async () => {
+  test('3.1: 空のワークフローディレクトリも正しく削除される', async () => {
     // Given: 空のワークフローディレクトリ
     await fs.ensureDir(workflowDir);
 
@@ -468,14 +433,10 @@ describe('エッジケーステスト', () => {
     await (evaluationPhase as any).cleanupWorkflowArtifacts(true);
 
     // Then: 空のディレクトリも削除される
-    assert.equal(
-      fs.existsSync(workflowDir),
-      false,
-      '空のワークフローディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(workflowDir)).toBe(false);
   });
 
-  it('3.2: ネストされたファイル構造も正しく削除される', async () => {
+  test('3.2: ネストされたファイル構造も正しく削除される', async () => {
     // Given: ネストされたファイル構造
     const nestedDir = path.join(workflowDir, '00_planning', 'output', 'deeply', 'nested');
     await fs.ensureDir(nestedDir);
@@ -492,14 +453,10 @@ describe('エッジケーステスト', () => {
     await (evaluationPhase as any).cleanupWorkflowArtifacts(true);
 
     // Then: ネストされた構造全体が削除される
-    assert.equal(
-      fs.existsSync(workflowDir),
-      false,
-      'ネストされたワークフローディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(workflowDir)).toBe(false);
   });
 
-  it('3.3: 冪等性 - 既に削除されているディレクトリに対して正常に動作する', async () => {
+  test('3.3: 冪等性 - 既に削除されているディレクトリに対して正常に動作する', async () => {
     // Given: ワークフローディレクトリが存在しない
     if (fs.existsSync(workflowDir)) {
       await fs.remove(workflowDir);
@@ -516,10 +473,6 @@ describe('エッジケーステスト', () => {
     }
 
     // Then: エラーが発生しない（冪等性）
-    assert.equal(
-      error,
-      null,
-      `2回目の呼び出しでエラーが発生しました: ${error?.message}`
-    );
+    expect(error).toBeNull();
   });
 });

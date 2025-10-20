@@ -198,6 +198,27 @@ ai-workflow execute --issue 2 --preset review-requirements
 
 各フェーズは `BasePhase` を継承し、メタデータ永続化、実行/レビューサイクル、エージェント制御、Git 自動コミットなど共通機能を利用します。
 
+### ステップ単位のGitコミット＆レジューム
+
+各フェーズは execute / review / revise の3つのステップで構成されており、**各ステップ完了後に自動的にGitコミット＆プッシュ**が実行されます（v0.3.0で追加）：
+
+**主な利点**:
+- **高速なレジューム**: 失敗したステップのみを再実行（フェーズ全体ではなく）
+- **トークン消費量の削減**: 完了済みステップのスキップにより、無駄なAPI呼び出しを防止
+- **CI/CD効率化**: Jenkins等のCI環境でワークスペースリセット後も、リモートから最新状態を取得して適切なステップから再開
+
+**Gitログの例**:
+```
+[ai-workflow] Phase 1 (requirements) - revise completed
+[ai-workflow] Phase 1 (requirements) - review completed
+[ai-workflow] Phase 1 (requirements) - execute completed
+```
+
+**レジューム動作**:
+- CI環境では各ビルド開始時にリモートブランチからメタデータを同期
+- `metadata.json` の `current_step` と `completed_steps` フィールドで進捗を管理
+- 完了済みステップは自動的にスキップされ、次のステップから再開
+
 ### ワークフローログの自動クリーンアップ
 
 Report Phase (Phase 8) 完了後、リポジトリサイズを削減するためにワークフローログが自動的にクリーンアップされます：
@@ -273,5 +294,5 @@ npx vitest
 
 ---
 
-**バージョン**: 0.2.0（TypeScript リライト版）
-**最終更新日**: 2025-01-16
+**バージョン**: 0.3.0（TypeScript リライト版）
+**最終更新日**: 2025-01-20

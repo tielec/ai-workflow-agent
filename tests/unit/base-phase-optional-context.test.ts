@@ -7,8 +7,7 @@
  * - ファイル不在時のフォールバックメッセージ生成
  */
 
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -26,7 +25,7 @@ describe('buildOptionalContext メソッドテスト', () => {
   let implementationPhase: ImplementationPhase;
   let testMetadataPath: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     const workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${TEST_ISSUE_NUMBER}`);
     await fs.ensureDir(workflowDir);
@@ -67,12 +66,12 @@ describe('buildOptionalContext メソッドテスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
 
-  it('1.3.1: ファイル存在時の参照生成', async () => {
+  test('1.3.1: ファイル存在時の参照生成', async () => {
     // Given: requirements.mdファイルが存在する
     const requirementsDir = path.join(
       TEST_DIR,
@@ -94,11 +93,11 @@ describe('buildOptionalContext メソッドテスト', () => {
     );
 
     // Then: @filepath形式の参照が返される
-    assert.ok(result.startsWith('@'), `結果が@で始まりません: ${result}`);
-    assert.ok(result.includes('requirements.md'), `結果にrequirements.mdが含まれていません: ${result}`);
+    expect(result.startsWith('@')).toBeTruthy();
+    expect(result.includes('requirements.md')).toBeTruthy();
   });
 
-  it('1.3.2: ファイル不在時のフォールバック', () => {
+  test('1.3.2: ファイル不在時のフォールバック', () => {
     // Given: design.mdファイルが存在しない
     // （ファイルは作成しない）
 
@@ -112,10 +111,10 @@ describe('buildOptionalContext メソッドテスト', () => {
     );
 
     // Then: フォールバックメッセージが返される
-    assert.equal(result, fallbackMessage);
+    expect(result).toBe(fallbackMessage);
   });
 
-  it('1.3.3: 複数ファイルのオプショナルコンテキスト構築（混在）', async () => {
+  test('1.3.3: 複数ファイルのオプショナルコンテキスト構築（混在）', async () => {
     // Given: requirements.mdは存在、design.mdは不在
     const requirementsDir = path.join(
       TEST_DIR,
@@ -144,11 +143,11 @@ describe('buildOptionalContext メソッドテスト', () => {
     );
 
     // Then: requirements.mdは@filepath、design.mdはフォールバック
-    assert.ok(requirementsContext.startsWith('@'), `requirements.mdが@参照ではありません: ${requirementsContext}`);
-    assert.equal(designContext, '設計書は利用できません。');
+    expect(requirementsContext.startsWith('@')).toBeTruthy();
+    expect(designContext).toBe('設計書は利用できません。');
   });
 
-  it('Issue番号を省略した場合、現在のIssue番号を使用', () => {
+  test('Issue番号を省略した場合、現在のIssue番号を使用', () => {
     // Given: Issue番号を省略
     // When: buildOptionalContextを呼び出す（Issue番号省略）
     const result = (implementationPhase as any).buildOptionalContext(
@@ -161,10 +160,7 @@ describe('buildOptionalContext メソッドテスト', () => {
     // Then: 現在のIssue番号（999）が使用される
     // ファイルが存在すればissue-999のパスを含む@参照が返される
     // ファイルが存在しなければフォールバックメッセージが返される
-    assert.ok(
-      result.startsWith('@') || result === '要件定義書は利用できません。',
-      `予期しない結果: ${result}`
-    );
+    expect(result.startsWith('@') || result === '要件定義書は利用できません。').toBeTruthy();
   });
 });
 
@@ -174,7 +170,7 @@ describe('getPhaseOutputFile メソッドテスト', () => {
   let implementationPhase: ImplementationPhase;
   let testMetadataPath: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     const workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${TEST_ISSUE_NUMBER}`);
     await fs.ensureDir(workflowDir);
@@ -215,12 +211,12 @@ describe('getPhaseOutputFile メソッドテスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
 
-  it('ファイルが存在する場合、ファイルパスを返す', async () => {
+  test('ファイルが存在する場合、ファイルパスを返す', async () => {
     // Given: planning.mdファイルが存在する
     const planningDir = path.join(
       TEST_DIR,
@@ -241,11 +237,11 @@ describe('getPhaseOutputFile メソッドテスト', () => {
     );
 
     // Then: ファイルパスが返される
-    assert.ok(result);
-    assert.ok(result.includes('planning.md'));
+    expect(result).toBeTruthy();
+    expect(result?.includes('planning.md')).toBeTruthy();
   });
 
-  it('ファイルが存在しない場合、nullを返す', () => {
+  test('ファイルが存在しない場合、nullを返す', () => {
     // Given: test_scenario.mdファイルが存在しない
 
     // When: getPhaseOutputFileを呼び出す
@@ -256,6 +252,6 @@ describe('getPhaseOutputFile メソッドテスト', () => {
     );
 
     // Then: nullが返される
-    assert.equal(result, null);
+    expect(result).toBeNull();
   });
 });
