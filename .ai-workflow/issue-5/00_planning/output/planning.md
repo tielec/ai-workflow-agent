@@ -118,12 +118,12 @@
 
 ### Phase 4: 実装 (見積もり: 2~3h)
 
-- [ ] Task 4-1: evaluation/execute.txt の修正 (1~1.5h)
+- [x] Task 4-1: evaluation/execute.txt の修正 (1~1.5h)
   - プロンプト末尾に明示的な保存ステップを追加
   - Write ツール使用の明示化
   - 保存必須の強調（"重要: このファイルが存在しない場合、フェーズは失敗します"）
 
-- [ ] Task 4-2: evaluation.ts の改善（任意） (0.5~1h)
+- [x] Task 4-2: evaluation.ts の改善（任意） (0.5~1h)
   - executeWithAgent() のオプション調整（maxTurns の見直し）
   - ファイル存在チェックのエラーメッセージ改善
   - デバッグログの追加（エージェントの動作トレース）
