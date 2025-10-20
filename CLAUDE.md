@@ -79,9 +79,11 @@ node dist/index.js list-presets
 5. **フェーズ実行**: `BasePhase.run()` による順次実行:
    - 依存関係検証
    - `execute()`: エージェントで成果物を生成
+     - **Git コミット & プッシュ** (v0.3.0で追加)
    - `review()`: 出力を検証（オプション）
+     - **Git コミット & プッシュ** (v0.3.0で追加)
    - `revise()`: 自動修正サイクル（最大 3 回まで）
-   - Git コミット & プッシュ（`gitManager` が提供されている場合）
+     - **Git コミット & プッシュ** (v0.3.0で追加)
 
 ### コアモジュール
 
@@ -141,7 +143,7 @@ node dist/index.js list-presets
 
 ```
 .ai-workflow/issue-<NUM>/
-├── metadata.json              # WorkflowState（フェーズステータス、コスト、target_repository など）
+├── metadata.json              # WorkflowState（フェーズステータス、ステップ進捗、コスト、target_repository など）
 ├── 00_planning/
 │   ├── execute/agent_log_raw.txt
 │   ├── execute/prompt.txt
@@ -150,6 +152,27 @@ node dist/index.js list-presets
 ├── 01_requirements/...
 └── ...
 ```
+
+### ステップ単位の進捗管理（v0.3.0）
+
+各フェーズのメタデータには、ステップ単位の進捗情報が記録されます：
+
+```json
+{
+  "phases": {
+    "requirements": {
+      "status": "in_progress",
+      "current_step": "review",
+      "completed_steps": ["execute"],
+      "retry_count": 0
+    }
+  }
+}
+```
+
+- **`current_step`**: 現在実行中のステップ（'execute' | 'review' | 'revise' | null）
+- **`completed_steps`**: 完了済みステップの配列
+- **レジューム動作**: 完了済みステップは自動的にスキップされ、`current_step` または次の未完了ステップから再開
 
 ### ワークフローログクリーンアップ
 

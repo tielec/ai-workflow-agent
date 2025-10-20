@@ -50,10 +50,22 @@ CLI (src/main.ts)
 
 1. **依存関係チェック** … `validatePhaseDependencies` で前工程が完了しているか確認（フラグで無効化可能）。
 2. **execute()** … プロンプトを整形しエージェントを呼び出して成果物を生成。
+   - **Git自動コミット** … execute完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 3. **review()（任意）** … レビュープロンプトを実行し、`ContentParser` で PASS / FAIL を判定。必要に応じてフィードバックを GitHub に投稿。
+   - **Git自動コミット** … review完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 4. **revise()（任意）** … レビュー失敗時に最大 3 回まで自動修正サイクルを実行。
+   - **Git自動コミット** … revise完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 5. **メタデータ更新** … フェーズ状態、出力ファイル、コスト、Git コミット情報などを更新。
 6. **進捗コメント** … `GitHubClient` を通じて Issue へ進捗コメントを投稿・更新。
+
+### ステップ単位のGitコミット（v0.3.0）
+
+各ステップ（execute/review/revise）の完了後に自動的にGitコミット＆プッシュが実行されます：
+
+- **コミットメッセージ形式**: `[ai-workflow] Phase {number} ({name}) - {step} completed`
+- **メタデータ管理**: `metadata.json` に `current_step` と `completed_steps` フィールドを追加
+- **レジューム機能**: 完了済みステップは自動的にスキップされ、失敗したステップのみ再実行
+- **CI環境対応**: リモートブランチからメタデータを同期し、ワークスペースリセット後も適切なステップから再開
 
 ## エージェントの選択
 
@@ -117,6 +129,8 @@ CLI (src/main.ts)
 `metadata.json` には以下を記録します。
 
 - `phases.*.status` … `pending | in_progress | completed | failed`
+- `phases.*.current_step` … 現在実行中のステップ（'execute' | 'review' | 'revise' | null）（v0.3.0 で追加）
+- `phases.*.completed_steps` … 完了済みステップの配列（v0.3.0 で追加）
 - `retry_count` … revise 実行回数
 - `output_files` … 生成成果物のパス
 - `design_decisions` … 設計フェーズでの意思決定ログ

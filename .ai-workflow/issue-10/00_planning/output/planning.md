@@ -256,17 +256,17 @@
 
 ### Phase 7: ドキュメント (見積もり: 2~3h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (1~1.5h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (1~1.5h)
   - ステップ管理機能のアーキテクチャ説明を追加
   - メタデータスキーマの更新内容を記載
   - レジューム機能のフロー図を追加
 
-- [ ] Task 7-2: CLAUDE.md の更新 (0.5~1h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.5~1h)
   - CLI オプションの更新（該当なし）
   - Git コミット動作の説明を更新
   - レジューム機能の説明を更新
 
-- [ ] Task 7-3: README.md の更新 (0.5~0.5h)
+- [x] Task 7-3: README.md の更新 (0.5~0.5h)
   - Git コミット頻度の改善を反映
   - レジューム機能の説明を更新
 
@@ -409,10 +409,10 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] ARCHITECTURE.md が更新されている
-- [ ] CLAUDE.md が更新されている
-- [ ] README.md が更新されている
-- [ ] ドキュメントに矛盾がない
+- [x] ARCHITECTURE.md が更新されている
+- [x] CLAUDE.md が更新されている
+- [x] README.md が更新されている
+- [x] ドキュメントに矛盾がない
 
 ### Phase 8: レポート
 

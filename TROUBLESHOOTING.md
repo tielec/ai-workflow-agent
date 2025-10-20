@@ -212,12 +212,57 @@ CI環境で確認プロンプトが表示されると、ビルドが無期限に
 - **原因**: `.ai-workflow/issue-*` がシンボリックリンクになっている
 - **対処法**: セキュリティ上の理由により、シンボリックリンクのクリーンアップは禁止されています。実際のディレクトリを使用してください。
 
-## 10. デバッグのヒント
+## 10. ステップレジューム関連（v0.3.0）
+
+### 完了済みステップが再実行される
+
+各ステップ（execute/review/revise）完了後に自動的にGitコミット＆プッシュが実行されますが、プッシュに失敗すると完了済みとして記録されません。
+
+- **原因**: プッシュ失敗時、ローカルコミットは作成されますが `completed_steps` には追加されません
+- **対処法**:
+  1. ネットワーク問題を解決してから再実行
+  2. `metadata.json` の `current_step` を確認（失敗したステップ名が設定されている）
+  3. 次回実行時、同じステップが最初から再実行されます
+- **確認方法**:
+  ```bash
+  cat .ai-workflow/issue-*/metadata.json | jq '.phases.requirements'
+  # current_step が null でない場合、プッシュ失敗の可能性
+  ```
+
+### メタデータ不整合エラー
+
+`current_step` と `completed_steps` に矛盾がある場合、警告が表示されます：
+
+```
+[WARNING] Metadata inconsistency detected: current_step is 'execute' but already in completed_steps
+```
+
+- **原因**: メタデータの手動編集またはバグ
+- **対処法**: `current_step` が優先され、安全側（最初から再実行）にフォールバックします
+- **推奨**: メタデータを手動編集しないでください
+
+### CI環境でのステップスキップが動作しない
+
+CI環境（Jenkins等）でワークスペースリセット後、完了済みステップがスキップされない場合：
+
+- **原因**: リモートブランチからメタデータが同期されていない
+- **対処法**:
+  1. ビルド開始時に `git pull origin <branch>` が実行されているか確認
+  2. `.ai-workflow/issue-*/metadata.json` がリモートブランチに存在するか確認
+  3. ビルドログで「Skipping <step> step (already completed)」メッセージを確認
+- **デバッグ**:
+  ```bash
+  # リモートブランチのメタデータを確認
+  git show origin/ai-workflow/issue-123:.ai-workflow/issue-123/metadata.json | jq '.phases'
+  ```
+
+## 11. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
 - `DEBUG=ai-workflow:*` を設定すると詳細ログ（カスタムフック）が出力されます。
 - Git の問題は `GIT_TRACE=1` を付与して調査できます。
 - マルチリポジトリ関連の問題は、Issue URL が正しいか、対象リポジトリが正しくクローンされているか確認してください。
+- **ステップレジューム関連**: `metadata.json` の `current_step` と `completed_steps` フィールドを確認してください。
 
 対処できない場合は、実行したコマンド、環境変数（機微情報をマスク）、`agent_log_raw.txt` の該当箇所を添えて Issue もしくはチームチャンネルで共有してください。
