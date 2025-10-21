@@ -216,11 +216,11 @@
 
 ### Phase 7: ドキュメント (見積もり: 2~2h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (1~1h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (1~1h)
   - BasePhase のライフサイクルセクション更新
   - 新規モジュールの説明追加（AgentExecutor、ReviewCycleManager、ProgressFormatter、LogFormatter）
   - モジュール一覧表への追加
-- [ ] Task 7-2: CLAUDE.md の更新 (1~1h)
+- [x] Task 7-2: CLAUDE.md の更新 (1~1h)
   - アーキテクチャセクションの更新
   - BasePhase の行数削減（1419行 → 300行以下）を記載
   - 各モジュールの役割説明追加
@@ -374,9 +374,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] ARCHITECTURE.md が更新されている（新規モジュールの説明追加）
-- [ ] CLAUDE.md が更新されている（行数削減達成状況記載）
-- [ ] 各モジュールの役割が明確にドキュメント化されている
+- [x] ARCHITECTURE.md が更新されている（新規モジュールの説明追加）
+- [x] CLAUDE.md が更新されている（行数削減達成状況記載）
+- [x] 各モジュールの役割が明確にドキュメント化されている
 
 ### Phase 8: レポート
 
