@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 3677,
-    "total_output_tokens": 381328,
-    "total_cost_usd": 28.53312855
+    "total_input_tokens": 3706,
+    "total_output_tokens": 396442,
+    "total_cost_usd": 29.514430700000002
   },
   "phases": {
     "planning": {
@@ -132,22 +132,38 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-21T05:34:23.842Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "既存の失敗テスト36件の対応",
+          "phase": "report",
+          "priority": "高"
+        },
+        {
+          "task": "型安全性の更なる強化",
+          "phase": "design",
+          "priority": "中"
+        },
+        {
+          "task": "統合テストの追加",
+          "phase": "test_scenario",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/28",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     }
   },
   "created_at": "2025-10-21T01:37:25.755Z",
-  "updated_at": "2025-10-21T05:34:22.667Z",
+  "updated_at": "2025-10-21T05:38:58.386Z",
   "branch_name": "ai-workflow/issue-22",
   "pr_number": 27,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/27",
