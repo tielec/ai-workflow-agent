@@ -103,20 +103,20 @@
 
 ### Phase 2: 設計 (見積もり: 3~5h)
 
-- [ ] Task 2-1: ファサードパターンの設計 (1~2h)
+- [x] Task 2-1: ファサードパターンの設計 (1~2h)
   - GitManager をファサードクラスとして設計
   - コンストラクタで各専門マネージャーをインスタンス化
   - publicメソッドを専門マネージャーに委譲
   - `simple-git` インスタンスは各専門マネージャーで共有
-- [ ] Task 2-2: CommitManager の設計 (1~1.5h)
+- [x] Task 2-2: CommitManager の設計 (1~1.5h)
   - コミット操作（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）
   - コミットメッセージ生成（createCommitMessage, buildStepCommitMessage, createInitCommitMessage, createCleanupCommitMessage）
   - SecretMasker との統合
   - 依存: MetadataManager, SecretMasker, simple-git
-- [ ] Task 2-3: BranchManager の設計 (0.5~1h)
+- [x] Task 2-3: BranchManager の設計 (0.5~1h)
   - ブランチ操作（createBranch, branchExists, getCurrentBranch, switchBranch）
   - 依存: simple-git のみ
-- [ ] Task 2-4: RemoteManager の設計 (0.5~1h)
+- [x] Task 2-4: RemoteManager の設計 (0.5~1h)
   - リモート操作（pushToRemote, pullLatest, setupGithubCredentials）
   - リトライロジック（isRetriableError）
   - 依存: simple-git, MetadataManager (branch_name取得用)
