@@ -210,12 +210,12 @@ BDDテストは不要（ユーザーストーリーよりも内部リファク�
 
 ### Phase 7: ドキュメント (見積もり: 1~1.5h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (0.5~1h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (0.5~1h)
   - GitHubClient のモジュール構成を追記（ファサードパターンの説明）
   - 各クライアントの責務を記載
   - Octokitインスタンス共有方法の説明
 
-- [ ] Task 7-2: CLAUDE.md の更新 (0.5h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.5h)
   - `src/core/github-client.ts` の説明を更新（ファサードとしての役割）
   - 新規モジュール（`src/core/github/*.ts`）の説明を追加
 
