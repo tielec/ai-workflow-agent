@@ -4,9 +4,9 @@ import { MetadataManager } from './metadata-manager.js';
 import { RemainingTask } from '../types.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { IssueClient } from './github/issue-client.js';
-import { PullRequestClient } from './github/pull-request-client.js';
-import { CommentClient } from './github/comment-client.js';
+import { IssueClient, type IssueCreationResult } from './github/issue-client.js';
+import { PullRequestClient, type PullRequestSummary, type PullRequestResult } from './github/pull-request-client.js';
+import { CommentClient, type ProgressCommentResult } from './github/comment-client.js';
 import { ReviewClient } from './github/review-client.js';
 
 // Re-export types for backward compatibility
@@ -27,31 +27,6 @@ export type { ProgressCommentResult } from './github/comment-client.js';
 export interface GenericResult {
   success: boolean;
   error?: string | null;
-}
-
-export interface PullRequestSummary {
-  pr_number: number;
-  pr_url: string;
-  state: string;
-}
-
-export interface PullRequestResult {
-  success: boolean;
-  pr_url: string | null;
-  pr_number: number | null;
-  error?: string | null;
-}
-
-export interface IssueCreationResult {
-  success: boolean;
-  issue_url: string | null;
-  issue_number: number | null;
-  error?: string | null;
-}
-
-export interface ProgressCommentResult {
-  comment_id: number;
-  comment_url: string | null;
 }
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
