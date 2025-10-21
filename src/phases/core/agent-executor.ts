@@ -144,7 +144,7 @@ export class AgentExecutor {
     prompt: string,
     options?: { maxTurns?: number; verbose?: boolean; logDir?: string },
   ): Promise<{ messages: string[]; authFailed: boolean }> {
-    const logDir = options?.logDir ?? path.join(this.metadata.workflowDir, `0${this.getPhaseNumber(this.phaseName)}_${this.phaseName}`, 'execute');
+    const logDir = options?.logDir ?? path.join(this.metadata.workflowDir, `${this.getPhaseNumber(this.phaseName)}_${this.phaseName}`, 'execute');
     const promptFile = path.join(logDir, 'prompt.txt');
     const rawLogFile = path.join(logDir, 'agent_log_raw.txt');
     const agentLogFile = path.join(logDir, 'agent_log.md');
