@@ -32,7 +32,7 @@ function createMockMetadataManager(phasesData: Partial<Record<PhaseName, { statu
   const phases: any = {};
   for (const phase of allPhases) {
     const data = phasesData[phase] || { status: 'pending' };
-    phases[phase] = {
+    const phaseData: any = {
       status: data.status,
       started_at: data.started_at || null,
       completed_at: data.completed_at || null,
@@ -42,18 +42,34 @@ function createMockMetadataManager(phasesData: Partial<Record<PhaseName, { statu
       completed_steps: [],
       current_step: null,
     };
+
+    // EvaluationPhaseMetadata には追加フィールドが必要
+    if (phase === 'evaluation') {
+      phaseData.decision = null;
+      phaseData.failed_phase = null;
+      phaseData.remaining_tasks = [];
+      phaseData.created_issue_url = null;
+      phaseData.abort_reason = null;
+    }
+
+    phases[phase] = phaseData;
   }
 
   const metadata: WorkflowMetadata = {
-    issue_number: 999,
-    preset: 'default',
+    issue_number: '999',
+    issue_url: 'https://github.com/test/repo/issues/999',
+    issue_title: 'Test Issue',
+    workflow_version: '0.3.0',
+    current_phase: 'planning',
+    created_at: '2025-01-20T00:00:00Z',
+    updated_at: '2025-01-20T00:00:00Z',
     phases,
     cost_tracking: {
       total_input_tokens: 0,
       total_output_tokens: 0,
       total_cost_usd: 0,
     },
-    design_decisions: {},
+    design_decisions: { implementation_strategy: null, test_strategy: null, test_code_strategy: null },
   };
 
   return {

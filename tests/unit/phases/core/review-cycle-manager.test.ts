@@ -10,44 +10,53 @@
 
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { ReviewCycleManager } from '../../../../src/phases/core/review-cycle-manager.js';
-import { PhaseName, PhaseExecutionResult, PhaseStatus, WorkflowMetadata } from '../../../../src/types.js';
+import { PhaseName, PhaseExecutionResult, PhaseStatus, WorkflowMetadata, StepName } from '../../../../src/types.js';
 
 /**
  * モック MetadataManager を作成
  */
-function createMockMetadataManager(completedSteps: string[] = [], retryCount = 0): any {
+function createMockMetadataManager(completedSteps: StepName[] = [], retryCount = 0): any {
   const phaseName: PhaseName = 'requirements';
   const metadata: WorkflowMetadata = {
-    issue_number: 999,
-    preset: 'default',
+    issue_number: '999',
+    issue_url: 'https://github.com/test/repo/issues/999',
+    issue_title: 'Test Issue',
+    workflow_version: '0.3.0',
+    current_phase: 'requirements',
+    created_at: '2025-01-20T00:00:00Z',
+    updated_at: '2025-01-20T00:00:00Z',
     phases: {
-      planning: { status: 'completed', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      requirements: { status: 'in_progress', started_at: null, completed_at: null, retry_count: retryCount, output_files: [], completed_steps: [...completedSteps], current_step: null },
-      design: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      test_scenario: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      test_implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      testing: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      documentation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      report: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
-      evaluation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, output_files: [], completed_steps: [], current_step: null },
+      planning: { status: 'completed', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      requirements: { status: 'in_progress', started_at: null, completed_at: null, retry_count: retryCount, review_result: null, output_files: [], completed_steps: [...completedSteps], current_step: null },
+      design: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      test_scenario: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      test_implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      testing: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      documentation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      report: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      evaluation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null, decision: null, failed_phase: null, remaining_tasks: [], created_issue_url: null, abort_reason: null },
     },
     cost_tracking: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
-    design_decisions: {},
+    design_decisions: { implementation_strategy: null, test_strategy: null, test_code_strategy: null },
   };
 
   let currentRetryCount = retryCount;
 
   return {
     data: metadata,
-    getCompletedSteps: jest.fn<any>((phase: PhaseName) => metadata.phases[phase].completed_steps ?? []),
+    getCompletedSteps: jest.fn<any>((phase: PhaseName) => metadata.phases[phase]?.completed_steps ?? []),
     addCompletedStep: jest.fn<any>((phase: PhaseName, step: string) => {
-      if (!metadata.phases[phase].completed_steps.includes(step)) {
-        metadata.phases[phase].completed_steps.push(step);
+      const stepName = step as StepName;
+      if (metadata.phases[phase] && !metadata.phases[phase]?.completed_steps?.includes(stepName)) {
+        metadata.phases[phase]?.completed_steps?.push(stepName);
       }
     }),
     updateCurrentStep: jest.fn<any>((phase: PhaseName, step: string | null) => {
-      metadata.phases[phase].current_step = step;
+      const stepName = step as StepName | null;
+      if (metadata.phases[phase]) {
+        metadata.phases[phase]!.current_step = stepName;
+      }
     }),
     incrementRetryCount: jest.fn<any>((phase: PhaseName) => {
       currentRetryCount++;
