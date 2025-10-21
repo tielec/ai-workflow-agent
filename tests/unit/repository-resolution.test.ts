@@ -8,12 +8,13 @@
  *
  * 注意: resolveLocalRepoPath()のテストはファイルシステムのモックが複雑なため、
  * インテグレーションテストで実施します。
+ * リファクタリング後、parseIssueUrlは src/core/repository-utils.ts に移動されました。
  */
 
 import { describe, test, expect } from '@jest/globals';
 
 // テスト対象の関数をインポート
-import { parseIssueUrl } from '../../src/main.js';
+import { parseIssueUrl } from '../../src/core/repository-utils.js';
 
 // =============================================================================
 // UT-001: parseIssueUrl_正常系_標準URL

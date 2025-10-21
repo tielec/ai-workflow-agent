@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { parseIssueUrl, resolveLocalRepoPath, findWorkflowMetadata } from '../../src/main.js';
+import { parseIssueUrl, resolveLocalRepoPath, findWorkflowMetadata } from '../../src/core/repository-utils.js';
 
 /**
  * Branch Name Validation Unit Tests

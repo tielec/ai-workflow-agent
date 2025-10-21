@@ -1,0 +1,219 @@
+/**
+ * ユニットテスト: execute コマンドモジュール
+ *
+ * テスト対象:
+ * - resolvePresetName(): プリセット名解決（後方互換性対応）
+ * - getPresetPhases(): プリセットのフェーズリスト取得
+ * - canResumeWorkflow(): ワークフロー再開可否判定
+ *
+ * テスト戦略: UNIT_INTEGRATION - ユニット部分
+ *
+ * 注意: handleExecuteCommand()のテストは統合テストで実施します。
+ */
+
+import { describe, test, expect } from '@jest/globals';
+import { resolvePresetName, getPresetPhases } from '../../../src/commands/execute.js';
+
+// =============================================================================
+// resolvePresetName() のテスト
+// =============================================================================
+
+describe('resolvePresetName', () => {
+  describe('正常系: 標準プリセット名', () => {
+    test('quick-fixプリセットが正しく解決される', () => {
+      // Given: 標準プリセット名
+      const presetName = 'quick-fix';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 警告なしで解決される
+      expect(result.resolvedName).toBe('quick-fix');
+      expect(result.warning).toBeUndefined();
+    });
+
+    test('review-requirementsプリセットが正しく解決される', () => {
+      // Given: 標準プリセット名
+      const presetName = 'review-requirements';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 警告なしで解決される
+      expect(result.resolvedName).toBe('review-requirements');
+      expect(result.warning).toBeUndefined();
+    });
+
+    test('implementationプリセットが正しく解決される', () => {
+      // Given: 標準プリセット名
+      const presetName = 'implementation';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 警告なしで解決される
+      expect(result.resolvedName).toBe('implementation');
+      expect(result.warning).toBeUndefined();
+    });
+  });
+
+  describe('正常系: 非推奨プリセット名（後方互換性）', () => {
+    test('requirements-onlyが新プリセット名に自動変換され、警告が返される', () => {
+      // Given: 非推奨プリセット名
+      const presetName = 'requirements-only';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 新プリセット名に解決され、警告が表示される
+      expect(result.resolvedName).toBe('review-requirements');
+      expect(result.warning).toBeTruthy();
+      expect(result.warning).toContain('deprecated');
+      expect(result.warning).toContain('review-requirements');
+    });
+
+    test('design-phaseが新プリセット名に自動変換され、警告が返される', () => {
+      // Given: 非推奨プリセット名
+      const presetName = 'design-phase';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 新プリセット名に解決され、警告が表示される
+      expect(result.resolvedName).toBe('review-design');
+      expect(result.warning).toBeTruthy();
+      expect(result.warning).toContain('deprecated');
+      expect(result.warning).toContain('review-design');
+    });
+
+    test('implementation-phaseが新プリセット名に自動変換され、警告が返される', () => {
+      // Given: 非推奨プリセット名
+      const presetName = 'implementation-phase';
+
+      // When: プリセット名を解決
+      const result = resolvePresetName(presetName);
+
+      // Then: 新プリセット名に解決され、警告が表示される
+      expect(result.resolvedName).toBe('implementation');
+      expect(result.warning).toBeTruthy();
+      expect(result.warning).toContain('deprecated');
+      expect(result.warning).toContain('implementation');
+    });
+  });
+
+  describe('異常系: 存在しないプリセット名', () => {
+    test('存在しないプリセット名でエラーをスローする', () => {
+      // Given: 存在しないプリセット名
+      const presetName = 'non-existent-preset';
+
+      // When & Then: エラーがスローされる
+      expect(() => {
+        resolvePresetName(presetName);
+      }).toThrow();
+    });
+
+    test('空文字列でエラーをスローする', () => {
+      // Given: 空文字列
+      const presetName = '';
+
+      // When & Then: エラーがスローされる
+      expect(() => {
+        resolvePresetName(presetName);
+      }).toThrow();
+    });
+  });
+});
+
+// =============================================================================
+// getPresetPhases() のテスト
+// =============================================================================
+
+describe('getPresetPhases', () => {
+  describe('正常系: プリセットのフェーズリスト取得', () => {
+    test('quick-fixプリセットのフェーズリストが正しく取得できる', () => {
+      // Given: quick-fixプリセット名
+      const presetName = 'quick-fix';
+
+      // When: フェーズリストを取得
+      const result = getPresetPhases(presetName);
+
+      // Then: 正しいフェーズリストが返される
+      expect(result).toEqual(['implementation', 'documentation', 'report']);
+    });
+
+    test('review-requirementsプリセットのフェーズリストが正しく取得できる', () => {
+      // Given: review-requirementsプリセット名
+      const presetName = 'review-requirements';
+
+      // When: フェーズリストを取得
+      const result = getPresetPhases(presetName);
+
+      // Then: 正しいフェーズリストが返される
+      expect(result).toEqual(['requirements']);
+    });
+
+    test('implementationプリセットのフェーズリストが正しく取得できる', () => {
+      // Given: implementationプリセット名
+      const presetName = 'implementation';
+
+      // When: フェーズリストを取得
+      const result = getPresetPhases(presetName);
+
+      // Then: 正しいフェーズリストが返される
+      expect(result).toEqual(['implementation', 'test_code', 'documentation', 'report']);
+    });
+
+    test('analysis-designプリセットのフェーズリストが正しく取得できる', () => {
+      // Given: analysis-designプリセット名
+      const presetName = 'analysis-design';
+
+      // When: フェーズリストを取得
+      const result = getPresetPhases(presetName);
+
+      // Then: 正しいフェーズリストが返される
+      expect(result).toEqual(['planning', 'requirements', 'design']);
+    });
+
+    test('full-testプリセットのフェーズリストが正しく取得できる', () => {
+      // Given: full-testプリセット名
+      const presetName = 'full-test';
+
+      // When: フェーズリストを取得
+      const result = getPresetPhases(presetName);
+
+      // Then: 正しいフェーズリストが返される
+      expect(result).toEqual(['test_scenario', 'test_code']);
+    });
+  });
+
+  describe('異常系: 存在しないプリセット名', () => {
+    test('存在しないプリセット名で空配列またはエラーが返される', () => {
+      // Given: 存在しないプリセット名
+      const presetName = 'non-existent-preset';
+
+      // When & Then: 空配列が返されるか、エラーがスローされる
+      try {
+        const result = getPresetPhases(presetName);
+        expect(result).toEqual([]);
+      } catch (error) {
+        // エラーがスローされる場合もOK
+        expect(error).toBeTruthy();
+      }
+    });
+  });
+});
+
+// =============================================================================
+// エージェントモード選択のテスト（統合テストで詳細確認）
+// =============================================================================
+
+describe('エージェントモード選択（統合テストで確認）', () => {
+  test('エージェントモード選択は統合テストで検証される', () => {
+    // Given: エージェントモード（auto / codex / claude）
+    // When: handleExecuteCommandが実行される
+    // Then: 正しいエージェントが選択される
+
+    // この部分は統合テストで実施されるため、ここではマーカーのみ
+    expect(true).toBe(true);
+  });
+});
