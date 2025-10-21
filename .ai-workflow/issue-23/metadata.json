@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 2818,
-    "total_output_tokens": 198107,
-    "total_cost_usd": 12.331812450000003
+    "total_input_tokens": 2842,
+    "total_output_tokens": 215575,
+    "total_cost_usd": 13.145510200000002
   },
   "phases": {
     "planning": {
@@ -132,22 +132,38 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-21T11:42:15.541Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "BasePhase行数をさらに削減（676行 → 300行以下）- ヘルパーメソッド分離（formatIssueInfo, getPlanningDocumentReference等、約200行削減可能）",
+          "phase": "implementation",
+          "priority": "中"
+        },
+        {
+          "task": "preset-execution.test.tsの期待値修正（プリセット数7→9）",
+          "phase": "test_implementation",
+          "priority": "低"
+        },
+        {
+          "task": "Issue #16関連の統合テスト失敗を別途フォローアップIssueで対応（fs-extraインポート問題、コミットメッセージフォーマット期待値）",
+          "phase": "testing",
+          "priority": "低"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/30",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     }
   },
   "created_at": "2025-10-21T05:45:26.885Z",
-  "updated_at": "2025-10-21T11:42:14.344Z",
+  "updated_at": "2025-10-21T11:47:47.252Z",
   "branch_name": "ai-workflow/issue-23",
   "pr_number": 29,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/29",
