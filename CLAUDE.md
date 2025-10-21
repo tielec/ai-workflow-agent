@@ -103,7 +103,11 @@ node dist/index.js list-presets
 - **`src/core/claude-agent-client.ts`**: Claude Agent SDK ラッパー
 - **`src/core/metadata-manager.ts`**: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作
 - **`src/core/git-manager.ts`**: `simple-git` による Git 操作
-- **`src/core/github-client.ts`**: Octokit による GitHub API（Issue、PR、コメント）
+- **`src/core/github-client.ts`**: Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。
+- **`src/core/github/issue-client.ts`**: Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。
+- **`src/core/github/pull-request-client.ts`**: PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。
+- **`src/core/github/comment-client.ts`**: コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。
+- **`src/core/github/review-client.ts`**: レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。
 - **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
 
