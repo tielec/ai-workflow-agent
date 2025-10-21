@@ -193,15 +193,15 @@
 
 ### Phase 3: テストシナリオ (見積もり: 2~3h)
 
-- [ ] Task 3-1: 既存テストの移行計画 (1~1.5h)
+- [x] Task 3-1: 既存テストの移行計画 (1~1.5h)
   - main-preset-resolution.test.ts の移行方針（src/commands/execute.tsへ）
   - branch-validation.test.ts の移行方針（src/commands/init.tsへ）
   - repository-resolution.test.ts の移行方針（src/core/repository-utils.tsへ）
-- [ ] Task 3-2: 新規ユニットテストシナリオ策定 (0.5~1h)
+- [x] Task 3-2: 新規ユニットテストシナリオ策定 (0.5~1h)
   - tests/unit/commands/init.test.ts のテストケース設計
   - tests/unit/commands/execute.test.ts のテストケース設計
   - tests/unit/commands/list-presets.test.ts のテストケース設計
-- [ ] Task 3-3: 統合テストの互換性確認 (0.5h)
+- [x] Task 3-3: 統合テストの互換性確認 (0.5h)
   - 既存の統合テスト18件が引き続き動作することを確認
   - 必要に応じてimport文の修正計画を立案
 
