@@ -4,7 +4,7 @@
   "issue_number": "123",
   "issue_url": "https://github.com/test/repo/issues/123",
   "issue_title": "Test Issue",
-  "workflow_dir": "/tmp/jenkins-50af5077/workspace/AI_Workflow/ai_workflow_orchestrator/tests/temp/step-management-test",
+  "workflow_dir": "/tmp/jenkins-0c28f259/workspace/AI_Workflow/ai_workflow_orchestrator/tests/temp/step-management-test",
   "branch_name": "ai-workflow/issue-123",
   "target_repository": null,
   "phases": {
@@ -101,5 +101,5 @@
     "total_output_tokens": 0,
     "total_cost_usd": 0
   },
-  "updated_at": "2025-10-20T11:25:00.174Z"
+  "updated_at": "2025-10-21T03:06:35.449Z"
 }
