@@ -120,19 +120,19 @@ BDDテストは不要（ユーザーストーリーよりも内部リファク�
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: モジュール構成の詳細設計 (1~1.5h)
+- [x] Task 2-1: モジュール構成の詳細設計 (1~1.5h)
   - IssueClient のインターフェース設計（getIssue, getIssueInfo, getIssueComments, postComment, closeIssueWithReason, createIssueFromEvaluation）
   - PullRequestClient のインターフェース設計（createPullRequest, checkExistingPr, updatePullRequest, closePullRequest, getPullRequestNumber）
   - CommentClient のインターフェース設計（postWorkflowProgress, createOrUpdateProgressComment）
   - ReviewClient のインターフェース設計（postReviewResult）
   - DocumentExtractor の必要性検討（extractPhaseOutputs, generatePrBodyTemplate, generatePrBodyDetailed）
 
-- [ ] Task 2-2: ファサードパターンの設計 (0.5~1h)
+- [x] Task 2-2: ファサードパターンの設計 (0.5~1h)
   - GitHubClient のコンストラクタで各クライアントを初期化
   - 各publicメソッドを対応するクライアントに委譲
   - Octokitインスタンスを各クライアントに渡す方法（コンストラクタ注入）
 
-- [ ] Task 2-3: エラーハンドリング方針の統一 (0.5h)
+- [x] Task 2-3: エラーハンドリング方針の統一 (0.5h)
   - RequestError の処理方法（401/403/422）
   - 各クライアントでのエラーメッセージフォーマット
   - ファサード層でのエラー伝播方針
@@ -301,12 +301,12 @@ Phase 3（テストシナリオ）はPhase 5と並行可能だが、Phase 2の�
 - [ ] 受け入れ基準が定義されている（行数制約、後方互換性、テストカバレッジ）
 
 ### Phase 2: 設計
-- [ ] 実装戦略の判断根拠が明記されている（REFACTOR）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
-- [ ] テストコード戦略の判断根拠が明記されている（CREATE_TEST）
-- [ ] 各クライアントのインターフェースが明確である
-- [ ] ファサードパターンの実装方針が定義されている
-- [ ] エラーハンドリング方針が統一されている
+- [x] 実装戦略の判断根拠が明記されている（REFACTOR）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
+- [x] テストコード戦略の判断根拠が明記されている（CREATE_TEST）
+- [x] 各クライアントのインターフェースが明確である
+- [x] ファサードパターンの実装方針が定義されている
+- [x] エラーハンドリング方針が統一されている
 
 ### Phase 3: テストシナリオ
 - [ ] 各クライアントのユニットテストシナリオが網羅されている（正常系、エラー系、境界値）
