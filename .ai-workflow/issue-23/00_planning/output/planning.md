@@ -159,26 +159,26 @@
 
 ### Phase 4: 実装 (見積もり: 6~8h)
 
-- [ ] Task 4-1: LogFormatter の実装 (1.5~2h)
+- [x] Task 4-1: LogFormatter の実装 (1.5~2h)
   - formatAgentLog メソッドの抽出
   - formatCodexAgentLog メソッドの抽出
   - Claude ログフォーマットロジックの移行
   - Codex ログフォーマットロジックの移行
-- [ ] Task 4-2: ProgressFormatter の実装 (1.5~2h)
+- [x] Task 4-2: ProgressFormatter の実装 (1.5~2h)
   - formatProgressComment メソッドの抽出
   - フェーズステータス表示ロジックの移行
   - GitHub コメントフォーマットロジックの移行
-- [ ] Task 4-3: AgentExecutor の実装 (1.5~2h)
+- [x] Task 4-3: AgentExecutor の実装 (1.5~2h)
   - executeWithAgent メソッドの抽出
   - runAgentTask メソッドの抽出
   - エージェントフォールバックロジックの移行
   - 利用量メトリクス抽出・記録ロジックの移行
-- [ ] Task 4-4: ReviewCycleManager の実装 (1~1.5h)
+- [x] Task 4-4: ReviewCycleManager の実装 (1~1.5h)
   - performReviewCycle メソッドの抽出
   - performReviseStepWithRetry メソッドの抽出
   - リトライカウント管理ロジックの移行
   - 依存関係検証ロジックの移行
-- [ ] Task 4-5: BasePhase のリファクタリング (0.5~0.5h)
+- [x] Task 4-5: BasePhase のリファクタリング (0.5~0.5h)
   - 各モジュールのインポート追加
   - run() メソッドのオーケストレーション化
   - 不要なメソッドの削除
@@ -349,13 +349,13 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] LogFormatter モジュールが作成され、ログフォーマットロジックが移行されている
-- [ ] ProgressFormatter モジュールが作成され、進捗表示ロジックが移行されている
-- [ ] AgentExecutor モジュールが作成され、エージェント実行ロジックが移行されている
-- [ ] ReviewCycleManager モジュールが作成され、レビューサイクルロジックが移行されている
-- [ ] BasePhase が300行以下に削減されている
-- [ ] 既存のフェーズクラスへの影響が最小限に抑えられている（import 追加のみ）
-- [ ] TypeScript コンパイルエラーがない（npm run build が成功）
+- [x] LogFormatter モジュールが作成され、ログフォーマットロジックが移行されている
+- [x] ProgressFormatter モジュールが作成され、進捗表示ロジックが移行されている
+- [x] AgentExecutor モジュールが作成され、エージェント実行ロジックが移行されている
+- [x] ReviewCycleManager モジュールが作成され、レビューサイクルロジックが移行されている
+- [x] BasePhase が300行以下に削減されている
+- [x] 既存のフェーズクラスへの影響が最小限に抑えられている（import 追加のみ）
+- [x] TypeScript コンパイルエラーがない（npm run build が成功）
 
 ### Phase 5: テストコード実装
 
