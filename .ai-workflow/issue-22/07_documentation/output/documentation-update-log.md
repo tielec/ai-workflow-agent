@@ -1,222 +1,366 @@
-# Documentation Update Log - Issue #22
+# ドキュメント更新ログ - Issue #22
 
-## Overview
-
-This document records all documentation updates performed during the Documentation Phase (Phase 7) for Issue #22: CLI Command Processing Refactoring.
-
-**Issue**: #22 - Refactor CLI command processing logic
-**Refactoring Summary**: Split main.ts from 1309 lines to 118 lines (~91% reduction) by separating command handlers into dedicated modules
-**Date**: 2025-01-27
-**Phase**: 07_documentation
-
-## Investigation Summary
-
-### Files Investigated
-
-All `.md` files in the project root were investigated to determine if they require updates based on the refactoring changes:
-
-1. **ARCHITECTURE.md** (213 lines) - ✅ **UPDATED**
-2. **CLAUDE.md** (280 lines) - ✅ **UPDATED**
-3. **README.md** (298 lines) - ⚠️ **MINOR UPDATE CONSIDERED**
-4. **ROADMAP.md** (60 lines) - ✗ No update needed
-5. **TROUBLESHOOTING.md** (318 lines) - ✗ No update needed
-6. **PROGRESS.md** (32 lines) - ✗ No update needed
-7. **SETUP_TYPESCRIPT.md** (92 lines) - ✗ No update needed
-8. **DOCKER_AUTH_SETUP.md** (65 lines) - ✗ No update needed
-
-### Refactoring Changes Reference
-
-**Key Changes from Implementation Phase**:
-- `main.ts`: 1309 lines → 118 lines (91% reduction)
-- **New Command Modules**:
-  - `src/commands/init.ts` - Issue initialization command processing
-  - `src/commands/execute.ts` - Phase execution command processing
-  - `src/commands/review.ts` - Phase review command processing
-  - `src/commands/list-presets.ts` - Preset listing command processing
-- **New Shared Utilities**:
-  - `src/core/repository-utils.ts` - Repository-related utilities (parseIssueUrl, resolveLocalRepoPath, findWorkflowMetadata, etc.)
-  - `src/types/commands.ts` - Command-related type definitions (PhaseContext, ExecutionSummary, IssueInfo, etc.)
-- **Backward Compatibility**: 100% - CLI interface unchanged
-
-## Documentation Updates
-
-### 1. ARCHITECTURE.md - ✅ UPDATED
-
-**Reason**: This document describes the internal architecture and module structure. The refactoring fundamentally changed the module organization.
-
-**Changes Made**:
-
-#### Update 1: Flow Diagram (Lines 7-31)
-
-**Before**:
-```
-CLI (src/main.ts)
- ├─ init コマンド … メタデータ初期化 + ブランチ作成 + 対象リポジトリ判定
- │    ├─ Issue URL を解析（parseIssueUrl）
- │    ├─ ローカルリポジトリパスを解決（resolveLocalRepoPath）
- ...
-```
-
-**After**:
-```
-CLI (src/main.ts)
- ├─ init コマンド（src/commands/init.ts）
- │    ├─ Issue URL を解析（parseIssueUrl: src/core/repository-utils.ts）
- │    ├─ ローカルリポジトリパスを解決（resolveLocalRepoPath）
- ...
- ├─ execute コマンド（src/commands/execute.ts）
- ...
- ├─ review コマンド（src/commands/review.ts）
- ...
- └─ list-presets コマンド（src/commands/list-presets.ts）
-```
-
-**Impact**: Clarifies the separation of command logic into dedicated modules and shows where utility functions are located.
-
-#### Update 2: Module List (Lines 33-56)
-
-**Added Modules**:
-- `src/commands/init.ts` - Issue初期化コマンド処理。ブランチ作成、メタデータ初期化、PR作成を担当。
-- `src/commands/execute.ts` - フェーズ実行コマンド処理。エージェント管理、プリセット解決、フェーズ順次実行を担当。
-- `src/commands/review.ts` - フェーズレビューコマンド処理。フェーズステータスの表示を担当。
-- `src/commands/list-presets.ts` - プリセット一覧表示コマンド処理。
-- `src/core/repository-utils.ts` - リポジトリ関連ユーティリティ。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。
-- `src/types/commands.ts` - コマンド関連の型定義（PhaseContext, ExecutionSummary, IssueInfo等）。
-
-**Updated Module**:
-- `src/main.ts` - Description updated to: `commander` による CLI 定義。コマンドルーティングのみを担当（約118行）。
-
-**Impact**: Provides developers with accurate module responsibilities after the refactoring.
+**Issue番号**: #22
+**タイトル**: [REFACTOR] CLI コマンド処理の分離 (main.ts リファクタリング)
+**更新日**: 2025-01-21
+**更新者**: AI Workflow Agent
 
 ---
 
-### 2. CLAUDE.md - ✅ UPDATED
+## 更新サマリー
 
-**Reason**: This document guides AI agents (Claude Code) on the project structure. The refactoring changed the core module organization.
+- **更新対象ドキュメント数**: 3個
+- **更新不要ドキュメント数**: 5個
+- **合計レビュー対象**: 8個のプロジェクトドキュメント
 
-**Changes Made**:
+---
 
-#### Update: Core Modules Section (Lines 88-104)
+## リファクタリング概要
 
-**Before**:
+### 変更内容
+
+このリファクタリング（Issue #22）により、以下の変更が実施されました：
+
+1. **モジュール分離**: `src/main.ts`（1309行）から4つのコマンドモジュールへ分離（118行に削減、91%削減）
+   - `src/commands/init.ts` (306行) - Issue初期化コマンド処理
+   - `src/commands/execute.ts` (634行) - フェーズ実行コマンド処理
+   - `src/commands/review.ts` (33行) - フェーズレビューコマンド処理
+   - `src/commands/list-presets.ts` (34行) - プリセット一覧表示コマンド処理
+
+2. **共有モジュールの作成**:
+   - `src/core/repository-utils.ts` (170行) - リポジトリ関連ユーティリティ
+   - `src/types/commands.ts` (71行) - コマンド関連の型定義
+
+3. **CLI インターフェース**: 100% 後方互換性を維持（ユーザー影響なし）
+
+### ドキュメント更新方針
+
+- **内部アーキテクチャドキュメント**: モジュール構造の変更を反映
+- **ユーザー向けドキュメント**: CLI インターフェースが不変のため更新不要
+- **セットアップガイド**: 開発環境構築手順に影響なし
+
+---
+
+## 更新されたドキュメント
+
+### 1. ARCHITECTURE.md
+
+**更新理由**: 内部アーキテクチャの変更を反映するため
+
+**更新箇所**:
+
+#### 1.1 全体フロー（セクション「全体フロー」）
+
+**変更内容**: モジュール構造を詳細に記載し、新規コマンドモジュールと共有モジュールを追加
+
+**更新前**: 簡潔なフロー図（main.ts 内の関数のみを記載）
+
+**更新後**:
 ```markdown
-- **`src/main.ts`**: CLI ルーター。...
-- **`src/core/codex-agent-client.ts`**: ...
+CLI (src/main.ts - 約118行に削減、v0.3.0でリファクタリング)
+ ├─ runCli() … CLI エントリーポイント
+ ├─ commander定義（コマンドルーティングのみ）
+ └─ コマンドハンドラへの委譲
+
+src/commands/init.ts (Issue初期化コマンド処理)
+ ├─ handleInitCommand() … Issue初期化コマンドハンドラ
+ ├─ validateBranchName() … ブランチ名バリデーション
+ ├─ resolveBranchName() … ブランチ名解決（デフォルト vs カスタム）
+ └─ Git操作、メタデータ初期化、PR作成
+
+src/commands/execute.ts (フェーズ実行コマンド処理)
+ ├─ handleExecuteCommand() … フェーズ実行コマンドハンドラ
+ ├─ executePhasesSequential() … フェーズ順次実行ループ
+ ├─ resolvePresetName() … プリセット名解決（後方互換性対応）
+ ├─ getPresetPhases() … プリセットのフェーズリスト取得
+ ├─ validateSinglePhaseExecution() … 単一フェーズ実行の検証
+ └─ エージェント管理、依存関係検証、フェーズ実行制御
+
+src/commands/review.ts (フェーズレビューコマンド処理)
+ └─ handleReviewCommand() … フェーズステータス表示
+
+src/commands/list-presets.ts (プリセット一覧表示コマンド処理)
+ └─ listPresets() … 利用可能なプリセット一覧を表示
+
+src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
+ ├─ parseIssueUrl() … GitHub Issue URLの解析
+ ├─ resolveLocalRepoPath() … ローカルリポジトリパスの解決
+ ├─ findWorkflowMetadata() … ワークフローメタデータの探索
+ └─ getRepoRoot() … リポジトリルートの取得
+
+src/types/commands.ts (コマンド関連の型定義)
+ ├─ PhaseContext … フェーズ実行コンテキスト
+ ├─ ExecutionSummary … フェーズ実行結果のサマリー
+ ├─ IssueInfo … Issue情報
+ └─ BranchValidationResult … ブランチ名バリデーション結果
 ```
 
-**After**:
+**変更理由**: モジュール分離により、コマンド処理が独立したモジュールに配置されたことを明示
+
+---
+
+#### 1.2 モジュール一覧（セクション「モジュール一覧」）
+
+**変更内容**: 新規モジュールを追加し、`src/main.ts` の説明を更新
+
+**追加された行**:
+
+| モジュール | 説明 |
+|-----------|------|
+| `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
+| `src/commands/execute.ts` | フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
+| `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
+| `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
+| `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
+| `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
+
+**変更理由**: 新規作成されたモジュールをドキュメントに追加し、行数と提供する関数を明記
+
+---
+
+#### 1.3 エージェントの選択（セクション「エージェントの選択」）
+
+**変更内容**: エージェント選択ロジックの所在地を更新
+
+**更新前**:
 ```markdown
-- **`src/main.ts`**: CLI 定義とコマンドルーティング（約118行、v0.3.0でリファクタリング）
-- **`src/commands/init.ts`**: Issue初期化コマンド処理（ブランチ作成、メタデータ初期化、PR作成）
-- **`src/commands/execute.ts`**: フェーズ実行コマンド処理（エージェント管理、プリセット解決、フェーズ順次実行）
-- **`src/commands/review.ts`**: フェーズレビューコマンド処理（フェーズステータス表示）
-- **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理
-- **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（Issue URL解析、リポジトリパス解決、メタデータ探索）
-- **`src/core/codex-agent-client.ts`**: ...
-...
-- **`src/types/commands.ts`**: コマンド関連の型定義（PhaseContext, ExecutionSummary, IssueInfo等）
+src/main.ts で、--agent フラグに基づいて Codex または Claude を選択します。
 ```
 
-**Impact**: AI agents now have accurate guidance on where to find command handling logic and shared utilities.
+**更新後**:
+```markdown
+src/commands/execute.ts で、--agent フラグに基づいて Codex または Claude を選択します。
+```
+
+**変更理由**: エージェント選択ロジックが `src/commands/execute.ts` に移動したため
 
 ---
 
-### 3. README.md - ⚠️ MINOR UPDATE CONSIDERED
+#### 1.4 プリセット機能（セクション「プリセット機能」）
 
-**Reason**: This is user-facing documentation. The CLI interface is 100% backward compatible, so no functional updates are needed. However, the "Repository Structure" section (lines 13-29) could optionally be updated to show the new command modules.
+**変更内容**: プリセット名解決関数の所在地を更新
 
-**Decision**: **No update required** for this phase because:
-1. The refactoring does not affect user-facing functionality
-2. The repository structure section is high-level and focuses on directories, not individual modules
-3. The existing structure description remains accurate: "Core functionality in `src/` directory"
+**更新前**:
+```markdown
+プリセット名の解決は `resolvePresetName()` 関数（src/main.ts）で行われます。
+```
 
-**Future Consideration**: If README.md repository structure is ever expanded to show individual modules, include the new command modules.
+**更新後**:
+```markdown
+プリセット名の解決は `resolvePresetName()` 関数（src/commands/execute.ts）で行われます。
+```
 
----
-
-### 4. ROADMAP.md - ✗ NO UPDATE NEEDED
-
-**Reason**: This document describes future plans and milestones. The refactoring is a completed improvement that doesn't affect the roadmap.
-
-**Content**: Future features like additional presets, AI agent improvements, and documentation enhancements.
-
-**Decision**: No changes needed.
+**変更理由**: `resolvePresetName()` 関数が `src/commands/execute.ts` に移動したため
 
 ---
 
-### 5. TROUBLESHOOTING.md - ✗ NO UPDATE NEEDED
+### 2. CLAUDE.md
 
-**Reason**: This document describes error scenarios and solutions for users. Since the CLI interface is 100% backward compatible, all troubleshooting guidance remains valid.
+**更新理由**: Claude Code エージェント向けの開発者ドキュメントとして、内部モジュール構造の変更を反映
 
-**Content**: Common errors (authentication, Git issues, permission problems) and their solutions.
+**更新箇所**:
 
-**Decision**: No changes needed - the refactoring is internal and doesn't change error behavior.
+#### 2.1 フェーズ実行フロー（セクション「フェーズ実行フロー」）
 
----
+**変更内容**: CLI エントリーポイントと Issue URL 解析の説明を更新
 
-### 6. PROGRESS.md - ✗ NO UPDATE NEEDED
+**更新前**:
+```markdown
+1. **CLI エントリー**（`src/main.ts`）: オプション解析、プリセット解決、依存関係検証
+2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl`）
+```
 
-**Reason**: This document tracks the overall project status and implementation progress. It's a historical record rather than architectural documentation.
+**更新後**:
+```markdown
+1. **CLI エントリー**（`src/main.ts`）: コマンドルーティング → 各コマンドハンドラ（`src/commands/init.ts`, `src/commands/execute.ts` 等）へ委譲
+2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl` in `src/core/repository-utils.ts`）
+3. **マルチリポジトリ解決**: `REPOS_ROOT` 環境変数を使用して対象リポジトリを特定
+4. **メタデータ読み込み**: `.ai-workflow/issue-<NUM>/metadata.json` を読み込み、`target_repository` 情報を取得
+5. **フェーズ実行**: `BasePhase.run()` による順次実行（`src/commands/execute.ts` で管理）:
+```
 
-**Content**: Project status, implementation status, and milestones.
-
-**Decision**: Not critical to update for this refactoring. If needed, could add a note about the v0.3.0 CLI refactoring, but not required for the Documentation Phase.
-
----
-
-### 7. SETUP_TYPESCRIPT.md - ✗ NO UPDATE NEEDED
-
-**Reason**: This document describes the TypeScript migration process and setup instructions. The refactoring doesn't change the TypeScript setup or build process.
-
-**Content**: Migration status, build configuration, dependencies.
-
-**Decision**: No changes needed - setup instructions remain valid.
-
----
-
-### 8. DOCKER_AUTH_SETUP.md - ✗ NO UPDATE NEEDED
-
-**Reason**: This document describes Docker authentication setup for Claude Code. The refactoring doesn't affect authentication or Docker configuration.
-
-**Content**: Docker credential setup, environment variables, authentication flow.
-
-**Decision**: No changes needed - authentication setup remains unchanged.
+**変更理由**: CLI のエントリーポイントがルーティングのみに特化し、具体的な処理は各コマンドハンドラに委譲されるようになったため
 
 ---
 
-## Quality Gates
+#### 2.2 コアモジュール（セクション「コアモジュール」）
 
-### ✅ All Affected Documents Identified
+**変更内容**: 新規コマンドモジュールと共有モジュールを追加し、各モジュールの詳細な説明を記載
 
-- 8 root-level `.md` files investigated
-- 2 documents requiring updates identified (ARCHITECTURE.md, CLAUDE.md)
-- 6 documents correctly identified as not requiring updates
+**追加された説明**:
 
-### ✅ All Necessary Documents Updated
+```markdown
+- **`src/main.ts`**: CLI 定義とコマンドルーティング（約118行、v0.3.0でリファクタリング）。コマンドルーターとしての役割のみに特化。
+- **`src/commands/init.ts`**: Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。
+- **`src/commands/execute.ts`**: フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。
+- **`src/commands/review.ts`**: フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。
+- **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。
+- **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
+- **`src/types/commands.ts`**: コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。
+```
 
-- **ARCHITECTURE.md**: Updated flow diagram and module list to reflect new command modules and shared utilities
-- **CLAUDE.md**: Updated core modules section to guide AI agents on the new structure
-
-### ✅ Documentation Update Log Created
-
-- This document records all investigation and update decisions
-- Provides clear justification for each decision
-- Documents the exact changes made to updated files
-
-## Summary
-
-The Documentation Phase successfully updated all affected documentation to reflect the CLI refactoring changes in Issue #22. The key updates ensure that:
-
-1. **Developers** can understand the new module organization (ARCHITECTURE.md)
-2. **AI Agents** can navigate the refactored codebase (CLAUDE.md)
-3. **Users** are unaffected due to 100% backward compatibility (README.md unchanged)
-4. **Troubleshooting guidance** remains valid (TROUBLESHOOTING.md unchanged)
-
-The refactoring achieved a 91% reduction in main.ts size while maintaining full backward compatibility, and the documentation now accurately reflects this improved architecture.
+**変更理由**: 新規モジュールを追加し、各モジュールの行数と提供する関数を明記することで、Claude Code エージェントが適切なモジュールを選択できるようにする
 
 ---
 
-**Documentation Phase Status**: ✅ Complete
-**Updated Files**: 2 (ARCHITECTURE.md, CLAUDE.md)
-**Investigated Files**: 8 (all root-level .md files)
-**Quality Gates**: All passed
+#### 2.3 マルチリポジトリワークフロー（セクション「主要関数」）
+
+**変更内容**: リポジトリ関連関数の所在地を更新
+
+**更新前**:
+```markdown
+- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（src/main.ts:880）
+- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（src/main.ts:921）
+- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（src/main.ts:960）
+```
+
+**更新後**:
+```markdown
+- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（`src/core/repository-utils.ts`）
+- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（`src/core/repository-utils.ts`）
+- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（`src/core/repository-utils.ts`）
+```
+
+**変更理由**: これらの関数が `src/core/repository-utils.ts` に移動したため、行番号ではなくモジュール名で参照
+
+---
+
+### 3. PROGRESS.md
+
+**更新理由**: プロジェクト進捗管理ドキュメントに、コマンドモジュールの分離を反映
+
+**更新箇所**:
+
+#### 3.1 CLI コマンドのファイル参照（セクション「進捗サマリー」）
+
+**変更内容**: コマンドハンドラの所在地を更新
+
+**更新前**:
+```markdown
+| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/main.ts` |
+| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/main.ts` |
+| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/main.ts` |
+```
+
+**更新後**:
+```markdown
+| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/main.ts`, `src/commands/init.ts` |
+| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/main.ts`, `src/commands/execute.ts` |
+| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/main.ts`, `src/commands/review.ts` |
+```
+
+**変更理由**: コマンドルーティング（`src/main.ts`）と実際の処理（`src/commands/*.ts`）が分離されたことを明示
+
+---
+
+## 更新不要ドキュメント
+
+以下のドキュメントはリファクタリングの影響を受けないため、更新は不要と判断されました：
+
+### 1. README.md
+
+**判断理由**: ユーザー向けドキュメントであり、CLI インターフェースが100% 後方互換性を維持しているため、ユーザー視点では変更なし
+
+**内容**: CLI の使用方法、環境変数、プリセット、フェーズ概要など
+
+**影響なし**: 内部モジュール構造の変更はユーザーに見えない
+
+---
+
+### 2. ROADMAP.md
+
+**判断理由**: プロジェクトのロードマップを記載したドキュメントであり、将来の機能計画には影響なし
+
+**内容**: フェーズ1（TypeScript移植）、フェーズ2（開発体験向上）、フェーズ3（高度な自動化）等
+
+**影響なし**: リファクタリングはフェーズ1の一部として完了しており、将来計画には影響しない
+
+---
+
+### 3. TROUBLESHOOTING.md
+
+**判断理由**: トラブルシューティングガイドであり、ユーザーが遭遇する問題とその解決方法を記載
+
+**内容**: Codex/Claude 認証エラー、GitHub 連携エラー、メタデータ再開エラー、プリセットエラー等
+
+**影響なし**: これらの問題とその解決方法は、内部モジュール構造の変更に関係なく有効
+
+---
+
+### 4. SETUP_TYPESCRIPT.md
+
+**判断理由**: ローカル開発環境のセットアップ手順を記載
+
+**内容**: Node.js インストール、依存関係インストール、環境変数設定、CLI 基本操作等
+
+**影響なし**: 開発環境のセットアップ手順は、内部モジュール構造の変更に影響されない
+
+---
+
+### 5. DOCKER_AUTH_SETUP.md
+
+**判断理由**: Docker/Jenkins 環境での認証設定ガイド
+
+**内容**: Codex API キー、Claude 認証情報、GitHub PAT の設定方法
+
+**影響なし**: 認証設定方法は、内部モジュール構造の変更に関係なく有効
+
+---
+
+## ドキュメント更新の品質ゲート確認
+
+### ✅ 影響を受けるドキュメントが特定されている
+
+以下の8個のプロジェクトドキュメントをレビューし、影響範囲を特定しました：
+
+1. **ARCHITECTURE.md** - 更新必要 ✅
+2. **CLAUDE.md** - 更新必要 ✅
+3. **README.md** - 更新不要（ユーザー向け、CLI 不変）
+4. **PROGRESS.md** - 更新必要 ✅
+5. **ROADMAP.md** - 更新不要（将来計画、影響なし）
+6. **TROUBLESHOOTING.md** - 更新不要（トラブルシューティング、影響なし）
+7. **SETUP_TYPESCRIPT.md** - 更新不要（セットアップ手順、影響なし）
+8. **DOCKER_AUTH_SETUP.md** - 更新不要（認証設定、影響なし）
+
+### ✅ 必要なドキュメントが更新されている
+
+3個のドキュメント（ARCHITECTURE.md、CLAUDE.md、PROGRESS.md）を更新し、以下の内容を反映しました：
+
+- モジュール構造の変更（main.ts の分割）
+- 各モジュールの行数と提供する関数
+- 関数の所在地（移動先モジュール）の修正
+- コマンドフローの更新
+
+### ✅ 更新内容がこのログに記録されている
+
+このドキュメントに、すべての更新内容を詳細に記録しました：
+
+- **更新されたドキュメント**: 3個の詳細な変更内容（更新前後の比較を含む）
+- **更新不要ドキュメント**: 5個の理由と判断根拠
+- **変更箇所の詳細**: 各セクションの更新内容を明示
+
+---
+
+## まとめ
+
+このリファクタリング（Issue #22）により、`src/main.ts` が1309行から118行に削減され（91%削減）、Single Responsibility Principle に基づいた明確なモジュール構造が確立されました。
+
+**ドキュメント更新の方針**:
+- **内部アーキテクチャドキュメント**: 変更を反映（ARCHITECTURE.md、CLAUDE.md、PROGRESS.md）
+- **ユーザー向けドキュメント**: CLI 不変のため更新不要（README.md、TROUBLESHOOTING.md）
+- **セットアップガイド**: 開発環境に影響なし（SETUP_TYPESCRIPT.md、DOCKER_AUTH_SETUP.md）
+- **プロジェクト管理ドキュメント**: 将来計画に影響なし（ROADMAP.md）
+
+**リファクタリングの成果**:
+- ✅ コードの可読性とメンテナンス性が大幅に向上
+- ✅ テストカバレッジの向上（新規ユニットテスト3件追加）
+- ✅ 100% 後方互換性を維持
+- ✅ ドキュメントの一貫性を維持
+
+---
+
+**ドキュメント更新完了日**: 2025-01-21
+**更新者**: AI Workflow Agent
+**レビュー状態**: Ready for Review
+

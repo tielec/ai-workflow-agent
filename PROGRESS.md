@@ -19,9 +19,9 @@
 | コア | Codex エージェント | Codex CLI ラッパー | ✅ 完了 | `src/core/codex-agent-client.ts` |
 | コア | Content Parser | OpenAI 経由のレビュー解析 | ✅ 完了 | `src/core/content-parser.ts` |
 | コア | Phase Dependencies | 依存関係判定・プリセット | ✅ 完了 | `src/core/phase-dependencies.ts` |
-| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/main.ts` |
-| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/main.ts` |
-| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/main.ts` |
+| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/main.ts`, `src/commands/init.ts` |
+| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/main.ts`, `src/commands/execute.ts` |
+| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/main.ts`, `src/commands/review.ts` |
 | テンプレート | プロンプト / PR テンプレート | Claude / PR 用フォーマット | ✅ 完了 | `src/prompts/**`, `src/templates/**` |
 | インフラ | Dockerfile | Jenkins 用コンテナ | ✅ 完了 | `Dockerfile`（Node.js 20 ベース） |
 | テスト | 自動テスト整備 | ユニット / 統合テスト | 🔄 進行中 | `package.json`（スクリプト追加予定） |
