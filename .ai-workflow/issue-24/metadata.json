@@ -153,11 +153,14 @@
       ],
       "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/32",
       "abort_reason": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     }
   },
   "created_at": "2025-10-21T12:36:31.485Z",
-  "updated_at": "2025-10-21T13:38:54.204Z",
+  "updated_at": "2025-10-21T13:38:55.524Z",
   "branch_name": "ai-workflow/issue-24",
   "pr_number": 31,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/31",
