@@ -74,6 +74,11 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
+| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約676行、v0.3.1で52.4%削減）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
+| `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、v0.3.1で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
+| `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、v0.3.1で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
+| `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、v0.3.1で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
+| `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、v0.3.1で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
@@ -99,6 +104,21 @@ src/types/commands.ts (コマンド関連の型定義)
 - **メタデータ管理**: `metadata.json` に `current_step` と `completed_steps` フィールドを追加
 - **レジューム機能**: 完了済みステップは自動的にスキップされ、失敗したステップのみ再実行
 - **CI環境対応**: リモートブランチからメタデータを同期し、ワークスペースリセット後も適切なステップから再開
+
+### BasePhase のモジュール構造（v0.3.1、Issue #23）
+
+BasePhase クラスは1420行から676行へリファクタリングされ（約52.4%削減）、4つの独立したモジュールに責務を分離しました：
+
+**コアモジュール**:
+- **AgentExecutor** (`src/phases/core/agent-executor.ts`): エージェント実行ロジックを担当。Codex/Claude エージェントの実行、認証エラー時のフォールバック処理、空出力時のフォールバック処理、利用量メトリクスの抽出・記録を実施。
+- **ReviewCycleManager** (`src/phases/core/review-cycle-manager.ts`): レビューサイクル管理を担当。レビュー失敗時の自動修正（revise）、最大リトライ回数（3回）のチェック、Git コミット＆プッシュの統合、completed_steps の管理を実施。
+
+**フォーマッターモジュール**:
+- **ProgressFormatter** (`src/phases/formatters/progress-formatter.ts`): 進捗表示フォーマットを担当。フェーズステータスに応じた絵文字表示、全フェーズの進捗状況リスト、現在のフェーズ詳細、完了したフェーズの詳細（折りたたみ表示）を生成。
+- **LogFormatter** (`src/phases/formatters/log-formatter.ts`): ログフォーマットを担当。Codex/Claude の生ログを Markdown 形式に変換、JSON イベントストリームの解析、4000文字を超える出力の切り詰め処理を実施。
+
+**オーケストレーション**:
+BasePhase クラスは各モジュールを依存性注入により統合し、フェーズライフサイクル（execute → review → revise）のオーケストレーションのみを担当します。各モジュールは単一の責務を持ち（Single Responsibility Principle）、独立してテスト可能です。
 
 ## エージェントの選択
 
