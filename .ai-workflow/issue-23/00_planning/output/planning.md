@@ -186,19 +186,19 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: LogFormatter ユニットテスト作成 (0.5~0.75h)
+- [x] Task 5-1: LogFormatter ユニットテスト作成 (0.5~0.75h)
   - tests/unit/phases/formatters/log-formatter.test.ts の作成
   - Codex ログフォーマットテスト
   - Claude ログフォーマットテスト
-- [ ] Task 5-2: ProgressFormatter ユニットテスト作成 (0.5~0.75h)
+- [x] Task 5-2: ProgressFormatter ユニットテスト作成 (0.5~0.75h)
   - tests/unit/phases/formatters/progress-formatter.test.ts の作成
   - フェーズステータス表示テスト
   - GitHub コメントフォーマットテスト
-- [ ] Task 5-3: AgentExecutor ユニットテスト作成 (0.5~0.75h)
+- [x] Task 5-3: AgentExecutor ユニットテスト作成 (0.5~0.75h)
   - tests/unit/phases/core/agent-executor.test.ts の作成
   - エージェント実行成功テスト
   - エージェントフォールバックテスト
-- [ ] Task 5-4: ReviewCycleManager ユニットテスト作成 (0.5~0.75h)
+- [x] Task 5-4: ReviewCycleManager ユニットテスト作成 (0.5~0.75h)
   - tests/unit/phases/core/review-cycle-manager.test.ts の作成
   - レビューサイクルリトライテスト
   - 最大リトライ到達テスト
@@ -359,10 +359,10 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] LogFormatter ユニットテストが作成されている
-- [ ] ProgressFormatter ユニットテストが作成されている
-- [ ] AgentExecutor ユニットテストが作成されている
-- [ ] ReviewCycleManager ユニットテストが作成されている
+- [x] LogFormatter ユニットテストが作成されている
+- [x] ProgressFormatter ユニットテストが作成されている
+- [x] AgentExecutor ユニットテストが作成されている
+- [x] ReviewCycleManager ユニットテストが作成されている
 - [ ] すべてのユニットテストが合格している（npm run test:unit）
 
 ### Phase 6: テスト実行
