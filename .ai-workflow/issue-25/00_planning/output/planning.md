@@ -163,15 +163,15 @@
 
 ### Phase 5: テストコード実装 (見積もり: 3~4h)
 
-- [ ] Task 5-1: CommitManager のユニットテスト作成 (1~1.5h)
+- [x] Task 5-1: CommitManager のユニットテスト作成 (1~1.5h)
   - `tests/unit/git/commit-manager.test.ts` 作成
   - コミットメッセージ生成のテスト（各メソッドの正確性）
   - SecretMasker 統合のテスト（モック使用）
   - エラーハンドリングのテスト
-- [ ] Task 5-2: BranchManager のユニットテスト作成 (0.5~1h)
+- [x] Task 5-2: BranchManager のユニットテスト作成 (0.5~1h)
   - `tests/unit/git/branch-manager.test.ts` 作成
   - ブランチ操作のテスト（正常系、エラー系）
-- [ ] Task 5-3: RemoteManager のユニットテスト作成 (0.5~1h)
+- [x] Task 5-3: RemoteManager のユニットテスト作成 (0.5~1h)
   - `tests/unit/git/remote-manager.test.ts` 作成
   - Push/Pull操作のテスト（リトライロジック含む）
   - GitHub認証設定のテスト
@@ -319,7 +319,7 @@ graph TD
 - [x] 各専門マネージャーが独立してテスト可能な設計になっている
 
 ### Phase 5: テストコード実装
-- [ ] 各専門マネージャーのユニットテストが作成されている
+- [x] 各専門マネージャーのユニットテストが作成されている
 - [ ] 既存テスト（27テスト）が全て通過している（後方互換性の検証）
 - [ ] 統合テスト（16テスト）が全て通過している
 
