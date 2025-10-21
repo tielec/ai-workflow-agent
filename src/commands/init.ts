@@ -23,17 +23,22 @@ export function validateBranchName(branchName: string): BranchValidationResult {
     return { valid: false, error: 'Branch name cannot be empty' };
   }
 
-  // 2. スラッシュの位置チェック
+  // 2. ドットで始まらないチェック
+  if (branchName.startsWith('.')) {
+    return { valid: false, error: 'Branch name cannot start with "."' };
+  }
+
+  // 3. スラッシュの位置チェック
   if (branchName.startsWith('/') || branchName.endsWith('/')) {
     return { valid: false, error: 'Branch name cannot start or end with "/"' };
   }
 
-  // 3. 連続ドットチェック
+  // 4. 連続ドットチェック
   if (branchName.includes('..')) {
     return { valid: false, error: 'Branch name cannot contain ".."' };
   }
 
-  // 4. 不正文字チェック（~, ^, :, ?, *, [, \, 空白、@{）
+  // 5. 不正文字チェック（~, ^, :, ?, *, [, \, 空白、@{）
   const invalidChars = /[~^:?*[\\\s]|@\{/;
   if (invalidChars.test(branchName)) {
     return {
@@ -42,7 +47,7 @@ export function validateBranchName(branchName: string): BranchValidationResult {
     };
   }
 
-  // 5. ドットで終わらないチェック
+  // 6. ドットで終わらないチェック
   if (branchName.endsWith('.')) {
     return { valid: false, error: 'Branch name cannot end with "."' };
   }

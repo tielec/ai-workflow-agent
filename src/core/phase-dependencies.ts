@@ -23,11 +23,15 @@ export const PHASE_PRESETS: Record<string, PhaseName[]> = {
   'review-design': ['planning', 'requirements', 'design'],
   'review-test-scenario': ['planning', 'requirements', 'design', 'test_scenario'],
 
+  // === 分析・設計パターン ===
+  'analysis-design': ['planning', 'requirements', 'design'],
+
   // === 実装中心パターン ===
   'quick-fix': ['implementation', 'documentation', 'report'],
   'implementation': ['implementation', 'test_implementation', 'testing', 'documentation', 'report'],
 
   // === テスト中心パターン ===
+  'full-test': ['test_scenario', 'test_implementation'],
   'testing': ['test_implementation', 'testing'],
 
   // === ドキュメント・レポートパターン ===
@@ -47,8 +51,10 @@ export const PRESET_DESCRIPTIONS: Record<string, string> = {
   'review-requirements': 'Planning + Requirements (要件定義レビュー用)',
   'review-design': 'Planning + Requirements + Design (設計レビュー用)',
   'review-test-scenario': 'Planning + Requirements + Design + TestScenario (テストシナリオレビュー用)',
+  'analysis-design': 'Planning + Requirements + Design (分析と設計フェーズのみ実行)',
   'quick-fix': 'Implementation + Documentation + Report (軽微な修正用)',
   'implementation': 'Implementation + TestImplementation + Testing + Documentation + Report (通常の実装フロー)',
+  'full-test': 'TestScenario + TestImplementation (テストシナリオとテストコード実装のみ実行)',
   'testing': 'TestImplementation + Testing (テスト追加用)',
   'finalize': 'Documentation + Report + Evaluation (最終化用)',
 };
