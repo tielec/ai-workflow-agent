@@ -179,14 +179,14 @@
 
 ### Phase 2: 設計 (見積もり: 3~4h)
 
-- [ ] Task 2-1: モジュール分割設計 (1.5~2h)
+- [x] Task 2-1: モジュール分割設計 (1.5~2h)
   - コマンドモジュール構成の決定（init.ts, execute.ts, review.ts, list-presets.ts）
   - 共有ユーティリティモジュール設計（repository-utils.ts, types/commands.ts）
   - main.tsに残すロジックの範囲決定（commander定義、ルーティング、エラーハンドリング）
-- [ ] Task 2-2: インターフェース設計 (0.5~1h)
+- [x] Task 2-2: インターフェース設計 (0.5~1h)
   - 各コマンドハンドラのシグネチャ定義
   - 共有型定義の抽出（PhaseContext, ExecutionSummary, IssueInfo等）
-- [ ] Task 2-3: 依存関係設計 (1h)
+- [x] Task 2-3: 依存関係設計 (1h)
   - モジュール間の依存関係図作成
   - 循環依存の回避戦略（共有ユーティリティモジュールの活用）
   - import/export構成の決定
