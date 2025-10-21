@@ -234,6 +234,7 @@
   - tests/unit/commands/init.test.ts 作成
   - tests/unit/commands/execute.test.ts 作成
   - tests/unit/commands/list-presets.test.ts 作成
+  - tests/unit/core/repository-utils.test.ts 作成
 
 ### Phase 6: テスト実行 (見積もり: 1h)
 
