@@ -207,19 +207,19 @@
 
 ### Phase 4: 実装 (見積もり: 4~5h)
 
-- [ ] Task 4-1: 共有ユーティリティモジュール作成 (1h)
+- [x] Task 4-1: 共有ユーティリティモジュール作成 (1h)
   - src/core/repository-utils.ts 作成（parseIssueUrl, resolveLocalRepoPath, findWorkflowMetadata）
   - src/types/commands.ts 作成（PhaseContext, ExecutionSummary, IssueInfo等の型定義）
-- [ ] Task 4-2: initコマンドモジュール作成 (1h)
+- [x] Task 4-2: initコマンドモジュール作成 (1h)
   - src/commands/init.ts 作成
   - handleInitCommand, validateBranchName, resolveBranchName の実装
-- [ ] Task 4-3: executeコマンドモジュール作成 (1.5~2h)
+- [x] Task 4-3: executeコマンドモジュール作成 (1.5~2h)
   - src/commands/execute.ts 作成
   - handleExecuteCommand, executePhasesSequential, createPhaseInstance, resolvePresetName等の実装
-- [ ] Task 4-4: その他コマンドモジュール作成 (0.5h)
+- [x] Task 4-4: その他コマンドモジュール作成 (0.5h)
   - src/commands/review.ts 作成（handleReviewCommand）
   - src/commands/list-presets.ts 作成（listPresets）
-- [ ] Task 4-5: main.tsリファクタリング (1h)
+- [x] Task 4-5: main.tsリファクタリング (1h)
   - コマンドルーターとしての再構成（commander定義のみ残す）
   - 各コマンドハンドラを新規モジュールからimport
   - 行数を200行以下に削減
