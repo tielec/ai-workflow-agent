@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "design",
+  "current_phase": "test_scenario",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 2432,
-    "total_output_tokens": 47143,
-    "total_cost_usd": 1.9403933
+    "total_input_tokens": 2439,
+    "total_output_tokens": 60884,
+    "total_cost_usd": 2.36264815
   },
   "phases": {
     "planning": {
@@ -48,22 +48,24 @@
       ]
     },
     "design": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-10-21T05:54:12.743Z",
-      "completed_at": null,
+      "completed_at": "2025-10-21T05:59:46.767Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     },
     "test_scenario": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-21T05:59:47.352Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "implementation": {
       "status": "pending",
@@ -114,7 +116,7 @@
     }
   },
   "created_at": "2025-10-21T05:45:26.885Z",
-  "updated_at": "2025-10-21T05:59:43.204Z",
+  "updated_at": "2025-10-21T06:03:08.374Z",
   "branch_name": "ai-workflow/issue-23",
   "pr_number": 29,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/29",
