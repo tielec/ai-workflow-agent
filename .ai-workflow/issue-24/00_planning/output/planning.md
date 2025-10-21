@@ -177,24 +177,24 @@ BDDテストは不要（ユーザーストーリーよりも内部リファク�
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: IssueClient のユニットテスト (0.5~1h)
+- [x] Task 5-1: IssueClient のユニットテスト (0.5~1h)
   - Octokitのモック化
   - 正常系（getIssue, postComment, createIssueFromEvaluation）
   - エラー系（401/403エラー、RequestError処理）
 
-- [ ] Task 5-2: PullRequestClient のユニットテスト (0.5~1h)
+- [x] Task 5-2: PullRequestClient のユニットテスト (0.5~1h)
   - createPullRequest の正常系（成功、既存PR検出、422エラー）
   - checkExistingPr の正常系・エラー系
   - updatePullRequest, closePullRequest のテスト
 
-- [ ] Task 5-3: CommentClient のユニットテスト (0.5h)
+- [x] Task 5-3: CommentClient のユニットテスト (0.5h)
   - postWorkflowProgress の正常系
   - createOrUpdateProgressComment の正常系（新規作成、更新成功、更新失敗時のフォールバック）
 
-- [ ] Task 5-4: ReviewClient のユニットテスト (0.25h)
+- [x] Task 5-4: ReviewClient のユニットテスト (0.25h)
   - postReviewResult の正常系
 
-- [ ] Task 5-5: ファサード統合テスト (0.25~0.5h)
+- [x] Task 5-5: ファサード統合テスト (0.25~0.5h)
   - GitHubClient の各メソッドが正しいクライアントに委譲されているか検証
   - 既存の呼び出し元との互換性確認
 
@@ -322,10 +322,10 @@ Phase 3（テストシナリオ）はPhase 5と並行可能だが、Phase 2の�
 - [x] Octokitインスタンスが各クライアントに正しく注入されている
 
 ### Phase 5: テストコード実装
-- [ ] 各クライアントのユニットテストが実装されている
-- [ ] Octokitのモック化が適切である
-- [ ] ファサード統合テストが実装されている
-- [ ] 既存の呼び出し元（init.ts, execute.ts, base-phase.ts）との互換性テストが含まれている
+- [x] 各クライアントのユニットテストが実装されている
+- [x] Octokitのモック化が適切である
+- [x] ファサード統合テストが実装されている
+- [x] 既存の呼び出し元（init.ts, execute.ts, base-phase.ts）との互換性テストが含まれている
 
 ### Phase 6: テスト実行
 - [ ] すべてのユニットテストが成功している
