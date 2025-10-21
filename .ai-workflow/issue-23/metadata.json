@@ -132,10 +132,10 @@
       ]
     },
     "evaluation": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-10-21T11:42:15.541Z",
-      "completed_at": null,
+      "completed_at": "2025-10-21T11:47:49.753Z",
       "review_result": null,
       "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
@@ -158,14 +158,15 @@
       ],
       "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/30",
       "abort_reason": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     }
   },
   "created_at": "2025-10-21T05:45:26.885Z",
-  "updated_at": "2025-10-21T11:47:48.572Z",
+  "updated_at": "2025-10-21T11:47:50.367Z",
   "branch_name": "ai-workflow/issue-23",
   "pr_number": 29,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/29",
