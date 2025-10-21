@@ -87,7 +87,12 @@ node dist/index.js list-presets
 
 ### コアモジュール
 
-- **`src/main.ts`**: CLI 定義、プリセット解決、マルチリポジトリサポート（v0.2.0）
+- **`src/main.ts`**: CLI 定義とコマンドルーティング（約118行、v0.3.0でリファクタリング）
+- **`src/commands/init.ts`**: Issue初期化コマンド処理（ブランチ作成、メタデータ初期化、PR作成）
+- **`src/commands/execute.ts`**: フェーズ実行コマンド処理（エージェント管理、プリセット解決、フェーズ順次実行）
+- **`src/commands/review.ts`**: フェーズレビューコマンド処理（フェーズステータス表示）
+- **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理
+- **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（Issue URL解析、リポジトリパス解決、メタデータ探索）
 - **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス
 - **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー
 - **`src/core/claude-agent-client.ts`**: Claude Agent SDK ラッパー
@@ -96,6 +101,7 @@ node dist/index.js list-presets
 - **`src/core/github-client.ts`**: Octokit による GitHub API（Issue、PR、コメント）
 - **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
+- **`src/types/commands.ts`**: コマンド関連の型定義（PhaseContext, ExecutionSummary, IssueInfo等）
 
 ### フェーズ順序（0-9）
 

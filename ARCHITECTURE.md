@@ -6,14 +6,14 @@
 
 ```
 CLI (src/main.ts)
- ├─ init コマンド … メタデータ初期化 + ブランチ作成 + 対象リポジトリ判定
- │    ├─ Issue URL を解析（parseIssueUrl）
+ ├─ init コマンド（src/commands/init.ts）
+ │    ├─ Issue URL を解析（parseIssueUrl: src/core/repository-utils.ts）
  │    ├─ ローカルリポジトリパスを解決（resolveLocalRepoPath）
  │    ├─ ブランチ名を解決（resolveBranchName: カスタム or デフォルト）
  │    ├─ ブランチ名をバリデーション（validateBranchName: Git 命名規則チェック）
  │    └─ target_repository と branch_name をメタデータに保存
- ├─ execute コマンド
- │    ├─ メタデータ探索（findWorkflowMetadata）
+ ├─ execute コマンド（src/commands/execute.ts）
+ │    ├─ メタデータ探索（findWorkflowMetadata: src/core/repository-utils.ts）
  │    ├─ .ai-workflow/issue-*/metadata.json を読み込み
  │    ├─ target_repository から workingDir を取得
  │    ├─ エージェントモードを判定（Codex / Claude）
@@ -24,15 +24,23 @@ CLI (src/main.ts)
  │    │    │    └─ revise()     … オプション（自動修正）
  │    │    └─ GitManager による自動コミット / プッシュ（必要に応じて）
  │    └─ 実行サマリーを生成
- └─ review コマンド … メタデータを取得し、フェーズの状態を表示
+ ├─ review コマンド（src/commands/review.ts）
+ │    └─ メタデータを取得し、フェーズの状態を表示
+ └─ list-presets コマンド（src/commands/list-presets.ts）
+      └─ 利用可能なプリセット一覧を表示
 ```
 
 ## モジュール一覧
 
 | モジュール | 役割 |
 |------------|------|
-| `src/main.ts` | `commander` による CLI 定義。オプション解析、環境初期化、ブランチ検証、プリセット解決、マルチリポジトリ対応（Issue URL 解析、リポジトリパス解決）を担当。 |
+| `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理。ブランチ作成、メタデータ初期化、PR作成を担当。 |
+| `src/commands/execute.ts` | フェーズ実行コマンド処理。エージェント管理、プリセット解決、フェーズ順次実行を担当。 |
+| `src/commands/review.ts` | フェーズレビューコマンド処理。フェーズステータスの表示を担当。 |
+| `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理。 |
+| `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
@@ -41,6 +49,7 @@ CLI (src/main.ts)
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供。 |
+| `src/types/commands.ts` | コマンド関連の型定義（PhaseContext, ExecutionSummary, IssueInfo等）。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
