@@ -142,20 +142,20 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: CommitManager の実装 (1.5~2h)
+- [x] Task 4-1: CommitManager の実装 (1.5~2h)
   - `src/core/git/commit-manager.ts` 作成（約200行）
   - コミット操作の移行（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）
   - コミットメッセージ生成の移行（createCommitMessage, buildStepCommitMessage, createInitCommitMessage, createCleanupCommitMessage）
   - SecretMasker との統合
   - getChangedFiles, filterPhaseFiles, getPhaseSpecificFiles, ensureGitConfig の移行
-- [ ] Task 4-2: BranchManager の実装 (1~1.5h)
+- [x] Task 4-2: BranchManager の実装 (1~1.5h)
   - `src/core/git/branch-manager.ts` 作成（約180行）
   - ブランチ操作の移行（createBranch, branchExists, getCurrentBranch, switchBranch）
-- [ ] Task 4-3: RemoteManager の実装 (1~1.5h)
+- [x] Task 4-3: RemoteManager の実装 (1~1.5h)
   - `src/core/git/remote-manager.ts` 作成（約150行）
   - リモート操作の移行（pushToRemote, pullLatest, setupGithubCredentials）
   - リトライロジックの移行（isRetriableError）
-- [ ] Task 4-4: GitManager ファサードの実装 (0.5~1h)
+- [x] Task 4-4: GitManager ファサードの実装 (0.5~1h)
   - `src/core/git-manager.ts` をファサードクラスに縮小（約150行）
   - コンストラクタで各専門マネージャーをインスタンス化
   - publicメソッドを専門マネージャーに委譲
@@ -311,12 +311,12 @@ graph TD
 - [x] 統合テストシナリオが作成されている（`workflow-init-cleanup.test.ts`、16テスト）
 
 ### Phase 4: 実装
-- [ ] CommitManager が約200行以下で実装されている
-- [ ] BranchManager が約180行以下で実装されている
-- [ ] RemoteManager が約150行以下で実装されている
-- [ ] GitManager ファサードが約150行以下で実装されている
-- [ ] 既存のpublicメソッドが全て維持されている（後方互換性100%）
-- [ ] 各専門マネージャーが独立してテスト可能な設計になっている
+- [x] CommitManager が約200行以下で実装されている
+- [x] BranchManager が約180行以下で実装されている
+- [x] RemoteManager が約150行以下で実装されている
+- [x] GitManager ファサードが約150行以下で実装されている
+- [x] 既存のpublicメソッドが全て維持されている（後方互換性100%）
+- [x] 各専門マネージャーが独立してテスト可能な設計になっている
 
 ### Phase 5: テストコード実装
 - [ ] 各専門マネージャーのユニットテストが作成されている
