@@ -261,9 +261,9 @@ export class AgentExecutor {
       } catch {
         // JSON パース失敗時は正規表現でフォールバック
         const inputMatch =
-          raw.match(/"input_tokens"\s*:\s*(\d+)/) ?? raw.match(/'input_tokens':\s*(\d+)/);
+          raw.match(/"input_tokens"\s*:\s*(\d+)/) ?? raw.match(/'input_tokens':\s*(\d+)/) ?? raw.match(/Input tokens:\s*(\d+)/i);
         const outputMatch =
-          raw.match(/"output_tokens"\s*:\s*(\d+)/) ?? raw.match(/'output_tokens':\s*(\d+)/);
+          raw.match(/"output_tokens"\s*:\s*(\d+)/) ?? raw.match(/'output_tokens':\s*(\d+)/) ?? raw.match(/Output tokens:\s*(\d+)/i);
         const costMatch =
           raw.match(/"total_cost_usd"\s*:\s*([\d.]+)/) ?? raw.match(/total_cost_usd=([\d.]+)/);
 

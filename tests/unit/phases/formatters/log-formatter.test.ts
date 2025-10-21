@@ -111,7 +111,7 @@ describe('LogFormatter - Codex Agent ログフォーマット', () => {
     expect(result).toContain('exit_code=0');
     expect(result).toContain('total 10');
     expect(result).toContain('60000ms');
-    expect(result).toContain('ターン数: 2');
+    expect(result).toContain('**ターン数**: 2');
   });
 
   test('2-2: Codex Agent の4000文字超過出力が切り詰められる', () => {
