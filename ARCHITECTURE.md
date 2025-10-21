@@ -68,7 +68,11 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
-| `src/core/github-client.ts` | Octokit ラッパー。コメント投稿、PR ボディ生成、ワークフロー情報の同期など。 |
+| `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
+| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。 |
+| `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。 |
+| `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
+| `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
 | `src/core/git-manager.ts` | `simple-git` 経由でブランチ切替、pull、commit、push を実行。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
@@ -243,6 +247,23 @@ Evaluation Phase (Phase 9) 完了後、`--cleanup-on-complete` オプション�
 - SDK のストリームイベントを Codex と同じ形式の JSON 配列として保存
 
 ### GitHub
+
+**GitHubClient のモジュール構成（v0.3.1、Issue #24）**:
+
+GitHubClient は702行から402行へリファクタリングされ（約42.7%削減）、ファサードパターンにより4つの専門クライアントに責務を分離しました：
+
+- **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。
+- **PullRequestClient** (`src/core/github/pull-request-client.ts`): PR操作を担当。PR作成、更新、検索、クローズ、PR番号取得を提供。
+- **CommentClient** (`src/core/github/comment-client.ts`): コメント操作を担当。ワークフロー進捗コメント、進捗コメント作成/更新を提供。
+- **ReviewClient** (`src/core/github/review-client.ts`): レビュー操作を担当。レビュー結果投稿を提供。
+
+**ファサードパターンの設計**:
+- GitHubClient は各専門クライアントのインスタンスを保持し、既存のpublicメソッドを対応するクライアントに委譲
+- Octokitインスタンスはコンストラクタ注入により各クライアントで共有（依存性注入パターン）
+- 後方互換性100%維持（既存の呼び出し元は無変更で動作）
+- ドキュメント抽出関連メソッド（`extractPhaseOutputs`, `generatePrBodyTemplate`, `generatePrBodyDetailed` 等）はGitHubClient内部に保持
+
+**環境変数**:
 - `GITHUB_TOKEN`, `GITHUB_REPOSITORY` を使用
 - Issue への進捗コメント投稿、PR ボディ生成、成果物の添付に利用
 
