@@ -132,13 +132,13 @@
 
 ### Phase 2: 設計 (見積もり: 4~6h)
 
-- [ ] Task 2-1: モジュール間インターフェース設計 (2~3h)
+- [x] Task 2-1: モジュール間インターフェース設計 (2~3h)
   - AgentExecutor のインターフェース定義（executeTask, runAgentTask）
   - ReviewCycleManager のインターフェース定義（performReviewCycle, performReviseStepWithRetry）
   - ProgressFormatter のインターフェース定義（formatProgressComment）
   - LogFormatter のインターフェース定義（formatAgentLog, formatCodexAgentLog）
   - 各モジュールの依存関係整理（BasePhase との関係）
-- [ ] Task 2-2: BasePhase オーケストレーション設計 (2~3h)
+- [x] Task 2-2: BasePhase オーケストレーション設計 (2~3h)
   - run() メソッドの再設計（各モジュールの呼び出し順序）
   - 各モジュールへの依存注入設計
   - エラーハンドリング方針の策定
@@ -333,12 +333,12 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略の判断根拠が明記されている（REFACTOR）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
-- [ ] 各モジュールのインターフェース設計が完成している（メソッドシグネチャ、引数、戻り値）
-- [ ] BasePhase オーケストレーション設計が完成している（run() メソッドの擬似コード）
-- [ ] 行数削減計画が詳細化されている（各モジュールへの移行行数見積もり）
-- [ ] エラーハンドリング方針が策定されている
+- [x] 実装戦略の判断根拠が明記されている（REFACTOR）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
+- [x] 各モジュールのインターフェース設計が完成している（メソッドシグネチャ、引数、戻り値）
+- [x] BasePhase オーケストレーション設計が完成している（run() メソッドの擬似コード）
+- [x] 行数削減計画が詳細化されている（各モジュールへの移行行数見積もり）
+- [x] エラーハンドリング方針が策定されている
 
 ### Phase 3: テストシナリオ
 
