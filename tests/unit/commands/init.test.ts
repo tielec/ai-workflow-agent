@@ -128,7 +128,7 @@ describe('validateBranchName', () => {
       // Then: バリデーションが失敗する
       expect(result.valid).toBe(false);
       expect(result.error).toBeTruthy();
-      expect(result.error).toContain('cannot end');
+      expect(result.error).toContain('cannot start or end with');
     });
 
     test('空文字列を拒否する', () => {
