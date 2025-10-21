@@ -5,34 +5,66 @@
 ## 全体フロー
 
 ```
-CLI (src/main.ts)
- ├─ init コマンド … メタデータ初期化 + ブランチ作成 + 対象リポジトリ判定
- │    ├─ Issue URL を解析（parseIssueUrl）
- │    ├─ ローカルリポジトリパスを解決（resolveLocalRepoPath）
- │    ├─ ブランチ名を解決（resolveBranchName: カスタム or デフォルト）
- │    ├─ ブランチ名をバリデーション（validateBranchName: Git 命名規則チェック）
- │    └─ target_repository と branch_name をメタデータに保存
- ├─ execute コマンド
- │    ├─ メタデータ探索（findWorkflowMetadata）
- │    ├─ .ai-workflow/issue-*/metadata.json を読み込み
- │    ├─ target_repository から workingDir を取得
- │    ├─ エージェントモードを判定（Codex / Claude）
- │    ├─ 依存関係順にフェーズを実行
- │    │    ├─ BasePhase.run()
- │    │    │    ├─ execute()    … エージェントで成果物生成
- │    │    │    ├─ review()     … 可能ならレビューサイクル実施
- │    │    │    └─ revise()     … オプション（自動修正）
- │    │    └─ GitManager による自動コミット / プッシュ（必要に応じて）
- │    └─ 実行サマリーを生成
- └─ review コマンド … メタデータを取得し、フェーズの状態を表示
+CLI (src/main.ts - 約118行に削減、v0.3.0でリファクタリング)
+ ├─ runCli() … CLI エントリーポイント
+ ├─ commander定義（コマンドルーティングのみ）
+ ├─ reportFatalError() … 致命的エラー報告
+ ├─ reportExecutionSummary() … 実行サマリー表示
+ └─ isValidPhaseName() … フェーズ名バリデーション
+
+src/commands/init.ts (Issue初期化コマンド処理)
+ ├─ handleInitCommand() … Issue初期化コマンドハンドラ
+ ├─ validateBranchName() … ブランチ名バリデーション（Git 命名規則チェック）
+ ├─ resolveBranchName() … ブランチ名解決（カスタム or デフォルト）
+ └─ src/core/repository-utils.ts を利用（Issue URL解析、リポジトリパス解決）
+
+src/commands/execute.ts (フェーズ実行コマンド処理)
+ ├─ handleExecuteCommand() … フェーズ実行コマンドハンドラ
+ ├─ executePhasesSequential() … フェーズ順次実行
+ ├─ executePhasesFrom() … 特定フェーズから実行
+ ├─ createPhaseInstance() … フェーズインスタンス作成
+ ├─ resolvePresetName() … プリセット名解決（後方互換性対応）
+ ├─ getPresetPhases() … プリセットフェーズ取得
+ ├─ canResumeWorkflow() … ワークフロー再開可否判定
+ ├─ loadExternalDocuments() … 外部ドキュメント読み込み
+ ├─ resetMetadata() … メタデータリセット
+ └─ 依存関係順にフェーズを実行
+      ├─ BasePhase.run()
+      │    ├─ execute()    … エージェントで成果物生成
+      │    ├─ review()     … 可能ならレビューサイクル実施
+      │    └─ revise()     … オプション（自動修正）
+      └─ GitManager による自動コミット / プッシュ（必要に応じて）
+
+src/commands/review.ts (フェーズレビューコマンド処理)
+ └─ handleReviewCommand() … メタデータを取得し、フェーズの状態を表示
+
+src/commands/list-presets.ts (プリセット一覧表示コマンド処理)
+ └─ listPresets() … 利用可能なプリセット一覧を表示
+
+src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
+ ├─ parseIssueUrl() … GitHub Issue URLからリポジトリ情報を抽出
+ ├─ resolveLocalRepoPath() … リポジトリ名からローカルパスを解決
+ ├─ findWorkflowMetadata() … Issue番号から対応するメタデータを探索
+ └─ getRepoRoot() … Gitリポジトリのルートパスを取得
+
+src/types/commands.ts (コマンド関連の型定義)
+ ├─ PhaseContext … フェーズ実行コンテキスト
+ ├─ ExecutionSummary … 実行サマリー
+ ├─ IssueInfo … Issue情報
+ └─ BranchValidationResult … ブランチバリデーション結果
 ```
 
 ## モジュール一覧
 
 | モジュール | 役割 |
 |------------|------|
-| `src/main.ts` | `commander` による CLI 定義。オプション解析、環境初期化、ブランチ検証、プリセット解決、マルチリポジトリ対応（Issue URL 解析、リポジトリパス解決）を担当。 |
+| `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
+| `src/commands/execute.ts` | フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
+| `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
+| `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
+| `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
@@ -41,6 +73,7 @@ CLI (src/main.ts)
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供。 |
+| `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
@@ -69,7 +102,7 @@ CLI (src/main.ts)
 
 ## エージェントの選択
 
-`src/main.ts` で `--agent` オプションを解釈します。
+`src/commands/execute.ts` の `handleExecuteCommand()` で `--agent` オプションを解釈します。
 
 - `auto` … `CODEX_API_KEY` / `OPENAI_API_KEY` が設定されていれば Codex を優先し、なければ Claude を使用。
 - `codex` … Codex API キー必須。ログは `CodexAgentClient` が収集。
@@ -89,7 +122,7 @@ CLI (src/main.ts)
 - `testing` … テスト中心パターン
 - `finalize` … ドキュメント・レポートパターン
 
-プリセット名の解決は `src/main.ts` の `resolvePresetName()` 関数で行われ、後方互換性のために非推奨プリセット名（`requirements-only`, `design-phase`, `implementation-phase`, `full-workflow`）のエイリアスもサポートします。
+プリセット名の解決は `src/commands/execute.ts` の `resolvePresetName()` 関数で行われ、後方互換性のために非推奨プリセット名（`requirements-only`, `design-phase`, `implementation-phase`, `full-workflow`）のエイリアスもサポートします。
 
 ### 依存関係チェック
 

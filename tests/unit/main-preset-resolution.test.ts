@@ -1,57 +1,20 @@
 /**
- * ユニットテスト: main.ts - プリセット名解決機能
+ * ユニットテスト: プリセット名解決機能
  *
  * テスト対象:
  * - resolvePresetName関数（後方互換性対応）
  * - listPresets関数（プリセット一覧表示）
  *
- * 注意: resolvePresetNameはmain.ts内のプライベート関数のため、
- * 実際のテストではCLI経由での動作確認が必要です。
- * このテストでは、同等のロジックを再現してテストします。
+ * 注意: リファクタリング後、resolvePresetNameは src/commands/execute.ts に移動されました。
  */
 
 import { describe, test, expect } from '@jest/globals';
+import { resolvePresetName } from '../../src/commands/execute.js';
 import {
   PHASE_PRESETS,
   DEPRECATED_PRESETS,
   PRESET_DESCRIPTIONS,
 } from '../../src/core/phase-dependencies.js';
-
-/**
- * main.tsのresolvePresetName関数と同等のロジック
- * （テスト用に再現）
- */
-function resolvePresetName(presetName: string): {
-  resolvedName: string;
-  warning?: string;
-} {
-  // 現行プリセット名の場合
-  if (PHASE_PRESETS[presetName]) {
-    return { resolvedName: presetName };
-  }
-
-  // 非推奨プリセット名の場合
-  if (DEPRECATED_PRESETS[presetName]) {
-    const newName = DEPRECATED_PRESETS[presetName];
-
-    // full-workflowの特殊ケース
-    if (presetName === 'full-workflow') {
-      return {
-        resolvedName: '',
-        warning: `[WARNING] Preset "${presetName}" is deprecated. Please use "--phase all" instead.`,
-      };
-    }
-
-    // 通常の非推奨プリセット
-    return {
-      resolvedName: newName,
-      warning: `[WARNING] Preset "${presetName}" is deprecated. Please use "${newName}" instead. This alias will be removed in 6 months.`,
-    };
-  }
-
-  // 存在しないプリセット名
-  throw new Error(`[ERROR] Unknown preset: ${presetName}. Use 'list-presets' command to see available presets.`);
-}
 
 describe('resolvePresetName関数テスト', () => {
   test('1.2.1: 現行プリセット名の解決（正常系）', () => {

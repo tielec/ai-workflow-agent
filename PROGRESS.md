@@ -19,13 +19,21 @@
 | コア | Codex エージェント | Codex CLI ラッパー | ✅ 完了 | `src/core/codex-agent-client.ts` |
 | コア | Content Parser | OpenAI 経由のレビュー解析 | ✅ 完了 | `src/core/content-parser.ts` |
 | コア | Phase Dependencies | 依存関係判定・プリセット | ✅ 完了 | `src/core/phase-dependencies.ts` |
-| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/main.ts` |
-| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/main.ts` |
-| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/main.ts` |
+| コア | Repository Utils | リポジトリ解決・URL解析 | ✅ 完了 | `src/core/repository-utils.ts` |
+| CLI | main.ts | コマンドルーター（Issue #22で118行に削減） | ✅ 完了 | `src/main.ts` |
+| CLI | `init` コマンド | 初期化・ブランチ作成 | ✅ 完了 | `src/commands/init.ts` |
+| CLI | `execute` コマンド | フェーズ実行・再開 | ✅ 完了 | `src/commands/execute.ts` |
+| CLI | `review` コマンド | フェーズ進捗確認 | ✅ 完了 | `src/commands/review.ts` |
+| CLI | `list-presets` コマンド | プリセット一覧表示 | ✅ 完了 | `src/commands/list-presets.ts` |
+| 型定義 | Commands Types | コマンド関連型定義 | ✅ 完了 | `src/types/commands.ts` |
 | テンプレート | プロンプト / PR テンプレート | Claude / PR 用フォーマット | ✅ 完了 | `src/prompts/**`, `src/templates/**` |
 | インフラ | Dockerfile | Jenkins 用コンテナ | ✅ 完了 | `Dockerfile`（Node.js 20 ベース） |
-| テスト | 自動テスト整備 | ユニット / 統合テスト | 🔄 進行中 | `package.json`（スクリプト追加予定） |
+| テスト | 自動テスト整備 | ユニット / 統合テスト | ✅ 完了 | `tests/unit/**`, `tests/integration/**` |
+| リファクタリング | CLI コマンド処理分離（Issue #22） | main.tsを1309行→118行に削減 | ✅ 完了 | `src/commands/*`, `src/core/repository-utils.ts` |
 
 > ✅: TypeScript 版へ移行済み / 🔄: 継続作業中 / ⏳: 着手予定
 
-現在、**テスト整備（ユニット / 統合テスト）** の拡充が主な残作業です。TypeScript 実装の挙動検証を強化するため、順次テストスイートを追加していきます。
+**主要な進捗**:
+- TypeScript への完全移植が完了しました。
+- Issue #22 でCLIコマンド処理を分離し、main.tsを118行に削減、保守性を大幅に向上させました（v0.3.0）。
+- Jestベースの自動テスト整備が完了し、ユニットテスト189件、統合テスト90件を実装しました。

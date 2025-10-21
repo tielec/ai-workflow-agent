@@ -72,11 +72,11 @@ node dist/index.js list-presets
 
 ### フェーズ実行フロー
 
-1. **CLI エントリー**（`src/main.ts`）: オプション解析、プリセット解決、依存関係検証
-2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl`）
+1. **CLI エントリー**（`src/main.ts`）: コマンドルーティング → 各コマンドハンドラ（`src/commands/init.ts`, `src/commands/execute.ts` 等）へ委譲
+2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl` in `src/core/repository-utils.ts`）
 3. **マルチリポジトリ解決**: `REPOS_ROOT` 環境変数を使用して対象リポジトリを特定
 4. **メタデータ読み込み**: `.ai-workflow/issue-<NUM>/metadata.json` を読み込み、`target_repository` 情報を取得
-5. **フェーズ実行**: `BasePhase.run()` による順次実行:
+5. **フェーズ実行**: `BasePhase.run()` による順次実行（`src/commands/execute.ts` で管理）:
    - 依存関係検証
    - `execute()`: エージェントで成果物を生成
      - **Git コミット & プッシュ** (v0.3.0で追加)
@@ -87,7 +87,13 @@ node dist/index.js list-presets
 
 ### コアモジュール
 
-- **`src/main.ts`**: CLI 定義、プリセット解決、マルチリポジトリサポート（v0.2.0）
+- **`src/main.ts`**: CLI 定義とコマンドルーティング（約118行、v0.3.0でリファクタリング）。コマンドルーターとしての役割のみに特化。
+- **`src/commands/init.ts`**: Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。
+- **`src/commands/execute.ts`**: フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。
+- **`src/commands/review.ts`**: フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。
+- **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。
+- **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
+- **`src/types/commands.ts`**: コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。
 - **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス
 - **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー
 - **`src/core/claude-agent-client.ts`**: Claude Agent SDK ラッパー
@@ -135,9 +141,9 @@ node dist/index.js list-presets
 4. **実行コンテキスト**: すべての操作は対象リポジトリの作業ディレクトリで実行
 
 **主要関数**:
-- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（src/main.ts:880）
-- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（src/main.ts:921）
-- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（src/main.ts:960）
+- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（`src/core/repository-utils.ts`）
+- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（`src/core/repository-utils.ts`）
+- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（`src/core/repository-utils.ts`）
 
 ## ワークフローメタデータ構造
 
