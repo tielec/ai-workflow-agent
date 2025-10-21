@@ -246,10 +246,10 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: ARCHITECTURE.md更新 (0.25~0.5h)
+- [x] Task 7-1: ARCHITECTURE.md更新 (0.25~0.5h)
   - モジュール一覧の更新（src/commands/* を追加）
   - CLI エントリーポイントの説明更新
-- [ ] Task 7-2: CLAUDE.md更新 (0.25~0.5h)
+- [x] Task 7-2: CLAUDE.md更新 (0.25~0.5h)
   - アーキテクチャ概要の更新
   - コマンドハンドラの説明追加
 
@@ -376,8 +376,8 @@ graph TD
 - [ ] カバレッジが低下していない（`npm run test:coverage`）
 
 ### Phase 7: ドキュメント
-- [ ] ARCHITECTURE.mdが更新されている（モジュール一覧、CLIエントリーポイント）
-- [ ] CLAUDE.mdが更新されている（アーキテクチャ概要、コマンドハンドラ説明）
+- [x] ARCHITECTURE.mdが更新されている（モジュール一覧、CLIエントリーポイント）
+- [x] CLAUDE.mdが更新されている（アーキテクチャ概要、コマンドハンドラ説明）
 
 ### Phase 8: レポート
 - [ ] PR本文が作成されている（変更サマリー、テスト結果）
