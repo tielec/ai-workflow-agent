@@ -226,11 +226,11 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~2h)
 
-- [ ] Task 5-1: 既存テストのimport修正 (0.5h)
+- [x] Task 5-1: 既存テストのimport修正 (0.5h)
   - tests/unit/main-preset-resolution.test.ts のimport修正
   - tests/unit/branch-validation.test.ts のimport修正
   - tests/unit/repository-resolution.test.ts のimport修正
-- [ ] Task 5-2: 新規ユニットテスト作成 (0.5~1h)
+- [x] Task 5-2: 新規ユニットテスト作成 (0.5~1h)
   - tests/unit/commands/init.test.ts 作成
   - tests/unit/commands/execute.test.ts 作成
   - tests/unit/commands/list-presets.test.ts 作成
