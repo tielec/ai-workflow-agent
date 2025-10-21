@@ -18,9 +18,9 @@
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 1928,
-    "total_output_tokens": 35424,
-    "total_cost_usd": 1.4821851499999998
+    "total_input_tokens": 1922,
+    "total_output_tokens": 31706,
+    "total_cost_usd": 1.28866815
   },
   "phases": {
     "planning": {
@@ -38,7 +38,7 @@
     "requirements": {
       "status": "in_progress",
       "retry_count": 0,
-      "started_at": "2025-10-21T02:35:25.225Z",
+      "started_at": "2025-10-21T01:41:48.155Z",
       "completed_at": null,
       "review_result": null,
       "current_step": "review",
@@ -51,63 +51,49 @@
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "test_scenario": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "implementation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "test_implementation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "testing": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "documentation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "report": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "evaluation": {
       "status": "pending",
@@ -119,13 +105,11 @@
       "failed_phase": null,
       "remaining_tasks": [],
       "created_issue_url": null,
-      "abort_reason": null,
-      "current_step": null,
-      "completed_steps": []
+      "abort_reason": null
     }
   },
   "created_at": "2025-10-21T01:37:25.755Z",
-  "updated_at": "2025-10-21T02:36:44.508Z",
+  "updated_at": "2025-10-21T01:47:04.002Z",
   "branch_name": "ai-workflow/issue-22",
   "pr_number": 27,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/27",

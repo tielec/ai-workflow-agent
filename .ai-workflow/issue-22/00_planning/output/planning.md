@@ -168,11 +168,11 @@
 
 ### Phase 1: 要件定義 (見積もり: 2~3h)
 
-- [ ] Task 1-1: Issue要件の詳細分析 (1h)
+- [x] Task 1-1: Issue要件の詳細分析 (1h)
   - Issue #22の要件を確認（main.ts を200行以下に削減、コマンドごとの責務明確化）
   - 親Issue #1との関連性確認
   - テストカバレッジ維持要件の確認
-- [ ] Task 1-2: 既存テストケースの棚卸し (1~2h)
+- [x] Task 1-2: 既存テストケースの棚卸し (1~2h)
   - ユニットテスト18件の内容確認（main-preset-resolution.test.ts, branch-validation.test.ts, repository-resolution.test.ts等）
   - 統合テスト18件の内容確認（workflow-init-cleanup.test.ts, custom-branch-workflow.test.ts, multi-repo-workflow.test.ts等）
   - テスト依存関係の洗い出し
