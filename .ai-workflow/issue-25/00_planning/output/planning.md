@@ -90,13 +90,13 @@
 
 ### Phase 1: 要件定義 (見積もり: 2~3h)
 
-- [ ] Task 1-1: Git操作の責務分析 (1~1.5h)
+- [x] Task 1-1: Git操作の責務分析 (1~1.5h)
   - `git-manager.ts` の548行を操作種別で分類
   - コミット操作（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs, createCommitMessage）
   - ブランチ操作（createBranch, branchExists, getCurrentBranch, switchBranch）
   - リモート操作（pushToRemote, pullLatest, setupGithubCredentials）
   - 共通操作（getStatus, getChangedFiles, filterPhaseFiles, ensureGitConfig）
-- [ ] Task 1-2: 依存関係マッピング (1~1.5h)
+- [x] Task 1-2: 依存関係マッピング (1~1.5h)
   - 各操作が依存する `simple-git` API を洗い出し
   - `MetadataManager`, `SecretMasker` の使用箇所を特定
   - 各操作間の依存関係を分析（例: `commitPhaseOutput` は `getChangedFiles`, `filterPhaseFiles`, `ensureGitConfig` に依存）
