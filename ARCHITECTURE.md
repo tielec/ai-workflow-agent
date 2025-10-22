@@ -70,6 +70,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/helpers/agent-event-parser.ts` | Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）。`parseCodexEvent()`, `parseClaudeEvent()`, `determineCodexEventType()`, `determineClaudeEventType()` を提供。 |
 | `src/core/helpers/log-formatter.ts` | エージェントログのフォーマット処理（181行、Issue #26で追加）。`formatCodexLog()`, `formatClaudeLog()`, `truncateInput()` を提供。 |
 | `src/core/helpers/env-setup.ts` | エージェント実行環境のセットアップ（47行、Issue #26で追加）。`setupCodexEnvironment()`, `setupGitHubEnvironment()` を提供。 |
+| `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。 |
@@ -304,7 +305,7 @@ GitHubClient は702行から402行へリファクタリングされ（約42.7%�
 
 GitManager は548行から181行へリファクタリングされ（約67%削減）、ファサードパターンにより3つの専門マネージャーに責務を分離しました：
 
-- **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、コミットメッセージ生成、SecretMasker統合、ファイル操作ヘルパー（getChangedFiles, filterPhaseFiles, ensureGitConfig）を提供。
+- **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、コミットメッセージ生成、SecretMasker統合（Issue #54でmetadata.jsonスキャン追加）、ファイル操作ヘルパー（getChangedFiles, filterPhaseFiles, ensureGitConfig）を提供。
 - **BranchManager** (`src/core/git/branch-manager.ts`): ブランチ操作を担当。ブランチ作成、切り替え、存在チェック（ローカル/リモート）、現在のブランチ取得を提供。
 - **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。
 
