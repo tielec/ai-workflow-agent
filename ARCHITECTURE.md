@@ -73,7 +73,10 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。 |
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
-| `src/core/git-manager.ts` | `simple-git` 経由でブランチ切替、pull、commit、push を実行。 |
+| `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。 |
+| `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。 |
+| `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
+| `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供。 |
@@ -268,8 +271,20 @@ GitHubClient は702行から402行へリファクタリングされ（約42.7%�
 - Issue への進捗コメント投稿、PR ボディ生成、成果物の添付に利用
 
 ### Git
-- `GitManager` が checkout / pull / commit / push を担当
-- 自動コミットメッセージは `"chore: update <phase>"`（実装を参照）
+
+**GitManager のモジュール構成（v0.3.1、Issue #25）**:
+
+GitManager は548行から181行へリファクタリングされ（約67%削減）、ファサードパターンにより3つの専門マネージャーに責務を分離しました：
+
+- **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、コミットメッセージ生成、SecretMasker統合、ファイル操作ヘルパー（getChangedFiles, filterPhaseFiles, ensureGitConfig）を提供。
+- **BranchManager** (`src/core/git/branch-manager.ts`): ブランチ操作を担当。ブランチ作成、切り替え、存在チェック（ローカル/リモート）、現在のブランチ取得を提供。
+- **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。
+
+**ファサードパターンの設計**:
+- GitManager は各専門マネージャーのインスタンスを保持し、既存のpublicメソッドを対応するマネージャーに委譲
+- simple-gitインスタンスはコンストラクタ注入により各マネージャーで共有（依存性注入パターン）
+- 後方互換性100%維持（既存の呼び出し元は無変更で動作）
+- 自動コミットメッセージは `"[ai-workflow] Phase {number} ({name}) - {step} completed"` 形式（ステップ単位のコミット）
 
 ## Jenkins での利用
 
