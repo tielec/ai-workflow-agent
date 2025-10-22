@@ -155,18 +155,18 @@
 
 #### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: URLサニタイゼーション関数の設計 (1~1.5h)
+- [x] Task 2-1: URLサニタイゼーション関数の設計 (1~1.5h)
   - `sanitizeGitUrl()` 関数のシグネチャ設計
   - 正規表現パターンの設計（HTTPS認証情報検出）
   - エッジケース処理の設計（空文字列、不正URL等）
   - JSDoc形式のドキュメント作成
 
-- [ ] Task 2-2: SecretMaskerの拡張設計 (0.5~1h)
+- [x] Task 2-2: SecretMaskerの拡張設計 (0.5~1h)
   - `metadata.json` スキャンの優先度決定
   - マスキングパターンの確認（既存パターンで十分か）
   - エラーハンドリング設計（metadata.json不在時の挙動）
 
-- [ ] Task 2-3: commitWorkflowInitの修正設計 (0.5~1h)
+- [x] Task 2-3: commitWorkflowInitの修正設計 (0.5~1h)
   - マスキング実行タイミングの決定（コミット前）
   - マスキング失敗時のエラーハンドリング（致命的エラーとして扱う）
   - ログ出力設計（マスク件数の表示）
@@ -351,11 +351,11 @@ graph TD
 
 #### Phase 2: 設計
 
-- [ ] 実装戦略の判断根拠が明記されている（EXTEND）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
-- [ ] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
-- [ ] `sanitizeGitUrl()` 関数の設計が明確である（シグネチャ、正規表現、エラーハンドリング）
-- [ ] 既存コードとの統合方法が明確である（init.ts、SecretMasker、CommitManager）
+- [x] 実装戦略の判断根拠が明記されている（EXTEND）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
+- [x] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
+- [x] `sanitizeGitUrl()` 関数の設計が明確である（シグネチャ、正規表現、エラーハンドリング）
+- [x] 既存コードとの統合方法が明確である（init.ts、SecretMasker、CommitManager）
 
 #### Phase 3: テストシナリオ
 
