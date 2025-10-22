@@ -5,7 +5,7 @@
 
 import { CommitManager } from '../../../src/core/git/commit-manager';
 import { MetadataManager } from '../../../src/core/metadata-manager';
-import { SecretMasker } from '../../../src/utils/secret-masker';
+import { SecretMasker } from '../../../src/core/secret-masker';
 import { SimpleGit } from 'simple-git';
 
 describe('CommitManager - Message Generation', () => {
@@ -53,7 +53,7 @@ describe('CommitManager - Message Generation', () => {
   describe('createCommitMessage', () => {
     test('createCommitMessage_正常系_Phase完了時のメッセージ生成', () => {
       // Given: Phase番号、Status、Review result、Issue番号
-      const phaseName = '01_requirements';
+      const phaseName = 'requirements';
       const status = 'completed';
       const reviewResult = 'PASS';
 
@@ -85,7 +85,7 @@ describe('CommitManager - Message Generation', () => {
   describe('buildStepCommitMessage', () => {
     test('buildStepCommitMessage_正常系_ステップ完了時のメッセージ生成', () => {
       // Given: Phase番号、Step番号、Step名
-      const phaseName = '04_implementation';
+      const phaseName = 'implementation';
       const stepNumber = 3;
       const stepName = 'Implement BranchManager';
 
@@ -121,7 +121,7 @@ describe('CommitManager - Message Generation', () => {
   describe('createCleanupCommitMessage', () => {
     test('createCleanupCommitMessage_正常系_クリーンアップメッセージ生成', () => {
       // Given: Phase番号
-      const phaseName = '04_implementation';
+      const phaseName = 'implementation';
 
       // When: createCleanupCommitMessage を呼び出す
       const message = (commitManager as any).createCleanupCommitMessage(phaseName);
@@ -191,7 +191,7 @@ describe('CommitManager - Commit Operations', () => {
 
       // When: commitPhaseOutput を呼び出す
       const result = await commitManager.commitPhaseOutput(
-        '01_requirements',
+        'requirements',
         'completed',
         'PASS'
       );
@@ -219,7 +219,7 @@ describe('CommitManager - Commit Operations', () => {
 
       // When: commitPhaseOutput を呼び出す
       const result = await commitManager.commitPhaseOutput(
-        '01_requirements',
+        'requirements',
         'completed',
         'PASS'
       );
@@ -242,7 +242,7 @@ describe('CommitManager - Commit Operations', () => {
 
       // When: commitPhaseOutput を呼び出す
       const result = await commitManager.commitPhaseOutput(
-        '01_requirements',
+        'requirements',
         'completed',
         'PASS'
       );
@@ -273,7 +273,7 @@ describe('CommitManager - Commit Operations', () => {
 
       // When: commitStepOutput を呼び出す
       const result = await commitManager.commitStepOutput(
-        '04_implementation',
+        'implementation',
         3,
         'Implement BranchManager'
       );
@@ -304,7 +304,8 @@ describe('CommitManager - Commit Operations', () => {
 
       // When: commitWorkflowInit を呼び出す
       const result = await commitManager.commitWorkflowInit(
-        '[REFACTOR] Git Manager の操作別分割'
+        25,
+        'feature/issue-25'
       );
 
       // Then: 初期化コミットが正常に作成される
@@ -331,7 +332,7 @@ describe('CommitManager - Commit Operations', () => {
       } as any);
 
       // When: commitCleanupLogs を呼び出す
-      const result = await commitManager.commitCleanupLogs('04_implementation');
+      const result = await commitManager.commitCleanupLogs(25, 'report');
 
       // Then: クリーンアップコミットが正常に作成される
       expect(result.success).toBe(true);
@@ -395,7 +396,7 @@ describe('CommitManager - SecretMasker Integration', () => {
 
     // When: commitPhaseOutput を呼び出す
     const result = await commitManager.commitPhaseOutput(
-      '01_requirements',
+      'requirements',
       'completed',
       'PASS'
     );
@@ -416,7 +417,7 @@ describe('CommitManager - SecretMasker Integration', () => {
 
     // When: commitPhaseOutput を呼び出す
     const result = await commitManager.commitPhaseOutput(
-      '01_requirements',
+      'requirements',
       'completed',
       'PASS'
     );
