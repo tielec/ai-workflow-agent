@@ -186,22 +186,22 @@
 
 #### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: git-url-utils.tsの実装 (1~1.5h)
+- [x] Task 4-1: git-url-utils.tsの実装 (1~1.5h)
   - `src/utils/git-url-utils.ts` ファイル作成
   - `sanitizeGitUrl()` 関数実装
   - HTTPS認証情報除去ロジック（正規表現）
   - JSDocコメント追加
 
-- [ ] Task 4-2: init.tsの修正 (1~1.5h)
+- [x] Task 4-2: init.tsの修正 (1~1.5h)
   - `src/commands/init.ts` にimport追加
   - 行192付近のremote URL取得後にサニタイズ追加
   - 行236付近のメタデータ保存前にサニタイズ追加
   - デバッグログ追加（サニタイズ前後のURL比較、トークン検出時の警告）
 
-- [ ] Task 4-3: SecretMaskerの拡張 (0.5h)
+- [x] Task 4-3: SecretMaskerの拡張 (0.5h)
   - `src/core/secret-masker.ts` の `targetFilePatterns` に `metadata.json` 追加
 
-- [ ] Task 4-4: commitWorkflowInitの修正 (0.5~1h)
+- [x] Task 4-4: commitWorkflowInitの修正 (0.5~1h)
   - `src/core/git/commit-manager.ts` の `commitWorkflowInit()` 修正
   - metadata.json作成直後にマスキング実行
   - マスキング結果のログ出力
