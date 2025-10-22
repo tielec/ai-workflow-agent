@@ -1,0 +1,422 @@
+# 詳細設計フェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書とGitHub Issueの内容から、詳細な設計書を作成してください。このフェーズでは、**実装戦略・テスト戦略・テストコード戦略の判断**も行います。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-54/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-54/01_requirements/output/requirements.md
+
+### GitHub Issue情報
+## Issue概要
+
+- **Issue番号**: #54
+- **タイトル**: バグ: metadata.jsonにGitHub Personal Access Tokenが含まれpush protectionで拒否される
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/54
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+`init` コマンド実行時に、Git remote URL に含まれる GitHub Personal Access Token が `metadata.json` に保存されてしまい、GitHub の push protection によって push が拒否される問題が発生しています。
+
+**重要度:** HIGH（セキュリティリスク）
+
+## 再現手順
+
+1. HTTPS形式でリポジトリをクローン（トークン埋め込み）:
+```bash
+git clone https://ghp_xxxxxxxxxxxx@github.com/tielec/infrastructure-as-code.git
+```
+
+2. `init` コマンドを実行:
+```bash
+node dist/index.js init --issue-url https://github.com/tielec/infrastructure-as-code/issues/423
+```
+
+3. 結果: push が GitHub push protection により拒否される
+
+## エラーメッセージ
+
+```
+[ERROR] Push failed: remote: error: GH013: Repository rule violations found for refs/heads/ai-workflow/issue-423.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   —————————————————————————————————————————        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:       —— GitHub Personal Access Token ——————————————————————        
+remote:        locations:        
+remote:          - commit: a42733bf5a526ef7ab5b0df50b07279f79387a50        
+remote:            path: .ai-workflow/issue-423/metadata.json:9        
+```
+
+## 原因分析
+
+### 1. Remote URL取得時にトークンが含まれる
+
+`src/commands/init.ts:235-236`:
+```typescript
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+```
+
+このコードは `git remote get-url origin` の結果をそのまま取得しており、HTTPS形式でトークンが埋め込まれている場合（`https://token@github.com/...`）、トークンがそのまま含まれてしまいます。
+
+### 2. metadata.jsonに直接保存
+
+`src/commands/init.ts:237-243`:
+```typescript
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: remoteUrlStr,  // ← トークンが含まれる可能性
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 3. SecretMaskerがmetadata.jsonをスキャンしていない
+
+`src/core/secret-masker.ts:23-27`:
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+];
+```
+
+`metadata.json` がスキャン対象に含まれていないため、トークンがマスクされません。
+
+## 影響範囲
+
+### セキュリティリスク
+- GitHub Personal Access Token が Git履歴に残る可能性
+- リポジトリが public の場合、トークンが公開される
+- トークンの無効化が必要になる
+
+### 機能面の影響
+- `init` コマンドが完了できない
+- ワークフローを開始できない
+- 手動でトークンを削除してコミットを修正する必要がある
+
+## 提案する解決策
+
+### 解決策1: Remote URLからトークンを除去（推奨）
+
+`src/commands/init.ts` でremote URL取得後にトークンを除去:
+
+```typescript
+// src/utils/git-url-utils.ts (新規作成)
+
+/**
+ * Git remote URLからトークン/認証情報を除去
+ * 
+ * @example
+ * sanitizeGitUrl('https://token@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('https://user:pass@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('git@github.com:owner/repo.git')
+ * // => 'git@github.com:owner/repo.git' (変更なし)
+ */
+export function sanitizeGitUrl(url: string): string {
+  // HTTPS形式の認証情報を除去: https://token@github.com -> https://github.com
+  // パターン: https://[user[:pass]@]host/path
+  const httpsPattern = /^(https?:\/\/)([^@]+@)?(.+)$/;
+  const match = url.match(httpsPattern);
+  
+  if (match) {
+    const [, protocol, , rest] = match;
+    return `${protocol}${rest}`;
+  }
+  
+  // SSH形式やその他はそのまま返す
+  return url;
+}
+```
+
+`src/commands/init.ts` で使用:
+
+```typescript
+import { sanitizeGitUrl } from '../utils/git-url-utils.js';
+
+// ...
+
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+const sanitizedUrl = sanitizeGitUrl(remoteUrlStr);  // ← トークン除去
+
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: sanitizedUrl,  // ← サニタイズ済みURL
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 解決策2: SecretMaskerにmetadata.jsonを追加（追加の安全策）
+
+`src/core/secret-masker.ts`:
+
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+  'metadata.json',  // ← 追加
+];
+```
+
+**注意**: これだけでは不十分です。metadata.jsonがコミットされる前にマスキングする必要がありますが、現在の実装では `commitWorkflowInit()` でマスキングが行われていない可能性があります。
+
+### 解決策3: commitWorkflowInit でマスキングを確実に実行
+
+`src/core/git-manager.ts` または `src/core/git/commit-manager.ts`:
+
+```typescript
+async commitWorkflowInit(issueNumber: number, branchName: string): Promise<CommitResult> {
+  const workflowDir = path.join(this.repoRoot, '.ai-workflow', `issue-${issueNumber}`);
+  
+  // metadata.json 作成直後にマスキング実行
+  try {
+    const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+    if (maskingResult.secretsMasked > 0) {
+      console.info(`[INFO] Masked ${maskingResult.secretsMasked} secrets in metadata.json`);
+    }
+  } catch (error) {
+    // マスキング失敗は致命的エラーとして扱う
+    console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+    throw new Error('Cannot commit metadata.json with unmasked secrets');
+  }
+  
+  // ... コミット処理 ...
+}
+```
+
+## 推奨アプローチ
+
+**解決策1（URL サニタイズ）を優先実装**:
+- 根本原因（トークンがmetadataに含まれること）を解決
+- シンプルで確実
+- 副作用がない
+
+**解決策2 と 3 を追加の安全策として実装**:
+- Defense in Depth（多層防御）
+- 他の箇所でトークンが混入した場合にも対応
+
+## 実装タスク
+
+- [ ] `src/utils/git-url-utils.ts` を作成
+- [ ] `sanitizeGitUrl()` 関数を実装
+- [ ] `src/commands/init.ts` でremote URLをサニタイズ（2箇所: 192行, 236行）
+- [ ] `sanitizeGitUrl()` のユニットテストを追加
+  - [ ] HTTPS + トークン形式のテスト
+  - [ ] HTTPS + ユーザー:パスワード形式のテスト
+  - [ ] SSH形式のテスト（変更なし）
+  - [ ] 通常のHTTPS形式のテスト（変更なし）
+- [ ] `SecretMasker` に `metadata.json` を追加
+- [ ] `commitWorkflowInit()` でマスキングを確実に実行
+- [ ] 統合テストでトークン埋め込みURLでの動作を確認
+
+## 見積もり
+1日
+
+## 関連Issue
+セキュリティ重要度: HIGH
+
+### 既存コードベースの理解
+
+このリポジトリのプロジェクト構造、アーキテクチャ、コーディング規約を理解するため、以下のドキュメントを参照してください：
+
+- プロジェクト全体のガイドライン: @CLAUDE.md（存在する場合）
+- アーキテクチャ設計: @ARCHITECTURE.md（存在する場合）
+- プロジェクトREADME: @README.md
+- その他、関連するREADME、CONTRIBUTION.md等のドキュメント
+
+上記ドキュメントから以下を把握してください：
+- プロジェクトの目的とアーキテクチャ
+- ディレクトリ構造とコンポーネント構成
+- 既存のコーディング規約やパターン
+- 開発ワークフロー
+
+## 設計書作成手順
+
+### 1. 既存コードベース分析
+
+要件定義書とIssue内容から、以下を分析してください：
+
+1. **影響範囲の特定**
+   - どのコンポーネント（Ansible/Pulumi/Jenkins/Scripts）が影響を受けるか
+   - 既存ファイルの修正が必要か、新規ファイルの作成が必要か
+   - 依存関係のあるコンポーネントは何か
+
+2. **既存パターンの調査**
+   - 類似の機能実装がないか調査
+   - 既存のコーディング規約やパターンを確認
+   - 再利用可能なコンポーネントの特定
+
+### 2. 実装戦略の判断（必須）
+
+以下の3つから選択し、**判断根拠を明記**してください：
+
+- **CREATE（新規作成）**: 既存コードとの依存関係がなく、完全に新しい機能
+- **EXTEND（拡張）**: 既存コードを拡張・修正する必要がある
+- **REFACTOR（リファクタリング）**: 既存コードの構造改善が主目的
+
+**判断基準**：
+- 既存ファイルへの影響範囲
+- 新規ファイルの作成数
+- 既存機能との統合度
+
+**出力形式**：
+```markdown
+### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 3. テスト戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **UNIT_ONLY**: Unitテストのみ
+- **INTEGRATION_ONLY**: Integrationテストのみ
+- **BDD_ONLY**: BDDテストのみ
+- **UNIT_INTEGRATION**: Unit + Integration
+- **UNIT_BDD**: Unit + BDD
+- **INTEGRATION_BDD**: Integration + BDD
+- **ALL**: すべて
+
+**判断基準**：
+- 機能の複雑度
+- ユーザーストーリーの有無
+- 既存テストとの整合性
+
+**出力形式**：
+```markdown
+### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 4. テストコード戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **EXTEND_TEST（既存テストの拡張）**: 既存テストファイルに追加
+- **CREATE_TEST（新規テスト作成）**: 新しいテストファイルを作成
+- **BOTH_TEST（両方）**: 既存テストの拡張と新規テストの作成
+
+**判断基準**：
+- 既存テストファイルの有無
+- 既存テストとの関連性
+
+**出力形式**：
+```markdown
+### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 5. 設計書の構成
+
+以下のセクションを含む設計書を作成してください：
+
+#### 必須セクション：
+
+1. **アーキテクチャ設計**
+   - システム全体図
+   - コンポーネント間の関係
+   - データフロー
+
+2. **実装戦略判断**（セクション2で記載）
+
+3. **テスト戦略判断**（セクション3で記載）
+
+4. **テストコード戦略判断**（セクション4で記載）
+
+5. **影響範囲分析**
+   - 既存コードへの影響
+   - 依存関係の変更
+   - マイグレーション要否
+
+6. **変更・追加ファイルリスト**
+   - 新規作成ファイル（相対パス）
+   - 修正が必要な既存ファイル（相対パス）
+   - 削除が必要なファイル（相対パス）
+
+7. **詳細設計**
+   - クラス設計（必要な場合）
+   - 関数設計（主要な関数のみ）
+   - データ構造設計
+   - インターフェース設計
+
+8. **セキュリティ考慮事項**
+   - 認証・認可
+   - データ保護
+   - セキュリティリスクと対策
+
+9. **非機能要件への対応**
+   - パフォーマンス
+   - スケーラビリティ
+   - 保守性
+
+10. **実装の順序**
+    - 実装順序の推奨
+    - 依存関係の考慮
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **既存プロジェクト構造を尊重**: 既存のディレクトリ構造やコーディング規約に従ってください
+2. **トレーサビリティ**: 要件定義書の各要件に対応する設計を明示してください
+3. **実装可能性**: 実装できない設計や曖昧な設計は避けてください
+4. **判断の明示**: 3つの戦略判断（実装・テスト・テストコード）は必ず明記してください
+5. **レビューされることを意識**: 設計書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（5つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 判断根拠は具体的かつ論理的に記載すること
+
+## 出力形式
+
+設計書は `.ai-workflow/issue-54/02_design/output/design.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。図表が必要な場合はMarkdownのコードブロックやテーブルを活用してください。
+
+## 実装開始
+
+上記を踏まえ、詳細設計書を作成してください。
