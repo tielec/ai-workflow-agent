@@ -57,7 +57,7 @@ export class TestImplementationPhase extends BasePhase {
       .replace('{test_code_strategy}', testCodeStrategy)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 40 });
+    await this.executeWithAgent(executePrompt, { maxTurns: 80 });
 
     const testImplementationFile = path.join(this.outputDir, 'test-implementation.md');
     if (!fs.existsSync(testImplementationFile)) {
@@ -229,7 +229,7 @@ export class TestImplementationPhase extends BasePhase {
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 80, logDir: this.reviseDir });
 
     if (!fs.existsSync(testImplementationFile)) {
       return {

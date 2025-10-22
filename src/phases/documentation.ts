@@ -55,7 +55,7 @@ export class DocumentationPhase extends BasePhase {
       .replace('{test_implementation_context}', testImplementationContext)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 50 });
+    await this.executeWithAgent(executePrompt, { maxTurns: 70 });
 
     const documentationFile = path.join(this.outputDir, 'documentation-update-log.md');
     if (!fs.existsSync(documentationFile)) {
@@ -130,7 +130,7 @@ export class DocumentationPhase extends BasePhase {
       reviewFeedback,
     );
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 70, logDir: this.reviseDir });
 
     if (!fs.existsSync(documentationFile)) {
       return {

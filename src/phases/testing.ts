@@ -45,7 +45,7 @@ export class TestingPhase extends BasePhase {
       .replace('{test_scenario_context}', scenarioContext)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 50 });
+    await this.executeWithAgent(executePrompt, { maxTurns: 80 });
 
     if (!fs.existsSync(testResultFile)) {
       return {
@@ -214,7 +214,7 @@ export class TestingPhase extends BasePhase {
     const oldMtime = fs.statSync(testResultFile).mtimeMs;
     const oldSize = fs.statSync(testResultFile).size;
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 80, logDir: this.reviseDir });
 
     if (!fs.existsSync(testResultFile)) {
       return {
