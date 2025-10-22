@@ -8,7 +8,7 @@ describe('CodexAgentClient', () => {
   let client: CodexAgentClient;
 
   beforeEach(() => {
-    client = new CodexAgentClient('/test/workspace');
+    client = new CodexAgentClient({ workingDir: '/test/workspace' });
     jest.clearAllMocks();
   });
 
@@ -46,8 +46,7 @@ describe('CodexAgentClient', () => {
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
         prompt: 'Test prompt',
-        workingDir: '/test/workspace',
-        taskName: 'test-task',
+        workingDirectory: '/test/workspace',
       });
 
       // Then: 出力配列が返される
@@ -80,8 +79,7 @@ describe('CodexAgentClient', () => {
       await expect(
         client.executeTask({
           prompt: 'Test prompt',
-          workingDir: '/test/workspace',
-          taskName: 'test-task',
+          workingDirectory: '/test/workspace',
         })
       ).rejects.toThrow();
     });

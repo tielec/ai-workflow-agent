@@ -69,7 +69,10 @@ describe('log-formatter', () => {
       // Given: systemタイプのイベント
       const eventType = 'system';
       const payload: CodexEvent = {
-        message: 'System message',
+        message: {
+          role: 'system',
+          content: [{ type: 'text', text: 'System message' }],
+        },
       };
 
       // When: formatCodexLog関数を呼び出す

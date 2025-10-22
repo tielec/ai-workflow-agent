@@ -2,7 +2,7 @@ import {
   buildErrorMessage,
   buildWarningMessage,
 } from '../../../src/core/helpers/dependency-messages.js';
-import type { PhaseName } from '../../../src/core/phase-dependencies.js';
+import type { PhaseName } from '../../../src/types.js';
 
 describe('dependency-messages', () => {
   describe('buildErrorMessage', () => {

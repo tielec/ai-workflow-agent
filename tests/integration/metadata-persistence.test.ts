@@ -21,15 +21,15 @@ describe('メタデータ永続化の統合テスト', () => {
       (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
 
       // When: MetadataManagerインスタンスを作成
-      const manager = new MetadataManager(26);
+      const manager = new MetadataManager(testMetadataPath);
 
       // フェーズステータスを更新
-      manager.updatePhaseStatus('planning' as any, 'completed' as any, {
-        outputFiles: ['/path/to/planning.md'],
+      manager.updatePhaseStatus('00_planning' as any, 'completed' as any, {
+        outputFile: '/path/to/planning.md',
       });
 
-      // コストを追加
-      manager.addCost('codex' as any, 1000, 500, 0.05);
+      // コストを追加（3引数: inputTokens, outputTokens, costUsd）
+      manager.addCost(1000, 500, 0.05);
 
       // メタデータを保存
       manager.save();
@@ -60,7 +60,7 @@ describe('メタデータ永続化の統合テスト', () => {
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
       // When: メタデータを読み込み
-      const manager = new MetadataManager(26);
+      const manager = new MetadataManager(testMetadataPath);
 
       // バックアップを作成
       const backupPath = manager.backupMetadata();
@@ -82,7 +82,7 @@ describe('メタデータ永続化の統合テスト', () => {
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
 
       // When: MetadataManagerインスタンスを作成してclearを呼び出す
-      const manager = new MetadataManager(26);
+      const manager = new MetadataManager(testMetadataPath);
       manager.clear();
 
       // Then: メタデータファイルとワークフローディレクトリが削除される

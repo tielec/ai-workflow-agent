@@ -130,8 +130,8 @@ describe('metadata-io', () => {
 
   describe('getPhaseOutputFilePath', () => {
     it('正常系: planningフェーズの出力ファイルパスが取得される', () => {
-      // Given: planningフェーズとワークフローディレクトリ
-      const phaseName = 'planning';
+      // Given: planningフェーズとワークフローディレクトリ（プレフィックス付き）
+      const phaseName = '00_planning';
       const workflowDir = '/path/to/.ai-workflow/issue-26';
 
       // When: getPhaseOutputFilePath関数を呼び出す
@@ -144,8 +144,8 @@ describe('metadata-io', () => {
     });
 
     it('正常系: requirementsフェーズの出力ファイルパスが取得される', () => {
-      // Given: requirementsフェーズとワークフローディレクトリ
-      const phaseName = 'requirements';
+      // Given: requirementsフェーズとワークフローディレクトリ（プレフィックス付き）
+      const phaseName = '01_requirements';
       const workflowDir = '/path/to/.ai-workflow/issue-26';
 
       // When: getPhaseOutputFilePath関数を呼び出す

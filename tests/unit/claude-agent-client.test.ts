@@ -8,7 +8,7 @@ describe('ClaudeAgentClient', () => {
   let client: ClaudeAgentClient;
 
   beforeEach(() => {
-    client = new ClaudeAgentClient('/test/workspace');
+    client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
     jest.clearAllMocks();
   });
 

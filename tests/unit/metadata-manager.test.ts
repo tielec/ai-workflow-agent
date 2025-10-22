@@ -13,37 +13,36 @@ describe('MetadataManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (fs.existsSync as jest.Mock).mockReturnValue(false);
-    metadataManager = new MetadataManager(26);
+    metadataManager = new MetadataManager(testMetadataPath);
   });
 
   describe('updatePhaseStatus', () => {
     // REQ-007, REQ-008, REQ-009: リファクタリング後の動作確認
     it('正常系: フェーズステータスが更新される', () => {
       // Given: フェーズ名とステータス
-      const phaseName = 'planning';
+      const phaseName = '00_planning';
       const status = 'completed';
-      const outputFiles = ['/path/to/planning.md'];
+      const outputFile = '/path/to/planning.md';
 
       // When: updatePhaseStatus関数を呼び出す
       metadataManager.updatePhaseStatus(phaseName as any, status as any, {
-        outputFiles,
+        outputFile,
       });
 
       // Then: ステータスが更新される（内部状態の確認）
-      expect(metadataManager.getPhaseStatus(phaseName as any)?.status).toBe(status);
+      expect(metadataManager.getPhaseStatus(phaseName as any)).toBe(status);
     });
   });
 
   describe('addCost', () => {
     it('正常系: コストが集計される', () => {
-      // Given: プロバイダーとコスト情報
-      const provider = 'codex';
+      // Given: コスト情報（3引数: inputTokens, outputTokens, costUsd）
       const inputTokens = 1000;
       const outputTokens = 500;
-      const cost = 0.05;
+      const costUsd = 0.05;
 
       // When: addCost関数を呼び出す
-      metadataManager.addCost(provider as any, inputTokens, outputTokens, cost);
+      metadataManager.addCost(inputTokens, outputTokens, costUsd);
 
       // Then: コストが集計される（内部状態の確認は困難）
       expect(true).toBe(true);
