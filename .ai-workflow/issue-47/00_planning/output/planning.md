@@ -147,15 +147,15 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: テンプレートメソッドの詳細設計 (1~1.5h)
+- [x] Task 2-1: テンプレートメソッドの詳細設計 (1~1.5h)
   - ジェネリック型パラメータ `T extends Record<string, string>` の設計
   - オプション引数 `{ maxTurns?: number }` の設計
   - 戻り値 `PhaseExecutionResult` の設計
-- [ ] Task 2-2: 各フェーズへの適用パターンの設計 (0.5~1h)
+- [x] Task 2-2: 各フェーズへの適用パターンの設計 (0.5~1h)
   - 標準的な `execute()` パターン
   - 標準的な `review()` パターン
   - 標準的な `revise()` パターン
-- [ ] Task 2-3: 特殊ケースの設計 (0.5h)
+- [x] Task 2-3: 特殊ケースの設計 (0.5h)
   - PlanningPhase（`revise()` なし）
   - DesignPhase（設計決定抽出ロジック）
   - TestingPhase（ファイル更新チェック）
