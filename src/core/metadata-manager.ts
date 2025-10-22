@@ -8,17 +8,7 @@ import {
   WorkflowMetadata,
   RemainingTask,
 } from '../types.js';
-
-const formatTimestampForFilename = (date = new Date()): string => {
-  const pad = (value: number) => value.toString().padStart(2, '0');
-  return [
-    date.getFullYear(),
-    pad(date.getMonth() + 1),
-    pad(date.getDate()),
-  ].join('') +
-    '_' +
-    [pad(date.getHours()), pad(date.getMinutes()), pad(date.getSeconds())].join('');
-};
+import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
 export class MetadataManager {
   public readonly metadataPath: string;
@@ -93,9 +83,8 @@ export class MetadataManager {
       fs.removeSync(this.metadataPath);
     }
 
-    if (fs.existsSync(this.workflowDir)) {
-      console.info(`[INFO] Removing workflow directory: ${this.workflowDir}`);
-      fs.removeSync(this.workflowDir);
+    removeWorkflowDirectory(this.workflowDir);
+    if (!fs.existsSync(this.workflowDir)) {
       console.info('[OK] Workflow directory removed successfully');
     }
   }
@@ -111,13 +100,7 @@ export class MetadataManager {
       };
     }
 
-    const timestamp = formatTimestampForFilename();
-    const backupPath = join(
-      this.workflowDir,
-      `metadata.json.backup_${timestamp}`,
-    );
-    fs.copyFileSync(this.metadataPath, backupPath);
-    console.info(`[INFO] Metadata backup created: ${backupPath}`);
+    const backupPath = backupMetadataFile(this.metadataPath);
 
     const startIndex = phases.indexOf(phaseName);
     const rolledBack = phases.slice(startIndex);
@@ -153,14 +136,7 @@ export class MetadataManager {
   }
 
   public backupMetadata(): string {
-    const timestamp = formatTimestampForFilename();
-    const backupPath = join(
-      this.workflowDir,
-      `metadata.json.backup_${timestamp}`,
-    );
-    fs.copyFileSync(this.metadataPath, backupPath);
-    console.info(`[INFO] metadata.json backup created: ${backupPath}`);
-    return backupPath;
+    return backupMetadataFile(this.metadataPath);
   }
 
   public setEvaluationDecision(options: {

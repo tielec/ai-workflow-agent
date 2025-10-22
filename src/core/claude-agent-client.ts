@@ -1,5 +1,7 @@
 import fs from 'fs-extra';
-import { query, type SDKMessage, type SDKAssistantMessage, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
+import { formatClaudeLog } from './helpers/log-formatter.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -10,7 +12,6 @@ interface ExecuteTaskOptions {
 }
 
 const DEFAULT_MAX_TURNS = 50;
-const MAX_LOG_PARAM_LENGTH = 500;
 
 export class ClaudeAgentClient {
   private readonly workingDir: string;
@@ -88,78 +89,14 @@ export class ClaudeAgentClient {
   }
 
   private logMessage(message: SDKMessage): void {
-    switch (message.type) {
-      case 'assistant':
-        this.logAssistantMessage(message);
-        break;
-      case 'result':
-        this.logResultMessage(message);
-        break;
-      case 'system': {
-        const subtype = 'subtype' in message && message.subtype ? message.subtype : 'system';
-        console.log(`[AGENT SYSTEM] ${subtype}`);
-        break;
-      }
-      case 'stream_event':
-        this.logStreamEvent(message);
-        break;
-      default:
-        break;
-    }
-  }
-
-  private logAssistantMessage(message: SDKAssistantMessage): void {
-    const contents = message.message.content ?? [];
-    for (const block of contents) {
-      if (block.type === 'text') {
-        const text = block.text?.trim();
-        if (text) {
-          console.log(`[AGENT THINKING] ${text}`);
-        }
-      } else if (block.type === 'tool_use') {
-        console.log(`[AGENT ACTION] Using tool: ${block.name}`);
-        if (block.input && Object.keys(block.input).length > 0) {
-          const raw = JSON.stringify(block.input);
-          const truncated = raw.length > MAX_LOG_PARAM_LENGTH ? `${raw.slice(0, MAX_LOG_PARAM_LENGTH)}…` : raw;
-          console.log(`[AGENT ACTION] Parameters: ${truncated}`);
-        }
-      }
-    }
-  }
-
-  private logResultMessage(message: SDKResultMessage): void {
-    console.log(
-      `[AGENT RESULT] status=${message.subtype ?? 'success'}, turns=${message.num_turns}, duration_ms=${message.duration_ms}`,
-    );
-    const resultText = (message as Partial<{ result: string }>).result;
-    if (typeof resultText === 'string' && resultText.trim().length > 0) {
-      console.log(`[AGENT RESULT] ${resultText}`);
-    }
-  }
-
-  private logStreamEvent(message: SDKMessage): void {
-    if (message.type !== 'stream_event') {
+    const event = parseClaudeEvent(message);
+    if (!event) {
       return;
     }
 
-    const event = message.event;
-    if (!event || event.type !== 'message_delta') {
-      return;
-    }
-
-    const delta = event.delta;
-    if (!delta || delta.type !== 'message_delta') {
-      return;
-    }
-
-    for (const block of delta.delta?.content ?? []) {
-      if (block.type === 'input_json_delta' && block.partial_input_json) {
-        const raw = block.partial_input_json;
-        const truncated = raw.length > MAX_LOG_PARAM_LENGTH ? `${raw.slice(0, MAX_LOG_PARAM_LENGTH)}…` : raw;
-        console.log(`[AGENT ACTION] Partial parameters: ${truncated}`);
-      } else if (block.type === 'text_delta' && block.text_delta?.trim()) {
-        console.log(`[AGENT THINKING] ${block.text_delta.trim()}`);
-      }
+    const formattedLog = formatClaudeLog(event);
+    if (formattedLog) {
+      console.log(formattedLog);
     }
   }
 
