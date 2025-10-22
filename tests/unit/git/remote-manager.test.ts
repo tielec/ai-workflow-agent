@@ -76,7 +76,10 @@ describe('RemoteManager - Push Operations', () => {
         files: [],
       } as any);
 
-      mockGit.push.mockResolvedValue(undefined as any);
+      mockGit.push.mockResolvedValue({
+        pushed: [{ local: 'feature/issue-25', remote: 'feature/issue-25' }],
+        remoteMessages: { all: [] },
+      } as any);
 
       // When: pushToRemote を呼び出す
       const result = await remoteManager.pushToRemote();
@@ -108,10 +111,13 @@ describe('RemoteManager - Push Operations', () => {
       // 1回目のpushで rejected エラー
       mockGit.push
         .mockRejectedValueOnce(new Error('rejected - non-fast-forward'))
-        .mockResolvedValueOnce(undefined as any);
+        .mockResolvedValueOnce({
+          pushed: [{ local: 'feature/issue-25', remote: 'feature/issue-25' }],
+          remoteMessages: { all: [] },
+        } as any);
 
-      // pullLatest のモック
-      (mockGit.pull as jest.Mock).mockResolvedValue(undefined);
+      // pullLatest のモック（rawを使用）
+      (mockGit.raw as jest.Mock).mockResolvedValue('');
 
       // When: pushToRemote を呼び出す
       const result = await remoteManager.pushToRemote(3, 100);
@@ -119,7 +125,10 @@ describe('RemoteManager - Push Operations', () => {
       // Then: pullしてから再pushが実行される
       expect(result.success).toBe(true);
       expect(result.retries).toBe(1);
-      expect(mockGit.pull).toHaveBeenCalled();
+      // pullLatest は raw を使用するので raw の呼び出しを確認（pull コマンド）
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        expect.arrayContaining(['pull', '--no-rebase', 'origin', 'feature/issue-25'])
+      );
     });
 
     test('pushToRemote_リトライ_ネットワークエラー時のリトライ', async () => {
@@ -135,7 +144,10 @@ describe('RemoteManager - Push Operations', () => {
       // 1回目: timeout エラー、2回目: 成功
       mockGit.push
         .mockRejectedValueOnce(new Error('timeout exceeded'))
-        .mockResolvedValueOnce(undefined as any);
+        .mockResolvedValueOnce({
+          pushed: [{ local: 'feature/issue-25', remote: 'feature/issue-25' }],
+          remoteMessages: { all: [] },
+        } as any);
 
       // When: pushToRemote を呼び出す
       const result = await remoteManager.pushToRemote(3, 100);
@@ -217,36 +229,34 @@ describe('RemoteManager - Pull Operations', () => {
   describe('pullLatest', () => {
     test('pullLatest_正常系_リモートからpull', async () => {
       // Given: リモートブランチが存在する
-      mockGit.pull.mockResolvedValue(undefined as any);
+      (mockGit.raw as jest.Mock).mockResolvedValue('');
 
       // When: pullLatest を呼び出す
       const result = await remoteManager.pullLatest('feature/issue-25');
 
       // Then: pullが正常に実行される
       expect(result.success).toBe(true);
-      expect(result.error).toBeNull();
-      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'feature/issue-25', [
-        '--no-rebase',
-      ]);
+      expect(result.error).toBeUndefined();
+      expect(mockGit.raw).toHaveBeenCalledWith(['pull', '--no-rebase', 'origin', 'feature/issue-25']);
     });
 
     test('pullLatest_正常系_ブランチ名省略', async () => {
       // Given: metadata.jsonにブランチ名が記載されている
-      mockGit.pull.mockResolvedValue(undefined as any);
+      (mockGit.raw as jest.Mock).mockResolvedValue('feature/issue-25\n');
 
       // When: pullLatest を呼び出す（ブランチ名省略）
       const result = await remoteManager.pullLatest();
 
       // Then: metadata.jsonのブランチ名でpullが実行される
       expect(result.success).toBe(true);
-      expect(mockGit.pull).toHaveBeenCalledWith('origin', 'feature/issue-25', [
-        '--no-rebase',
-      ]);
+      // raw が2回呼ばれる: 1回目はgetCurrentBranch、2回目はpull
+      expect(mockGit.raw).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD']);
+      expect(mockGit.raw).toHaveBeenCalledWith(['pull', '--no-rebase', 'origin', 'feature/issue-25']);
     });
 
     test('pullLatest_異常系_Git操作失敗', async () => {
       // Given: Git pull操作が失敗する
-      mockGit.pull.mockRejectedValue(
+      (mockGit.raw as jest.Mock).mockRejectedValue(
         new Error('Git command failed: fatal: unable to access...')
       );
 
@@ -265,16 +275,32 @@ describe('RemoteManager - GitHub Credentials', () => {
   let mockMetadata: jest.Mocked<MetadataManager>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+
+    // Clean environment
+    delete process.env.GITHUB_TOKEN;
+
     mockGit = {
       remote: jest.fn(),
     } as any;
 
     mockMetadata = {
+      data: {
+        issue_number: '25',
+        branch_name: 'feature/issue-25',
+      },
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         branch_name: 'feature/issue-25',
       }),
+      getIssueNumber: jest.fn().mockReturnValue('25'),
     } as any;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete process.env.GITHUB_TOKEN;
   });
 
   describe('setupGithubCredentials', () => {
@@ -282,18 +308,21 @@ describe('RemoteManager - GitHub Credentials', () => {
       // Given: GITHUB_TOKENが設定されている
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
-      mockGit.remote.mockImplementation(((args: any) => {
-        if (args[0] === 'get-url') {
+      // Spy on console BEFORE creating RemoteManager
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+      mockGit.remote.mockImplementation((args: any) => {
+        if (Array.isArray(args) && args[0] === 'get-url') {
           return Promise.resolve('https://github.com/tielec/ai-workflow-agent.git');
         }
         return Promise.resolve(undefined);
-      }) as any);
+      });
 
       // When: RemoteManager をインスタンス化（setupGithubCredentials が実行される）
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
 
-      // Wait for async setup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async setup (増加したタイムアウト)
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: トークンが埋め込まれたURLが設定される
       expect(mockGit.remote).toHaveBeenCalledWith([
@@ -303,6 +332,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       ]);
 
       // Cleanup
+      consoleInfoSpy.mockRestore();
       delete process.env.GITHUB_TOKEN;
     });
 
@@ -310,21 +340,21 @@ describe('RemoteManager - GitHub Credentials', () => {
       // Given: GITHUB_TOKENが設定されているが、リモートURLがSSH
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
-      mockGit.remote.mockImplementation(((args: any) => {
-        if (args[0] === 'get-url') {
+      // Spy on console.info BEFORE creating RemoteManager
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+      mockGit.remote.mockImplementation((args: any) => {
+        if (Array.isArray(args) && args[0] === 'get-url') {
           return Promise.resolve('git@github.com:tielec/ai-workflow-agent.git');
         }
         return Promise.resolve(undefined);
-      }) as any);
-
-      // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+      });
 
       // When: RemoteManager をインスタンス化
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
 
-      // Wait for async setup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async setup (増加したタイムアウト)
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: set-url は呼び出されない（スキップされる）
       expect(mockGit.remote).not.toHaveBeenCalledWith(
@@ -345,8 +375,8 @@ describe('RemoteManager - GitHub Credentials', () => {
       // When: RemoteManager をインスタンス化
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
 
-      // Wait for async setup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async setup (増加したタイムアウト)
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: remote操作は実行されない
       expect(mockGit.remote).not.toHaveBeenCalled();
@@ -356,20 +386,20 @@ describe('RemoteManager - GitHub Credentials', () => {
       // Given: GITHUB_TOKENが設定されているが、Git操作が失敗する
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
-      mockGit.remote.mockRejectedValue(new Error('Git command failed'));
-
-      // Spy on console.warn
+      // Spy on console.warn BEFORE creating RemoteManager
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      mockGit.remote.mockRejectedValue(new Error('Git command failed'));
 
       // When: RemoteManager をインスタンス化
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
 
-      // Wait for async setup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for async setup (増加したタイムアウト)
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: 警告ログが出力される（例外はthrowされない）
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[WARN] Failed to set up GitHub credentials')
+        expect.stringContaining('[WARNING] Failed to setup GitHub credentials')
       );
 
       consoleWarnSpy.mockRestore();

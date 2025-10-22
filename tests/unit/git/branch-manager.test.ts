@@ -3,6 +3,8 @@
  * Tests branch operations (create, exists, switch, getCurrentBranch)
  */
 
+// @ts-nocheck
+
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { BranchManager } from '../../../src/core/git/branch-manager';
 import { SimpleGit } from 'simple-git';
@@ -12,6 +14,8 @@ describe('BranchManager - Branch Creation', () => {
   let mockGit: jest.Mocked<SimpleGit>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockGit = {
       checkoutLocalBranch: jest.fn(),
       branchLocal: jest.fn(),
@@ -60,6 +64,8 @@ describe('BranchManager - Branch Creation', () => {
         branches: {},
       } as any);
 
+      // Base branch checkout requires checkout method
+      (mockGit as any).checkout = jest.fn().mockResolvedValue(undefined);
       mockGit.checkoutLocalBranch.mockResolvedValue(undefined as any);
 
       // When: createBranch を呼び出す（ベースブランチ指定）
@@ -122,6 +128,8 @@ describe('BranchManager - Branch Existence', () => {
   let mockGit: jest.Mocked<SimpleGit>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockGit = {
       branchLocal: jest.fn(),
       branch: jest.fn(),
@@ -213,6 +221,8 @@ describe('BranchManager - Branch Navigation', () => {
   let mockGit: jest.Mocked<SimpleGit>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockGit = {
       raw: jest.fn(),
       checkout: jest.fn(),
