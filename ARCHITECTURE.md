@@ -87,7 +87,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
-| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約676行、v0.3.1で52.4%削減）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
+| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約698行、v0.3.1で52.4%削減、Issue #47でテンプレートメソッド追加）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
 | `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、v0.3.1で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
 | `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、v0.3.1で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
 | `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、v0.3.1で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
@@ -101,6 +101,7 @@ src/types/commands.ts (コマンド関連の型定義)
 
 1. **依存関係チェック** … `validatePhaseDependencies` で前工程が完了しているか確認（フラグで無効化可能）。
 2. **execute()** … プロンプトを整形しエージェントを呼び出して成果物を生成。
+   - **テンプレートメソッドパターン** … `executePhaseTemplate()` により重複コードを削減（Issue #47）
    - **Git自動コミット** … execute完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 3. **review()（任意）** … レビュープロンプトを実行し、`ContentParser` で PASS / FAIL を判定。必要に応じてフィードバックを GitHub に投稿。
    - **Git自動コミット** … review完了後、変更をコミット＆プッシュ（v0.3.0で追加）
@@ -108,6 +109,27 @@ src/types/commands.ts (コマンド関連の型定義)
    - **Git自動コミット** … revise完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 5. **メタデータ更新** … フェーズ状態、出力ファイル、コスト、Git コミット情報などを更新。
 6. **進捗コメント** … `GitHubClient` を通じて Issue へ進捗コメントを投稿・更新。
+
+### テンプレートメソッドパターン（Issue #47）
+
+全10フェーズの `execute()` メソッドで繰り返されていたプロンプト処理パターン（プロンプト読み込み → 変数置換 → エージェント実行 → 出力確認）を、`BasePhase.executePhaseTemplate()` メソッドに集約しました。
+
+**主な利点**:
+- **コード削減**: 約200行（32%）の重複コードを削減
+- **保守性向上**: 共通ロジックを単一箇所に集約（DRY原則）
+- **一貫性確保**: 全フェーズで統一されたエラーハンドリング
+- **拡張性向上**: 新規フェーズ追加が容易
+
+**実装パターン**:
+```typescript
+protected async executePhaseTemplate<T extends Record<string, string>>(
+  phaseOutputFile: string,
+  templateVariables: T,
+  options?: { maxTurns?: number; verbose?: boolean; logDir?: string }
+): Promise<PhaseExecutionResult>
+```
+
+各フェーズの `execute()` メソッドは、テンプレート変数を定義して `executePhaseTemplate()` を呼び出すだけで済むようになりました。特殊ロジック（設計決定抽出、ファイル更新チェック等）は各フェーズで保持されます。
 
 ### ステップ単位のGitコミット（v0.3.0）
 

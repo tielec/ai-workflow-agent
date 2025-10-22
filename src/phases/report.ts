@@ -53,9 +53,8 @@ export class ReportPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const planningReference = this.getPlanningDocumentReference(issueNumber);
 
-    // オプショナルコンテキストを構築（Issue #398）
+    // オプショナルコンテキストを構築（Issue #398, #396）
     const requirementsContext = this.buildOptionalContext(
       'requirements',
       'requirements.md',
@@ -100,43 +99,28 @@ export class ReportPhase extends BasePhase {
       issueNumber,
     );
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{requirements_context}', requirementsContext)
-      .replace('{design_context}', designContext)
-      .replace('{implementation_context}', implementationContext)
-      .replace('{testing_context}', testingContext)
-      .replace('{documentation_context}', documentationContext)
-      .replace('{test_scenario_context}', scenarioContext)
-      .replace('{test_implementation_context}', testImplementationContext)
-      .replace('{issue_number}', String(issueNumber));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 30 });
-
-    const reportFile = path.join(this.outputDir, 'report.md');
-    if (!fs.existsSync(reportFile)) {
-      return {
-        success: false,
-        error: `report.md が見つかりません: ${reportFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    const result = await this.executePhaseTemplate('report.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueNumber),
+      requirements_context: requirementsContext,
+      design_context: designContext,
+      implementation_context: implementationContext,
+      testing_context: testingContext,
+      documentation_context: documentationContext,
+      test_scenario_context: scenarioContext,
+      test_implementation_context: testImplementationContext,
+      issue_number: String(issueNumber),
+    }, { maxTurns: 30 });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(reportFile, 'utf-8');
-    //   await this.postOutput(content, '最終レポート');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub へのレポート投稿に失敗しました: ${message}`);
-    // }
 
-    const outputs = this.getPhaseOutputs(issueNumber);
-    await this.updatePullRequestSummary(issueNumber, outputs);
+    // 特殊ロジック: PRサマリー更新（Report Phase 特有のロジック）
+    if (result.success) {
+      const outputs = this.getPhaseOutputs(issueNumber);
+      await this.updatePullRequestSummary(issueNumber, outputs);
+    }
 
-    return {
-      success: true,
-      output: reportFile,
-    };
+    return result;
   }
 
   protected async review(): Promise<PhaseExecutionResult> {

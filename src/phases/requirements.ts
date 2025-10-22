@@ -19,36 +19,15 @@ export class RequirementsPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueInfo = (await this.getIssueInfo()) as IssueInfo;
-    const planningReference = this.getPlanningDocumentReference(issueInfo.number);
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', String(issueInfo.number));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 30 });
-
-    const outputFile = path.join(this.outputDir, 'requirements.md');
-    if (!fs.existsSync(outputFile)) {
-      return {
-        success: false,
-        error: `requirements.md が見つかりません: ${outputFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    return this.executePhaseTemplate('requirements.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
+      issue_info: this.formatIssueInfo(issueInfo),
+      issue_number: String(issueInfo.number),
+    });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(outputFile, 'utf-8');
-    //   await this.postOutput(content, '要件定義書');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHubへの要件定義出力に失敗しました: ${message}`);
-    // }
-
-    return {
-      success: true,
-      output: outputFile,
-    };
   }
 
   protected async review(): Promise<PhaseExecutionResult> {
