@@ -248,6 +248,75 @@ describe('SecretMaskerファイル処理テスト', () => {
     expect(content.includes('[REDACTED_OPENAI_API_KEY]')).toBeTruthy();
     expect(!content.includes('sk-test-key-12345678')).toBeTruthy();
   });
+
+  // Issue #54: metadata.json スキャン対応のテスト
+  test('2.2.7: metadata.json内のGitHub Personal Access Tokenをマスキング', async () => {
+    // Given: トークンを含むmetadata.json
+    process.env.GITHUB_TOKEN = 'ghp_secret123456789';
+    const metadataFile = path.join(workflowDir, 'metadata.json');
+    await fs.ensureDir(path.dirname(metadataFile));
+    await fs.writeFile(
+      metadataFile,
+      JSON.stringify({
+        target_repository: {
+          remote_url: 'https://ghp_secret123456789@github.com/owner/repo.git',
+          path: '/path/to/repo',
+          github_name: 'owner/repo',
+          owner: 'owner',
+          repo: 'repo',
+        },
+      }),
+    );
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: metadata.json内のトークンがマスキングされる
+    expect(result.filesProcessed).toBeGreaterThanOrEqual(1);
+    expect(result.secretsMasked).toBeGreaterThan(0);
+
+    const content = await fs.readFile(metadataFile, 'utf-8');
+    expect(content.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
+    expect(!content.includes('ghp_secret123456789')).toBeTruthy();
+  });
+
+  test('2.2.8: metadata.jsonにトークンが含まれない場合、ファイルを変更しない', async () => {
+    // Given: トークンを含まないmetadata.json
+    process.env.GITHUB_TOKEN = 'ghp_secret999';
+    const metadataFile = path.join(workflowDir, 'metadata.json');
+    await fs.ensureDir(path.dirname(metadataFile));
+    const originalContent = JSON.stringify({
+      target_repository: {
+        remote_url: 'https://github.com/owner/repo.git',
+        path: '/path/to/repo',
+        github_name: 'owner/repo',
+        owner: 'owner',
+        repo: 'repo',
+      },
+    });
+    await fs.writeFile(metadataFile, originalContent);
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: metadata.jsonは変更されない
+    const content = await fs.readFile(metadataFile, 'utf-8');
+    expect(content).toBe(originalContent);
+  });
+
+  test('2.2.9: metadata.jsonが存在しない場合、エラーを発生させない', async () => {
+    // Given: metadata.jsonが存在しない
+    process.env.GITHUB_TOKEN = 'ghp_test123';
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: エラーなく完了
+    expect(result.errors.length).toBe(0);
+  });
 });
 
 describe('SecretMaskerエラーハンドリングテスト', () => {
