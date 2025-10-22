@@ -31,6 +31,7 @@
 | テスト | 自動テスト整備 | ユニット / 統合テスト | ✅ 完了 | `tests/unit/**`, `tests/integration/**` |
 | リファクタリング | CLI コマンド処理分離（Issue #22） | main.tsを1309行→118行に削減 | ✅ 完了 | `src/commands/*`, `src/core/repository-utils.ts` |
 | リファクタリング | GitManager モジュール分割（Issue #25） | git-manager.tsを548行→181行に削減（67%削減）、ファサードパターンで3専門マネージャーに分離 | ✅ 完了 | `src/core/git-manager.ts`, `src/core/git/*.ts` |
+| リファクタリング | BasePhase テンプレートメソッドパターン導入（Issue #47） | executePhaseTemplateメソッドを追加し、9フェーズで約200行（32%）の重複コードを削減 | ✅ 完了 | `src/phases/base-phase.ts` (676行→698行) |
 
 > ✅: TypeScript 版へ移行済み / 🔄: 継続作業中 / ⏳: 着手予定
 
@@ -38,4 +39,5 @@
 - TypeScript への完全移植が完了しました。
 - Issue #22 でCLIコマンド処理を分離し、main.tsを118行に削減、保守性を大幅に向上させました（v0.3.0）。
 - Issue #25 でGitManagerをファサードパターンで548行→181行に削減（67%削減）、3つの専門マネージャー（CommitManager、BranchManager、RemoteManager）に分離しました（v0.3.1）。
+- Issue #47 でBasePhaseにテンプレートメソッドパターンを導入し、9フェーズで約200行（32%）の重複コードを削減しました（v0.3.1）。
 - Jestベースの自動テスト整備が完了し、ユニットテスト189件、統合テスト90件を実装しました。
