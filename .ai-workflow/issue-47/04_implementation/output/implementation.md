@@ -728,3 +728,60 @@ protected async execute(): Promise<PhaseExecutionResult> {
 5. **Phase 9（evaluation）**: 品質評価と承認プロセス
 
 このリファクタリングにより、今後のフェーズ追加や変更がより容易になり、保守性が大幅に向上しました。
+
+---
+
+## 修正履歴
+
+### 修正1: TypeScript型安全性の問題（result.output の null/undefined チェック不足）
+
+**指摘内容**: レビューで、`result.output` が `string | undefined` 型であるにもかかわらず、null/undefinedチェックなしで `fs.readFileSync()` に渡している箇所が2つ指摘された。これによりTypeScriptコンパイルエラーが発生していた。
+
+**修正内容**:
+1. **design.ts（execute メソッド、line 40）**:
+   ```typescript
+   // 修正前
+   if (result.success) {
+     const designContent = fs.readFileSync(result.output, 'utf-8');
+
+   // 修正後
+   if (result.success && result.output) {
+     const designContent = fs.readFileSync(result.output, 'utf-8');
+   ```
+
+2. **planning.ts（execute メソッド、line 21）**:
+   ```typescript
+   // 修正前
+   if (result.success) {
+     const content = fs.readFileSync(result.output, 'utf-8');
+
+   // 修正後
+   if (result.success && result.output) {
+     const content = fs.readFileSync(result.output, 'utf-8');
+   ```
+
+**影響範囲**:
+- `src/phases/design.ts` （1行修正）
+- `src/phases/planning.ts` （1行修正）
+
+**修正効果**:
+- TypeScriptコンパイルエラーが解消された
+- 型安全性が確保され、ランタイムエラーのリスクが排除された
+- `npm run build` が正常に成功する
+
+**品質ゲート達成状況**:
+- ✅ **基本的なエラーハンドリングがある**: `result.output` の存在確認を追加
+- ✅ **明らかなバグがない**: TypeScriptコンパイルエラーが解消され、型安全性が確保された
+
+**検証結果**:
+```bash
+$ npm run build
+> ai-workflow-agent@0.2.0 build
+> tsc -p tsconfig.json && node ./scripts/copy-static-assets.mjs
+
+[OK] Copied metadata.json.template
+[OK] Copied prompts
+[OK] Copied templates
+```
+
+すべての品質ゲートを満たし、Phase 5（テストコード実装）へ進む準備が完了しました。

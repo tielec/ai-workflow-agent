@@ -37,7 +37,7 @@ export class DesignPhase extends BasePhase {
     }, { maxTurns: 40 });
 
     // 特殊ロジック: 設計決定の抽出（Design Phase 特有のロジック）
-    if (result.success) {
+    if (result.success && result.output) {
       const designContent = fs.readFileSync(result.output, 'utf-8');
       const decisions = this.metadata.data.design_decisions;
 

@@ -18,7 +18,7 @@ export class PlanningPhase extends BasePhase {
     }, { maxTurns: 50 });
 
     // 特殊ロジック: 設計決定の抽出（Planning Phase 特有のロジック）
-    if (result.success) {
+    if (result.success && result.output) {
       const content = fs.readFileSync(result.output, 'utf-8');
       const decisions = await this.contentParser.extractDesignDecisions(content);
       if (Object.keys(decisions).length) {

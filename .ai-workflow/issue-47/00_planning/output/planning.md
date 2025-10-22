@@ -175,19 +175,19 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `BasePhase.executePhaseTemplate()` の実装 (1~1.5h)
+- [x] Task 4-1: `BasePhase.executePhaseTemplate()` の実装 (1~1.5h)
   - ジェネリックメソッドの実装
   - 変数置換ロジック（`Object.entries()` でループ）
   - `executeWithAgent()` 呼び出し
   - 出力ファイル存在チェック
   - エラーハンドリング
-- [ ] Task 4-2: 標準的なフェーズのリファクタリング (1~1.5h)
+- [x] Task 4-2: 標準的なフェーズのリファクタリング (1~1.5h)
   - RequirementsPhase
   - DesignPhase
   - TestScenarioPhase
   - DocumentationPhase
-  - EvaluationPhase
-- [ ] Task 4-3: 特殊ロジック含むフェーズのリファクタリング (1h)
+  - EvaluationPhase (非対象と判断)
+- [x] Task 4-3: 特殊ロジック含むフェーズのリファクタリング (1h)
   - PlanningPhase（設計決定抽出）
   - ImplementationPhase（オプショナルコンテキスト）
   - TestImplementationPhase
