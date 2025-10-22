@@ -24,6 +24,7 @@ describe('CommitManager - Message Generation', () => {
       add: jest.fn(),
       commit: jest.fn(),
       addConfig: jest.fn(),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
     } as any;
 
     // Mock MetadataManager
@@ -69,10 +70,10 @@ describe('CommitManager - Message Generation', () => {
       const message = commitManager.createCommitMessage(phaseName, status, reviewResult);
 
       // Then: 正しいフォーマットのメッセージが生成される
-      expect(message).toContain('[Phase 01_requirements]');
+      expect(message).toContain('Phase 2 (requirements)');
       expect(message).toContain('completed');
-      expect(message).toContain('(Review: PASS)');
-      expect(message).toContain('Issue #25');
+      expect(message).toContain('Review: PASS');
+      expect(message).toContain('Issue: #25');
     });
 
     test('createCommitMessage_境界値_Phase番号にアンダースコアなし', () => {
@@ -85,60 +86,63 @@ describe('CommitManager - Message Generation', () => {
       const message = commitManager.createCommitMessage(phaseName, status, reviewResult);
 
       // Then: アンダースコアなしでも正しく動作する
-      expect(message).toContain('[Phase requirements]');
-      expect(message).toContain('Issue #25');
+      expect(message).toContain('Phase 2 (requirements)');
+      expect(message).toContain('Issue: #25');
     });
   });
 
   describe('buildStepCommitMessage', () => {
     test('buildStepCommitMessage_正常系_ステップ完了時のメッセージ生成', () => {
-      // Given: Phase番号、Step番号、Step名
+      // Given: Phase名、Phase番号、Step名、Issue番号
       const phaseName = 'implementation';
-      const stepNumber = 3;
-      const stepName = 'Implement BranchManager';
+      const phaseNumber = 4;
+      const step = 'execute';
+      const issueNumber = 25;
 
       // When: buildStepCommitMessage を呼び出す
       const message = (commitManager as any).buildStepCommitMessage(
         phaseName,
-        stepNumber,
-        stepName
+        phaseNumber,
+        step,
+        issueNumber
       );
 
       // Then: ステップ情報を含むメッセージが生成される
-      expect(message).toContain('[Phase 04_implementation - Step 3]');
-      expect(message).toContain('Implement BranchManager');
-      expect(message).toContain('Issue #25');
+      expect(message).toContain('Phase 4 (implementation) - execute completed');
+      expect(message).toContain('Step: execute');
+      expect(message).toContain('Issue: #25');
     });
   });
 
   describe('createInitCommitMessage', () => {
     test('createInitCommitMessage_正常系_ワークフロー初期化メッセージ生成', () => {
-      // Given: Issue タイトル
-      const issueTitle = '[REFACTOR] Git Manager の操作別分割';
+      // Given: Issue番号、ブランチ名
+      const issueNumber = 25;
+      const branchName = 'feature/issue-25';
 
       // When: createInitCommitMessage を呼び出す
-      const message = (commitManager as any).createInitCommitMessage(issueTitle);
+      const message = (commitManager as any).createInitCommitMessage(issueNumber, branchName);
 
       // Then: 初期化用メッセージが生成される
-      expect(message).toContain('[Workflow Init]');
-      expect(message).toContain('Issue #25');
-      expect(message).toContain(issueTitle);
+      expect(message).toContain('[ai-workflow] Initialize workflow for issue #25');
+      expect(message).toContain('Issue: #25');
+      expect(message).toContain('Branch: feature/issue-25');
     });
   });
 
   describe('createCleanupCommitMessage', () => {
     test('createCleanupCommitMessage_正常系_クリーンアップメッセージ生成', () => {
-      // Given: Phase番号
-      const phaseName = 'implementation';
+      // Given: Issue番号、Phase名
+      const issueNumber = 25;
+      const phase = 'report';
 
       // When: createCleanupCommitMessage を呼び出す
-      const message = (commitManager as any).createCleanupCommitMessage(phaseName);
+      const message = (commitManager as any).createCleanupCommitMessage(issueNumber, phase);
 
       // Then: クリーンアップ用メッセージが生成される
-      expect(message).toContain('[Cleanup]');
-      expect(message).toContain('Removed phase logs');
-      expect(message).toContain('Phase 04_implementation');
-      expect(message).toContain('Issue #25');
+      expect(message).toContain('[ai-workflow] Clean up workflow execution logs');
+      expect(message).toContain('Phase: 8 (report)');
+      expect(message).toContain('Issue: #25');
     });
   });
 });
@@ -165,6 +169,7 @@ describe('CommitManager - Commit Operations', () => {
         summary: { changes: 1, insertions: 10, deletions: 2 },
       }),
       addConfig: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
     } as any;
 
     mockMetadata = {
@@ -378,6 +383,7 @@ describe('CommitManager - SecretMasker Integration', () => {
         summary: { changes: 1, insertions: 10, deletions: 2 },
       }),
       addConfig: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
     } as any;
 
     mockMetadata = {
@@ -462,6 +468,7 @@ describe('CommitManager - File Helpers', () => {
     mockGit = {
       status: jest.fn(),
       addConfig: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
     } as any;
 
     mockMetadata = {
