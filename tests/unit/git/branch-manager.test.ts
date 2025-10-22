@@ -63,12 +63,12 @@ describe('BranchManager - Branch Creation', () => {
       mockGit.checkoutLocalBranch.mockResolvedValue(undefined as any);
 
       // When: createBranch を呼び出す（ベースブランチ指定）
-      const result = await branchManager.createBranch('feature/issue-25', 'main');
+      const result = await branchManager.createBranch('feature/issue-26', 'main');
 
       // Then: ベースブランチから新規ブランチが作成される
       expect(result.success).toBe(true);
-      expect(result.branch_name).toBe('feature/issue-25');
-      expect(mockGit.checkoutLocalBranch).toHaveBeenCalledWith('feature/issue-25');
+      expect(result.branch_name).toBe('feature/issue-26');
+      expect(mockGit.checkoutLocalBranch).toHaveBeenCalledWith('feature/issue-26');
     });
 
     test('createBranch_異常系_既存ブランチ', async () => {
