@@ -1,7 +1,8 @@
 import fs from 'fs-extra';
-import { resolve as resolvePath } from 'node:path';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, PhaseStatus } from '../types.js';
+import { buildErrorMessage, buildWarningMessage } from './helpers/dependency-messages.js';
+import { getPhaseOutputFilePath } from './helpers/metadata-io.js';
 
 export const PHASE_DEPENDENCIES: Record<PhaseName, PhaseName[]> = {
   planning: [],
@@ -124,7 +125,7 @@ export const validatePhaseDependencies = (
 
     // ファイル存在チェック（オプション）
     if (checkFileExistence) {
-      const expectedFile = getPhaseOutputFilePath(depPhase, metadataManager);
+      const expectedFile = getPhaseOutputFilePath(depPhase, metadataManager.workflowDir);
       if (expectedFile && !fs.existsSync(expectedFile)) {
         missingFiles.push({ phase: depPhase, file: expectedFile });
       }
@@ -160,101 +161,6 @@ export const validatePhaseDependencies = (
   };
 };
 
-/**
- * エラーメッセージを構築
- */
-function buildErrorMessage(
-  phaseName: PhaseName,
-  missingDependencies: PhaseName[],
-  missingFiles: Array<{ phase: PhaseName; file: string }>,
-): string {
-  let message = `[ERROR] Phase "${phaseName}" requires the following phases to be completed:\n`;
-
-  // 未完了Phaseのリスト
-  for (const dep of missingDependencies) {
-    message += `  ✗ ${dep} - NOT COMPLETED\n`;
-  }
-
-  // ファイル不在のリスト
-  for (const { phase, file } of missingFiles) {
-    message += `  ✗ ${phase} - ${file} NOT FOUND\n`;
-  }
-
-  message += `\nOptions:\n`;
-  message += `  1. Complete the missing phases first\n`;
-  message += `  2. Use --phase all to run all phases\n`;
-  message += `  3. Use --ignore-dependencies to proceed anyway (not recommended)\n`;
-
-  return message;
-}
-
-/**
- * 警告メッセージを構築
- */
-function buildWarningMessage(
-  phaseName: PhaseName,
-  missingDependencies: PhaseName[],
-  missingFiles: Array<{ phase: PhaseName; file: string }>,
-): string {
-  let message = `[WARNING] Phase "${phaseName}" has unmet dependencies, but proceeding anyway...\n`;
-
-  // 未完了Phaseのリスト
-  for (const dep of missingDependencies) {
-    message += `  ⚠ ${dep} - NOT COMPLETED\n`;
-  }
-
-  // ファイル不在のリスト
-  for (const { phase, file } of missingFiles) {
-    message += `  ⚠ ${phase} - ${file} NOT FOUND\n`;
-  }
-
-  return message;
-}
-
-/**
- * Phase出力ファイルのパスを取得
- */
-function getPhaseOutputFilePath(phaseName: PhaseName, metadataManager: MetadataManager): string | null {
-  const phaseNumberMap: Record<PhaseName, string> = {
-    'planning': '00_planning',
-    'requirements': '01_requirements',
-    'design': '02_design',
-    'test_scenario': '03_test_scenario',
-    'implementation': '04_implementation',
-    'test_implementation': '05_test_implementation',
-    'testing': '06_testing',
-    'documentation': '07_documentation',
-    'report': '08_report',
-    'evaluation': '09_evaluation',
-  };
-
-  const fileNameMap: Record<PhaseName, string> = {
-    'planning': 'planning.md',
-    'requirements': 'requirements.md',
-    'design': 'design.md',
-    'test_scenario': 'test-scenario.md',
-    'implementation': 'implementation.md',
-    'test_implementation': 'test-implementation.md',
-    'testing': 'test-result.md',
-    'documentation': 'documentation-update-log.md',
-    'report': 'report.md',
-    'evaluation': 'evaluation.md',
-  };
-
-  const phaseDir = phaseNumberMap[phaseName];
-  const fileName = fileNameMap[phaseName];
-
-  if (!phaseDir || !fileName) {
-    return null;
-  }
-
-  return resolvePath(
-    metadataManager.workflowDir,
-    phaseDir,
-    'output',
-    fileName,
-  );
-}
 
 export const detectCircularDependencies = (): PhaseName[][] => {
   const visited = new Set<PhaseName>();
@@ -297,6 +203,7 @@ export const validateExternalDocument = (
   repoRoot?: string,
 ): ExternalDocumentValidation => {
   try {
+    const { resolve: resolvePath } = require('node:path');
     const absolutePath = resolvePath(filePath);
 
     if (!fs.existsSync(absolutePath)) {
