@@ -251,15 +251,15 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2～3h)
 
-- [ ] Task 5-1: ユニットテスト実装（新規ファイル） (1～1.5h)
+- [x] Task 5-1: ユニットテスト実装（新規ファイル） (1～1.5h)
   - `tests/unit/codex-agent-client.test.ts` 作成
   - `tests/unit/claude-agent-client.test.ts` 作成
   - `tests/unit/metadata-manager.test.ts` 作成
   - 各ヘルパーモジュールのユニットテスト作成
-- [ ] Task 5-2: ユニットテスト拡張（既存ファイル） (0.5～1h)
+- [x] Task 5-2: ユニットテスト拡張（既存ファイル） (0.5～1h)
   - `tests/unit/phase-dependencies.test.ts` に新規ケース追加
   - 新規ヘルパー関数のテストケース追加
-- [ ] Task 5-3: 統合テスト実装 (0.5～1h)
+- [x] Task 5-3: 統合テスト実装 (0.5～1h)
   - `tests/integration/agent-client-execution.test.ts` 作成
   - `tests/integration/metadata-persistence.test.ts` 作成
 
