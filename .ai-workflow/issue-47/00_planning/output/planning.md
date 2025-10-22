@@ -196,11 +196,11 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~2h)
 
-- [ ] Task 5-1: ユニットテストの実装 (0.5~1h)
+- [x] Task 5-1: ユニットテストの実装 (0.5~1h)
   - `tests/unit/phases/base-phase.test.ts` に追加
   - `executePhaseTemplate()` の正常系テスト（3ケース）
   - `executePhaseTemplate()` の異常系テスト（2ケース）
-- [ ] Task 5-2: インテグレーションテストの実装 (0.5~1h)
+- [x] Task 5-2: インテグレーションテストの実装 (0.5~1h)
   - `tests/integration/phases/` に追加
   - RequirementsPhase実行テスト
   - ImplementationPhase実行テスト
