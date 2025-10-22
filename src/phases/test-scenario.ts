@@ -53,7 +53,7 @@ export class TestScenarioPhase extends BasePhase {
       .replace('{issue_info}', this.formatIssueInfo(issueInfo))
       .replace('{issue_number}', String(issueInfo.number));
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 40 });
+    await this.executeWithAgent(executePrompt, { maxTurns: 60 });
 
     const scenarioFile = path.join(this.outputDir, 'test-scenario.md');
     if (!fs.existsSync(scenarioFile)) {
@@ -197,7 +197,7 @@ export class TestScenarioPhase extends BasePhase {
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_number}', String(issueInfo.number));
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 40, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 60, logDir: this.reviseDir });
 
     if (!fs.existsSync(scenarioFile)) {
       return {

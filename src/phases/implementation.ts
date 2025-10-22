@@ -46,7 +46,7 @@ export class ImplementationPhase extends BasePhase {
       .replace('{implementation_strategy}', implementationStrategy)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 50 });
+    await this.executeWithAgent(executePrompt, { maxTurns: 100 });
 
     const implementationFile = path.join(this.outputDir, 'implementation.md');
     if (!fs.existsSync(implementationFile)) {
@@ -196,7 +196,7 @@ export class ImplementationPhase extends BasePhase {
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_number}', String(issueNumber));
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 100, logDir: this.reviseDir });
 
     if (!fs.existsSync(implementationFile)) {
       return {
