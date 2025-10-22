@@ -65,8 +65,11 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
-| `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施。 |
-| `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持。 |
+| `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
+| `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持（約206行、Issue #26で23.7%削減）。 |
+| `src/core/helpers/agent-event-parser.ts` | Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）。`parseCodexEvent()`, `parseClaudeEvent()`, `determineCodexEventType()`, `determineClaudeEventType()` を提供。 |
+| `src/core/helpers/log-formatter.ts` | エージェントログのフォーマット処理（181行、Issue #26で追加）。`formatCodexLog()`, `formatClaudeLog()`, `truncateInput()` を提供。 |
+| `src/core/helpers/env-setup.ts` | エージェント実行環境のセットアップ（47行、Issue #26で追加）。`setupCodexEnvironment()`, `setupGitHubEnvironment()` を提供。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。 |
@@ -77,9 +80,12 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
 | `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
-| `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など。 |
+| `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約239行、Issue #26で9.5%削減）。 |
+| `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
+| `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
-| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供。 |
+| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
+| `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
 | `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約676行、v0.3.1で52.4%削減）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
 | `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、v0.3.1で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
