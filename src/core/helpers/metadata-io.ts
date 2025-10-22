@@ -5,7 +5,7 @@
  */
 
 import fs from 'fs-extra';
-import { resolve as resolvePath } from 'node:path';
+import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
 
 /**
@@ -32,11 +32,15 @@ export function formatTimestampForFilename(date = new Date()): string {
  */
 export function backupMetadataFile(metadataPath: string): string {
   const timestamp = formatTimestampForFilename();
-  const dirname = metadataPath.substring(0, metadataPath.lastIndexOf('/'));
-  const backupPath = `${dirname}/metadata.json.backup_${timestamp}`;
+  const metadataDir = dirname(metadataPath);
+  const metadataFileName = basename(metadataPath);
+  const backupPath = join(
+    metadataDir,
+    `${metadataFileName}.backup_${timestamp}`,
+  );
 
   fs.copyFileSync(metadataPath, backupPath);
-  console.info(`[INFO] metadata.json backup created: ${backupPath}`);
+  console.info(`[INFO] Metadata backup created: ${backupPath}`);
 
   return backupPath;
 }
@@ -94,5 +98,16 @@ export function getPhaseOutputFilePath(phaseName: PhaseName, workflowDir: string
     return null;
   }
 
-  return resolvePath(workflowDir, phaseDir, 'output', fileName);
+  const phaseBasePath = resolvePath(workflowDir, phaseDir);
+
+  if (phaseName === 'testing') {
+    const reviewResultPath = resolvePath(phaseBasePath, 'review', 'result.md');
+    if (fs.existsSync(reviewResultPath)) {
+      return reviewResultPath;
+    }
+
+    return resolvePath(phaseBasePath, 'output', fileName);
+  }
+
+  return resolvePath(phaseBasePath, 'output', fileName);
 }
