@@ -209,7 +209,7 @@
 
 #### Phase 5: テストコード実装 (見積もり: 1.5~2h)
 
-- [ ] Task 5-1: ユニットテスト実装 (1~1.5h)
+- [x] Task 5-1: ユニットテスト実装 (1~1.5h)
   - `tests/unit/utils/git-url-utils.test.ts` 作成
   - HTTPS+トークン形式のテスト実装（`ghp_xxx`, `github_pat_xxx`）
   - HTTPS+ユーザー:パスワード形式のテスト実装
@@ -217,10 +217,11 @@
   - 通常HTTPS形式のテスト実装（変更なし確認）
   - エッジケーステスト実装（空文字列、複数@、ポート番号等）
 
-- [ ] Task 5-2: 統合テスト拡張 (0.5h)
-  - `tests/integration/init-command.test.ts` にテストケース追加（ファイルが存在する場合）
+- [x] Task 5-2: 統合テスト拡張 (0.5h)
+  - `tests/integration/init-token-sanitization.test.ts` 新規作成（専用テストファイル）
   - トークン埋め込みURLでのinit実行テスト
   - metadata.json検証（トークン除去確認）
+  - secret-masker.test.ts にmetadata.jsonスキャンのテストケース追加（3テスト）
 
 #### Phase 6: テスト実行 (見積もり: 0.5~1h)
 
@@ -374,9 +375,9 @@ graph TD
 
 #### Phase 5: テストコード実装
 
-- [ ] ユニットテストが全テストケースをカバーしている（HTTPS+トークン、SSH、通常HTTPS、エッジケース）
-- [ ] 統合テストがトークン埋め込みURLでのinit実行を検証している
-- [ ] テストコードがベストプラクティスに従っている（AAA pattern: Arrange-Act-Assert）
+- [x] ユニットテストが全テストケースをカバーしている（HTTPS+トークン、SSH、通常HTTPS、エッジケース）
+- [x] 統合テストがトークン埋め込みURLでのinit実行を検証している
+- [x] テストコードがベストプラクティスに従っている（AAA pattern: Arrange-Act-Assert）
 
 #### Phase 6: テスト実行
 
