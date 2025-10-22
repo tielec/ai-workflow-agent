@@ -132,10 +132,10 @@
       ]
     },
     "evaluation": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-10-22T04:38:26.398Z",
-      "completed_at": null,
+      "completed_at": "2025-10-22T04:42:12.262Z",
       "review_result": null,
       "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
@@ -158,14 +158,15 @@
       ],
       "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/36",
       "abort_reason": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     }
   },
   "created_at": "2025-10-21T13:54:03.846Z",
-  "updated_at": "2025-10-22T04:42:11.014Z",
+  "updated_at": "2025-10-22T04:42:12.801Z",
   "branch_name": "ai-workflow/issue-25",
   "github_integration": {
     "progress_comment_id": 3426874656,
