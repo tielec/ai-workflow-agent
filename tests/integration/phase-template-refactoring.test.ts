@@ -14,21 +14,12 @@ import { ImplementationPhase } from '../../src/phases/implementation.js';
 import { TestingPhase } from '../../src/phases/testing.js';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
+import { mockDeep } from 'jest-mock-extended';
+import type * as FsExtra from 'fs-extra';
 
-// fs-extra のモック（CJS モード）
-const mockExistsSync = jest.fn();
-const mockEnsureDirSync = jest.fn();
-const mockReadFileSync = jest.fn();
-const mockStatSync = jest.fn();
-const mockLstatSync = jest.fn();
-
-jest.mock('fs-extra', () => ({
-  existsSync: mockExistsSync,
-  ensureDirSync: mockEnsureDirSync,
-  readFileSync: mockReadFileSync,
-  statSync: mockStatSync,
-  lstatSync: mockLstatSync,
-}));
+// jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
+const mockFs = mockDeep<typeof FsExtra>();
+jest.mock('fs-extra', () => mockFs);
 
 describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
   let mockMetadata: MetadataManager;
@@ -84,13 +75,12 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       getWorkingDirectory: jest.fn().mockReturnValue(testWorkingDir),
     } as any;
 
-    // fs-extra のデフォルトモック（Jest v30.x 互換）
-    // モックされた関数をリセット
-    mockExistsSync.mockReturnValue(true);
-    mockEnsureDirSync.mockImplementation(() => {});
-    mockReadFileSync.mockReturnValue('Mock file content');
-    mockStatSync.mockReturnValue({ mtimeMs: 1000, size: 100 } as any);
-    mockLstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
+    // fs-extra のデフォルトモック（Jest v30.x 互換 - jest-mock-extended を使用）
+    mockFs.existsSync.mockReturnValue(true);
+    mockFs.ensureDirSync.mockReturnValue(undefined);
+    mockFs.readFileSync.mockReturnValue('Mock file content');
+    mockFs.statSync.mockReturnValue({ mtimeMs: 1000, size: 100 } as any);
+    mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
   });
 
   // ========================================
@@ -125,7 +115,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', 'requirements.md');
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -185,7 +175,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 ## テスト戦略: UNIT_INTEGRATION
 ## テストコード戦略: CREATE_TEST
 `;
-      mockReadFileSync.mockReturnValue(designContent);
+      mockFs.readFileSync.mockReturnValue(designContent);
 
       // contentParser.extractDesignDecisions() のモック
       jest.spyOn((phase as any).contentParser, 'extractDesignDecisions').mockResolvedValue({
@@ -196,7 +186,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '02_design', 'output', 'design.md');
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -232,7 +222,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       jest.spyOn(phase as any, 'executeWithAgent').mockResolvedValue([]);
 
       const outputFilePath = path.join(testWorkflowDir, '02_design', 'output', 'design.md');
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
 
       jest.spyOn((phase as any).contentParser, 'extractDesignDecisions').mockResolvedValue({});
 
@@ -291,7 +281,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '04_implementation', 'output', 'implementation.md');
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -339,8 +329,8 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // ファイル更新チェック: 実行前と実行後で mtime が変化
       let callCount = 0;
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
-      mockStatSync.mockImplementation((p: any) => {
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.statSync.mockImplementation((p: any) => {
         if (p === outputFilePath) {
           callCount++;
           return callCount <= 2
@@ -377,8 +367,8 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
 
       // ファイル更新チェック: mtime と size が変化しない
-      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
-      mockStatSync.mockImplementation((p: any) => {
+      mockFs.existsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockFs.statSync.mockImplementation((p: any) => {
         if (p === outputFilePath) {
           return { mtimeMs: 1000, size: 100 }; // 常に同じ値
         }

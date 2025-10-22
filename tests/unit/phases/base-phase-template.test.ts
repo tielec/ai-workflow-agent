@@ -1,20 +1,27 @@
-import { BasePhase, BasePhaseConstructorParams } from '../../../src/phases/base-phase.js';
-import { MetadataManager } from '../../../src/core/metadata-manager.js';
-import { GitHubClient } from '../../../src/core/github-client.js';
-import { PhaseExecutionResult } from '../../../src/types.js';
-import * as path from 'node:path';
 import { jest } from '@jest/globals';
+import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import type * as FsExtra from 'fs-extra';
 
-// fs-extra のモック（CJS モード）
-const mockExistsSync = jest.fn();
-const mockEnsureDirSync = jest.fn();
-const mockReadFileSync = jest.fn();
+// jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
+// 重要: このモックは BasePhase インポート**より前**に定義する必要がある
+const mockFs: DeepMockProxy<typeof FsExtra> = mockDeep<typeof FsExtra>();
+jest.unstable_mockModule('fs-extra', () => mockFs);
 
-jest.mock('fs-extra', () => ({
-  existsSync: mockExistsSync,
-  ensureDirSync: mockEnsureDirSync,
-  readFileSync: mockReadFileSync,
-}));
+// モジュールを動的インポート（モック後）
+const { BasePhase } = await import('../../../src/phases/base-phase.js');
+const { MetadataManager } = await import('../../../src/core/metadata-manager.js');
+const { GitHubClient } = await import('../../../src/core/github-client.js');
+const { PhaseExecutionResult } = await import('../../../src/types.js');
+const path = await import('node:path');
+
+// BasePhaseConstructorParams型定義（動的インポートのため再定義）
+type BasePhaseConstructorParams = {
+  phaseName: string;
+  workingDir: string;
+  metadataManager: any;
+  githubClient: any;
+  skipDependencyCheck?: boolean;
+};
 
 /**
  * テスト用の BasePhase サブクラス
@@ -46,8 +53,8 @@ class TestPhase extends BasePhase {
 
 describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
   let testPhase: TestPhase;
-  let mockMetadata: MetadataManager;
-  let mockGithub: GitHubClient;
+  let mockMetadata: any;
+  let mockGithub: any;
   const testWorkingDir = '/test/workspace';
   const testWorkflowDir = '/test/.ai-workflow/issue-47';
 
@@ -64,20 +71,20 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       getCompletedSteps: jest.fn().mockReturnValue([]),
       updateCurrentStep: jest.fn(),
       save: jest.fn(),
-    } as any;
+    };
 
     // GitHubClient のモック
     mockGithub = {
       getIssueInfo: jest.fn(),
       postComment: jest.fn(),
       createOrUpdateProgressComment: jest.fn(),
-    } as any;
+    };
 
-    // fs-extra のモック設定（Jest v30.x 互換）
-    // モックされた関数をリセット
-    mockExistsSync.mockReturnValue(false);
-    mockEnsureDirSync.mockImplementation(() => {});
-    mockReadFileSync.mockReturnValue('');
+    // fs-extra のモック設定（Jest v30.x 互換 - jest-mock-extended を使用）
+    mockFs.existsSync.mockReturnValue(false);
+    mockFs.ensureDirSync.mockReturnValue(undefined);
+    mockFs.readFileSync.mockReturnValue('');
+    mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
 
     // TestPhase インスタンス作成
     testPhase = new TestPhase({
@@ -109,7 +116,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // When: executePhaseTemplate() を呼び出す
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
@@ -137,7 +144,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -169,7 +176,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -204,7 +211,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // 複数変数を含むプロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue(
@@ -237,7 +244,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在しないようにモック
-      mockExistsSync.mockReturnValue(false);
+      mockFs.existsSync.mockReturnValue(false);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -284,7 +291,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // プロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('Value: {var1}');
@@ -315,7 +322,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // プロンプトテンプレート（変数なし）
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -347,7 +354,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      mockExistsSync.mockReturnValue(true);
+      mockFs.existsSync.mockReturnValue(true);
 
       // プロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
