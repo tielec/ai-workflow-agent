@@ -10,9 +10,8 @@ export class TestImplementationPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const planningReference = this.getPlanningDocumentReference(issueNumber);
 
-    // オプショナルコンテキストを構築（Issue #398）
+    // オプショナルコンテキストを構築（Issue #398, #396）
     const requirementsContext = this.buildOptionalContext(
       'requirements',
       'requirements.md',
@@ -47,39 +46,19 @@ export class TestImplementationPhase extends BasePhase {
     const testCodeStrategy = this.metadata.data.design_decisions.test_code_strategy ??
       'テストコード方針は設定されていません。プロジェクトの規約とテスト戦略から適切なテストコード方針を決定してください。';
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{requirements_context}', requirementsContext)
-      .replace('{design_context}', designContext)
-      .replace('{test_scenario_context}', scenarioContext)
-      .replace('{implementation_context}', implementationContext)
-      .replace('{test_strategy}', testStrategy)
-      .replace('{test_code_strategy}', testCodeStrategy)
-      .replace('{issue_number}', String(issueNumber));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 80 });
-
-    const testImplementationFile = path.join(this.outputDir, 'test-implementation.md');
-    if (!fs.existsSync(testImplementationFile)) {
-      return {
-        success: false,
-        error: `test-implementation.md が見つかりません: ${testImplementationFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    return this.executePhaseTemplate('test-implementation.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueNumber),
+      requirements_context: requirementsContext,
+      design_context: designContext,
+      test_scenario_context: scenarioContext,
+      implementation_context: implementationContext,
+      test_strategy: testStrategy,
+      test_code_strategy: testCodeStrategy,
+      issue_number: String(issueNumber),
+    }, { maxTurns: 80 });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(testImplementationFile, 'utf-8');
-    //   await this.postOutput(content, 'テストコード実装方針');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub へのテストコード実装出力に失敗しました: ${message}`);
-    // }
-
-    return {
-      success: true,
-      output: testImplementationFile,
-    };
   }
 
   protected async review(): Promise<PhaseExecutionResult> {

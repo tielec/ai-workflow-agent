@@ -19,60 +19,43 @@ export class DesignPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueInfo = (await this.getIssueInfo()) as IssueInfo;
-    const planningReference = this.getPlanningDocumentReference(issueInfo.number);
-    const requirementsFile = this.getRequirementsFile(issueInfo.number);
 
-    // requirements はオプショナル（Issue #405）
-    let requirementsReference: string;
-    if (requirementsFile) {
-      const ref = this.getAgentFileReference(requirementsFile);
-      requirementsReference = ref ?? '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。';
-    } else {
-      requirementsReference = '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。';
-    }
+    // requirements はオプショナル（Issue #405, #396）
+    const requirementsReference = this.buildOptionalContext(
+      'requirements',
+      'requirements.md',
+      '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。',
+      issueInfo.number,
+    );
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{requirements_document_path}', requirementsReference)
-      .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', String(issueInfo.number));
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    const result = await this.executePhaseTemplate('design.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
+      requirements_document_path: requirementsReference,
+      issue_info: this.formatIssueInfo(issueInfo),
+      issue_number: String(issueInfo.number),
+    }, { maxTurns: 40 });
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 40 });
+    // 特殊ロジック: 設計決定の抽出（Design Phase 特有のロジック）
+    if (result.success) {
+      const designContent = fs.readFileSync(result.output, 'utf-8');
+      const decisions = this.metadata.data.design_decisions;
 
-    const designFile = path.join(this.outputDir, 'design.md');
-    if (!fs.existsSync(designFile)) {
-      return {
-        success: false,
-        error: `design.md が見つかりません: ${designFile}`,
-      };
-    }
-
-    const designContent = fs.readFileSync(designFile, 'utf-8');
-    const decisions = this.metadata.data.design_decisions;
-
-    if (decisions.implementation_strategy === null) {
-      const extracted = await this.contentParser.extractDesignDecisions(designContent);
-      if (Object.keys(extracted).length) {
-        Object.assign(this.metadata.data.design_decisions, extracted);
-        this.metadata.save();
-        console.info(`[INFO] Design decisions updated: ${JSON.stringify(extracted)}`);
+      if (decisions.implementation_strategy === null) {
+        const extracted = await this.contentParser.extractDesignDecisions(designContent);
+        if (Object.keys(extracted).length) {
+          Object.assign(this.metadata.data.design_decisions, extracted);
+          this.metadata.save();
+          console.info(`[INFO] Design decisions updated: ${JSON.stringify(extracted)}`);
+        }
+      } else {
+        console.info('[INFO] Using design decisions captured during planning phase.');
       }
-    } else {
-      console.info('[INFO] Using design decisions captured during planning phase.');
     }
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   await this.postOutput(designContent, '設計ドキュメント');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub への設計ドキュメント投稿に失敗しました: ${message}`);
-    // }
 
-    return {
-      success: true,
-      output: designFile,
-    };
+    return result;
   }
 
   protected async review(): Promise<PhaseExecutionResult> {

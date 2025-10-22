@@ -245,6 +245,72 @@ export abstract class BasePhase {
     return messages;
   }
 
+  /**
+   * フェーズ実行の共通パターンをテンプレート化したメソッド（Issue #47）
+   *
+   * @template T - プロンプトテンプレート変数のマップ型（Record<string, string> を継承）
+   * @param phaseOutputFile - 出力ファイル名（例: 'requirements.md', 'design.md'）
+   * @param templateVariables - プロンプトテンプレートの変数マップ
+   *   - キー: プロンプト内の変数名（例: 'planning_document_path', 'issue_info'）
+   *   - 値: 置換後の文字列
+   * @param options - エージェント実行オプション
+   *   - maxTurns: エージェントの最大ターン数（デフォルト: 30）
+   *   - verbose: 詳細ログ出力フラグ（オプション、将来拡張用）
+   *   - logDir: ログディレクトリパス（オプション、将来拡張用）
+   * @returns PhaseExecutionResult - 実行結果
+   *   - success: true の場合、output にファイルパスが格納される
+   *   - success: false の場合、error にエラーメッセージが格納される
+   *
+   * @example
+   * ```typescript
+   * protected async execute(): Promise<PhaseExecutionResult> {
+   *   const issueInfo = await this.getIssueInfo();
+   *   return this.executePhaseTemplate('requirements.md', {
+   *     planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
+   *     issue_info: this.formatIssueInfo(issueInfo),
+   *     issue_number: String(issueInfo.number)
+   *   });
+   * }
+   * ```
+   */
+  protected async executePhaseTemplate<T extends Record<string, string>>(
+    phaseOutputFile: string,
+    templateVariables: T,
+    options?: { maxTurns?: number; verbose?: boolean; logDir?: string }
+  ): Promise<PhaseExecutionResult> {
+    // 1. プロンプトテンプレートを読み込む
+    let prompt = this.loadPrompt('execute');
+
+    // 2. テンプレート変数を置換
+    for (const [key, value] of Object.entries(templateVariables)) {
+      const placeholder = `{${key}}`;
+      prompt = prompt.replace(placeholder, value);
+    }
+
+    // 3. エージェントを実行
+    const agentOptions = {
+      maxTurns: options?.maxTurns ?? 30,
+      verbose: options?.verbose,
+      logDir: options?.logDir,
+    };
+    await this.executeWithAgent(prompt, agentOptions);
+
+    // 4. 出力ファイルの存在確認
+    const outputFilePath = path.join(this.outputDir, phaseOutputFile);
+    if (!fs.existsSync(outputFilePath)) {
+      return {
+        success: false,
+        error: `${phaseOutputFile} が見つかりません: ${outputFilePath}`,
+      };
+    }
+
+    // 5. 成功を返す
+    return {
+      success: true,
+      output: outputFilePath,
+    };
+  }
+
   protected getIssueInfo() {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
     if (Number.isNaN(issueNumber)) {

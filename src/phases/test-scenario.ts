@@ -19,63 +19,37 @@ export class TestScenarioPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueInfo = (await this.getIssueInfo()) as IssueInfo;
-    const planningReference = this.getPlanningDocumentReference(issueInfo.number);
 
-    const requirementsFile = this.getPhaseOutputFile('requirements', 'requirements.md', issueInfo.number);
-    const designFile = this.getPhaseOutputFile('design', 'design.md', issueInfo.number);
+    // requirements と design はオプショナル（Issue #405, #396）
+    const requirementsReference = this.buildOptionalContext(
+      'requirements',
+      'requirements.md',
+      '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。',
+      issueInfo.number,
+    );
 
-    // requirements と design はオプショナル（Issue #405）
-    let requirementsReference: string;
-    if (requirementsFile) {
-      const ref = this.getAgentFileReference(requirementsFile);
-      requirementsReference = ref ?? '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。';
-    } else {
-      requirementsReference = '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。';
-    }
-
-    let designReference: string;
-    if (designFile) {
-      const ref = this.getAgentFileReference(designFile);
-      designReference = ref ?? '設計ドキュメントは利用できません。Planning情報から設計を推測してください。';
-    } else {
-      designReference = '設計ドキュメントは利用できません。Planning情報から設計を推測してください。';
-    }
+    const designReference = this.buildOptionalContext(
+      'design',
+      'design.md',
+      '設計ドキュメントは利用できません。Planning情報から設計を推測してください。',
+      issueInfo.number,
+    );
 
     // test_strategy もオプショナル（Issue #405）
     const testStrategy = this.metadata.data.design_decisions.test_strategy ??
       'テスト戦略は設定されていません。要件と設計から適切なテスト戦略を決定してください。';
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{requirements_document_path}', requirementsReference)
-      .replace('{design_document_path}', designReference)
-      .replace('{test_strategy}', testStrategy)
-      .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', String(issueInfo.number));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 60 });
-
-    const scenarioFile = path.join(this.outputDir, 'test-scenario.md');
-    if (!fs.existsSync(scenarioFile)) {
-      return {
-        success: false,
-        error: `test-scenario.md が見つかりません: ${scenarioFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    return this.executePhaseTemplate('test-scenario.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
+      requirements_document_path: requirementsReference,
+      design_document_path: designReference,
+      test_strategy: testStrategy,
+      issue_info: this.formatIssueInfo(issueInfo),
+      issue_number: String(issueInfo.number),
+    }, { maxTurns: 60 });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(scenarioFile, 'utf-8');
-    //   await this.postOutput(content, 'テストシナリオ');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub へのテストシナリオ投稿に失敗しました: ${message}`);
-    // }
-
-    return {
-      success: true,
-      output: scenarioFile,
-    };
   }
 
   protected async review(): Promise<PhaseExecutionResult> {

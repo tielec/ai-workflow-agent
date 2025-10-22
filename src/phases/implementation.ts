@@ -10,7 +10,6 @@ export class ImplementationPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const planningReference = this.getPlanningDocumentReference(issueNumber);
 
     // オプショナルコンテキストを構築（Issue #396）
     const requirementsContext = this.buildOptionalContext(
@@ -38,37 +37,17 @@ export class ImplementationPhase extends BasePhase {
       this.metadata.data.design_decisions.implementation_strategy ??
       '実装方針は利用できません。Issue情報とPlanning情報に基づいて適切な実装アプローチを決定してください。';
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{requirements_context}', requirementsContext)
-      .replace('{design_context}', designContext)
-      .replace('{test_scenario_context}', testScenarioContext)
-      .replace('{implementation_strategy}', implementationStrategy)
-      .replace('{issue_number}', String(issueNumber));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 100 });
-
-    const implementationFile = path.join(this.outputDir, 'implementation.md');
-    if (!fs.existsSync(implementationFile)) {
-      return {
-        success: false,
-        error: `implementation.md が見つかりません: ${implementationFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    return this.executePhaseTemplate('implementation.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueNumber),
+      requirements_context: requirementsContext,
+      design_context: designContext,
+      test_scenario_context: testScenarioContext,
+      implementation_strategy: implementationStrategy,
+      issue_number: String(issueNumber),
+    }, { maxTurns: 100 });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(implementationFile, 'utf-8');
-    //   await this.postOutput(content, '実装内容');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub への実装結果投稿に失敗しました: ${message}`);
-    // }
-
-    return {
-      success: true,
-      output: implementationFile,
-    };
   }
 
   protected async review(): Promise<PhaseExecutionResult> {
