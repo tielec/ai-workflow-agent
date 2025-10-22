@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 4224,
-    "total_output_tokens": 190787,
-    "total_cost_usd": 13.36485015
+    "total_input_tokens": 4231,
+    "total_output_tokens": 202473,
+    "total_cost_usd": 14.0582217
   },
   "phases": {
     "planning": {
@@ -133,20 +133,57 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-22T05:47:55.044Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "APIシグネチャの修正（5ファイル、2～3時間）",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "型定義の修正（2ファイル、0.5～1時間）",
+          "phase": "test_implementation",
+          "priority": "中"
+        },
+        {
+          "task": "フェーズ名の修正（1ファイル、0.5時間）",
+          "phase": "test_implementation",
+          "priority": "中"
+        },
+        {
+          "task": "モック方式の修正（1ファイル、0.5～1時間）",
+          "phase": "test_implementation",
+          "priority": "中"
+        },
+        {
+          "task": "テスト実行（0.5～1時間）",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "カバレッジ確認（0.5時間）",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "レポート更新（0.5時間）",
+          "phase": "report",
+          "priority": "高"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/38",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-10-22T04:48:34.877Z",
-  "updated_at": "2025-10-22T05:47:53.716Z",
+  "updated_at": "2025-10-22T05:51:28.789Z",
   "branch_name": "ai-workflow/issue-26",
   "pr_number": 37,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/37",
