@@ -237,12 +237,12 @@
 
 #### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: CLAUDE.mdの更新 (0.25~0.5h)
+- [x] Task 7-1: CLAUDE.mdの更新 (0.25~0.5h)
   - セキュリティ対策セクションに本修正を追加
   - Git URL サニタイゼーション機能の説明
   - metadata.jsonのSecretMasker対応を記載
 
-- [ ] Task 7-2: TROUBLESHOOTING.mdの更新 (0.25~0.5h)
+- [x] Task 7-2: TROUBLESHOOTING.mdの更新 (0.25~0.5h)
   - 「GitHub push protection エラー」セクション追加
   - トラブルシューティング手順（既存ワークフローでのトークン削除方法）
   - 原因と解決策の説明
@@ -388,9 +388,9 @@ graph TD
 
 #### Phase 7: ドキュメント
 
-- [ ] CLAUDE.mdにセキュリティ対策が記載されている
-- [ ] TROUBLESHOOTING.mdにトラブルシューティング手順が記載されている
-- [ ] コードコメント（JSDoc）が十分である
+- [x] CLAUDE.mdにセキュリティ対策が記載されている
+- [x] TROUBLESHOOTING.mdにトラブルシューティング手順が記載されている
+- [x] コードコメント（JSDoc）が十分である
 
 #### Phase 8: レポート
 
