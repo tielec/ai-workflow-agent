@@ -2,12 +2,21 @@ import { BasePhase, BasePhaseConstructorParams } from '../../../src/phases/base-
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import { GitHubClient } from '../../../src/core/github-client.js';
 import { PhaseExecutionResult } from '../../../src/types.js';
-import * as fs from 'fs-extra';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 
-// fs-extra のモック
-jest.mock('fs-extra');
+// fs-extra のモック（Jest v30.x 互換）
+const mockExistsSync = jest.fn();
+const mockEnsureDirSync = jest.fn();
+const mockReadFileSync = jest.fn();
+
+jest.mock('fs-extra', () => ({
+  existsSync: mockExistsSync,
+  ensureDirSync: mockEnsureDirSync,
+  readFileSync: mockReadFileSync,
+}));
+
+import * as fs from 'fs-extra';
 
 /**
  * テスト用の BasePhase サブクラス
@@ -66,10 +75,11 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       createOrUpdateProgressComment: jest.fn(),
     } as any;
 
-    // fs-extra のモック設定
-    (fs.existsSync as any) = jest.fn();
-    (fs.ensureDirSync as any) = jest.fn();
-    (fs.readFileSync as any) = jest.fn();
+    // fs-extra のモック設定（Jest v30.x 互換）
+    // モックされた関数をリセット
+    mockExistsSync.mockReturnValue(false);
+    mockEnsureDirSync.mockImplementation(() => {});
+    mockReadFileSync.mockReturnValue('');
 
     // TestPhase インスタンス作成
     testPhase = new TestPhase({
@@ -101,7 +111,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // When: executePhaseTemplate() を呼び出す
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
@@ -129,7 +139,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -161,7 +171,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -196,7 +206,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // 複数変数を含むプロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue(
@@ -229,7 +239,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在しないようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+      mockExistsSync.mockReturnValue(false);
 
       // プロンプトテンプレートに変数がない
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -276,7 +286,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // プロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('Value: {var1}');
@@ -307,7 +317,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // プロンプトテンプレート（変数なし）
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
@@ -339,7 +349,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', outputFile);
 
       // 出力ファイルが存在するようにモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
 
       // プロンプトテンプレート
       jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('No variables');
