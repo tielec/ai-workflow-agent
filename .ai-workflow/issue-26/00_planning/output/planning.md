@@ -222,33 +222,31 @@
 
 ### Phase 4: 実装 (見積もり: 4～6h)
 
-- [ ] Task 4-1: agent-event-parser.ts 実装 (0.5～1h)
+- [x] Task 4-1: agent-event-parser.ts 実装 (0.5～1h)
   - JSONイベントパース処理の共通化
   - SDKイベントハンドリングの共通化
-  - ログフォーマット処理の共通化
-- [ ] Task 4-2: metadata-io.ts 実装 (0.5～1h)
+  - ログフォーマット処理の共通化（→ log-formatter.tsに分離）
+- [x] Task 4-2: metadata-io.ts 実装 (0.5～1h)
   - ファイルI/O操作の共通化
   - タイムスタンプフォーマット処理の抽出
-  - バリデーション処理の分離
-- [ ] Task 4-3: dependency-validation.ts 実装 (0.5～1h)
+  - バリデーション処理の分離（→ validation.tsに分離）
+- [x] Task 4-3: dependency-messages.ts 実装 (0.5～1h)（※ファイル名変更）
   - エラー/警告メッセージ生成の共通化
-  - プリセット定義の構造化
-  - 依存関係検証ロジックの整理
-- [ ] Task 4-4: codex-agent-client.ts リファクタリング (0.5～1h)
+  - （プリセット定義はphase-dependencies.tsに保持）
+- [x] Task 4-4: codex-agent-client.ts リファクタリング (0.5～1h)
   - 共通ロジックをagent-event-parserに移行
-  - 環境変数設定処理の抽出
-  - ログフォーマット処理の統合
-- [ ] Task 4-5: claude-agent-client.ts リファクタリング (0.5～1h)
+  - 環境変数設定処理の抽出（env-setup.ts）
+  - ログフォーマット処理の統合（log-formatter.ts）
+- [x] Task 4-5: claude-agent-client.ts リファクタリング (0.5～1h)
   - 共通ロジックをagent-event-parserに移行
-  - トークン抽出処理の整理
-  - ログフォーマット処理の統合
-- [ ] Task 4-6: metadata-manager.ts リファクタリング (0.5～1h)
+  - トークン抽出処理の整理（内部に保持）
+  - ログフォーマット処理の統合（log-formatter.ts）
+- [x] Task 4-6: metadata-manager.ts リファクタリング (0.5～1h)
   - ファイルI/O操作をmetadata-ioに移行
-  - バリデーション処理の分離
   - 重複コードの削減
-- [ ] Task 4-7: phase-dependencies.ts リファクタリング (0.5～1h)
-  - エラー/警告メッセージ生成をdependency-validationに移行
-  - プリセット定義の構造化
+- [x] Task 4-7: phase-dependencies.ts リファクタリング (0.5～1h)
+  - エラー/警告メッセージ生成をdependency-messagesに移行
+  - プリセット定義の構造化（完了）
   - 依存関係検証ロジックの整理
 
 ### Phase 5: テストコード実装 (見積もり: 2～3h)
@@ -429,19 +427,23 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] **ヘルパーモジュールが実装されている**
-  - agent-event-parser.ts が完成
-  - metadata-io.ts が完成
-  - dependency-validation.ts が完成
-- [ ] **各ファイルのリファクタリングが完了している**
-  - codex-agent-client.ts のリファクタリング完了
-  - claude-agent-client.ts のリファクタリング完了
-  - metadata-manager.ts のリファクタリング完了
-  - phase-dependencies.ts のリファクタリング完了
-- [ ] **行数削減目標が達成されている（努力目標）**
-  - 各ファイルが250行以下、または30%以上削減
-- [ ] **公開APIが維持されている**
-  - すべてのpublicメソッドのシグネチャが変更されていない
+- [x] **ヘルパーモジュールが実装されている**
+  - agent-event-parser.ts が完成（74行）
+  - log-formatter.ts が完成（181行）
+  - env-setup.ts が完成（47行）
+  - metadata-io.ts が完成（98行）
+  - validation.ts が完成（47行）
+  - dependency-messages.ts が完成（68行、設計書のdependency-validation.tsを適切に命名変更）
+- [x] **各ファイルのリファクタリングが完了している**
+  - codex-agent-client.ts のリファクタリング完了（268行→200行、25.4%削減）
+  - claude-agent-client.ts のリファクタリング完了（270行→206行、23.7%削減）
+  - metadata-manager.ts のリファクタリング完了（264行→239行、9.5%削減）
+  - phase-dependencies.ts のリファクタリング完了（342行→249行、27.2%削減）
+- [x] **行数削減目標が達成されている（努力目標）**
+  - 全ファイルが250行以下に到達（目標達成！）
+  - 合計削減: 250行（21.9%）、新規ヘルパー515行を考慮すると実質的な設計改善
+- [x] **公開APIが維持されている**
+  - すべてのpublicメソッドのシグネチャが変更されていない（確認済み）
 
 ### Phase 5: テストコード実装
 
