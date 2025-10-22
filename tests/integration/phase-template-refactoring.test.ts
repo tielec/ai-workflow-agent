@@ -15,7 +15,7 @@ import { TestingPhase } from '../../src/phases/testing.js';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 
-// fs-extra のモック（Jest v30.x 互換）
+// fs-extra のモック（CJS モード）
 const mockExistsSync = jest.fn();
 const mockEnsureDirSync = jest.fn();
 const mockReadFileSync = jest.fn();
@@ -29,8 +29,6 @@ jest.mock('fs-extra', () => ({
   statSync: mockStatSync,
   lstatSync: mockLstatSync,
 }));
-
-import * as fs from 'fs-extra';
 
 describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
   let mockMetadata: MetadataManager;
@@ -48,9 +46,9 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       data: {
         issue_number: '47',
         phases: {
-          planning: { status: 'completed', output_file: `${testWorkflowDir}/00_planning/output/planning.md` },
-          requirements: { status: 'pending', output_file: null },
-          design: { status: 'pending', output_file: null },
+          planning: { status: 'completed', output_files: [`${testWorkflowDir}/00_planning/output/planning.md`] },
+          requirements: { status: 'pending', output_files: [] },
+          design: { status: 'pending', output_files: [] },
         },
         design_decisions: {
           implementation_strategy: null,
@@ -102,7 +100,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('RequirementsPhase がリファクタリング後も正常に動作する', async () => {
       // Given: RequirementsPhase のインスタンス
       const phase = new RequirementsPhase({
-        phaseName: 'requirements',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -128,7 +125,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '01_requirements', 'output', 'requirements.md');
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -152,7 +149,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('DesignPhase がリファクタリング後も設計決定抽出ロジックを含めて正常に動作する', async () => {
       // Given: DesignPhase のインスタンス
       const phase = new DesignPhase({
-        phaseName: 'design',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -200,7 +196,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '02_design', 'output', 'design.md');
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -221,7 +217,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       mockMetadata.data.design_decisions.implementation_strategy = 'REFACTOR';
 
       const phase = new DesignPhase({
-        phaseName: 'design',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -237,7 +232,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       jest.spyOn(phase as any, 'executeWithAgent').mockResolvedValue([]);
 
       const outputFilePath = path.join(testWorkflowDir, '02_design', 'output', 'design.md');
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
 
       jest.spyOn((phase as any).contentParser, 'extractDesignDecisions').mockResolvedValue({});
 
@@ -259,14 +254,13 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('オプショナルコンテキストがフォールバックメッセージになる', async () => {
       // Given: 要件定義書・設計書・テストシナリオが存在しない
       mockMetadata.data.phases = {
-        planning: { status: 'completed', output_file: `${testWorkflowDir}/00_planning/output/planning.md` },
-        requirements: { status: 'pending', output_file: null },
-        design: { status: 'pending', output_file: null },
-        test_scenario: { status: 'pending', output_file: null },
+        planning: { status: 'completed', output_files: [`${testWorkflowDir}/00_planning/output/planning.md`] },
+        requirements: { status: 'pending', output_files: [] },
+        design: { status: 'pending', output_files: [] },
+        test_scenario: { status: 'pending', output_files: [] },
       };
 
       const phase = new ImplementationPhase({
-        phaseName: 'implementation',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -283,7 +277,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
 
       // buildOptionalContext() のモック（フォールバックメッセージを返す）
-      jest.spyOn(phase as any, 'buildOptionalContext').mockImplementation((phaseName: string) => {
+      jest.spyOn(phase as any, 'buildOptionalContext').mockImplementation((phaseName: any) => {
         const fallbacks: Record<string, string> = {
           requirements: '要件定義書は利用できません。Planning情報とIssue情報から要件を推測してください。',
           design: '設計書は利用できません。Issue情報とPlanning情報に基づいて適切な設計判断を行ってください。',
@@ -297,7 +291,7 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // 出力ファイルが生成されるようにモック
       const outputFilePath = path.join(testWorkflowDir, '04_implementation', 'output', 'implementation.md');
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
 
       // When: execute() を実行
       const result = await (phase as any).execute();
@@ -321,7 +315,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('テスト実行後にファイルが更新されたことを確認する', async () => {
       // Given: TestingPhase のインスタンス
       const phase = new TestingPhase({
-        phaseName: 'testing',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -346,8 +339,8 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
 
       // ファイル更新チェック: 実行前と実行後で mtime が変化
       let callCount = 0;
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
-      mockStatSync.mockImplementation((p: string) => {
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockStatSync.mockImplementation((p: any) => {
         if (p === outputFilePath) {
           callCount++;
           return callCount <= 2
@@ -368,7 +361,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('ファイルが更新されない場合、エラーを返す', async () => {
       // Given: TestingPhase のインスタンス
       const phase = new TestingPhase({
-        phaseName: 'testing',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,
@@ -385,8 +377,8 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
       const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
 
       // ファイル更新チェック: mtime と size が変化しない
-      mockExistsSync.mockImplementation((p: string) => p === outputFilePath);
-      mockStatSync.mockImplementation((p: string) => {
+      mockExistsSync.mockImplementation((p: any) => p === outputFilePath);
+      mockStatSync.mockImplementation((p: any) => {
         if (p === outputFilePath) {
           return { mtimeMs: 1000, size: 100 }; // 常に同じ値
         }
@@ -409,7 +401,6 @@ describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
     it('RequirementsPhase で execute → review フローが正常に動作する', async () => {
       // Given: RequirementsPhase のインスタンス
       const phase = new RequirementsPhase({
-        phaseName: 'requirements',
         workingDir: testWorkingDir,
         metadataManager: mockMetadata,
         codexClient: mockCodex,

@@ -5,7 +5,7 @@ import { PhaseExecutionResult } from '../../../src/types.js';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 
-// fs-extra のモック（Jest v30.x 互換）
+// fs-extra のモック（CJS モード）
 const mockExistsSync = jest.fn();
 const mockEnsureDirSync = jest.fn();
 const mockReadFileSync = jest.fn();
@@ -15,8 +15,6 @@ jest.mock('fs-extra', () => ({
   ensureDirSync: mockEnsureDirSync,
   readFileSync: mockReadFileSync,
 }));
-
-import * as fs from 'fs-extra';
 
 /**
  * テスト用の BasePhase サブクラス
