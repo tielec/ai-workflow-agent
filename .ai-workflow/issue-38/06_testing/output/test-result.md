@@ -141,11 +141,11 @@ const validPhases = [
 - **状態**: ❌ **失敗**
 - **エラー**: `TypeError: Cannot add property spawn, object is not extensible`
 - **原因分析**:
-  - `jest.mock('node:child_process')`をトップレベルで使用しているが、ESモジュールモードでは正しく動作しない
+  - `jest.mock('node:child_process')`をトップレベルで使用しているが、ESモジュールモードелелは正しく動作しない
   - `@jest/globals`からインポートした`jest`オブジェクトは、トップレベルの`jest.mock()`と互換性がない
 - **対処方針**:
   - Jestの設定を確認し、グローバルモックの使用方法を修正
-  - または、動的インポートとvi.spyOn()形式に変更
+  - または、動的インポートとjest.spyOn()形式に変更
 
 ##### 5. `tests/unit/claude-agent-client.test.ts`
 - **状態**: ❌ **失敗**
@@ -217,7 +217,7 @@ Phase 6の修正で優先度2と3は成功しましたが、優先度1と4は**J
 - `@jest/globals`のインポートを削除し、グローバル`jest`を期待
 - しかし、元のエラー「`jest is not defined`」が再発する可能性が高い
 
-**選択肢B: 動的インポートとvi.spyOn()に変更（推奨）**
+**選択肢B: 動的インポートとjest.spyOn()に変更（推奨）**
 - `jest.mock()`をトップレベルで使用しない
 - `jest.spyOn(fs, 'existsSync')`等の形式に変更
 - Issue #26の設計書でも推奨されていた方法
@@ -228,27 +228,46 @@ Phase 6の修正で優先度2と3は成功しましたが、優先度1と4は**J
 
 ---
 
-## 次のステップ
+## テスト失敗による実装修正の必要性
 
-### 推奨アクション: Phase 6の再修正（選択肢Bを採用）
+### 修正が必要な理由
 
-Phase 6の品質ゲート（「主要なテストケースが成功している」）を満たすため、以下の修正が必要です：
+**Phase 6（テスト実行）の品質ゲート「主要なテストケースが成功している」を満たしていないため、Phase 5（テストコード実装）に戻る必要があります。**
 
-#### 修正が必要な内容（優先度順）
+理由:
+1. Issue #26関連の9個のテストファイルのうち6個が失敗（合格率33.3%）
+2. 失敗原因は**テストコードの実装方法の問題**であり、Phase 5で修正すべき内容
+3. Jest ESモジュールモードに適合しないモック方式（`jest.mock()`のトップレベル使用）が根本原因
 
-**優先度1-A（最重要）**: `jest.mock()`をjest.spyOn()形式に変更（5ファイル）
+### 失敗したテスト
 
-以下のファイルで`jest.mock()`をトップレベルで削除し、各テストケース内でjest.spyOn()を使用：
+#### 優先度1（5ファイル）:
+1. `tests/unit/codex-agent-client.test.ts` - `jest.mock('node:child_process')`がESモジュールモードで動作しない
+2. `tests/unit/claude-agent-client.test.ts` - `jest.mock('fs-extra')`がESモジュールモードで動作しない
+3. `tests/unit/metadata-manager.test.ts` - `jest.mock('fs-extra')`がESモジュールモードで動作しない
+4. `tests/integration/agent-client-execution.test.ts` - TypeScript型エラー + モック問題
+5. `tests/integration/metadata-persistence.test.ts` - `jest.mock('fs-extra')`がESモジュールモードで動作しない
 
+#### 優先度4（1ファイル）:
+6. `tests/unit/helpers/metadata-io.test.ts` - `jest.mock('fs-extra')`がESモジュールモードで動作しない
+
+### 必要な実装修正
+
+**Phase 5に戻り、以下のテストコード修正を実施する必要があります：**
+
+#### 修正1: `jest.mock()`をjest.spyOn()形式に変更（6ファイル）
+
+**対象ファイル**:
 1. `tests/unit/codex-agent-client.test.ts`
 2. `tests/unit/claude-agent-client.test.ts`
 3. `tests/unit/metadata-manager.test.ts`
 4. `tests/integration/agent-client-execution.test.ts`
 5. `tests/integration/metadata-persistence.test.ts`
+6. `tests/unit/helpers/metadata-io.test.ts`
 
 **変更例**:
 ```typescript
-// 変更前（トップレベル）
+// 変更前（トップレベル、NGパターン）
 import { jest } from '@jest/globals';
 jest.mock('fs-extra');
 
@@ -258,35 +277,49 @@ describe('Test', () => {
   });
 });
 
-// 変更後（テストケース内）
+// 変更後（テストケース内、OKパターン）
 import { jest } from '@jest/globals';
 import * as fs from 'fs-extra';
 
 describe('Test', () => {
+  let existsSpy: any;
+
+  beforeEach(() => {
+    existsSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    existsSpy.mockRestore();
+  });
+
   it('test', () => {
-    const spy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
     // テスト実行
-    spy.mockRestore();
   });
 });
 ```
 
-**優先度1-B**: TypeScript型エラーの修正（1ファイル）
+**具体的な修正手順**:
+1. トップレベルの`jest.mock()`をすべて削除
+2. モックが必要なメソッドを`jest.spyOn()`で置き換え
+3. `beforeEach()`でモックをセットアップ
+4. `afterEach()`でモックをリストア
+5. 各テストケースでモックの動作を検証
 
-`tests/integration/agent-client-execution.test.ts`:
-- コールバック関数の型アノテーションを追加: `(event: string, callback: (...args: any[]) => void)`
+#### 修正2: TypeScript型エラーの修正（1ファイル）
 
-**優先度4**: metadata-io.test.tsの修正（1ファイル）
+**対象ファイル**: `tests/integration/agent-client-execution.test.ts`
 
-`tests/unit/helpers/metadata-io.test.ts`:
-- 上記の選択肢Bと同じ修正を適用
+**修正内容**:
+- コールバック関数の型アノテーションを追加
+- `(event: string, callback: (...args: any[]) => void)` 形式に変更
 
 #### 見積もり工数
-
-- **優先度1-A**: 2～3時間（5ファイルの大規模な変更、動作確認）
-- **優先度1-B**: 0.25時間（型アノテーションの追加）
-- **優先度4**: 0.5時間（1ファイルの修正）
+- **修正1**: 2.5～3.5時間（6ファイルの大規模な変更、動作確認）
+- **修正2**: 0.25時間（型アノテーションの追加）
 - **合計**: 2.75～3.75時間
+
+#### 修正の優先度
+**すべての修正が必須**（Phase 6の品質ゲートを満たすため）
 
 ---
 
@@ -301,7 +334,7 @@ Planning Document（`.ai-workflow/issue-38/00_planning/output/planning.md`）の
 - [ ] **全体カバレッジが80%以上である** … ❓ **不明**（カバレッジ実行未実施）
 - [ ] **新規ヘルパーモジュール（6ファイル）のカバレッジが85%以上である** … ❓ **不明**（カバレッジ実行未実施）
 
-**結論**: Phase 6の品質ゲートを満たしていません。**Phase 6の再修正が必要**です。
+**結論**: Phase 6の品質ゲートを満たしていません。**Phase 5に戻ってテストコード修正が必要**です。
 
 ---
 
@@ -313,7 +346,7 @@ Phase 6の必須品質ゲート（プロンプトに記載）:
 - [ ] **主要なテストケースが成功している** … ❌ **未達成**（Issue #26関連の6個が失敗）
 - [x] **失敗したテストは分析されている** … ✅ 達成（本ドキュメントで詳細に分析）
 
-**結論**: Phase 6の品質ゲートを満たしていません。**Phase 6の再修正が必要**です。
+**結論**: Phase 6の品質ゲートを満たしていません。**Phase 5に戻ってテストコード修正が必要**です。
 
 ---
 
@@ -341,19 +374,41 @@ Phase 6の必須品質ゲート（プロンプトに記載）:
 
 ---
 
+## 次のステップ
+
+### **Phase 5（テストコード実装）に戻る必要があります**
+
+**理由**:
+- テストコードの実装方法（モック方式）がJest ESモジュールモードに適合していない
+- Phase 6（テスト実行）の品質ゲート「主要なテストケースが成功している」を満たせない
+- 修正内容がテストコードの実装に関するものであり、Phase 5の役割
+
+**Phase 5での修正内容**:
+1. `jest.mock()`をjest.spyOn()形式に変更（6ファイル、2.5～3.5時間）
+2. TypeScript型エラーの修正（1ファイル、0.25時間）
+3. 合計見積もり: 2.75～3.75時間
+
+**Phase 5修正後の期待値**:
+- Issue #26関連のテストファイル9個すべてが合格
+- 既存テストの成功率88.1%以上を維持
+- Phase 6（テスト実行）に戻り、カバレッジ確認を実施
+- Phase 7（ドキュメント更新）に進める
+
+---
+
 ## まとめ
 
 Issue #38のPhase 6（テスト実行）修正により、優先度2と3のテストは合格しましたが、優先度1と4は**Jest ESモジュールモードの制限**により失敗しています。
 
-**次のアクション**: Phase 6の再修正を実施し、`jest.mock()`をjest.spyOn()形式に変更してください（見積もり: 2.75～3.75時間）。
+**重要な結論**:
+- **Phase 5（テストコード実装）に戻る必要があります**
+- 修正内容: `jest.mock()`をjest.spyOn()形式に変更（6ファイル）、TypeScript型エラー修正（1ファイル）
+- 見積もり工数: 2.75～3.75時間
 
-**修正後の期待値**:
-- Issue #26関連のテストファイル9個すべてが合格
-- 既存テストの成功率88.1%以上を維持
-- Phase 7（ドキュメント更新）に進める
+Phase 5での修正完了後、Phase 6に戻ってテストを再実行し、カバレッジ確認を実施する必要があります。
 
 ---
 
 **テスト実行完了日**: 2025-01-22
 **記録者**: AI Workflow Agent (Claude Code)
-**承認者**: （レビュー後に記入）
+**Phase 5への引継ぎ**: 必要（上記「必要な実装修正」セクションを参照）
