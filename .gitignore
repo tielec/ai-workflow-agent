@@ -28,5 +28,8 @@ yarn-error.log*
 # Test coverage
 coverage/
 
+# Test temporary files
+tests/temp/
+
 # Lock files (optional - uncomment to ignore)
 # package-lock.json

@@ -1,5 +1,8 @@
 import fs from 'fs-extra';
 import { spawn } from 'node:child_process';
+import { parseCodexEvent, determineCodexEventType } from './helpers/agent-event-parser.js';
+import { formatCodexLog } from './helpers/log-formatter.js';
+import { setupCodexEnvironment } from './helpers/env-setup.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -10,22 +13,7 @@ interface ExecuteTaskOptions {
   model?: string | null;
 }
 
-type CodexEvent = {
-  type?: string;
-  subtype?: string | null;
-  message?: {
-    role?: string;
-    content?: Array<Record<string, unknown>>;
-  };
-  result?: string | null;
-  status?: string | null;
-  turns?: number;
-  duration_ms?: number;
-  [key: string]: unknown;
-};
-
 const DEFAULT_MAX_TURNS = 50;
-const MAX_LOG_PARAM_LENGTH = 500;
 
 export class CodexAgentClient {
   private readonly workingDir: string;
@@ -125,18 +113,7 @@ export class CodexAgentClient {
   ): Promise<string[]> {
     return new Promise((resolve, reject) => {
       const messages: string[] = [];
-      const childEnv = { ...process.env };
-
-      if (childEnv.CODEX_API_KEY && typeof childEnv.CODEX_API_KEY === 'string') {
-        childEnv.OPENAI_API_KEY = childEnv.CODEX_API_KEY.trim();
-      }
-
-      // GitHub CLI用の環境変数を設定
-      if (childEnv.GITHUB_TOKEN && typeof childEnv.GITHUB_TOKEN === 'string') {
-        childEnv.GH_TOKEN = childEnv.GITHUB_TOKEN.trim();
-      }
-
-      delete childEnv.CODEX_AUTH_FILE;
+      const childEnv = setupCodexEnvironment(process.env);
 
       const child = spawn(this.binaryPath, args, {
         cwd: options.cwd,
@@ -199,61 +176,17 @@ export class CodexAgentClient {
   }
 
   private logEvent(raw: string): void {
-    let payload: CodexEvent | null = null;
-
-    try {
-      payload = JSON.parse(raw) as CodexEvent;
-    } catch {
+    const payload = parseCodexEvent(raw);
+    if (!payload) {
       console.log(`[CODEX RAW] ${raw}`);
       return;
     }
 
-    const eventType = payload.type ?? payload.message?.role ?? 'unknown';
-    switch (eventType) {
-      case 'assistant':
-      case 'assistant_message': {
-        const content = payload.message?.content ?? [];
-        for (const block of content) {
-          const blockType = block.type;
-          if (blockType === 'text') {
-            const text = typeof block.text === 'string' ? block.text.trim() : '';
-            if (text) {
-              console.log(`[CODEX THINKING] ${text}`);
-            }
-          } else if (blockType === 'tool_use') {
-            const name = typeof block.name === 'string' ? block.name : 'unknown';
-            console.log(`[CODEX ACTION] Using tool: ${name}`);
-            if (block.input && typeof block.input === 'object') {
-              const rawInput = JSON.stringify(block.input);
-              const truncated =
-                rawInput.length > MAX_LOG_PARAM_LENGTH
-                  ? `${rawInput.slice(0, MAX_LOG_PARAM_LENGTH)}…`
-                  : rawInput;
-              console.log(`[CODEX ACTION] Parameters: ${truncated}`);
-            }
-          }
-        }
-        break;
-      }
-      case 'result':
-      case 'session_result': {
-        const status = payload.status ?? payload.subtype ?? 'success';
-        const turns = payload.turns ?? payload.message?.content?.length ?? 'N/A';
-        const duration = payload.duration_ms ?? 'N/A';
-        console.log(`[CODEX RESULT] status=${status}, turns=${turns}, duration_ms=${duration}`);
-        if (payload.result && typeof payload.result === 'string' && payload.result.trim()) {
-          console.log(`[CODEX RESULT] ${payload.result.trim()}`);
-        }
-        break;
-      }
-      case 'system': {
-        const subtype = payload.subtype ?? 'system';
-        console.log(`[CODEX SYSTEM] ${subtype}`);
-        break;
-      }
-      default: {
-        console.log(`[CODEX EVENT] ${JSON.stringify(payload)}`);
-      }
+    const eventType = determineCodexEventType(payload);
+    const formattedLog = formatCodexLog(eventType, payload);
+
+    if (formattedLog) {
+      console.log(formattedLog);
     }
   }
 

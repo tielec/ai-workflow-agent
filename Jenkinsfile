@@ -20,6 +20,10 @@
  * - LOG_LEVEL: ログレベル（デフォルト: INFO）
  * - GIT_COMMIT_USER_NAME: Gitコミット時のユーザー名（デフォルト: AI Workflow Bot）
  * - GIT_COMMIT_USER_EMAIL: Gitコミット時のメールアドレス（デフォルト: ai-workflow@example.com）
+ * - AWS_ACCESS_KEY_ID: AWS アクセスキー ID（任意、Infrastructure as Code実行時に必要）
+ * - AWS_SECRET_ACCESS_KEY: AWS シークレットアクセスキー（任意、Infrastructure as Code実行時に必要）
+ * - AWS_SESSION_TOKEN: AWS セッショントークン（任意、一時的な認証情報を使用する場合）
+ * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false、Issue #2）
  *
  * 認証情報（Jenkins Credentialsで設定）:
  * - claude-code-oauth-token: Claude Agent SDK用OAuthトークン（必須）
@@ -49,7 +53,7 @@ pipeline {
             label 'ec2-fleet'
             dir '.'
             filename 'Dockerfile'
-            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e OPENAI_API_KEY=${OPENAI_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e CLAUDE_CODE_CREDENTIALS_PATH=/home/node/.claude-code/credentials.json'
+            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e OPENAI_API_KEY=${OPENAI_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e CLAUDE_CODE_CREDENTIALS_PATH=/home/node/.claude-code/credentials.json -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
         }
     }
 
@@ -74,6 +78,10 @@ pipeline {
         GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME}"
         GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL}"
 
+        // AWS認証情報（Job DSLパラメータから環境変数に設定）
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
 
         // 認証情報（Jenkinsクレデンシャルから取得）
         OPENAI_API_KEY = credentials('openai-api-key')
@@ -173,6 +181,7 @@ pipeline {
                     echo "Log Level: ${params.LOG_LEVEL}"
                     echo "Git Commit User Name: ${params.GIT_COMMIT_USER_NAME}"
                     echo "Git Commit User Email: ${params.GIT_COMMIT_USER_EMAIL}"
+                    echo "Cleanup On Complete Force: ${params.CLEANUP_ON_COMPLETE_FORCE}"
                 }
             }
         }
@@ -272,8 +281,13 @@ pipeline {
                             // ワークフロー初期化またはマイグレーション
                             // - metadata.jsonが存在しない場合: 新規作成
                             // - metadata.jsonが存在する場合: スキーママイグレーション実行
+                            // BRANCH_NAME パラメータが指定されている場合、--branch オプションを追加
+                            def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+
                             sh """
-                                node dist/index.js init --issue-url ${params.ISSUE_URL}
+                                node dist/index.js init \
+                                    --issue-url ${params.ISSUE_URL} \
+                                    ${branchOption}
                             """
                         }
                     }
@@ -300,13 +314,15 @@ pipeline {
                             // TypeScript版 CLI の --phase all を実行
                             // resume機能により、失敗したフェーズから自動再開
                             def forceResetFlag = params.FORCE_RESET ? '--force-reset' : ''
+                            def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
 
                             sh """
                                 node dist/index.js execute \
                                     --phase all \
                                     --issue ${env.ISSUE_NUMBER} \
                                     --agent ${params.AGENT_MODE} \
-                                    ${forceResetFlag}
+                                    ${forceResetFlag} \
+                                    ${cleanupFlags}
                             """
                         }
                     }
@@ -331,11 +347,14 @@ pipeline {
                             echo "[DRY RUN] Preset ${params.PRESET}実行をスキップ"
                         } else {
                             // プリセットパターンを実行
+                            def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+
                             sh """
                                 node dist/index.js execute \
                                     --preset ${params.PRESET} \
                                     --agent ${params.AGENT_MODE} \
-                                    --issue ${env.ISSUE_NUMBER}
+                                    --issue ${env.ISSUE_NUMBER} \
+                                    ${cleanupFlags}
                             """
                         }
                     }
@@ -360,11 +379,14 @@ pipeline {
                             echo "[DRY RUN] Phase ${params.START_PHASE}実行をスキップ"
                         } else {
                             // 指定されたフェーズのみ実行
+                            def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+
                             sh """
                                 node dist/index.js execute \
                                     --phase ${params.START_PHASE} \
                                     --agent ${params.AGENT_MODE} \
-                                    --issue ${env.ISSUE_NUMBER}
+                                    --issue ${env.ISSUE_NUMBER} \
+                                    ${cleanupFlags}
                             """
                         }
                     }

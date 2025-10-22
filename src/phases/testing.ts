@@ -10,9 +10,8 @@ export class TestingPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const planningReference = this.getPlanningDocumentReference(issueNumber);
 
-    // オプショナルコンテキストを構築（Issue #398）
+    // オプショナルコンテキストを構築（Issue #398, #396）
     const testImplementationContext = this.buildOptionalContext(
       'test_implementation',
       'test-implementation.md',
@@ -34,37 +33,34 @@ export class TestingPhase extends BasePhase {
       issueNumber,
     );
 
+    // 特殊ロジック: ファイル更新チェック（Testing Phase 特有のロジック）
     const testResultFile = path.join(this.outputDir, 'test-result.md');
     const oldMtime = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).mtimeMs : null;
+    const oldSize = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).size : null;
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{test_implementation_context}', testImplementationContext)
-      .replace('{implementation_context}', implementationContext)
-      .replace('{test_scenario_context}', scenarioContext)
-      .replace('{issue_number}', String(issueNumber));
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    const result = await this.executePhaseTemplate('test-result.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueNumber),
+      test_implementation_context: testImplementationContext,
+      implementation_context: implementationContext,
+      test_scenario_context: scenarioContext,
+      issue_number: String(issueNumber),
+    }, { maxTurns: 80 });
 
-    await this.executeWithAgent(executePrompt, { maxTurns: 50 });
+    // 特殊ロジック: ファイル更新チェック（Testing Phase 特有のロジック）
+    if (result.success && oldMtime !== null && oldSize !== null) {
+      const newMtime = fs.statSync(testResultFile).mtimeMs;
+      const newSize = fs.statSync(testResultFile).size;
 
-    if (!fs.existsSync(testResultFile)) {
-      return {
-        success: false,
-        error: `test-result.md が見つかりません: ${testResultFile}`,
-      };
+      if (newMtime === oldMtime && newSize === oldSize) {
+        return {
+          success: false,
+          error: 'test-result.md が更新されていません。出力内容を確認してください。',
+        };
+      }
     }
 
-    const newMtime = fs.statSync(testResultFile).mtimeMs;
-    if (oldMtime !== null && newMtime === oldMtime) {
-      return {
-        success: false,
-        error: 'test-result.md が更新されていません。出力内容を確認してください。',
-      };
-    }
-
-    return {
-      success: true,
-      output: testResultFile,
-    };
+    return result;
   }
 
   protected async review(): Promise<PhaseExecutionResult> {
@@ -206,9 +202,11 @@ export class TestingPhase extends BasePhase {
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_number}', String(issueNumber));
 
-    const oldMtime = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).mtimeMs : null;
+    // revise() ではファイルは必ず存在する（execute() 完了後に呼ばれる）
+    const oldMtime = fs.statSync(testResultFile).mtimeMs;
+    const oldSize = fs.statSync(testResultFile).size;
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 80, logDir: this.reviseDir });
 
     if (!fs.existsSync(testResultFile)) {
       return {
@@ -218,7 +216,9 @@ export class TestingPhase extends BasePhase {
     }
 
     const newMtime = fs.statSync(testResultFile).mtimeMs;
-    if (oldMtime !== null && newMtime === oldMtime) {
+    const newSize = fs.statSync(testResultFile).size;
+
+    if (newMtime === oldMtime && newSize === oldSize) {
       return {
         success: false,
         error: 'test-result.md が更新されていません。再度実行内容を確認してください。',

@@ -72,7 +72,8 @@ node dist/index.js execute --phase all --issue 123
 
 ```bash
 ai-workflow init \
-  --issue-url <URL>
+  --issue-url <URL> \
+  [--branch <name>]
 
 ai-workflow execute \
   --issue <number> \
@@ -81,6 +82,8 @@ ai-workflow execute \
   [--preset <name>] \
   [--force-reset] \
   [--skip-dependency-check|--ignore-dependencies] \
+  [--cleanup-on-complete] \
+  [--cleanup-on-complete-force] \
   [--requirements-doc <path>] [...] \
   [--git-user <name>] [--git-email <email>]
 
@@ -91,6 +94,35 @@ ai-workflow review \
   --phase <name> \
   --issue <number>
 ```
+
+### ブランチ名のカスタマイズ
+
+`init` コマンドで `--branch` オプションを使用すると、カスタムブランチ名でワークフローを開始できます（v0.2.0 で追加）：
+
+```bash
+# カスタムブランチ名を指定
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1 \
+  --branch feature/add-logging
+
+# 既存ブランチでワークフローを開始
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1 \
+  --branch feature/existing-work
+
+# デフォルト（未指定時は ai-workflow/issue-{issue_number}）
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/1
+```
+
+**ブランチ名のバリデーション**:
+
+Git 命名規則に従わないブランチ名はエラーになります：
+- 空白を含まない
+- `..`（連続ドット）を含まない
+- 不正文字（`~`, `^`, `:`, `?`, `*`, `[`, `\`, `@{`）を含まない
+- `/` で始まらない、終わらない
+- `.` で終わらない
 
 ### エージェントモード
 
@@ -166,16 +198,59 @@ ai-workflow execute --issue 2 --preset review-requirements
 
 各フェーズは `BasePhase` を継承し、メタデータ永続化、実行/レビューサイクル、エージェント制御、Git 自動コミットなど共通機能を利用します。
 
+### ステップ単位のGitコミット＆レジューム
+
+各フェーズは execute / review / revise の3つのステップで構成されており、**各ステップ完了後に自動的にGitコミット＆プッシュ**が実行されます（v0.3.0で追加）：
+
+**主な利点**:
+- **高速なレジューム**: 失敗したステップのみを再実行（フェーズ全体ではなく）
+- **トークン消費量の削減**: 完了済みステップのスキップにより、無駄なAPI呼び出しを防止
+- **CI/CD効率化**: Jenkins等のCI環境でワークスペースリセット後も、リモートから最新状態を取得して適切なステップから再開
+
+**Gitログの例**:
+```
+[ai-workflow] Phase 1 (requirements) - revise completed
+[ai-workflow] Phase 1 (requirements) - review completed
+[ai-workflow] Phase 1 (requirements) - execute completed
+```
+
+**レジューム動作**:
+- CI環境では各ビルド開始時にリモートブランチからメタデータを同期
+- `metadata.json` の `current_step` と `completed_steps` フィールドで進捗を管理
+- 完了済みステップは自動的にスキップされ、次のステップから再開
+
 ### ワークフローログの自動クリーンアップ
 
 Report Phase (Phase 8) 完了後、リポジトリサイズを削減するためにワークフローログが自動的にクリーンアップされます：
 
-- **削除対象**: 各フェーズ（01_requirements 〜 08_report）の `execute/`, `review/`, `revise/` ディレクトリ
-- **保持対象**: `metadata.json` と `output/*.md`（成果物ファイル）
-- **保護対象**: `00_planning` ディレクトリ（Issue参照ソースとして保持）
-- **効果**: リポジトリサイズを約70%削減、PRレビューを成果物に集中
+- **削除対象**: 各フェーズ（00_planning 〜 08_report）の `execute/`, `review/`, `revise/` ディレクトリ
+- **保持対象**: `metadata.json` と `output/*.md`（成果物ファイル、Planning Phaseの `output/planning.md` を含む）
+- **効果**: リポジトリサイズを約75%削減、PRレビューを成果物に集中
 
 クリーンアップは非破壊的に動作し、失敗してもワークフロー全体は継続します。
+
+### ワークフローディレクトリの完全削除（オプション）
+
+Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*` ディレクトリ全体を削除できます（v0.3.0で追加）：
+
+```bash
+# Evaluation Phase 完了後にワークフローディレクトリを完全削除
+node dist/index.js execute --issue 123 --phase evaluation --cleanup-on-complete
+
+# 確認プロンプトをスキップ（CI環境用）
+node dist/index.js execute --issue 123 --phase evaluation \
+  --cleanup-on-complete --cleanup-on-complete-force
+
+# 全フェーズ実行時にも適用可能
+node dist/index.js execute --issue 123 --phase all --cleanup-on-complete
+```
+
+- **削除対象**: `.ai-workflow/issue-<NUM>/` ディレクトリ全体（`metadata.json`、`output/*.md` を含む）
+- **実行タイミング**: Evaluation Phase完了後、`--cleanup-on-complete` オプション指定時のみ
+- **確認プロンプト**: 対話的環境では削除前に確認を求める（`--cleanup-on-complete-force` でスキップ可能、CI環境では自動スキップ）
+- **Git 自動コミット**: クリーンアップ後に削除を自動コミット＆プッシュ
+
+**注意**: デフォルトでは成果物を保持します（`--cleanup-on-complete` オプション未指定時）。
 
 ## Docker での実行
 
@@ -218,5 +293,5 @@ npx vitest
 
 ---
 
-**バージョン**: 0.2.0（TypeScript リライト版）
-**最終更新日**: 2025-01-16
+**バージョン**: 0.3.0（TypeScript リライト版）
+**最終更新日**: 2025-01-20

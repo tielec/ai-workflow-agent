@@ -10,37 +10,28 @@ export class PlanningPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueInfo = await this.getIssueInfo();
-    const executeTemplate = this.loadPrompt('execute');
 
-    const prompt = executeTemplate
-      .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', issueInfo.number.toString());
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    const result = await this.executePhaseTemplate('planning.md', {
+      issue_info: this.formatIssueInfo(issueInfo),
+      issue_number: issueInfo.number.toString(),
+    }, { maxTurns: 50 });
 
-    await this.executeWithAgent(prompt, { maxTurns: 50 });
-
-    const outputFile = path.join(this.outputDir, 'planning.md');
-    if (!fs.existsSync(outputFile)) {
-      return {
-        success: false,
-        error: `planning.md が見つかりません: ${outputFile}`,
-      };
-    }
-
-    const content = fs.readFileSync(outputFile, 'utf-8');
-    const decisions = await this.contentParser.extractDesignDecisions(content);
-    if (Object.keys(decisions).length) {
-      for (const [key, value] of Object.entries(decisions)) {
-        this.metadata.setDesignDecision(key, value);
+    // 特殊ロジック: 設計決定の抽出（Planning Phase 特有のロジック）
+    if (result.success && result.output) {
+      const content = fs.readFileSync(result.output, 'utf-8');
+      const decisions = await this.contentParser.extractDesignDecisions(content);
+      if (Object.keys(decisions).length) {
+        for (const [key, value] of Object.entries(decisions)) {
+          this.metadata.setDesignDecision(key, value);
+        }
       }
     }
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
     // await this.postOutput(content, '企画フェーズ成果');
 
-    return {
-      success: true,
-      output: outputFile,
-    };
+    return result;
   }
 
   protected async review(): Promise<PhaseExecutionResult> {

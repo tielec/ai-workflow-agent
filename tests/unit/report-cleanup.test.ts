@@ -8,8 +8,7 @@
  * - Planning Phase（00_planning）の保護
  */
 
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -27,7 +26,7 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
   let testMetadataPath: string;
   let workflowDir: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${TEST_ISSUE_NUMBER}`);
     await fs.ensureDir(workflowDir);
@@ -68,12 +67,12 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
 
-  it('1.1: execute/review/reviseディレクトリを正しく削除する', async () => {
+  test('1.1: execute/review/reviseディレクトリを正しく削除する', async () => {
     // Given: 各フェーズにexecute/review/reviseディレクトリが存在する
     const phaseDirectories = [
       '01_requirements',
@@ -132,26 +131,16 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
       for (const subdir of targetSubdirs) {
         const subdirPath = path.join(phasePath, subdir);
         const exists = fs.existsSync(subdirPath);
-        assert.equal(
-          exists,
-          false,
-          `${phaseDir}/${subdir} が削除されていません`
-        );
+        expect(exists).toBe(false);
       }
 
       // outputディレクトリとmetadata.jsonは保持されている
-      assert.ok(
-        fs.existsSync(path.join(phasePath, 'output')),
-        `${phaseDir}/output が削除されてしまいました`
-      );
-      assert.ok(
-        fs.existsSync(path.join(phasePath, 'metadata.json')),
-        `${phaseDir}/metadata.json が削除されてしまいました`
-      );
+      expect(fs.existsSync(path.join(phasePath, 'output'))).toBeTruthy();
+      expect(fs.existsSync(path.join(phasePath, 'metadata.json'))).toBeTruthy();
     }
   });
 
-  it('1.2: Planning Phase（00_planning）を保護する', async () => {
+  test('1.2: Planning Phase（00_planning）を保護する', async () => {
     // Given: 00_planningディレクトリにexecute/review/reviseディレクトリが存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
     const planningDir = path.join(baseDir, '00_planning');
@@ -174,14 +163,11 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
     for (const subdir of targetSubdirs) {
       const subdirPath = path.join(planningDir, subdir);
       const exists = fs.existsSync(subdirPath);
-      assert.ok(
-        exists,
-        `00_planning/${subdir} が削除されてしまいました（Planning Phaseは保護されるべき）`
-      );
+      expect(exists).toBeTruthy();
     }
   });
 
-  it('1.3: 存在しないディレクトリに対してエラーを発生させない（冪等性）', async () => {
+  test('1.3: 存在しないディレクトリに対してエラーを発生させない（冪等性）', async () => {
     // Given: 一部のフェーズディレクトリが存在しない
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
 
@@ -202,17 +188,13 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
     }
 
     // Then: エラーが発生しない
-    assert.equal(error, null, `エラーが発生しました: ${error?.message}`);
+    expect(error).toBeNull();
 
     // 削除対象のディレクトリは削除されている
-    assert.equal(
-      fs.existsSync(requirementsDir),
-      false,
-      '01_requirements/execute が削除されていません'
-    );
+    expect(fs.existsSync(requirementsDir)).toBe(false);
   });
 
-  it('1.4: 既に削除されているディレクトリに対して正常に動作する', async () => {
+  test('1.4: 既に削除されているディレクトリに対して正常に動作する', async () => {
     // Given: すべてのexecute/review/reviseディレクトリが存在しない
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
 
@@ -227,10 +209,10 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
     }
 
     // Then: エラーが発生しない（冪等性）
-    assert.equal(error, null, `2回目の呼び出しでエラーが発生しました: ${error?.message}`);
+    expect(error).toBeNull();
   });
 
-  it('1.5: 削除対象ファイルの内容を確認（デバッグログのみ削除）', async () => {
+  test('1.5: 削除対象ファイルの内容を確認（デバッグログのみ削除）', async () => {
     // Given: execute/review/reviseディレクトリに各種ファイルが存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
     const implementationDir = path.join(baseDir, '04_implementation');
@@ -264,19 +246,9 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
     await (reportPhase as any).cleanupWorkflowLogs(parseInt(TEST_ISSUE_NUMBER, 10));
 
     // Then: executeディレクトリは削除され、outputディレクトリは保持される
-    assert.equal(
-      fs.existsSync(executeDir),
-      false,
-      'executeディレクトリが削除されていません'
-    );
-    assert.ok(
-      fs.existsSync(outputDir),
-      'outputディレクトリが削除されてしまいました'
-    );
-    assert.ok(
-      fs.existsSync(path.join(outputDir, 'implementation.md')),
-      'implementation.md が削除されてしまいました'
-    );
+    expect(fs.existsSync(executeDir)).toBe(false);
+    expect(fs.existsSync(outputDir)).toBeTruthy();
+    expect(fs.existsSync(path.join(outputDir, 'implementation.md'))).toBeTruthy();
   });
 });
 
@@ -286,7 +258,7 @@ describe('ReportPhase execute メソッドとクリーンアップの統合テ�
   let testMetadataPath: string;
   let workflowDir: string;
 
-  before(async () => {
+  beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${TEST_ISSUE_NUMBER}`);
     await fs.ensureDir(workflowDir);
@@ -316,12 +288,12 @@ describe('ReportPhase execute メソッドとクリーンアップの統合テ�
     );
   });
 
-  after(async () => {
+  afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
 
-  it('2.1: クリーンアップが失敗してもexecuteメソッドは成功する', async () => {
+  test('2.1: クリーンアップが失敗してもexecuteメソッドは成功する', async () => {
     // Given: cleanupWorkflowLogsがエラーをスローする状況をシミュレート
     // （存在しないIssue番号でもエラーが発生しないため、このテストではログの警告確認のみ）
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
@@ -349,11 +321,7 @@ describe('ReportPhase execute メソッドとクリーンアップの統合テ�
     }
 
     // Then: エラーが発生しない（非破壊的動作）
-    assert.equal(
-      error,
-      null,
-      `クリーンアップでエラーが発生しました: ${error?.message}`
-    );
+    expect(error).toBeNull();
   });
 });
 
@@ -364,7 +332,7 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
   let testMetadataPath: string;
   let workflowDir: string;
 
-  before(async () => {
+  beforeAll(async () => {
     workflowDir = path.join(TEST_DIR, `.ai-workflow`, `issue-${TEST_ISSUE_NUMBER}`);
     await fs.ensureDir(workflowDir);
     testMetadataPath = path.join(workflowDir, 'metadata.json');
@@ -399,11 +367,11 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
     });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fs.remove(TEST_DIR);
   });
 
-  it('3.1: 空のディレクトリも正しく削除される', async () => {
+  test('3.1: 空のディレクトリも正しく削除される', async () => {
     // Given: 空のexecute/review/reviseディレクトリが存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
     const implementationDir = path.join(baseDir, '04_implementation');
@@ -415,14 +383,10 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
     await (reportPhase as any).cleanupWorkflowLogs(parseInt(TEST_ISSUE_NUMBER, 10));
 
     // Then: 空のディレクトリも削除される
-    assert.equal(
-      fs.existsSync(executeDir),
-      false,
-      '空のexecuteディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(executeDir)).toBe(false);
   });
 
-  it('3.2: ネストされたファイル構造も正しく削除される', async () => {
+  test('3.2: ネストされたファイル構造も正しく削除される', async () => {
     // Given: execute/review/reviseディレクトリにネストされたファイル構造が存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
     const testingDir = path.join(baseDir, '06_testing');
@@ -439,14 +403,10 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
     await (reportPhase as any).cleanupWorkflowLogs(parseInt(TEST_ISSUE_NUMBER, 10));
 
     // Then: ネストされたディレクトリ構造全体が削除される
-    assert.equal(
-      fs.existsSync(reviewDir),
-      false,
-      'ネストされたreviewディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(reviewDir)).toBe(false);
   });
 
-  it('3.3: outputディレクトリと同名のexecuteサブディレクトリは削除される', async () => {
+  test('3.3: outputディレクトリと同名のexecuteサブディレクトリは削除される', async () => {
     // Given: executeディレクトリ内にoutputという名前のサブディレクトリが存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
     const designDir = path.join(baseDir, '02_design');
@@ -471,20 +431,10 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
     await (reportPhase as any).cleanupWorkflowLogs(parseInt(TEST_ISSUE_NUMBER, 10));
 
     // Then: executeディレクトリ全体（内部のoutputサブディレクトリ含む）が削除される
-    assert.equal(
-      fs.existsSync(executeDir),
-      false,
-      'executeディレクトリが削除されていません'
-    );
+    expect(fs.existsSync(executeDir)).toBe(false);
 
     // 真のoutputディレクトリは保持される
-    assert.ok(
-      fs.existsSync(realOutputDir),
-      '真のoutputディレクトリが削除されてしまいました'
-    );
-    assert.ok(
-      fs.existsSync(path.join(realOutputDir, 'design.md')),
-      'design.md が削除されてしまいました'
-    );
+    expect(fs.existsSync(realOutputDir)).toBeTruthy();
+    expect(fs.existsSync(path.join(realOutputDir, 'design.md'))).toBeTruthy();
   });
 });

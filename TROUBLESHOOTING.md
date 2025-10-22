@@ -161,12 +161,157 @@ Report Phase (Phase 8) 完了後、`execute/`, `review/`, `revise/` ディレク
 
 現在の実装では、Report Phase 実行時に常にクリーンアップが実行されます。スキップする方法はありません。デバッグログを保持したい場合は、Report Phase 実行前に手動でバックアップを取得してください。
 
-## 9. デバッグのヒント
+## 9. Evaluation Phase クリーンアップ関連（v0.3.0）
+
+### ワークフローディレクトリ全体が削除された
+
+Evaluation Phase で `--cleanup-on-complete` オプションを使用すると、`.ai-workflow/issue-*` ディレクトリ全体が削除されます。
+
+- **対処法**: 削除は Git にコミットされるため、必要に応じて Git の履歴から復元できます:
+  ```bash
+  # 削除される前のコミットを確認
+  git log --all --full-history -- .ai-workflow/issue-123/
+
+  # 特定のコミットからファイルを復元
+  git checkout <commit-hash> -- .ai-workflow/issue-123/
+  ```
+- **注意**: デフォルトでは削除されません。`--cleanup-on-complete` オプションを明示的に指定した場合のみ実行されます。
+
+### 確認プロンプトが表示されて CI ビルドがハングする
+
+CI環境で確認プロンプトが表示されると、ビルドが無期限に待機します。
+
+- **対処法**: CI環境では以下のいずれかを使用してください:
+  1. `--cleanup-on-complete-force` オプションで確認をスキップ:
+     ```bash
+     node dist/index.js execute --issue 123 --phase evaluation \
+       --cleanup-on-complete --cleanup-on-complete-force
+     ```
+  2. 環境変数 `CI=true` を設定（自動的に確認をスキップ）:
+     ```bash
+     export CI=true
+     node dist/index.js execute --issue 123 --phase evaluation --cleanup-on-complete
+     ```
+
+### クリーンアップで不正なパスエラー
+
+`Invalid workflow directory path` エラーが発生する場合、メタデータの `workflowDir` が不正な形式です。
+
+- **原因**: `.ai-workflow/issue-<NUM>` 形式以外のパスが設定されている
+- **対処法**: `metadata.json` の `workflowDir` フィールドを確認し、正しい形式に修正してください:
+  ```json
+  {
+    "workflowDir": ".ai-workflow/issue-123"
+  }
+  ```
+
+### シンボリックリンクエラー
+
+`Workflow directory is a symbolic link` エラーが発生する場合、セキュリティ保護が動作しています。
+
+- **原因**: `.ai-workflow/issue-*` がシンボリックリンクになっている
+- **対処法**: セキュリティ上の理由により、シンボリックリンクのクリーンアップは禁止されています。実際のディレクトリを使用してください。
+
+## 10. ステップレジューム関連（v0.3.0）
+
+### 完了済みステップが再実行される
+
+各ステップ（execute/review/revise）完了後に自動的にGitコミット＆プッシュが実行されますが、プッシュに失敗すると完了済みとして記録されません。
+
+- **原因**: プッシュ失敗時、ローカルコミットは作成されますが `completed_steps` には追加されません
+- **対処法**:
+  1. ネットワーク問題を解決してから再実行
+  2. `metadata.json` の `current_step` を確認（失敗したステップ名が設定されている）
+  3. 次回実行時、同じステップが最初から再実行されます
+- **確認方法**:
+  ```bash
+  cat .ai-workflow/issue-*/metadata.json | jq '.phases.requirements'
+  # current_step が null でない場合、プッシュ失敗の可能性
+  ```
+
+### メタデータ不整合エラー
+
+`current_step` と `completed_steps` に矛盾がある場合、警告が表示されます：
+
+```
+[WARNING] Metadata inconsistency detected: current_step is 'execute' but already in completed_steps
+```
+
+- **原因**: メタデータの手動編集またはバグ
+- **対処法**: `current_step` が優先され、安全側（最初から再実行）にフォールバックします
+- **推奨**: メタデータを手動編集しないでください
+
+### CI環境でのステップスキップが動作しない
+
+CI環境（Jenkins等）でワークスペースリセット後、完了済みステップがスキップされない場合：
+
+- **原因**: リモートブランチからメタデータが同期されていない
+- **対処法**:
+  1. ビルド開始時に `git pull origin <branch>` が実行されているか確認
+  2. `.ai-workflow/issue-*/metadata.json` がリモートブランチに存在するか確認
+  3. ビルドログで「Skipping <step> step (already completed)」メッセージを確認
+- **デバッグ**:
+  ```bash
+  # リモートブランチのメタデータを確認
+  git show origin/ai-workflow/issue-123:.ai-workflow/issue-123/metadata.json | jq '.phases'
+  ```
+
+## 11. プロンプト設計のベストプラクティス（v0.3.0）
+
+### エージェントがファイル保存を実行しない場合
+
+Evaluation Phase（Issue #5）で修正された問題と同様、エージェントがファイル保存を実行しない場合は、プロンプトの明示性不足が原因の可能性があります。
+
+**症状**:
+- エージェントが成果物の内容を生成するが、Write ツールを呼び出さない
+- `<file>.md が見つかりません` エラーが発生
+- エージェントログに Write ツール呼び出しが記録されていない
+
+**根本原因**:
+- ファイル保存指示がプロンプトの途中に埋もれている
+- Write ツールの使用が明示されていない
+- ステップバイステップ形式になっていない
+
+**対処法（プロンプト設計）**:
+プロンプトの最後に「最終ステップ」セクションを追加し、以下の構造を採用してください：
+
+```markdown
+## 最終ステップ - <成果物名>の保存（必須）
+
+<成果物名>が完了したら、以下のステップを**必ず実行**してください：
+
+### ステップ1: 内容確認
+上記で生成した<成果物名>全文が完成していることを確認してください。
+
+### ステップ2: Write ツールを使用してファイル保存
+**必ず Write ツールを使用**して、<成果物名>全文を以下のパスに保存してください：
+
+```
+.ai-workflow/issue-{issue_number}/<phase>/output/<filename>.md
+```
+
+### ステップ3: 保存完了の確認
+ファイルが正しく作成されたことを確認してください。
+
+**重要**: このファイルが存在しない場合、<Phase名> は失敗します。内容の生成だけでなく、**ファイル保存が必須**です。表示（出力）ではなく、**Write ツールによる保存**を忘れないでください。
+```
+
+**参考実装**: `src/prompts/evaluation/execute.txt` の 163-180 行目を参照してください。
+
+**検証方法**:
+1. エージェントログで「最終ステップ」または「ステップ1/2/3」への言及を確認
+2. エージェントログで Write ツール呼び出しを確認
+3. ファイルが作成されることを確認
+4. 複数回実行して再現性を検証（推奨: 3回連続実行で100%成功率）
+
+## 12. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
 - `DEBUG=ai-workflow:*` を設定すると詳細ログ（カスタムフック）が出力されます。
 - Git の問題は `GIT_TRACE=1` を付与して調査できます。
 - マルチリポジトリ関連の問題は、Issue URL が正しいか、対象リポジトリが正しくクローンされているか確認してください。
+- **ステップレジューム関連**: `metadata.json` の `current_step` と `completed_steps` フィールドを確認してください。
+- **ファイル保存問題**: エージェントログで Write ツール呼び出しを確認し、プロンプトの「最終ステップ」セクションの存在を確認してください。
 
 対処できない場合は、実行したコマンド、環境変数（機微情報をマスク）、`agent_log_raw.txt` の該当箇所を添えて Issue もしくはチームチャンネルで共有してください。

@@ -12,6 +12,9 @@ export type PhaseName =
 
 export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
+// Issue #10: ステップ名の型定義
+export type StepName = 'execute' | 'review' | 'revise';
+
 export interface PhaseMetadata {
   status: PhaseStatus;
   retry_count: number;
@@ -19,6 +22,9 @@ export interface PhaseMetadata {
   completed_at: string | null;
   review_result: string | null;
   output_files?: string[];
+  // Issue #10: ステップ単位の進捗管理
+  current_step?: StepName | null;  // 現在実行中のステップ（実行中でない場合はnull）
+  completed_steps?: StepName[];     // 完了済みステップの配列（実行順序を保持）
 }
 
 export interface RemainingTask {

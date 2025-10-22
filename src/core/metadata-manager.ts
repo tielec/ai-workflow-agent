@@ -4,20 +4,11 @@ import { WorkflowState } from './workflow-state.js';
 import {
   PhaseName,
   PhaseStatus,
+  StepName,
   WorkflowMetadata,
   RemainingTask,
 } from '../types.js';
-
-const formatTimestampForFilename = (date = new Date()): string => {
-  const pad = (value: number) => value.toString().padStart(2, '0');
-  return [
-    date.getFullYear(),
-    pad(date.getMonth() + 1),
-    pad(date.getDate()),
-  ].join('') +
-    '_' +
-    [pad(date.getHours()), pad(date.getMinutes()), pad(date.getSeconds())].join('');
-};
+import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
 export class MetadataManager {
   public readonly metadataPath: string;
@@ -92,9 +83,8 @@ export class MetadataManager {
       fs.removeSync(this.metadataPath);
     }
 
-    if (fs.existsSync(this.workflowDir)) {
-      console.info(`[INFO] Removing workflow directory: ${this.workflowDir}`);
-      fs.removeSync(this.workflowDir);
+    removeWorkflowDirectory(this.workflowDir);
+    if (!fs.existsSync(this.workflowDir)) {
       console.info('[OK] Workflow directory removed successfully');
     }
   }
@@ -110,13 +100,7 @@ export class MetadataManager {
       };
     }
 
-    const timestamp = formatTimestampForFilename();
-    const backupPath = join(
-      this.workflowDir,
-      `metadata.json.backup_${timestamp}`,
-    );
-    fs.copyFileSync(this.metadataPath, backupPath);
-    console.info(`[INFO] Metadata backup created: ${backupPath}`);
+    const backupPath = backupMetadataFile(this.metadataPath);
 
     const startIndex = phases.indexOf(phaseName);
     const rolledBack = phases.slice(startIndex);
@@ -152,14 +136,7 @@ export class MetadataManager {
   }
 
   public backupMetadata(): string {
-    const timestamp = formatTimestampForFilename();
-    const backupPath = join(
-      this.workflowDir,
-      `metadata.json.backup_${timestamp}`,
-    );
-    fs.copyFileSync(this.metadataPath, backupPath);
-    console.info(`[INFO] metadata.json backup created: ${backupPath}`);
-    return backupPath;
+    return backupMetadataFile(this.metadataPath);
   }
 
   public setEvaluationDecision(options: {
@@ -208,5 +185,55 @@ export class MetadataManager {
 
   public getProgressCommentId(): number | null {
     return this.state.data.github_integration?.progress_comment_id ?? null;
+  }
+
+  /**
+   * Issue #10: ステップ開始時にcurrent_stepを更新
+   */
+  public updateCurrentStep(
+    phaseName: PhaseName,
+    step: StepName | null,
+  ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    phaseData.current_step = step;
+    this.save();
+  }
+
+  /**
+   * Issue #10: ステップ完了時にcompleted_stepsに追加
+   */
+  public addCompletedStep(
+    phaseName: PhaseName,
+    step: StepName,
+  ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    if (!phaseData.completed_steps) {
+      phaseData.completed_steps = [];
+    }
+
+    // 重複チェック（冪等性の確保）
+    if (!phaseData.completed_steps.includes(step)) {
+      phaseData.completed_steps.push(step);
+    }
+
+    // current_stepをnullにリセット
+    phaseData.current_step = null;
+    this.save();
+  }
+
+  /**
+   * Issue #10: completed_stepsを取得
+   */
+  public getCompletedSteps(phaseName: PhaseName): StepName[] {
+    const phaseData = this.state.data.phases[phaseName];
+    return phaseData.completed_steps ?? [];
+  }
+
+  /**
+   * Issue #10: current_stepを取得
+   */
+  public getCurrentStep(phaseName: PhaseName): StepName | null {
+    const phaseData = this.state.data.phases[phaseName];
+    return phaseData.current_step ?? null;
   }
 }

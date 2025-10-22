@@ -33,7 +33,15 @@ CLI バイナリは `ai-workflow` です（ローカル実行時は `node dist/i
 ```bash
 # Issue に対してワークフローを初期化（メタデータ、ブランチ、ドラフト PR を作成）
 node dist/index.js init --issue-url <GITHUB_ISSUE_URL>
+
+# カスタムブランチ名を指定（v0.2.0 で追加）
+node dist/index.js init --issue-url <GITHUB_ISSUE_URL> --branch <BRANCH_NAME>
 ```
+
+**`--branch` オプション**:
+- **未指定時**: デフォルトブランチ名 `ai-workflow/issue-{issue_number}` を使用
+- **指定時**: カスタムブランチ名を使用（既存ブランチにも切り替え可能）
+- **バリデーション**: Git 命名規則（空白不可、連続ドット不可、不正文字不可）に従う
 
 ### フェーズ実行
 ```bash
@@ -64,27 +72,52 @@ node dist/index.js list-presets
 
 ### フェーズ実行フロー
 
-1. **CLI エントリー**（`src/main.ts`）: オプション解析、プリセット解決、依存関係検証
-2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl`）
+1. **CLI エントリー**（`src/main.ts`）: コマンドルーティング → 各コマンドハンドラ（`src/commands/init.ts`, `src/commands/execute.ts` 等）へ委譲
+2. **Issue URL 解析**: GitHub URL から owner/repo/issue を抽出（`parseIssueUrl` in `src/core/repository-utils.ts`）
 3. **マルチリポジトリ解決**: `REPOS_ROOT` 環境変数を使用して対象リポジトリを特定
 4. **メタデータ読み込み**: `.ai-workflow/issue-<NUM>/metadata.json` を読み込み、`target_repository` 情報を取得
-5. **フェーズ実行**: `BasePhase.run()` による順次実行:
+5. **フェーズ実行**: `BasePhase.run()` による順次実行（`src/commands/execute.ts` で管理）:
    - 依存関係検証
    - `execute()`: エージェントで成果物を生成
+     - **Git コミット & プッシュ** (v0.3.0で追加)
    - `review()`: 出力を検証（オプション）
+     - **Git コミット & プッシュ** (v0.3.0で追加)
    - `revise()`: 自動修正サイクル（最大 3 回まで）
-   - Git コミット & プッシュ（`gitManager` が提供されている場合）
+     - **Git コミット & プッシュ** (v0.3.0で追加)
 
 ### コアモジュール
 
-- **`src/main.ts`**: CLI 定義、プリセット解決、マルチリポジトリサポート（v0.2.0）
-- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス
-- **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー
-- **`src/core/claude-agent-client.ts`**: Claude Agent SDK ラッパー
-- **`src/core/metadata-manager.ts`**: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作
-- **`src/core/git-manager.ts`**: `simple-git` による Git 操作
-- **`src/core/github-client.ts`**: Octokit による GitHub API（Issue、PR、コメント）
-- **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義
+- **`src/main.ts`**: CLI 定義とコマンドルーティング（約118行、v0.3.0でリファクタリング）。コマンドルーターとしての役割のみに特化。
+- **`src/commands/init.ts`**: Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。
+- **`src/commands/execute.ts`**: フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。
+- **`src/commands/review.ts`**: フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。
+- **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。
+- **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
+- **`src/types/commands.ts`**: コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。
+- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス（約698行、v0.3.1で52.4%削減、Issue #23、Issue #47でテンプレートメソッド追加）
+- **`src/phases/core/agent-executor.ts`**: エージェント実行ロジック（約270行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。
+- **`src/phases/core/review-cycle-manager.ts`**: レビューサイクル管理（約130行、v0.3.1で追加、Issue #23）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。
+- **`src/phases/formatters/progress-formatter.ts`**: 進捗表示フォーマット（約150行、v0.3.1で追加、Issue #23）。GitHub Issue コメント用の進捗状況フォーマットを生成。
+- **`src/phases/formatters/log-formatter.ts`**: ログフォーマット（約400行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの生ログを Markdown 形式に変換。
+- **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー（約200行、Issue #26で25.4%削減）
+- **`src/core/claude-agent-client.ts`**: Claude Agent SDK ラッパー（約206行、Issue #26で23.7%削減）
+- **`src/core/helpers/agent-event-parser.ts`**: Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）
+- **`src/core/helpers/log-formatter.ts`**: エージェントログのフォーマット処理（181行、Issue #26で追加）
+- **`src/core/helpers/env-setup.ts`**: エージェント実行環境のセットアップ（47行、Issue #26で追加）
+- **`src/core/metadata-manager.ts`**: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作（約239行、Issue #26で9.5%削減）
+- **`src/core/helpers/metadata-io.ts`**: メタデータファイルI/O操作（98行、Issue #26で追加）
+- **`src/core/helpers/validation.ts`**: 共通バリデーション処理（47行、Issue #26で追加）
+- **`src/core/git-manager.ts`**: Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。
+- **`src/core/git/commit-manager.ts`**: コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。
+- **`src/core/git/branch-manager.ts`**: ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。
+- **`src/core/git/remote-manager.ts`**: リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。
+- **`src/core/github-client.ts`**: Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。
+- **`src/core/github/issue-client.ts`**: Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。
+- **`src/core/github/pull-request-client.ts`**: PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。
+- **`src/core/github/comment-client.ts`**: コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。
+- **`src/core/github/review-client.ts`**: レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。
+- **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義（約249行、Issue #26で27.2%削減）
+- **`src/core/helpers/dependency-messages.ts`**: 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
 
 ### フェーズ順序（0-9）
@@ -125,15 +158,15 @@ node dist/index.js list-presets
 4. **実行コンテキスト**: すべての操作は対象リポジトリの作業ディレクトリで実行
 
 **主要関数**:
-- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（src/main.ts:880）
-- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（src/main.ts:921）
-- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（src/main.ts:960）
+- `parseIssueUrl(issueUrl)`: URL からリポジトリ情報を抽出（`src/core/repository-utils.ts`）
+- `resolveLocalRepoPath(repoName)`: ローカルリポジトリパスを検索（`src/core/repository-utils.ts`）
+- `findWorkflowMetadata(issueNumber)`: リポジトリ間でワークフローメタデータを検索（`src/core/repository-utils.ts`）
 
 ## ワークフローメタデータ構造
 
 ```
 .ai-workflow/issue-<NUM>/
-├── metadata.json              # WorkflowState（フェーズステータス、コスト、target_repository など）
+├── metadata.json              # WorkflowState（フェーズステータス、ステップ進捗、コスト、target_repository など）
 ├── 00_planning/
 │   ├── execute/agent_log_raw.txt
 │   ├── execute/prompt.txt
@@ -143,12 +176,53 @@ node dist/index.js list-presets
 └── ...
 ```
 
+### ステップ単位の進捗管理（v0.3.0）
+
+各フェーズのメタデータには、ステップ単位の進捗情報が記録されます：
+
+```json
+{
+  "phases": {
+    "requirements": {
+      "status": "in_progress",
+      "current_step": "review",
+      "completed_steps": ["execute"],
+      "retry_count": 0
+    }
+  }
+}
+```
+
+- **`current_step`**: 現在実行中のステップ（'execute' | 'review' | 'revise' | null）
+- **`completed_steps`**: 完了済みステップの配列
+- **レジューム動作**: 完了済みステップは自動的にスキップされ、`current_step` または次の未完了ステップから再開
+
 ### ワークフローログクリーンアップ
 
 Report Phase（Phase 8）完了後、`cleanupWorkflowLogs()` が自動的にデバッグログを削除:
-- **削除対象**: phases 01-08 の `execute/`、`review/`、`revise/` ディレクトリ
-- **保持対象**: `metadata.json`、`output/*.md`、`00_planning/` ディレクトリ全体
-- **効果**: リポジトリサイズを約 70% 削減、PR をクリーンに
+- **削除対象**: phases 00-08（00_planning 〜 08_report）の `execute/`、`review/`、`revise/` ディレクトリ
+- **保持対象**: `metadata.json`、`output/*.md`（Planning Phaseの `output/planning.md` も保持）
+- **効果**: リポジトリサイズを約 75% 削減、PR をクリーンに
+- **Git コミット**: 削除後、`[ai-workflow] Clean up workflow execution logs` メッセージで自動コミット＆プッシュ（Phase 8: report）
+
+### ワークフローディレクトリの完全削除（v0.3.0）
+
+Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*` ディレクトリ全体を削除可能:
+- **CLI オプション**: `--cleanup-on-complete`, `--cleanup-on-complete-force`
+- **削除対象**: `.ai-workflow/issue-<NUM>/` ディレクトリ全体（`metadata.json`、`output/*.md` を含む）
+- **確認プロンプト**: 対話的環境では削除前に確認を求める（CI環境では自動スキップ）
+- **実装**: `BasePhase.cleanupWorkflowArtifacts()` メソッド、`EvaluationPhase.run()` で統合
+- **セキュリティ**: パス検証（正規表現）、シンボリックリンクチェック
+
+**Report Phase クリーンアップとの違い**:
+
+| 項目 | Report Phase (Phase 8) | Evaluation Phase (Phase 9) |
+|------|------------------------|----------------------------|
+| **削除対象** | phases 00-08 のデバッグログ（`execute/`, `review/`, `revise/`） | ワークフロー全体（`.ai-workflow/issue-<NUM>/`） |
+| **実行タイミング** | Report Phase 完了時（常に実行） | Evaluation Phase 完了時（オプション指定時のみ） |
+| **目的** | PR レビューの負荷軽減（約 75% 削減） | ワークフロー完了後のクリーンアップ（完全削除） |
+| **保護対象** | `metadata.json`, `output/*.md` | なし（全て削除） |
+| **Git コミットメッセージ** | `[ai-workflow] Clean up workflow execution logs` (Phase 8: report) | `[ai-workflow] Clean up all workflow artifacts` |
 
 ## 環境変数
 

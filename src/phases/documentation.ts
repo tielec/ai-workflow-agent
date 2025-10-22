@@ -17,9 +17,8 @@ export class DocumentationPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const planningReference = this.getPlanningDocumentReference(issueNumber);
 
-    // オプショナルコンテキストを構築（Issue #398）
+    // オプショナルコンテキストを構築（Issue #398, #396）
     const implementationContext = this.buildOptionalContext(
       'implementation',
       'implementation.md',
@@ -45,39 +44,19 @@ export class DocumentationPhase extends BasePhase {
       issueNumber,
     );
 
-    const executePrompt = this.loadPrompt('execute')
-      .replace('{planning_document_path}', planningReference)
-      .replace('{implementation_context}', implementationContext)
-      .replace('{testing_context}', testingContext)
-      .replace('{requirements_context}', requirementsContext)
-      .replace('{design_context}', designContext)
-      .replace('{test_scenario_context}', scenarioContext)
-      .replace('{test_implementation_context}', testImplementationContext)
-      .replace('{issue_number}', String(issueNumber));
-
-    await this.executeWithAgent(executePrompt, { maxTurns: 50 });
-
-    const documentationFile = path.join(this.outputDir, 'documentation-update-log.md');
-    if (!fs.existsSync(documentationFile)) {
-      return {
-        success: false,
-        error: `documentation-update-log.md が見つかりません: ${documentationFile}`,
-      };
-    }
+    // Issue #47: executePhaseTemplate() を使用してコード削減
+    return this.executePhaseTemplate('documentation-update-log.md', {
+      planning_document_path: this.getPlanningDocumentReference(issueNumber),
+      implementation_context: implementationContext,
+      testing_context: testingContext,
+      requirements_context: requirementsContext,
+      design_context: designContext,
+      test_scenario_context: scenarioContext,
+      test_implementation_context: testImplementationContext,
+      issue_number: String(issueNumber),
+    }, { maxTurns: 70 });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
-    // try {
-    //   const content = fs.readFileSync(documentationFile, 'utf-8');
-    //   await this.postOutput(content, 'ドキュメント更新ログ');
-    // } catch (error) {
-    //   const message = (error as Error).message ?? String(error);
-    //   console.warn(`[WARNING] GitHub へのドキュメント更新ログ投稿に失敗しました: ${message}`);
-    // }
-
-    return {
-      success: true,
-      output: documentationFile,
-    };
   }
 
   protected async review(): Promise<PhaseExecutionResult> {
@@ -130,7 +109,7 @@ export class DocumentationPhase extends BasePhase {
       reviewFeedback,
     );
 
-    await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
+    await this.executeWithAgent(revisePrompt, { maxTurns: 70, logDir: this.reviseDir });
 
     if (!fs.existsSync(documentationFile)) {
       return {

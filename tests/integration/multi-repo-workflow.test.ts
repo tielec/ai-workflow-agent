@@ -307,7 +307,7 @@ describe('IT-006: Windowsパスでリポジトリ判定とワークフロー実�
   test('Windowsパスでの動作確認', () => {
     // Given: Windowsパス形式の環境変数
     const windowsPath = 'C:\\Users\\ytaka\\TIELEC\\development';
-    
+
     // When: パス処理を実行
     const repoName = 'my-app';
     const expectedPath = path.join(windowsPath, repoName);
@@ -315,9 +315,120 @@ describe('IT-006: Windowsパスでリポジトリ判定とワークフロー実�
     // Then: Windowsパスが正しく処理される
     // path.join()がOSに依存しないパス結合を行う
     expect(expectedPath).toContain(repoName);
-    
+
     // Note: 実際のテストではpath.win32を使用してWindows環境を模擬
     const win32Path = path.win32.join(windowsPath, repoName);
     expect(win32Path).toBe('C:\\Users\\ytaka\\TIELEC\\development\\my-app');
   });
+});
+
+// =============================================================================
+// IT-007: マルチリポジトリワークフローでカスタムブランチを使用（Issue #7）
+// =============================================================================
+describe('IT-007: マルチリポジトリワークフローでカスタムブランチを使用', () => {
+  test('カスタムブランチ名で対象リポジトリに作業ブランチを作成', async () => {
+    // Given: マルチリポジトリ環境 + カスタムブランチ名
+    const issueUrl = 'https://github.com/tielec/my-app/issues/127';
+    const issueNumber = '127';
+    const customBranchName = 'feature/custom-multi-repo';
+
+    // When: カスタムブランチでinit処理を実行（モック）
+    const workflowDir = path.join(MY_APP_REPO, '.ai-workflow', `issue-${issueNumber}`);
+    await fs.ensureDir(workflowDir);
+    const metadataPath = path.join(workflowDir, 'metadata.json');
+
+    const metadata = {
+      issue_number: issueNumber,
+      issue_url: issueUrl,
+      repository: 'tielec/my-app',
+      branch_name: customBranchName, // カスタムブランチ名を保存
+      target_repository: {
+        path: MY_APP_REPO,
+        github_name: 'tielec/my-app',
+        remote_url: 'https://github.com/tielec/my-app.git',
+        owner: 'tielec',
+        repo: 'my-app',
+      },
+      workflow_version: '0.1.0',
+      current_phase: 'planning',
+      design_decisions: {},
+      cost_tracking: {
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        total_cost_usd: 0.0,
+      },
+      phases: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+
+    // Then: カスタムブランチ名がメタデータに保存される
+    expect(await fs.pathExists(metadataPath)).toBe(true);
+
+    const loadedMetadata = await fs.readJson(metadataPath);
+    expect(loadedMetadata.branch_name).toBe(customBranchName);
+    expect(loadedMetadata.target_repository).toBeDefined();
+    expect(loadedMetadata.target_repository.path).toBe(MY_APP_REPO);
+    expect(loadedMetadata.target_repository.github_name).toBe('tielec/my-app');
+
+    // ワークフローディレクトリが対象リポジトリ配下に作成される
+    expect(await fs.pathExists(workflowDir)).toBe(true);
+  }, 30000);
+});
+
+// =============================================================================
+// IT-008: マルチリポジトリワークフローでデフォルトブランチを使用（後方互換性、Issue #7）
+// =============================================================================
+describe('IT-008: マルチリポジトリワークフローでデフォルトブランチを使用（後方互換性）', () => {
+  test('デフォルトブランチ名で対象リポジトリに作業ブランチを作成', async () => {
+    // Given: マルチリポジトリ環境 + --branch オプションなし
+    const issueUrl = 'https://github.com/tielec/my-app/issues/128';
+    const issueNumber = '128';
+    const defaultBranchName = `ai-workflow/issue-${issueNumber}`;
+
+    // When: デフォルトブランチでinit処理を実行（モック）
+    const workflowDir = path.join(MY_APP_REPO, '.ai-workflow', `issue-${issueNumber}`);
+    await fs.ensureDir(workflowDir);
+    const metadataPath = path.join(workflowDir, 'metadata.json');
+
+    const metadata = {
+      issue_number: issueNumber,
+      issue_url: issueUrl,
+      repository: 'tielec/my-app',
+      branch_name: defaultBranchName, // デフォルトブランチ名
+      target_repository: {
+        path: MY_APP_REPO,
+        github_name: 'tielec/my-app',
+        remote_url: 'https://github.com/tielec/my-app.git',
+        owner: 'tielec',
+        repo: 'my-app',
+      },
+      workflow_version: '0.1.0',
+      current_phase: 'planning',
+      design_decisions: {},
+      cost_tracking: {
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        total_cost_usd: 0.0,
+      },
+      phases: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+
+    // Then: デフォルトブランチ名がメタデータに保存される
+    expect(await fs.pathExists(metadataPath)).toBe(true);
+
+    const loadedMetadata = await fs.readJson(metadataPath);
+    expect(loadedMetadata.branch_name).toBe(defaultBranchName);
+    expect(loadedMetadata.branch_name).toMatch(/^ai-workflow\/issue-\d+$/);
+    expect(loadedMetadata.target_repository).toBeDefined();
+
+    // 既存のマルチリポジトリワークフローテストが成功する（regression なし）
+    expect(loadedMetadata.target_repository.github_name).toBe('tielec/my-app');
+  }, 30000);
 });

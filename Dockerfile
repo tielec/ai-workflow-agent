@@ -21,7 +21,7 @@ RUN git config --global --add safe.directory '*' && \
 COPY package.json tsconfig.json ./
 
 # Install Node dependencies and Codex CLI (used by CodexAgentClient)
-RUN npm install --omit=dev=false \
+RUN npm install \
     && npm install -g @openai/codex
 
 # Copy the rest of the source tree (prompts, phases, etc.)
