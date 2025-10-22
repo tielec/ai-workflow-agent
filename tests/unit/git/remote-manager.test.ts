@@ -3,6 +3,9 @@
  * Tests remote operations (push, pull, retry logic, GitHub credentials)
  */
 
+// @ts-nocheck
+
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { RemoteManager } from '../../../src/core/git/remote-manager';
 import { MetadataManager } from '../../../src/core/metadata-manager';
 import { SimpleGit } from 'simple-git';
@@ -18,7 +21,8 @@ describe('RemoteManager - Push Operations', () => {
       push: jest.fn(),
       raw: jest.fn(),
       remote: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+      pull: jest.fn(),
+    } as any;
 
     mockMetadata = {
       getData: jest.fn().mockReturnValue({
@@ -26,7 +30,7 @@ describe('RemoteManager - Push Operations', () => {
         branch_name: 'feature/issue-25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     // Mock setupGithubCredentials to avoid actual execution
     jest.spyOn(RemoteManager.prototype as any, 'setupGithubCredentials').mockResolvedValue(undefined);
@@ -107,7 +111,7 @@ describe('RemoteManager - Push Operations', () => {
         .mockResolvedValueOnce(undefined as any);
 
       // pullLatest のモック
-      mockGit.pull = jest.fn().mockResolvedValue(undefined);
+      (mockGit.pull as jest.Mock).mockResolvedValue(undefined);
 
       // When: pushToRemote を呼び出す
       const result = await remoteManager.pushToRemote(3, 100);
@@ -194,7 +198,8 @@ describe('RemoteManager - Pull Operations', () => {
     mockGit = {
       pull: jest.fn(),
       remote: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+      raw: jest.fn(),
+    } as any;
 
     mockMetadata = {
       getData: jest.fn().mockReturnValue({
@@ -202,7 +207,7 @@ describe('RemoteManager - Pull Operations', () => {
         branch_name: 'feature/issue-25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     jest.spyOn(RemoteManager.prototype as any, 'setupGithubCredentials').mockResolvedValue(undefined);
 
@@ -262,14 +267,14 @@ describe('RemoteManager - GitHub Credentials', () => {
   beforeEach(() => {
     mockGit = {
       remote: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     mockMetadata = {
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         branch_name: 'feature/issue-25',
       }),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
   });
 
   describe('setupGithubCredentials', () => {
@@ -277,12 +282,12 @@ describe('RemoteManager - GitHub Credentials', () => {
       // Given: GITHUB_TOKENが設定されている
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
-      mockGit.remote.mockImplementation((args: any) => {
+      mockGit.remote.mockImplementation(((args: any) => {
         if (args[0] === 'get-url') {
           return Promise.resolve('https://github.com/tielec/ai-workflow-agent.git');
         }
         return Promise.resolve(undefined);
-      } as any);
+      }) as any);
 
       // When: RemoteManager をインスタンス化（setupGithubCredentials が実行される）
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
@@ -305,15 +310,15 @@ describe('RemoteManager - GitHub Credentials', () => {
       // Given: GITHUB_TOKENが設定されているが、リモートURLがSSH
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
-      mockGit.remote.mockImplementation((args: any) => {
+      mockGit.remote.mockImplementation(((args: any) => {
         if (args[0] === 'get-url') {
           return Promise.resolve('git@github.com:tielec/ai-workflow-agent.git');
         }
         return Promise.resolve(undefined);
-      } as any);
+      }) as any);
 
       // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
 
       // When: RemoteManager をインスタンス化
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
@@ -354,7 +359,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       mockGit.remote.mockRejectedValue(new Error('Git command failed'));
 
       // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       // When: RemoteManager をインスタンス化
       const remoteManager = new RemoteManager(mockGit, mockMetadata);
@@ -381,14 +386,14 @@ describe('RemoteManager - Retry Logic', () => {
   beforeEach(() => {
     mockGit = {
       remote: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     mockMetadata = {
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         branch_name: 'feature/issue-25',
       }),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     jest.spyOn(RemoteManager.prototype as any, 'setupGithubCredentials').mockResolvedValue(undefined);
 

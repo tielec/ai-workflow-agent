@@ -3,6 +3,9 @@
  * Tests commit operations, message generation, and SecretMasker integration
  */
 
+// @ts-nocheck
+
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { CommitManager } from '../../../src/core/git/commit-manager';
 import { MetadataManager } from '../../../src/core/metadata-manager';
 import { SecretMasker } from '../../../src/core/secret-masker';
@@ -21,17 +24,22 @@ describe('CommitManager - Message Generation', () => {
       add: jest.fn(),
       commit: jest.fn(),
       addConfig: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     // Mock MetadataManager
     mockMetadata = {
+      data: {
+        issue_number: '25',
+        issue_title: '[REFACTOR] Git Manager の操作別分割',
+        branch_name: 'feature/issue-25',
+      },
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         issue_title: '[REFACTOR] Git Manager の操作別分割',
         branch_name: 'feature/issue-25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     // Mock SecretMasker
     mockSecretMasker = {
@@ -40,7 +48,7 @@ describe('CommitManager - Message Generation', () => {
         secretsMasked: 2,
         errors: [],
       }),
-    } as unknown as jest.Mocked<SecretMasker>;
+    } as any;
 
     commitManager = new CommitManager(
       mockGit,
@@ -157,16 +165,21 @@ describe('CommitManager - Commit Operations', () => {
         summary: { changes: 1, insertions: 10, deletions: 2 },
       }),
       addConfig: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     mockMetadata = {
+      data: {
+        issue_number: '25',
+        issue_title: '[REFACTOR] Git Manager の操作別分割',
+        branch_name: 'feature/issue-25',
+      },
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         issue_title: '[REFACTOR] Git Manager の操作別分割',
         branch_name: 'feature/issue-25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     mockSecretMasker = {
       maskSecretsInWorkflowDir: jest.fn().mockResolvedValue({
@@ -174,7 +187,7 @@ describe('CommitManager - Commit Operations', () => {
         secretsMasked: 2,
         errors: [],
       }),
-    } as unknown as jest.Mocked<SecretMasker>;
+    } as any;
 
     commitManager = new CommitManager(
       mockGit,
@@ -274,8 +287,10 @@ describe('CommitManager - Commit Operations', () => {
       // When: commitStepOutput を呼び出す
       const result = await commitManager.commitStepOutput(
         'implementation',
-        3,
-        'Implement BranchManager'
+        4,
+        'execute',
+        25,
+        '/test/repo'
       );
 
       // Then: ステップコミットが正常に作成される
@@ -363,20 +378,25 @@ describe('CommitManager - SecretMasker Integration', () => {
         summary: { changes: 1, insertions: 10, deletions: 2 },
       }),
       addConfig: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     mockMetadata = {
+      data: {
+        issue_number: '25',
+        issue_title: '[REFACTOR] Git Manager の操作別分割',
+        branch_name: 'feature/issue-25',
+      },
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
         issue_title: '[REFACTOR] Git Manager の操作別分割',
         branch_name: 'feature/issue-25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     mockSecretMasker = {
       maskSecretsInWorkflowDir: jest.fn(),
-    } as unknown as jest.Mocked<SecretMasker>;
+    } as any;
 
     commitManager = new CommitManager(
       mockGit,
@@ -442,18 +462,21 @@ describe('CommitManager - File Helpers', () => {
     mockGit = {
       status: jest.fn(),
       addConfig: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     mockMetadata = {
+      data: {
+        issue_number: '25',
+      },
       getData: jest.fn().mockReturnValue({
         issue_number: '25',
       }),
       getIssueNumber: jest.fn().mockReturnValue('25'),
-    } as unknown as jest.Mocked<MetadataManager>;
+    } as any;
 
     mockSecretMasker = {
       maskSecretsInWorkflowDir: jest.fn(),
-    } as unknown as jest.Mocked<SecretMasker>;
+    } as any;
 
     commitManager = new CommitManager(
       mockGit,

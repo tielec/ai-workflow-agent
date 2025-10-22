@@ -3,6 +3,7 @@
  * Tests branch operations (create, exists, switch, getCurrentBranch)
  */
 
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { BranchManager } from '../../../src/core/git/branch-manager';
 import { SimpleGit } from 'simple-git';
 
@@ -15,7 +16,7 @@ describe('BranchManager - Branch Creation', () => {
       checkoutLocalBranch: jest.fn(),
       branchLocal: jest.fn(),
       branch: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     branchManager = new BranchManager(mockGit);
   });
@@ -124,7 +125,7 @@ describe('BranchManager - Branch Existence', () => {
     mockGit = {
       branchLocal: jest.fn(),
       branch: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     branchManager = new BranchManager(mockGit);
   });
@@ -165,7 +166,7 @@ describe('BranchManager - Branch Existence', () => {
       // Then: true が返される
       expect(exists).toBe(true);
       expect(mockGit.branchLocal).toHaveBeenCalled();
-      expect(mockGit.branch).toHaveBeenCalledWith(['--remotes']);
+      expect(mockGit.branch).toHaveBeenCalledWith(['--remotes', 'origin/feature/issue-25']);
     });
 
     test('branchExists_正常系_ブランチ不存在', async () => {
@@ -215,7 +216,7 @@ describe('BranchManager - Branch Navigation', () => {
     mockGit = {
       raw: jest.fn(),
       checkout: jest.fn(),
-    } as unknown as jest.Mocked<SimpleGit>;
+    } as any;
 
     branchManager = new BranchManager(mockGit);
   });
