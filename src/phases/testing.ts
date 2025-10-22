@@ -36,6 +36,7 @@ export class TestingPhase extends BasePhase {
 
     const testResultFile = path.join(this.outputDir, 'test-result.md');
     const oldMtime = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).mtimeMs : null;
+    const oldSize = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).size : null;
 
     const executePrompt = this.loadPrompt('execute')
       .replace('{planning_document_path}', planningReference)
@@ -53,8 +54,11 @@ export class TestingPhase extends BasePhase {
       };
     }
 
+    // ファイルが既に存在していた場合のみ、更新をチェック（mtime & size）
     const newMtime = fs.statSync(testResultFile).mtimeMs;
-    if (oldMtime !== null && newMtime === oldMtime) {
+    const newSize = fs.statSync(testResultFile).size;
+
+    if (oldMtime !== null && oldSize !== null && newMtime === oldMtime && newSize === oldSize) {
       return {
         success: false,
         error: 'test-result.md が更新されていません。出力内容を確認してください。',
@@ -206,7 +210,9 @@ export class TestingPhase extends BasePhase {
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_number}', String(issueNumber));
 
-    const oldMtime = fs.existsSync(testResultFile) ? fs.statSync(testResultFile).mtimeMs : null;
+    // revise() ではファイルは必ず存在する（execute() 完了後に呼ばれる）
+    const oldMtime = fs.statSync(testResultFile).mtimeMs;
+    const oldSize = fs.statSync(testResultFile).size;
 
     await this.executeWithAgent(revisePrompt, { maxTurns: 50, logDir: this.reviseDir });
 
@@ -218,7 +224,9 @@ export class TestingPhase extends BasePhase {
     }
 
     const newMtime = fs.statSync(testResultFile).mtimeMs;
-    if (oldMtime !== null && newMtime === oldMtime) {
+    const newSize = fs.statSync(testResultFile).size;
+
+    if (newMtime === oldMtime && newSize === oldSize) {
       return {
         success: false,
         error: 'test-result.md が更新されていません。再度実行内容を確認してください。',
