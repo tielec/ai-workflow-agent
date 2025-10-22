@@ -185,12 +185,12 @@
 
 ### Phase 1: 要件定義 (見積もり: 1～2h)
 
-- [ ] Task 1-1: 各ファイルの重複ロジック特定 (0.5～1h)
+- [x] Task 1-1: 各ファイルの重複ロジック特定 (0.5～1h)
   - codex-agent-client.ts の重複分析（logEvent, fillTemplate 等）
   - claude-agent-client.ts の重複分析（logMessage系, extractToken 等）
   - metadata-manager.ts の重複分析（ファイルI/O, タイムスタンプ 等）
   - phase-dependencies.ts の重複分析（エラー/警告メッセージ生成 等）
-- [ ] Task 1-2: ヘルパー関数の分離方針決定 (0.5～1h)
+- [x] Task 1-2: ヘルパー関数の分離方針決定 (0.5～1h)
   - エージェント共通ロジックの抽出方針
   - メタデータI/O処理の分離方針
   - 依存関係検証ロジックの整理方針
