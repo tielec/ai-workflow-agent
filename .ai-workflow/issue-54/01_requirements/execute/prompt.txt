@@ -1,0 +1,335 @@
+# 要件定義フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細な要件定義書を作成してください。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-54/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### GitHub Issue情報
+
+## Issue概要
+
+- **Issue番号**: #54
+- **タイトル**: バグ: metadata.jsonにGitHub Personal Access Tokenが含まれpush protectionで拒否される
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/54
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+`init` コマンド実行時に、Git remote URL に含まれる GitHub Personal Access Token が `metadata.json` に保存されてしまい、GitHub の push protection によって push が拒否される問題が発生しています。
+
+**重要度:** HIGH（セキュリティリスク）
+
+## 再現手順
+
+1. HTTPS形式でリポジトリをクローン（トークン埋め込み）:
+```bash
+git clone https://ghp_xxxxxxxxxxxx@github.com/tielec/infrastructure-as-code.git
+```
+
+2. `init` コマンドを実行:
+```bash
+node dist/index.js init --issue-url https://github.com/tielec/infrastructure-as-code/issues/423
+```
+
+3. 結果: push が GitHub push protection により拒否される
+
+## エラーメッセージ
+
+```
+[ERROR] Push failed: remote: error: GH013: Repository rule violations found for refs/heads/ai-workflow/issue-423.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   —————————————————————————————————————————        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:       —— GitHub Personal Access Token ——————————————————————        
+remote:        locations:        
+remote:          - commit: a42733bf5a526ef7ab5b0df50b07279f79387a50        
+remote:            path: .ai-workflow/issue-423/metadata.json:9        
+```
+
+## 原因分析
+
+### 1. Remote URL取得時にトークンが含まれる
+
+`src/commands/init.ts:235-236`:
+```typescript
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+```
+
+このコードは `git remote get-url origin` の結果をそのまま取得しており、HTTPS形式でトークンが埋め込まれている場合（`https://token@github.com/...`）、トークンがそのまま含まれてしまいます。
+
+### 2. metadata.jsonに直接保存
+
+`src/commands/init.ts:237-243`:
+```typescript
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: remoteUrlStr,  // ← トークンが含まれる可能性
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 3. SecretMaskerがmetadata.jsonをスキャンしていない
+
+`src/core/secret-masker.ts:23-27`:
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+];
+```
+
+`metadata.json` がスキャン対象に含まれていないため、トークンがマスクされません。
+
+## 影響範囲
+
+### セキュリティリスク
+- GitHub Personal Access Token が Git履歴に残る可能性
+- リポジトリが public の場合、トークンが公開される
+- トークンの無効化が必要になる
+
+### 機能面の影響
+- `init` コマンドが完了できない
+- ワークフローを開始できない
+- 手動でトークンを削除してコミットを修正する必要がある
+
+## 提案する解決策
+
+### 解決策1: Remote URLからトークンを除去（推奨）
+
+`src/commands/init.ts` でremote URL取得後にトークンを除去:
+
+```typescript
+// src/utils/git-url-utils.ts (新規作成)
+
+/**
+ * Git remote URLからトークン/認証情報を除去
+ * 
+ * @example
+ * sanitizeGitUrl('https://token@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('https://user:pass@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('git@github.com:owner/repo.git')
+ * // => 'git@github.com:owner/repo.git' (変更なし)
+ */
+export function sanitizeGitUrl(url: string): string {
+  // HTTPS形式の認証情報を除去: https://token@github.com -> https://github.com
+  // パターン: https://[user[:pass]@]host/path
+  const httpsPattern = /^(https?:\/\/)([^@]+@)?(.+)$/;
+  const match = url.match(httpsPattern);
+  
+  if (match) {
+    const [, protocol, , rest] = match;
+    return `${protocol}${rest}`;
+  }
+  
+  // SSH形式やその他はそのまま返す
+  return url;
+}
+```
+
+`src/commands/init.ts` で使用:
+
+```typescript
+import { sanitizeGitUrl } from '../utils/git-url-utils.js';
+
+// ...
+
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+const sanitizedUrl = sanitizeGitUrl(remoteUrlStr);  // ← トークン除去
+
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: sanitizedUrl,  // ← サニタイズ済みURL
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 解決策2: SecretMaskerにmetadata.jsonを追加（追加の安全策）
+
+`src/core/secret-masker.ts`:
+
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+  'metadata.json',  // ← 追加
+];
+```
+
+**注意**: これだけでは不十分です。metadata.jsonがコミットされる前にマスキングする必要がありますが、現在の実装では `commitWorkflowInit()` でマスキングが行われていない可能性があります。
+
+### 解決策3: commitWorkflowInit でマスキングを確実に実行
+
+`src/core/git-manager.ts` または `src/core/git/commit-manager.ts`:
+
+```typescript
+async commitWorkflowInit(issueNumber: number, branchName: string): Promise<CommitResult> {
+  const workflowDir = path.join(this.repoRoot, '.ai-workflow', `issue-${issueNumber}`);
+  
+  // metadata.json 作成直後にマスキング実行
+  try {
+    const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+    if (maskingResult.secretsMasked > 0) {
+      console.info(`[INFO] Masked ${maskingResult.secretsMasked} secrets in metadata.json`);
+    }
+  } catch (error) {
+    // マスキング失敗は致命的エラーとして扱う
+    console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+    throw new Error('Cannot commit metadata.json with unmasked secrets');
+  }
+  
+  // ... コミット処理 ...
+}
+```
+
+## 推奨アプローチ
+
+**解決策1（URL サニタイズ）を優先実装**:
+- 根本原因（トークンがmetadataに含まれること）を解決
+- シンプルで確実
+- 副作用がない
+
+**解決策2 と 3 を追加の安全策として実装**:
+- Defense in Depth（多層防御）
+- 他の箇所でトークンが混入した場合にも対応
+
+## 実装タスク
+
+- [ ] `src/utils/git-url-utils.ts` を作成
+- [ ] `sanitizeGitUrl()` 関数を実装
+- [ ] `src/commands/init.ts` でremote URLをサニタイズ（2箇所: 192行, 236行）
+- [ ] `sanitizeGitUrl()` のユニットテストを追加
+  - [ ] HTTPS + トークン形式のテスト
+  - [ ] HTTPS + ユーザー:パスワード形式のテスト
+  - [ ] SSH形式のテスト（変更なし）
+  - [ ] 通常のHTTPS形式のテスト（変更なし）
+- [ ] `SecretMasker` に `metadata.json` を追加
+- [ ] `commitWorkflowInit()` でマスキングを確実に実行
+- [ ] 統合テストでトークン埋め込みURLでの動作を確認
+
+## 見積もり
+1日
+
+## 関連Issue
+セキュリティ重要度: HIGH
+
+## 要件定義書の構成
+
+以下のセクションを含む要件定義書を作成してください：
+
+### 0. Planning Documentの確認（Planning Phaseが実行されている場合）
+- 開発計画の全体像を把握
+- スコープ、技術選定、リスク、スケジュールを確認
+- Planning Documentで策定された戦略を踏まえて要件定義を実施
+
+### 1. 概要
+- Issue本文の「## 概要」セクションを要約
+- 背景と目的を明確に記述
+- ビジネス価値・技術的価値を説明
+
+### 2. 機能要件
+- Issue本文の「## TODO」セクションから機能要件を抽出
+- 各要件を明確かつ検証可能な形で記述
+- 優先度（高/中/低）を付与
+
+### 3. 非機能要件
+- パフォーマンス要件
+- セキュリティ要件
+- 可用性・信頼性要件
+- 保守性・拡張性要件
+
+### 4. 制約事項
+- 技術的制約（使用技術、既存システムとの整合性）
+- リソース制約（時間、人員、予算）
+- ポリシー制約（セキュリティポリシー、コーディング規約）
+
+### 5. 前提条件
+- システム環境
+- 依存コンポーネント
+- 外部システム連携
+
+### 6. 受け入れ基準
+- 各機能要件の受け入れ基準（Given-When-Then形式推奨）
+- テスト可能な形で記述
+
+### 7. スコープ外
+- 明確にスコープ外とする事項
+- 将来的な拡張候補
+
+## 出力形式
+
+Markdown形式で要件定義書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-54/01_requirements/output/requirements.md
+```
+
+## 品質ゲート（Phase 1）
+
+作成する要件定義書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **機能要件が明確に記載されている**
+- [ ] **受け入れ基準が定義されている**
+- [ ] **スコープが明確である**
+- [ ] **論理的な矛盾がない**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な要件を記述
+   - NG例: "適切に処理する"、"必要に応じて対応"
+   - OK例: "3秒以内にレスポンスを返す"、"エラー発生時は管理者に通知"
+
+2. **整合性**: 各セクション間で矛盾がないか確認
+   - 機能要件と受け入れ基準が対応しているか
+   - 非機能要件と制約事項が矛盾していないか
+
+3. **完全性**: Issue本文の情報を漏れなく反映
+   - TODOセクションの項目をすべて機能要件に反映
+   - 概要セクションの背景・目的を明確に記述
+
+4. **検証可能性**: 各要件が検証可能（テスト可能）な形で記述
+   - 受け入れ基準は Given-When-Then 形式で記述
+   - 成功条件・失敗条件が明確に識別可能
+
+5. **レビューされることを意識**: 作成した要件定義書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント
