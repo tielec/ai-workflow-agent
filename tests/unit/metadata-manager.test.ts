@@ -1,6 +1,7 @@
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import * as fs from 'fs-extra';
 import * as path from 'node:path';
+import { jest } from '@jest/globals';
 
 // fs-extraのモック
 jest.mock('fs-extra');
@@ -12,7 +13,7 @@ describe('MetadataManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
     metadataManager = new MetadataManager(testMetadataPath);
   });
 
@@ -52,9 +53,9 @@ describe('MetadataManager', () => {
   describe('backupMetadata', () => {
     it('正常系: バックアップファイルが作成される（ヘルパー関数使用）', () => {
       // Given: メタデータファイルが存在する
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.copyFileSync as jest.Mock).mockImplementation(() => {});
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.copyFileSync as any) = jest.fn().mockImplementation(() => {});
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: backupMetadata関数を呼び出す
       const result = metadataManager.backupMetadata();
@@ -69,10 +70,10 @@ describe('MetadataManager', () => {
   describe('clear', () => {
     it('正常系: メタデータとワークフローディレクトリが削除される（ヘルパー関数使用）', () => {
       // Given: メタデータファイルとワークフローディレクトリが存在する
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.removeSync as jest.Mock).mockImplementation(() => {});
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.removeSync as any) = jest.fn().mockImplementation(() => {});
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: clear関数を呼び出す
       metadataManager.clear();
@@ -88,8 +89,8 @@ describe('MetadataManager', () => {
   describe('save', () => {
     it('正常系: メタデータが保存される', () => {
       // Given: メタデータマネージャー
-      (fs.ensureDirSync as jest.Mock).mockImplementation(() => {});
-      (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
 
       // When: save関数を呼び出す
       metadataManager.save();

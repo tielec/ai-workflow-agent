@@ -2,6 +2,7 @@ import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import * as child_process from 'node:child_process';
 import * as fs from 'fs-extra';
+import { jest } from '@jest/globals';
 
 // 外部依存のモック
 jest.mock('node:child_process');
@@ -38,8 +39,8 @@ describe('エージェント実行の統合テスト', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      (child_process.spawn as any) = mockSpawn;
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
@@ -63,8 +64,8 @@ describe('エージェント実行の統合テスト', () => {
     it('統合テスト: Claude実行からログ出力までの統合フローが動作する（認証確認のみ）', async () => {
       // Given: Claude Agent SDK実行環境
       const client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.readFileSync as any) = jest.fn().mockReturnValue(
         JSON.stringify({
           oauth: { access_token: 'integration-test-token' },
         })
@@ -98,7 +99,7 @@ describe('エージェント実行の統合テスト', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When/Then: Codex実行が失敗する
       await expect(

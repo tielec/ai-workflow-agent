@@ -8,18 +8,18 @@ describe('validation', () => {
   describe('validatePhaseName', () => {
     // REQ-008: バリデーション処理の分離
     it('正常系: 有効なフェーズ名に対してtrueを返す', () => {
-      // Given: 有効なフェーズ名のリスト（プレフィックス付き）
+      // Given: 有効なフェーズ名のリスト（アンダースコア形式、プレフィックスなし）
       const validPhases = [
-        '00_planning',
-        '01_requirements',
-        '02_design',
-        '03_test-scenario',
-        '04_implementation',
-        '05_test-implementation',
-        '06_testing',
-        '07_documentation',
-        '08_report',
-        '09_evaluation',
+        'planning',
+        'requirements',
+        'design',
+        'test_scenario',
+        'implementation',
+        'test_implementation',
+        'testing',
+        'documentation',
+        'report',
+        'evaluation',
       ];
 
       // When/Then: 各フェーズ名でvalidatePhaseName関数を呼び出す

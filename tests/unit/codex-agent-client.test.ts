@@ -1,5 +1,6 @@
 import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import * as child_process from 'node:child_process';
+import { jest } from '@jest/globals';
 
 // child_processのモック
 jest.mock('node:child_process');
@@ -41,7 +42,7 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
@@ -73,7 +74,7 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When/Then: executeTask関数を呼び出すとエラーがスローされる
       await expect(
@@ -110,7 +111,7 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // プロンプトファイルの読み込みをモック化する必要があるが、
       // 実装の詳細に依存するため、ここでは省略
