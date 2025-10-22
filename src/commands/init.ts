@@ -8,6 +8,7 @@ import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
 import { GitHubClient } from '../core/github-client.js';
 import { parseIssueUrl, resolveLocalRepoPath, getRepoRoot } from '../core/repository-utils.js';
+import { sanitizeGitUrl } from '../utils/git-url-utils.js';
 import type { BranchValidationResult } from '../types/commands.js';
 
 /**
@@ -189,10 +190,23 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
       const remoteUrl = await git.remote(['get-url', 'origin']);
       const remoteUrlStr =
         typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+      const sanitizedUrl = sanitizeGitUrl(remoteUrlStr);
+
+      // Issue #54: Warn if token detected in remote URL
+      if (sanitizedUrl !== remoteUrlStr) {
+        console.warn(
+          '[WARNING] GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
+        );
+        console.info(
+          `[INFO] Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
+        );
+        console.info(`[INFO] Sanitized URL: ${sanitizedUrl}`);
+      }
+
       metadataManager.data.target_repository = {
         path: repoRoot,
         github_name: repositoryName,
-        remote_url: remoteUrlStr,
+        remote_url: sanitizedUrl,
         owner: owner,
         repo: repo,
       };
@@ -234,10 +248,23 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   // target_repository フィールドを設定
   const remoteUrl = await git.remote(['get-url', 'origin']);
   const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+  const sanitizedUrl = sanitizeGitUrl(remoteUrlStr);
+
+  // Issue #54: Warn if token detected in remote URL
+  if (sanitizedUrl !== remoteUrlStr) {
+    console.warn(
+      '[WARNING] GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
+    );
+    console.info(
+      `[INFO] Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
+    );
+    console.info(`[INFO] Sanitized URL: ${sanitizedUrl}`);
+  }
+
   metadataManager.data.target_repository = {
     path: repoRoot,
     github_name: repositoryName,
-    remote_url: remoteUrlStr,
+    remote_url: sanitizedUrl,
     owner: owner,
     repo: repo,
   };

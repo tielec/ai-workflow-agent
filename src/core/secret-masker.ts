@@ -24,6 +24,7 @@ export class SecretMasker {
     'agent_log_raw.txt',
     'agent_log.md',
     'prompt.txt',
+    'metadata.json', // Issue #54: Scan metadata.json for tokens
   ];
 
   private readonly envVarNames = [

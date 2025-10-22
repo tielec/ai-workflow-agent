@@ -234,6 +234,26 @@ export class CommitManager {
       };
     }
 
+    // Issue #54: Mask secrets in metadata.json before commit (Defense in Depth - Layer 2)
+    const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
+    try {
+      const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+      if (maskingResult.filesProcessed > 0) {
+        console.info(
+          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        );
+      }
+      if (maskingResult.errors.length > 0) {
+        console.error(
+          `[ERROR] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        );
+        throw new Error('Cannot commit metadata.json with unmasked secrets');
+      }
+    } catch (error) {
+      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      throw new Error('Cannot commit metadata.json with unmasked secrets');
+    }
+
     // 3. Stage files
     await this.git.add(targetFiles);
 

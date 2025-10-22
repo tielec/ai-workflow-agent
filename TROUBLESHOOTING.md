@@ -41,6 +41,49 @@ TypeScript CLI をローカルまたは Jenkins で利用する際によく発�
 - 同時実行ジョブを減らす、または時間を置いて再実行します。
 - CLI 内でのリトライを待っても回復しない場合はリセットを待つしかありません（通常 1 時間あたり 5,000 リクエスト）。
 
+### GitHub Push Protection エラー（`GH013`）
+
+`init` コマンド実行時にGitHub Personal Access Tokenを含むURLでリポジトリをクローンした場合、push protectionによりコミットが拒否される可能性があります。
+
+**症状**:
+```
+remote: error GH013: Repository rule violations found for refs/heads/ai-workflow/issue-123.
+remote: — Push cannot contain secrets
+```
+
+**原因**:
+- HTTPS形式でクローンした際、URLにトークンが埋め込まれている（例: `https://ghp_xxxxx@github.com/owner/repo.git`）
+- v0.3.1以降では、`init`コマンド実行時にトークンが自動的に除去されますが、既存のワークフローでは手動対応が必要です
+
+**対処法（v0.3.1以降）**:
+- 新規ワークフローでは自動的にトークンが除去されるため、対処不要です
+- `init`コマンド実行時に警告ログが表示されます:
+  ```
+  [WARNING] GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.
+  ```
+
+**対処法（既存ワークフロー）**:
+1. `.ai-workflow/issue-*/metadata.json` を開く
+2. `target_repository.remote_url` フィールドからトークンを手動で削除:
+   ```json
+   {
+     "target_repository": {
+       "remote_url": "https://github.com/owner/repo.git"
+     }
+   }
+   ```
+3. 変更をコミット＆プッシュ
+
+**予防策**:
+- SSH形式でリポジトリをクローンする（推奨）:
+  ```bash
+  git clone git@github.com:owner/repo.git
+  ```
+- HTTPS形式でクローンする場合、トークンを含めない:
+  ```bash
+  git clone https://github.com/owner/repo.git
+  ```
+
 ## 4. メタデータ / 再開
 
 ### `Workflow not found. Run init first.`
