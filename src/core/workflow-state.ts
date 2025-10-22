@@ -1,5 +1,5 @@
 import fs from 'fs-extra';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';
 import {
   PhaseMetadata,
@@ -241,7 +241,11 @@ export class WorkflowState {
     if (migrated) {
       // バックアップ作成
       const timestamp = formatTimestampForFilename();
-      const backupPath = join(dirname(this.metadataPath), `metadata.json.backup_${timestamp}`);
+      const metadataFileName = basename(this.metadataPath);
+      const backupPath = join(
+        dirname(this.metadataPath),
+        `${metadataFileName}.backup_${timestamp}`,
+      );
       fs.copyFileSync(this.metadataPath, backupPath);
       console.info(`[INFO] Metadata backup created: ${backupPath}`);
 
