@@ -1,0 +1,478 @@
+# プロジェクト計画フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細なプロジェクト計画書を作成してください。
+Phase 0はプロジェクトマネージャの役割を担い、開発作業を計画的かつ効率的に進められるようにします。
+
+## Issue情報
+
+## Issue概要
+
+- **Issue番号**: #54
+- **タイトル**: バグ: metadata.jsonにGitHub Personal Access Tokenが含まれpush protectionで拒否される
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/54
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+`init` コマンド実行時に、Git remote URL に含まれる GitHub Personal Access Token が `metadata.json` に保存されてしまい、GitHub の push protection によって push が拒否される問題が発生しています。
+
+**重要度:** HIGH（セキュリティリスク）
+
+## 再現手順
+
+1. HTTPS形式でリポジトリをクローン（トークン埋め込み）:
+```bash
+git clone https://ghp_xxxxxxxxxxxx@github.com/tielec/infrastructure-as-code.git
+```
+
+2. `init` コマンドを実行:
+```bash
+node dist/index.js init --issue-url https://github.com/tielec/infrastructure-as-code/issues/423
+```
+
+3. 結果: push が GitHub push protection により拒否される
+
+## エラーメッセージ
+
+```
+[ERROR] Push failed: remote: error: GH013: Repository rule violations found for refs/heads/ai-workflow/issue-423.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   —————————————————————————————————————————        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:       —— GitHub Personal Access Token ——————————————————————        
+remote:        locations:        
+remote:          - commit: a42733bf5a526ef7ab5b0df50b07279f79387a50        
+remote:            path: .ai-workflow/issue-423/metadata.json:9        
+```
+
+## 原因分析
+
+### 1. Remote URL取得時にトークンが含まれる
+
+`src/commands/init.ts:235-236`:
+```typescript
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+```
+
+このコードは `git remote get-url origin` の結果をそのまま取得しており、HTTPS形式でトークンが埋め込まれている場合（`https://token@github.com/...`）、トークンがそのまま含まれてしまいます。
+
+### 2. metadata.jsonに直接保存
+
+`src/commands/init.ts:237-243`:
+```typescript
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: remoteUrlStr,  // ← トークンが含まれる可能性
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 3. SecretMaskerがmetadata.jsonをスキャンしていない
+
+`src/core/secret-masker.ts:23-27`:
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+];
+```
+
+`metadata.json` がスキャン対象に含まれていないため、トークンがマスクされません。
+
+## 影響範囲
+
+### セキュリティリスク
+- GitHub Personal Access Token が Git履歴に残る可能性
+- リポジトリが public の場合、トークンが公開される
+- トークンの無効化が必要になる
+
+### 機能面の影響
+- `init` コマンドが完了できない
+- ワークフローを開始できない
+- 手動でトークンを削除してコミットを修正する必要がある
+
+## 提案する解決策
+
+### 解決策1: Remote URLからトークンを除去（推奨）
+
+`src/commands/init.ts` でremote URL取得後にトークンを除去:
+
+```typescript
+// src/utils/git-url-utils.ts (新規作成)
+
+/**
+ * Git remote URLからトークン/認証情報を除去
+ * 
+ * @example
+ * sanitizeGitUrl('https://token@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('https://user:pass@github.com/owner/repo.git')
+ * // => 'https://github.com/owner/repo.git'
+ * 
+ * @example
+ * sanitizeGitUrl('git@github.com:owner/repo.git')
+ * // => 'git@github.com:owner/repo.git' (変更なし)
+ */
+export function sanitizeGitUrl(url: string): string {
+  // HTTPS形式の認証情報を除去: https://token@github.com -> https://github.com
+  // パターン: https://[user[:pass]@]host/path
+  const httpsPattern = /^(https?:\/\/)([^@]+@)?(.+)$/;
+  const match = url.match(httpsPattern);
+  
+  if (match) {
+    const [, protocol, , rest] = match;
+    return `${protocol}${rest}`;
+  }
+  
+  // SSH形式やその他はそのまま返す
+  return url;
+}
+```
+
+`src/commands/init.ts` で使用:
+
+```typescript
+import { sanitizeGitUrl } from '../utils/git-url-utils.js';
+
+// ...
+
+const remoteUrl = await git.remote(['get-url', 'origin']);
+const remoteUrlStr = typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+const sanitizedUrl = sanitizeGitUrl(remoteUrlStr);  // ← トークン除去
+
+metadataManager.data.target_repository = {
+  path: repoRoot,
+  github_name: repositoryName,
+  remote_url: sanitizedUrl,  // ← サニタイズ済みURL
+  owner: owner,
+  repo: repo,
+};
+```
+
+### 解決策2: SecretMaskerにmetadata.jsonを追加（追加の安全策）
+
+`src/core/secret-masker.ts`:
+
+```typescript
+private readonly targetFilePatterns = [
+  'agent_log_raw.txt',
+  'agent_log.md',
+  'prompt.txt',
+  'metadata.json',  // ← 追加
+];
+```
+
+**注意**: これだけでは不十分です。metadata.jsonがコミットされる前にマスキングする必要がありますが、現在の実装では `commitWorkflowInit()` でマスキングが行われていない可能性があります。
+
+### 解決策3: commitWorkflowInit でマスキングを確実に実行
+
+`src/core/git-manager.ts` または `src/core/git/commit-manager.ts`:
+
+```typescript
+async commitWorkflowInit(issueNumber: number, branchName: string): Promise<CommitResult> {
+  const workflowDir = path.join(this.repoRoot, '.ai-workflow', `issue-${issueNumber}`);
+  
+  // metadata.json 作成直後にマスキング実行
+  try {
+    const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+    if (maskingResult.secretsMasked > 0) {
+      console.info(`[INFO] Masked ${maskingResult.secretsMasked} secrets in metadata.json`);
+    }
+  } catch (error) {
+    // マスキング失敗は致命的エラーとして扱う
+    console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+    throw new Error('Cannot commit metadata.json with unmasked secrets');
+  }
+  
+  // ... コミット処理 ...
+}
+```
+
+## 推奨アプローチ
+
+**解決策1（URL サニタイズ）を優先実装**:
+- 根本原因（トークンがmetadataに含まれること）を解決
+- シンプルで確実
+- 副作用がない
+
+**解決策2 と 3 を追加の安全策として実装**:
+- Defense in Depth（多層防御）
+- 他の箇所でトークンが混入した場合にも対応
+
+## 実装タスク
+
+- [ ] `src/utils/git-url-utils.ts` を作成
+- [ ] `sanitizeGitUrl()` 関数を実装
+- [ ] `src/commands/init.ts` でremote URLをサニタイズ（2箇所: 192行, 236行）
+- [ ] `sanitizeGitUrl()` のユニットテストを追加
+  - [ ] HTTPS + トークン形式のテスト
+  - [ ] HTTPS + ユーザー:パスワード形式のテスト
+  - [ ] SSH形式のテスト（変更なし）
+  - [ ] 通常のHTTPS形式のテスト（変更なし）
+- [ ] `SecretMasker` に `metadata.json` を追加
+- [ ] `commitWorkflowInit()` でマスキングを確実に実行
+- [ ] 統合テストでトークン埋め込みURLでの動作を確認
+
+## 見積もり
+1日
+
+## 関連Issue
+セキュリティ重要度: HIGH
+
+## プロジェクト計画書の構成
+
+以下のセクションを含むプロジェクト計画書を作成してください：
+
+### 1. Issue分析
+- **複雑度**: 簡単/中程度/複雑を判定
+  - 簡単: 単一ファイルの修正、シンプルな機能追加（見積もり: ~4時間）
+  - 中程度: 複数ファイルの修正、既存機能の拡張（見積もり: 4~16時間）
+  - 複雑: アーキテクチャ変更、新規サブシステム追加（見積もり: 16時間~）
+- **見積もり工数**: X時間（根拠を記載）
+- **リスク評価**: 低/中/高
+
+### 2. 実装戦略判断
+
+**重要**: このセクションは最も重要です。Phase 2（Design）で使用されるため、必ず明記してください。
+
+#### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- CREATE: 新規ファイル・クラス・モジュールの作成が中心
+- EXTEND: 既存コードの拡張（機能追加）が中心
+- REFACTOR: 既存コードのリファクタリング（構造改善）が中心
+
+（判断理由を具体的に記載）
+
+#### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- UNIT_ONLY: ユニットテストのみ（単純なロジック、外部依存なし）
+- INTEGRATION_ONLY: インテグレーションテストのみ（外部システム連携中心）
+- BDD_ONLY: BDDテストのみ（ユーザーストーリー中心）
+- UNIT_INTEGRATION: ユニット + インテグレーション（一般的な機能開発）
+- UNIT_BDD: ユニット + BDD（エンドユーザー向け機能）
+- INTEGRATION_BDD: インテグレーション + BDD（システム間連携＋ユーザーストーリー）
+- ALL: すべてのテストレベル（大規模な変更、高リスク）
+
+（判断理由を具体的に記載）
+
+#### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- EXTEND_TEST: 既存テストファイルに追加（既存機能の拡張時）
+- CREATE_TEST: 新規テストファイル作成（新規機能追加時）
+- BOTH_TEST: 両方（既存テスト拡張 + 新規テスト作成）
+
+（判断理由を具体的に記載）
+
+### 3. 影響範囲分析
+- **既存コードへの影響**: 変更が必要なファイル・モジュール
+- **依存関係の変更**: 新規依存の追加、既存依存の変更
+- **マイグレーション要否**: データベーススキーマ変更、設定ファイル変更等
+
+### 4. タスク分割
+
+## ⚠️ 重要: チェックリスト標準フォーマット（必須）
+
+各フェーズのタスクは、**必ずチェックリスト形式**で記述してください。このチェックリストは、Review Phaseで完了判定に使用されます。
+
+### 標準フォーマット
+
+```markdown
+### Phase X: [フェーズ名] (見積もり: X~Yh)
+
+- [ ] Task X-1: [タスク名] (見積もり時間)
+  - [サブタスク1]
+  - [サブタスク2]
+- [ ] Task X-2: [タスク名] (見積もり時間)
+  - [サブタスク1]
+```
+
+**重要**: このチェックリストは、Review Phaseで完了判定に使用されます。各タスクは明確で検証可能な内容にしてください。
+
+**良い例**:
+```
+- [ ] Task 4-1: CLI層の分離 (3~5h)
+  - cli/commands.py の作成
+  - main.pyからCLIロジックを抽出
+```
+
+**悪い例**:
+```
+- [ ] リファクタリングを実施
+```
+（検証不可能なため不適切）
+
+### 各フェーズのタスクリスト
+
+各フェーズについて、サブタスクを洗い出してください：
+
+#### Phase 1: 要件定義 (見積もり: Xh)
+
+- [ ] Task 1-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+- [ ] Task 1-2: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 2: 設計 (見積もり: Xh)
+
+- [ ] Task 2-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+
+#### Phase 3: テストシナリオ (見積もり: Xh)
+
+- [ ] Task 3-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 4: 実装 (見積もり: Xh)
+
+- [ ] Task 4-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+
+#### Phase 5: テストコード実装 (見積もり: Xh)
+
+- [ ] Task 5-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 6: テスト実行 (見積もり: Xh)
+
+- [ ] Task 6-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 7: ドキュメント (見積もり: Xh)
+
+- [ ] Task 7-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 8: レポート (見積もり: Xh)
+
+- [ ] Task 8-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+**タスク粒度基準**:
+- 1タスク = 1~4時間程度で完了可能な作業単位
+- 明確な完了条件（Done criteria）を持つ
+- 他のタスクから独立して実装・テスト可能
+- **検証可能**: Review Phaseで「完了したか」を客観的に判断できる内容
+
+### 5. 依存関係
+
+タスク間の依存関係をMermaid形式で図示してください：
+
+```mermaid
+graph TD
+    P1[Phase 1] --> P2[Phase 2]
+    P2 --> P3[Phase 3]
+    P3 --> P4[Phase 4]
+    P4 --> P5[Phase 5]
+    P5 --> P6[Phase 6]
+    P6 --> P7[Phase 7]
+```
+
+### 6. リスクと軽減策
+
+潜在的なリスクを洗い出し、各リスクに対する軽減策を記載してください：
+
+#### リスク1: （リスク名）
+- **影響度**: 低/中/高
+- **確率**: 低/中/高
+- **軽減策**: （具体的な対策）
+
+#### リスク2: （リスク名）
+...
+
+**リスクカテゴリ**:
+- 技術的リスク: 新技術の学習コスト、既存システムとの統合問題
+- スコープリスク: 要件の曖昧さ、スコープクリープ
+- リソースリスク: 工数不足、スキル不足
+- 依存リスク: 外部システム依存、ブロッキング問題
+
+### 7. 品質ゲート
+
+各フェーズの合格基準を定義してください：
+
+#### Phase 1: 要件定義
+- [ ] 機能要件が明確に記載されている
+- [ ] 受け入れ基準が定義されている
+...
+
+#### Phase 2: 設計
+- [ ] 実装戦略の判断根拠が明記されている
+- [ ] テスト戦略の判断根拠が明記されている
+...
+
+（以下、Phase 3~7についても記載）
+
+## 出力形式
+
+Markdown形式でプロジェクト計画書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-54/00_planning/output/planning.md
+```
+
+## 品質ゲート（Phase 0）
+
+作成するプロジェクト計画書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略が明確に決定されている**（CREATE/EXTEND/REFACTOR）
+- [ ] **テスト戦略が明確に決定されている**（UNIT_ONLY/.../ALL）
+- [ ] **テストコード戦略が明確に決定されている**（EXTEND_TEST/CREATE_TEST/BOTH_TEST）
+- [ ] **影響範囲が分析されている**
+- [ ] **タスク分割が適切な粒度である**（1タスク = 1~4時間）
+- [ ] **リスクが洗い出されている**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **実装戦略の判断**: Phase 2で使用されるため、必ず明記してください
+   - 実装戦略: CREATE/EXTEND/REFACTOR
+   - テスト戦略: UNIT_ONLY/.../ALL
+   - テストコード戦略: EXTEND_TEST/CREATE_TEST/BOTH_TEST
+
+2. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な計画を記述
+   - NG例: "適切に対応する"、"必要に応じて実施"
+   - OK例: "Phase 2で詳細設計を実施"、"最大3回のリトライを実施"
+
+3. **実現可能性**: 見積もりが現実的か、リソースは十分か確認
+   - タスク粒度が大きすぎないか（1タスク = 1~4時間）
+   - 依存関係が正確に記載されているか
+
+4. **リスク分析の網羅性**: 重要なリスクが見逃されていないか確認
+   - 技術的リスク、スコープリスク、リソースリスク、依存リスク
+
+5. **レビューされることを意識**: 作成した計画書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（6つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント
+
+## プロジェクト計画書の作成を開始してください
