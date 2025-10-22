@@ -14,7 +14,7 @@
 | フェーズ | Evaluation | フェーズ 9: 評価 | ✅ 完了 | `src/phases/evaluation.ts` |
 | コア | Metadata 管理 | メタデータの保存・集計 | ✅ 完了 | `src/core/metadata-manager.ts` |
 | コア | WorkflowState | メタデータ読み書き・移行 | ✅ 完了 | `src/core/workflow-state.ts` |
-| コア | Git 連携 | Git / PR 操作 | ✅ 完了 | `src/core/git-manager.ts`, `src/core/github-client.ts` |
+| コア | Git 連携 | Git / PR 操作 | ✅ 完了 | `src/core/git-manager.ts`, `src/core/git/*.ts`, `src/core/github-client.ts`, `src/core/github/*.ts` |
 | コア | Claude エージェント | Claude Agent SDK ラッパー | ✅ 完了 | `src/core/claude-agent-client.ts` |
 | コア | Codex エージェント | Codex CLI ラッパー | ✅ 完了 | `src/core/codex-agent-client.ts` |
 | コア | Content Parser | OpenAI 経由のレビュー解析 | ✅ 完了 | `src/core/content-parser.ts` |
@@ -30,10 +30,12 @@
 | インフラ | Dockerfile | Jenkins 用コンテナ | ✅ 完了 | `Dockerfile`（Node.js 20 ベース） |
 | テスト | 自動テスト整備 | ユニット / 統合テスト | ✅ 完了 | `tests/unit/**`, `tests/integration/**` |
 | リファクタリング | CLI コマンド処理分離（Issue #22） | main.tsを1309行→118行に削減 | ✅ 完了 | `src/commands/*`, `src/core/repository-utils.ts` |
+| リファクタリング | GitManager モジュール分割（Issue #25） | git-manager.tsを548行→181行に削減（67%削減）、ファサードパターンで3専門マネージャーに分離 | ✅ 完了 | `src/core/git-manager.ts`, `src/core/git/*.ts` |
 
 > ✅: TypeScript 版へ移行済み / 🔄: 継続作業中 / ⏳: 着手予定
 
 **主要な進捗**:
 - TypeScript への完全移植が完了しました。
 - Issue #22 でCLIコマンド処理を分離し、main.tsを118行に削減、保守性を大幅に向上させました（v0.3.0）。
+- Issue #25 でGitManagerをファサードパターンで548行→181行に削減（67%削減）、3つの専門マネージャー（CommitManager、BranchManager、RemoteManager）に分離しました（v0.3.1）。
 - Jestベースの自動テスト整備が完了し、ユニットテスト189件、統合テスト90件を実装しました。
