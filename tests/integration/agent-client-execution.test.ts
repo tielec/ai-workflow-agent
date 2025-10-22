@@ -2,6 +2,7 @@ import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import * as child_process from 'node:child_process';
 import * as fs from 'fs-extra';
+import { jest } from '@jest/globals';
 
 // 外部依存のモック
 jest.mock('node:child_process');
@@ -11,7 +12,7 @@ describe('エージェント実行の統合テスト', () => {
   describe('Codexエージェント実行フロー', () => {
     it('統合テスト: Codex実行からログ出力までの統合フローが動作する', async () => {
       // Given: Codex CLI実行環境
-      const client = new CodexAgentClient('/test/workspace');
+      const client = new CodexAgentClient({ workingDir: '/test/workspace' });
       const mockSpawn = jest.fn().mockReturnValue({
         stdout: {
           on: jest.fn((event, callback) => {
@@ -38,14 +39,13 @@ describe('エージェント実行の統合テスト', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      (child_process.spawn as any) = mockSpawn;
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
         prompt: 'Integration test prompt',
-        workingDir: '/test/workspace',
-        taskName: 'integration-test',
+        workingDirectory: '/test/workspace',
       });
 
       // Then: すべての手順が正しく実行される
@@ -63,9 +63,9 @@ describe('エージェント実行の統合テスト', () => {
   describe('Claudeエージェント実行フロー', () => {
     it('統合テスト: Claude実行からログ出力までの統合フローが動作する（認証確認のみ）', async () => {
       // Given: Claude Agent SDK実行環境
-      const client = new ClaudeAgentClient('/test/workspace');
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      const client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.readFileSync as any) = jest.fn().mockReturnValue(
         JSON.stringify({
           oauth: { access_token: 'integration-test-token' },
         })
@@ -83,7 +83,7 @@ describe('エージェント実行の統合テスト', () => {
   describe('エージェントフォールバック処理', () => {
     it('統合テスト: Codex失敗時のハンドリングが動作する', async () => {
       // Given: Codex CLI失敗環境
-      const client = new CodexAgentClient('/test/workspace');
+      const client = new CodexAgentClient({ workingDir: '/test/workspace' });
       const mockSpawn = jest.fn().mockReturnValue({
         stdout: { on: jest.fn() },
         stderr: {
@@ -99,14 +99,13 @@ describe('エージェント実行の統合テスト', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When/Then: Codex実行が失敗する
       await expect(
         client.executeTask({
           prompt: 'Test prompt',
-          workingDir: '/test/workspace',
-          taskName: 'test-task',
+          workingDirectory: '/test/workspace',
         })
       ).rejects.toThrow();
 

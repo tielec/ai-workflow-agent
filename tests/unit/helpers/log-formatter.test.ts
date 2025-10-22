@@ -69,7 +69,10 @@ describe('log-formatter', () => {
       // Given: systemタイプのイベント
       const eventType = 'system';
       const payload: CodexEvent = {
-        message: 'System message',
+        message: {
+          role: 'system',
+          content: [{ type: 'text', text: 'System message' }],
+        },
       };
 
       // When: formatCodexLog関数を呼び出す
@@ -86,7 +89,9 @@ describe('log-formatter', () => {
       // Given: assistantタイプのthinkingメッセージ
       const message: any = {
         type: 'assistant',
-        content: [{ type: 'text', text: 'Thinking...' }],
+        message: {
+          content: [{ type: 'text', text: 'Thinking...' }],
+        },
       };
 
       // When: formatClaudeLog関数を呼び出す
@@ -101,13 +106,15 @@ describe('log-formatter', () => {
       // Given: tool_useを含むassistantメッセージ
       const message: any = {
         type: 'assistant',
-        content: [
-          {
-            type: 'tool_use',
-            name: 'Read',
-            input: { file_path: '/path/to/file.ts' },
-          },
-        ],
+        message: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'Read',
+              input: { file_path: '/path/to/file.ts' },
+            },
+          ],
+        },
       };
 
       // When: formatClaudeLog関数を呼び出す

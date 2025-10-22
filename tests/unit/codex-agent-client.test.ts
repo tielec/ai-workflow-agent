@@ -1,5 +1,6 @@
 import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import * as child_process from 'node:child_process';
+import { jest } from '@jest/globals';
 
 // child_processのモック
 jest.mock('node:child_process');
@@ -8,7 +9,7 @@ describe('CodexAgentClient', () => {
   let client: CodexAgentClient;
 
   beforeEach(() => {
-    client = new CodexAgentClient('/test/workspace');
+    client = new CodexAgentClient({ workingDir: '/test/workspace' });
     jest.clearAllMocks();
   });
 
@@ -41,13 +42,12 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
         prompt: 'Test prompt',
-        workingDir: '/test/workspace',
-        taskName: 'test-task',
+        workingDirectory: '/test/workspace',
       });
 
       // Then: 出力配列が返される
@@ -74,14 +74,13 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // When/Then: executeTask関数を呼び出すとエラーがスローされる
       await expect(
         client.executeTask({
           prompt: 'Test prompt',
-          workingDir: '/test/workspace',
-          taskName: 'test-task',
+          workingDirectory: '/test/workspace',
         })
       ).rejects.toThrow();
     });
@@ -112,7 +111,7 @@ describe('CodexAgentClient', () => {
           }
         }),
       });
-      (child_process.spawn as jest.Mock) = mockSpawn;
+      (child_process.spawn as any) = mockSpawn;
 
       // プロンプトファイルの読み込みをモック化する必要があるが、
       // 実装の詳細に依存するため、ここでは省略
