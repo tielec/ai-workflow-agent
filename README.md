@@ -36,6 +36,7 @@ ai-workflow-agent/
 - Claude Code 認証ファイル（`credentials.json`）
 - GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org`）
 - （任意）環境変数 `REPOS_ROOT` … マルチリポジトリ環境でリポジトリの親ディレクトリを指定
+- （任意）環境変数 `LOG_LEVEL` … ログレベル設定（DEBUG/INFO/WARN/ERROR、デフォルトはINFO）
 - （任意）Docker 24 以上（コンテナ内で実行する場合）
 
 ## クイックスタート（ローカル）
@@ -51,6 +52,7 @@ export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json"
 export GITHUB_TOKEN="ghp_..."
 export GITHUB_REPOSITORY="tielec/ai-workflow-agent"
 export REPOS_ROOT="$HOME/projects"       # （任意）リポジトリの親ディレクトリ
+export LOG_LEVEL="INFO"                  # （任意）ログレベル（DEBUG/INFO/WARN/ERROR）
 
 # Issue URL からワークフローを初期化
 node dist/index.js init \

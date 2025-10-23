@@ -119,6 +119,7 @@ node dist/index.js list-presets
 - **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義（約249行、Issue #26で27.2%削減）
 - **`src/core/helpers/dependency-messages.ts`**: 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
+- **`src/core/logger.ts`**: Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供
 
 ### フェーズ順序（0-9）
 
