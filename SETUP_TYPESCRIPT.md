@@ -32,6 +32,7 @@ export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json"
 export GITHUB_TOKEN="ghp_..."                         # GitHub PAT
 export GITHUB_REPOSITORY="tielec/ai-workflow-agent"   # 既定のリポジトリ
 export REPOS_ROOT="$HOME/projects"                    # （任意）マルチリポジトリ環境でのリポジトリ親ディレクトリ
+export LOG_LEVEL="INFO"                               # （任意）ログレベル（DEBUG/INFO/WARN/ERROR）
 ```
 
 CLI は `CODEX_API_KEY` を検出すると `OPENAI_API_KEY` にもコピーし、Codex CLI と同じ仕様に合わせます。`REPOS_ROOT` は、別のリポジトリに対してワークフローを実行する場合に便利です（v0.2.0 で追加）。
