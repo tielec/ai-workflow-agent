@@ -93,7 +93,7 @@
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: Logger抽象化の要件定義 (1~2h)
+- [x] Task 1-1: Logger抽象化の要件定義 (1~2h)
   - ILoggerインターフェースの仕様確定
   - LogLevelの定義確定
   - 環境変数（LOG_LEVEL）の仕様確定
