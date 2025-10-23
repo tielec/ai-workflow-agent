@@ -168,7 +168,7 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2h)
 
-- [ ] Task 5-1: ユニットテストの実装 (2h)
+- [x] Task 5-1: ユニットテストの実装 (2h)
   - `tests/unit/core/logger.test.ts` の作成
   - LogLevelフィルタリングのテスト
   - 構造化ログのテスト
