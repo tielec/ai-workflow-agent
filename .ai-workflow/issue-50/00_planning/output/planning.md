@@ -101,7 +101,7 @@
 
 ### Phase 2: 設計 (見積もり: 1~2h)
 
-- [ ] Task 2-1: Logger抽象化の詳細設計 (1~2h)
+- [x] Task 2-1: Logger抽象化の詳細設計 (1~2h)
   - クラス図の作成（ILogger、ConsoleLogger、LogLevel）
   - メソッドシグネチャの確定
   - シングルトンパターンの設計
