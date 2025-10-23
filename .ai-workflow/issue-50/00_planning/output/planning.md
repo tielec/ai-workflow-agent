@@ -117,7 +117,7 @@
 
 ### Phase 4: 実装 (見積もり: 12~14h)
 
-- [ ] Task 4-1: Logger抽象化の実装 (2~3h)
+- [x] Task 4-1: Logger抽象化の実装 (2~3h)
   - `src/core/logger.ts` の作成
   - LogLevelの実装
   - ILoggerインターフェースの実装
