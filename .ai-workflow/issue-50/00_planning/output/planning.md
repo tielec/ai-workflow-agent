@@ -184,7 +184,7 @@
 
 ### Phase 7: ドキュメント (見積もり: 1h)
 
-- [ ] Task 7-1: ドキュメント更新 (1h)
+- [x] Task 7-1: ドキュメント更新 (1h)
   - README.md の更新（環境変数LOG_LEVELの追加）
   - ARCHITECTURE.md の更新（Loggerモジュールの追加）
   - CLAUDE.md の更新（ロギングガイドラインの追加）
