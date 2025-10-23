@@ -1,0 +1,374 @@
+# プロジェクト計画フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細なプロジェクト計画書を作成してください。
+Phase 0はプロジェクトマネージャの役割を担い、開発作業を計画的かつ効率的に進められるようにします。
+
+## Issue情報
+
+## Issue概要
+
+- **Issue番号**: #50
+- **タイトル**: 機能追加: 分散したconsole.log呼び出しを置き換えるLogger抽象化を追加（278箇所）
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/50
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+コードベースに `console.log`、`console.error`、`console.warn`、`console.info` の直接呼び出しが 278 箇所あり、以下の問題があります：
+- ログフォーマットをグローバルに変更できない
+- ビジネスロジックとロギングが混在
+- ログレベルのフィルタリングができない
+- ロギング動作のテストが困難
+- 構造化ログのサポートがない
+
+**重要度:** MEDIUM
+
+## 影響
+- ロギングバックエンドの切り替えが困難
+- 本番環境でログの詳細度を制御できない
+- ログ出力するコードのテストが困難
+- ログ集約のための構造化データがない
+- ログをファイルや外部サービスにリダイレクトできない
+
+## 現在のパターン
+```typescript
+console.log('[INFO] Starting workflow...');
+console.error(`[ERROR] Failed: ${error.message}`);
+console.warn(`[WARNING] Deprecated feature`);
+```
+
+## 提案する解決策
+ロガー抽象化を作成:
+
+```typescript
+// src/core/logger.ts
+
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3
+}
+
+export interface ILogger {
+  debug(message: string, context?: Record<string, unknown>): void;
+  info(message: string, context?: Record<string, unknown>): void;
+  warn(message: string, context?: Record<string, unknown>): void;
+  error(message: string, error?: Error, context?: Record<string, unknown>): void;
+}
+
+export class ConsoleLogger implements ILogger {
+  constructor(private minLevel: LogLevel = LogLevel.INFO) {}
+  
+  debug(message: string, context?: Record<string, unknown>): void {
+    if (this.minLevel <= LogLevel.DEBUG) {
+      console.log(`[DEBUG] ${message}`, context ?? '');
+    }
+  }
+  
+  info(message: string, context?: Record<string, unknown>): void {
+    if (this.minLevel <= LogLevel.INFO) {
+      console.log(`[INFO] ${message}`, context ?? '');
+    }
+  }
+  
+  warn(message: string, context?: Record<string, unknown>): void {
+    if (this.minLevel <= LogLevel.WARN) {
+      console.warn(`[WARNING] ${message}`, context ?? '');
+    }
+  }
+  
+  error(message: string, error?: Error, context?: Record<string, unknown>): void {
+    if (this.minLevel <= LogLevel.ERROR) {
+      console.error(`[ERROR] ${message}`, error, context ?? '');
+    }
+  }
+}
+
+// シングルトンインスタンス
+export const logger = new ConsoleLogger();
+```
+
+使用例:
+
+```typescript
+import { logger } from '@/core/logger';
+
+// シンプルなロギング
+logger.info('Starting workflow...');
+
+// コンテキスト付き
+logger.info('Phase completed', { phase: 'requirements', duration: 1234 });
+
+// エラーロギング
+logger.error('Failed to commit', error, { phase: 'implementation' });
+```
+
+## メリット
+- 一元化されたロギング設定
+- ログレベルフィルタリング
+- 構造化ログのサポート
+- テストが容易
+- バックエンドの切り替えが可能（ファイル、外部サービス）
+- より良い本番環境でのデバッグ
+
+## 実装計画
+1. ロガー抽象化を作成（1日）
+2. console 呼び出しを段階的に置き換え（2-3日）：
+   - commands/ から開始
+   - 次に core/
+   - 最後に phases/
+3. 環境変数からログレベルを設定可能にする（0.5日）
+
+## 見積もり
+3-4日
+
+## 影響を受けるファイル
+31ファイル、合計 278 箇所の console 呼び出し
+
+## プロジェクト計画書の構成
+
+以下のセクションを含むプロジェクト計画書を作成してください：
+
+### 1. Issue分析
+- **複雑度**: 簡単/中程度/複雑を判定
+  - 簡単: 単一ファイルの修正、シンプルな機能追加（見積もり: ~4時間）
+  - 中程度: 複数ファイルの修正、既存機能の拡張（見積もり: 4~16時間）
+  - 複雑: アーキテクチャ変更、新規サブシステム追加（見積もり: 16時間~）
+- **見積もり工数**: X時間（根拠を記載）
+- **リスク評価**: 低/中/高
+
+### 2. 実装戦略判断
+
+**重要**: このセクションは最も重要です。Phase 2（Design）で使用されるため、必ず明記してください。
+
+#### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- CREATE: 新規ファイル・クラス・モジュールの作成が中心
+- EXTEND: 既存コードの拡張（機能追加）が中心
+- REFACTOR: 既存コードのリファクタリング（構造改善）が中心
+
+（判断理由を具体的に記載）
+
+#### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- UNIT_ONLY: ユニットテストのみ（単純なロジック、外部依存なし）
+- INTEGRATION_ONLY: インテグレーションテストのみ（外部システム連携中心）
+- BDD_ONLY: BDDテストのみ（ユーザーストーリー中心）
+- UNIT_INTEGRATION: ユニット + インテグレーション（一般的な機能開発）
+- UNIT_BDD: ユニット + BDD（エンドユーザー向け機能）
+- INTEGRATION_BDD: インテグレーション + BDD（システム間連携＋ユーザーストーリー）
+- ALL: すべてのテストレベル（大規模な変更、高リスク）
+
+（判断理由を具体的に記載）
+
+#### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- EXTEND_TEST: 既存テストファイルに追加（既存機能の拡張時）
+- CREATE_TEST: 新規テストファイル作成（新規機能追加時）
+- BOTH_TEST: 両方（既存テスト拡張 + 新規テスト作成）
+
+（判断理由を具体的に記載）
+
+### 3. 影響範囲分析
+- **既存コードへの影響**: 変更が必要なファイル・モジュール
+- **依存関係の変更**: 新規依存の追加、既存依存の変更
+- **マイグレーション要否**: データベーススキーマ変更、設定ファイル変更等
+
+### 4. タスク分割
+
+## ⚠️ 重要: チェックリスト標準フォーマット（必須）
+
+各フェーズのタスクは、**必ずチェックリスト形式**で記述してください。このチェックリストは、Review Phaseで完了判定に使用されます。
+
+### 標準フォーマット
+
+```markdown
+### Phase X: [フェーズ名] (見積もり: X~Yh)
+
+- [ ] Task X-1: [タスク名] (見積もり時間)
+  - [サブタスク1]
+  - [サブタスク2]
+- [ ] Task X-2: [タスク名] (見積もり時間)
+  - [サブタスク1]
+```
+
+**重要**: このチェックリストは、Review Phaseで完了判定に使用されます。各タスクは明確で検証可能な内容にしてください。
+
+**良い例**:
+```
+- [ ] Task 4-1: CLI層の分離 (3~5h)
+  - cli/commands.py の作成
+  - main.pyからCLIロジックを抽出
+```
+
+**悪い例**:
+```
+- [ ] リファクタリングを実施
+```
+（検証不可能なため不適切）
+
+### 各フェーズのタスクリスト
+
+各フェーズについて、サブタスクを洗い出してください：
+
+#### Phase 1: 要件定義 (見積もり: Xh)
+
+- [ ] Task 1-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+- [ ] Task 1-2: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 2: 設計 (見積もり: Xh)
+
+- [ ] Task 2-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+
+#### Phase 3: テストシナリオ (見積もり: Xh)
+
+- [ ] Task 3-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 4: 実装 (見積もり: Xh)
+
+- [ ] Task 4-1: [タスク名] (見積もり時間)
+  - サブタスク1
+  - サブタスク2
+
+#### Phase 5: テストコード実装 (見積もり: Xh)
+
+- [ ] Task 5-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 6: テスト実行 (見積もり: Xh)
+
+- [ ] Task 6-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 7: ドキュメント (見積もり: Xh)
+
+- [ ] Task 7-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+#### Phase 8: レポート (見積もり: Xh)
+
+- [ ] Task 8-1: [タスク名] (見積もり時間)
+  - サブタスク1
+
+**タスク粒度基準**:
+- 1タスク = 1~4時間程度で完了可能な作業単位
+- 明確な完了条件（Done criteria）を持つ
+- 他のタスクから独立して実装・テスト可能
+- **検証可能**: Review Phaseで「完了したか」を客観的に判断できる内容
+
+### 5. 依存関係
+
+タスク間の依存関係をMermaid形式で図示してください：
+
+```mermaid
+graph TD
+    P1[Phase 1] --> P2[Phase 2]
+    P2 --> P3[Phase 3]
+    P3 --> P4[Phase 4]
+    P4 --> P5[Phase 5]
+    P5 --> P6[Phase 6]
+    P6 --> P7[Phase 7]
+```
+
+### 6. リスクと軽減策
+
+潜在的なリスクを洗い出し、各リスクに対する軽減策を記載してください：
+
+#### リスク1: （リスク名）
+- **影響度**: 低/中/高
+- **確率**: 低/中/高
+- **軽減策**: （具体的な対策）
+
+#### リスク2: （リスク名）
+...
+
+**リスクカテゴリ**:
+- 技術的リスク: 新技術の学習コスト、既存システムとの統合問題
+- スコープリスク: 要件の曖昧さ、スコープクリープ
+- リソースリスク: 工数不足、スキル不足
+- 依存リスク: 外部システム依存、ブロッキング問題
+
+### 7. 品質ゲート
+
+各フェーズの合格基準を定義してください：
+
+#### Phase 1: 要件定義
+- [ ] 機能要件が明確に記載されている
+- [ ] 受け入れ基準が定義されている
+...
+
+#### Phase 2: 設計
+- [ ] 実装戦略の判断根拠が明記されている
+- [ ] テスト戦略の判断根拠が明記されている
+...
+
+（以下、Phase 3~7についても記載）
+
+## 出力形式
+
+Markdown形式でプロジェクト計画書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-50/00_planning/output/planning.md
+```
+
+## 品質ゲート（Phase 0）
+
+作成するプロジェクト計画書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略が明確に決定されている**（CREATE/EXTEND/REFACTOR）
+- [ ] **テスト戦略が明確に決定されている**（UNIT_ONLY/.../ALL）
+- [ ] **テストコード戦略が明確に決定されている**（EXTEND_TEST/CREATE_TEST/BOTH_TEST）
+- [ ] **影響範囲が分析されている**
+- [ ] **タスク分割が適切な粒度である**（1タスク = 1~4時間）
+- [ ] **リスクが洗い出されている**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **実装戦略の判断**: Phase 2で使用されるため、必ず明記してください
+   - 実装戦略: CREATE/EXTEND/REFACTOR
+   - テスト戦略: UNIT_ONLY/.../ALL
+   - テストコード戦略: EXTEND_TEST/CREATE_TEST/BOTH_TEST
+
+2. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な計画を記述
+   - NG例: "適切に対応する"、"必要に応じて実施"
+   - OK例: "Phase 2で詳細設計を実施"、"最大3回のリトライを実施"
+
+3. **実現可能性**: 見積もりが現実的か、リソースは十分か確認
+   - タスク粒度が大きすぎないか（1タスク = 1~4時間）
+   - 依存関係が正確に記載されているか
+
+4. **リスク分析の網羅性**: 重要なリスクが見逃されていないか確認
+   - 技術的リスク、スコープリスク、リソースリスク、依存リスク
+
+5. **レビューされることを意識**: 作成した計画書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（6つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント
+
+## プロジェクト計画書の作成を開始してください
