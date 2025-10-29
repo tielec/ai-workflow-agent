@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 import { RemainingTask } from '../../types.js';
 
@@ -157,7 +158,7 @@ export class IssueClient {
         state: 'closed',
       });
 
-      console.info(`[INFO] Closed issue #${issueNumber}`);
+      logger.info(`Closed issue #${issueNumber}`);
 
       return { success: true, error: null };
     } catch (error) {
@@ -165,7 +166,7 @@ export class IssueClient {
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
           : (error as Error).message;
-      console.error(`[ERROR] Failed to close issue: ${this.encodeWarning(message)}`);
+      logger.error(`Failed to close issue: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
   }
@@ -218,7 +219,7 @@ export class IssueClient {
           ? `GitHub API error: ${error.status} - ${error.message}`
           : (error as Error).message;
 
-      console.error(`[ERROR] Failed to create follow-up issue: ${this.encodeWarning(message)}`);
+      logger.error(`Failed to create follow-up issue: ${this.encodeWarning(message)}`);
 
       return {
         success: false,

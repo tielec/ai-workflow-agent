@@ -347,7 +347,100 @@ Evaluation Phase（Issue #5）で修正された問題と同様、エージェ�
 3. ファイルが作成されることを確認
 4. 複数回実行して再現性を検証（推奨: 3回連続実行で100%成功率）
 
-## 12. デバッグのヒント
+## 12. ロギング・テスト関連
+
+### カラーリングテストの失敗
+
+`tests/unit/utils/logger.test.ts` のカラーリングテストがCI環境で失敗する場合：
+
+**症状**:
+```
+Expected color escape codes in logger output, but found none
+```
+
+**原因**:
+- CI環境では `chalk` のカラーレベルがデフォルトで0（カラーなし）になる
+- テストでカラー出力を検証している場合、CI環境で失敗する可能性がある
+
+**対処法**:
+1. テストファイルの `beforeEach()` フックで `chalk.level = 3` を強制設定:
+   ```typescript
+   import chalk from 'chalk';
+
+   beforeEach(() => {
+     // Force chalk to use TrueColor (level 3) for consistent test results
+     chalk.level = 3;
+   });
+   ```
+2. 環境変数 `LOG_NO_COLOR` が `true` に設定されている場合、カラーリングは無効化されます（CI環境推奨）
+3. ローカルでCI環境を再現するには:
+   ```bash
+   LOG_NO_COLOR=true npm run test:unit
+   ```
+
+### 不要な.ts.bakファイルの削除
+
+プロジェクト内に `.ts.bak` ファイルが残存している場合：
+
+**症状**:
+- リポジトリに不要なバックアップファイルが存在
+- Git履歴に誤ってコミットされている
+
+**対処法**:
+1. `.ts.bak` ファイルを検索:
+   ```bash
+   find . -name "*.ts.bak" -type f
+   ```
+2. 削除前に確認（dry-run）:
+   ```bash
+   find . -name "*.ts.bak" -type f -print
+   ```
+3. 削除実行:
+   ```bash
+   find . -name "*.ts.bak" -type f -delete
+   ```
+4. ビルドが正常に完了することを確認:
+   ```bash
+   npm run build
+   ```
+5. 削除をコミット:
+   ```bash
+   git add -A
+   git commit -m "Remove unnecessary .ts.bak files"
+   git push
+   ```
+
+**注意**: `.ts.bak` ファイルは実行に影響しないため、削除による機能的な影響はありません。
+
+### テストコードでのconsole使用エラー
+
+テストファイルで `console.log`, `console.error` 等を直接使用した場合、ESLintエラーが発生します。
+
+**症状**:
+```
+error: Unexpected console statement (no-console)
+```
+
+**対処法**:
+1. 統一loggerモジュールを使用:
+   ```typescript
+   import { logger } from '../../src/utils/logger.js';
+
+   // console.log('[INFO] message') の代わりに:
+   logger.info('message');
+
+   // console.error('error') の代わりに:
+   logger.error('error');
+
+   // console.warn('[WARNING] warning') の代わりに:
+   logger.warn('warning');
+   ```
+2. プレフィックス（`[INFO]`, `[WARNING]` 等）はloggerが自動的に付与するため削除してください
+3. import文のパスは相対パスを使用（テストファイルの位置に応じた）
+
+**参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
+
+## 13. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
@@ -356,5 +449,7 @@ Evaluation Phase（Issue #5）で修正された問題と同様、エージェ�
 - マルチリポジトリ関連の問題は、Issue URL が正しいか、対象リポジトリが正しくクローンされているか確認してください。
 - **ステップレジューム関連**: `metadata.json` の `current_step` と `completed_steps` フィールドを確認してください。
 - **ファイル保存問題**: エージェントログで Write ツール呼び出しを確認し、プロンプトの「最終ステップ」セクションの存在を確認してください。
+- **カラーリングテスト関連**: `chalk.level` の強制設定と `LOG_NO_COLOR` 環境変数を確認してください。
+- **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 
 対処できない場合は、実行したコマンド、環境変数（機微情報をマスク）、`agent_log_raw.txt` の該当箇所を添えて Issue もしくはチームチャンネルで共有してください。

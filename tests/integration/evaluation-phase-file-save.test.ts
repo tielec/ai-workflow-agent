@@ -22,6 +22,7 @@ import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { ContentParser } from '../../src/core/content-parser.js';
 import { GitHubClient } from '../../src/core/github-client.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(os.tmpdir(), 'evaluation-phase-test');
@@ -239,7 +240,7 @@ Implementation is complete but minor improvements needed.
       expect(metadata.data.phases.evaluation.decision).toBe('PASS_WITH_ISSUES');
       expect(metadata.data.phases.evaluation.remaining_tasks).toBeDefined();
     } else {
-      console.warn('[WARNING] OPENAI_API_KEY not set, test skipped');
+      logger.warn('OPENAI_API_KEY not set, test skipped');
     }
   });
 
@@ -282,7 +283,7 @@ Design phase has critical issues.
       expect(metadata.data.phases.evaluation.decision).toBe('FAIL_PHASE_2');
       expect(metadata.data.phases.evaluation.failed_phase).toBe('design');
     } else {
-      console.warn('[WARNING] OPENAI_API_KEY not set, test skipped');
+      logger.warn('OPENAI_API_KEY not set, test skipped');
     }
   });
 
@@ -324,7 +325,7 @@ Fundamental mismatch between requirements and technology stack.
       expect(metadata.data.phases.evaluation.decision).toBe('ABORT');
       expect(metadata.data.phases.evaluation.abort_reason).toBeDefined();
     } else {
-      console.warn('[WARNING] OPENAI_API_KEY not set, test skipped');
+      logger.warn('OPENAI_API_KEY not set, test skipped');
     }
   });
 });

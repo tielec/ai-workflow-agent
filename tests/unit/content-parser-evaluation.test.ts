@@ -12,6 +12,7 @@
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
 import { ContentParser } from '../../src/core/content-parser.js';
+import { logger } from '../../src/utils/logger.js';
 
 describe('ContentParser.parseEvaluationDecision - 正常系', () => {
   let parser: ContentParser;
@@ -19,7 +20,7 @@ describe('ContentParser.parseEvaluationDecision - 正常系', () => {
   beforeEach(() => {
     // OpenAI API キーが設定されている場合のみテストを実行
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('[WARNING] OPENAI_API_KEY not set, tests will be skipped');
+      logger.warn('OPENAI_API_KEY not set, tests will be skipped');
     }
     parser = new ContentParser();
   });
@@ -135,7 +136,7 @@ describe('ContentParser.parseEvaluationDecision - 異常系', () => {
 
   beforeEach(() => {
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('[WARNING] OPENAI_API_KEY not set, tests will be skipped');
+      logger.warn('OPENAI_API_KEY not set, tests will be skipped');
     }
     parser = new ContentParser();
   });
@@ -200,7 +201,7 @@ describe('ContentParser.parseEvaluationDecision - フォールバックパター
 
   beforeEach(() => {
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('[WARNING] OPENAI_API_KEY not set, tests will be skipped');
+      logger.warn('OPENAI_API_KEY not set, tests will be skipped');
     }
     parser = new ContentParser();
   });

@@ -12,6 +12,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/g
 import fs from 'fs-extra';
 import path from 'node:path';
 import { SecretMasker } from '../../src/core/secret-masker.js';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'secret-masker-test');
@@ -334,7 +335,7 @@ describe('SecretMaskerエラーハンドリングテスト', () => {
     // Given: 読み取り専用ファイル (Windowsではfs.chmodが効かない場合があるのでスキップ)
     // このテストはLinux/Mac環境でのみ有効
     if (process.platform === 'win32') {
-      console.log('[INFO] Skipping read-only test on Windows');
+      logger.info('Skipping read-only test on Windows');
       return;
     }
 

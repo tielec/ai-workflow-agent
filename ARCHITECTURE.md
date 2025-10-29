@@ -85,6 +85,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約239行、Issue #26で9.5%削減）。 |
 | `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
+| `src/utils/logger.ts` | 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御（debug/info/warn/error）、カラーリング機能（chalk統合）、タイムスタンプ自動付与、環境変数制御（LOG_LEVEL、LOG_NO_COLOR）を提供。`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` をエクスポート。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |

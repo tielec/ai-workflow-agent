@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "no-console": "error"
+  },
+  "overrides": [
+    {
+      "files": ["src/utils/logger.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import path from 'node:path';
 import process from 'node:process';
 import fs from 'fs-extra';
 
+import { logger } from '../utils/logger.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
 import { ClaudeAgentClient } from '../core/claude-agent-client.js';
@@ -56,18 +57,18 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   const cleanupOnCompleteForce = Boolean(options.cleanupOnCompleteForce);
 
   if (presetOption && phaseOption !== 'all') {
-    console.error("[ERROR] Options '--preset' and '--phase' are mutually exclusive.");
+    logger.error("Options '--preset' and '--phase' are mutually exclusive.");
     process.exit(1);
   }
 
   if (!phaseOption && !presetOption) {
-    console.error("[ERROR] Either '--phase' or '--preset' must be specified.");
+    logger.error("Either '--phase' or '--preset' must be specified.");
     process.exit(1);
   }
 
   if (skipDependencyCheck && ignoreDependencies) {
-    console.error(
-      "[ERROR] Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
+    logger.error(
+      "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
     );
     process.exit(1);
   }
@@ -91,11 +92,11 @@ export async function handleExecuteCommand(options: any): Promise<void> {
     );
 
     if (fs.existsSync(fallbackMetadataPath)) {
-      console.warn('[WARNING] Metadata found in current repository (legacy behavior).');
+      logger.warn('Metadata found in current repository (legacy behavior).');
       repoRoot = currentRepoRoot;
       metadataPath = fallbackMetadataPath;
     } else {
-      console.error('Error: Workflow not found. Run init first.');
+      logger.error('Workflow not found. Run init first.');
       process.exit(1);
     }
   }
@@ -105,11 +106,11 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   // メタデータから対象リポジトリ情報を取得
   const targetRepo = metadataManager.data.target_repository;
   if (targetRepo) {
-    console.info(`[INFO] Target repository: ${targetRepo.github_name}`);
-    console.info(`[INFO] Local path: ${targetRepo.path}`);
+    logger.info(`Target repository: ${targetRepo.github_name}`);
+    logger.info(`Local path: ${targetRepo.path}`);
   } else {
     // 後方互換性: target_repositoryが存在しない場合は現在のリポジトリを使用
-    console.warn('[WARNING] target_repository not found in metadata. Using current repository.');
+    logger.warn('target_repository not found in metadata. Using current repository.');
   }
 
   if (options.gitUser) {
@@ -132,7 +133,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   }
 
   if (forceReset) {
-    console.info('[INFO] --force-reset specified. Restarting from Phase 1...');
+    logger.info('--force-reset specified. Restarting from Phase 1...');
     metadataManager = await resetMetadata(metadataManager, metadataPath, issueNumber);
   }
 
@@ -144,7 +145,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   const agentMode: 'auto' | 'codex' | 'claude' =
     agentModeRaw === 'codex' || agentModeRaw === 'claude' ? agentModeRaw : 'auto';
 
-  console.info(`[INFO] Agent mode: ${agentMode}`);
+  logger.info(`Agent mode: ${agentMode}`);
 
   const claudeCandidatePaths: string[] = [];
   if (process.env.CLAUDE_CODE_CREDENTIALS_PATH) {
@@ -177,7 +178,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
       }
       delete process.env.CLAUDE_CODE_CREDENTIALS_PATH;
       codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-      console.info('[INFO] Codex agent enabled (codex mode).');
+      logger.info('Codex agent enabled (codex mode).');
       break;
     }
     case 'claude': {
@@ -188,7 +189,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
       }
       claudeClient = new ClaudeAgentClient({ workingDir, credentialsPath: claudeCredentialsPath });
       process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
-      console.info('[INFO] Claude Code agent enabled (claude mode).');
+      logger.info('Claude Code agent enabled (claude mode).');
       break;
     }
     case 'auto':
@@ -200,14 +201,14 @@ export async function handleExecuteCommand(options: any): Promise<void> {
           process.env.OPENAI_API_KEY = trimmed;
         }
         codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-        console.info('[INFO] Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
+        logger.info('Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
       }
 
       if (claudeCredentialsPath) {
         if (!codexClient) {
-          console.info('[INFO] Codex agent unavailable. Using Claude Code.');
+          logger.info('Codex agent unavailable. Using Claude Code.');
         } else {
-          console.info('[INFO] Claude Code credentials detected. Fallback available.');
+          logger.info('Claude Code credentials detected. Fallback available.');
         }
         claudeClient = new ClaudeAgentClient({ workingDir, credentialsPath: claudeCredentialsPath });
         process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
@@ -217,8 +218,8 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   }
 
   if (!codexClient && !claudeClient) {
-    console.error(
-      `[ERROR] Agent mode "${agentMode}" requires a valid agent configuration, but neither Codex API key nor Claude Code credentials are available.`,
+    logger.error(
+      `Agent mode "${agentMode}" requires a valid agent configuration, but neither Codex API key nor Claude Code credentials are available.`,
     );
     process.exit(1);
   }
@@ -244,7 +245,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
 
   const branchExists = await gitManager.branchExists(branchName);
   if (!branchExists) {
-    console.error(`[ERROR] Branch not found: ${branchName}. Please run init first.`);
+    logger.error(`Branch not found: ${branchName}. Please run init first.`);
     process.exit(1);
   }
 
@@ -252,27 +253,25 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   if (currentBranch !== branchName) {
     const switchResult = await gitManager.switchBranch(branchName);
     if (!switchResult.success) {
-      console.error(`[ERROR] ${switchResult.error ?? 'Failed to switch branch.'}`);
+      logger.error(`${switchResult.error ?? 'Failed to switch branch.'}`);
       process.exit(1);
     }
-    console.info(`[INFO] Switched to branch: ${switchResult.branch_name}`);
+    logger.info(`Switched to branch: ${switchResult.branch_name}`);
   } else {
-    console.info(`[INFO] Already on branch: ${branchName}`);
+    logger.info(`Already on branch: ${branchName}`);
   }
 
   // uncommitted changesがある場合はpullをスキップ
   const status = await gitManager.getStatus();
   if (status.is_dirty) {
-    console.info('[INFO] Uncommitted changes detected. Skipping git pull to avoid conflicts.');
+    logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
   } else {
     const pullResult = await gitManager.pullLatest(branchName);
     if (!pullResult.success) {
-      console.warn(
-        `[WARNING] Failed to pull latest changes: ${pullResult.error ?? 'unknown error'}`,
-      );
-      console.warn('[WARNING] Continuing workflow execution...');
+      logger.warn(`Failed to pull latest changes: ${pullResult.error ?? 'unknown error'}`);
+      logger.warn('Continuing workflow execution...');
     } else {
-      console.info('[OK] Successfully pulled latest changes.');
+      logger.info('Successfully pulled latest changes.');
     }
   }
 
@@ -290,17 +289,17 @@ export async function handleExecuteCommand(options: any): Promise<void> {
     const resolved = resolvePresetName(presetOption);
 
     if (resolved.warning) {
-      console.warn(resolved.warning);
+      logger.warn(resolved.warning);
     }
 
     if (!resolved.resolvedName) {
       // full-workflowの特殊ケース
-      console.error('[ERROR] Please use --phase all instead.');
+      logger.error('Please use --phase all instead.');
       process.exit(1);
     }
 
     const targetPhases = getPresetPhases(resolved.resolvedName);
-    console.info(`[INFO] Running preset "${resolved.resolvedName}": ${targetPhases.join(', ')}`);
+    logger.info(`Running preset "${resolved.resolvedName}": ${targetPhases.join(', ')}`);
 
     // プリセット実行時はpresetPhasesをcontextに追加（Issue #396）
     const presetContext: PhaseContext = {
@@ -337,22 +336,22 @@ export async function handleExecuteCommand(options: any): Promise<void> {
     if (canResumeWorkflow(resumeManager)) {
       const resumePhase = resumeManager.getResumePhase();
       if (!resumePhase) {
-        console.info('[INFO] All phases are already completed.');
-        console.info('[INFO] To re-run, use --force-reset flag.');
+        logger.info('All phases are already completed.');
+        logger.info('To re-run, use --force-reset flag.');
         process.exit(0);
       }
 
       const statusSummary = resumeManager.getStatusSummary();
       if (statusSummary.completed.length) {
-        console.info(`[INFO] Completed phases: ${statusSummary.completed.join(', ')}`);
+        logger.info(`Completed phases: ${statusSummary.completed.join(', ')}`);
       }
       if (statusSummary.failed.length) {
-        console.info(`[INFO] Failed phases: ${statusSummary.failed.join(', ')}`);
+        logger.info(`Failed phases: ${statusSummary.failed.join(', ')}`);
       }
       if (statusSummary.in_progress.length) {
-        console.info(`[INFO] In-progress phases: ${statusSummary.in_progress.join(', ')}`);
+        logger.info(`In-progress phases: ${statusSummary.in_progress.join(', ')}`);
       }
-      console.info(`[INFO] Resuming from phase: ${resumePhase}`);
+      logger.info(`Resuming from phase: ${resumePhase}`);
 
       const summary = await executePhasesFrom(
         resumePhase,
@@ -365,7 +364,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
       process.exit(summary.success ? 0 : 1);
     }
 
-    console.info('[INFO] Starting all phases execution.');
+    logger.info('Starting all phases execution.');
     const summary = await executePhasesSequential(
       PHASE_ORDER,
       context,
@@ -378,7 +377,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   }
 
   if (!isValidPhaseName(phaseOption)) {
-    console.error(`Error: Unknown phase "${phaseOption}".`);
+    logger.error(`Unknown phase "${phaseOption}".`);
     process.exit(1);
   }
 
@@ -586,8 +585,8 @@ export function canResumeWorkflow(resumeManager: ResumeManager): boolean {
   try {
     return resumeManager.canResume();
   } catch (error) {
-    console.warn(
-      `[WARNING] Failed to assess resume status: ${(error as Error).message}. Starting new workflow.`,
+    logger.warn(
+      `Failed to assess resume status: ${(error as Error).message}. Starting new workflow.`,
     );
     return false;
   }
@@ -663,13 +662,13 @@ export async function resetMetadata(
  */
 function reportExecutionSummary(summary: ExecutionSummary): void {
   if (summary.success) {
-    console.info('[OK] All phases completed successfully.');
+    logger.info('All phases completed successfully.');
     return;
   }
 
-  console.error(`[ERROR] Workflow failed at phase: ${summary.failedPhase ?? 'unknown phase'}`);
+  logger.error(`Workflow failed at phase: ${summary.failedPhase ?? 'unknown phase'}`);
   if (summary.error) {
-    console.error(`[ERROR] Reason: ${summary.error}`);
+    logger.error(`Reason: ${summary.error}`);
   }
 }
 

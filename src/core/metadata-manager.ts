@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { dirname, join } from 'node:path';
 import { WorkflowState } from './workflow-state.js';
 import {
@@ -79,13 +80,13 @@ export class MetadataManager {
 
   public clear(): void {
     if (fs.existsSync(this.metadataPath)) {
-      console.info(`[INFO] Clearing metadata: ${this.metadataPath}`);
+      logger.info(`Clearing metadata: ${this.metadataPath}`);
       fs.removeSync(this.metadataPath);
     }
 
     removeWorkflowDirectory(this.workflowDir);
     if (!fs.existsSync(this.workflowDir)) {
-      console.info('[OK] Workflow directory removed successfully');
+      logger.info('Workflow directory removed successfully');
     }
   }
 
@@ -116,8 +117,8 @@ export class MetadataManager {
 
     this.state.save();
 
-    console.info(`[INFO] metadata.json rolled back to phase ${phaseName}`);
-    console.info(`[INFO] Phases reset: ${rolledBack.join(', ')}`);
+    logger.info(`metadata.json rolled back to phase ${phaseName}`);
+    logger.info(`Phases reset: ${rolledBack.join(', ')}`);
 
     return {
       success: true,

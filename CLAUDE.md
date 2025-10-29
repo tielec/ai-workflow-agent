@@ -119,7 +119,7 @@ node dist/index.js list-presets
 - **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義（約249行、Issue #26で27.2%削減）
 - **`src/core/helpers/dependency-messages.ts`**: 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
-- **`src/core/logger.ts`**: Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供
+- **`src/utils/logger.ts`**: 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御、カラーリング、タイムスタンプ、環境変数制御を提供
 
 ### フェーズ順序（0-9）
 
@@ -238,6 +238,10 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 ### マルチリポジトリサポート
 - `REPOS_ROOT`: リポジトリの親ディレクトリ（v0.2.0）
 
+### ロギング設定（Issue #61で追加）
+- `LOG_LEVEL`: ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
+- `LOG_NO_COLOR`: カラーリング無効化（CI環境用、`true` | `1` で有効化）
+
 ### Git 設定
 - `GIT_COMMIT_USER_NAME`: Git コミット作成者名（デフォルト: git config から）
 - `GIT_COMMIT_USER_EMAIL`: Git コミット作成者メール（デフォルト: git config から）
@@ -256,6 +260,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 - ユニットテスト: `tests/unit/`（フェーズ依存関係、プリセット解決、リポジトリ解決、レポートクリーンアップ）
 - 統合テスト: `tests/integration/`（プリセット実行、マルチリポジトリワークフロー）
 - テストでのファイル操作には `fs-extra` を使用
+- **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
 
 ## 主要な設計パターン
 
@@ -287,6 +292,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 5. **Git 操作にはクリーンな作業ツリーが必要**（pull 時、未コミットの変更がある場合はスキップ）
 6. **ファイル参照は `@relative/path` 形式を使用**（エージェントコンテキスト用、`getAgentFileReference()` 参照）
 7. **Git URLのセキュリティ**: HTTPS形式のGit URLに埋め込まれたPersonal Access Tokenは自動的に除去される（v0.3.1、Issue #54）。SSH形式の利用を推奨。
+8. **ロギング規約（Issue #61）**: console.log/error/warn等の直接使用は禁止。統一loggerモジュール（`src/utils/logger.ts`）を使用し、`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` を呼び出す。ESLintの `no-console` ルールで強制。
 
 ## よくあるトラブルシューティング
 

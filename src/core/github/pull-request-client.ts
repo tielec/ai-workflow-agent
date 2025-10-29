@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest';
+import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 
 export interface PullRequestSummary {
@@ -133,8 +134,8 @@ export class PullRequestClient {
         state: pr.state ?? 'open',
       };
     } catch (error) {
-      console.warn(
-        `[WARNING] Failed to check existing PR: ${this.encodeWarning((error as Error).message)}`,
+      logger.warn(
+        `Failed to check existing PR: ${this.encodeWarning((error as Error).message)}`,
       );
       return null;
     }
@@ -158,7 +159,7 @@ export class PullRequestClient {
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
           : (error as Error).message;
-      console.error(`[ERROR] Failed to update PR: ${this.encodeWarning(message)}`);
+      logger.error(`Failed to update PR: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
   }
@@ -191,14 +192,14 @@ export class PullRequestClient {
         state: 'closed',
       });
 
-      console.info(`[INFO] Closed pull request #${prNumber}`);
+      logger.info(`Closed pull request #${prNumber}`);
       return { success: true, error: null };
     } catch (error) {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
           : (error as Error).message;
-      console.error(`[ERROR] Failed to close PR: ${this.encodeWarning(message)}`);
+      logger.error(`Failed to close PR: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
   }
@@ -217,7 +218,7 @@ export class PullRequestClient {
       return match?.number ?? null;
     } catch (error) {
       const message = (error as Error).message;
-      console.warn(`[WARNING] Failed to lookup PR number: ${this.encodeWarning(message)}`);
+      logger.warn(`Failed to lookup PR number: ${this.encodeWarning(message)}`);
       return null;
     }
   }

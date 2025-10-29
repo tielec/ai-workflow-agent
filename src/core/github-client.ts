@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
 import { RemainingTask } from '../types.js';
@@ -286,7 +287,7 @@ export class GitHubClient {
       };
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.warn(`[WARNING] Failed to extract phase outputs: ${this.encodeWarning(message)}`);
+      logger.warn(`Failed to extract phase outputs: ${this.encodeWarning(message)}`);
       return {
         summary: '（概要の記載なし）',
         implementation_details: '（実装詳細の記載なし）',

@@ -3,6 +3,7 @@ import process from 'node:process';
 import fs from 'fs-extra';
 import simpleGit from 'simple-git';
 
+import { logger } from '../utils/logger.js';
 import { WorkflowState } from '../core/workflow-state.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
@@ -72,13 +73,13 @@ export function resolveBranchName(customBranch: string | undefined, issueNumber:
       throw new Error(`[ERROR] Invalid branch name: ${customBranch}. ${validation.error}`);
     }
 
-    console.info(`[INFO] Using custom branch name: ${customBranch}`);
+    logger.info(`Using custom branch name: ${customBranch}`);
     return customBranch;
   }
 
   // 2. デフォルトブランチ名
   const defaultBranch = `ai-workflow/issue-${issueNumber}`;
-  console.info(`[INFO] Using default branch name: ${defaultBranch}`);
+  logger.info(`Using default branch name: ${defaultBranch}`);
   return defaultBranch;
 }
 
@@ -93,7 +94,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   try {
     issueInfo = parseIssueUrl(issueUrl);
   } catch (error) {
-    console.error(`[ERROR] ${(error as Error).message}`);
+    logger.error(`${(error as Error).message}`);
     process.exit(1);
   }
 
@@ -128,19 +129,19 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     // 現在のリポジトリ名が対象と一致する場合はそのまま使用
     if (currentRepoName === repo) {
       repoRoot = currentRepoRoot;
-      console.info(`[INFO] Using current repository: ${repositoryName}`);
-      console.info(`[INFO] Local path: ${repoRoot}`);
+      logger.info(`Using current repository: ${repositoryName}`);
+      logger.info(`Local path: ${repoRoot}`);
     } else {
       // 別のリポジトリを探索
-      console.info(
-        `[INFO] Current repository (${currentRepoName}) does not match target (${repo}). Searching...`,
+      logger.info(
+        `Current repository (${currentRepoName}) does not match target (${repo}). Searching...`,
       );
       repoRoot = resolveLocalRepoPath(repo);
-      console.info(`[INFO] Target repository: ${repositoryName}`);
-      console.info(`[INFO] Local path: ${repoRoot}`);
+      logger.info(`Target repository: ${repositoryName}`);
+      logger.info(`Local path: ${repoRoot}`);
     }
   } catch (error) {
-    console.error(`[ERROR] ${(error as Error).message}`);
+    logger.error(`${(error as Error).message}`);
     process.exit(1);
   }
 
@@ -160,26 +161,26 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
   if (remoteBranchExists) {
     // リモートブランチが存在する場合: チェックアウト → pull → metadata確認
-    console.info(`[INFO] Remote branch '${branchName}' found. Checking out...`);
+    logger.info(`Remote branch '${branchName}' found. Checking out...`);
 
     const localBranches = await git.branchLocal();
     if (localBranches.all.includes(branchName)) {
       await git.checkout(branchName);
-      console.info(`[INFO] Switched to existing local branch: ${branchName}`);
+      logger.info(`Switched to existing local branch: ${branchName}`);
     } else {
       await git.checkoutBranch(branchName, `origin/${branchName}`);
-      console.info(`[INFO] Created local branch '${branchName}' tracking origin/${branchName}`);
+      logger.info(`Created local branch '${branchName}' tracking origin/${branchName}`);
     }
 
     // リモートの最新状態を取得
-    console.info('[INFO] Pulling latest changes from remote...');
+    logger.info('Pulling latest changes from remote...');
     await git.pull('origin', branchName, { '--no-rebase': null });
-    console.info('[OK] Successfully pulled latest changes.');
+    logger.info('Successfully pulled latest changes.');
 
     fs.ensureDirSync(workflowDir);
 
     if (fs.existsSync(metadataPath)) {
-      console.info('[INFO] Workflow already exists. Migrating metadata schema if required...');
+      logger.info('Workflow already exists. Migrating metadata schema if required...');
       const state = WorkflowState.load(metadataPath);
       const migrated = state.migrate();
       const metadataManager = new MetadataManager(metadataPath);
@@ -194,13 +195,13 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
       // Issue #54: Warn if token detected in remote URL
       if (sanitizedUrl !== remoteUrlStr) {
-        console.warn(
-          '[WARNING] GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
+        logger.warn(
+          'GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
         );
-        console.info(
-          `[INFO] Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
+        logger.info(
+          `Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
         );
-        console.info(`[INFO] Sanitized URL: ${sanitizedUrl}`);
+        logger.info(`Sanitized URL: ${sanitizedUrl}`);
       }
 
       metadataManager.data.target_repository = {
@@ -211,31 +212,31 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
         repo: repo,
       };
       metadataManager.save();
-      console.info(
+      logger.info(
         migrated
-          ? '[OK] Metadata schema updated successfully.'
-          : '[INFO] Metadata schema already up to date.',
+          ? 'Metadata schema updated successfully.'
+          : 'Metadata schema already up to date.',
       );
       return;
     }
 
     // metadata.jsonが存在しない場合は作成（リモートブランチはあるが未初期化の状態）
-    console.info('[INFO] Creating metadata for existing branch...');
+    logger.info('Creating metadata for existing branch...');
   } else {
     // リモートブランチが存在しない場合: 新規作成
-    console.info(`[INFO] Remote branch '${branchName}' not found. Creating new branch...`);
+    logger.info(`Remote branch '${branchName}' not found. Creating new branch...`);
 
     const localBranches = await git.branchLocal();
     if (localBranches.all.includes(branchName)) {
       await git.checkout(branchName);
-      console.info(`[INFO] Switched to existing local branch: ${branchName}`);
+      logger.info(`Switched to existing local branch: ${branchName}`);
     } else {
       await git.checkoutLocalBranch(branchName);
-      console.info(`[INFO] Created and switched to new branch: ${branchName}`);
+      logger.info(`Created and switched to new branch: ${branchName}`);
     }
 
     fs.ensureDirSync(workflowDir);
-    console.info('[INFO] Creating metadata...');
+    logger.info('Creating metadata...');
   }
 
   // metadata.json作成
@@ -252,13 +253,13 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
   // Issue #54: Warn if token detected in remote URL
   if (sanitizedUrl !== remoteUrlStr) {
-    console.warn(
-      '[WARNING] GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
+    logger.warn(
+      'GitHub Personal Access Token detected in remote URL. Token has been removed from metadata.',
     );
-    console.info(
-      `[INFO] Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
+    logger.info(
+      `Original URL: ${remoteUrlStr.replace(/ghp_[a-zA-Z0-9]+|github_pat_[a-zA-Z0-9_]+/, '***')}`,
     );
-    console.info(`[INFO] Sanitized URL: ${sanitizedUrl}`);
+    logger.info(`Sanitized URL: ${sanitizedUrl}`);
   }
 
   metadataManager.data.target_repository = {
@@ -272,27 +273,27 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
   // コミット & プッシュ (Issue #16: commitWorkflowInit を使用)
   const gitManager = new GitManager(repoRoot, metadataManager);
-  console.info('[INFO] Committing metadata.json...');
+  logger.info('Committing metadata.json...');
   const commitResult = await gitManager.commitWorkflowInit(issueNumber, branchName);
   if (!commitResult.success) {
     throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
   }
-  console.info(
-    `[OK] Commit ${commitResult.commit_hash ? commitResult.commit_hash.slice(0, 7) : ''} created.`,
+  logger.info(
+    `Commit ${commitResult.commit_hash ? commitResult.commit_hash.slice(0, 7) : ''} created.`,
   );
 
-  console.info('[INFO] Pushing to remote...');
+  logger.info('Pushing to remote...');
   const pushResult = await gitManager.pushToRemote();
   if (!pushResult.success) {
     throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
   }
-  console.info('[OK] Push successful.');
+  logger.info('Push successful.');
 
   // PR作成
   const githubToken = process.env.GITHUB_TOKEN ?? null;
   if (!githubToken || !repositoryName) {
-    console.warn('[WARNING] GITHUB_TOKEN or GITHUB_REPOSITORY not set. PR creation skipped.');
-    console.info('[INFO] You can create a PR manually (e.g. gh pr create --draft).');
+    logger.warn('GITHUB_TOKEN or GITHUB_REPOSITORY not set. PR creation skipped.');
+    logger.info('You can create a PR manually (e.g. gh pr create --draft).');
     return;
   }
 
@@ -300,29 +301,27 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     const githubClient = new GitHubClient(githubToken, repositoryName);
     const existingPr = await githubClient.checkExistingPr(branchName);
     if (existingPr) {
-      console.warn(`[WARNING] PR already exists: ${existingPr.pr_url}`);
+      logger.warn(`PR already exists: ${existingPr.pr_url}`);
       metadataManager.data.pr_number = existingPr.pr_number;
       metadataManager.data.pr_url = existingPr.pr_url;
       metadataManager.save();
       return;
     }
 
-    console.info('[INFO] Creating draft PR...');
+    logger.info('Creating draft PR...');
     const prTitle = `[AI-Workflow] Issue #${issueNumber}`;
     const prBody = githubClient.generatePrBodyTemplate(issueNumber, branchName);
     const prResult = await githubClient.createPullRequest(prTitle, prBody, branchName, 'main', true);
 
     if (prResult.success) {
-      console.info(`[OK] Draft PR created: ${prResult.pr_url}`);
+      logger.info(`Draft PR created: ${prResult.pr_url}`);
       metadataManager.data.pr_number = prResult.pr_number ?? null;
       metadataManager.data.pr_url = prResult.pr_url ?? null;
       metadataManager.save();
     } else {
-      console.warn(
-        `[WARNING] PR creation failed: ${prResult.error ?? 'unknown error'}. Please create manually.`,
-      );
+      logger.warn(`PR creation failed: ${prResult.error ?? 'unknown error'}. Please create manually.`);
     }
   } catch (error) {
-    console.warn(`[WARNING] Failed to create PR automatically: ${(error as Error).message}`);
+    logger.warn(`Failed to create PR automatically: ${(error as Error).message}`);
   }
 }

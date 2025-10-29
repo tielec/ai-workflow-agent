@@ -16,6 +16,7 @@ import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { ResumeManager } from '../../src/utils/resume.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'step-resume-test');
@@ -513,8 +514,7 @@ describe('エッジケースの統合テスト', () => {
     expect(resumeInfo.resumeStep).toBe('execute');
     expect(resumeInfo.completedSteps).toEqual(['execute', 'review']);
 
-    console.warn('[WARNING] Test: Metadata inconsistency detected: current_step is \'execute\' but already in completed_steps');
-    console.info('[INFO] Test: Falling back to safe mode (re-executing from current_step)');
+    logger.warn('Test: Metadata inconsistency detected: current_step is \'execute\' but already in completed_steps');
   });
 
   test('新規フェーズ（pending）でのレジューム判定', async () => {
