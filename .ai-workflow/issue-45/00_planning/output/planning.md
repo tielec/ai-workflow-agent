@@ -154,11 +154,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 0.5~1h)
 
-- [ ] Task 5-1: 型推論のユニットテストを追加 (0.5~1h)
-  - `tests/unit/commands/type-safety.test.ts` を作成（存在しない場合）
+- [x] Task 5-1: 型推論のユニットテストを追加 (0.5~1h)
+  - `tests/unit/types/command-options.test.ts` を作成（22個の型推論テストを実装）
   - `ExecuteCommandOptions` の型推論テスト（TypeScript の型チェックで検証）
   - `ReviewCommandOptions` の型推論テスト
+  - `MigrateOptions` の型推論テスト
   - オプションの必須フィールド（`issue` 等）が正しく検証されるかのテスト
+  - 既存テストファイルに型安全性テストを追加（execute.test.ts, review.test.ts, migrate.test.ts）
 
 ### Phase 6: テスト実行 (見積もり: 0.5h)
 
@@ -277,8 +279,8 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] 型推論のユニットテストが追加されている
-- [ ] テストコードがコンパイルエラーなく動作する
+- [x] 型推論のユニットテストが追加されている
+- [x] テストコードがコンパイルエラーなく動作する
 
 ### Phase 6: テスト実行
 
