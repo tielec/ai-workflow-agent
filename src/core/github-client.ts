@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
+import { config } from './config.js';
 import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
 import { RemainingTask } from '../types.js';
@@ -65,14 +66,24 @@ export class GitHubClient {
   private readonly reviewClient: ReviewClient;
 
   constructor(token?: string | null, repository?: string | null) {
-    this.token = token ?? process.env.GITHUB_TOKEN ?? '';
+    // フォールバック: 引数が指定されていない場合はConfigクラスから取得
+    if (token === undefined || token === null) {
+      this.token = config.getGitHubToken();
+    } else {
+      this.token = token;
+    }
     if (!this.token) {
       throw new Error(
         'GitHub token is required. Please set the GITHUB_TOKEN environment variable.',
       );
     }
 
-    this.repositoryName = repository ?? process.env.GITHUB_REPOSITORY ?? '';
+    // フォールバック: 引数が指定されていない場合はConfigクラスから取得
+    if (repository === undefined || repository === null) {
+      this.repositoryName = config.getGitHubRepository() ?? '';
+    } else {
+      this.repositoryName = repository;
+    }
     if (!this.repositoryName) {
       throw new Error(
         'Repository name is required. Please set the GITHUB_REPOSITORY environment variable.',

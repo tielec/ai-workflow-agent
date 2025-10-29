@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
+import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
@@ -25,7 +26,7 @@ export class ClaudeAgentClient {
     this.ensureAuthToken(options.credentialsPath);
 
     // 環境変数の設定を確認
-    const skipPermissions = process.env.CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS === '1';
+    const skipPermissions = config.getClaudeDangerouslySkipPermissions();
     if (skipPermissions) {
       logger.info('CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 detected. Using permissionMode="bypassPermissions".');
     } else {
@@ -43,7 +44,7 @@ export class ClaudeAgentClient {
 
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
     // CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 の場合、すべての操作を自動承認
-    const skipPermissions = process.env.CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS === '1';
+    const skipPermissions = config.getClaudeDangerouslySkipPermissions();
     const permissionMode = skipPermissions ? 'bypassPermissions' : 'acceptEdits';
 
     const stream = query({
@@ -102,7 +103,7 @@ export class ClaudeAgentClient {
   }
 
   private ensureAuthToken(credentialsPath?: string): void {
-    const resolvedPath = credentialsPath ?? process.env.CLAUDE_CODE_CREDENTIALS_PATH ?? null;
+    const resolvedPath = credentialsPath ?? config.getClaudeCredentialsPath() ?? null;
 
     if (resolvedPath) {
       const token = this.readTokenFromCredentials(resolvedPath);
@@ -111,7 +112,7 @@ export class ClaudeAgentClient {
       return;
     }
 
-    const token = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const token = config.getClaudeOAuthToken();
     if (!token || !token.trim()) {
       throw new Error(
         [

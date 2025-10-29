@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import simpleGit from 'simple-git';
 
 import { logger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import { WorkflowState } from '../core/workflow-state.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
@@ -290,9 +291,16 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   logger.info('Push successful.');
 
   // PR作成
-  const githubToken = process.env.GITHUB_TOKEN ?? null;
-  if (!githubToken || !repositoryName) {
-    logger.warn('GITHUB_TOKEN or GITHUB_REPOSITORY not set. PR creation skipped.');
+  let githubToken: string;
+  try {
+    githubToken = config.getGitHubToken();
+  } catch (error) {
+    logger.warn('GITHUB_TOKEN not set. PR creation skipped.');
+    logger.info('You can create a PR manually (e.g. gh pr create --draft).');
+    return;
+  }
+  if (!repositoryName) {
+    logger.warn('GITHUB_REPOSITORY not set. PR creation skipped.');
     logger.info('You can create a PR manually (e.g. gh pr create --draft).');
     return;
   }

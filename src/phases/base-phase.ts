@@ -14,6 +14,7 @@ import { LogFormatter } from './formatters/log-formatter.js';
 import { ProgressFormatter } from './formatters/progress-formatter.js';
 import { AgentExecutor } from './core/agent-executor.js';
 import { ReviewCycleManager } from './core/review-cycle-manager.js';
+import { config } from '../core/config.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const promptsRoot = path.resolve(moduleDir, '..', 'prompts');
@@ -610,7 +611,7 @@ export abstract class BasePhase {
    */
   private isCIEnvironment(): boolean {
     // 環境変数 CI が設定されている場合はCI環境と判定
-    return process.env.CI === 'true' || process.env.CI === '1';
+    return config.isCI();
   }
 
   /**

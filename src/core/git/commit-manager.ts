@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { logger } from '../../utils/logger.js';
+import { config } from '../config.js';
 import { minimatch } from 'minimatch';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -568,19 +569,17 @@ export class CommitManager {
    */
   private async ensureGitConfig(): Promise<void> {
     const gitConfig = await this.git.listConfig();
-    let userName = gitConfig.all['user.name'] as string | undefined;
-    let userEmail = gitConfig.all['user.email'] as string | undefined;
+    const userNameFromConfig = gitConfig.all['user.name'] as string | undefined;
+    const userEmailFromConfig = gitConfig.all['user.email'] as string | undefined;
 
-    userName =
-      userName ||
-      process.env.GIT_COMMIT_USER_NAME ||
-      process.env.GIT_AUTHOR_NAME ||
+    let userName: string =
+      userNameFromConfig ||
+      config.getGitCommitUserName() ||
       'AI Workflow';
 
-    userEmail =
-      userEmail ||
-      process.env.GIT_COMMIT_USER_EMAIL ||
-      process.env.GIT_AUTHOR_EMAIL ||
+    let userEmail: string =
+      userEmailFromConfig ||
+      config.getGitCommitUserEmail() ||
       'ai-workflow@tielec.local';
 
     if (userName.length < 1 || userName.length > 100) {

@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { logger } from '../../utils/logger.js';
+import { config } from '../config.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 
@@ -190,8 +191,10 @@ export class RemoteManager {
    * Setup GitHub credentials (best-effort)
    */
   private async setupGithubCredentials(): Promise<void> {
-    const githubToken = process.env.GITHUB_TOKEN;
-    if (!githubToken) {
+    let githubToken: string;
+    try {
+      githubToken = config.getGitHubToken();
+    } catch {
       return;
     }
 

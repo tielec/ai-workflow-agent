@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { config } from '../core/config.js';
 
 /**
  * ログレベル定義
@@ -20,8 +21,8 @@ const LOG_LEVELS: Record<LogLevel, number> = {
  * @returns 現在のログレベル（デフォルト: info）
  */
 function getCurrentLogLevel(): LogLevel {
-  const envLevel = process.env.LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
-  return envLevel && envLevel in LOG_LEVELS ? envLevel : 'info';
+  const envLevel = config.getLogLevel().toLowerCase() as LogLevel;
+  return envLevel in LOG_LEVELS ? envLevel : 'info';
 }
 
 /**
@@ -29,7 +30,7 @@ function getCurrentLogLevel(): LogLevel {
  * @returns カラーリングが無効化されているかどうか
  */
 function isColorDisabled(): boolean {
-  return process.env.LOG_NO_COLOR === 'true' || process.env.LOG_NO_COLOR === '1';
+  return config.getLogNoColor();
 }
 
 /**
