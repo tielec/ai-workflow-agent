@@ -165,12 +165,12 @@ try {
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: エラーハンドリングパターンの現状分析 (0.5~1h)
+- [x] Task 1-1: エラーハンドリングパターンの現状分析 (0.5~1h)
   - 67箇所の `as Error` キャスト使用箇所をリストアップ
   - エラーハンドリングパターンのバリエーションを分類（message only、message + stack、型ガード等）
   - エッジケースの洗い出し（非Errorオブジェクトがthrowされるケース）
 
-- [ ] Task 1-2: ユーティリティ関数の要件定義 (0.5~1h)
+- [x] Task 1-2: ユーティリティ関数の要件定義 (0.5~1h)
   - `getErrorMessage()` の仕様策定（Error、string、number、object、null、undefined）
   - `getErrorStack()` の仕様策定（Errorのみスタックトレースを返す、それ以外はundefined）
   - `isError()` 型ガードの仕様策定（instanceof Error）
