@@ -163,11 +163,11 @@
 
 ### Phase 2: 設計 (見積もり: 1h)
 
-- [ ] Task 2-1: Logger APIの詳細設計 (0.5h)
+- [x] Task 2-1: Logger APIの詳細設計 (0.5h)
   - インターフェース定義（logger.debug/info/warn/error）
   - 内部実装の設計（Winston、Pino等のライブラリ選定 or シンプルなラッパー）
   - カラーリング戦略（chalkの統合方法）
-- [ ] Task 2-2: 置換戦略の策定 (0.5h)
+- [x] Task 2-2: 置換戦略の策定 (0.5h)
   - console.log → logger.info（デフォルトマッピング）
   - console.error → logger.error
   - console.warn → logger.warn
@@ -383,11 +383,11 @@ graph TD
 - [ ] 既存コードとの後方互換性が確認されている
 
 ### Phase 2: 設計
-- [ ] **実装戦略の判断根拠が明記されている**（EXTEND: logger.ts新規追加 + 既存コード置き換え）
-- [ ] **テスト戦略の判断根拠が明記されている**（UNIT_INTEGRATION: logger単体 + 既存システム統合）
-- [ ] **テストコード戦略の判断根拠が明記されている**（BOTH_TEST: 新規テスト作成 + 既存テスト拡張）
-- [ ] Logger APIインターフェースが定義されている
-- [ ] 置換戦略（console.X → logger.Y）が明確化されている
+- [x] **実装戦略の判断根拠が明記されている**（EXTEND: logger.ts新規追加 + 既存コード置き換え）
+- [x] **テスト戦略の判断根拠が明記されている**（UNIT_INTEGRATION: logger単体 + 既存システム統合）
+- [x] **テストコード戦略の判断根拠が明記されている**（BOTH_TEST: 新規テスト作成 + 既存テスト拡張）
+- [x] Logger APIインターフェースが定義されている
+- [x] 置換戦略（console.X → logger.Y）が明確化されている
 
 ### Phase 3: テストシナリオ
 - [ ] Logger単体のテストケースが定義されている（各ログレベル、環境変数制御）
