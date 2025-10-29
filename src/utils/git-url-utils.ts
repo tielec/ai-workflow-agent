@@ -43,20 +43,19 @@ export function sanitizeGitUrl(url: string): string {
   }
 
   // 2. HTTPS format: Remove authentication credentials
-  // Pattern: https://[user[:pass]@]host/path
-  // Captures: (protocol)(credentials@)?(rest)
-  const httpsPattern = /^(https?:\/\/)([^@]+@)?(.+)$/;
+  // Pattern: https://<any-credentials>@<host-and-path>
+  // Issue #58: Support passwords containing '@' characters
+  // The pattern matches everything between protocol and the LAST '@' as credentials
+  // Captures: (protocol)(credentials)(host-and-path)
+  const httpsPattern = /^(https?:\/\/)(.+)@([^@]+)$/;
   const match = url.match(httpsPattern);
 
   if (match) {
-    const [, protocol, credentials, rest] = match;
-
-    // If credentials exist (group 2), remove them
-    if (credentials) {
-      return `${protocol}${rest}`;
-    }
+    const [, protocol, , rest] = match;
+    // Credentials detected (group 2), remove them by returning protocol + rest
+    return `${protocol}${rest}`;
   }
 
-  // 3. SSH format or other formats: Return unchanged
+  // 3. SSH format or normal HTTPS (no credentials): Return unchanged
   return url;
 }
