@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { config } from './config.js';
 import process from 'node:process';
 import os from 'node:os';
 import fs from 'fs-extra';
@@ -45,13 +46,13 @@ export function resolveLocalRepoPath(repoName: string): string {
   const candidatePaths: string[] = [];
 
   // 1. 環境変数REPOS_ROOTが設定されている場合は優先的に使用
-  const reposRoot = process.env.REPOS_ROOT;
+  const reposRoot = config.getReposRoot();
   if (reposRoot) {
     candidatePaths.push(path.join(reposRoot, repoName));
   }
 
   // 2. フォールバック候補パス
-  const homeDir = os.homedir();
+  const homeDir = config.getHomeDir();
   candidatePaths.push(
     path.join(homeDir, 'TIELEC', 'development', repoName),
     path.join(homeDir, 'projects', repoName),
@@ -86,13 +87,13 @@ export async function findWorkflowMetadata(
   const searchRoots: string[] = [];
 
   // 1. 環境変数REPOS_ROOTが設定されている場合
-  const reposRoot = process.env.REPOS_ROOT;
+  const reposRoot = config.getReposRoot();
   if (reposRoot && fs.existsSync(reposRoot)) {
     searchRoots.push(reposRoot);
   }
 
   // 2. フォールバック探索ルート
-  const homeDir = os.homedir();
+  const homeDir = config.getHomeDir();
   const fallbackRoots = [
     path.join(homeDir, 'TIELEC', 'development'),
     path.join(homeDir, 'projects'),

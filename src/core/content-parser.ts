@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
+import { config } from './config.js';
 
 interface ReviewParseResult {
   result: string;
@@ -17,7 +18,7 @@ export class ContentParser {
   private readonly promptDir: string;
 
   constructor(options: { apiKey?: string; model?: string } = {}) {
-    const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;
+    const apiKey = options.apiKey ?? config.getCodexApiKey();
     if (!apiKey) {
       throw new Error(
         [
