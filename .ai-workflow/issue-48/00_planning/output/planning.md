@@ -196,13 +196,13 @@ try {
 
 ### Phase 3: テストシナリオ (見積もり: 1~2h)
 
-- [ ] Task 3-1: ユニットテストシナリオの策定 (0.5~1h)
+- [x] Task 3-1: ユニットテストシナリオの策定 (0.5~1h)
   - `getErrorMessage()` のテストケース（Error、string、number、object、null、undefined、Symbol）
   - `getErrorStack()` のテストケース（Error、非Error）
   - `isError()` のテストケース（Error、ErrorSubclass、非Error）
   - エッジケース（循環参照、カスタムtoString()）
 
-- [ ] Task 3-2: 統合テストシナリオの策定 (0.5~1h)
+- [x] Task 3-2: 統合テストシナリオの策定 (0.5~1h)
   - 既存52テストファイルの実行と成功確認
   - エラーハンドリングパスのカバレッジ確認
   - リグレッションテストの範囲定義
