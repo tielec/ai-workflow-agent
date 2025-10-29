@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import { logger } from '../utils/logger.js';
 import * as path from 'path';
 import { glob } from 'glob';
 
@@ -65,7 +66,7 @@ export class SecretMasker {
     const secrets = this.getSecretList();
 
     if (secrets.length === 0) {
-      console.info('[INFO] No secrets found in environment variables');
+      logger.info('No secrets found in environment variables');
       return {
         filesProcessed: 0,
         secretsMasked: 0,
@@ -73,13 +74,13 @@ export class SecretMasker {
       };
     }
 
-    console.info(`[INFO] Found ${secrets.length} secret(s) in environment variables`);
+    logger.info(`Found ${secrets.length} secret(s) in environment variables`);
 
     // Find all target files in workflow directory
     const files = await this.findTargetFiles(workflowDir);
 
     if (files.length === 0) {
-      console.info('[INFO] No files found to scan for secrets');
+      logger.info('No files found to scan for secrets');
       return {
         filesProcessed: 0,
         secretsMasked: 0,
@@ -87,7 +88,7 @@ export class SecretMasker {
       };
     }
 
-    console.info(`[INFO] Scanning ${files.length} file(s) for secrets`);
+    logger.info(`Scanning ${files.length} file(s) for secrets`);
 
     let filesProcessed = 0;
     let totalSecretsMasked = 0;
@@ -106,7 +107,7 @@ export class SecretMasker {
         }
       } catch (error) {
         const errorMsg = `Failed to process ${filePath}: ${(error as Error).message}`;
-        console.error(`[ERROR] ${errorMsg}`);
+        logger.error(`${errorMsg}`);
         errors.push(errorMsg);
       }
     }

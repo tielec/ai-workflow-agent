@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MetadataManager } from '../core/metadata-manager.js';
@@ -140,12 +141,12 @@ export abstract class BasePhase {
       const error =
         dependencyResult.error ??
         'Dependency validation failed. Use --skip-dependency-check to bypass.';
-      console.error(`[ERROR] ${error}`);
+      logger.error(`${error}`);
       return false;
     }
 
     if (dependencyResult.warning) {
-      console.warn(`[WARNING] ${dependencyResult.warning}`);
+      logger.warn(`${dependencyResult.warning}`);
     }
 
     this.updatePhaseStatus('in_progress');
@@ -155,17 +156,17 @@ export abstract class BasePhase {
       // Execute Step (Issue #10: ステップ単位のコミット＆レジューム)
       const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
       if (!completedSteps.includes('execute')) {
-        console.info(`[INFO] Phase ${this.phaseName}: Starting execute step...`);
+        logger.info(`Phase ${this.phaseName}: Starting execute step...`);
         this.metadata.updateCurrentStep(this.phaseName, 'execute');
 
         const executeResult = await this.execute();
         if (!executeResult.success) {
-          console.error(`[ERROR] Phase ${this.phaseName}: Execute failed: ${executeResult.error ?? 'Unknown error'}`);
+          logger.error(`Phase ${this.phaseName}: Execute failed: ${executeResult.error ?? 'Unknown error'}`);
           await this.handleFailure(executeResult.error ?? 'Unknown execute error');
           return false;
         }
 
-        console.info(`[INFO] Phase ${this.phaseName}: Execute completed successfully`);
+        logger.info(`Phase ${this.phaseName}: Execute completed successfully`);
 
         // Commit & Push after execute (Issue #10)
         if (gitManager) {
@@ -174,24 +175,24 @@ export abstract class BasePhase {
 
         this.metadata.addCompletedStep(this.phaseName, 'execute');
       } else {
-        console.info(`[INFO] Phase ${this.phaseName}: Skipping execute step (already completed)`);
+        logger.info(`Phase ${this.phaseName}: Skipping execute step (already completed)`);
       }
 
       // Review Step (if enabled)
       if (!options.skipReview && (await this.shouldRunReview())) {
         const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
         if (!completedSteps.includes('review')) {
-          console.info(`[INFO] Phase ${this.phaseName}: Starting review step...`);
+          logger.info(`Phase ${this.phaseName}: Starting review step...`);
           this.metadata.updateCurrentStep(this.phaseName, 'review');
 
           const reviewResult = await this.review();
           if (!reviewResult.success) {
-            console.warn(`[WARNING] Phase ${this.phaseName}: Review failed: ${reviewResult.error ?? 'Unknown error'}`);
+            logger.warn(`Phase ${this.phaseName}: Review failed: ${reviewResult.error ?? 'Unknown error'}`);
 
             // Revise Step (if review failed) - Issue #10
             await this.performReviseStepWithRetry(gitManager, reviewResult);
           } else {
-            console.info(`[INFO] Phase ${this.phaseName}: Review completed successfully`);
+            logger.info(`Phase ${this.phaseName}: Review completed successfully`);
 
             // Commit & Push after review (Issue #10)
             if (gitManager) {
@@ -201,10 +202,10 @@ export abstract class BasePhase {
             this.metadata.addCompletedStep(this.phaseName, 'review');
           }
         } else {
-          console.info(`[INFO] Phase ${this.phaseName}: Skipping review step (already completed)`);
+          logger.info(`Phase ${this.phaseName}: Skipping review step (already completed)`);
         }
       } else {
-        console.info(`[INFO] Phase ${this.phaseName}: Skipping review (skipReview=${options.skipReview})`);
+        logger.info(`Phase ${this.phaseName}: Skipping review (skipReview=${options.skipReview})`);
       }
 
       // フェーズ完了
@@ -362,7 +363,7 @@ export abstract class BasePhase {
     );
 
     if (!fs.existsSync(filePath)) {
-      console.warn(`[WARNING] Output file not found for phase ${targetPhase}: ${filePath}`);
+      logger.warn(`Output file not found for phase ${targetPhase}: ${filePath}`);
       return null;
     }
 
@@ -399,17 +400,17 @@ export abstract class BasePhase {
     const planningFile = this.getPhaseOutputFile('planning', 'planning.md', issueNumber);
 
     if (!planningFile) {
-      console.warn('[WARNING] Planning document not found.');
+      logger.warn('Planning document not found.');
       return 'Planning Phaseは実行されていません';
     }
 
     const reference = this.getAgentFileReference(planningFile);
     if (!reference) {
-      console.warn(`[WARNING] Failed to resolve relative path for planning document: ${planningFile}`);
+      logger.warn(`Failed to resolve relative path for planning document: ${planningFile}`);
       return 'Planning Phaseは実行されていません';
     }
 
-    console.info(`[INFO] Planning document reference: ${reference}`);
+    logger.info(`Planning document reference: ${reference}`);
     return reference;
   }
 
@@ -453,15 +454,15 @@ export abstract class BasePhase {
       // 存在する場合は@filepath形式で参照
       const reference = this.getAgentFileReference(filePath);
       if (reference) {
-        console.info(`[INFO] Using ${phaseName} output: ${reference}`);
+        logger.info(`Using ${phaseName} output: ${reference}`);
         return reference;
       } else {
-        console.warn(`[WARNING] Failed to resolve relative path for ${phaseName}: ${filePath}`);
+        logger.warn(`Failed to resolve relative path for ${phaseName}: ${filePath}`);
         return fallbackMessage;
       }
     } else {
       // 存在しない場合はフォールバックメッセージ
-      console.info(`[INFO] ${phaseName} output not found, using fallback message`);
+      logger.info(`${phaseName} output not found, using fallback message`);
       return fallbackMessage;
     }
   }
@@ -512,7 +513,7 @@ export abstract class BasePhase {
       );
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.warn(`[WARNING] Failed to post workflow progress: ${message}`);
+      logger.warn(`Failed to post workflow progress: ${message}`);
     }
   }
 
@@ -558,7 +559,7 @@ export abstract class BasePhase {
     // パス検証: .ai-workflow/issue-<NUM> 形式であることを確認
     const pattern = /\.ai-workflow[\/\\]issue-\d+$/;
     if (!pattern.test(workflowDir)) {
-      console.error(`[ERROR] Invalid workflow directory path: ${workflowDir}`);
+      logger.error(`Invalid workflow directory path: ${workflowDir}`);
       throw new Error(`Invalid workflow directory path: ${workflowDir}`);
     }
 
@@ -566,7 +567,7 @@ export abstract class BasePhase {
     if (fs.existsSync(workflowDir)) {
       const stats = fs.lstatSync(workflowDir);
       if (stats.isSymbolicLink()) {
-        console.error(`[ERROR] Workflow directory is a symbolic link: ${workflowDir}`);
+        logger.error(`Workflow directory is a symbolic link: ${workflowDir}`);
         throw new Error(`Workflow directory is a symbolic link: ${workflowDir}`);
       }
     }
@@ -578,27 +579,27 @@ export abstract class BasePhase {
     if (!force && !isCIEnvironment) {
       const confirmed = await this.promptUserConfirmation(workflowDir);
       if (!confirmed) {
-        console.info('[INFO] Cleanup cancelled by user.');
+        logger.info('Cleanup cancelled by user.');
         return;
       }
     }
 
     // ディレクトリ削除
     try {
-      console.info(`[INFO] Deleting workflow artifacts: ${workflowDir}`);
+      logger.info(`Deleting workflow artifacts: ${workflowDir}`);
 
       // ディレクトリ存在確認
       if (!fs.existsSync(workflowDir)) {
-        console.warn(`[WARNING] Workflow directory does not exist: ${workflowDir}`);
+        logger.warn(`Workflow directory does not exist: ${workflowDir}`);
         return;
       }
 
       // 削除実行
       fs.removeSync(workflowDir);
-      console.info('[OK] Workflow artifacts deleted successfully.');
+      logger.info('Workflow artifacts deleted successfully.');
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.error(`[ERROR] Failed to delete workflow artifacts: ${message}`);
+      logger.error(`Failed to delete workflow artifacts: ${message}`);
       // エラーでもワークフローは継続（Report Phaseのクリーンアップと同様）
     }
   }
@@ -624,8 +625,8 @@ export abstract class BasePhase {
       output: process.stdout,
     });
 
-    console.warn(`[WARNING] About to delete workflow directory: ${workflowDir}`);
-    console.warn('[WARNING] This action cannot be undone.');
+    logger.warn(`About to delete workflow directory: ${workflowDir}`);
+    logger.warn('This action cannot be undone.');
 
     return new Promise((resolve) => {
       rl.question('Proceed? (yes/no): ', (answer) => {
@@ -677,7 +678,7 @@ export abstract class BasePhase {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
     const phaseNumber = this.getPhaseNumberInt(this.phaseName);
 
-    console.info(`[INFO] Phase ${this.phaseName}: Committing ${step} step...`);
+    logger.info(`Phase ${this.phaseName}: Committing ${step} step...`);
 
     const commitResult = await gitManager.commitStepOutput(
       this.phaseName,
@@ -691,17 +692,17 @@ export abstract class BasePhase {
       throw new Error(`Git commit failed for step ${step}: ${commitResult.error ?? 'unknown error'}`);
     }
 
-    console.info(`[INFO] Phase ${this.phaseName}: Pushing ${step} step to remote...`);
+    logger.info(`Phase ${this.phaseName}: Pushing ${step} step to remote...`);
 
     try {
       const pushResult = await gitManager.pushToRemote(3); // 最大3回リトライ
       if (!pushResult.success) {
         throw new Error(`Git push failed for step ${step}: ${pushResult.error ?? 'unknown error'}`);
       }
-      console.info(`[INFO] Phase ${this.phaseName}: Step ${step} pushed successfully`);
+      logger.info(`Phase ${this.phaseName}: Step ${step} pushed successfully`);
     } catch (error) {
       // プッシュ失敗時の処理
-      console.error(`[ERROR] Phase ${this.phaseName}: Failed to push step ${step}: ${(error as Error).message}`);
+      logger.error(`Phase ${this.phaseName}: Failed to push step ${step}: ${(error as Error).message}`);
 
       // current_stepを維持（次回レジューム時に同じステップを再実行）
       this.metadata.updateCurrentStep(this.phaseName, step);
@@ -721,7 +722,7 @@ export abstract class BasePhase {
     // Get revise function
     const reviseFn = this.getReviseFunction();
     if (!reviseFn) {
-      console.error(`[ERROR] Phase ${this.phaseName}: revise() method not implemented.`);
+      logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
       throw new Error('revise() method not implemented');
     }
 

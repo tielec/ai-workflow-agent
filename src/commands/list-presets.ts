@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { logger } from '../utils/logger.js';
 
 import {
   PHASE_PRESETS,

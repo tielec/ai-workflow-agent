@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult, RemainingTask, PhaseName } from '../types.js';
@@ -26,7 +27,7 @@ export class EvaluationPhase extends BasePhase {
 
       try {
         await this.cleanupWorkflowLogs(issueNumber);
-        console.info('[INFO] Workflow logs cleaned up successfully.');
+        logger.info('Workflow logs cleaned up successfully.');
 
         // ログクリーンナップによる削除をコミット・プッシュ（Issue #16）
         if (gitManager) {
@@ -41,11 +42,11 @@ export class EvaluationPhase extends BasePhase {
             throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
           }
 
-          console.info('[INFO] Cleanup changes committed and pushed.');
+          logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
         const message = (error as Error).message ?? String(error);
-        console.warn(`[WARNING] Failed to cleanup workflow logs: ${message}`);
+        logger.warn(`Failed to cleanup workflow logs: ${message}`);
         // クリーンアップ失敗時もワークフロー全体は成功として扱う（Report Phaseと同じパターン）
       }
     }
@@ -57,16 +58,16 @@ export class EvaluationPhase extends BasePhase {
 
       try {
         await this.cleanupWorkflowArtifacts(force);
-        console.info('[INFO] Workflow artifacts cleanup completed.');
+        logger.info('Workflow artifacts cleanup completed.');
 
         // クリーンアップによる削除をコミット・プッシュ（Issue #2）
         if (gitManager) {
           await this.autoCommitAndPush(gitManager, null);
-          console.info('[INFO] Cleanup changes committed and pushed.');
+          logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
         const message = (error as Error).message ?? String(error);
-        console.warn(`[WARNING] Failed to cleanup workflow artifacts: ${message}`);
+        logger.warn(`Failed to cleanup workflow artifacts: ${message}`);
         // エラーでもワークフローは成功として扱う
       }
     }
@@ -136,23 +137,23 @@ export class EvaluationPhase extends BasePhase {
       .replace('{documentation_update_log_path}', relPaths.documentation)
       .replace('{report_document_path}', relPaths.report);
 
-    console.info(`[INFO] Phase ${this.phaseName}: Starting agent execution with maxTurns=50`);
-    console.info(`[INFO] Expected output file: ${path.join(this.outputDir, 'evaluation_report.md')}`);
+    logger.info(`Phase ${this.phaseName}: Starting agent execution with maxTurns=50`);
+    logger.info(`Expected output file: ${path.join(this.outputDir, 'evaluation_report.md')}`);
 
     await this.executeWithAgent(executePrompt, { maxTurns: 50 });
 
-    console.info(`[INFO] Phase ${this.phaseName}: Agent execution completed`);
+    logger.info(`Phase ${this.phaseName}: Agent execution completed`);
     const evaluationFile = path.join(this.outputDir, 'evaluation_report.md');
-    console.info(`[INFO] Checking for output file existence: ${evaluationFile}`);
+    logger.info(`Checking for output file existence: ${evaluationFile}`);
 
     if (!fs.existsSync(evaluationFile)) {
       // エージェントログのパスを取得
       const agentLogPath = path.join(this.executeDir, 'agent_log.md');
       const agentLogExists = fs.existsSync(agentLogPath);
 
-      console.error(`[ERROR] Phase ${this.phaseName}: Output file not found: ${evaluationFile}`);
-      console.error(`[ERROR] Agent may not have called Write tool`);
-      console.error(`[ERROR] Agent log path: ${agentLogPath} (exists: ${agentLogExists})`);
+      logger.error(`Phase ${this.phaseName}: Output file not found: ${evaluationFile}`);
+      logger.error(`Agent may not have called Write tool`);
+      logger.error(`Agent log path: ${agentLogPath} (exists: ${agentLogExists})`);
 
       return {
         success: false,
@@ -177,8 +178,8 @@ export class EvaluationPhase extends BasePhase {
       console.info(`[DEBUG] Decision extraction result: ${JSON.stringify(decisionResult)}`);
 
       if (!decisionResult.success || !decisionResult.decision) {
-        console.error(`[ERROR] Failed to determine decision: ${decisionResult.error}`);
-        console.error(`[ERROR] Content snippet: ${content.substring(0, 500)}`);
+        logger.error(`Failed to determine decision: ${decisionResult.error}`);
+        logger.error(`Content snippet: ${content.substring(0, 500)}`);
         return {
           success: false,
           output: evaluationFile,
@@ -188,7 +189,7 @@ export class EvaluationPhase extends BasePhase {
       }
 
       const decision = decisionResult.decision;
-      console.info(`[INFO] 評価判定: ${decision}`);
+      logger.info(`評価判定: ${decision}`);
 
       if (decision === 'PASS') {
         this.metadata.setEvaluationDecision({ decision: 'PASS' });
@@ -289,9 +290,9 @@ export class EvaluationPhase extends BasePhase {
         };
       }
 
-      console.error(`[ERROR] Invalid decision type: ${decision}`);
-      console.error(`[ERROR] Valid decisions: PASS, PASS_WITH_ISSUES, FAIL_PHASE_*, ABORT`);
-      console.error(`[ERROR] Content snippet for debugging: ${content.substring(0, 1000)}`);
+      logger.error(`Invalid decision type: ${decision}`);
+      logger.error(`Valid decisions: PASS, PASS_WITH_ISSUES, FAIL_PHASE_*, ABORT`);
+      logger.error(`Content snippet for debugging: ${content.substring(0, 1000)}`);
       return {
         success: false,
         output: evaluationFile,
@@ -396,14 +397,14 @@ export class EvaluationPhase extends BasePhase {
     try {
       const issueResult = await this.github.closeIssueWithReason(issueNumber, abortReason);
       if (!issueResult.success) {
-        console.warn(`[WARNING] Issue クローズに失敗: ${issueResult.error ?? '不明なエラー'}`);
+        logger.warn(`Issue クローズに失敗: ${issueResult.error ?? '不明なエラー'}`);
       }
 
       const prNumber = await this.github.getPullRequestNumber(issueNumber);
       if (prNumber) {
         const prResult = await this.github.closePullRequest(prNumber, abortReason);
         if (!prResult.success) {
-          console.warn(`[WARNING] PR クローズに失敗: ${prResult.error ?? '不明なエラー'}`);
+          logger.warn(`PR クローズに失敗: ${prResult.error ?? '不明なエラー'}`);
         }
       }
 
@@ -462,10 +463,10 @@ export class EvaluationPhase extends BasePhase {
           try {
             fs.removeSync(subdirPath);
             deletedCount++;
-            console.info(`[INFO] Deleted: ${path.relative(baseDir, subdirPath)}`);
+            logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
           } catch (error) {
             const message = (error as Error).message ?? String(error);
-            console.warn(`[WARNING] Failed to delete ${subdirPath}: ${message}`);
+            logger.warn(`Failed to delete ${subdirPath}: ${message}`);
           }
         }
       }

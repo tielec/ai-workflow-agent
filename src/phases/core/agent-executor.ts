@@ -63,7 +63,7 @@ export class AgentExecutor {
     }
 
     const primaryName = this.codex && primaryAgent === this.codex ? 'Codex Agent' : 'Claude Agent';
-    console.info(`[INFO] Using ${primaryName} for phase ${this.phaseName}`);
+    logger.info(`Using ${primaryName} for phase ${this.phaseName}`);
 
     let primaryResult: { messages: string[]; authFailed: boolean } | null = null;
 
@@ -81,10 +81,10 @@ export class AgentExecutor {
             `[WARNING] Codex CLI not found at ${binaryPath ?? 'codex'}: ${message}`,
           );
         } else {
-          console.warn(`[WARNING] Codex agent failed: ${message}`);
+          logger.warn(`Codex agent failed: ${message}`);
         }
 
-        console.warn('[WARNING] Falling back to Claude Code agent.');
+        logger.warn('Falling back to Claude Code agent.');
         this.codex = null;
         const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
         return fallbackResult.messages;
@@ -100,7 +100,7 @@ export class AgentExecutor {
 
     // 認証失敗時のフォールバック
     if (finalResult.authFailed && primaryAgent === this.codex && this.claude) {
-      console.warn('[WARNING] Codex authentication failed. Falling back to Claude Code agent.');
+      logger.warn('Codex authentication failed. Falling back to Claude Code agent.');
       this.codex = null;
       const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
       return fallbackResult.messages;
@@ -108,7 +108,7 @@ export class AgentExecutor {
 
     // 空出力時のフォールバック
     if (finalResult.messages.length === 0 && this.claude && primaryAgent === this.codex) {
-      console.warn('[WARNING] Codex agent produced no output. Trying Claude Code agent as fallback.');
+      logger.warn('Codex agent produced no output. Trying Claude Code agent as fallback.');
       const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
       return fallbackResult.messages;
     }
@@ -154,8 +154,8 @@ export class AgentExecutor {
 
     // プロンプトファイルの保存
     fs.writeFileSync(promptFile, prompt, 'utf-8');
-    console.info(`[INFO] Prompt saved to: ${promptFile}`);
-    console.info(`[INFO] Running ${agentName} for phase ${this.phaseName}`);
+    logger.info(`Prompt saved to: ${promptFile}`);
+    logger.info(`Running ${agentName} for phase ${this.phaseName}`);
 
     const startTime = Date.now();
     let messages: string[] = [];
@@ -177,7 +177,7 @@ export class AgentExecutor {
 
     // 生ログの保存
     fs.writeFileSync(rawLogFile, messages.join('\n'), 'utf-8');
-    console.info(`[INFO] Raw log saved to: ${rawLogFile}`);
+    logger.info(`Raw log saved to: ${rawLogFile}`);
 
     if (agentName === 'Codex Agent') {
       console.info('[DEBUG] Codex agent emitted messages:');
@@ -196,7 +196,7 @@ export class AgentExecutor {
       agentName,
     );
     fs.writeFileSync(agentLogFile, agentLogContent, 'utf-8');
-    console.info(`[INFO] Agent log saved to: ${agentLogFile}`);
+    logger.info(`Agent log saved to: ${agentLogFile}`);
 
     if (error) {
       throw error;

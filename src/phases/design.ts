@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
@@ -46,10 +47,10 @@ export class DesignPhase extends BasePhase {
         if (Object.keys(extracted).length) {
           Object.assign(this.metadata.data.design_decisions, extracted);
           this.metadata.save();
-          console.info(`[INFO] Design decisions updated: ${JSON.stringify(extracted)}`);
+          logger.info(`Design decisions updated: ${JSON.stringify(extracted)}`);
         }
       } else {
-        console.info('[INFO] Using design decisions captured during planning phase.');
+        logger.info('Using design decisions captured during planning phase.');
       }
     }
 
@@ -171,7 +172,7 @@ export class DesignPhase extends BasePhase {
       if (Object.keys(extracted).length) {
         Object.assign(this.metadata.data.design_decisions, extracted);
         this.metadata.save();
-        console.info(`[INFO] Design decisions updated after revise: ${JSON.stringify(extracted)}`);
+        logger.info(`Design decisions updated after revise: ${JSON.stringify(extracted)}`);
       }
     }
 

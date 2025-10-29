@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { logger } from '../utils/logger.js';
 import { minimatch } from 'minimatch';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -77,7 +78,7 @@ export class CommitManager {
     }
 
     if (targetFiles.size === 0) {
-      console.warn('[WARNING] No files to commit. This may indicate that files were not staged correctly.');
+      logger.warn('No files to commit. This may indicate that files were not staged correctly.');
       return {
         success: true,
         commit_hash: null,
@@ -102,7 +103,7 @@ export class CommitManager {
         );
       }
     } catch (error) {
-      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${(error as Error).message}`);
       // Continue with commit (don't block)
     }
 
@@ -129,7 +130,7 @@ export class CommitManager {
         files_committed: filesToCommit,
       };
     } catch (error) {
-      console.error(`[ERROR] Git commit failed: ${(error as Error).message}`);
+      logger.error(`Git commit failed: ${(error as Error).message}`);
       return {
         success: false,
         commit_hash: null,
@@ -160,7 +161,7 @@ export class CommitManager {
     const targetFiles = this.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     if (targetFiles.length === 0) {
-      console.warn(`[WARNING] No files to commit for step: ${step}`);
+      logger.warn(`No files to commit for step: ${step}`);
       return {
         success: true,
         commit_hash: null,
@@ -183,7 +184,7 @@ export class CommitManager {
         );
       }
     } catch (error) {
-      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${(error as Error).message}`);
       // Continue with commit (don't block)
     }
 
@@ -195,7 +196,7 @@ export class CommitManager {
         '--no-verify': null,
       });
 
-      console.info(`[INFO] Step commit created: ${commitResponse.commit ?? 'unknown'}`);
+      logger.info(`Step commit created: ${commitResponse.commit ?? 'unknown'}`);
 
       return {
         success: true,
@@ -203,7 +204,7 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      console.error(`[ERROR] Step commit failed: ${(error as Error).message}`);
+      logger.error(`Step commit failed: ${(error as Error).message}`);
       return {
         success: false,
         commit_hash: null,
@@ -226,7 +227,7 @@ export class CommitManager {
 
     // 2. No files to commit
     if (targetFiles.length === 0) {
-      console.warn('[WARNING] No files to commit for initialization');
+      logger.warn('No files to commit for initialization');
       return {
         success: true,
         commit_hash: null,
@@ -250,7 +251,7 @@ export class CommitManager {
         throw new Error('Cannot commit metadata.json with unmasked secrets');
       }
     } catch (error) {
-      console.error(`[ERROR] Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${(error as Error).message}`);
       throw new Error('Cannot commit metadata.json with unmasked secrets');
     }
 
@@ -269,7 +270,7 @@ export class CommitManager {
         '--no-verify': null,
       });
 
-      console.info(`[INFO] Initialization commit created: ${commitResponse.commit ?? 'unknown'}`);
+      logger.info(`Initialization commit created: ${commitResponse.commit ?? 'unknown'}`);
 
       return {
         success: true,
@@ -277,7 +278,7 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      console.error(`[ERROR] Initialization commit failed: ${(error as Error).message}`);
+      logger.error(`Initialization commit failed: ${(error as Error).message}`);
       return {
         success: false,
         commit_hash: null,
@@ -300,7 +301,7 @@ export class CommitManager {
 
     // 2. No files to commit
     if (targetFiles.length === 0) {
-      console.warn('[WARNING] No files to commit for cleanup');
+      logger.warn('No files to commit for cleanup');
       return {
         success: true,
         commit_hash: null,
@@ -323,7 +324,7 @@ export class CommitManager {
         '--no-verify': null,
       });
 
-      console.info(`[INFO] Cleanup commit created: ${commitResponse.commit ?? 'unknown'}`);
+      logger.info(`Cleanup commit created: ${commitResponse.commit ?? 'unknown'}`);
 
       return {
         success: true,
@@ -331,7 +332,7 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      console.error(`[ERROR] Cleanup commit failed: ${(error as Error).message}`);
+      logger.error(`Cleanup commit failed: ${(error as Error).message}`);
       return {
         success: false,
         commit_hash: null,

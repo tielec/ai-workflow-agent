@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { logger } from '../utils/logger.js';
 import process from 'node:process';
 import fs from 'fs-extra';
 
@@ -31,5 +32,5 @@ export async function handleReviewCommand(options: any): Promise<void> {
     process.exit(1);
   }
 
-  console.info(`[OK] Phase ${phaseName} status: ${metadata.getPhaseStatus(phaseName)}`);
+  logger.info(`Phase ${phaseName} status: ${metadata.getPhaseStatus(phaseName)}`);
 }

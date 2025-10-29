@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, PhaseStatus } from '../types.js';
 import { buildErrorMessage, buildWarningMessage } from './helpers/dependency-messages.js';

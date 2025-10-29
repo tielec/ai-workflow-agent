@@ -1,4 +1,5 @@
 import type { SimpleGit } from 'simple-git';
+import { logger } from '../utils/logger.js';
 
 interface BranchResult {
   success: boolean;

@@ -1,4 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { logger } from '../utils/logger.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 
@@ -72,10 +73,10 @@ export class RemoteManager {
           return { success: true, retries };
         }
 
-        console.warn('[WARNING] Push completed but no changes were pushed. This may indicate nothing to push.');
+        logger.warn('Push completed but no changes were pushed. This may indicate nothing to push.');
         return { success: true, retries };
       } catch (error) {
-        console.error(`[ERROR] Push failed: ${(error as Error).message}`);
+        logger.error(`Push failed: ${(error as Error).message}`);
 
         if (!branchName) {
           return {
@@ -89,23 +90,23 @@ export class RemoteManager {
 
         // non-fast-forward error: pull and retry
         if ((errorMessage.includes('rejected') || errorMessage.includes('non-fast-forward')) && retries === 0) {
-          console.warn('[WARNING] Push rejected (non-fast-forward). Pulling remote changes...');
+          logger.warn('Push rejected (non-fast-forward). Pulling remote changes...');
           const pullResult = await this.pullLatest(branchName);
           if (!pullResult.success) {
-            console.error(`[ERROR] Failed to pull: ${pullResult.error}`);
+            logger.error(`Failed to pull: ${pullResult.error}`);
             return {
               success: false,
               retries,
               error: `Failed to pull remote changes: ${pullResult.error}`,
             };
           }
-          console.info('[INFO] Pull successful. Retrying push...');
+          logger.info('Pull successful. Retrying push...');
           retries += 1;
           continue; // Retry push
         }
 
         if (!this.isRetriableError(error) || retries === maxRetries) {
-          console.error(`[ERROR] Push failed permanently: ${(error as Error).message}`);
+          logger.error(`Push failed permanently: ${(error as Error).message}`);
           return {
             success: false,
             retries,
@@ -113,7 +114,7 @@ export class RemoteManager {
           };
         }
 
-        console.warn(`[WARNING] Retriable error, retrying (${retries + 1}/${maxRetries})...`);
+        logger.warn(`Retriable error, retrying (${retries + 1}/${maxRetries})...`);
         retries += 1;
         await delay(retryDelay);
       }
@@ -214,7 +215,7 @@ export class RemoteManager {
       const newUrl = `https://${githubToken}@github.com/${path}`;
 
       await this.git.remote(['set-url', 'origin', newUrl]);
-      console.info('[INFO] Git remote URL configured with GitHub token authentication');
+      logger.info('Git remote URL configured with GitHub token authentication');
     } catch (error) {
       console.warn(
         `[WARNING] Failed to setup GitHub credentials: ${(error as Error).message}`,

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { logger } from '../utils/logger.js';
 import fs from 'fs-extra';
 import { BasePhase, type PhaseInitializationParams } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';

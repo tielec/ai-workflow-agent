@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { logger } from '../utils/logger.js';
 import process from 'node:process';
 import os from 'node:os';
 import fs from 'fs-extra';

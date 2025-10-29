@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { basename, dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';
 import {
@@ -128,7 +129,7 @@ export class WorkflowState {
 
   public migrate(): boolean {
     if (!fs.existsSync(METADATA_TEMPLATE_PATH)) {
-      console.warn(`[WARNING] Template file not found: ${METADATA_TEMPLATE_PATH}`);
+      logger.warn(`Template file not found: ${METADATA_TEMPLATE_PATH}`);
       return false;
     }
 
@@ -152,7 +153,7 @@ export class WorkflowState {
           newPhases[phaseName] = existingPhase as PhaseMetadata;
         }
       } else {
-        console.info(`[INFO] Migrating metadata.json: Adding ${phaseName} phase`);
+        logger.info(`Migrating metadata.json: Adding ${phaseName} phase`);
         if (phaseName === 'evaluation') {
           newPhases.evaluation = templatePhaseData as EvaluationPhaseMetadata;
         } else {
@@ -169,7 +170,7 @@ export class WorkflowState {
 
     // Design decisions
     if (!this.data.design_decisions) {
-      console.info('[INFO] Migrating metadata.json: Adding design_decisions');
+      logger.info('Migrating metadata.json: Adding design_decisions');
       this.data.design_decisions = { ...template.design_decisions };
       migrated = true;
     } else {
@@ -186,21 +187,21 @@ export class WorkflowState {
 
     // Cost tracking
     if (!this.data.cost_tracking) {
-      console.info('[INFO] Migrating metadata.json: Adding cost_tracking');
+      logger.info('Migrating metadata.json: Adding cost_tracking');
       this.data.cost_tracking = { ...template.cost_tracking };
       migrated = true;
     }
 
     // Workflow version
     if (!this.data.workflow_version) {
-      console.info('[INFO] Migrating metadata.json: Adding workflow_version');
+      logger.info('Migrating metadata.json: Adding workflow_version');
       this.data.workflow_version = template.workflow_version;
       migrated = true;
     }
 
     // Target repository (Issue #369)
     if (!('target_repository' in this.data)) {
-      console.info('[INFO] Migrating metadata.json: Adding target_repository');
+      logger.info('Migrating metadata.json: Adding target_repository');
       this.data.target_repository = null;
       migrated = true;
     }
@@ -211,14 +212,14 @@ export class WorkflowState {
 
       // current_stepフィールドの追加
       if (!('current_step' in phaseData)) {
-        console.info(`[INFO] Migrating metadata.json: Adding current_step to ${phaseName}`);
+        logger.info(`Migrating metadata.json: Adding current_step to ${phaseName}`);
         phaseData.current_step = null;
         phaseChanged = true;
       }
 
       // completed_stepsフィールドの追加
       if (!('completed_steps' in phaseData)) {
-        console.info(`[INFO] Migrating metadata.json: Adding completed_steps to ${phaseName}`);
+        logger.info(`Migrating metadata.json: Adding completed_steps to ${phaseName}`);
 
         // ステータスに応じて初期値を設定
         if (phaseData.status === 'completed') {
@@ -247,10 +248,10 @@ export class WorkflowState {
         `${metadataFileName}.backup_${timestamp}`,
       );
       fs.copyFileSync(this.metadataPath, backupPath);
-      console.info(`[INFO] Metadata backup created: ${backupPath}`);
+      logger.info(`Metadata backup created: ${backupPath}`);
 
       this.save();
-      console.info('[OK] metadata.json migrated successfully');
+      logger.info('metadata.json migrated successfully');
     }
 
     return migrated;
