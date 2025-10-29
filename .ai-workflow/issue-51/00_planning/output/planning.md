@@ -196,18 +196,18 @@
 
 ### Phase 4: 実装 (見積もり: 8~12h)
 
-- [ ] Task 4-1: Config クラスの実装 (2~3h)
+- [x] Task 4-1: Config クラスの実装 (2~3h)
   - `src/core/config.ts` ファイルの作成
   - IConfig インターフェースの実装
   - Config クラスの実装（全環境変数アクセスメソッド）
   - Singleton インスタンスのエクスポート
   - JSDoc コメントの追加
-- [ ] Task 4-2: commands/ の置き換え (2~3h)
+- [x] Task 4-2: commands/ の置き換え (2~3h)
   - `src/commands/execute.ts` の置き換え（約17箇所）
   - `src/commands/init.ts` の置き換え（約1箇所）
   - インポート文の追加
   - エラーハンドリングの確認
-- [ ] Task 4-3: core/ の置き換え (3~4h)
+- [x] Task 4-3: core/ の置き換え (3~4h)
   - `src/core/repository-utils.ts` の置き換え
   - `src/core/github-client.ts` の置き換え
   - `src/core/codex-agent-client.ts` の置き換え
@@ -216,7 +216,7 @@
   - `src/core/logger.ts` の置き換え
   - `src/core/git/commit-manager.ts` の置き換え
   - `src/core/git/remote-manager.ts` の置き換え
-- [ ] Task 4-4: phases/ と utils/ の置き換え (1~2h)
+- [x] Task 4-4: phases/ と utils/ の置き換え (1~2h)
   - `src/phases/base-phase.ts` の置き換え（CI環境判定）
   - `src/utils/logger.ts` の置き換え
   - `src/core/helpers/env-setup.ts` の確認（process.env を引数として受け取るため影響なし）
@@ -363,12 +363,12 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] Config クラスが実装され、全環境変数アクセスメソッドが動作する
-- [ ] commands/ の置き換えが完了している（インポート、呼び出し）
-- [ ] core/ の置き換えが完了している
-- [ ] phases/ と utils/ の置き換えが完了している
-- [ ] TypeScript コンパイルエラーがゼロである
-- [ ] ESLint エラーがゼロである
+- [x] Config クラスが実装され、全環境変数アクセスメソッドが動作する
+- [x] commands/ の置き換えが完了している（インポート、呼び出し）
+- [x] core/ の置き換えが完了している
+- [x] phases/ と utils/ の置き換えが完了している
+- [x] TypeScript コンパイルエラーがゼロである
+- [x] ESLint エラーがゼロである
 
 ### Phase 5: テストコード実装
 
