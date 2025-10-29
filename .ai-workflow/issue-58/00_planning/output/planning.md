@@ -211,11 +211,11 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: マイグレーションガイド作成 (0.25~0.5h)
+- [x] Task 7-1: マイグレーションガイド作成 (0.25~0.5h)
   - `docs/MIGRATION.md` の作成
   - `ai-workflow migrate --sanitize-tokens` の使用方法
   - 実行例とサンプル出力
-- [ ] Task 7-2: TROUBLESHOOTING.md更新 (0.25~0.5h)
+- [x] Task 7-2: TROUBLESHOOTING.md更新 (0.25~0.5h)
   - Task 3のマイグレーションコマンドの使用手順を追加
   - 既存の手動修正手順（Issue #54で追加）との比較
 
@@ -363,9 +363,9 @@ graph TD
 - [x] カバレッジが90%以上であること
 
 ### Phase 7: ドキュメント
-- [ ] `docs/MIGRATION.md` が作成されている
-- [ ] `TROUBLESHOOTING.md` が更新されている
-- [ ] コードコメントが適切に記載されている（JSDoc形式）
+- [x] `docs/MIGRATION.md` が作成されている
+- [x] `TROUBLESHOOTING.md` が更新されている
+- [x] コードコメントが適切に記載されている（JSDoc形式）
 
 ### Phase 8: レポート
 - [ ] Task 2のモニタリングレポートが作成されている
