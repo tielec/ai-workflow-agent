@@ -133,17 +133,17 @@
 
 ### Phase 4: 実装 (見積もり: 1~2h)
 
-- [ ] Task 4-1: PR タイトル生成ロジック実装 (0.5~1h)
+- [x] Task 4-1: PR タイトル生成ロジック実装 (0.5~1h)
   - `src/commands/init.ts` の `handleInitCommand()` 関数修正
   - Issue タイトル取得処理追加
   - エラーハンドリング実装（フォールバック: `[AI-Workflow] Issue #${issueNumber}`）
   - 長いタイトルの切り詰め処理（256文字制限）
 
-- [ ] Task 4-2: PR テンプレート最適化 (0.2~0.3h)
+- [x] Task 4-2: PR テンプレート最適化 (0.2~0.3h)
   - `src/templates/pr_body_template.md` 編集（`### 👀 レビューポイント`, `### ⚙️ 実行環境` 削除）
   - `src/templates/pr_body_detailed_template.md` 編集（同上）
 
-- [ ] Task 4-3: エラーメッセージ追加 (0.1~0.2h)
+- [x] Task 4-3: エラーメッセージ追加 (0.1~0.2h)
   - Issue取得失敗時の警告ログ追加
   - デバッグ用ログ追加（`logger.info('Using Issue title as PR title: ...')`)
 
