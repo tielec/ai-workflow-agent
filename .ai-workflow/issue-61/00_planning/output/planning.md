@@ -239,7 +239,7 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1h)
 
-- [ ] Task 5-1: logger.tsのユニットテスト作成 (0.5h)
+- [x] Task 5-1: logger.tsのユニットテスト作成 (0.5h)
   - tests/unit/utils/logger.test.tsの作成
   - 各ログレベル（debug/info/warn/error）の出力検証
   - 環境変数制御の検証（LOG_LEVEL、LOG_NO_COLOR）
@@ -402,7 +402,7 @@ graph TD
 - [ ] コードが既存の品質基準を満たしている（TypeScript型安全性、DRY原則）
 
 ### Phase 5: テストコード実装
-- [ ] logger.tsのユニットテストが実装されている
+- [x] logger.tsのユニットテストが実装されている
 - [ ] 既存テストがlogger使用に対応している
 - [ ] テストカバレッジが維持されている（既存レベル以上）
 
