@@ -166,6 +166,10 @@ pipeline {
                         error("ISSUE_URL は GitHub Issue URLである必要があります: ${params.ISSUE_URL}")
                     }
 
+                    if (!params.ISSUE_URL.contains('/issues/')) {
+                        error("ISSUE_URL は GitHub Issue URL (/issues/) である必要があります: ${params.ISSUE_URL}")
+                    }
+
                     // Issue番号とリポジトリ情報抽出
                     def urlParts = params.ISSUE_URL.split('/')
                     env.ISSUE_NUMBER = urlParts[-1]
