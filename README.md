@@ -97,6 +97,12 @@ ai-workflow execute \
 ai-workflow review \
   --phase <name> \
   --issue <number>
+
+ai-workflow migrate \
+  --sanitize-tokens \
+  [--dry-run] \
+  [--issue <number>] \
+  [--repo <path>]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -184,6 +190,32 @@ ai-workflow execute --issue 2 --preset review-requirements
 
 - `--skip-dependency-check` … すべてのフェーズ依存関係チェックを無効化します（慎重に使用）。
 - `--ignore-dependencies` … 依存関係の警告を表示しつつ処理を続行します。
+
+### マイグレーションコマンド
+
+`migrate` コマンドは、既存の `.ai-workflow/issue-*/metadata.json` に含まれるPersonal Access Tokenを検出・除去します（v0.3.1で追加）：
+
+```bash
+# 基本的な使用方法
+ai-workflow migrate --sanitize-tokens
+
+# ドライラン（ファイルを変更せず、検出のみ）
+ai-workflow migrate --sanitize-tokens --dry-run
+
+# 特定のIssueのみ対象
+ai-workflow migrate --sanitize-tokens --issue 123
+
+# 対象リポジトリを指定
+ai-workflow migrate --sanitize-tokens --repo /path/to/repo
+```
+
+**主な機能**:
+- **トークン検出**: メタデータの `target_repository.remote_url` フィールドをスキャン
+- **自動サニタイズ**: HTTPS形式のURLからトークンを除去（SSH形式は変更なし）
+- **バックアップ作成**: 変更前に `.bak` ファイルを作成
+- **ドライランモード**: `--dry-run` でファイルを変更せず検出のみ実行
+
+**注意**: v0.3.1以降、`init` コマンド実行時に自動的にトークンが除去されるため、新規ワークフローでは不要です。既存ワークフロー（v0.3.1より前に作成）のメタデータ修正に使用してください。
 
 ## フェーズ概要
 
