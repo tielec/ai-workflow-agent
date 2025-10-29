@@ -358,8 +358,8 @@ export class ReportPhase extends BasePhase {
       }
     }
 
-    console.info(
-      `[INFO] Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
+    logger.info(
+      `Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
     );
   }
 }

@@ -175,7 +175,7 @@ export class EvaluationPhase extends BasePhase {
 
       const decisionResult = await this.contentParser.parseEvaluationDecision(content);
 
-      console.info(`[DEBUG] Decision extraction result: ${JSON.stringify(decisionResult)}`);
+      logger.debug(`Decision extraction result: ${JSON.stringify(decisionResult)}`);
 
       if (!decisionResult.success || !decisionResult.decision) {
         logger.error(`Failed to determine decision: ${decisionResult.error}`);
@@ -472,8 +472,8 @@ export class EvaluationPhase extends BasePhase {
       }
     }
 
-    console.info(
-      `[INFO] Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
+    logger.info(
+      `Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
     );
   }
 }

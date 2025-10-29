@@ -176,8 +176,8 @@ export class WorkflowState {
     } else {
       for (const key of Object.keys(template.design_decisions)) {
         if (!(key in this.data.design_decisions)) {
-          console.info(
-            `[INFO] Migrating metadata.json: Adding design_decisions.${key}`,
+          logger.info(
+            `Migrating metadata.json: Adding design_decisions.${key}`,
           );
           this.data.design_decisions[key] = null;
           migrated = true;

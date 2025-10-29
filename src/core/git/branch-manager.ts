@@ -32,7 +32,7 @@ export class BranchManager {
   ): Promise<BranchResult> {
     if (await this.branchExists(branchName)) {
       const message = `Branch ${branchName} already exists`;
-      console.warn(message);
+      logger.warn(message);
       return {
         success: false,
         branch_name: branchName,
@@ -80,7 +80,7 @@ export class BranchManager {
         return remoteBranches.all.some((ref) => ref.endsWith(branchName));
       }
     } catch (error) {
-      console.warn(`[WARN] Failed to check branch existence: ${(error as Error).message}`);
+      logger.warn(`Failed to check branch existence: ${(error as Error).message}`);
     }
 
     return false;

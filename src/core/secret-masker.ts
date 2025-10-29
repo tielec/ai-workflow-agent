@@ -101,8 +101,8 @@ export class SecretMasker {
         if (result.masked) {
           filesProcessed++;
           totalSecretsMasked += result.count;
-          console.info(
-            `[INFO] Masked ${result.count} secret(s) in ${path.basename(filePath)}`,
+          logger.info(
+            `Masked ${result.count} secret(s) in ${path.basename(filePath)}`,
           );
         }
       } catch (error) {
@@ -135,8 +135,8 @@ export class SecretMasker {
         });
         files.push(...matches);
       } catch (error) {
-        console.warn(
-          `[WARNING] Failed to glob pattern ${globPattern}: ${(error as Error).message}`,
+        logger.warn(
+          `Failed to glob pattern ${globPattern}: ${(error as Error).message}`,
         );
       }
     }

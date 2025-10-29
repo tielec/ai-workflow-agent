@@ -28,7 +28,7 @@ export class RemoteManager {
 
     // Fire and forget setup of credentials (best-effort)
     this.setupGithubCredentials().catch((error) => {
-      console.warn(`[WARN] Failed to set up GitHub credentials: ${(error as Error).message}`);
+      logger.warn(`Failed to set up GitHub credentials: ${(error as Error).message}`);
     });
   }
 
@@ -45,7 +45,7 @@ export class RemoteManager {
       status.current ?? this.metadata.data.branch_name ?? null;
     const needsUpstream = !status.tracking;
 
-    console.info(`[DEBUG] Push to remote: branch=${branchName}, needsUpstream=${needsUpstream}, ahead=${status.ahead}, behind=${status.behind}`);
+    logger.debug(`Push to remote: branch=${branchName}, needsUpstream=${needsUpstream}, ahead=${status.ahead}, behind=${status.behind}`);
 
     while (retries <= maxRetries) {
       try {
@@ -54,22 +54,22 @@ export class RemoteManager {
         }
 
         if (needsUpstream && retries === 0) {
-          console.info(`[DEBUG] Setting upstream and pushing to origin/${branchName}`);
+          logger.debug(`Setting upstream and pushing to origin/${branchName}`);
           const pushResult = await this.git.raw(['push', '--set-upstream', 'origin', branchName]);
-          console.info(`[DEBUG] Push --set-upstream result: ${pushResult}`);
+          logger.debug(`Push --set-upstream result: ${pushResult}`);
           return { success: true, retries };
         }
 
-        console.info(`[DEBUG] Pushing to origin/${branchName}...`);
+        logger.debug(`Pushing to origin/${branchName}...`);
         const result = (await this.git.push(
           'origin',
           branchName,
         )) as PushResult;
 
-        console.info(`[DEBUG] Push result: pushed=${result.pushed?.length ?? 0}, remoteMessages=${JSON.stringify(result.remoteMessages ?? {})}`);
+        logger.debug(`Push result: pushed=${result.pushed?.length ?? 0}, remoteMessages=${JSON.stringify(result.remoteMessages ?? {})}`);
 
         if (result.pushed?.length || result.remoteMessages?.all?.length) {
-          console.info('[DEBUG] Push completed successfully with changes');
+          logger.debug('Push completed successfully with changes');
           return { success: true, retries };
         }
 
@@ -205,8 +205,8 @@ export class RemoteManager {
             : String(remoteResult ?? '').trim();
 
       if (!currentUrl.startsWith('https://github.com/')) {
-        console.info(
-          `[INFO] Git remote URL is not HTTPS, skipping token configuration: ${currentUrl}`,
+        logger.info(
+          `Git remote URL is not HTTPS, skipping token configuration: ${currentUrl}`,
         );
         return;
       }
@@ -217,8 +217,8 @@ export class RemoteManager {
       await this.git.remote(['set-url', 'origin', newUrl]);
       logger.info('Git remote URL configured with GitHub token authentication');
     } catch (error) {
-      console.warn(
-        `[WARNING] Failed to setup GitHub credentials: ${(error as Error).message}`,
+      logger.warn(
+        `Failed to setup GitHub credentials: ${(error as Error).message}`,
       );
     }
   }

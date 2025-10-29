@@ -134,8 +134,8 @@ export class PullRequestClient {
         state: pr.state ?? 'open',
       };
     } catch (error) {
-      console.warn(
-        `[WARNING] Failed to check existing PR: ${this.encodeWarning((error as Error).message)}`,
+      logger.warn(
+        `Failed to check existing PR: ${this.encodeWarning((error as Error).message)}`,
       );
       return null;
     }

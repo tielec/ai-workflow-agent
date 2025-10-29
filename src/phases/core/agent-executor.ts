@@ -10,6 +10,7 @@
 
 import fs from 'fs-extra';
 import path from 'node:path';
+import { logger } from '../../utils/logger.js';
 import { CodexAgentClient } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
@@ -77,8 +78,8 @@ export class AgentExecutor {
         const binaryPath = this.codex?.getBinaryPath?.();
 
         if (err?.code === 'CODEX_CLI_NOT_FOUND') {
-          console.warn(
-            `[WARNING] Codex CLI not found at ${binaryPath ?? 'codex'}: ${message}`,
+          logger.warn(
+            `Codex CLI not found at ${binaryPath ?? 'codex'}: ${message}`,
           );
         } else {
           logger.warn(`Codex agent failed: ${message}`);
@@ -180,9 +181,9 @@ export class AgentExecutor {
     logger.info(`Raw log saved to: ${rawLogFile}`);
 
     if (agentName === 'Codex Agent') {
-      console.info('[DEBUG] Codex agent emitted messages:');
+      logger.debug('Codex agent emitted messages:');
       messages.slice(0, 10).forEach((line, index) => {
-        console.info(`[DEBUG][Codex][${index}] ${line}`);
+        logger.debug(`[Codex][${index}] ${line}`);
       });
     }
 

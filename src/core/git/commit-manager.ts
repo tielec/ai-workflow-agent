@@ -60,9 +60,9 @@ export class CommitManager {
     }
 
     const changedFiles = await this.getChangedFiles();
-    console.info(`[DEBUG] Git status detected ${changedFiles.length} changed files`);
+    logger.debug(`Git status detected ${changedFiles.length} changed files`);
     if (changedFiles.length > 0) {
-      console.info(`[DEBUG] Changed files: ${changedFiles.slice(0, 5).join(', ')}${changedFiles.length > 5 ? '...' : ''}`);
+      logger.debug(`Changed files: ${changedFiles.slice(0, 5).join(', ')}${changedFiles.length > 5 ? '...' : ''}`);
     }
 
     const targetFiles = new Set(
@@ -72,9 +72,9 @@ export class CommitManager {
     const phaseSpecific = await this.getPhaseSpecificFiles(phaseName);
     phaseSpecific.forEach((file) => targetFiles.add(file));
 
-    console.info(`[DEBUG] Target files for commit: ${targetFiles.size} files`);
+    logger.debug(`Target files for commit: ${targetFiles.size} files`);
     if (targetFiles.size > 0) {
-      console.info(`[DEBUG] Files to commit: ${Array.from(targetFiles).slice(0, 5).join(', ')}${targetFiles.size > 5 ? '...' : ''}`);
+      logger.debug(`Files to commit: ${Array.from(targetFiles).slice(0, 5).join(', ')}${targetFiles.size > 5 ? '...' : ''}`);
     }
 
     if (targetFiles.size === 0) {
@@ -93,13 +93,13 @@ export class CommitManager {
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
       if (maskingResult.filesProcessed > 0) {
-        console.info(
-          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        logger.info(
+          `Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
         );
       }
       if (maskingResult.errors.length > 0) {
-        console.warn(
-          `[WARNING] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        logger.warn(
+          `Secret masking encountered ${maskingResult.errors.length} error(s)`,
         );
       }
     } catch (error) {
@@ -121,8 +121,8 @@ export class CommitManager {
         '--no-verify': null,
       });
 
-      console.info(`[DEBUG] Commit created: ${commitResponse.commit ?? 'unknown'}`);
-      console.info(`[DEBUG] Commit summary: ${commitResponse.summary?.changes ?? 0} changes, ${commitResponse.summary?.insertions ?? 0} insertions, ${commitResponse.summary?.deletions ?? 0} deletions`);
+      logger.debug(`Commit created: ${commitResponse.commit ?? 'unknown'}`);
+      logger.debug(`Commit summary: ${commitResponse.summary?.changes ?? 0} changes, ${commitResponse.summary?.insertions ?? 0} insertions, ${commitResponse.summary?.deletions ?? 0} deletions`);
 
       return {
         success: true,
@@ -174,13 +174,13 @@ export class CommitManager {
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
       if (maskingResult.filesProcessed > 0) {
-        console.info(
-          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        logger.info(
+          `Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
         );
       }
       if (maskingResult.errors.length > 0) {
-        console.warn(
-          `[WARNING] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        logger.warn(
+          `Secret masking encountered ${maskingResult.errors.length} error(s)`,
         );
       }
     } catch (error) {
@@ -240,13 +240,13 @@ export class CommitManager {
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
       if (maskingResult.filesProcessed > 0) {
-        console.info(
-          `[INFO] Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+        logger.info(
+          `Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
         );
       }
       if (maskingResult.errors.length > 0) {
-        console.error(
-          `[ERROR] Secret masking encountered ${maskingResult.errors.length} error(s)`,
+        logger.error(
+          `Secret masking encountered ${maskingResult.errors.length} error(s)`,
         );
         throw new Error('Cannot commit metadata.json with unmasked secrets');
       }
@@ -584,15 +584,15 @@ export class CommitManager {
       'ai-workflow@tielec.local';
 
     if (userName.length < 1 || userName.length > 100) {
-      console.warn(
-        `[WARN] User name length is invalid (${userName.length} chars), using default`,
+      logger.warn(
+        `User name length is invalid (${userName.length} chars), using default`,
       );
       userName = 'AI Workflow';
     }
 
     if (!userEmail.includes('@')) {
-      console.warn(
-        `[WARN] Invalid email format: ${userEmail}, using default`,
+      logger.warn(
+        `Invalid email format: ${userEmail}, using default`,
       );
       userEmail = 'ai-workflow@tielec.local';
     }
@@ -600,8 +600,8 @@ export class CommitManager {
     await this.git.addConfig('user.name', userName, false, 'local');
     await this.git.addConfig('user.email', userEmail, false, 'local');
 
-    console.info(
-      `[INFO] Git config ensured: user.name=${userName}, user.email=${userEmail}`,
+    logger.info(
+      `Git config ensured: user.name=${userName}, user.email=${userEmail}`,
     );
   }
 }

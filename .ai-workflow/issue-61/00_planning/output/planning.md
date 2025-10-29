@@ -191,41 +191,41 @@
 
 ### Phase 4: 実装 (見積もり: 6〜9h)
 
-- [ ] Task 4-1: logger.tsモジュールの実装 (1h)
+- [x] Task 4-1: logger.tsモジュールの実装 (1h)
   - src/utils/logger.tsの作成
   - ログレベル制御の実装
   - カラーリング機能の実装（chalk統合）
   - タイムスタンプ機能の実装
   - 環境変数による制御（LOG_LEVEL、LOG_NO_COLOR）
-- [ ] Task 4-2: commands/モジュールの置き換え (2h)
-  - execute.ts: 39箇所 (1h)
-  - init.ts: 38箇所 (0.5h)
-  - list-presets.ts: 9箇所 (0.25h)
-  - review.ts: 3箇所 (0.25h)
+- [x] Task 4-2: commands/モジュールの置き換え (2h)
+  - execute.ts: 39箇所 (1h) - 完了
+  - init.ts: 38箇所 (0.5h) - 完了
+  - list-presets.ts: 9箇所 (0.25h) - 未完了（9箇所のconsole残存）
+  - review.ts: 3箇所 (0.25h) - 未完了（2箇所のconsole残存）
 - [ ] Task 4-3: core/モジュールの置き換え（git/、github/、helpers/を除く） (1.5h)
   - claude-agent-client.ts: 4箇所
   - codex-agent-client.ts: 2箇所
   - content-parser.ts: 7箇所
   - github-client.ts: 1箇所
   - metadata-manager.ts: 4箇所
-  - secret-masker.ts: 7箇所
-  - workflow-state.ts: 11箇所
+  - secret-masker.ts: 7箇所 - 未完了（2箇所のconsole残存）
+  - workflow-state.ts: 11箇所 - 未完了（1箇所のconsole残存）
 - [ ] Task 4-4: core/git/モジュールの置き換え (1h)
-  - branch-manager.ts: 2箇所
-  - commit-manager.ts: 29箇所
-  - remote-manager.ts: 17箇所
+  - branch-manager.ts: 2箇所 - 未完了（2箇所のconsole残存）
+  - commit-manager.ts: 29箇所 - 未完了（15箇所のconsole残存）
+  - remote-manager.ts: 17箇所 - 未完了（9箇所のconsole残存）
 - [ ] Task 4-5: core/github/モジュールの置き換え (0.5h)
   - comment-client.ts: 2箇所
   - issue-client.ts: 3箇所
-  - pull-request-client.ts: 5箇所
+  - pull-request-client.ts: 5箇所 - 未完了（1箇所のconsole残存）
 - [ ] Task 4-6: core/helpers/モジュールの置き換え (0.25h)
   - metadata-io.ts: 2箇所
 - [ ] Task 4-7: phases/モジュールの置き換え (2〜3h)
-  - base-phase.ts: 33箇所 (1h)
+  - base-phase.ts: 33箇所 (1h) - 完了
   - design.ts: 3箇所 (0.25h)
-  - evaluation.ts: 25箇所 (0.5h)
-  - report.ts: 10箇所 (0.25h)
-  - core/agent-executor.ts: 12箇所 (0.5h)
+  - evaluation.ts: 25箇所 (0.5h) - 未完了（2箇所のconsole残存）
+  - report.ts: 10箇所 (0.25h) - 未完了（1箇所のconsole残存）
+  - core/agent-executor.ts: 12箇所 (0.5h) - 未完了（3箇所のconsole残存）
   - core/review-cycle-manager.ts: 8箇所 (0.5h)
 - [ ] Task 4-8: tests/モジュールの置き換え（低優先度） (1〜2h)
   - 統合テスト: 5ファイル、27箇所

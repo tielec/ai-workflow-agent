@@ -21,14 +21,14 @@ export async function handleReviewCommand(options: any): Promise<void> {
   );
 
   if (!fs.existsSync(metadataPath)) {
-    console.error('Error: Workflow not found.');
+    logger.error('Error: Workflow not found.');
     process.exit(1);
   }
 
   const metadata = WorkflowState.load(metadataPath);
   const phaseName = options.phase as PhaseName;
   if (!metadata.data.phases[phaseName]) {
-    console.error(`Error: Unknown phase "${phaseName}".`);
+    logger.error(`Error: Unknown phase "${phaseName}".`);
     process.exit(1);
   }
 
