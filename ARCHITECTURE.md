@@ -91,7 +91,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
-| `src/types/commands.ts` | コマンド関連の型定義（約71行）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult等の型を提供。 |
+| `src/types/commands.ts` | コマンド関連の型定義（約150行、Issue #45で拡張）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions等の型を提供。コマンドハンドラの型安全性を確保。 |
 | `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約698行、v0.3.1で52.4%削減、Issue #47でテンプレートメソッド追加）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
 | `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、v0.3.1で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
 | `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、v0.3.1で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
