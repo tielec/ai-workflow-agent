@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
+import { config } from './config.js';
 import { spawn } from 'node:child_process';
 import { parseCodexEvent, determineCodexEventType } from './helpers/agent-event-parser.js';
 import { formatCodexLog } from './helpers/log-formatter.js';
@@ -23,7 +24,7 @@ export class CodexAgentClient {
 
   constructor(options: { workingDir?: string; binaryPath?: string; model?: string } = {}) {
     this.workingDir = options.workingDir ?? process.cwd();
-    this.binaryPath = options.binaryPath ?? process.env.CODEX_CLI_PATH ?? 'codex';
+    this.binaryPath = options.binaryPath ?? config.getCodexCliPath();
     this.defaultModel = options.model ?? undefined;
   }
 

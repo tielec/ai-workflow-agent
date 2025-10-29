@@ -3,6 +3,7 @@ import process from 'node:process';
 import fs from 'fs-extra';
 
 import { logger } from '../utils/logger.js';
+import { config } from '../core/config.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
 import { ClaudeAgentClient } from '../core/claude-agent-client.js';
@@ -139,7 +140,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
 
   // workingDirは対象リポジトリのパスを使用
   const workingDir = targetRepo?.path ?? repoRoot;
-  const homeDir = process.env.HOME ?? null;
+  const homeDir = config.getHomeDir();
 
   const agentModeRaw = typeof options.agent === 'string' ? options.agent.toLowerCase() : 'auto';
   const agentMode: 'auto' | 'codex' | 'claude' =
@@ -148,12 +149,11 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   logger.info(`Agent mode: ${agentMode}`);
 
   const claudeCandidatePaths: string[] = [];
-  if (process.env.CLAUDE_CODE_CREDENTIALS_PATH) {
-    claudeCandidatePaths.push(process.env.CLAUDE_CODE_CREDENTIALS_PATH);
+  const claudeCredentialsEnv = config.getClaudeCredentialsPath();
+  if (claudeCredentialsEnv) {
+    claudeCandidatePaths.push(claudeCredentialsEnv);
   }
-  if (homeDir) {
-    claudeCandidatePaths.push(path.join(homeDir, '.claude-code', 'credentials.json'));
-  }
+  claudeCandidatePaths.push(path.join(homeDir, '.claude-code', 'credentials.json'));
   claudeCandidatePaths.push(path.join(repoRoot, '.claude-code', 'credentials.json'));
 
   const claudeCredentialsPath =
@@ -162,7 +162,7 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
 
-  const codexApiKey = process.env.CODEX_API_KEY ?? process.env.OPENAI_API_KEY ?? null;
+  const codexApiKey = config.getCodexApiKey();
 
   switch (agentMode) {
     case 'codex': {
@@ -224,8 +224,8 @@ export async function handleExecuteCommand(options: any): Promise<void> {
     process.exit(1);
   }
 
-  const githubToken = process.env.GITHUB_TOKEN ?? null;
-  const repoName = metadataManager.data.repository ?? process.env.GITHUB_REPOSITORY ?? null;
+  const githubToken = config.getGitHubToken();
+  const repoName = metadataManager.data.repository ?? config.getGitHubRepository() ?? null;
   if (repoName) {
     metadataManager.data.repository = repoName;
   }
@@ -235,8 +235,8 @@ export async function handleExecuteCommand(options: any): Promise<void> {
   }
   metadataManager.save();
 
-  if (!githubToken || !repoName) {
-    throw new Error('GITHUB_TOKEN and GITHUB_REPOSITORY environment variables are required.');
+  if (!repoName) {
+    throw new Error('GITHUB_REPOSITORY environment variable is required.');
   }
 
   const githubClient = new GitHubClient(githubToken, repoName);

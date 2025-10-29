@@ -1,3 +1,5 @@
+import { config } from './config.js';
+
 /**
  * LogLevel - Defines the severity levels for logging
  * Lower numeric values indicate more detailed logging
@@ -68,7 +70,7 @@ export class ConsoleLogger implements ILogger {
    * @returns LogLevel enum value
    */
   private parseLogLevelFromEnv(): LogLevel {
-    const levelStr = process.env.LOG_LEVEL?.toUpperCase();
+    const levelStr = config.getLogLevel().toUpperCase();
 
     switch (levelStr) {
       case 'DEBUG':
@@ -81,11 +83,9 @@ export class ConsoleLogger implements ILogger {
       case 'ERROR':
         return LogLevel.ERROR;
       default:
-        if (levelStr) {
-          console.warn(
-            `[WARNING] Invalid LOG_LEVEL: ${levelStr}. Falling back to INFO.`,
-          );
-        }
+        console.warn(
+          `[WARNING] Invalid LOG_LEVEL: ${levelStr}. Falling back to INFO.`,
+        );
         return LogLevel.INFO;
     }
   }
