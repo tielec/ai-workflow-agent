@@ -107,6 +107,7 @@ node dist/index.js list-presets
 - **`src/core/metadata-manager.ts`**: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作（約239行、Issue #26で9.5%削減）
 - **`src/core/helpers/metadata-io.ts`**: メタデータファイルI/O操作（98行、Issue #26で追加）
 - **`src/core/helpers/validation.ts`**: 共通バリデーション処理（47行、Issue #26で追加）
+- **`src/core/config.ts`**: 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジックの統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。
 - **`src/core/git-manager.ts`**: Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。
 - **`src/core/git/commit-manager.ts`**: コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。
 - **`src/core/git/branch-manager.ts`**: ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。
@@ -246,6 +247,33 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 - `GIT_COMMIT_USER_NAME`: Git コミット作成者名（デフォルト: git config から）
 - `GIT_COMMIT_USER_EMAIL`: Git コミット作成者メール（デフォルト: git config から）
 
+### 環境変数アクセス管理（Issue #51で追加）
+
+すべての環境変数アクセスは `src/core/config.ts` の Config クラスを経由します。`process.env` への直接アクセスは行わないでください。
+
+**Config クラスの使用方法**:
+```typescript
+import { config } from '@/core/config';
+
+// 必須環境変数（未設定時は例外をスロー）
+const token = config.getGitHubToken();
+const homeDir = config.getHomeDir();
+
+// オプション環境変数（未設定時は null を返す）
+const reposRoot = config.getReposRoot();
+const apiKey = config.getCodexApiKey();  // CODEX_API_KEY || OPENAI_API_KEY
+
+// CI環境判定
+if (config.isCI()) {
+  // CI環境での処理
+}
+```
+
+**主な利点**:
+- 型安全な環境変数アクセス（必須: `string`、オプション: `string | null`）
+- フォールバックロジックの統一（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）
+- テスト容易性の向上（Config モックにより環境変数を簡単にモック可能）
+
 ## Jenkins 統合
 
 ルートの Jenkinsfile が Docker コンテナ内でワークフローを実行:
@@ -293,6 +321,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 6. **ファイル参照は `@relative/path` 形式を使用**（エージェントコンテキスト用、`getAgentFileReference()` 参照）
 7. **Git URLのセキュリティ**: HTTPS形式のGit URLに埋め込まれたPersonal Access Tokenは自動的に除去される（v0.3.1、Issue #54）。SSH形式の利用を推奨。
 8. **ロギング規約（Issue #61）**: console.log/error/warn等の直接使用は禁止。統一loggerモジュール（`src/utils/logger.ts`）を使用し、`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` を呼び出す。ESLintの `no-console` ルールで強制。
+9. **環境変数アクセス規約（Issue #51）**: `process.env` への直接アクセスは禁止。Config クラス（`src/core/config.ts`）の `config.getXxx()` メソッドを使用する。必須環境変数は例外をスロー、オプション環境変数は `null` を返す。
 
 ## よくあるトラブルシューティング
 
