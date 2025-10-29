@@ -16,6 +16,7 @@ src/commands/init.ts (Issue初期化コマンド処理)
  ├─ handleInitCommand() … Issue初期化コマンドハンドラ
  ├─ validateBranchName() … ブランチ名バリデーション（Git 命名規則チェック）
  ├─ resolveBranchName() … ブランチ名解決（カスタム or デフォルト）
+ ├─ ★PR タイトル生成★ … Issueタイトルを取得し、PRタイトルとして使用（v0.3.0、Issue #73）
  └─ src/core/repository-utils.ts を利用（Issue URL解析、リポジトリパス解決）
 
 src/commands/execute.ts (フェーズ実行コマンド処理)
@@ -60,7 +61,7 @@ src/types/commands.ts (コマンド関連の型定義)
 |------------|------|
 | `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
-| `src/commands/init.ts` | Issue初期化コマンド処理（約306行）。ブランチ作成、メタデータ初期化、PR作成を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理（約356行）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
 | `src/commands/execute.ts` | フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
