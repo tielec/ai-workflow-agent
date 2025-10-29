@@ -17,7 +17,12 @@ import {
 import { ResumeManager } from '../utils/resume.js';
 import { PhaseName } from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
-import type { PhaseContext, ExecutionSummary, PhaseResultMap } from '../types/commands.js';
+import type {
+  PhaseContext,
+  ExecutionSummary,
+  PhaseResultMap,
+  ExecuteCommandOptions,
+} from '../types/commands.js';
 
 import { PlanningPhase } from '../phases/planning.js';
 import { RequirementsPhase } from '../phases/requirements.js';
@@ -47,7 +52,7 @@ const PHASE_ORDER: PhaseName[] = [
  * フェーズ実行コマンドハンドラ
  * @param options - CLI オプション
  */
-export async function handleExecuteCommand(options: any): Promise<void> {
+export async function handleExecuteCommand(options: ExecuteCommandOptions): Promise<void> {
   const issueNumber = String(options.issue);
   const phaseOption: string = (options.phase ?? 'all').toLowerCase();
   const presetOption: string | undefined = options.preset;
