@@ -11,6 +11,7 @@ import { GitManager } from '../core/git-manager.js';
 import { GitHubClient } from '../core/github-client.js';
 import { parseIssueUrl, resolveLocalRepoPath, getRepoRoot } from '../core/repository-utils.js';
 import { sanitizeGitUrl } from '../utils/git-url-utils.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 import type { BranchValidationResult } from '../types/commands.js';
 
 /**
@@ -95,7 +96,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   try {
     issueInfo = parseIssueUrl(issueUrl);
   } catch (error) {
-    logger.error(`${(error as Error).message}`);
+    logger.error(`${getErrorMessage(error)}`);
     process.exit(1);
   }
 
@@ -142,7 +143,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
       logger.info(`Local path: ${repoRoot}`);
     }
   } catch (error) {
-    logger.error(`${(error as Error).message}`);
+    logger.error(`${getErrorMessage(error)}`);
     process.exit(1);
   }
 
@@ -335,7 +336,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
       logger.info(`Using Issue title as PR title: ${prTitle}`);
     } catch (error) {
       logger.warn(
-        `Failed to fetch Issue title, falling back to default PR title: ${prTitle}. Error: ${(error as Error).message}`,
+        `Failed to fetch Issue title, falling back to default PR title: ${prTitle}. Error: ${getErrorMessage(error)}`,
       );
     }
 
@@ -351,6 +352,6 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
       logger.warn(`PR creation failed: ${prResult.error ?? 'unknown error'}. Please create manually.`);
     }
   } catch (error) {
-    logger.warn(`Failed to create PR automatically: ${(error as Error).message}`);
+    logger.warn(`Failed to create PR automatically: ${getErrorMessage(error)}`);
   }
 }

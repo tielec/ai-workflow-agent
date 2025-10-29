@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
+import { getErrorMessage } from '../../utils/error-utils.js';
 import { RemainingTask } from '../../types.js';
 
 export interface IssueInfo {
@@ -165,7 +166,7 @@ export class IssueClient {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
-          : (error as Error).message;
+          : getErrorMessage(error);
       logger.error(`Failed to close issue: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
@@ -217,7 +218,7 @@ export class IssueClient {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
-          : (error as Error).message;
+          : getErrorMessage(error);
 
       logger.error(`Failed to create follow-up issue: ${this.encodeWarning(message)}`);
 

@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
+import { getErrorMessage } from '../../utils/error-utils.js';
 import { MetadataManager } from '../metadata-manager.js';
 
 export interface ProgressCommentResult {
@@ -107,7 +108,7 @@ export class CommentClient {
           const message =
             error instanceof RequestError
               ? `GitHub API error: ${error.status} - ${error.message}`
-              : (error as Error).message;
+              : getErrorMessage(error);
           logger.warn(`Failed to update progress comment: ${this.encodeWarning(message)}`);
           // Fall through to create a new comment
         }
@@ -131,7 +132,7 @@ export class CommentClient {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
-          : (error as Error).message;
+          : getErrorMessage(error);
       logger.error(`Failed to create/update progress comment: ${this.encodeWarning(message)}`);
       throw new Error(`Failed to create or update progress comment: ${message}`);
     }

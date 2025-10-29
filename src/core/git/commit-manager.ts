@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
 import { minimatch } from 'minimatch';
+import { getErrorMessage } from '../../utils/error-utils.js';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 import type { SecretMasker } from '../secret-masker.js';
@@ -104,7 +105,7 @@ export class CommitManager {
         );
       }
     } catch (error) {
-      logger.error(`Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${getErrorMessage(error)}`);
       // Continue with commit (don't block)
     }
 
@@ -131,12 +132,12 @@ export class CommitManager {
         files_committed: filesToCommit,
       };
     } catch (error) {
-      logger.error(`Git commit failed: ${(error as Error).message}`);
+      logger.error(`Git commit failed: ${getErrorMessage(error)}`);
       return {
         success: false,
         commit_hash: null,
         files_committed: filesToCommit,
-        error: `Git commit failed: ${(error as Error).message}`,
+        error: `Git commit failed: ${getErrorMessage(error)}`,
       };
     }
   }
@@ -185,7 +186,7 @@ export class CommitManager {
         );
       }
     } catch (error) {
-      logger.error(`Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${getErrorMessage(error)}`);
       // Continue with commit (don't block)
     }
 
@@ -205,12 +206,12 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      logger.error(`Step commit failed: ${(error as Error).message}`);
+      logger.error(`Step commit failed: ${getErrorMessage(error)}`);
       return {
         success: false,
         commit_hash: null,
         files_committed: targetFiles,
-        error: `Step commit failed: ${(error as Error).message}`,
+        error: `Step commit failed: ${getErrorMessage(error)}`,
       };
     }
   }
@@ -252,7 +253,7 @@ export class CommitManager {
         throw new Error('Cannot commit metadata.json with unmasked secrets');
       }
     } catch (error) {
-      logger.error(`Secret masking failed: ${(error as Error).message}`);
+      logger.error(`Secret masking failed: ${getErrorMessage(error)}`);
       throw new Error('Cannot commit metadata.json with unmasked secrets');
     }
 
@@ -279,12 +280,12 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      logger.error(`Initialization commit failed: ${(error as Error).message}`);
+      logger.error(`Initialization commit failed: ${getErrorMessage(error)}`);
       return {
         success: false,
         commit_hash: null,
         files_committed: targetFiles,
-        error: `Initialization commit failed: ${(error as Error).message}`,
+        error: `Initialization commit failed: ${getErrorMessage(error)}`,
       };
     }
   }
@@ -333,12 +334,12 @@ export class CommitManager {
         files_committed: targetFiles,
       };
     } catch (error) {
-      logger.error(`Cleanup commit failed: ${(error as Error).message}`);
+      logger.error(`Cleanup commit failed: ${getErrorMessage(error)}`);
       return {
         success: false,
         commit_hash: null,
         files_committed: targetFiles,
-        error: `Cleanup commit failed: ${(error as Error).message}`,
+        error: `Cleanup commit failed: ${getErrorMessage(error)}`,
       };
     }
   }
