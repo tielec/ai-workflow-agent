@@ -16,6 +16,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { sanitizeGitUrl } from '../../src/utils/git-url-utils.js';
 import { SecretMasker } from '../../src/core/secret-masker.js';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'init-token-sanitization-test');
@@ -131,7 +132,7 @@ describe('init コマンド - トークン埋め込みURL対応（統合テス�
     test('マスキング失敗時のエラーハンドリング', async () => {
       // Given: metadata.jsonを読み取り専用に設定（マスキング失敗をシミュレート）
       if (process.platform === 'win32') {
-        console.log('[INFO] Skipping read-only test on Windows');
+        logger.info('Skipping read-only test on Windows');
         return;
       }
 

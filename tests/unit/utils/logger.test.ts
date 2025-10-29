@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { logger } from '../../../src/utils/logger.js';
+import chalk from 'chalk';
 
 describe('Logger Module', () => {
   let originalEnv: NodeJS.ProcessEnv;
@@ -21,6 +22,11 @@ describe('Logger Module', () => {
   beforeEach(() => {
     // Save original environment
     originalEnv = { ...process.env };
+
+    // Force chalk to use TrueColor (level 3) for consistent test results
+    // This ensures coloring tests work in both local and CI environments
+    // Without this, CI environments may have level 0 (no color) by default
+    chalk.level = 3;
 
     // Mock console methods
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});

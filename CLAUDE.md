@@ -260,6 +260,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 - ユニットテスト: `tests/unit/`（フェーズ依存関係、プリセット解決、リポジトリ解決、レポートクリーンアップ）
 - 統合テスト: `tests/integration/`（プリセット実行、マルチリポジトリワークフロー）
 - テストでのファイル操作には `fs-extra` を使用
+- **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
 
 ## 主要な設計パターン
 

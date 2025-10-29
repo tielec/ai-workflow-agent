@@ -12,6 +12,7 @@
 import * as path from 'path';
 import * as fs from 'fs-extra';
 import { simpleGit, SimpleGit } from 'simple-git';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_ROOT = path.join('/tmp', 'ai-workflow-test-' + Date.now());
@@ -42,7 +43,7 @@ async function setupTestRepositories(): Promise<void> {
   await myAppGit.add('README.md');
   await myAppGit.commit('Initial commit');
 
-  console.log(`[TEST SETUP] Created test repositories at ${TEST_ROOT}`);
+  logger.info(`Created test repositories at ${TEST_ROOT}`);
 }
 
 /**
@@ -50,7 +51,7 @@ async function setupTestRepositories(): Promise<void> {
  */
 async function cleanupTestRepositories(): Promise<void> {
   await fs.remove(TEST_ROOT);
-  console.log(`[TEST CLEANUP] Removed test repositories at ${TEST_ROOT}`);
+  logger.info(`Removed test repositories at ${TEST_ROOT}`);
 }
 
 // =============================================================================

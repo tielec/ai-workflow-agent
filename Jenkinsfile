@@ -74,6 +74,11 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
 
+        // ログ設定（CI環境ではカラーリング無効化）
+        // カラーリングはCI環境のログ表示を乱すため、LOG_NO_COLORで無効化
+        // ローカル環境では環境変数未設定のため、カラーリングは有効
+        LOG_NO_COLOR = 'true'
+
         // Git設定（Job DSLパラメータから環境変数に設定）
         GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME}"
         GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL}"
