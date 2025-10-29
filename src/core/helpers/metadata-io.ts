@@ -7,6 +7,7 @@
 import fs from 'fs-extra';
 import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * タイムスタンプをファイル名用にフォーマット

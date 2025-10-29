@@ -1,5 +1,5 @@
 import { Octokit } from '@octokit/rest';
-import { logger } from '../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 import { RemainingTask } from '../../types.js';
 

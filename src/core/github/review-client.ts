@@ -1,5 +1,5 @@
 import { Octokit } from '@octokit/rest';
-import { logger } from '../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * ReviewClient handles review result posting operations with GitHub API.

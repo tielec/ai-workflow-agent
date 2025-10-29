@@ -1,5 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { logger } from '../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { logger } from '../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 import { minimatch } from 'minimatch';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';

@@ -12,6 +12,7 @@
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { GitManager } from '../../core/git-manager.js';
 import { PhaseName, PhaseExecutionResult, PhaseStatus } from '../../types.js';
+import { logger } from '../../utils/logger.js';
 
 const MAX_RETRIES = 3;
 
