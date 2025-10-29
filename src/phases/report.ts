@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
@@ -25,7 +26,7 @@ export class ReportPhase extends BasePhase {
       const issueNumber = parseInt(this.metadata.data.issue_number, 10);
       try {
         await this.cleanupWorkflowLogs(issueNumber);
-        console.info('[INFO] Workflow logs cleaned up successfully.');
+        logger.info('Workflow logs cleaned up successfully.');
 
         // ログクリーンナップによる削除をコミット・プッシュ（Issue #16: commitCleanupLogs を使用）
         if (gitManager) {
@@ -40,11 +41,11 @@ export class ReportPhase extends BasePhase {
             throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
           }
 
-          console.info('[INFO] Cleanup changes committed and pushed.');
+          logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
         const message = (error as Error).message ?? String(error);
-        console.warn(`[WARNING] Failed to cleanup workflow logs: ${message}`);
+        logger.warn(`Failed to cleanup workflow logs: ${message}`);
       }
     }
 
@@ -273,7 +274,7 @@ export class ReportPhase extends BasePhase {
         if (existing) {
           prNumber = existing.pr_number;
         } else {
-          console.info('[INFO] No existing PR found. Skipping PR body update.');
+          logger.info('No existing PR found. Skipping PR body update.');
           return;
         }
       }
@@ -293,13 +294,13 @@ export class ReportPhase extends BasePhase {
       const result = await this.github.updatePullRequest(prNumber, prBody);
 
       if (!result.success) {
-        console.warn(`[WARNING] Failed to update PR body: ${result.error ?? 'unknown error'}`);
+        logger.warn(`Failed to update PR body: ${result.error ?? 'unknown error'}`);
       } else {
-        console.info(`[INFO] Updated PR #${prNumber} summary.`);
+        logger.info(`Updated PR #${prNumber} summary.`);
       }
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.warn(`[WARNING] Failed to update PR summary: ${message}`);
+      logger.warn(`Failed to update PR summary: ${message}`);
     }
   }
 
@@ -348,17 +349,17 @@ export class ReportPhase extends BasePhase {
           try {
             fs.removeSync(subdirPath);
             deletedCount++;
-            console.info(`[INFO] Deleted: ${path.relative(baseDir, subdirPath)}`);
+            logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
           } catch (error) {
             const message = (error as Error).message ?? String(error);
-            console.warn(`[WARNING] Failed to delete ${subdirPath}: ${message}`);
+            logger.warn(`Failed to delete ${subdirPath}: ${message}`);
           }
         }
       }
     }
 
-    console.info(
-      `[INFO] Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
+    logger.info(
+      `Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
     );
   }
 }

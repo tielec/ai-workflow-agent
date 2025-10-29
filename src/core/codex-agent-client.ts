@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { spawn } from 'node:child_process';
 import { parseCodexEvent, determineCodexEventType } from './helpers/agent-event-parser.js';
 import { formatCodexLog } from './helpers/log-formatter.js';
@@ -178,7 +179,7 @@ export class CodexAgentClient {
   private logEvent(raw: string): void {
     const payload = parseCodexEvent(raw);
     if (!payload) {
-      console.log(`[CODEX RAW] ${raw}`);
+      logger.info(`[CODEX RAW] ${raw}`);
       return;
     }
 
@@ -186,7 +187,7 @@ export class CodexAgentClient {
     const formattedLog = formatCodexLog(eventType, payload);
 
     if (formattedLog) {
-      console.log(formattedLog);
+      logger.info(formattedLog);
     }
   }
 

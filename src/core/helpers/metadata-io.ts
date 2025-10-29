@@ -7,6 +7,7 @@
 import fs from 'fs-extra';
 import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * タイムスタンプをファイル名用にフォーマット
@@ -40,7 +41,7 @@ export function backupMetadataFile(metadataPath: string): string {
   );
 
   fs.copyFileSync(metadataPath, backupPath);
-  console.info(`[INFO] Metadata backup created: ${backupPath}`);
+  logger.info(`Metadata backup created: ${backupPath}`);
 
   return backupPath;
 }
@@ -52,7 +53,7 @@ export function backupMetadataFile(metadataPath: string): string {
  */
 export function removeWorkflowDirectory(workflowDir: string): void {
   if (fs.existsSync(workflowDir)) {
-    console.info(`[INFO] Removing workflow directory: ${workflowDir}`);
+    logger.info(`Removing workflow directory: ${workflowDir}`);
     fs.removeSync(workflowDir);
   }
 }

@@ -1,4 +1,5 @@
 import simpleGit, { SimpleGit } from 'simple-git';
+import { logger } from '../utils/logger.js';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, StepName } from '../types.js';
 import { SecretMasker } from './secret-masker.js';

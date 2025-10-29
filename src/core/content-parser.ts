@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
@@ -65,7 +66,7 @@ export class ContentParser {
       return result;
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.warn(`[WARNING] Failed to extract design decisions: ${message}`);
+      logger.warn(`Failed to extract design decisions: ${message}`);
       return {};
     }
   }
@@ -162,7 +163,7 @@ export class ContentParser {
       };
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.warn(`[WARNING] Failed to parse review result via OpenAI: ${message}`);
+      logger.warn(`Failed to parse review result via OpenAI: ${message}`);
 
       const upper = fullText.toUpperCase();
       let inferred = 'FAIL';
@@ -241,7 +242,7 @@ export class ContentParser {
       };
 
       const decision = (parsed.decision ?? 'PASS').toUpperCase();
-      console.info(`[INFO] Extracted decision: ${decision}`);
+      logger.info(`Extracted decision: ${decision}`);
 
       // Validate decision
       const validDecisions = ['PASS', 'PASS_WITH_ISSUES', 'ABORT'];
@@ -287,7 +288,7 @@ export class ContentParser {
       return result;
     } catch (error) {
       const message = (error as Error).message ?? String(error);
-      console.error(`[ERROR] Failed to parse evaluation decision via LLM: ${message}`);
+      logger.error(`Failed to parse evaluation decision via LLM: ${message}`);
 
       // Fallback: Try simple pattern matching
       return this.parseEvaluationDecisionFallback(content);
@@ -298,7 +299,7 @@ export class ContentParser {
    * Fallback pattern matching for evaluation decision when LLM parsing fails
    */
   private parseEvaluationDecisionFallback(content: string): EvaluationDecisionResult {
-    console.warn('[WARNING] Using fallback pattern matching for evaluation decision.');
+    logger.warn('Using fallback pattern matching for evaluation decision.');
 
     try {
       const patterns = [
@@ -314,12 +315,12 @@ export class ContentParser {
       }
 
       if (!match) {
-        console.warn('[WARNING] No decision pattern matched in fallback. Defaulting to PASS.');
+        logger.warn('No decision pattern matched in fallback. Defaulting to PASS.');
         return { success: true, decision: 'PASS' };
       }
 
       const decision = match[1].trim().toUpperCase();
-      console.info(`[INFO] Fallback extracted decision: ${decision}`);
+      logger.info(`Fallback extracted decision: ${decision}`);
 
       return { success: true, decision };
     } catch (error) {

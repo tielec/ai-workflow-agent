@@ -12,6 +12,7 @@
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { GitManager } from '../../core/git-manager.js';
 import { PhaseName, PhaseExecutionResult, PhaseStatus } from '../../types.js';
+import { logger } from '../../utils/logger.js';
 
 const MAX_RETRIES = 3;
 
@@ -51,7 +52,7 @@ export class ReviewCycleManager {
 
     // reviseステップが既に完了している場合はスキップ
     if (completedSteps.includes('revise')) {
-      console.info(`[INFO] Phase ${this.phaseName}: Skipping revise step (already completed)`);
+      logger.info(`Phase ${this.phaseName}: Skipping revise step (already completed)`);
       return;
     }
 
@@ -59,7 +60,7 @@ export class ReviewCycleManager {
     let reviewResult = initialReviewResult;
 
     while (retryCount < this.maxRetries) {
-      console.info(`[INFO] Phase ${this.phaseName}: Starting revise step (attempt ${retryCount + 1}/${this.maxRetries})...`);
+      logger.info(`Phase ${this.phaseName}: Starting revise step (attempt ${retryCount + 1}/${this.maxRetries})...`);
       this.metadata.updateCurrentStep(this.phaseName, 'revise');
 
       // Increment retry count in metadata
@@ -74,11 +75,11 @@ export class ReviewCycleManager {
       // Execute revise
       const reviseResult = await reviseFn(feedback);
       if (!reviseResult.success) {
-        console.error(`[ERROR] Phase ${this.phaseName}: Revise failed: ${reviseResult.error ?? 'Unknown error'}`);
+        logger.error(`Phase ${this.phaseName}: Revise failed: ${reviseResult.error ?? 'Unknown error'}`);
         throw new Error(reviseResult.error ?? 'Revise failed');
       }
 
-      console.info(`[INFO] Phase ${this.phaseName}: Revise completed successfully`);
+      logger.info(`Phase ${this.phaseName}: Revise completed successfully`);
 
       // Commit & Push after revise (Issue #10)
       await commitAndPushStepFn('revise');
@@ -86,11 +87,11 @@ export class ReviewCycleManager {
       this.metadata.addCompletedStep(this.phaseName, 'revise');
 
       // Re-run review after revise
-      console.info(`[INFO] Phase ${this.phaseName}: Re-running review after revise...`);
+      logger.info(`Phase ${this.phaseName}: Re-running review after revise...`);
       reviewResult = await reviewFn();
 
       if (reviewResult.success) {
-        console.info(`[INFO] Phase ${this.phaseName}: Review passed after revise`);
+        logger.info(`Phase ${this.phaseName}: Review passed after revise`);
 
         // Mark review as completed
         this.metadata.addCompletedStep(this.phaseName, 'review');
@@ -101,7 +102,7 @@ export class ReviewCycleManager {
         return;
       }
 
-      console.warn(`[WARNING] Phase ${this.phaseName}: Review still failed after revise (attempt ${retryCount + 1})`);
+      logger.warn(`Phase ${this.phaseName}: Review still failed after revise (attempt ${retryCount + 1})`);
 
       // Clear revise from completed steps to allow retry
       const steps = this.metadata.getCompletedSteps(this.phaseName).filter(s => s !== 'revise');
@@ -111,7 +112,7 @@ export class ReviewCycleManager {
     }
 
     // Max retries reached
-    console.error(`[ERROR] Phase ${this.phaseName}: Max revise retries (${this.maxRetries}) reached`);
+    logger.error(`Phase ${this.phaseName}: Max revise retries (${this.maxRetries}) reached`);
     throw new Error(`Review failed after ${this.maxRetries} revise attempts`);
   }
 }

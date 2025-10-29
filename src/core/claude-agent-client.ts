@@ -1,4 +1,5 @@
 import fs from 'fs-extra';
+import { logger } from '../utils/logger.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
@@ -26,9 +27,9 @@ export class ClaudeAgentClient {
     // 環境変数の設定を確認
     const skipPermissions = process.env.CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS === '1';
     if (skipPermissions) {
-      console.info('[INFO] CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 detected. Using permissionMode="bypassPermissions".');
+      logger.info('CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 detected. Using permissionMode="bypassPermissions".');
     } else {
-      console.info('[INFO] Using permissionMode="acceptEdits" (default).');
+      logger.info('Using permissionMode="acceptEdits" (default).');
     }
   }
 
@@ -96,7 +97,7 @@ export class ClaudeAgentClient {
 
     const formattedLog = formatClaudeLog(event);
     if (formattedLog) {
-      console.log(formattedLog);
+      logger.info(formattedLog);
     }
   }
 
@@ -105,7 +106,7 @@ export class ClaudeAgentClient {
 
     if (resolvedPath) {
       const token = this.readTokenFromCredentials(resolvedPath);
-      console.info(`[INFO] Loaded Claude Code credentials from ${resolvedPath} (token length=${token.length})`);
+      logger.info(`Loaded Claude Code credentials from ${resolvedPath} (token length=${token.length})`);
       process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
       return;
     }
