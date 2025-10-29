@@ -6,12 +6,13 @@ import fs from 'fs-extra';
 import { WorkflowState } from '../core/workflow-state.js';
 import { getRepoRoot } from '../core/repository-utils.js';
 import type { PhaseName } from '../types.js';
+import type { ReviewCommandOptions } from '../types/commands.js';
 
 /**
  * フェーズレビューコマンドハンドラ
  * @param options - CLI オプション
  */
-export async function handleReviewCommand(options: any): Promise<void> {
+export async function handleReviewCommand(options: ReviewCommandOptions): Promise<void> {
   const repoRoot = await getRepoRoot();
   const metadataPath = path.join(
     repoRoot,

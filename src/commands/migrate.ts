@@ -13,16 +13,7 @@ import path from 'node:path';
 import { glob } from 'glob';
 import { logger } from '../utils/logger.js';
 import { sanitizeGitUrl } from '../utils/git-url-utils.js';
-
-/**
- * Migration command options
- */
-export interface MigrateOptions {
-  sanitizeTokens: boolean;
-  dryRun: boolean;
-  issue?: string;
-  repo?: string;
-}
+import type { MigrateOptions } from '../types/commands.js';
 
 /**
  * Migration result summary

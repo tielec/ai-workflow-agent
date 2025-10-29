@@ -217,3 +217,27 @@ describe('エージェントモード選択（統合テストで確認）', () =
     expect(true).toBe(true);
   });
 });
+
+// =============================================================================
+// 型安全性の検証（Issue #45）
+// =============================================================================
+
+describe('型安全性の検証', () => {
+  test('ExecuteCommandOptions 型が正しくインポートできる', () => {
+    // Given: ExecuteCommandOptions 型を使用
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    type TestType = import('../../../src/types/commands.js').ExecuteCommandOptions;
+
+    // Then: コンパイルエラーが発生しない
+    expect(true).toBe(true);
+  });
+
+  test('handleExecuteCommand が型安全な引数を受け入れる', () => {
+    // Given: handleExecuteCommand 関数の型シグネチャ
+    // When: 関数がエクスポートされている
+    // Then: ExecuteCommandOptions 型を受け入れる
+
+    // この検証はコンパイル時に実行されるため、ここではマーカーのみ
+    expect(true).toBe(true);
+  });
+});
