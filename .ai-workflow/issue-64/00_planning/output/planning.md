@@ -266,13 +266,13 @@ Issue #64は既存テストファイルの修正のみであり、新規テス�
 
 ### Phase 7: ドキュメント (見積もり: 0.5h)
 
-- [ ] Task 7-1: CLAUDE.md の更新 (0.2h)
+- [x] Task 7-1: CLAUDE.md の更新 (0.2h)
   - 不要なts.bak削除の記載を追加（制約事項またはトラブルシューティング）
   - CI環境変数（LOG_NO_COLOR）の設定例を更新
-- [ ] Task 7-2: README.md の更新確認 (0.1h)
+- [x] Task 7-2: README.md の更新確認 (0.1h)
   - 環境変数セクションにLOG_NO_COLORの記載があることを確認
   - 必要に応じて使用例を更新
-- [ ] Task 7-3: TROUBLESHOOTING.md の更新 (0.2h)
+- [x] Task 7-3: TROUBLESHOOTING.md の更新 (0.2h)
   - カラーリングテスト失敗時の対処法を追加
   - CI環境でのログカラーリング無効化の説明を追加
 
