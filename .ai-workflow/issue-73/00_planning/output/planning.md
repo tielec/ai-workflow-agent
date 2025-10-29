@@ -149,12 +149,12 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~1.5h)
 
-- [ ] Task 5-1: ユニットテスト実装 (0.5~0.8h)
+- [x] Task 5-1: ユニットテスト実装 (0.5~0.8h)
   - `tests/unit/commands/init-pr-title.test.ts` 作成
   - Issue タイトル取得のモック設定
   - PR タイトル生成ロジックのテスト（正常系、異常系、境界値）
 
-- [ ] Task 5-2: インテグレーションテスト実装 (0.5~0.7h)
+- [x] Task 5-2: インテグレーションテスト実装 (0.5~0.7h)
   - `tests/integration/init-pr-title-integration.test.ts` 作成
   - モックリポジトリセットアップ
   - init コマンド実行 → PR作成 → タイトル確認フロー
