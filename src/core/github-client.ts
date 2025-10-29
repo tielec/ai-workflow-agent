@@ -231,8 +231,8 @@ export class GitHubClient {
 
     const template = fs.readFileSync(PR_TEMPLATE_PATH, 'utf-8');
     return template
-      .replace('{issue_number}', issueNumber.toString())
-      .replace('{branch_name}', branchName);
+      .replace(/\{issue_number\}/g, issueNumber.toString())
+      .replace(/\{branch_name\}/g, branchName);
   }
 
   public generatePrBodyDetailed(
