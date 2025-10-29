@@ -63,6 +63,21 @@ remote: — Push cannot contain secrets
   ```
 
 **対処法（既存ワークフロー）**:
+
+**方法1: マイグレーションコマンド使用（推奨、v0.3.1で追加）**:
+```bash
+# すべての既存メタデータからトークンを除去
+ai-workflow migrate --sanitize-tokens
+
+# ドライランで確認してから実行
+ai-workflow migrate --sanitize-tokens --dry-run
+ai-workflow migrate --sanitize-tokens
+
+# 特定のIssueのみ対象
+ai-workflow migrate --sanitize-tokens --issue 123
+```
+
+**方法2: 手動修正**:
 1. `.ai-workflow/issue-*/metadata.json` を開く
 2. `target_repository.remote_url` フィールドからトークンを手動で削除:
    ```json

@@ -6,6 +6,7 @@ import { handleInitCommand } from './commands/init.js';
 import { handleExecuteCommand } from './commands/execute.js';
 import { handleReviewCommand } from './commands/review.js';
 import { listPresets } from './commands/list-presets.js';
+import { handleMigrateCommand } from './commands/migrate.js';
 
 /**
  * CLIエントリーポイント
@@ -96,6 +97,22 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleReviewCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // migrate コマンド (Issue #58)
+  program
+    .command('migrate')
+    .description('Migrate workflow metadata')
+    .option('--sanitize-tokens', 'Sanitize Personal Access Tokens in metadata.json')
+    .option('--dry-run', 'Dry run mode (do not modify files)')
+    .option('--issue <number>', 'Target specific issue number')
+    .option('--repo <path>', 'Target repository path')
+    .action(async (options) => {
+      try {
+        await handleMigrateCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

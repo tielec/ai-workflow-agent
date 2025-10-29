@@ -35,7 +35,8 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest tests/unit",
     "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest tests/integration",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "monitor:tokens": "tsx scripts/monitor-token-detection.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",

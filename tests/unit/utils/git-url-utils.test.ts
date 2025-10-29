@@ -224,6 +224,67 @@ describe('sanitizeGitUrl', () => {
   });
 
   describe('エッジケース', () => {
+    // Issue #58: パスワードに @ を含むケース
+    it('パスワードに@を1つ含むケース', () => {
+      // Given: パスワードに @ を1つ含むURL
+      const input = 'https://user:p@ssword@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出す
+      const result = sanitizeGitUrl(input);
+
+      // Then: トークンが除去されたURLが返される
+      expect(result).toBe(expected);
+    });
+
+    it('パスワードに@を複数含むケース', () => {
+      // Given: パスワードに @ を複数含むURL
+      const input = 'https://user:p@ss@word@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出す
+      const result = sanitizeGitUrl(input);
+
+      // Then: トークンが除去されたURLが返される
+      expect(result).toBe(expected);
+    });
+
+    it('トークンのみ（ユーザー名なし）のケース', () => {
+      // Given: トークンのみ（ユーザー名なし）のURL
+      const input = 'https://ghp_token123@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出す
+      const result = sanitizeGitUrl(input);
+
+      // Then: トークンが除去されたURLが返される
+      expect(result).toBe(expected);
+    });
+
+    it('ユーザー名とパスワードの両方に@を含むケース', () => {
+      // Given: ユーザー名とパスワードの両方に @ を含むURL
+      const input = 'https://user@domain:p@ss@word@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出す
+      const result = sanitizeGitUrl(input);
+
+      // Then: トークンが除去されたURLが返される
+      expect(result).toBe(expected);
+    });
+
+    it('HTTP（HTTPSではない）プロトコルでトークンを除去', () => {
+      // Given: HTTPプロトコルでトークンを含むURL
+      const input = 'http://token@github.com/owner/repo.git';
+      const expected = 'http://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出す
+      const result = sanitizeGitUrl(input);
+
+      // Then: トークンが除去されたURLが返される
+      expect(result).toBe(expected);
+    });
+
     // UC-1.1.7: 空文字列はそのまま返す（フェイルセーフ）
     it('空文字列はそのまま返す', () => {
       // Given: 空文字列
@@ -293,6 +354,41 @@ describe('sanitizeGitUrl', () => {
 
       // Then: 認証情報が除去されたURLが返される
       expect(result).toBe(expected);
+    });
+  });
+
+  describe('パフォーマンステスト（ReDoS脆弱性評価）', () => {
+    // Issue #58: ReDoS脆弱性がないことを検証
+    it('大量の@を含む入力でもパフォーマンス劣化がない', () => {
+      // Given: 大量の @ を含む悪意のある入力
+      const maliciousInput = 'https://' + '@'.repeat(10000) + '@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: sanitizeGitUrl() 関数を呼び出し、処理時間を計測
+      const start = Date.now();
+      const result = sanitizeGitUrl(maliciousInput);
+      const elapsed = Date.now() - start;
+
+      // Then: 10ms以内に処理が完了すること（Issue #54の基準を維持）
+      expect(result).toBe(expected);
+      expect(elapsed).toBeLessThan(10);
+    });
+
+    it('通常の入力で1000回実行しても許容範囲内', () => {
+      // Given: 通常の入力
+      const input = 'https://token@github.com/owner/repo.git';
+      const expected = 'https://github.com/owner/repo.git';
+
+      // When: 1000回実行し、処理時間を計測
+      const start = Date.now();
+      for (let i = 0; i < 1000; i++) {
+        const result = sanitizeGitUrl(input);
+        expect(result).toBe(expected);
+      }
+      const elapsed = Date.now() - start;
+
+      // Then: 合計10ms以内に処理が完了すること（Issue #54の基準を維持）
+      expect(elapsed).toBeLessThan(10);
     });
   });
 
