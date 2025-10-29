@@ -34,9 +34,9 @@ const mockSanitizeGitUrl = sanitizeGitUrl as jest.MockedFunction<
 // process.exit のモック
 const mockExit = jest
   .spyOn(process, 'exit')
-  .mockImplementation((code?: number) => {
+  .mockImplementation((code?: string | number | null | undefined) => {
     throw new Error(`process.exit(${code})`);
-  });
+  }) as unknown as jest.SpyInstance;
 
 describe('migrate command - Unit Tests', () => {
   beforeEach(() => {
@@ -68,7 +68,7 @@ describe('migrate command - Unit Tests', () => {
         sanitizeTokens: true,
         dryRun: false,
       };
-      mockGlob.mockRejectedValue(new Error('Glob failed'));
+      (mockGlob as unknown as jest.Mock).mockRejectedValue(new Error('Glob failed'));
 
       // When/Then: process.exit(1) が呼び出される
       await expect(handleMigrateCommand(options)).rejects.toThrow();
@@ -89,7 +89,7 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -117,7 +117,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-2/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -162,7 +162,7 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/../../etc/passwd', // 不正
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -188,7 +188,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -215,7 +215,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -239,7 +239,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -261,7 +261,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockRejectedValue(new Error('File not found'));
+      (mockFs.lstat as unknown as jest.Mock).mockRejectedValue(new Error('File not found'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -278,10 +278,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockRejectedValue(new Error('Invalid JSON'));
+      (mockFs.readJSON as jest.Mock).mockRejectedValue(new Error('Invalid JSON'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -298,7 +298,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => true,
       } as any);
 
@@ -319,7 +319,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       const mockContent = {
@@ -329,7 +329,7 @@ describe('migrate command - Unit Tests', () => {
       };
       mockFs.readJSON.mockResolvedValue(mockContent);
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      mockFs.copy.mockResolvedValue(undefined);
+      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
       mockFs.writeJSON.mockResolvedValue(undefined);
 
       // When: マイグレーションコマンドを実行
@@ -352,7 +352,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -379,7 +379,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -405,7 +405,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -414,7 +414,7 @@ describe('migrate command - Unit Tests', () => {
         },
       });
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      mockFs.copy.mockRejectedValue(new Error('Backup failed'));
+      (mockFs.copy as unknown as jest.Mock).mockRejectedValue(new Error('Backup failed'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -431,7 +431,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -440,8 +440,8 @@ describe('migrate command - Unit Tests', () => {
         },
       });
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      mockFs.copy.mockResolvedValue(undefined);
-      mockFs.writeJSON.mockRejectedValue(new Error('Write failed'));
+      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
+      (mockFs.writeJSON as jest.Mock).mockRejectedValue(new Error('Write failed'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -464,7 +464,7 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON
@@ -486,7 +486,7 @@ describe('migrate command - Unit Tests', () => {
       mockSanitizeGitUrl
         .mockReturnValueOnce('https://github.com/owner/repo1.git')
         .mockReturnValueOnce('https://github.com/owner/repo3.git');
-      mockFs.copy.mockResolvedValue(undefined);
+      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
       mockFs.writeJSON.mockResolvedValue(undefined);
 
       // When: マイグレーションコマンドを実行
@@ -509,7 +509,7 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON.mockResolvedValue({
@@ -538,10 +538,10 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      mockFs.lstat.mockResolvedValue({
+      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON
+      (mockFs.readJSON as jest.Mock)
         .mockRejectedValueOnce(new Error('Failed to load metadata file'))
         .mockResolvedValueOnce({
           target_repository: {
@@ -556,8 +556,8 @@ describe('migrate command - Unit Tests', () => {
       mockSanitizeGitUrl
         .mockReturnValueOnce('https://github.com/owner/repo2.git')
         .mockReturnValueOnce('https://github.com/owner/repo3.git');
-      mockFs.copy.mockResolvedValue(undefined);
-      mockFs.writeJSON
+      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
+      (mockFs.writeJSON as jest.Mock)
         .mockRejectedValueOnce(new Error('Failed to sanitize metadata file'))
         .mockResolvedValueOnce(undefined);
 

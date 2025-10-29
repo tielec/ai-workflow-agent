@@ -20,9 +20,9 @@ jest.mock('../../src/utils/logger.js', () => ({
 }));
 
 // process.exit のモック
-const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
+const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
   throw new Error(`process.exit(${code})`);
-});
+}) as any;
 
 describe('migrate command - Integration Tests', () => {
   let testRepoPath: string;

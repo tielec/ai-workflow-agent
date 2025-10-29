@@ -201,10 +201,10 @@
 
 ### Phase 6: テスト実行 (見積もり: 0.5~1h)
 
-- [ ] Task 6-1: Task 1のテスト実行 (0.25~0.5h)
+- [x] Task 6-1: Task 1のテスト実行 (0.25~0.5h)
   - ユニットテスト実行（`npm run test:unit -- git-url-utils`）
   - 回帰テスト確認（既存テストケースすべてがパス）
-- [ ] Task 6-2: Task 3のテスト実行 (0.25~0.5h)
+- [x] Task 6-2: Task 3のテスト実行 (0.25~0.5h)
   - ユニットテスト実行（`npm run test:unit -- migrate`）
   - 統合テスト実行（`npm run test:integration -- migrate-sanitize-tokens`）
   - カバレッジ確認（目標: 90%以上）
