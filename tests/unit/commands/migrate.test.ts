@@ -5,6 +5,7 @@
  * - MigrateOptions 型が src/types/commands.ts から正しくインポートされることを検証
  */
 
+import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { glob } from 'glob';
