@@ -168,15 +168,15 @@
 
 ### Phase 4: 実装 (見積もり: 2~4h)
 
-- [ ] Task 4-1: Task 1の正規表現改善実装 (0.5~1h)
+- [x] Task 4-1: Task 1の正規表現改善実装 (0.5~1h)
   - `src/utils/git-url-utils.ts` のパターン変更（line 48）
   - コメント更新（Issue #58参照を追加）
-- [ ] Task 4-2: Task 2のモニタリングスクリプト実装 (0.5~1h)
+- [x] Task 4-2: Task 2のモニタリングスクリプト実装 (0.5~1h)
   - `scripts/monitor-token-detection.ts` の作成
   - ログファイルパース処理
   - 集計ロジック実装
   - レポート出力処理
-- [ ] Task 4-3: Task 3のマイグレーションコマンド実装 (1~2h)
+- [x] Task 4-3: Task 3のマイグレーションコマンド実装 (1~2h)
   - `src/commands/migrate.ts` の作成
     - `handleMigrateCommand()` 関数
     - `sanitizeTokensInMetadata()` 関数
@@ -344,10 +344,10 @@ graph TD
 - [x] 回帰テスト計画が策定されている
 
 ### Phase 4: 実装
-- [ ] 正規表現パターンが変更されている（Task 1）
-- [ ] モニタリングスクリプトが作成されている（Task 2）
-- [ ] マイグレーションコマンドが実装されている（Task 3）
-- [ ] TypeScriptコンパイルが成功すること（`npm run build`）
+- [x] 正規表現パターンが変更されている（Task 1）
+- [x] モニタリングスクリプトが作成されている（Task 2）
+- [x] マイグレーションコマンドが実装されている（Task 3）
+- [x] TypeScriptコンパイルが成功すること（`npm run build`）
 - [ ] ESLintチェックが通過すること（`npm run lint`）
 
 ### Phase 5: テストコード実装
