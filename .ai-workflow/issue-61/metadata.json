@@ -121,14 +121,15 @@
       ]
     },
     "report": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-10-29T04:05:25.086Z",
-      "completed_at": null,
+      "completed_at": "2025-10-29T04:09:52.346Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     },
     "evaluation": {
@@ -147,7 +148,7 @@
     }
   },
   "created_at": "2025-10-23T02:39:03.802Z",
-  "updated_at": "2025-10-29T04:09:49.305Z",
+  "updated_at": "2025-10-29T04:09:52.957Z",
   "branch_name": "ai-workflow/issue-61",
   "github_integration": {
     "progress_comment_id": 3459455871,
