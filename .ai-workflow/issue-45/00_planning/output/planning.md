@@ -136,19 +136,19 @@
 
 ### Phase 4: 実装 (見積もり: 1~2h)
 
-- [ ] Task 4-1: `src/types/commands.ts` に新規インターフェースを追加 (0.5~1h)
+- [x] Task 4-1: `src/types/commands.ts` に新規インターフェースを追加 (0.5~1h)
   - `ExecuteCommandOptions` インターフェース作成（フィールド: issue, phase, preset, gitUser, gitEmail, forceReset, skipDependencyCheck, ignoreDependencies, agent, cleanupOnComplete, cleanupOnCompleteForce, requirementsDoc, designDoc, testScenarioDoc）
   - `ReviewCommandOptions` インターフェース作成（フィールド: phase, issue）
   - `MigrateOptions` を `src/commands/migrate.ts` から移行（既存のインターフェースを移動）
   - JSDoc コメントで各フィールドの説明を追加
 
-- [ ] Task 4-2: コマンドハンドラの型シグネチャ修正 (0.5h)
+- [x] Task 4-2: コマンドハンドラの型シグネチャ修正 (0.5h)
   - `src/commands/execute.ts` の `handleExecuteCommand` 関数に `ExecuteCommandOptions` を適用
   - `src/commands/review.ts` の `handleReviewCommand` 関数に `ReviewCommandOptions` を適用
   - `src/commands/migrate.ts` の `handleMigrateCommand` 関数の import を修正
   - TypeScript コンパイルエラーの修正（型不一致がある場合）
 
-- [ ] Task 4-3: コンパイル確認 (0.5h)
+- [x] Task 4-3: コンパイル確認 (0.5h)
   - `npm run build` を実行し、コンパイルエラーがないことを確認
   - ESLint チェック（`npx eslint --ext .ts src`）でコードスタイル違反がないことを確認
 
@@ -270,10 +270,10 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] `npm run build` がエラーなく完了する
-- [ ] `npx eslint --ext .ts src` がエラーなく完了する
-- [ ] すべての `any` 型が適切な型に置き換えられている（`handleExecuteCommand`, `handleReviewCommand`）
-- [ ] `MigrateOptions` が `src/types/commands.ts` に正しく移行されている
+- [x] `npm run build` がエラーなく完了する
+- [x] `npx eslint --ext .ts src` がエラーなく完了する
+- [x] すべての `any` 型が適切な型に置き換えられている（`handleExecuteCommand`, `handleReviewCommand`）
+- [x] `MigrateOptions` が `src/types/commands.ts` に正しく移行されている
 
 ### Phase 5: テストコード実装
 
