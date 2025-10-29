@@ -15,6 +15,7 @@ import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { EvaluationPhase } from '../../src/phases/evaluation.js';
 import { GitHubClient } from '../../src/core/github-client.js';
+import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'cleanup-artifacts-test');
@@ -224,7 +225,7 @@ describe('cleanupWorkflowArtifacts メソッドテスト（Issue #2）', () => {
       await fs.symlink(realDir, symlinkPath, 'dir');
     } catch (err) {
       // Windows等でシンボリックリンク作成に失敗する場合はスキップ
-      console.log('[INFO] Skipping symlink test - symlink creation not supported');
+      logger.info('Skipping symlink test - symlink creation not supported');
       return;
     }
 
