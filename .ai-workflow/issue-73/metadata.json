@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 2492,
-    "total_output_tokens": 140704,
-    "total_cost_usd": 8.865955549999999
+    "total_input_tokens": 2499,
+    "total_output_tokens": 153530,
+    "total_cost_usd": 9.4782908
   },
   "phases": {
     "planning": {
@@ -132,20 +132,37 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-29T14:38:21.133Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "テストコードの期待値修正: `tests/unit/commands/init-pr-title.test.ts` (Line 392)、`tests/integration/init-pr-title-integration.test.ts` (Lines 104, 225, 272)のテンプレートプレースホルダー期待値を`'`.ai-workflow/issue-{issue_number}/`'`に修正",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "カバレッジ測定の実施: テストコード修正後、`npm run test:coverage`を実行し、新規コードのカバレッジ80%以上を確認",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "手動動作確認: 実際のGitHubリポジトリでinit コマンドを実行し、PRタイトル・テンプレートを確認",
+          "phase": "testing",
+          "priority": "高"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/77",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-10-29T13:53:16.834Z",
-  "updated_at": "2025-10-29T14:38:19.824Z",
+  "updated_at": "2025-10-29T14:42:12.974Z",
   "branch_name": "ai-workflow/issue-73",
   "pr_number": 76,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/76",
