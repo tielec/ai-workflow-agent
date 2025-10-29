@@ -30,16 +30,6 @@ Closes #{issue_number}
 
 {documentation_updates}
 
-### 👀 レビューポイント
-
-{review_points}
-
 ### 📁 成果物
 
 `.ai-workflow/issue-{issue_number}/` ディレクトリに各フェーズの成果物が格納されています。
-
-### ⚙️ 実行環境
-
-- **モデル**: Claude Code Pro Max (Sonnet 4.5)
-- **ContentParser**: OpenAI GPT-4o mini
-- **ブランチ**: {branch_name}

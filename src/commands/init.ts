@@ -317,7 +317,28 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     }
 
     logger.info('Creating draft PR...');
-    const prTitle = `[AI-Workflow] Issue #${issueNumber}`;
+
+    // Issue タイトルを取得してPRタイトルとして使用
+    let prTitle = `[AI-Workflow] Issue #${issueNumber}`; // デフォルトフォールバック
+    try {
+      const issue = await githubClient.getIssue(issueNumber);
+      let issueTitle = issue.title ?? '';
+
+      // GitHub PR タイトルの最大長（256文字）を超える場合は切り詰め
+      const MAX_PR_TITLE_LENGTH = 256;
+      if (issueTitle.length > MAX_PR_TITLE_LENGTH) {
+        logger.info('Truncating PR title to 256 characters');
+        issueTitle = issueTitle.slice(0, 253) + '...';
+      }
+
+      prTitle = issueTitle;
+      logger.info(`Using Issue title as PR title: ${prTitle}`);
+    } catch (error) {
+      logger.warn(
+        `Failed to fetch Issue title, falling back to default PR title: ${prTitle}. Error: ${(error as Error).message}`,
+      );
+    }
+
     const prBody = githubClient.generatePrBodyTemplate(issueNumber, branchName);
     const prResult = await githubClient.createPullRequest(prTitle, prBody, branchName, 'main', true);
 
