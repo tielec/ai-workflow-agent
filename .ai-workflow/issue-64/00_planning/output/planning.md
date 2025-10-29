@@ -218,17 +218,17 @@ Issue #64は既存テストファイルの修正のみであり、新規テス�
 
 ### Phase 4: 実装 (見積もり: 2~3h)
 
-- [ ] Task 4-1: .ts.bakファイルの削除 (0.5~1h)
+- [x] Task 4-1: .ts.bakファイルの削除 (0.5~1h)
   - find コマンドを使用して.ts.bakファイルを検索
   - 削除対象ファイルの確認（dry-run）
   - .ts.bakファイルの削除実行
   - Git コミット＆プッシュ
-- [ ] Task 4-2: カラーリングテストの改善 (0.5~1h)
+- [x] Task 4-2: カラーリングテストの改善 (0.5~1h)
   - tests/unit/utils/logger.test.ts の beforeEach フックを修正
   - chalk.level を強制的に3（TrueColor）に設定
   - テストケースの実行確認（ローカル環境）
   - Git コミット＆プッシュ
-- [ ] Task 4-3: tests/モジュールのconsole呼び出し置き換え (1~1.5h)
+- [x] Task 4-3: tests/モジュールのconsole呼び出し置き換え (1~1.5h)
   - 13個のテストファイルのimport文にloggerを追加
   - console.log → logger.info（または適切なログレベル）
   - console.error → logger.error
@@ -236,7 +236,7 @@ Issue #64は既存テストファイルの修正のみであり、新規テス�
   - console.debug → logger.debug
   - ESLint検証の実行
   - Git コミット＆プッシュ
-- [ ] Task 4-4: CI環境への環境変数設定 (0.5h)
+- [x] Task 4-4: CI環境への環境変数設定 (0.5h)
   - Jenkinsfile の environment セクションに LOG_NO_COLOR = 'true' を追加
   - コメントを追加（カラーリング無効化の理由を説明）
   - Git コミット＆プッシュ
