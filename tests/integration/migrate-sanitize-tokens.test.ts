@@ -4,10 +4,12 @@
  * E2Eフローテスト: 探索 → 検出 → サニタイズ → バックアップ → 保存 → 検証
  */
 
+import { describe, it, expect, beforeEach, afterEach, afterAll, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
-import { handleMigrateCommand, MigrateOptions } from '../../src/commands/migrate.js';
+import { handleMigrateCommand } from '../../src/commands/migrate.js';
+import type { MigrateOptions } from '../../src/types/commands.js';
 
 // logger のモック
 jest.mock('../../src/utils/logger.js', () => ({
