@@ -1,0 +1,178 @@
+{
+  "issue_number": "46",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/46",
+  "issue_title": "Issue #46",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/jenkins-c3e02eaf/workspace/AI_Workflow/ai_workflow_orchestrator_develop",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "evaluation",
+  "design_decisions": {
+    "implementation_strategy": "REFACTOR",
+    "test_strategy": "UNIT_ONLY",
+    "test_code_strategy": "BOTH_TEST"
+  },
+  "cost_tracking": {
+    "total_input_tokens": 2071,
+    "total_output_tokens": 194552,
+    "total_cost_usd": 12.451859050000001
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T00:43:17.593Z",
+      "completed_at": "2025-10-30T00:47:51.118Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T00:47:51.718Z",
+      "completed_at": "2025-10-30T00:52:53.520Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T00:52:54.039Z",
+      "completed_at": "2025-10-30T00:58:36.112Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T00:58:36.691Z",
+      "completed_at": "2025-10-30T01:04:52.277Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T01:04:52.809Z",
+      "completed_at": "2025-10-30T01:13:00.253Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T01:13:00.840Z",
+      "completed_at": "2025-10-30T01:22:00.913Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "testing": {
+      "status": "completed",
+      "retry_count": 1,
+      "started_at": "2025-10-30T01:22:01.634Z",
+      "completed_at": "2025-10-30T01:31:20.873Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "revise",
+        "review"
+      ]
+    },
+    "documentation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T01:31:21.435Z",
+      "completed_at": "2025-10-30T01:37:07.176Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "report": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T01:37:07.736Z",
+      "completed_at": "2025-10-30T01:41:25.572Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "evaluation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-10-30T01:41:27.436Z",
+      "completed_at": "2025-10-30T01:44:12.275Z",
+      "review_result": null,
+      "decision": "PASS_WITH_ISSUES",
+      "failed_phase": null,
+      "remaining_tasks": [
+        {
+          "task": "execute.ts の内部ヘルパー関数の一部を別モジュールに分離し、200行以下に削減（オプション）",
+          "phase": "implementation",
+          "priority": "低"
+        },
+        {
+          "task": "テストカバレッジレポートを記録（`npm run test:coverage` を実行）（オプション）",
+          "phase": "test_implementation",
+          "priority": "低"
+        },
+        {
+          "task": "既存テストの失敗（102件）を別Issueで対応（CI環境対応、型定義修正、モック設定改善、期待値更新）（必須）",
+          "phase": "testing",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/87",
+      "abort_reason": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    }
+  },
+  "created_at": "2025-10-30T00:43:12.164Z",
+  "updated_at": "2025-10-30T01:44:12.822Z",
+  "branch_name": "ai-workflow/issue-46",
+  "pr_number": 86,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/86",
+  "github_integration": {
+    "progress_comment_id": 3465642452,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/46#issuecomment-3465642452"
+  }
+}
