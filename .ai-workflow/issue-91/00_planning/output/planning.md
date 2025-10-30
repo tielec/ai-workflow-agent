@@ -141,11 +141,11 @@ Issue #49のBasePhaseモジュール分解リファクタリングは、アー�
 
 ### Phase 1: 要件定義 (見積もり: 1-1.5h)
 
-- [ ] Task 1-1: Issue #49 Evaluation Reportの詳細分析 (0.5h)
+- [x] Task 1-1: Issue #49 Evaluation Reportの詳細分析 (0.5h)
   - 15個のテスト失敗の根本原因確認
   - カバレッジギャップ（未カバーライン）の特定
   - パフォーマンス測定要件（AC-8）の確認
-- [ ] Task 1-2: テスト修正方針の文書化 (0.5-1h)
+- [x] Task 1-2: テスト修正方針の文書化 (0.5-1h)
   - PhaseRunner mock修正手順の具体化
   - StepExecutor期待値修正パターンの定義
   - カバレッジ向上テストケース設計方針
