@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 1071,
-    "total_output_tokens": 277030,
-    "total_cost_usd": 20.054441399999998
+    "total_input_tokens": 1083,
+    "total_output_tokens": 287889,
+    "total_cost_usd": 21.539909599999998
   },
   "phases": {
     "planning": {
@@ -132,22 +132,63 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-30T05:54:19.969Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "Fix PhaseRunner test failures (10 tests): Correct mock configuration for `validatePhaseDependencies`, add `getAllPhasesStatus` to MetadataManager mock, mock `logger.info`",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "Fix StepExecutor test failures (3 tests): Change test expectations from exceptions to `{ success: false, error }` objects",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "Fix Integration test failures (2 tests): Use public wrapper methods or remove redundant tests (already covered in unit tests)",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "Verify 100% test pass rate: Re-run all tests after fixes",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "Confirm TypeScript build: Ensure build remains successful after test fixes",
+          "phase": "testing",
+          "priority": "高"
+        },
+        {
+          "task": "Increase coverage to 90%+: Add tests for CI environment detection, user prompts, and error handling branches",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "Run performance benchmarks: Validate AC-8 (execution time ±5% of pre-refactoring baseline)",
+          "phase": "test_implementation",
+          "priority": "高"
+        },
+        {
+          "task": "Document performance characteristics: Record baseline metrics for future monitoring",
+          "phase": "documentation",
+          "priority": "高"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/91",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     }
   },
   "created_at": "2025-10-30T02:17:17.528Z",
-  "updated_at": "2025-10-30T05:54:18.658Z",
+  "updated_at": "2025-10-30T06:02:34.856Z",
   "branch_name": "ai-workflow/issue-49",
   "pr_number": 89,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/89",
