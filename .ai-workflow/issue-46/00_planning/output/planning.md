@@ -154,19 +154,19 @@
 
 ### Phase 2: 設計 (見積もり: 4~6h)
 
-- [ ] Task 2-1: options-parser モジュールの詳細設計 (1~1.5h)
+- [x] Task 2-1: options-parser モジュールの詳細設計 (1~1.5h)
   - `parseExecuteOptions()`: ExecuteCommandOptions を正規化
   - `validateExecuteOptions()`: 相互排他オプション（`--preset` vs `--phase`, `--skip-dependency-check` vs `--ignore-dependencies`）の検証
   - エラーハンドリング: プロセス終了 vs 例外スロー
-- [ ] Task 2-2: agent-setup モジュールの詳細設計 (1.5~2h)
+- [x] Task 2-2: agent-setup モジュールの詳細設計 (1.5~2h)
   - `setupAgentClients()`: Codex/Claude クライアントの初期化
   - `resolveAgentCredentials()`: 認証情報のフォールバック処理（CODEX_API_KEY → OPENAI_API_KEY, CLAUDE_CODE_CREDENTIALS_PATH の候補パス探索）
   - エージェントモード（auto/codex/claude）の選択ロジック
-- [ ] Task 2-3: workflow-executor モジュールの詳細設計 (1~1.5h)
+- [x] Task 2-3: workflow-executor モジュールの詳細設計 (1~1.5h)
   - `executePhasesSequential()`: フェーズの順次実行（既存ロジック保持）
   - `executePhasesFrom()`: 特定フェーズからの実行（既存ロジック保持）
   - `resumeWorkflowIfNeeded()`: ResumeManager を使用したレジュームロジック
-- [ ] Task 2-4: phase-factory モジュールの詳細設計 (0.5~1h)
+- [x] Task 2-4: phase-factory モジュールの詳細設計 (0.5~1h)
   - `createPhaseInstance()`: フェーズ名から対応するクラスインスタンスを生成
   - Switch文の保持（10フェーズ対応）
   - PhaseContext の構築ロジック
@@ -351,12 +351,12 @@ graph TD
 - [ ] 後方互換性維持の検証ポイントが列挙されている
 
 ### Phase 2: 設計
-- [ ] 実装戦略の判断根拠が明記されている（REFACTOR）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
-- [ ] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
-- [ ] 4つのモジュール（options-parser、agent-setup、workflow-executor、phase-factory）の詳細設計が完了している
-- [ ] 各モジュールのインターフェース（関数シグネチャ、エラーハンドリング）が定義されている
-- [ ] 依存関係図が作成されている
+- [x] 実装戦略の判断根拠が明記されている（REFACTOR）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
+- [x] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
+- [x] 4つのモジュール（options-parser、agent-setup、workflow-executor、phase-factory）の詳細設計が完了している
+- [x] 各モジュールのインターフェース（関数シグネチャ、エラーハンドリング）が定義されている
+- [x] 依存関係図が作成されている
 
 ### Phase 3: テストシナリオ
 - [ ] 各モジュールの正常系・異常系テストシナリオが策定されている
