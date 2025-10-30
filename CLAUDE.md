@@ -103,9 +103,13 @@ node dist/index.js list-presets
 - **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
 - **`src/core/phase-factory.ts`**: フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。
 - **`src/types/commands.ts`**: コマンド関連の型定義（約150行、Issue #45で拡張）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions等の型を提供。コマンドハンドラの型安全性を確保。
-- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス（約698行、v0.3.1で52.4%削減、Issue #23、Issue #47でテンプレートメソッド追加）
+- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス（約445行、v0.3.1で40%削減、Issue #23・#47・#49でリファクタリング）。ファサードパターンにより専門モジュールへ委譲。
 - **`src/phases/core/agent-executor.ts`**: エージェント実行ロジック（約270行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。
 - **`src/phases/core/review-cycle-manager.ts`**: レビューサイクル管理（約130行、v0.3.1で追加、Issue #23）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。
+- **`src/phases/lifecycle/step-executor.ts`**: ステップ実行ロジック（約233行、v0.3.1で追加、Issue #49）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。
+- **`src/phases/lifecycle/phase-runner.ts`**: フェーズライフサイクル管理（約244行、v0.3.1で追加、Issue #49）。フェーズ全体の実行、依存関係検証、エラーハンドリング、GitHub進捗投稿を担当。
+- **`src/phases/context/context-builder.ts`**: コンテキスト構築（約223行、v0.3.1で追加、Issue #49）。オプショナルコンテキスト構築、ファイル参照生成（@filepath形式）、Planning Document参照を担当。
+- **`src/phases/cleanup/artifact-cleaner.ts`**: クリーンアップロジック（約228行、v0.3.1で追加、Issue #49）。ワークフロークリーンアップ、パス検証（セキュリティ対策）、シンボリックリンクチェック、CI環境判定を担当。
 - **`src/phases/formatters/progress-formatter.ts`**: 進捗表示フォーマット（約150行、v0.3.1で追加、Issue #23）。GitHub Issue コメント用の進捗状況フォーマットを生成。
 - **`src/phases/formatters/log-formatter.ts`**: ログフォーマット（約400行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの生ログを Markdown 形式に変換。
 - **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー（約200行、Issue #26で25.4%削減）

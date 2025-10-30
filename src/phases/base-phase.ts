@@ -7,26 +7,27 @@ import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { GitHubClient } from '../core/github-client.js';
 import { ContentParser } from '../core/content-parser.js';
-import { GitManager } from '../core/git-manager.js';
-import { validatePhaseDependencies } from '../core/phase-dependencies.js';
 import { PhaseExecutionResult, PhaseName, PhaseStatus, PhaseMetadata } from '../types.js';
 import { LogFormatter } from './formatters/log-formatter.js';
 import { ProgressFormatter } from './formatters/progress-formatter.js';
 import { AgentExecutor } from './core/agent-executor.js';
 import { ReviewCycleManager } from './core/review-cycle-manager.js';
-import { config } from '../core/config.js';
-import { getErrorMessage } from '../utils/error-utils.js';
+import { ContextBuilder } from './context/context-builder.js';
+import { ArtifactCleaner } from './cleanup/artifact-cleaner.js';
+import { StepExecutor } from './lifecycle/step-executor.js';
+import { PhaseRunner } from './lifecycle/phase-runner.js';
 
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const promptsRoot = path.resolve(moduleDir, '..', 'prompts');
-const MAX_RETRIES = 3;
-
+// PhaseRunOptions を BasePhase から export（Issue #49）
 export interface PhaseRunOptions {
-  gitManager?: GitManager | null;
+  gitManager?: import('../core/git-manager.js').GitManager | null;
   skipReview?: boolean;
   cleanupOnComplete?: boolean;  // Issue #2: Cleanup workflow artifacts after evaluation phase
   cleanupOnCompleteForce?: boolean;  // Issue #2: Skip confirmation prompt for cleanup
 }
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const promptsRoot = path.resolve(moduleDir, '..', 'prompts');
+const MAX_RETRIES = 3;
 
 export type BasePhaseConstructorParams = {
   phaseName: PhaseName;
@@ -65,6 +66,12 @@ export abstract class BasePhase {
   private readonly progressFormatter: ProgressFormatter;
   private agentExecutor: AgentExecutor | null = null;
   private readonly reviewCycleManager: ReviewCycleManager;
+
+  // 新規モジュール (Issue #49)
+  private readonly contextBuilder: ContextBuilder;
+  private readonly artifactCleaner: ArtifactCleaner;
+  private stepExecutor: StepExecutor | null = null;
+  private phaseRunner: PhaseRunner | null = null;
 
   private getActiveAgent(): CodexAgentClient | ClaudeAgentClient {
     if (this.codex) {
@@ -120,6 +127,16 @@ export abstract class BasePhase {
         this.workingDir,
       );
     }
+
+    // 新規モジュールの初期化 (Issue #49)
+    this.contextBuilder = new ContextBuilder(
+      this.metadata,
+      this.workingDir,
+      () => this.getAgentWorkingDirectory()
+    );
+    this.artifactCleaner = new ArtifactCleaner(this.metadata);
+
+    // StepExecutor と PhaseRunner は遅延初期化（execute/review/revise メソッドが必要なため）
   }
 
   protected abstract execute(): Promise<PhaseExecutionResult>;
@@ -131,95 +148,33 @@ export abstract class BasePhase {
   }
 
   public async run(options: PhaseRunOptions = {}): Promise<boolean> {
-    const gitManager = options.gitManager ?? null;
-
-    const dependencyResult = validatePhaseDependencies(this.phaseName, this.metadata, {
-      skipCheck: this.skipDependencyCheck,
-      ignoreViolations: this.ignoreDependencies,
-      presetPhases: this.presetPhases,
-    });
-
-    if (!dependencyResult.valid) {
-      const error =
-        dependencyResult.error ??
-        'Dependency validation failed. Use --skip-dependency-check to bypass.';
-      logger.error(`${error}`);
-      return false;
+    // StepExecutor と PhaseRunner の遅延初期化（Issue #49）
+    if (!this.stepExecutor) {
+      this.stepExecutor = new StepExecutor(
+        this.phaseName,
+        this.metadata,
+        this.reviewCycleManager,
+        async () => this.execute(),
+        async () => this.review(),
+        async () => this.shouldRunReview()
+      );
     }
 
-    if (dependencyResult.warning) {
-      logger.warn(`${dependencyResult.warning}`);
+    if (!this.phaseRunner) {
+      this.phaseRunner = new PhaseRunner(
+        this.phaseName,
+        this.metadata,
+        this.github,
+        this.stepExecutor,
+        this.skipDependencyCheck,
+        this.ignoreDependencies,
+        this.presetPhases,
+        this.getReviseFunction()
+      );
     }
 
-    this.updatePhaseStatus('in_progress');
-    await this.postProgress('in_progress', `${this.phaseName} フェーズを開始します。`);
-
-    try {
-      // Execute Step (Issue #10: ステップ単位のコミット＆レジューム)
-      const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
-      if (!completedSteps.includes('execute')) {
-        logger.info(`Phase ${this.phaseName}: Starting execute step...`);
-        this.metadata.updateCurrentStep(this.phaseName, 'execute');
-
-        const executeResult = await this.execute();
-        if (!executeResult.success) {
-          logger.error(`Phase ${this.phaseName}: Execute failed: ${executeResult.error ?? 'Unknown error'}`);
-          await this.handleFailure(executeResult.error ?? 'Unknown execute error');
-          return false;
-        }
-
-        logger.info(`Phase ${this.phaseName}: Execute completed successfully`);
-
-        // Commit & Push after execute (Issue #10)
-        if (gitManager) {
-          await this.commitAndPushStep(gitManager, 'execute');
-        }
-
-        this.metadata.addCompletedStep(this.phaseName, 'execute');
-      } else {
-        logger.info(`Phase ${this.phaseName}: Skipping execute step (already completed)`);
-      }
-
-      // Review Step (if enabled)
-      if (!options.skipReview && (await this.shouldRunReview())) {
-        const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
-        if (!completedSteps.includes('review')) {
-          logger.info(`Phase ${this.phaseName}: Starting review step...`);
-          this.metadata.updateCurrentStep(this.phaseName, 'review');
-
-          const reviewResult = await this.review();
-          if (!reviewResult.success) {
-            logger.warn(`Phase ${this.phaseName}: Review failed: ${reviewResult.error ?? 'Unknown error'}`);
-
-            // Revise Step (if review failed) - Issue #10
-            await this.performReviseStepWithRetry(gitManager, reviewResult);
-          } else {
-            logger.info(`Phase ${this.phaseName}: Review completed successfully`);
-
-            // Commit & Push after review (Issue #10)
-            if (gitManager) {
-              await this.commitAndPushStep(gitManager, 'review');
-            }
-
-            this.metadata.addCompletedStep(this.phaseName, 'review');
-          }
-        } else {
-          logger.info(`Phase ${this.phaseName}: Skipping review step (already completed)`);
-        }
-      } else {
-        logger.info(`Phase ${this.phaseName}: Skipping review (skipReview=${options.skipReview})`);
-      }
-
-      // フェーズ完了
-      this.updatePhaseStatus('completed');
-      await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
-
-      return true;
-    } catch (error) {
-      const message = getErrorMessage(error);
-      await this.handleFailure(message);
-      return false;
-    }
+    // PhaseRunner に委譲（Issue #49）
+    return this.phaseRunner.run(options);
   }
 
   protected loadPrompt(promptType: 'execute' | 'review' | 'revise'): string {
@@ -352,6 +307,10 @@ export abstract class BasePhase {
     fileName: string,
     issueNumberOverride?: string | number,
   ): string | null {
+    // ContextBuilder に委譲（Issue #49）
+    // Note: この private メソッドは ContextBuilder 内にコピーされているため、
+    // ここでは直接 ContextBuilder の private メソッドを呼び出すことはできない。
+    // そのため、従来の実装を保持する。
     const workflowRoot = path.resolve(this.metadata.workflowDir, '..');
     const issueIdentifier =
       issueNumberOverride !== undefined ? String(issueNumberOverride) : this.metadata.data.issue_number;
@@ -399,34 +358,13 @@ export abstract class BasePhase {
   }
 
   protected getPlanningDocumentReference(issueNumber: number): string {
-    const planningFile = this.getPhaseOutputFile('planning', 'planning.md', issueNumber);
-
-    if (!planningFile) {
-      logger.warn('Planning document not found.');
-      return 'Planning Phaseは実行されていません';
-    }
-
-    const reference = this.getAgentFileReference(planningFile);
-    if (!reference) {
-      logger.warn(`Failed to resolve relative path for planning document: ${planningFile}`);
-      return 'Planning Phaseは実行されていません';
-    }
-
-    logger.info(`Planning document reference: ${reference}`);
-    return reference;
+    // ContextBuilder に委譲（Issue #49）
+    return this.contextBuilder.getPlanningDocumentReference(issueNumber);
   }
 
   protected getAgentFileReference(filePath: string): string | null {
-    const absoluteFile = path.resolve(filePath);
-    const workingDir = path.resolve(this.getAgentWorkingDirectory());
-    const relative = path.relative(workingDir, absoluteFile);
-
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-      return null;
-    }
-
-    const normalized = relative.split(path.sep).join('/');
-    return `@${normalized}`;
+    // ContextBuilder に委譲（Issue #49）
+    return this.contextBuilder.getAgentFileReference(filePath);
   }
 
   /**
@@ -445,28 +383,13 @@ export abstract class BasePhase {
     fallbackMessage: string,
     issueNumberOverride?: string | number,
   ): string {
-    const issueNumber = issueNumberOverride !== undefined
-      ? String(issueNumberOverride)
-      : this.metadata.data.issue_number;
-
-    const filePath = this.getPhaseOutputFile(phaseName, filename, issueNumber);
-
-    // ファイル存在チェック
-    if (filePath && fs.existsSync(filePath)) {
-      // 存在する場合は@filepath形式で参照
-      const reference = this.getAgentFileReference(filePath);
-      if (reference) {
-        logger.info(`Using ${phaseName} output: ${reference}`);
-        return reference;
-      } else {
-        logger.warn(`Failed to resolve relative path for ${phaseName}: ${filePath}`);
-        return fallbackMessage;
-      }
-    } else {
-      // 存在しない場合はフォールバックメッセージ
-      logger.info(`${phaseName} output not found, using fallback message`);
-      return fallbackMessage;
-    }
+    // ContextBuilder に委譲（Issue #49）
+    return this.contextBuilder.buildOptionalContext(
+      phaseName,
+      filename,
+      fallbackMessage,
+      issueNumberOverride
+    );
   }
 
   private getPhaseNumber(phase: PhaseName): string {
@@ -492,60 +415,6 @@ export abstract class BasePhase {
     fs.ensureDirSync(this.reviseDir);
   }
 
-  private async handleFailure(reason: string) {
-    this.updatePhaseStatus('failed');
-    await this.postProgress(
-      'failed',
-      `${this.phaseName} フェーズでエラーが発生しました: ${reason}`,
-    );
-  }
-
-  private async postProgress(status: PhaseStatus, details?: string) {
-    const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    if (Number.isNaN(issueNumber)) {
-      return;
-    }
-
-    try {
-      const content = this.formatProgressComment(status, details);
-      await this.github.createOrUpdateProgressComment(
-        issueNumber,
-        content,
-        this.metadata,
-      );
-    } catch (error) {
-      const message = getErrorMessage(error);
-      logger.warn(`Failed to post workflow progress: ${message}`);
-    }
-  }
-
-  private formatProgressComment(status: PhaseStatus, details?: string): string {
-    // ProgressFormatter に委譲 (Issue #23)
-    return this.progressFormatter.formatProgressComment(
-      this.phaseName,
-      status,
-      this.metadata,
-      details,
-    );
-  }
-
-  protected async autoCommitAndPush(gitManager: GitManager, reviewResult: string | null) {
-    const commitResult = await gitManager.commitPhaseOutput(
-      this.phaseName,
-      'completed',
-      reviewResult ?? undefined,
-    );
-
-    if (!commitResult.success) {
-      throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
-    }
-
-    const pushResult = await gitManager.pushToRemote();
-    if (!pushResult.success) {
-      throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
-    }
-  }
-
   /**
    * ワークフローアーティファクト全体をクリーンアップ（Issue #2）
    *
@@ -556,87 +425,19 @@ export abstract class BasePhase {
    * @param force - 確認プロンプトをスキップする場合は true（CI環境用）
    */
   protected async cleanupWorkflowArtifacts(force: boolean = false): Promise<void> {
-    const workflowDir = this.metadata.workflowDir; // .ai-workflow/issue-<NUM>
-
-    // パス検証: .ai-workflow/issue-<NUM> 形式であることを確認
-    const pattern = /\.ai-workflow[\/\\]issue-\d+$/;
-    if (!pattern.test(workflowDir)) {
-      logger.error(`Invalid workflow directory path: ${workflowDir}`);
-      throw new Error(`Invalid workflow directory path: ${workflowDir}`);
-    }
-
-    // シンボリックリンクチェック
-    if (fs.existsSync(workflowDir)) {
-      const stats = fs.lstatSync(workflowDir);
-      if (stats.isSymbolicLink()) {
-        logger.error(`Workflow directory is a symbolic link: ${workflowDir}`);
-        throw new Error(`Workflow directory is a symbolic link: ${workflowDir}`);
-      }
-    }
-
-    // CI環境判定
-    const isCIEnvironment = this.isCIEnvironment();
-
-    // 確認プロンプト表示（force=false かつ非CI環境の場合のみ）
-    if (!force && !isCIEnvironment) {
-      const confirmed = await this.promptUserConfirmation(workflowDir);
-      if (!confirmed) {
-        logger.info('Cleanup cancelled by user.');
-        return;
-      }
-    }
-
-    // ディレクトリ削除
-    try {
-      logger.info(`Deleting workflow artifacts: ${workflowDir}`);
-
-      // ディレクトリ存在確認
-      if (!fs.existsSync(workflowDir)) {
-        logger.warn(`Workflow directory does not exist: ${workflowDir}`);
-        return;
-      }
-
-      // 削除実行
-      fs.removeSync(workflowDir);
-      logger.info('Workflow artifacts deleted successfully.');
-    } catch (error) {
-      const message = getErrorMessage(error);
-      logger.error(`Failed to delete workflow artifacts: ${message}`);
-      // エラーでもワークフローは継続（Report Phaseのクリーンアップと同様）
-    }
+    // ArtifactCleaner に委譲（Issue #49）
+    await this.artifactCleaner.cleanupWorkflowArtifacts(force);
   }
 
   /**
-   * CI環境かどうかを判定
-   * @returns CI環境の場合は true
+   * ワークフローログをクリーンアップ（Issue #2）
+   *
+   * Report Phase 完了後に実行され、phases 00-08 の execute/review/revise ディレクトリを削除します。
+   * metadata.json と output/*.md は保持されます。
    */
-  private isCIEnvironment(): boolean {
-    // 環境変数 CI が設定されている場合はCI環境と判定
-    return config.isCI();
-  }
-
-  /**
-   * ユーザーに確認プロンプトを表示
-   * @param workflowDir - 削除対象のワークフローディレクトリ
-   * @returns ユーザーが "yes" を入力した場合は true
-   */
-  private async promptUserConfirmation(workflowDir: string): Promise<boolean> {
-    const readline = await import('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    logger.warn(`About to delete workflow directory: ${workflowDir}`);
-    logger.warn('This action cannot be undone.');
-
-    return new Promise((resolve) => {
-      rl.question('Proceed? (yes/no): ', (answer) => {
-        rl.close();
-        const normalized = answer.trim().toLowerCase();
-        resolve(normalized === 'yes' || normalized === 'y');
-      });
-    });
+  protected async cleanupWorkflowLogs(): Promise<void> {
+    // ArtifactCleaner に委譲（Issue #49）
+    await this.artifactCleaner.cleanupWorkflowLogs();
   }
 
 
@@ -648,98 +449,5 @@ export abstract class BasePhase {
       return candidate.bind(this);
     }
     return null;
-  }
-
-
-  /**
-   * Issue #10: フェーズ番号を整数で取得
-   */
-  private getPhaseNumberInt(phase: PhaseName): number {
-    const phaseOrder: PhaseName[] = [
-      'planning',
-      'requirements',
-      'design',
-      'test_scenario',
-      'implementation',
-      'test_implementation',
-      'testing',
-      'documentation',
-      'report',
-      'evaluation',
-    ];
-    return phaseOrder.indexOf(phase);
-  }
-
-  /**
-   * Issue #10: ステップ単位のコミット＆プッシュ
-   */
-  private async commitAndPushStep(
-    gitManager: GitManager,
-    step: 'execute' | 'review' | 'revise'
-  ): Promise<void> {
-    const issueNumber = parseInt(this.metadata.data.issue_number, 10);
-    const phaseNumber = this.getPhaseNumberInt(this.phaseName);
-
-    logger.info(`Phase ${this.phaseName}: Committing ${step} step...`);
-
-    const commitResult = await gitManager.commitStepOutput(
-      this.phaseName,
-      phaseNumber,
-      step,
-      issueNumber,
-      this.workingDir
-    );
-
-    if (!commitResult.success) {
-      throw new Error(`Git commit failed for step ${step}: ${commitResult.error ?? 'unknown error'}`);
-    }
-
-    logger.info(`Phase ${this.phaseName}: Pushing ${step} step to remote...`);
-
-    try {
-      const pushResult = await gitManager.pushToRemote(3); // 最大3回リトライ
-      if (!pushResult.success) {
-        throw new Error(`Git push failed for step ${step}: ${pushResult.error ?? 'unknown error'}`);
-      }
-      logger.info(`Phase ${this.phaseName}: Step ${step} pushed successfully`);
-    } catch (error) {
-      // プッシュ失敗時の処理
-      logger.error(`Phase ${this.phaseName}: Failed to push step ${step}: ${getErrorMessage(error)}`);
-
-      // current_stepを維持（次回レジューム時に同じステップを再実行）
-      this.metadata.updateCurrentStep(this.phaseName, step);
-
-      throw error;
-    }
-  }
-
-  /**
-   * Issue #10: Reviseステップの実行（リトライ付き）
-   * Issue #23: ReviewCycleManager に委譲
-   */
-  private async performReviseStepWithRetry(
-    gitManager: GitManager | null,
-    initialReviewResult: PhaseExecutionResult
-  ): Promise<void> {
-    // Get revise function
-    const reviseFn = this.getReviseFunction();
-    if (!reviseFn) {
-      logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
-      throw new Error('revise() method not implemented');
-    }
-
-    // ReviewCycleManager に委譲 (Issue #23)
-    await this.reviewCycleManager.performReviseStepWithRetry(
-      gitManager,
-      initialReviewResult,
-      async () => this.review(),
-      reviseFn,
-      async (status: PhaseStatus, details?: string) => this.postProgress(status, details),
-      async (step: 'execute' | 'review' | 'revise') => {
-        if (gitManager) {
-          await this.commitAndPushStep(gitManager, step);
-        }
-      },
-    );
   }
 }
