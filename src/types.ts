@@ -123,6 +123,8 @@ export interface PhaseExecutionResult {
   output?: string | null;
   error?: string | null;
   decision?: string | null;
+  approved?: boolean;       // レビュー承認フラグ（Issue #49）
+  feedback?: string;        // レビューフィードバック（Issue #49）
 }
 
 export interface PhaseRunSummary {
