@@ -298,28 +298,28 @@ export abstract class BasePhase {
 
 ### Phase 4: 実装 (見積もり: 8~12h)
 
-- [ ] Task 4-1: StepExecutor モジュールの実装 (2~3h)
+- [x] Task 4-1: StepExecutor モジュールの実装 (2~3h)
   - `src/phases/lifecycle/step-executor.ts` 作成
   - executeStep() メソッド実装（BasePhase.execute()呼び出し + completed_steps管理）
   - reviewStep() メソッド実装（BasePhase.review()呼び出し + スキップロジック）
   - reviseStep() メソッド実装（リトライロジック + ReviewCycleManager連携）
   - commitAndPushStep() メソッド実装（Git統合）
   - エラーハンドリング、ロギング
-- [ ] Task 4-2: PhaseRunner モジュールの実装 (2~3h)
+- [x] Task 4-2: PhaseRunner モジュールの実装 (2~3h)
   - `src/phases/lifecycle/phase-runner.ts` 作成
   - run() メソッド実装（依存関係検証 → StepExecutor呼び出し → ステータス更新）
   - validateDependencies() メソッド実装（phase-dependencies.ts連携）
   - handleFailure() メソッド実装（エラー時のメタデータ更新 + GitHub投稿）
   - postProgress() メソッド実装（ProgressFormatter連携）
   - エラーハンドリング、ロギング
-- [ ] Task 4-3: ContextBuilder モジュールの実装 (1.5~2h)
+- [x] Task 4-3: ContextBuilder モジュールの実装 (1.5~2h)
   - `src/phases/context/context-builder.ts` 作成
   - buildOptionalContext() メソッド実装（ファイル存在チェック + フォールバック）
   - getAgentFileReference() メソッド実装（相対パス解決 + @filepath生成）
   - getPlanningDocumentReference() メソッド実装（Planning Phase専用参照）
   - getPhaseOutputFile() メソッド実装（共通ファイルパス解決）
   - エラーハンドリング、ロギング
-- [ ] Task 4-4: ArtifactCleaner モジュールの実装 (1.5~2h)
+- [x] Task 4-4: ArtifactCleaner モジュールの実装 (1.5~2h)
   - `src/phases/cleanup/artifact-cleaner.ts` 作成
   - cleanupWorkflowArtifacts() メソッド実装（Evaluation Phase用、全削除）
   - cleanupWorkflowLogs() メソッド実装（Report Phase用、ログのみ削除）
@@ -327,7 +327,7 @@ export abstract class BasePhase {
   - isCIEnvironment() メソッド実装（config.isCI()連携）
   - パス検証、シンボリックリンクチェック
   - エラーハンドリング、ロギング
-- [ ] Task 4-5: BasePhase リファクタリング（モジュール統合） (2~4h)
+- [x] Task 4-5: BasePhase リファクタリング（モジュール統合） (2~4h)
   - 新規モジュールの依存性注入（コンストラクタ）
   - run() メソッドの簡略化（PhaseRunner に委譲）
   - buildOptionalContext() メソッドの委譲（ContextBuilder に委譲）
