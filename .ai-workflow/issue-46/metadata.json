@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_ONLY",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 2064,
-    "total_output_tokens": 186251,
-    "total_cost_usd": 11.904979800000001
+    "total_input_tokens": 2071,
+    "total_output_tokens": 194552,
+    "total_cost_usd": 12.451859050000001
   },
   "phases": {
     "planning": {
@@ -133,20 +133,37 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-10-30T01:41:27.436Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "execute.ts の内部ヘルパー関数の一部を別モジュールに分離し、200行以下に削減（オプション）",
+          "phase": "implementation",
+          "priority": "低"
+        },
+        {
+          "task": "テストカバレッジレポートを記録（`npm run test:coverage` を実行）（オプション）",
+          "phase": "test_implementation",
+          "priority": "低"
+        },
+        {
+          "task": "既存テストの失敗（102件）を別Issueで対応（CI環境対応、型定義修正、モック設定改善、期待値更新）（必須）",
+          "phase": "testing",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/87",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-10-30T00:43:12.164Z",
-  "updated_at": "2025-10-30T01:41:26.165Z",
+  "updated_at": "2025-10-30T01:44:09.503Z",
   "branch_name": "ai-workflow/issue-46",
   "pr_number": 86,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/86",
