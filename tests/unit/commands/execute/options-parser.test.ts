@@ -391,7 +391,7 @@ describe('parseExecuteOptions - エッジケース', () => {
     const options: ExecuteCommandOptions = {
       issue: '46',
       phase: 'planning',
-      agent: 'CODEX',
+      agent: 'codex',
     };
 
     // When: オプションを解析

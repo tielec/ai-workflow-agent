@@ -79,7 +79,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const claudeCredentialsPath = '/custom/path/credentials.json';
     (config.getCodexApiKey as jest.Mock).mockReturnValue(null);
     (config.getClaudeCredentialsPath as jest.Mock).mockReturnValue(claudeCredentialsPath);
-    (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+    (fs.existsSync as jest.Mock).mockImplementation((path: unknown) => {
       return path === claudeCredentialsPath;
     });
 
@@ -98,7 +98,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const expectedPath = `${homeDir}/.claude-code/credentials.json`;
     (config.getCodexApiKey as jest.Mock).mockReturnValue(null);
     (config.getClaudeCredentialsPath as jest.Mock).mockReturnValue(null);
-    (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+    (fs.existsSync as jest.Mock).mockImplementation((path: unknown) => {
       return path === expectedPath;
     });
 
@@ -116,7 +116,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const expectedPath = `${repoRoot}/.claude-code/credentials.json`;
     (config.getCodexApiKey as jest.Mock).mockReturnValue(null);
     (config.getClaudeCredentialsPath as jest.Mock).mockReturnValue(null);
-    (fs.existsSync as jest.Mock).mockImplementation((path: string) => {
+    (fs.existsSync as jest.Mock).mockImplementation((path: unknown) => {
       return path === expectedPath;
     });
 

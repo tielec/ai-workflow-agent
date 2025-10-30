@@ -37,7 +37,7 @@ function createMockContext(): PhaseContext {
     metadataManager: {} as any,
     codexClient: null,
     claudeClient: null,
-    githubClient: null,
+    githubClient: {} as any,
     skipDependencyCheck: false,
     ignoreDependencies: false,
     presetPhases: undefined,
@@ -56,7 +56,7 @@ function createMockGitManager(): GitManager {
  */
 function createMockPhaseInstance(runResult: boolean) {
   return {
-    run: jest.fn().mockResolvedValue(runResult),
+    run: jest.fn<() => Promise<boolean>>().mockResolvedValue(runResult),
   };
 }
 
@@ -209,7 +209,7 @@ describe('executePhasesSequential - 異常系', () => {
       if (callCount === 2) {
         // 2番目のフェーズで例外をスロー
         return {
-          run: jest.fn().mockRejectedValue(new Error('Test error message')),
+          run: jest.fn<() => Promise<boolean>>().mockRejectedValue(new Error('Test error message')),
         };
       }
       return createMockPhaseInstance(true);

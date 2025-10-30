@@ -38,7 +38,7 @@ function createMockContext(): PhaseContext {
     metadataManager: {} as any,
     codexClient: null,
     claudeClient: null,
-    githubClient: null,
+    githubClient: {} as any,
     skipDependencyCheck: false,
     ignoreDependencies: false,
     presetPhases: undefined,
