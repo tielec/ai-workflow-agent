@@ -233,17 +233,17 @@ export abstract class BasePhase {
 
 ### Phase 1: 要件定義 (見積もり: 2~3h)
 
-- [ ] Task 1-1: BasePhaseの責務分析と洗い出し (1h)
+- [x] Task 1-1: BasePhaseの責務分析と洗い出し (1h)
   - 既存コード（676行）を7つの責務カテゴリに分類
   - Issue #23で分離済みのモジュール（AgentExecutor、ReviewCycleManager等）との境界を明確化
   - 新規モジュール候補の洗い出し（StepExecutor、PhaseRunner、ContextBuilder、ArtifactCleaner）
   - 各責務の行数とメソッド数の集計
-- [ ] Task 1-2: モジュール境界の決定と責務マトリックスの作成 (0.5~1h)
+- [x] Task 1-2: モジュール境界の決定と責務マトリックスの作成 (0.5~1h)
   - 責務マトリックス: 各メソッドをどのモジュールに配置するか決定
   - モジュール間の依存関係グラフ作成（Mermaid形式）
   - publicメソッド vs privateメソッドの分類
   - BasePhase（ファサード）に残すべきメソッドの決定
-- [ ] Task 1-3: 非機能要件の定義 (0.5~1h)
+- [x] Task 1-3: 非機能要件の定義 (0.5~1h)
   - 後方互換性100%維持の確認基準策定
   - パフォーマンス要件（依存性注入のオーバーヘッド評価）
   - エラーハンドリング戦略（各モジュールでの例外処理方針）
