@@ -338,33 +338,33 @@ export abstract class BasePhase {
 
 ### Phase 5: テストコード実装 (見積もり: 3~4h)
 
-- [ ] Task 5-1: StepExecutor ユニットテスト実装 (0.5~1h)
+- [x] Task 5-1: StepExecutor ユニットテスト実装 (0.5~1h)
   - `tests/unit/phases/lifecycle/step-executor.test.ts` 作成
   - executeステップの成功/失敗テスト
   - reviewステップのスキップ/実行テスト
   - reviseステップのリトライテスト
   - completed_steps管理のテスト
   - Gitコミット＆プッシュのモックテスト
-- [ ] Task 5-2: PhaseRunner ユニットテスト実装 (0.5~1h)
+- [x] Task 5-2: PhaseRunner ユニットテスト実装 (0.5~1h)
   - `tests/unit/phases/lifecycle/phase-runner.test.ts` 作成
   - run()メソッドの完全フローテスト
   - 依存関係検証の成功/失敗テスト
   - エラーハンドリングテスト（各ステップでの失敗）
   - ステータス更新のテスト
   - GitHub進捗投稿のモックテスト
-- [ ] Task 5-3: ContextBuilder ユニットテスト実装 (0.5h)
+- [x] Task 5-3: ContextBuilder ユニットテスト実装 (0.5h)
   - `tests/unit/phases/context/context-builder.test.ts` 作成
   - ファイル存在時の@filepath参照生成テスト
   - ファイル不在時のフォールバックメッセージテスト
   - 相対パス解決の正確性テスト
   - Planning Phase参照の特殊処理テスト
-- [ ] Task 5-4: ArtifactCleaner ユニットテスト実装 (0.5h)
+- [x] Task 5-4: ArtifactCleaner ユニットテスト実装 (0.5h)
   - `tests/unit/phases/cleanup/artifact-cleaner.test.ts` 作成
   - ワークフローログのクリーンアップテスト
   - ワークフローアーティファクト全体のクリーンアップテスト
   - パス検証、シンボリックリンクチェックのテスト
   - 確認プロンプトのテスト（CI環境/非CI環境）
-- [ ] Task 5-5: BasePhase インテグレーションテスト実装 (1~1.5h)
+- [x] Task 5-5: BasePhase インテグレーションテスト実装 (1~1.5h)
   - `tests/integration/phases/base-phase-refactored.test.ts` 作成
   - 全ライフサイクル（execute → review → revise）のテスト
   - Git統合テスト（ステップ単位のコミット＆プッシュ）
