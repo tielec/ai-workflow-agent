@@ -26,7 +26,8 @@ export class ReportPhase extends BasePhase {
       const gitManager = options.gitManager ?? null;
       const issueNumber = parseInt(this.metadata.data.issue_number, 10);
       try {
-        await this.cleanupWorkflowLogs(issueNumber);
+        // BasePhase の cleanupWorkflowLogs() を使用（Issue #49）
+        await this.cleanupWorkflowLogs();
         logger.info('Workflow logs cleaned up successfully.');
 
         // ログクリーンナップによる削除をコミット・プッシュ（Issue #16: commitCleanupLogs を使用）
@@ -305,62 +306,4 @@ export class ReportPhase extends BasePhase {
     }
   }
 
-  /**
-   * ワークフローログをクリーンアップ（Issue #405）
-   *
-   * Report完了後に実行され、各フェーズのexecute/review/reviseディレクトリを削除します。
-   * metadata.jsonとoutput/*.mdファイルは保持されます。
-   *
-   * @param issueNumber - Issue番号
-   */
-  private async cleanupWorkflowLogs(issueNumber: number): Promise<void> {
-    const baseDir = path.resolve(this.metadata.workflowDir, '..', `issue-${issueNumber}`);
-
-    // すべてのフェーズ（00-08）の実行ログを削除（Issue #16）
-    // ※ output/planning.md は保持される（targetSubdirsに'output'が含まれないため）
-    const phaseDirectories = [
-      '00_planning',
-      '01_requirements',
-      '02_design',
-      '03_test_scenario',
-      '04_implementation',
-      '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
-    ];
-
-    const targetSubdirs = ['execute', 'review', 'revise'];
-
-    let deletedCount = 0;
-    let skippedCount = 0;
-
-    for (const phaseDir of phaseDirectories) {
-      const phasePath = path.join(baseDir, phaseDir);
-
-      if (!fs.existsSync(phasePath)) {
-        skippedCount++;
-        continue;
-      }
-
-      for (const subdir of targetSubdirs) {
-        const subdirPath = path.join(phasePath, subdir);
-
-        if (fs.existsSync(subdirPath)) {
-          try {
-            fs.removeSync(subdirPath);
-            deletedCount++;
-            logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
-          } catch (error) {
-            const message = getErrorMessage(error);
-            logger.warn(`Failed to delete ${subdirPath}: ${message}`);
-          }
-        }
-      }
-    }
-
-    logger.info(
-      `Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
-    );
-  }
 }
