@@ -51,7 +51,7 @@ describe('ContextBuilder - buildOptionalContext() ファイル存在時', () => 
     const requirementsFile = path.join(requirementsDir, 'requirements.md');
     await fs.writeFile(requirementsFile, '# Requirements');
 
-    const mockMetadata = createMockMetadataManager(path.join(testWorkflowDir, '02_design'));
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
     const getAgentWorkingDirectoryFn = () => testRepoRoot;
     const contextBuilder = new ContextBuilder(mockMetadata, testRepoRoot, getAgentWorkingDirectoryFn);
 

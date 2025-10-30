@@ -26,11 +26,11 @@ class TestPhase extends BasePhase {
   constructor(metadata: MetadataManager, github: any, workingDir: string) {
     super({
       phaseName: 'planning',
-      metadata,
-      github,
+      metadataManager: metadata,
+      githubClient: github,
       workingDir,
-      codexAgentClient: null,
-      claudeAgentClient: null,
+      codexClient: null,
+      claudeClient: null,
     });
   }
 
@@ -47,6 +47,24 @@ class TestPhase extends BasePhase {
   async revise(feedback: string): Promise<PhaseExecutionResult> {
     // テスト用の revise 実装
     return { success: true };
+  }
+
+  // Public wrappers for testing protected methods
+  public testBuildOptionalContext(
+    phaseName: PhaseName,
+    outputFileName: string,
+    fallbackMessage: string,
+    issueNumberOverride?: number
+  ): string {
+    return this.buildOptionalContext(phaseName, outputFileName, fallbackMessage, issueNumberOverride);
+  }
+
+  public async testCleanupWorkflowArtifacts(force?: boolean): Promise<void> {
+    return this.cleanupWorkflowArtifacts(force);
+  }
+
+  public async testCleanupWorkflowLogs(): Promise<void> {
+    return this.cleanupWorkflowLogs();
   }
 }
 
@@ -119,7 +137,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
 
     // When: BasePhase のメソッドを呼び出す
     // ContextBuilder の動作確認
-    const context = testPhase.buildOptionalContext(
+    const context = testPhase.testBuildOptionalContext(
       'requirements',
       'requirements.md',
       'Requirements not found'
@@ -135,11 +153,11 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     const mockGitHub = createMockGitHubClient();
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
-    // When/Then: public メソッドが存在し、呼び出し可能である
+    // When/Then: public/protected メソッドが存在し、呼び出し可能である
     expect(typeof testPhase.run).toBe('function');
-    expect(typeof testPhase.buildOptionalContext).toBe('function');
-    expect(typeof testPhase.cleanupWorkflowArtifacts).toBe('function');
-    expect(typeof testPhase.cleanupWorkflowLogs).toBe('function');
+    expect(typeof testPhase.testBuildOptionalContext).toBe('function');
+    expect(typeof testPhase.testCleanupWorkflowArtifacts).toBe('function');
+    expect(typeof testPhase.testCleanupWorkflowLogs).toBe('function');
   });
 
   test('IC-BP-03: ContextBuilder が BasePhase に統合されている', async () => {
@@ -154,7 +172,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
     // When: buildOptionalContext() を呼び出す
-    const context = testPhase.buildOptionalContext(
+    const context = testPhase.testBuildOptionalContext(
       'requirements',
       'requirements.md',
       'Requirements not found'
@@ -173,7 +191,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
     // When: cleanupWorkflowArtifacts() を呼び出す
-    await testPhase.cleanupWorkflowArtifacts(true);
+    await testPhase.testCleanupWorkflowArtifacts(true);
 
     // Then: ディレクトリが削除される
     expect(fs.existsSync(testWorkflowDir)).toBe(false);
@@ -194,7 +212,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
     // When: cleanupWorkflowLogs() を呼び出す
-    await testPhase.cleanupWorkflowLogs();
+    await testPhase.testCleanupWorkflowLogs();
 
     // Then: execute ディレクトリが削除され、metadata.json と output が保持される
     for (const phaseDir of phaseDirs) {
@@ -268,6 +286,6 @@ describe('BasePhase リファクタリング - エラーハンドリング', () 
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
     // When/Then: cleanupWorkflowArtifacts() で例外がスローされる
-    await expect(testPhase.cleanupWorkflowArtifacts(true)).rejects.toThrow('Invalid workflow directory path');
+    await expect(testPhase.testCleanupWorkflowArtifacts(true)).rejects.toThrow('Invalid workflow directory path');
   });
 });

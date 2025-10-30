@@ -21,11 +21,7 @@ const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-runner-test');
 
 // validatePhaseDependencies のモック
 jest.mock('../../../../src/core/phase-dependencies.js', () => ({
-  validatePhaseDependencies: jest.fn<any>().mockReturnValue({
-    valid: true,
-    violations: [],
-    warnings: []
-  })
+  validatePhaseDependencies: jest.fn<any>()
 }));
 
 import { validatePhaseDependencies } from '../../../../src/core/phase-dependencies.js';
@@ -82,11 +78,11 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
 
   test('UC-PR-01: run() - 全ステップが正常に実行され、ステータスが completed に更新される', async () => {
     // Given: 依存関係検証が成功、全ステップが成功
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -119,11 +115,11 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
 
   test('UC-PR-02: run() - レビュー失敗時に revise ステップが実行される', async () => {
     // Given: review が失敗する（approved=false）
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -177,12 +173,12 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
 
   test('UC-PR-03: validateDependencies() - 依存関係違反時のエラー', async () => {
     // Given: 依存関係違反がある
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: false,
       violations: ['Requirements phase is not completed'],
       warnings: [],
       error: 'Dependency validation failed.'
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -211,12 +207,12 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
 
   test('UC-PR-04: validateDependencies() - 警告がある場合（継続）', async () => {
     // Given: 依存関係に警告がある
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: [],
       warning: 'Planning phase output may be incomplete'
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -288,11 +284,11 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
 
   test('UC-PR-06: handleFailure() - フェーズ失敗時にステータスが failed に更新される', async () => {
     // Given: execute ステップが失敗する
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -337,11 +333,11 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
 
   test('UC-PR-07: postProgress() - GitHub Issue への進捗投稿', async () => {
     // Given: フェーズが正常に実行される
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -374,11 +370,11 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
 
   test('UC-PR-07-2: postProgress() - issue_number が NaN の場合、投稿しない', async () => {
     // Given: issue_number が不正
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     mockMetadata.data.issue_number = 'invalid'; // 不正な issue_number
@@ -421,11 +417,11 @@ describe('PhaseRunner - エラーハンドリング', () => {
 
   test('UC-PR-08: run() - revise メソッドが未実装の場合、エラーが返される', async () => {
     // Given: revise メソッドが null、review が失敗する
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
@@ -455,11 +451,11 @@ describe('PhaseRunner - エラーハンドリング', () => {
 
   test('UC-PR-09: run() - 例外がスローされた場合、handleFailure() が呼び出される', async () => {
     // Given: execute ステップで例外がスローされる
-    (validatePhaseDependencies as jest.MockedFunction<any>).mockReturnValue({
+    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
-    });
+    }));
 
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();

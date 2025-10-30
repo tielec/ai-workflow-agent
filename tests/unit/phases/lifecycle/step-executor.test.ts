@@ -392,8 +392,12 @@ describe('StepExecutor - commitAndPushStep() Git コミット＆プッシュ', (
       shouldRunReviewFn
     );
 
-    // When/Then: executeStep() で例外がスローされる
-    await expect(stepExecutor.executeStep(mockGitManager)).rejects.toThrow('Git commit failed');
+    // When: executeStep() を呼び出す
+    const result = await stepExecutor.executeStep(mockGitManager);
+
+    // Then: エラーが返される
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Git commit failed');
     expect(mockGitManager.pushToRemote).not.toHaveBeenCalled(); // プッシュは実行されない
   });
 
@@ -416,8 +420,12 @@ describe('StepExecutor - commitAndPushStep() Git コミット＆プッシュ', (
       shouldRunReviewFn
     );
 
-    // When/Then: executeStep() で例外がスローされる
-    await expect(stepExecutor.executeStep(mockGitManager)).rejects.toThrow('Git push failed');
+    // When: executeStep() を呼び出す
+    const result = await stepExecutor.executeStep(mockGitManager);
+
+    // Then: エラーが返される
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Git push failed');
     // プッシュ失敗時、current_step が 'execute' に維持される
     expect(mockMetadata.updateCurrentStep).toHaveBeenCalledWith('design', 'execute');
   });
