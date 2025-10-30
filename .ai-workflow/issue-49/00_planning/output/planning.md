@@ -270,7 +270,7 @@ export abstract class BasePhase {
 
 ### Phase 3: テストシナリオ (見積もり: 2~3h)
 
-- [ ] Task 3-1: ユニットテストシナリオの策定 (1~1.5h)
+- [x] Task 3-1: ユニットテストシナリオの策定 (1~1.5h)
   - StepExecutor のテストケース策定（20ケース）
     - executeステップの成功/失敗パターン
     - reviewステップのスキップ/実行パターン
@@ -289,7 +289,7 @@ export abstract class BasePhase {
     - ワークフローアーティファクト全体のクリーンアップ（Evaluation Phase）
     - パス検証、シンボリックリンクチェック
     - 確認プロンプト（CI環境/非CI環境）
-- [ ] Task 3-2: インテグレーションテストシナリオの策定 (1~1.5h)
+- [x] Task 3-2: インテグレーションテストシナリオの策定 (1~1.5h)
   - BasePhase全体のライフサイクルテスト（execute → review → revise）
   - Git統合テスト（ステップ単位のコミット＆プッシュ）
   - GitHub統合テスト（進捗コメント投稿）
