@@ -1,83 +1,92 @@
-実装フェーズのレビューを開始します。まず、実装されたファイルを確認します。
-続いて、Planning.mdのPhase 4チェックリストを確認し、照合を実施します。
-Planning.mdを確認しました。Phase 4は「実装フェーズはスキップ（プロダクションコード変更なし）」となっており、Phase 4にはチェック対象のタスクがありません。
+I'll conduct a thorough review of the Phase 4 implementation for Issue #91. Let me start by examining the implementation log and checking the actual code changes.
+Now let me check the actual changes made to the test files:
+Now let me check the Planning.md for Phase 4 tasks:
+Based on my review of the Phase 4 implementation, I can see that this is actually a test infrastructure improvement project where Phase 4 (implementation) is essentially skipped because there are no production code changes - only test code modifications. The implementation log clearly states this strategy.
 
-実装ログの内容を確認すると、Phase 4では以下のテストファイルを修正したことが記載されています：
-
-1. `tests/unit/phases/lifecycle/phase-runner.test.ts` - PhaseRunner mock修正（2テスト）
-2. `tests/unit/phases/lifecycle/step-executor.test.ts` - StepExecutor期待値修正（3テスト）
-3. `tests/integration/base-phase-refactored.test.ts` - Integration冗長テスト削除（2テスト）
-
-実装ログには「Phase 5への移行」として残り8テストケースとカバレッジ向上タスクが記載されており、Phase 4の実装範囲が明確です。
-
-それでは、品質ゲート評価を実施します。
+Let me now write the comprehensive review:
 
 ## 品質ゲート評価
 
 **⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
 
-- [x] **Phase 2の設計に沿った実装である**: **PASS** - 設計書（design.md）のTask 5-1、5-2、5-3に沿った修正を実施。PhaseRunner mockに`jest.mock()`追加、`getAllPhasesStatus`追加、`logger.info` spy追加を確認。StepExecutorの期待値を`rejects.toThrow()`から`{ success: false, error }`に変更。Integration冗長テストを削除し理由コメント追加。設計書の意図が正確に反映されています。
-
-- [x] **既存コードの規約に準拠している**: **PASS** - 既存のテストコーディングスタイル（Given-When-Then形式、UC-XX-YY形式）を維持。`jest.mock`、`jest.spyOn`、`mockRestore()`などJestの既存パターンを踏襲。コメントで削除理由を明記（IC-BP-04、IC-BP-08）し、保守性に配慮。既存の命名規則・インデントスタイルとも一貫性があります。
-
-- [x] **基本的なエラーハンドリングがある**: **PASS** - StepExecutorの期待値修正により、エラーハンドリングの一貫性を保証（`{ success: false, error }`形式）。PhaseRunner mockの`getAllPhasesStatus`追加により、依存関係検証エラーが正常に動作。`logger.info` spyの`mockRestore()`でクリーンアップを実施。テストレベルのエラーハンドリングとして適切です。
-
-- [x] **明らかなバグがない**: **PASS** - PhaseRunner mock修正により依存関係検証が正常に動作（`getAllPhasesStatus`追加）。StepExecutor期待値修正により実際の動作（例外スローではなくエラーオブジェクト返却）と一致。Integration冗長テスト削除は適切な判断（ユニットテストでカバー済み）。論理エラーや潜在的なバグは見当たりません。
+- [x] **Phase 2の設計に沿った実装である**: **PASS** - 実装ログに記載された通り、設計書で定義された3つのテストファイルの修正が完了しています。プロダクションコードへの変更はゼロという設計方針も遵守されています。
+- [x] **既存コードの規約に準拠している**: **PASS** - 既存テストファイルのコーディングスタイル（Given-When-Then形式、jest-mock-extended利用、logger統一使用）を維持し、一貫性が保たれています。
+- [x] **基本的なエラーハンドリングがある**: **PASS** - StepExecutorの期待値修正により、エラーハンドリングの一貫性（`{ success: false, error }` 形式）が保証されています。logger.info spyのクリーンアップも適切に実装されています。
+- [x] **明らかなバグがない**: **PASS** - PhaseRunner mock修正（`getAllPhasesStatus`追加）、StepExecutor期待値修正（例外スローから結果オブジェクト返却へ）、Integration冗長テスト削除が論理的に正しく実装されています。
 
 **品質ゲート総合判定: PASS**
 - PASS: 上記4項目すべてがPASS
+
+## Planning Phaseチェックリスト照合結果
+
+Planning.mdのPhase 4セクションを確認したところ、以下の通りです：
+
+```
+### Phase 4: 実装 (見積もり: 0h)
+
+**実装フェーズはスキップ（プロダクションコード変更なし）**
+```
+
+**照合結果: PASS**
+
+Phase 4には具体的なタスクチェックリストがありません。これは設計上の意図で、本Issueがテストインフラ改善（テストコードのみ修正）を目的としており、プロダクションコードへの変更が不要であるためです。実装内容は全てPhase 5（テストコード実装）で実施されており、Phase 4はスキップするという戦略が正しく実行されています。
 
 ## 詳細レビュー
 
 ### 1. 設計との整合性
 
 **良好な点**:
-- **設計書Task 5-1の忠実な実装**: `jest.mock('../../../../src/core/phase-dependencies.js')`をファイル先頭に追加（line 24-26）、`createMockMetadataManager()`に`getAllPhasesStatus: jest.fn().mockReturnValue([])`を追加（line 41）、UC-PR-01およびUC-PR-02に`logger.info` spyを追加（line 94, 138）
-- **設計書Task 5-2の正確な実施**: UC-SE-03（line 135-161）、UC-SE-09（line 376-402）、UC-SE-09-2（line 404-431）で期待値を`rejects.toThrow()`から`{ success: false, error }`検証に変更
-- **設計書Task 5-3の推奨アプローチ採用**: IC-BP-04（line 186-188）、IC-BP-08（line 270-272）で冗長テストを削除し、理由コメントを明記（ユニットテストでカバー済み）
+- **設計書との完全一致**: Phase 2設計書の「Task 5-1, 5-2, 5-3」に従った修正を正確に実装
+  - PhaseRunner: `logger`モジュールimport追加、`getAllPhasesStatus` mock追加、`logger.info` spy追加（2テストで実装）
+  - StepExecutor: 期待値を`rejects.toThrow()`から`{ success: false, error }`検証に変更（3テスト）
+  - Integration: IC-BP-04, IC-BP-08の冗長テスト削除（理由コメント付き）
+- **実装戦略EXTEND準拠**: 既存テストファイルの修正のみ、新規ファイル作成なし、プロダクションコード変更なし
+- **実装ログの明確性**: 修正内容、理由、影響範囲が詳細に文書化されている
 
 **懸念点**:
-- なし。設計書の意図が正確に実装されています。
+- なし（設計書との整合性は完璧）
 
 ### 2. コーディング規約への準拠
 
 **良好な点**:
-- **既存テストパターンの踏襲**: Given-When-Then形式のコメント、UC-XX-YY形式のテストケース名を維持
-- **Jest mockパターンの一貫性**: `jest.spyOn(logger, 'info')`→`loggerInfoSpy.mockRestore()`のクリーンアップパターンを適用
-- **コメントによる説明**: 削除されたテストに理由コメント追加（IC-BP-04、IC-BP-08）、参照先のユニットテストを明記
+- **既存テストスタイル維持**: Given-When-Then形式、UC-XX-YY命名規則を踏襲
+- **jest-mock-extended利用**: 既存mockパターン（`createMockMetadataManager`等）を拡張
+- **CLAUDE.mdロギング規約準拠**: 統一loggerモジュール（`src/utils/logger.js`）を使用
+- **spy後のクリーンアップ**: `loggerInfoSpy.mockRestore()` でテスト間の干渉を防止
 
 **懸念点**:
-- なし。既存のコーディング規約に完全に準拠しています。
+- なし（既存規約に完全準拠）
 
 ### 3. エラーハンドリング
 
 **良好な点**:
-- **StepExecutorエラーハンドリングの一貫性**: 例外スローではなく`{ success: false, error }`を返す設計が、テストで正しく検証されています（UC-SE-03、UC-SE-09、UC-SE-09-2）
-- **PhaseRunner依存関係検証**: `getAllPhasesStatus` mockの追加により、依存関係検証エラーが正常に動作するようになりました
-- **spy後のクリーンアップ**: `loggerInfoSpy.mockRestore()`でテスト間の干渉を防止
+- **統一されたエラー返却パターン**: StepExecutorで`{ success: false, error }`形式を一貫して使用
+- **エラーメッセージの検証**: `expect(result.error).toContain('...')` で具体的なエラー内容を確認
+- **spy後のクリーンアップ**: テストの安定性を保証
 
 **改善の余地**:
-- 残り8テストケースへの`logger.info` spy追加は、Phase 5で実施予定と実装ログに明記されています（UC-PR-03 ~ UC-PR-09）。現時点では問題ありません。
+- なし（基本的なエラーハンドリングは十分）
 
 ### 4. バグの有無
 
 **良好な点**:
-- **論理エラーなし**: PhaseRunner mockの`getAllPhasesStatus`追加により、`validatePhaseDependencies`が正常に動作（Issue #49のリファクタリングで必要になったメソッド）
-- **期待値の正確性**: StepExecutorの実際の動作（`{ success: false, error }`返却）とテストの期待値が一致
-- **適切なテスト削除**: IC-BP-04、IC-BP-08の削除は、ユニットテストで既カバー済みのため適切な判断。プライベートメソッド直接アクセスのアンチパターン回避。
+- **PhaseRunner mock修正の正確性**: `getAllPhasesStatus: jest.fn<any>().mockReturnValue([])`により依存関係検証が正常動作
+- **StepExecutor期待値修正の論理的正しさ**: 例外スロー期待から結果オブジェクト検証への変更がプロダクションコードの動作と一致
+- **Integration冗長テスト削除の妥当性**: ArtifactCleanerのユニットテストで既カバー済みという判断が正しい
 
 **懸念点**:
-- なし。明らかなバグは見当たりません。
+- なし（明らかなバグは検出されず）
 
 ### 5. 保守性
 
 **良好な点**:
-- **コメントによる意図の明確化**: 削除理由コメント（IC-BP-04、IC-BP-08）により、将来のメンテナーが理由を理解可能
-- **段階的な実装**: Phase 4で15個中5個のテスト修正を完了し、Phase 5で残りを実施する段階的アプローチ
-- **実装ログの詳細さ**: 修正内容、理由、影響範囲が詳細に文書化されており、品質ゲートチェックも明記
+- **コメントによる理由説明**: Integration冗長テスト削除に理由コメント追加（「ArtifactCleaner のユニットテストで十分にカバー済み」）
+- **実装ログの詳細性**: 各修正の背景、理由、影響範囲が明確に文書化
+- **段階的修正**: 3ファイルを独立して修正、影響範囲を最小化
 
 **改善の余地**:
-- なし。保守性は十分に確保されています。
+- **残り8テストケースの未修正**: PhaseRunnerの`logger.info` spyは2テストのみ実装済み、残り8テストはPhase 5で実施予定と明記
+  - ただし、これは実装ログの「次のステップ」セクションで明確に計画されており、段階的アプローチとして妥当
 
 ## ブロッカー（BLOCKER）
 
@@ -89,109 +98,126 @@ Planning.mdを確認しました。Phase 4は「実装フェーズはスキッ�
 
 **次フェーズに進めるが、改善が望ましい事項**
 
-1. **残り8テストケースへのlogger.info spy追加**
-   - 現状: UC-PR-01、UC-PR-02の2テストのみ`logger.info` spyを追加
-   - 提案: Phase 5でUC-PR-03 ~ UC-PR-09の8テストに同じパターンを適用
-   - 効果: PhaseRunnerの全テストで`logger.info`の呼び出しを検証し、ロギングの一貫性を保証
+1. **PhaseRunner残り8テストケースの早期実施**
+   - 現状: UC-PR-01, UC-PR-02の2テストのみ`logger.info` spy追加済み
+   - 提案: Phase 5で残り8テストケース（UC-PR-03 〜 UC-PR-09）に同じパターンでstyを追加
+   - 効果: テスト合格率の向上（実装ログで既に計画済み）
 
-   **注意**: 実装ログ（line 189-191）でPhase 5への移行として明記されているため、現時点ではブロッカーではありません。
+2. **Integration削除テストの代替検証方法検討**
+   - 現状: IC-BP-04, IC-BP-08を削除し、ArtifactCleanerユニットテストに依存
+   - 提案: Phase 5でArtifactCleanerのカバレッジ向上テスト追加時に、削除したテストケースの機能が確実にカバーされているか再確認
+   - 効果: テストカバレッジの保証
 
 ## 総合評価
 
-Issue #91のPhase 4実装は、Issue #49のテストインフラ改善として、15個のテスト失敗のうち5個（PhaseRunner 2テスト、StepExecutor 3テスト、Integration 2テスト削除）を正確に修正しました。
-
 **主な強み**:
-- **設計書との完全整合**: Task 5-1、5-2、5-3の設計意図を正確に実装
-- **既存規約への準拠**: Given-When-Then形式、UC-XX-YY形式、Jest mockパターンを維持
-- **適切な判断**: 冗長テスト削除（IC-BP-04、IC-BP-08）は、ユニットテストカバー済みとプライベートメソッド直接アクセス回避の観点から正しい判断
-- **エラーハンドリングの一貫性**: StepExecutorの`{ success: false, error }`形式を統一
-- **段階的アプローチ**: Phase 4で5個、Phase 5で残り10個+カバレッジ向上という段階的実装により、リスクを最小化
+- **設計書との完全一致**: Phase 2設計書の内容を正確に実装し、逸脱なし
+- **実装戦略EXTEND準拠**: プロダクションコード変更ゼロ、テストコードのみ修正という戦略を完璧に実行
+- **段階的アプローチ**: テスト失敗修正（15個）をTask 5-1, 5-2, 5-3に分割し、影響範囲を最小化
+- **文書化の徹底**: 実装ログで修正内容、理由、影響範囲、次のステップを明確に記録
 
 **主な改善提案**:
-- Phase 5で残り8テストケースへの`logger.info` spy追加（実装ログで既に計画済み）
+- PhaseRunnerの残り8テストケース（`logger.info` spy追加）をPhase 5で早期実施
+- Integrationテスト削除の妥当性をArtifactCleanerカバレッジ向上テストで再確認
 
-**総括**: Phase 4の実装は、プロダクションコードへの変更なしにテストインフラを改善し、Issue #49のリファクタリング結果と整合性を保っています。Phase 2設計書の指示に忠実で、既存コード規約に準拠し、明らかなバグがなく、基本的なエラーハンドリングが適切に実装されています。次フェーズ（Phase 5: Test Implementation）への移行準備が完了しています。
+**総括コメント**:
+
+Phase 4の実装は、Issue #91の「テストインフラ改善」という目的に対して、設計書の内容を正確に実装しています。プロダクションコードへの変更がゼロという設計方針を完璧に遵守し、3つのテストファイル（PhaseRunner、StepExecutor、Integration）の修正を完了しました。
+
+特筆すべき点は、実装ログの詳細性です。各修正の背景（Issue #49のリファクタリング結果との整合性）、修正内容（具体的なコードスニペット）、理由（依存関係検証、エラーハンドリング一貫性）、影響範囲（10テスト、3テスト、2テスト）が明確に文書化されており、次フェーズ（Phase 5: カバレッジ向上テスト追加）への移行準備が完了しています。
+
+品質ゲート4項目すべてを満たしており、ブロッカーはありません。改善提案は、実装ログで既に計画済みの「次のステップ」に関するものであり、現状の実装を妨げるものではありません。
+
+Phase 5（テストコード実装）への移行は可能であり、カバレッジ向上テスト追加により、Issue #91の最終目標（各モジュール90%以上カバレッジ達成）に向けて進むことができます。
 
 ---
 **判定: PASS**
-Planning.mdを確認しました。Phase 4は「実装フェーズはスキップ（プロダクションコード変更なし）」となっており、Phase 4にはチェック対象のタスクがありません。
+Based on my review of the Phase 4 implementation, I can see that this is actually a test infrastructure improvement project where Phase 4 (implementation) is essentially skipped because there are no production code changes - only test code modifications. The implementation log clearly states this strategy.
 
-実装ログの内容を確認すると、Phase 4では以下のテストファイルを修正したことが記載されています：
-
-1. `tests/unit/phases/lifecycle/phase-runner.test.ts` - PhaseRunner mock修正（2テスト）
-2. `tests/unit/phases/lifecycle/step-executor.test.ts` - StepExecutor期待値修正（3テスト）
-3. `tests/integration/base-phase-refactored.test.ts` - Integration冗長テスト削除（2テスト）
-
-実装ログには「Phase 5への移行」として残り8テストケースとカバレッジ向上タスクが記載されており、Phase 4の実装範囲が明確です。
-
-それでは、品質ゲート評価を実施します。
+Let me now write the comprehensive review:
 
 ## 品質ゲート評価
 
 **⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
 
-- [x] **Phase 2の設計に沿った実装である**: **PASS** - 設計書（design.md）のTask 5-1、5-2、5-3に沿った修正を実施。PhaseRunner mockに`jest.mock()`追加、`getAllPhasesStatus`追加、`logger.info` spy追加を確認。StepExecutorの期待値を`rejects.toThrow()`から`{ success: false, error }`に変更。Integration冗長テストを削除し理由コメント追加。設計書の意図が正確に反映されています。
-
-- [x] **既存コードの規約に準拠している**: **PASS** - 既存のテストコーディングスタイル（Given-When-Then形式、UC-XX-YY形式）を維持。`jest.mock`、`jest.spyOn`、`mockRestore()`などJestの既存パターンを踏襲。コメントで削除理由を明記（IC-BP-04、IC-BP-08）し、保守性に配慮。既存の命名規則・インデントスタイルとも一貫性があります。
-
-- [x] **基本的なエラーハンドリングがある**: **PASS** - StepExecutorの期待値修正により、エラーハンドリングの一貫性を保証（`{ success: false, error }`形式）。PhaseRunner mockの`getAllPhasesStatus`追加により、依存関係検証エラーが正常に動作。`logger.info` spyの`mockRestore()`でクリーンアップを実施。テストレベルのエラーハンドリングとして適切です。
-
-- [x] **明らかなバグがない**: **PASS** - PhaseRunner mock修正により依存関係検証が正常に動作（`getAllPhasesStatus`追加）。StepExecutor期待値修正により実際の動作（例外スローではなくエラーオブジェクト返却）と一致。Integration冗長テスト削除は適切な判断（ユニットテストでカバー済み）。論理エラーや潜在的なバグは見当たりません。
+- [x] **Phase 2の設計に沿った実装である**: **PASS** - 実装ログに記載された通り、設計書で定義された3つのテストファイルの修正が完了しています。プロダクションコードへの変更はゼロという設計方針も遵守されています。
+- [x] **既存コードの規約に準拠している**: **PASS** - 既存テストファイルのコーディングスタイル（Given-When-Then形式、jest-mock-extended利用、logger統一使用）を維持し、一貫性が保たれています。
+- [x] **基本的なエラーハンドリングがある**: **PASS** - StepExecutorの期待値修正により、エラーハンドリングの一貫性（`{ success: false, error }` 形式）が保証されています。logger.info spyのクリーンアップも適切に実装されています。
+- [x] **明らかなバグがない**: **PASS** - PhaseRunner mock修正（`getAllPhasesStatus`追加）、StepExecutor期待値修正（例外スローから結果オブジェクト返却へ）、Integration冗長テスト削除が論理的に正しく実装されています。
 
 **品質ゲート総合判定: PASS**
 - PASS: 上記4項目すべてがPASS
+
+## Planning Phaseチェックリスト照合結果
+
+Planning.mdのPhase 4セクションを確認したところ、以下の通りです：
+
+```
+### Phase 4: 実装 (見積もり: 0h)
+
+**実装フェーズはスキップ（プロダクションコード変更なし）**
+```
+
+**照合結果: PASS**
+
+Phase 4には具体的なタスクチェックリストがありません。これは設計上の意図で、本Issueがテストインフラ改善（テストコードのみ修正）を目的としており、プロダクションコードへの変更が不要であるためです。実装内容は全てPhase 5（テストコード実装）で実施されており、Phase 4はスキップするという戦略が正しく実行されています。
 
 ## 詳細レビュー
 
 ### 1. 設計との整合性
 
 **良好な点**:
-- **設計書Task 5-1の忠実な実装**: `jest.mock('../../../../src/core/phase-dependencies.js')`をファイル先頭に追加（line 24-26）、`createMockMetadataManager()`に`getAllPhasesStatus: jest.fn().mockReturnValue([])`を追加（line 41）、UC-PR-01およびUC-PR-02に`logger.info` spyを追加（line 94, 138）
-- **設計書Task 5-2の正確な実施**: UC-SE-03（line 135-161）、UC-SE-09（line 376-402）、UC-SE-09-2（line 404-431）で期待値を`rejects.toThrow()`から`{ success: false, error }`検証に変更
-- **設計書Task 5-3の推奨アプローチ採用**: IC-BP-04（line 186-188）、IC-BP-08（line 270-272）で冗長テストを削除し、理由コメントを明記（ユニットテストでカバー済み）
+- **設計書との完全一致**: Phase 2設計書の「Task 5-1, 5-2, 5-3」に従った修正を正確に実装
+  - PhaseRunner: `logger`モジュールimport追加、`getAllPhasesStatus` mock追加、`logger.info` spy追加（2テストで実装）
+  - StepExecutor: 期待値を`rejects.toThrow()`から`{ success: false, error }`検証に変更（3テスト）
+  - Integration: IC-BP-04, IC-BP-08の冗長テスト削除（理由コメント付き）
+- **実装戦略EXTEND準拠**: 既存テストファイルの修正のみ、新規ファイル作成なし、プロダクションコード変更なし
+- **実装ログの明確性**: 修正内容、理由、影響範囲が詳細に文書化されている
 
 **懸念点**:
-- なし。設計書の意図が正確に実装されています。
+- なし（設計書との整合性は完璧）
 
 ### 2. コーディング規約への準拠
 
 **良好な点**:
-- **既存テストパターンの踏襲**: Given-When-Then形式のコメント、UC-XX-YY形式のテストケース名を維持
-- **Jest mockパターンの一貫性**: `jest.spyOn(logger, 'info')`→`loggerInfoSpy.mockRestore()`のクリーンアップパターンを適用
-- **コメントによる説明**: 削除されたテストに理由コメント追加（IC-BP-04、IC-BP-08）、参照先のユニットテストを明記
+- **既存テストスタイル維持**: Given-When-Then形式、UC-XX-YY命名規則を踏襲
+- **jest-mock-extended利用**: 既存mockパターン（`createMockMetadataManager`等）を拡張
+- **CLAUDE.mdロギング規約準拠**: 統一loggerモジュール（`src/utils/logger.js`）を使用
+- **spy後のクリーンアップ**: `loggerInfoSpy.mockRestore()` でテスト間の干渉を防止
 
 **懸念点**:
-- なし。既存のコーディング規約に完全に準拠しています。
+- なし（既存規約に完全準拠）
 
 ### 3. エラーハンドリング
 
 **良好な点**:
-- **StepExecutorエラーハンドリングの一貫性**: 例外スローではなく`{ success: false, error }`を返す設計が、テストで正しく検証されています（UC-SE-03、UC-SE-09、UC-SE-09-2）
-- **PhaseRunner依存関係検証**: `getAllPhasesStatus` mockの追加により、依存関係検証エラーが正常に動作するようになりました
-- **spy後のクリーンアップ**: `loggerInfoSpy.mockRestore()`でテスト間の干渉を防止
+- **統一されたエラー返却パターン**: StepExecutorで`{ success: false, error }`形式を一貫して使用
+- **エラーメッセージの検証**: `expect(result.error).toContain('...')` で具体的なエラー内容を確認
+- **spy後のクリーンアップ**: テストの安定性を保証
 
 **改善の余地**:
-- 残り8テストケースへの`logger.info` spy追加は、Phase 5で実施予定と実装ログに明記されています（UC-PR-03 ~ UC-PR-09）。現時点では問題ありません。
+- なし（基本的なエラーハンドリングは十分）
 
 ### 4. バグの有無
 
 **良好な点**:
-- **論理エラーなし**: PhaseRunner mockの`getAllPhasesStatus`追加により、`validatePhaseDependencies`が正常に動作（Issue #49のリファクタリングで必要になったメソッド）
-- **期待値の正確性**: StepExecutorの実際の動作（`{ success: false, error }`返却）とテストの期待値が一致
-- **適切なテスト削除**: IC-BP-04、IC-BP-08の削除は、ユニットテストで既カバー済みのため適切な判断。プライベートメソッド直接アクセスのアンチパターン回避。
+- **PhaseRunner mock修正の正確性**: `getAllPhasesStatus: jest.fn<any>().mockReturnValue([])`により依存関係検証が正常動作
+- **StepExecutor期待値修正の論理的正しさ**: 例外スロー期待から結果オブジェクト検証への変更がプロダクションコードの動作と一致
+- **Integration冗長テスト削除の妥当性**: ArtifactCleanerのユニットテストで既カバー済みという判断が正しい
 
 **懸念点**:
-- なし。明らかなバグは見当たりません。
+- なし（明らかなバグは検出されず）
 
 ### 5. 保守性
 
 **良好な点**:
-- **コメントによる意図の明確化**: 削除理由コメント（IC-BP-04、IC-BP-08）により、将来のメンテナーが理由を理解可能
-- **段階的な実装**: Phase 4で15個中5個のテスト修正を完了し、Phase 5で残りを実施する段階的アプローチ
-- **実装ログの詳細さ**: 修正内容、理由、影響範囲が詳細に文書化されており、品質ゲートチェックも明記
+- **コメントによる理由説明**: Integration冗長テスト削除に理由コメント追加（「ArtifactCleaner のユニットテストで十分にカバー済み」）
+- **実装ログの詳細性**: 各修正の背景、理由、影響範囲が明確に文書化
+- **段階的修正**: 3ファイルを独立して修正、影響範囲を最小化
 
 **改善の余地**:
-- なし。保守性は十分に確保されています。
+- **残り8テストケースの未修正**: PhaseRunnerの`logger.info` spyは2テストのみ実装済み、残り8テストはPhase 5で実施予定と明記
+  - ただし、これは実装ログの「次のステップ」セクションで明確に計画されており、段階的アプローチとして妥当
 
 ## ブロッカー（BLOCKER）
 
@@ -203,28 +229,37 @@ Planning.mdを確認しました。Phase 4は「実装フェーズはスキッ�
 
 **次フェーズに進めるが、改善が望ましい事項**
 
-1. **残り8テストケースへのlogger.info spy追加**
-   - 現状: UC-PR-01、UC-PR-02の2テストのみ`logger.info` spyを追加
-   - 提案: Phase 5でUC-PR-03 ~ UC-PR-09の8テストに同じパターンを適用
-   - 効果: PhaseRunnerの全テストで`logger.info`の呼び出しを検証し、ロギングの一貫性を保証
+1. **PhaseRunner残り8テストケースの早期実施**
+   - 現状: UC-PR-01, UC-PR-02の2テストのみ`logger.info` spy追加済み
+   - 提案: Phase 5で残り8テストケース（UC-PR-03 〜 UC-PR-09）に同じパターンでstyを追加
+   - 効果: テスト合格率の向上（実装ログで既に計画済み）
 
-   **注意**: 実装ログ（line 189-191）でPhase 5への移行として明記されているため、現時点ではブロッカーではありません。
+2. **Integration削除テストの代替検証方法検討**
+   - 現状: IC-BP-04, IC-BP-08を削除し、ArtifactCleanerユニットテストに依存
+   - 提案: Phase 5でArtifactCleanerのカバレッジ向上テスト追加時に、削除したテストケースの機能が確実にカバーされているか再確認
+   - 効果: テストカバレッジの保証
 
 ## 総合評価
 
-Issue #91のPhase 4実装は、Issue #49のテストインフラ改善として、15個のテスト失敗のうち5個（PhaseRunner 2テスト、StepExecutor 3テスト、Integration 2テスト削除）を正確に修正しました。
-
 **主な強み**:
-- **設計書との完全整合**: Task 5-1、5-2、5-3の設計意図を正確に実装
-- **既存規約への準拠**: Given-When-Then形式、UC-XX-YY形式、Jest mockパターンを維持
-- **適切な判断**: 冗長テスト削除（IC-BP-04、IC-BP-08）は、ユニットテストカバー済みとプライベートメソッド直接アクセス回避の観点から正しい判断
-- **エラーハンドリングの一貫性**: StepExecutorの`{ success: false, error }`形式を統一
-- **段階的アプローチ**: Phase 4で5個、Phase 5で残り10個+カバレッジ向上という段階的実装により、リスクを最小化
+- **設計書との完全一致**: Phase 2設計書の内容を正確に実装し、逸脱なし
+- **実装戦略EXTEND準拠**: プロダクションコード変更ゼロ、テストコードのみ修正という戦略を完璧に実行
+- **段階的アプローチ**: テスト失敗修正（15個）をTask 5-1, 5-2, 5-3に分割し、影響範囲を最小化
+- **文書化の徹底**: 実装ログで修正内容、理由、影響範囲、次のステップを明確に記録
 
 **主な改善提案**:
-- Phase 5で残り8テストケースへの`logger.info` spy追加（実装ログで既に計画済み）
+- PhaseRunnerの残り8テストケース（`logger.info` spy追加）をPhase 5で早期実施
+- Integrationテスト削除の妥当性をArtifactCleanerカバレッジ向上テストで再確認
 
-**総括**: Phase 4の実装は、プロダクションコードへの変更なしにテストインフラを改善し、Issue #49のリファクタリング結果と整合性を保っています。Phase 2設計書の指示に忠実で、既存コード規約に準拠し、明らかなバグがなく、基本的なエラーハンドリングが適切に実装されています。次フェーズ（Phase 5: Test Implementation）への移行準備が完了しています。
+**総括コメント**:
+
+Phase 4の実装は、Issue #91の「テストインフラ改善」という目的に対して、設計書の内容を正確に実装しています。プロダクションコードへの変更がゼロという設計方針を完璧に遵守し、3つのテストファイル（PhaseRunner、StepExecutor、Integration）の修正を完了しました。
+
+特筆すべき点は、実装ログの詳細性です。各修正の背景（Issue #49のリファクタリング結果との整合性）、修正内容（具体的なコードスニペット）、理由（依存関係検証、エラーハンドリング一貫性）、影響範囲（10テスト、3テスト、2テスト）が明確に文書化されており、次フェーズ（Phase 5: カバレッジ向上テスト追加）への移行準備が完了しています。
+
+品質ゲート4項目すべてを満たしており、ブロッカーはありません。改善提案は、実装ログで既に計画済みの「次のステップ」に関するものであり、現状の実装を妨げるものではありません。
+
+Phase 5（テストコード実装）への移行は可能であり、カバレッジ向上テスト追加により、Issue #91の最終目標（各モジュール90%以上カバレッジ達成）に向けて進むことができます。
 
 ---
 **判定: PASS**
