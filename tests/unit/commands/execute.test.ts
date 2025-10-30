@@ -241,3 +241,91 @@ describe('型安全性の検証', () => {
     expect(true).toBe(true);
   });
 });
+
+// =============================================================================
+// ファサード実装の検証（Issue #46）
+// =============================================================================
+
+describe('ファサード実装の検証', () => {
+  test('executePhasesSequential が workflow-executor から再エクスポートされている', () => {
+    // Given: execute.ts から executePhasesSequential をインポート
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const func = require('../../../src/commands/execute.js').executePhasesSequential;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+
+  test('executePhasesFrom が workflow-executor から再エクスポートされている', () => {
+    // Given: execute.ts から executePhasesFrom をインポート
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const func = require('../../../src/commands/execute.js').executePhasesFrom;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+
+  test('createPhaseInstance が phase-factory から再エクスポートされている', () => {
+    // Given: execute.ts から createPhaseInstance をインポート
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const func = require('../../../src/commands/execute.js').createPhaseInstance;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+
+  test('resolvePresetName がファサード内で保持されている', () => {
+    // Given: execute.ts に resolvePresetName が定義されている
+    // When: resolvePresetName をインポート
+    const func = resolvePresetName;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+
+  test('getPresetPhases がファサード内で保持されている', () => {
+    // Given: execute.ts に getPresetPhases が定義されている
+    // When: getPresetPhases をインポート
+    const func = getPresetPhases;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+
+  test('handleExecuteCommand がメインエントリーポイントとして利用可能', () => {
+    // Given: execute.ts から handleExecuteCommand をインポート
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const func = require('../../../src/commands/execute.js').handleExecuteCommand;
+
+    // Then: 関数として利用可能
+    expect(typeof func).toBe('function');
+  });
+});
+
+// =============================================================================
+// モジュール分割後の後方互換性検証（Issue #46）
+// =============================================================================
+
+describe('モジュール分割後の後方互換性検証', () => {
+  test('既存のインポート元（main.ts）から handleExecuteCommand が利用可能', () => {
+    // Given: execute.ts から handleExecuteCommand をインポート
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const func = require('../../../src/commands/execute.js').handleExecuteCommand;
+
+    // Then: 関数として利用可能（後方互換性維持）
+    expect(typeof func).toBe('function');
+  });
+
+  test('既存の公開API がすべて維持されている', () => {
+    // Given: execute.ts の公開API
+    const executeModule = require('../../../src/commands/execute.js');
+
+    // Then: すべての公開関数が存在する
+    expect(typeof executeModule.handleExecuteCommand).toBe('function');
+    expect(typeof executeModule.executePhasesSequential).toBe('function');
+    expect(typeof executeModule.executePhasesFrom).toBe('function');
+    expect(typeof executeModule.createPhaseInstance).toBe('function');
+    expect(typeof executeModule.resolvePresetName).toBe('function');
+    expect(typeof executeModule.getPresetPhases).toBe('function');
+  });
+});
