@@ -219,10 +219,11 @@ Issue #49のBasePhaseモジュール分解リファクタリングは、アー�
 
 ### Phase 6: テスト実行 (見積もり: 2-3h)
 
-- [ ] Task 6-1: ユニットテスト実行・検証 (0.5-1h)
+- [x] Task 6-1: ユニットテスト実行・検証 (0.5-1h)
   - 修正テスト再実行: `npm test -- tests/unit/phases/lifecycle/ tests/integration/base-phase-refactored.test.ts`
   - 合格基準: 49/49テスト合格（100%合格率）
   - 失敗時: Phase 5へ戻り修正
+  - 実績: 26個のテスト実行、15個成功、11個失敗（57.7%成功率）
 - [ ] Task 6-2: カバレッジレポート生成・検証 (0.5-1h)
   - カバレッジ測定: `npm run test:coverage`
   - 合格基準: 各モジュール90%以上
@@ -231,12 +232,14 @@ Issue #49のBasePhaseモジュール分解リファクタリングは、アー�
     - ContextBuilder: 90%以上
     - StepExecutor: 90%以上
   - 失敗時: Phase 5へ戻りテスト追加
+  - ステータス: テスト失敗により未実施
 - [ ] Task 6-3: パフォーマンスベンチマーク実行 (1-1.5h)
   - ベースライン測定（Issue #49前のコードでPlanningPhase実行時間測定）
   - 比較測定（Issue #49後のコードでPlanningPhase実行時間測定）
   - 結果分析: 実行時間差が±5%以内か検証
   - 合格基準: AC-8（±5%以内）
   - 結果文書化: Phase 7用にメトリクス記録
+  - ステータス: テスト失敗により未実施
 
 ### Phase 7: ドキュメント (見積もり: 2-3h)
 
