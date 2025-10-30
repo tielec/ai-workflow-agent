@@ -252,22 +252,3 @@ describe('BasePhase リファクタリング - モジュール分離の検証', 
     expect(fs.existsSync(artifactCleanerFile)).toBe(true);
   });
 });
-
-describe('BasePhase リファクタリング - エラーハンドリング', () => {
-  let testWorkflowDir: string;
-  let testRepoRoot: string;
-
-  beforeEach(async () => {
-    testRepoRoot = path.join(TEST_DIR, 'repo');
-    testWorkflowDir = path.join(testRepoRoot, '.ai-workflow', 'issue-1');
-    await fs.ensureDir(testWorkflowDir);
-  });
-
-  afterEach(async () => {
-    await fs.remove(TEST_DIR);
-  });
-
-  // IC-BP-08: cleanupWorkflowArtifacts with force flag のテストは削除
-  // 理由: ArtifactCleaner のユニットテストで十分にカバー済み
-  // 参照: tests/unit/phases/cleanup/artifact-cleaner.test.ts (UC-AC-06)
-});

@@ -414,7 +414,7 @@ describe('StepExecutor - commitAndPushStep() Git コミット＆プッシュ', (
     const stepExecutor = new StepExecutor(
       'design',
       mockMetadata,
-      mockReviewCycleManager(),
+      mockReviewCycleManager,
       executeFn,
       reviewFn,
       shouldRunReviewFn
