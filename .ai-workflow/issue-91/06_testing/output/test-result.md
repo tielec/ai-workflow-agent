@@ -394,7 +394,75 @@ ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is d
 
 ---
 
+---
+
+## Phase 5へ戻る必要性（Phase 6レビュー結果）
+
+### 修正が必要な理由
+
+**Phase 5（Test Implementation）の実装が不完全**であり、以下の問題により11個のテストが失敗しています：
+
+1. **PhaseRunner mock修正の不完全性** (7個失敗)
+   - `validatePhaseDependencies` モックの実装不適切
+   - `logger.info` spyの設定エラー
+   - `phaseContext` プロパティ不足
+
+2. **StepExecutor期待値修正の未適用** (3個失敗)
+   - `mockReviewCycleManager` の誤用（関数呼び出し）
+   - Phase 4で計画された期待値修正が未適用
+
+3. **Integration Test削除の不完全性** (1個失敗)
+   - 空の `describe` ブロックが残存
+
+これらは**テストコードの実装問題**であり、Phase 5に戻ってテストコードを修正する必要があります。
+
+### 失敗したテスト
+
+**PhaseRunner Tests** (7個失敗):
+- UC-PR-01: run() - 全ステップが正常に実行され、ステータスが completed に更新される
+- UC-PR-02: run() - レビュー失敗時に revise ステップが実行される
+- UC-PR-03: validateDependencies() - 依存関係違反時のエラー
+- UC-PR-04: validateDependencies() - 警告がある場合（継続）
+- UC-PR-05: validateDependencies() - skipDependencyCheck フラグ
+- （その他2個）
+
+**StepExecutor Tests** (3個失敗):
+- UC-SE-03: executeStep() - execute 失敗時のエラーハンドリング
+- UC-SE-09: commitAndPushStep() - Git コミット失敗時のエラーハンドリング
+- UC-SE-09-2: commitAndPushStep() - Git プッシュ失敗時のエラーハンドリング
+
+**Integration Tests** (1個失敗):
+- cleanupWorkflowArtifacts 関連テスト（beforeEach/afterEachの不適切な配置）
+
+### 必要なテストコード修正
+
+**優先度1**: PhaseRunner mock修正（見積もり: 1-1.5h）
+1. `validatePhaseDependencies` モックの正しい実装
+2. `logger.info` spyの設定修正
+3. `createMockMetadataManager()` に `phaseContext` プロパティ追加
+
+**優先度2**: StepExecutor期待値修正（見積もり: 0.5h）
+1. `mockReviewCycleManager()` 関数呼び出しを削除
+2. UC-SE-03, UC-SE-09, UC-SE-09-2で `rejects.toThrow()` → `{ success: false, error }` 形式に変更
+
+**優先度3**: Integration Test修正（見積もり: 0.5h）
+1. 空の `describe('cleanupWorkflowArtifacts 関連', ...)` ブロック全体を削除
+
+**総見積もり**: 2-3h
+
+### Phase 5修正後のアクション
+
+1. Phase 5でテストコードを修正
+2. Phase 6（Testing）を再実行
+   - テスト実行・検証（合格率100%達成）
+   - カバレッジレポート生成・検証（90%以上達成）
+   - パフォーマンスベンチマーク実行（±5%以内確認）
+3. すべてのテストが合格した後、Phase 7（Documentation）へ進む
+
+---
+
 **作成者**: AI Workflow Orchestrator v0.3.1
 **作成日**: 2025-01-30
 **Phase**: 6 (Testing)
 **ステータス**: ❌ **品質ゲート不合格 - Phase 5修正が必要**
+**次のアクション**: Phase 5（Test Implementation）へ戻り、上記の修正を実施してください
