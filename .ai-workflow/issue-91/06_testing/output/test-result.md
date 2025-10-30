@@ -1,426 +1,251 @@
-# テスト失敗による実装修正の必要性 - Issue #91
+# テスト実行結果 - Issue #91
 
 ## 実行サマリー
-- **実行日時**: 2025-01-30 08:19:20
-- **テストフレームワーク**: Jest (TypeScript)
-- **実行対象**: PhaseRunner, StepExecutor, Integration Tests
+- **実行日時**: 2025-01-30 14:35:21
+- **テストフレームワーク**: Jest (ts-jest)
+- **テストスイート数**: 3個
 - **総テスト数**: 26個
-- **成功**: 15個
-- **失敗**: 11個
-- **成功率**: 57.7%
+- **成功**: 16個（61.5%）
+- **失敗**: 10個（38.5%）
+- **スキップ**: 0個
 
-## ❌ 判定: Phase 4への戻りが必要
+## テスト実行コマンド
+```bash
+npm test -- tests/unit/phases/lifecycle/phase-runner.test.ts tests/unit/phases/lifecycle/step-executor.test.ts tests/integration/base-phase-refactored.test.ts
+```
 
-Phase 4でのテストコード修正が不完全であり、以下の3つの問題が残っています。
+## テストスイート結果
 
----
+### ✅ PASS: tests/integration/base-phase-refactored.test.ts
+- **ステータス**: 全テスト成功
+- **テスト数**: 統合テストは正常に動作
+- **備考**: クリーンアップログの動作確認済み
 
-## 修正が必要な理由
+### ❌ FAIL: tests/unit/phases/lifecycle/phase-runner.test.ts
+- **ステータス**: 一部失敗
+- **失敗の主な原因**: Phase 5での修正不足、logger.info spy未呼び出し
 
-**Phase 4の実装が不完全**
+### ❌ FAIL: tests/unit/phases/lifecycle/step-executor.test.ts
+- **ステータス**: 一部失敗
+- **失敗の主な原因**: Phase 4-5での期待値修正が不完全
 
-Phase 4の`implementation.md`によると、以下の実施予定でした：
-- PhaseRunner mock修正: 2テストのみ実施（残り8テストは「Phase 5で実施予定」と記載）
-- StepExecutor期待値修正: 計画されていたが、3個のテストで未適用
-- Integration Test削除: IC-BP-04, IC-BP-08削除したが、空のdescribeブロックが残存
+## 失敗したテスト詳細
 
-**結論**: Phase 4の実装が不完全であるため、Phase 4に戻って修正を完了させる必要があります。
+### 1. PhaseRunner テスト（複数失敗）
 
-**重要**: すべての失敗は**テストコードの実装問題**であり、プロダクションコードに問題はありません。
-- StepExecutorの12個のテストが成功
-- Integrationの3個のテストが成功
-- これらの成功は、プロダクションコードが正常に動作していることを証明しています
+#### ❌ logger.info spy 未呼び出しエラー
 
----
-
-## 失敗したテスト
-
-### 1. PhaseRunner Tests (7個失敗)
-
-#### 問題1: validatePhaseDependencies モックの不適切な実装
-
-**失敗したテスト**:
-- ❌ UC-PR-01: run() - 全ステップが正常に実行され、ステータスが completed に更新される
-- ❌ UC-PR-02: run() - レビュー失敗時に revise ステップが実行される
-- ❌ UC-PR-03: validateDependencies() - 依存関係違反時のエラー
-- ❌ UC-PR-04: validateDependencies() - 警告がある場合（継続）
-- ❌ UC-PR-05: validateDependencies() - skipDependencyCheck フラグ
-- （その他2個）
+**テストケース**: PhaseRunner の複数のテストケース
 
 **エラー内容**:
 ```
-TypeError: validatePhaseDependencies.mockImplementation is not a function
+expect(loggerInfoSpy).toHaveBeenCalled()
+
+Expected number of calls: >= 1
+Received number of calls:    0
 ```
 
 **原因分析**:
-- Phase 4で追加された `jest.mock('../../../../src/core/phase-dependencies.js')` が正しく動作していない
-- `validatePhaseDependencies` 関数のモック化が不適切
-- テストケース内で `.mockImplementation()` を使用しているが、モック関数として認識されていない
+1. Phase 5で logger.info spy を追加したが、PhaseRunner の実装が logger.info を適切に呼び出していない
+2. または、spy の設定箇所が正しくない（モジュールレベルmock vs インスタンスレベルspy）
+3. logger モジュールの import 方法に問題がある可能性
 
-#### 問題2: logger.infoスパイの期待値不一致
+**対処方針**:
+1. PhaseRunner の実装コード（`src/phases/lifecycle/phase-runner.ts`）を確認し、logger.info 呼び出しの有無を検証
+2. spy の設定方法を見直す（特にモジュールスコープでのmock設定）
+3. 必要に応じて、テストケースの期待値を実装に合わせて修正
 
-**失敗したテスト**:
-- ❌ UC-PR-05: validateDependencies() - skipDependencyCheck フラグ
+#### ❌ getAllPhasesStatus mock エラー
 
 **エラー内容**:
-```
-expect(received).toHaveBeenCalledWith(...expected)
-Matcher error: received value must be a mock or spy function
-```
-
-**原因分析**:
-- Phase 4で追加された `logger.info` スパイが正しく設定されていない
-- `jest.spyOn(logger, 'info')` の実装に問題がある可能性
-
-#### 問題3: postProgress失敗の警告
-
-**警告ログ**:
 ```
 Failed to post workflow progress: Cannot read properties of undefined (reading 'planning')
 ```
 
 **原因分析**:
-- `postProgress()` メソッドの呼び出しで `phaseContext` が不適切
-- メタデータマネージャーのモックに `phaseContext` プロパティが不足
+- `getAllPhasesStatus` のmock戻り値が空配列 `[]` だが、実装がオブジェクトプロパティアクセスを期待している
+- Phase 4で追加したmockが不完全で、適切なデータ構造を返していない
 
----
+**対処方針**:
+1. `getAllPhasesStatus` の戻り値を適切なオブジェクト構造に修正
+2. 例: `[{ name: 'planning', status: 'completed' }]` など
+3. MetadataManager の実装を確認し、期待されるデータ構造を特定
 
-### 2. StepExecutor Tests (3個失敗)
+### 2. StepExecutor テスト（複数失敗）
 
-#### 問題4: ReviewCycleManager モック関数の誤用
+#### ❌ Git push 失敗時のエラーハンドリング
 
-**失敗したテスト**:
-- ❌ UC-SE-03: executeStep() - execute 失敗時のエラーハンドリング
-- ❌ UC-SE-09: commitAndPushStep() - Git コミット失敗時のエラーハンドリング
-- ❌ UC-SE-09-2: commitAndPushStep() - Git プッシュ失敗時のエラーハンドリング
-
-**エラー内容**:
-```
-TypeError: mockReviewCycleManager is not a function
-```
-
-**原因分析**:
-- Phase 4で計画された期待値修正（`{ success: false, error }` 形式）が正しく実装されていない
-- `mockReviewCycleManager()` が関数として呼び出されているが、関数ではなくオブジェクトとして定義されている
-
----
-
-### 3. Integration Tests (1個失敗)
-
-#### 問題5: beforeEach/afterEachの不適切な配置
-
-**失敗したテストスイート**:
-- ❌ Integration Tests: cleanupWorkflowArtifacts 関連テスト
+**テストケース**: UC-SE-09-2（Git プッシュ失敗時のエラーハンドリング）
 
 **エラー内容**:
 ```
-Invalid: beforeEach() may not be used in a describe block containing no tests.
-Invalid: afterEach() may not be used in a describe block containing no tests.
+Phase design: Failed to push step execute: Git push failed for step execute: Push failed
+Phase design: Execute step failed: Git push failed for step execute: Push failed
 ```
 
 **原因分析**:
-- Phase 4で削除した IC-BP-04, IC-BP-08 テストにより、`describe` ブロック内にテストが存在しなくなった
-- `beforeEach()` と `afterEach()` が空の `describe` ブロックに残されている
+1. Phase 4で期待値を `rejects.toThrow()` から `{ success: false, error }` 形式に変更したはずだが、実装が例外をスローしている
+2. または、mockの設定が不適切で、実際の動作と期待値が一致していない
+3. StepExecutor のエラーハンドリング実装を確認する必要がある
 
----
+**対処方針**:
+1. StepExecutor の実装コード（`src/phases/lifecycle/step-executor.ts`）を確認し、エラー時の動作を検証
+2. 実装が例外をスローする場合、テストケースの期待値を `rejects.toThrow()` に戻す
+3. 実装がエラーオブジェクトを返す場合、mockの設定を修正して適切なエラー形式を返す
 
-## 必要な実装修正
+#### ❌ 期待値の形式不一致
 
-### 優先度1: PhaseRunner mock修正（7個失敗）
+**テストケース**: UC-SE-03, UC-SE-09
 
-#### 修正1: `validatePhaseDependencies` モック修正
+**原因分析**:
+- Phase 4で期待値を修正したはずだが、実装との整合性が取れていない
+- StepExecutor が例外をスローする実装になっている可能性が高い
 
-**ファイル**: `tests/unit/phases/lifecycle/phase-runner.test.ts`
-
-**修正内容**:
-```typescript
-// ファイル先頭に配置（importより前）
-jest.mock('../../../../src/core/phase-dependencies.js', () => ({
-  validatePhaseDependencies: jest.fn(),
-}));
-
-// インポート後に型キャスト
-import { validatePhaseDependencies } from '../../../../src/core/phase-dependencies.js';
-const mockValidatePhaseDependencies = validatePhaseDependencies as jest.MockedFunction<typeof validatePhaseDependencies>;
-
-// テストケース内で使用
-mockValidatePhaseDependencies.mockImplementation(() => ({
-  valid: true,
-  violations: [],
-  warnings: [],
-}));
-```
-
-**期待結果**: `validatePhaseDependencies.mockImplementation is not a function` エラーが解消される
-
----
-
-#### 修正2: `logger.info` スパイ修正
-
-**ファイル**: `tests/unit/phases/lifecycle/phase-runner.test.ts`
-
-**修正内容**:
-```typescript
-import { logger } from '../../../../src/utils/logger.js';
-
-// 各テストケース内
-const loggerInfoSpy = jest.spyOn(logger, 'info');
-// ... テスト実行
-expect(loggerInfoSpy).toHaveBeenCalled();
-loggerInfoSpy.mockRestore();
-```
-
-**期待結果**: `logger.info` スパイが正しく動作し、呼び出しが検証される
-
----
-
-#### 修正3: `createMockMetadataManager()` に `phaseContext` 追加
-
-**ファイル**: `tests/unit/phases/lifecycle/phase-runner.test.ts`
-
-**修正内容**:
-```typescript
-function createMockMetadataManager(): any {
-  return {
-    // ... 既存のプロパティ
-    phaseContext: {
-      planning: { status: 'completed' },
-      requirements: { status: 'completed' },
-      design: { status: 'completed' },
-      implementation: { status: 'completed' },
-      testing: { status: 'in_progress' },
-      documentation: { status: 'pending' },
-      review: { status: 'pending' },
-    },
-    getAllPhasesStatus: jest.fn().mockReturnValue([]),
-  };
-}
-```
-
-**期待結果**: `postProgress()` が正常に動作し、警告が発生しなくなる
-
----
-
-### 優先度2: StepExecutor期待値修正（3個失敗）
-
-#### 修正4: `mockReviewCycleManager()` 関数呼び出しを削除
-
-**ファイル**: `tests/unit/phases/lifecycle/step-executor.test.ts`
-
-**修正箇所**: UC-SE-03, UC-SE-09, UC-SE-09-2
-
-**修正前**:
-```typescript
-// 誤った関数呼び出し
-const manager = mockReviewCycleManager();
-```
-
-**修正後**:
-```typescript
-// オブジェクトとして使用
-const manager = mockReviewCycleManager;
-```
-
----
-
-#### 修正5: Phase 4の期待値修正を適用
-
-**ファイル**: `tests/unit/phases/lifecycle/step-executor.test.ts`
-
-**UC-SE-03 修正**:
-```typescript
-// 修正前
-await expect(stepExecutor.executeStep('execute')).rejects.toThrow('Execution failed');
-
-// 修正後
-const result = await stepExecutor.executeStep('execute');
-expect(result.success).toBe(false);
-expect(result.error).toContain('Execution failed');
-```
-
-**UC-SE-09 修正**:
-```typescript
-// 修正前
-await expect(stepExecutor.commitAndPushStep(...)).rejects.toThrow('Git commit failed');
-
-// 修正後
-const result = await stepExecutor.commitAndPushStep(...);
-expect(result.success).toBe(false);
-expect(result.error).toContain('Git commit failed');
-```
-
-**UC-SE-09-2 修正**:
-```typescript
-// 修正前
-await expect(stepExecutor.commitAndPushStep(...)).rejects.toThrow('Git push failed');
-
-// 修正後
-const result = await stepExecutor.commitAndPushStep(...);
-expect(result.success).toBe(false);
-expect(result.error).toContain('Git push failed');
-```
-
-**期待結果**: `mockReviewCycleManager is not a function` エラーが解消され、エラーハンドリングの期待値が正しく検証される
-
----
-
-### 優先度3: Integration Test修正（1個失敗）
-
-#### 修正6: 空の `describe` ブロック削除
-
-**ファイル**: `tests/integration/base-phase-refactored.test.ts`
-
-**削除対象**: lines 256-269（推定）
-
-**修正内容**:
-```typescript
-// 削除対象
-describe('cleanupWorkflowArtifacts 関連', () => {
-  let testRepoRoot: string;
-
-  beforeEach(async () => {
-    // setup code...
-  });
-
-  afterEach(async () => {
-    // cleanup code...
-  });
-
-  // IC-BP-04, IC-BP-08は既に削除済み → 空のブロック
-});
-```
-
-**削除理由**: IC-BP-04, IC-BP-08がPhase 4で削除されたため、describeブロック内にテストが存在しない
-
-**期待結果**: `Invalid: beforeEach() may not be used in a describe block containing no tests` エラーが解消される
-
----
+**対処方針**:
+1. StepExecutor の実装コードを直接確認し、エラーハンドリングのパターンを特定
+2. エラーハンドリングのパターンを統一（例外スロー vs エラーオブジェクト返却）
+3. テストケースの期待値を実装に合わせて修正
 
 ## 成功したテスト（参考）
 
-以下のテストは成功しており、プロダクションコードが正常に動作していることを証明しています：
+### Integration Tests
+✅ IC-BP-01 ~ IC-BP-07: 統合テストは正常に動作
+✅ クリーンアップログ機能の動作確認済み
 
-### StepExecutor Tests (12個成功)
-✅ UC-SE-01: executeStep() - execute ステップの正常実行
-✅ UC-SE-02: executeStep() - review ステップの正常実行
-✅ UC-SE-04: executeStep() - revise ステップの正常実行
-✅ UC-SE-05: executeStep() - 無効なステップ名のエラーハンドリング
-✅ UC-SE-06: commitAndPushStep() - Git コミット＆プッシュの正常実行
-✅ UC-SE-07: commitAndPushStep() - Git コミット成功・プッシュ失敗時の部分成功
-✅ UC-SE-08: commitAndPushStep() - Git 操作スキップ（SKIP_GIT_COMMIT=true）
-✅ UC-SE-10: runPhaseStep() - execute ステップの正常実行
-✅ UC-SE-11: runPhaseStep() - review ステップの正常実行
-✅ UC-SE-12: runPhaseStep() - revise ステップの正常実行
-✅ UC-SE-13: runPhaseStep() - 無効なステップ名のエラーハンドリング
-✅ UC-SE-14: runPhaseStep() - execute ステップ失敗時のエラーハンドリング
+### StepExecutor Tests（一部）
+複数のStepExecutorテストが成功しており、基本機能は正常に動作していることを確認
 
-### Integration Tests (3個成功)
-✅ IC-BP-01: should execute planning phase successfully
-✅ IC-BP-02: should execute requirements phase successfully
-✅ IC-BP-03: should cleanup workflow logs successfully
+## テスト出力（抜粋）
 
----
-
-## Phase 2設計書との整合性確認
-
-| タスク | 設計内容 | Phase 4実装状況 | 実際のテスト結果 |
-|--------|---------|----------------|----------------|
-| Task 5-1: PhaseRunner mock修正 | `jest.mock()` 追加、`getAllPhasesStatus` 追加、`logger.info` spy追加 | ⚠️ 部分実装 | ❌ 7個失敗 |
-| Task 5-2: StepExecutor期待値修正 | `rejects.toThrow()` → `{ success: false, error }` 形式 | ❌ 未実施 | ❌ 3個失敗 |
-| Task 5-3: Integration公開ラッパー利用 | IC-BP-04, IC-BP-08削除 | ⚠️ 不完全 | ❌ 1個失敗 |
-
-**結論**: Phase 4実装は設計書の要件を満たしていない。
-
----
-
-## Phase 4修正後のアクション
-
-1. **Phase 4でテストコードを修正**
-   - 上記の修正1～6を実施
-   - 修正見積もり: 2-3h（PhaseRunner 1-1.5h、StepExecutor 0.5h、Integration 0.5h）
-
-2. **Phase 6（Testing）を再実行**
-   - テスト実行・検証（合格率100%達成）
-   - カバレッジレポート生成・検証（90%以上達成）
-   - パフォーマンスベンチマーク実行（±5%以内確認）
-
-3. **すべてのテストが合格した後、Phase 7（Documentation）へ進む**
-
----
-
-## テスト実行コマンド（参考）
-
-```bash
-# ユニットテスト実行
-npm test -- tests/unit/phases/lifecycle/phase-runner.test.ts tests/unit/phases/lifecycle/step-executor.test.ts tests/integration/base-phase-refactored.test.ts
-
-# カバレッジレポート生成（Phase 4修正後）
-npm run test:coverage
-
-# パフォーマンスベンチマーク実行（Phase 4修正後）
-# ベースライン測定、比較測定、閾値検証を実施
+```
+Test Suites: 1 failed, 2 passed, 3 total
+Tests:       10 failed, 16 passed, 26 total
+Snapshots:   0 total
+Time:        7.184 s
+Ran all test suites matching tests/unit/phases/lifecycle/phase-runner.test.ts|tests/unit/phases/lifecycle/step-executor.test.ts|tests/integration/base-phase-refactored.test.ts.
 ```
 
----
+**主なエラーログ**:
+- `expect(loggerInfoSpy).toHaveBeenCalled()` - Expected number of calls: >= 1, Received: 0
+- `Cannot read properties of undefined (reading 'planning')` - getAllPhasesStatus mock の戻り値が不適切
+- `Git push failed for step execute: Push failed` - StepExecutor のエラーハンドリングが期待と異なる
 
-## リスク評価
+## 根本原因の分析
 
-### 検出されたリスク
+### Phase 4-5の修正が不完全
 
-**リスク1（テスト修正後も一部テスト失敗が残る）**: **高** → **現実化**
-- Phase 4実装が不完全で、11個のテスト失敗
-- 軽減策: Phase 4へ戻り、上記の修正方針に従って実装を完了
+1. **Phase 4の問題**:
+   - `getAllPhasesStatus` のmock戻り値が不完全（空配列では不十分）
+   - StepExecutor の期待値修正が実装と不一致
 
-**リスク2（カバレッジ90%目標未達）**: **中** → **未評価**
-- テスト失敗により、カバレッジ測定未実施
-- Phase 4修正後に再評価が必要
+2. **Phase 5の問題**:
+   - logger.info spy の追加が不完全
+   - PhaseRunner が logger.info を呼び出さない、または spy が正しく設定されていない
 
-**リスク3（見積もり超過）**: **低** → **影響軽微**
-- 追加工数3-4hは、バッファ2h + 調整範囲±20%内に収まる見込み
+3. **テストシナリオ（Phase 3）との整合性**:
+   - Phase 3で計画されたテストシナリオ（UC-91-01 ~ UC-91-08）が正しく実装されていない
+   - mock設定や期待値の詳細が実装と合っていない
 
----
+### 実装コードの確認が必要
 
-## 技術的負債
+テスト失敗の根本原因を特定するため、以下のファイルを確認する必要があります：
 
-### 新規発見された負債
+1. `src/phases/lifecycle/phase-runner.ts` - logger.info 呼び出しの有無を確認
+2. `src/phases/lifecycle/step-executor.ts` - エラーハンドリングの実装を確認
+3. `src/utils/logger.ts` - logger モジュールの実装を確認
 
-1. **テストコードのモック実装パターンの不統一**
-   - `jest.mock()` の使用方法が統一されていない
-   - モック関数の型定義が不適切
+## 判定
 
-2. **Phase 4の実装範囲の不明確さ**
-   - implementation.mdで「残り8テストはPhase 5で実施」と記載
-   - 実際のPhase 5はテストシナリオ作成フェーズであり、テストコード実装はPhase 4の責任
-   - Phase 4で実装を完了させるべきだった
+- [ ] **すべてのテストが成功**
+- [x] **一部のテストが失敗**（16/26成功、61.5%成功率）
+- [ ] **テスト実行自体が失敗**
 
-### 推奨改善策
+## 次のステップ
 
-- テストコードのモックパターンをドキュメント化（CLAUDE.md/ARCHITECTURE.md）
-- Phase間の責任分担を明確化（Planning Phaseで明記）
+### 推奨される対処方針
 
----
+**実装コードの確認が必要**です。以下の調査を実施してください：
+
+#### 優先度1: PhaseRunner実装の確認
+
+1. **logger.info 呼び出しの確認**:
+   ```bash
+   # PhaseRunner でlogger.infoが呼び出されているか確認
+   grep -n "logger.info" src/phases/lifecycle/phase-runner.ts
+   ```
+
+2. **getAllPhasesStatus の戻り値構造の確認**:
+   ```bash
+   # MetadataManager の実装を確認
+   grep -A 10 "getAllPhasesStatus" src/core/metadata-manager.ts
+   ```
+
+#### 優先度2: StepExecutor実装の確認
+
+1. **エラーハンドリングパターンの確認**:
+   ```bash
+   # StepExecutor のエラーハンドリングを確認
+   grep -A 5 "catch" src/phases/lifecycle/step-executor.ts
+   ```
+
+2. **例外スロー vs エラーオブジェクト返却の判定**:
+   - 実装が `throw new Error(...)` を使用している場合 → テストを `rejects.toThrow()` に戻す
+   - 実装が `return { success: false, error: ... }` を使用している場合 → mockの設定を修正
+
+#### 優先度3: テストコードの修正（Phase 5で実施）
+
+実装コード確認後、以下の修正を実施：
+
+1. **PhaseRunner テストの修正**:
+   - logger.info spy の設定方法を見直す
+   - `getAllPhasesStatus` のmock戻り値を適切な構造に修正
+
+2. **StepExecutor テストの修正**:
+   - エラーハンドリングの期待値を実装に合わせて修正
+   - mockの設定を見直す
+
+### ブロッカー判定
+
+**ブロッカー**: はい
+
+このIssueは **Issue #49のフォローアップタスク** であり、テスト失敗の修正が主要な目的です。61.5%の成功率では目標未達であり、Phase 7（ドキュメント作成）へ進む前に修正が必須です。
+
+### 修正スコープ
+
+- **確認対象ファイル**（優先度順）:
+  1. `src/phases/lifecycle/phase-runner.ts` - logger.info 呼び出しの有無
+  2. `src/phases/lifecycle/step-executor.ts` - エラーハンドリングの実装
+  3. `src/core/metadata-manager.ts` - getAllPhasesStatus の戻り値構造
+
+- **修正対象ファイル**（実装確認後に決定）:
+  - `tests/unit/phases/lifecycle/phase-runner.test.ts` - logger.info spy、getAllPhasesStatus mock
+  - `tests/unit/phases/lifecycle/step-executor.test.ts` - エラーハンドリング期待値
+
+## Phase 6品質ゲートチェック
+
+- [x] **テストが実行されている** - 26テスト実行済み
+- [ ] **主要なテストケースが成功している** - 61.5%成功率では不十分（目標: 100%）
+- [x] **失敗したテストは分析されている** - 根本原因の仮説を特定済み
+
+**品質ゲート判定**: **不合格**（主要なテストケースが成功していない）
 
 ## まとめ
 
-### 達成事項
-- ✅ テスト実行（26個のテスト）
-- ✅ 失敗原因の詳細分析
-- ✅ 修正方針の具体化
+Phase 6（Testing）では、26個のテストを実行し、16個が成功（61.5%）、10個が失敗（38.5%）しました。Phase 4-5での修正が不完全であり、以下の問題が判明しました：
 
-### 未達成事項
-- ❌ テスト100%合格（57.7%成功率）
-- ❌ カバレッジ測定（テスト失敗により未実施）
-- ❌ パフォーマンスベンチマーク（テスト失敗により未実施）
+1. **PhaseRunner**: logger.info spy が機能していない、getAllPhasesStatus のmock戻り値が不適切
+2. **StepExecutor**: エラーハンドリングの期待値が実装と不一致
 
-### 次フェーズ推奨
-**Phase 4（Implementation）へ戻り、テストコード修正を完了**
+**次のアクション**:
+1. まず実装コードを確認し、実際の動作を特定
+2. 実装に基づいてテストコードを修正（Phase 5で実施）
+3. Phase 6を再実行し、100%合格率を目指す
 
-修正完了後、Phase 6（Testing）を再実行してください。
+**重要**: テスト修正の前に、必ず実装コードを確認してください。テストコードの修正方針は実装の動作に依存します。
 
 ---
 
 **作成者**: AI Workflow Orchestrator v0.3.1
 **作成日**: 2025-01-30
-**Phase**: 6 (Testing) - Review
-**ステータス**: ❌ **Phase 4修正が必要**
-**次のアクション**: Phase 4（Implementation）へ戻り、上記の修正を実施してください
+**Phase**: 6 (Testing)
+**次フェーズ**: 実装コード確認 → Phase 5 (Test Implementation) - 修正が必要
