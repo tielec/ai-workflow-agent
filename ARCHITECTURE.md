@@ -19,22 +19,40 @@ src/commands/init.ts (Issue初期化コマンド処理)
  ├─ ★PR タイトル生成★ … Issueタイトルを取得し、PRタイトルとして使用（v0.3.0、Issue #73）
  └─ src/core/repository-utils.ts を利用（Issue URL解析、リポジトリパス解決）
 
-src/commands/execute.ts (フェーズ実行コマンド処理)
- ├─ handleExecuteCommand() … フェーズ実行コマンドハンドラ
- ├─ executePhasesSequential() … フェーズ順次実行
- ├─ executePhasesFrom() … 特定フェーズから実行
- ├─ createPhaseInstance() … フェーズインスタンス作成
- ├─ resolvePresetName() … プリセット名解決（後方互換性対応）
- ├─ getPresetPhases() … プリセットフェーズ取得
- ├─ canResumeWorkflow() … ワークフロー再開可否判定
- ├─ loadExternalDocuments() … 外部ドキュメント読み込み
- ├─ resetMetadata() … メタデータリセット
+src/commands/execute.ts (フェーズ実行コマンド処理 - ファサード、v0.3.1で27%削減、Issue #46)
+ ├─ handleExecuteCommand() … フェーズ実行コマンドハンドラ（各モジュールへ委譲）
+ ├─ 既存公開関数の再エクスポート
+ │   ├─ executePhasesSequential (workflow-executor から)
+ │   ├─ executePhasesFrom (workflow-executor から)
+ │   ├─ createPhaseInstance (phase-factory から)
+ │   ├─ resolvePresetName (そのまま保持)
+ │   └─ getPresetPhases (そのまま保持)
+ └─ 内部ヘルパー関数
+     ├─ canResumeWorkflow (そのまま保持)
+     ├─ loadExternalDocuments (そのまま保持)
+     ├─ resetMetadata (そのまま保持)
+     └─ reportExecutionSummary (そのまま保持)
+
+src/commands/execute/options-parser.ts (CLIオプション解析、v0.3.1で追加、Issue #46)
+ ├─ parseExecuteOptions() … ExecuteCommandOptions を正規化
+ └─ validateExecuteOptions() … 相互排他オプションの検証
+
+src/commands/execute/agent-setup.ts (エージェント初期化、v0.3.1で追加、Issue #46)
+ ├─ setupAgentClients() … Codex/Claude クライアントの初期化
+ └─ resolveAgentCredentials() … 認証情報のフォールバック処理
+
+src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46)
+ ├─ executePhasesSequential() … フェーズの順次実行
+ ├─ executePhasesFrom() … 特定フェーズからの実行
  └─ 依存関係順にフェーズを実行
       ├─ BasePhase.run()
       │    ├─ execute()    … エージェントで成果物生成
       │    ├─ review()     … 可能ならレビューサイクル実施
       │    └─ revise()     … オプション（自動修正）
       └─ GitManager による自動コミット / プッシュ（必要に応じて）
+
+src/core/phase-factory.ts (フェーズインスタンス生成、v0.3.1で追加、Issue #46)
+ └─ createPhaseInstance() … フェーズインスタンス生成（10フェーズ対応）
 
 src/commands/review.ts (フェーズレビューコマンド処理)
  └─ handleReviewCommand() … メタデータを取得し、フェーズの状態を表示
@@ -62,10 +80,14 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
 | `src/commands/init.ts` | Issue初期化コマンド処理（約356行）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
-| `src/commands/execute.ts` | フェーズ実行コマンド処理（約634行）。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
+| `src/commands/execute.ts` | フェーズ実行コマンド処理（約497行、v0.3.1で27%削減、Issue #46）。ファサードパターンにより4つの専門モジュールに分離。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
+| `src/commands/execute/options-parser.ts` | CLIオプション解析とバリデーション（約151行、v0.3.1で追加、Issue #46）。`parseExecuteOptions()`, `validateExecuteOptions()` を提供。 |
+| `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。 |
+| `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46）。`executePhasesSequential()`, `executePhasesFrom()` を提供。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
+| `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持（約206行、Issue #26で23.7%削減）。 |
 | `src/core/helpers/agent-event-parser.ts` | Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）。`parseCodexEvent()`, `parseClaudeEvent()`, `determineCodexEventType()`, `determineClaudeEventType()` を提供。 |
