@@ -147,24 +147,17 @@ export class EvaluationPhase extends BasePhase {
     logger.info(`Checking for output file existence: ${evaluationFile}`);
 
     if (!fs.existsSync(evaluationFile)) {
-      // エージェントログのパスを取得
-      const agentLogPath = path.join(this.executeDir, 'agent_log.md');
-      const agentLogExists = fs.existsSync(agentLogPath);
+      logger.warn(`Phase ${this.phaseName}: Output file not found on first attempt: ${evaluationFile}`);
+      logger.warn(`Attempting fallback: extracting evaluation from agent log`);
 
-      logger.error(`Phase ${this.phaseName}: Output file not found: ${evaluationFile}`);
-      logger.error(`Agent may not have called Write tool`);
-      logger.error(`Agent log path: ${agentLogPath} (exists: ${agentLogExists})`);
+      // フォールバック処理: エージェントログから評価内容を抽出
+      const fallbackResult = await this.handleMissingEvaluationFile(evaluationFile, executePrompt);
 
-      return {
-        success: false,
-        output: null,
-        decision: null,
-        error: [
-          `evaluation_report.md が見つかりません: ${evaluationFile}`,
-          `エージェントが Write ツールを呼び出していない可能性があります。`,
-          `エージェントログを確認してください: ${agentLogPath}`,
-        ].join('\n'),
-      };
+      if (!fallbackResult.success) {
+        return fallbackResult;
+      }
+
+      logger.info(`Fallback succeeded: evaluation_report.md created from agent log`);
     }
 
     try {
@@ -323,6 +316,76 @@ export class EvaluationPhase extends BasePhase {
     };
   }
 
+  protected async revise(feedback: string): Promise<PhaseExecutionResult> {
+    // Revise is used for two scenarios:
+    // 1. File not created on first attempt (feedback will contain error message)
+    // 2. Review failed (standard revise scenario, but Evaluation Phase has no review)
+
+    const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+    const issueTitle = this.metadata.data.issue_title ?? `Issue #${issueNumber}`;
+    const repoName = this.metadata.data.repository ?? 'unknown';
+    const evaluationFile = path.join(this.outputDir, 'evaluation_report.md');
+    const evaluationReportPath = this.getAgentFileReference(evaluationFile) ?? evaluationFile;
+
+    // Get previous log snippet
+    const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+    let previousLogSnippet = '';
+    if (fs.existsSync(agentLogPath)) {
+      const agentLog = fs.readFileSync(agentLogPath, 'utf-8');
+      previousLogSnippet = agentLog.substring(0, 2000);
+    }
+
+    // Get existing evaluation content if available
+    let evaluationContent = '';
+    if (fs.existsSync(evaluationFile)) {
+      evaluationContent = fs.readFileSync(evaluationFile, 'utf-8');
+    }
+
+    // Get phase outputs
+    const outputs = this.getAllPhaseOutputs(issueNumber);
+    const relPaths: Record<string, string> = {};
+    for (const [phase, info] of Object.entries(outputs)) {
+      const relative = this.getAgentFileReference(info.path);
+      relPaths[phase] = relative ?? info.path;
+    }
+    const phaseOutputsList = Object.entries(relPaths)
+      .map(([phase, ref]) => `- **${this.formatPhaseName(phase)}**: ${ref}`)
+      .join('\n');
+
+    const revisePrompt = this.loadPrompt('revise')
+      .replace('{issue_number}', String(issueNumber))
+      .replace('{issue_title}', issueTitle)
+      .replace('{repo_name}', repoName)
+      .replace('{evaluation_report_path}', evaluationReportPath)
+      .replace('{review_feedback}', feedback)
+      .replace('{evaluation_content}', evaluationContent || '（評価レポートファイルが存在しません）')
+      .replace('{previous_log_snippet}', previousLogSnippet || '（ログなし）')
+      .replace('{phase_outputs}', phaseOutputsList);
+
+    logger.info(`Phase ${this.phaseName}: Starting revise with explicit file save instruction`);
+    await this.executeWithAgent(revisePrompt, { maxTurns: 30, logDir: this.reviseDir });
+
+    // Check if file was created
+    if (!fs.existsSync(evaluationFile)) {
+      return {
+        success: false,
+        output: null,
+        decision: null,
+        error: [
+          `evaluation_report.md が見つかりません: ${evaluationFile}`,
+          `Revise ステップでもファイルが作成されませんでした。`,
+          `エージェントログを確認してください: ${path.join(this.reviseDir, 'agent_log.md')}`,
+        ].join('\n'),
+      };
+    }
+
+    logger.info(`Phase ${this.phaseName}: Revise succeeded, evaluation_report.md created`);
+    return {
+      success: true,
+      output: evaluationFile,
+    };
+  }
+
   private getAllPhaseOutputs(issueNumber: number): PhaseOutputMap {
     const baseDir = path.resolve(this.metadata.workflowDir, '..', `issue-${issueNumber}`);
 
@@ -420,6 +483,153 @@ export class EvaluationPhase extends BasePhase {
       .split('_')
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' ');
+  }
+
+  /**
+   * ファイルが作成されなかった場合のフォールバック処理（Issue #82）
+   *
+   * 1. エージェントログから評価内容を抽出して保存
+   * 2. 抽出失敗時は revise() メソッドを使用（他のフェーズと同じパターン）
+   */
+  private async handleMissingEvaluationFile(
+    evaluationFile: string,
+    originalPrompt: string
+  ): Promise<PhaseExecutionResult> {
+    // Step 1: エージェントログから評価内容を抽出
+    const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+
+    if (!fs.existsSync(agentLogPath)) {
+      logger.error(`Agent log not found: ${agentLogPath}`);
+
+      // ログが存在しない場合はエラー（revise しても意味がない）
+      return {
+        success: false,
+        output: null,
+        decision: null,
+        error: [
+          `evaluation_report.md が見つかりません: ${evaluationFile}`,
+          `エージェントログも見つかりません: ${agentLogPath}`,
+          `エージェントが正常に実行されなかった可能性があります。`,
+        ].join('\n'),
+      };
+    }
+
+    try {
+      const agentLog = fs.readFileSync(agentLogPath, 'utf-8');
+
+      // ログから評価内容を抽出（基準評価、決定、理由などを含むセクション）
+      const extractedContent = this.extractEvaluationFromLog(agentLog);
+
+      if (extractedContent && this.isValidEvaluationContent(extractedContent)) {
+        // 抽出した内容が妥当な場合、ファイルとして保存
+        logger.info(`Extracted valid evaluation content from agent log (${extractedContent.length} chars)`);
+        fs.writeFileSync(evaluationFile, extractedContent, 'utf-8');
+        logger.info(`Saved extracted evaluation to: ${evaluationFile}`);
+
+        return { success: true, output: evaluationFile };
+      }
+
+      // Step 2: 内容が不十分な場合、revise() で再実行（他のフェーズと同じパターン）
+      logger.warn(`Extracted content is insufficient or invalid.`);
+      logger.info(`Attempting revise step to create evaluation_report.md`);
+
+      const feedback = [
+        `evaluation_report.md が見つかりません: ${evaluationFile}`,
+        `エージェントが Write ツールを呼び出していない可能性があります。`,
+        `前回のログから評価内容を抽出するか、新たに評価を実行してファイルを作成してください。`,
+      ].join('\n');
+
+      // revise() メソッドを使用（BasePhase のパターンに従う）
+      const reviseResult = await this.revise(feedback);
+
+      return reviseResult;
+    } catch (error) {
+      const message = (error as Error).message ?? String(error);
+      logger.error(`Error during fallback processing: ${message}`);
+      return {
+        success: false,
+        output: null,
+        decision: null,
+        error: `フォールバック処理中にエラーが発生しました: ${message}`,
+      };
+    }
+  }
+
+  /**
+   * エージェントログから評価内容を抽出
+   */
+  private extractEvaluationFromLog(agentLog: string): string | null {
+    // パターン1: "# 評価レポート" または "# Evaluation Report" から始まるセクションを探す
+    const reportHeaderPattern = /^#+ (評価レポート|Evaluation Report|プロジェクト評価|Project Evaluation)/im;
+    const match = agentLog.match(reportHeaderPattern);
+
+    if (match && match.index !== undefined) {
+      // ヘッダー以降のコンテンツを抽出
+      const content = agentLog.substring(match.index).trim();
+
+      // 最低限の構造チェック：DECISION キーワードが含まれているか
+      if (content.includes('DECISION:')) {
+        return content;
+      }
+    }
+
+    // パターン2: DECISION キーワードを含む大きなブロックを探す
+    const lines = agentLog.split('\n');
+    let startIndex = -1;
+    let hasDecision = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // 評価っぽいセクションの開始を探す
+      if (startIndex === -1 && /^#+\s+(エグゼクティブサマリー|Executive Summary|評価|Evaluation)/i.test(line)) {
+        startIndex = i;
+      }
+
+      // DECISION キーワードを探す
+      if (line.includes('DECISION:')) {
+        hasDecision = true;
+        if (startIndex === -1) {
+          startIndex = Math.max(0, i - 50); // DECISION の50行前から開始
+        }
+      }
+    }
+
+    if (hasDecision && startIndex !== -1) {
+      const extracted = lines.slice(startIndex).join('\n').trim();
+      return extracted;
+    }
+
+    return null;
+  }
+
+  /**
+   * 抽出した評価内容が妥当かチェック
+   */
+  private isValidEvaluationContent(content: string): boolean {
+    // 最低限の要件：
+    // 1. DECISION キーワードが含まれている
+    // 2. 100文字以上（極端に短いものは除外）
+    // 3. 評価基準らしきセクション（## または ### で始まる）が複数ある
+
+    if (content.length < 100) {
+      logger.debug(`Content too short: ${content.length} chars`);
+      return false;
+    }
+
+    if (!content.includes('DECISION:')) {
+      logger.debug(`Missing DECISION keyword`);
+      return false;
+    }
+
+    // セクションヘッダーのカウント
+    const sectionCount = (content.match(/^##+ /gm) || []).length;
+    if (sectionCount < 2) {
+      logger.debug(`Insufficient sections: ${sectionCount}`);
+      return false;
+    }
+
+    return true;
   }
 
   /**
