@@ -239,14 +239,14 @@ try {
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1.5~2h)
+- [x] Task 5-1: ユニットテストの実装 (1.5~2h)
   - `tests/unit/utils/error-utils.test.ts` の作成
   - `getErrorMessage()` の全入力パターンテスト（8~10ケース）
   - `getErrorStack()` のテスト（3~4ケース）
   - `isError()` のテスト（3~4ケース）
   - エッジケーステスト（null、undefined、循環参照）
 
-- [ ] Task 5-2: 統合テストの更新 (0.5~1h)
+- [x] Task 5-2: 統合テストの更新 (0.5~1h)
   - 既存テストファイルでエラーモックを非Error型に変更（必要に応じて）
   - `tests/unit/commands/init.test.ts` に文字列エラーケース追加
   - `tests/unit/git/commit-manager.test.ts` にnullエラーケース追加
@@ -421,10 +421,10 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] `tests/unit/utils/error-utils.test.ts` が実装されている
-- [ ] ユニットテストが8~10ケース以上含まれている
-- [ ] 統合テストが更新されている（必要に応じて）
-- [ ] テストコードがビルドエラーなく実行可能である
+- [x] `tests/unit/utils/error-utils.test.ts` が実装されている
+- [x] ユニットテストが8~10ケース以上含まれている
+- [x] 統合テストが更新されている（必要に応じて）
+- [x] テストコードがビルドエラーなく実行可能である
 
 ### Phase 6: テスト実行
 
