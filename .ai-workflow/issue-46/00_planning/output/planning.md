@@ -215,20 +215,20 @@
 
 ### Phase 5: テストコード実装 (見積もり: 3~4h)
 
-- [ ] Task 5-1: options-parser のユニットテスト実装 (1~1h)
+- [x] Task 5-1: options-parser のユニットテスト実装 (1~1h)
   - `tests/unit/commands/execute/options-parser.test.ts` の作成
   - 正常系: オプション解析、バリデーション
   - 異常系: 相互排他オプション、必須オプション不足
-- [ ] Task 5-2: agent-setup のユニットテスト実装 (1~1.5h)
+- [x] Task 5-2: agent-setup のユニットテスト実装 (1~1.5h)
   - `tests/unit/commands/execute/agent-setup.test.ts` の作成
   - 正常系: Codex/Claude/auto モードの初期化
   - 異常系: 認証情報不在、無効なAPI Key
   - モック: fs.existsSync, config.getCodexApiKey, config.getClaudeCredentialsPath
-- [ ] Task 5-3: workflow-executor のユニットテスト実装 (0.5~1h)
+- [x] Task 5-3: workflow-executor のユニットテスト実装 (0.5~1h)
   - `tests/unit/commands/execute/workflow-executor.test.ts` の作成
   - 正常系: フェーズ順次実行、特定フェーズから実行
   - 異常系: フェーズ実行失敗時のエラーハンドリング
-- [ ] Task 5-4: phase-factory のユニットテスト実装 (0.5~0.5h)
+- [x] Task 5-4: phase-factory のユニットテスト実装 (0.5~0.5h)
   - `tests/unit/core/phase-factory.test.ts` の作成
   - 正常系: 10フェーズすべてのインスタンス生成
   - 異常系: 未知のフェーズ名
@@ -371,9 +371,9 @@ graph TD
 - [ ] ESLint チェックが成功している（`npx eslint src/`）
 
 ### Phase 5: テストコード実装
-- [ ] 4つのモジュールに対応するテストファイルが作成されている
-- [ ] 正常系・異常系のテストケースが実装されている
-- [ ] モックとスタブが適切に使用されている
+- [x] 4つのモジュールに対応するテストファイルが作成されている
+- [x] 正常系・異常系のテストケースが実装されている
+- [x] モックとスタブが適切に使用されている
 
 ### Phase 6: テスト実行
 - [ ] すべてのユニットテストが成功している（`npm run test:unit`）
