@@ -189,20 +189,20 @@ Issue #49のBasePhaseモジュール分解リファクタリングは、アー�
 
 ### Phase 5: テストコード実装 (見積もり: 4-6h)
 
-- [ ] Task 5-1: PhaseRunner mock修正 (1.5-2h)
+- [x] Task 5-1: PhaseRunner mock修正 (1.5-2h)
   - `jest.mock('../../../../src/core/phase-dependencies.js')` 追加（ファイル先頭）
   - `createMockMetadataManager()` に `getAllPhasesStatus: jest.fn().mockReturnValue([])` 追加
   - 各テストケースに `jest.spyOn(logger, 'info')` 追加（アサーション前）
   - 10テストすべての修正確認
-- [ ] Task 5-2: StepExecutor期待値修正 (0.5-1h)
+- [x] Task 5-2: StepExecutor期待値修正 (0.5-1h)
   - UC-SE-03, UC-SE-09, UC-SE-09-2の期待値変更
   - `rejects.toThrow()` → `const result = await ...; expect(result.success).toBe(false); expect(result.error).toContain(...)`
   - 3テストすべての修正確認
-- [ ] Task 5-3: Integration公開ラッパー利用 (0.5h)
+- [x] Task 5-3: Integration公開ラッパー利用 (0.5h)
   - IC-BP-04, IC-BP-08で `testCleanupWorkflowArtifacts()` 利用
   - または冗長テスト削除（ユニットテストで既カバー）
   - 2テストすべての修正確認
-- [ ] Task 5-4: カバレッジ向上テスト追加 (1.5-2.5h)
+- [x] Task 5-4: カバレッジ向上テスト追加 (1.5-2.5h)
   - **ArtifactCleaner** (10-12ケース追加、0.5-1h):
     - `isCIEnvironment()`: CI環境変数あり/なし（2ケース）
     - `promptUserConfirmation()`: ユーザー入力 "yes"/"no"/無効入力/EOF（4-6ケース）
