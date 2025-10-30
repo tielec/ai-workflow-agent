@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 type PhaseOutputInfo = {
   path: string;
@@ -44,7 +45,7 @@ export class ReportPhase extends BasePhase {
           logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
-        const message = (error as Error).message ?? String(error);
+        const message = getErrorMessage(error);
         logger.warn(`Failed to cleanup workflow logs: ${message}`);
       }
     }
@@ -299,7 +300,7 @@ export class ReportPhase extends BasePhase {
         logger.info(`Updated PR #${prNumber} summary.`);
       }
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Failed to update PR summary: ${message}`);
     }
   }
@@ -351,7 +352,7 @@ export class ReportPhase extends BasePhase {
             deletedCount++;
             logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
           } catch (error) {
-            const message = (error as Error).message ?? String(error);
+            const message = getErrorMessage(error);
             logger.warn(`Failed to delete ${subdirPath}: ${message}`);
           }
         }

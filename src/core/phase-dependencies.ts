@@ -4,6 +4,7 @@ import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, PhaseStatus } from '../types.js';
 import { buildErrorMessage, buildWarningMessage } from './helpers/dependency-messages.js';
 import { getPhaseOutputFilePath } from './helpers/metadata-io.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 export const PHASE_DEPENDENCIES: Record<PhaseName, PhaseName[]> = {
   planning: [],
@@ -245,6 +246,6 @@ export const validateExternalDocument = (
     if ((error as NodeJS.ErrnoException).code === 'EACCES') {
       return { valid: false, error: `Permission denied: ${filePath}` };
     }
-    return { valid: false, error: `Unexpected error: ${(error as Error).message}` };
+    return { valid: false, error: `Unexpected error: ${getErrorMessage(error)}` };
   }
 };

@@ -126,6 +126,7 @@ node dist/index.js list-presets
 - **`src/core/helpers/dependency-messages.ts`**: 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）
 - **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
 - **`src/utils/logger.ts`**: 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御、カラーリング、タイムスタンプ、環境変数制御を提供
+- **`src/utils/error-utils.ts`**: エラーハンドリングユーティリティ（約190行、Issue #48で追加）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）
 
 ### フェーズ順序（0-9）
 
@@ -327,6 +328,7 @@ if (config.isCI()) {
 7. **Git URLのセキュリティ**: HTTPS形式のGit URLに埋め込まれたPersonal Access Tokenは自動的に除去される（v0.3.1、Issue #54）。SSH形式の利用を推奨。
 8. **ロギング規約（Issue #61）**: console.log/error/warn等の直接使用は禁止。統一loggerモジュール（`src/utils/logger.ts`）を使用し、`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` を呼び出す。ESLintの `no-console` ルールで強制。
 9. **環境変数アクセス規約（Issue #51）**: `process.env` への直接アクセスは禁止。Config クラス（`src/core/config.ts`）の `config.getXxx()` メソッドを使用する。必須環境変数は例外をスロー、オプション環境変数は `null` を返す。
+10. **エラーハンドリング規約（Issue #48）**: `as Error` 型アサーションの使用は禁止。エラーハンドリングユーティリティ（`src/utils/error-utils.ts`）の `getErrorMessage()`, `getErrorStack()`, `isError()` を使用する。TypeScript の catch ブロックで `unknown` 型のエラーから安全にメッセージを抽出し、非 Error オブジェクト（string、number、null、undefined）がスローされる場合にも対応する。
 
 ## よくあるトラブルシューティング
 

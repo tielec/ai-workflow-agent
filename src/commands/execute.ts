@@ -17,6 +17,7 @@ import {
 import { ResumeManager } from '../utils/resume.js';
 import { PhaseName } from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 import type {
   PhaseContext,
   ExecutionSummary,
@@ -434,11 +435,11 @@ export async function executePhasesSequential(
         };
       }
     } catch (error) {
-      results[phaseName] = { success: false, error: (error as Error).message };
+      results[phaseName] = { success: false, error: getErrorMessage(error) };
       return {
         success: false,
         failedPhase: phaseName,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
         results,
       };
     }
@@ -591,7 +592,7 @@ export function canResumeWorkflow(resumeManager: ResumeManager): boolean {
     return resumeManager.canResume();
   } catch (error) {
     logger.warn(
-      `Failed to assess resume status: ${(error as Error).message}. Starting new workflow.`,
+      `Failed to assess resume status: ${getErrorMessage(error)}. Starting new workflow.`,
     );
     return false;
   }

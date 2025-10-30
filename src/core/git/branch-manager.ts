@@ -1,5 +1,6 @@
 import type { SimpleGit } from 'simple-git';
 import { logger } from '../../utils/logger.js';
+import { getErrorMessage } from '../../utils/error-utils.js';
 
 interface BranchResult {
   success: boolean;
@@ -54,7 +55,7 @@ export class BranchManager {
       return {
         success: false,
         branch_name: branchName,
-        error: `Git command failed: ${(error as Error).message}`,
+        error: `Git command failed: ${getErrorMessage(error)}`,
       };
     }
   }
@@ -80,7 +81,7 @@ export class BranchManager {
         return remoteBranches.all.some((ref) => ref.endsWith(branchName));
       }
     } catch (error) {
-      logger.warn(`Failed to check branch existence: ${(error as Error).message}`);
+      logger.warn(`Failed to check branch existence: ${getErrorMessage(error)}`);
     }
 
     return false;
@@ -112,7 +113,7 @@ export class BranchManager {
       return {
         success: false,
         branch_name: branchName,
-        error: `Git command failed: ${(error as Error).message}`,
+        error: `Git command failed: ${getErrorMessage(error)}`,
       };
     }
   }
