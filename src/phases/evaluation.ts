@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult, RemainingTask, PhaseName } from '../types.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 type PhaseOutputInfo = {
   path: string;
@@ -45,7 +46,7 @@ export class EvaluationPhase extends BasePhase {
           logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
-        const message = (error as Error).message ?? String(error);
+        const message = getErrorMessage(error);
         logger.warn(`Failed to cleanup workflow logs: ${message}`);
         // クリーンアップ失敗時もワークフロー全体は成功として扱う（Report Phaseと同じパターン）
       }
@@ -66,7 +67,7 @@ export class EvaluationPhase extends BasePhase {
           logger.info('Cleanup changes committed and pushed.');
         }
       } catch (error) {
-        const message = (error as Error).message ?? String(error);
+        const message = getErrorMessage(error);
         logger.warn(`Failed to cleanup workflow artifacts: ${message}`);
         // エラーでもワークフローは成功として扱う
       }
@@ -300,7 +301,7 @@ export class EvaluationPhase extends BasePhase {
         error: `不正な判定タイプ: ${decision}. 有効な判定: PASS, PASS_WITH_ISSUES, FAIL_PHASE_*, ABORT`,
       };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       return {
         success: false,
         output: evaluationFile,
@@ -385,7 +386,7 @@ export class EvaluationPhase extends BasePhase {
 
       return { success: false, error: result.error ?? 'Issue 作成に失敗しました' };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       return { success: false, error: message };
     }
   }
@@ -410,7 +411,7 @@ export class EvaluationPhase extends BasePhase {
 
       return { success: true };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       return { success: false, error: message };
     }
   }
@@ -465,7 +466,7 @@ export class EvaluationPhase extends BasePhase {
             deletedCount++;
             logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
           } catch (error) {
-            const message = (error as Error).message ?? String(error);
+            const message = getErrorMessage(error);
             logger.warn(`Failed to delete ${subdirPath}: ${message}`);
           }
         }

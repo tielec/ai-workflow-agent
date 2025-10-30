@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
+import { getErrorMessage } from '../../utils/error-utils.js';
 
 export interface PullRequestSummary {
   pr_number: number;
@@ -103,7 +104,7 @@ export class PullRequestClient {
         success: false,
         pr_url: null,
         pr_number: null,
-        error: `Unexpected error: ${(error as Error).message}`,
+        error: `Unexpected error: ${getErrorMessage(error)}`,
       };
     }
   }
@@ -135,7 +136,7 @@ export class PullRequestClient {
       };
     } catch (error) {
       logger.warn(
-        `Failed to check existing PR: ${this.encodeWarning((error as Error).message)}`,
+        `Failed to check existing PR: ${this.encodeWarning(getErrorMessage(error))}`,
       );
       return null;
     }
@@ -158,7 +159,7 @@ export class PullRequestClient {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
-          : (error as Error).message;
+          : getErrorMessage(error);
       logger.error(`Failed to update PR: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
@@ -198,7 +199,7 @@ export class PullRequestClient {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
-          : (error as Error).message;
+          : getErrorMessage(error);
       logger.error(`Failed to close PR: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
@@ -217,7 +218,7 @@ export class PullRequestClient {
       const match = data.items.find((item) => item.pull_request);
       return match?.number ?? null;
     } catch (error) {
-      const message = (error as Error).message;
+      const message = getErrorMessage(error);
       logger.warn(`Failed to lookup PR number: ${this.encodeWarning(message)}`);
       return null;
     }

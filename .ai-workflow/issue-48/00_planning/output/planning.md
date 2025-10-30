@@ -209,14 +209,14 @@ try {
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: エラーユーティリティモジュールの実装 (1~1.5h)
+- [x] Task 4-1: エラーユーティリティモジュールの実装 (1~1.5h)
   - `src/utils/error-utils.ts` の作成
   - `getErrorMessage()` 実装（Error、string、number、object対応）
   - `getErrorStack()` 実装（Error判定とundefined返却）
   - `isError()` 型ガード実装
   - TSDocコメント追加
 
-- [ ] Task 4-2: 高優先度ファイルのリファクタリング（前半11ファイル） (1~1.5h)
+- [x] Task 4-2: 高優先度ファイルのリファクタリング（前半11ファイル） (1~1.5h)
   - `src/commands/execute.ts` - 3箇所
   - `src/commands/init.ts` - 4箇所
   - `src/core/content-parser.ts` - 4箇所
@@ -230,12 +230,12 @@ try {
   - `src/core/phase-dependencies.ts` - 推定1箇所
 
 - [ ] Task 4-3: 中優先度ファイルのリファクタリング（後半11ファイル） (1h)
-  - `src/core/secret-masker.ts` - 推定1箇所
+  - `src/core/secret-masker.ts` - 推定2箇所
   - `src/phases/base-phase.ts` - 4箇所
   - `src/phases/core/agent-executor.ts` - 1箇所
   - `src/phases/evaluation.ts` - 6箇所
-  - `src/phases/report.ts` - 推定2箇所
-  - その他6ファイル - 推定13箇所
+  - `src/phases/report.ts` - 3箇所
+  - `src/core/github/pull-request-client.ts` - 3箇所（残り）
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
