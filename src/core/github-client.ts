@@ -10,6 +10,7 @@ import { IssueClient, type IssueCreationResult } from './github/issue-client.js'
 import { PullRequestClient, type PullRequestSummary, type PullRequestResult } from './github/pull-request-client.js';
 import { CommentClient, type ProgressCommentResult } from './github/comment-client.js';
 import { ReviewClient } from './github/review-client.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -297,7 +298,7 @@ export class GitHubClient {
         review_points: reviewPoints,
       };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Failed to extract phase outputs: ${this.encodeWarning(message)}`);
       return {
         summary: '（概要の記載なし）',

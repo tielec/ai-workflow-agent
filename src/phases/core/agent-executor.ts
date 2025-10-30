@@ -170,7 +170,7 @@ export class AgentExecutor {
         verbose: options?.verbose,
       });
     } catch (e) {
-      error = e as Error;
+      error = e instanceof Error ? e : new Error(String(e));
     }
 
     const endTime = Date.now();

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
 import { config } from './config.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 interface ReviewParseResult {
   result: string;
@@ -66,7 +67,7 @@ export class ContentParser {
       }
       return result;
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Failed to extract design decisions: ${message}`);
       return {};
     }
@@ -163,7 +164,7 @@ export class ContentParser {
         suggestions: [],
       };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Failed to parse review result via OpenAI: ${message}`);
 
       const upper = fullText.toUpperCase();
@@ -288,7 +289,7 @@ export class ContentParser {
 
       return result;
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.error(`Failed to parse evaluation decision via LLM: ${message}`);
 
       // Fallback: Try simple pattern matching
@@ -325,7 +326,7 @@ export class ContentParser {
 
       return { success: true, decision };
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       return {
         success: false,
         error: `判定解析中にエラー: ${message}`,

@@ -15,6 +15,7 @@ import { ProgressFormatter } from './formatters/progress-formatter.js';
 import { AgentExecutor } from './core/agent-executor.js';
 import { ReviewCycleManager } from './core/review-cycle-manager.js';
 import { config } from '../core/config.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const promptsRoot = path.resolve(moduleDir, '..', 'prompts');
@@ -215,7 +216,7 @@ export abstract class BasePhase {
 
       return true;
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       await this.handleFailure(message);
       return false;
     }
@@ -513,7 +514,7 @@ export abstract class BasePhase {
         this.metadata,
       );
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.warn(`Failed to post workflow progress: ${message}`);
     }
   }
@@ -599,7 +600,7 @@ export abstract class BasePhase {
       fs.removeSync(workflowDir);
       logger.info('Workflow artifacts deleted successfully.');
     } catch (error) {
-      const message = (error as Error).message ?? String(error);
+      const message = getErrorMessage(error);
       logger.error(`Failed to delete workflow artifacts: ${message}`);
       // エラーでもワークフローは継続（Report Phaseのクリーンアップと同様）
     }
@@ -703,7 +704,7 @@ export abstract class BasePhase {
       logger.info(`Phase ${this.phaseName}: Step ${step} pushed successfully`);
     } catch (error) {
       // プッシュ失敗時の処理
-      logger.error(`Phase ${this.phaseName}: Failed to push step ${step}: ${(error as Error).message}`);
+      logger.error(`Phase ${this.phaseName}: Failed to push step ${step}: ${getErrorMessage(error)}`);
 
       // current_stepを維持（次回レジューム時に同じステップを再実行）
       this.metadata.updateCurrentStep(this.phaseName, step);

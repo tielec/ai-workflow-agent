@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import { logger } from '../utils/logger.js';
 import * as path from 'path';
 import { glob } from 'glob';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 export interface Secret {
   name: string;
@@ -106,7 +107,7 @@ export class SecretMasker {
           );
         }
       } catch (error) {
-        const errorMsg = `Failed to process ${filePath}: ${(error as Error).message}`;
+        const errorMsg = `Failed to process ${filePath}: ${getErrorMessage(error)}`;
         logger.error(`${errorMsg}`);
         errors.push(errorMsg);
       }
@@ -136,7 +137,7 @@ export class SecretMasker {
         files.push(...matches);
       } catch (error) {
         logger.warn(
-          `Failed to glob pattern ${globPattern}: ${(error as Error).message}`,
+          `Failed to glob pattern ${globPattern}: ${getErrorMessage(error)}`,
         );
       }
     }

@@ -1,6 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
+import { getErrorMessage } from '../../utils/error-utils.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 
@@ -29,7 +30,7 @@ export class RemoteManager {
 
     // Fire and forget setup of credentials (best-effort)
     this.setupGithubCredentials().catch((error) => {
-      logger.warn(`Failed to set up GitHub credentials: ${(error as Error).message}`);
+      logger.warn(`Failed to set up GitHub credentials: ${getErrorMessage(error)}`);
     });
   }
 
@@ -77,17 +78,17 @@ export class RemoteManager {
         logger.warn('Push completed but no changes were pushed. This may indicate nothing to push.');
         return { success: true, retries };
       } catch (error) {
-        logger.error(`Push failed: ${(error as Error).message}`);
+        logger.error(`Push failed: ${getErrorMessage(error)}`);
 
         if (!branchName) {
           return {
             success: false,
             retries,
-            error: `Unable to determine branch name for push: ${(error as Error).message}`,
+            error: `Unable to determine branch name for push: ${getErrorMessage(error)}`,
           };
         }
 
-        const errorMessage = (error as Error).message.toLowerCase();
+        const errorMessage = getErrorMessage(error).toLowerCase();
 
         // non-fast-forward error: pull and retry
         if ((errorMessage.includes('rejected') || errorMessage.includes('non-fast-forward')) && retries === 0) {
@@ -107,11 +108,11 @@ export class RemoteManager {
         }
 
         if (!this.isRetriableError(error) || retries === maxRetries) {
-          logger.error(`Push failed permanently: ${(error as Error).message}`);
+          logger.error(`Push failed permanently: ${getErrorMessage(error)}`);
           return {
             success: false,
             retries,
-            error: (error as Error).message,
+            error: getErrorMessage(error),
           };
         }
 
@@ -138,7 +139,7 @@ export class RemoteManager {
     } catch (error) {
       return {
         success: false,
-        error: (error as Error).message ?? 'Unknown git pull error',
+        error: getErrorMessage(error),
       };
     }
   }
@@ -159,7 +160,7 @@ export class RemoteManager {
    * Determine if error is retriable
    */
   private isRetriableError(error: unknown): boolean {
-    const message = (error as Error).message.toLowerCase();
+    const message = getErrorMessage(error).toLowerCase();
 
     const nonRetriableKeywords = [
       'permission denied',
@@ -221,7 +222,7 @@ export class RemoteManager {
       logger.info('Git remote URL configured with GitHub token authentication');
     } catch (error) {
       logger.warn(
-        `Failed to setup GitHub credentials: ${(error as Error).message}`,
+        `Failed to setup GitHub credentials: ${getErrorMessage(error)}`,
       );
     }
   }
