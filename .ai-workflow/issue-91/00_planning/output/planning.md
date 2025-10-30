@@ -382,10 +382,10 @@ graph TD
 
 ### Phase 6: テスト実行
 
-- [ ] **ユニットテスト合格率100%達成（49/49テスト合格）**
-- [ ] **カバレッジ90%目標達成（ArtifactCleaner, PhaseRunner, ContextBuilder, StepExecutor）**
-- [ ] **パフォーマンス±5%閾値達成（AC-8）**
-- [ ] **TypeScriptビルド成功確認**
+- [ ] **ユニットテスト合格率100%達成（49/49テスト合格）** - 実績57.7%（15/26）、Phase 4修正が必要
+- [ ] **カバレッジ90%目標達成（ArtifactCleaner, PhaseRunner, ContextBuilder, StepExecutor）** - 未測定（テスト失敗により未実施）
+- [ ] **パフォーマンス±5%閾値達成（AC-8）** - 未測定（テスト失敗により未実施）
+- [ ] **TypeScriptビルド成功確認** - 未実施
 
 ### Phase 7: ドキュメント
 
