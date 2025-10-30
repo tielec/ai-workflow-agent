@@ -195,6 +195,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
 
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
+
     const phaseRunner = new PhaseRunner(
       'design',
       mockMetadata,
@@ -213,6 +215,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
     expect(result).toBe(false);
     expect(mockStepExecutor.executeStep).not.toHaveBeenCalled(); // execute は実行されない
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'failed', {});
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 
   test('UC-PR-04: validateDependencies() - 警告がある場合（継続）', async () => {
@@ -228,6 +232,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
+
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
 
     const phaseRunner = new PhaseRunner(
       'requirements',
@@ -246,6 +252,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
     // Then: 警告ログが出力され、フェーズが継続される
     expect(result).toBe(true);
     expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1); // execute が実行される
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 
   test('UC-PR-05: validateDependencies() - skipDependencyCheck フラグ', async () => {
@@ -254,6 +262,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
+
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
 
     const phaseRunner = new PhaseRunner(
       'test_scenario',
@@ -276,6 +286,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
       ignoreViolations: false,
       presetPhases: undefined
     });
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 });
 
@@ -307,6 +319,8 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
     );
     const reviseFn = jest.fn<any>();
 
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
+
     const phaseRunner = new PhaseRunner(
       'testing',
       mockMetadata,
@@ -325,6 +339,8 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
     expect(result).toBe(false);
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('testing', 'failed', {});
     expect(mockGitHub.createOrUpdateProgressComment).toHaveBeenCalled(); // 失敗コメント投稿
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 });
 
@@ -354,6 +370,8 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
 
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
+
     const phaseRunner = new PhaseRunner(
       'documentation',
       mockMetadata,
@@ -376,6 +394,8 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
       expect.stringContaining('documentation'), // コメント内容
       mockMetadata
     );
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 
   test('UC-PR-07-2: postProgress() - issue_number が NaN の場合、投稿しない', async () => {
@@ -440,6 +460,8 @@ describe('PhaseRunner - エラーハンドリング', () => {
       { success: false, approved: false, feedback: 'Needs revision' }
     );
 
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
+
     const phaseRunner = new PhaseRunner(
       'evaluation',
       mockMetadata,
@@ -457,6 +479,8 @@ describe('PhaseRunner - エラーハンドリング', () => {
     // Then: フェーズが失敗する
     expect(result).toBe(false);
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('evaluation', 'failed', {});
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 
   test('UC-PR-09: run() - 例外がスローされた場合、handleFailure() が呼び出される', async () => {
@@ -472,6 +496,8 @@ describe('PhaseRunner - エラーハンドリング', () => {
     const mockStepExecutor = createMockStepExecutor();
     mockStepExecutor.executeStep.mockRejectedValue(new Error('Network error'));
     const reviseFn = jest.fn<any>();
+
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
 
     const phaseRunner = new PhaseRunner(
       'planning',
@@ -490,5 +516,7 @@ describe('PhaseRunner - エラーハンドリング', () => {
     // Then: handleFailure() が呼び出され、フェーズが失敗する
     expect(result).toBe(false);
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('planning', 'failed', {});
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 });
