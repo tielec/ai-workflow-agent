@@ -388,7 +388,7 @@ export abstract class BasePhase {
 
 ### Phase 7: ドキュメント (見積もり: 2~3h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (1~1.5h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (1~1.5h)
   - BasePhaseモジュール構造の図解追加（Mermaid）
   - 4つの新規モジュールの説明追加
     - StepExecutor: ステップ実行ロジック
@@ -397,12 +397,12 @@ export abstract class BasePhase {
     - ArtifactCleaner: クリーンアップロジック
   - モジュール分離の設計思想説明
   - 依存性注入パターンの説明
-- [ ] Task 7-2: CLAUDE.md の更新 (0.5~1h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.5~1h)
   - BasePhaseのモジュール構成セクション更新
   - 新規モジュールの行数とファイルパス追加
   - リファクタリング実績の更新（Issue #49追加）
   - 関心の分離原則の強調
-- [ ] Task 7-3: モジュールのJSDoc整備 (0.5h)
+- [x] Task 7-3: モジュールのJSDoc整備 (0.5h)
   - 各モジュール（StepExecutor、PhaseRunner、ContextBuilder、ArtifactCleaner）のクラスレベルJSDoc追加
   - publicメソッドのJSDoc追加（引数、戻り値、例外）
   - 使用例の追加（@example タグ）
