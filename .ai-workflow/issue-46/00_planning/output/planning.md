@@ -188,27 +188,27 @@
 
 ### Phase 4: 実装 (見積もり: 8~12h)
 
-- [ ] Task 4-1: options-parser モジュールの実装 (2~3h)
+- [x] Task 4-1: options-parser モジュールの実装 (2~3h)
   - `src/commands/execute/options-parser.ts` の作成
   - `parseExecuteOptions()`, `validateExecuteOptions()` の実装
   - 既存の execute.ts（56-82行）からロジックを移植
   - エラーメッセージの統一
-- [ ] Task 4-2: agent-setup モジュールの実装 (2~3h)
+- [x] Task 4-2: agent-setup モジュールの実装 (2~3h)
   - `src/commands/execute/agent-setup.ts` の作成
   - `setupAgentClients()`, `resolveAgentCredentials()` の実装
   - 既存の execute.ts（151-231行）からロジックを移植
   - 認証情報フォールバック処理の保持
-- [ ] Task 4-3: workflow-executor モジュールの実装 (2~3h)
+- [x] Task 4-3: workflow-executor モジュールの実装 (2~3h)
   - `src/commands/execute/workflow-executor.ts` の作成
   - `executePhasesSequential()`, `executePhasesFrom()`, `resumeWorkflowIfNeeded()` の実装
   - 既存の execute.ts（411-485行、327-372行）からロジックを移植
   - ResumeManager 統合の保持
-- [ ] Task 4-4: phase-factory モジュールの実装 (1~2h)
+- [x] Task 4-4: phase-factory モジュールの実装 (1~2h)
   - `src/core/phase-factory.ts` の作成
   - `createPhaseInstance()` の実装
   - 既存の execute.ts（493-529行）からロジックを移植
   - 10フェーズすべての対応を保持
-- [ ] Task 4-5: execute.ts のファサード実装 (1~1h)
+- [x] Task 4-5: execute.ts のファサード実装 (1~1h)
   - handleExecuteCommand() の簡素化（各モジュールへの委譲）
   - 既存の公開関数を新規モジュールから再エクスポート
   - インポート文の整理（28-37行の10フェーズインポートを phase-factory に移動）
@@ -364,10 +364,10 @@ graph TD
 - [x] テストカバレッジ目標（90%以上）が設定されている
 
 ### Phase 4: 実装
-- [ ] 4つのモジュールが作成されている
-- [ ] execute.ts がファサードパターンで簡素化されている（683行 → 約150行）
-- [ ] 既存の公開API（`handleExecuteCommand`, `executePhasesSequential`, `createPhaseInstance` 等）が維持されている
-- [ ] TypeScript コンパイルが成功している（`npm run build`）
+- [x] 4つのモジュールが作成されている
+- [x] execute.ts がファサードパターンで簡素化されている（683行 → 約150行）
+- [x] 既存の公開API（`handleExecuteCommand`, `executePhasesSequential`, `createPhaseInstance` 等）が維持されている
+- [x] TypeScript コンパイルが成功している（`npm run build`）
 - [ ] ESLint チェックが成功している（`npx eslint src/`）
 
 ### Phase 5: テストコード実装
