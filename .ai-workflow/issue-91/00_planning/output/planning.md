@@ -153,12 +153,12 @@ Issue #49のBasePhaseモジュール分解リファクタリングは、アー�
 
 ### Phase 2: 設計 (見積もり: 1.5-2h)
 
-- [ ] Task 2-1: テスト修正設計書の作成 (1-1.5h)
+- [x] Task 2-1: テスト修正設計書の作成 (1-1.5h)
   - PhaseRunner: `jest.mock()`の追加、`getAllPhasesStatus` mock追加、`logger.info` spy追加
   - StepExecutor: `rejects.toThrow()` → `{ success: false, error }` 期待値変更
   - Integration: 公開ラッパーメソッド利用への変更
   - カバレッジ向上: 未カバーブランチ別テストケース設計（15-20ケース）
-- [ ] Task 2-2: パフォーマンスベンチマーク設計 (0.5h)
+- [x] Task 2-2: パフォーマンスベンチマーク設計 (0.5h)
   - 測定対象: BasePhase.run() 実行時間（Planning Phase）
   - ベースライン測定方法（Issue #49マージ前コード）
   - 比較測定方法（Issue #49マージ後コード）
