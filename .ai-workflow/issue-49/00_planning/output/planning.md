@@ -251,18 +251,18 @@ export abstract class BasePhase {
 
 ### Phase 2: 設計 (見積もり: 4~5h)
 
-- [ ] Task 2-1: モジュール間インターフェース設計 (2~2.5h)
+- [x] Task 2-1: モジュール間インターフェース設計 (2~2.5h)
   - StepExecutor インターフェース設計（executeStep、reviewStep、reviseStep）
   - PhaseRunner インターフェース設計（run、validateDependencies、handleFailure）
   - ContextBuilder インターフェース設計（buildOptionalContext、getAgentFileReference、getPlanningDocumentReference）
   - ArtifactCleaner インターフェース設計（cleanupWorkflowArtifacts、cleanupWorkflowLogs、promptUserConfirmation）
   - 各モジュールのコンストラクタ引数設計（依存性注入）
-- [ ] Task 2-2: 依存性注入パターンの設計 (1~1.5h)
+- [x] Task 2-2: 依存性注入パターンの設計 (1~1.5h)
   - BasePhaseコンストラクタでの初期化順序決定
   - モジュール間の循環参照の回避策検討（BasePhaseへの参照をどう渡すか）
   - 既存モジュール（AgentExecutor、ReviewCycleManager）との統合方法
   - モックフレンドリーな設計（テスト容易性）
-- [ ] Task 2-3: 後方互換性戦略の設計 (1h)
+- [x] Task 2-3: 後方互換性戦略の設計 (1h)
   - BasePhaseのpublicメソッドの保持（シグネチャ不変）
   - protectedメソッドの移行戦略（既存フェーズクラスへの影響最小化）
   - エラーハンドリングの一貫性保証
