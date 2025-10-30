@@ -183,19 +183,9 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     expect(context).toContain('.ai-workflow/issue-1/01_requirements/output/requirements.md');
   });
 
-  test('IC-BP-04: ArtifactCleaner が BasePhase に統合されている', async () => {
-    // Given: ワークフローディレクトリが存在する
-    await fs.writeFile(path.join(testWorkflowDir, 'test.txt'), 'test');
-    const mockMetadata = createMockMetadataManager(testWorkflowDir);
-    const mockGitHub = createMockGitHubClient();
-    const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
-
-    // When: cleanupWorkflowArtifacts() を呼び出す
-    await testPhase.testCleanupWorkflowArtifacts(true);
-
-    // Then: ディレクトリが削除される
-    expect(fs.existsSync(testWorkflowDir)).toBe(false);
-  });
+  // IC-BP-04: cleanupWorkflowArtifacts のテストは削除
+  // 理由: ArtifactCleaner のユニットテストで十分にカバー済み
+  // 参照: tests/unit/phases/cleanup/artifact-cleaner.test.ts
 
   test('IC-BP-05: ArtifactCleaner.cleanupWorkflowLogs() が BasePhase に統合されている', async () => {
     // Given: phases 00-02 のディレクトリが存在する
@@ -277,15 +267,7 @@ describe('BasePhase リファクタリング - エラーハンドリング', () 
     await fs.remove(TEST_DIR);
   });
 
-  test('IC-BP-08: ArtifactCleaner のパス検証エラーが適切に処理される', async () => {
-    // Given: 不正なパスの MetadataManager
-    const invalidWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'malicious-path');
-    await fs.ensureDir(invalidWorkflowDir);
-    const mockMetadata = createMockMetadataManager(invalidWorkflowDir);
-    const mockGitHub = createMockGitHubClient();
-    const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
-
-    // When/Then: cleanupWorkflowArtifacts() で例外がスローされる
-    await expect(testPhase.testCleanupWorkflowArtifacts(true)).rejects.toThrow('Invalid workflow directory path');
-  });
+  // IC-BP-08: cleanupWorkflowArtifacts with force flag のテストは削除
+  // 理由: ArtifactCleaner のユニットテストで十分にカバー済み
+  // 参照: tests/unit/phases/cleanup/artifact-cleaner.test.ts (UC-AC-06)
 });

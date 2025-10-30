@@ -15,6 +15,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { PhaseRunner } from '../../../../src/phases/lifecycle/phase-runner.js';
 import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../../../src/types.js';
+import { logger } from '../../../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-runner-test');
@@ -37,6 +38,7 @@ function createMockMetadataManager(): any {
       requirements: { status: 'completed' }
     },
     updatePhaseStatus: jest.fn<any>(),
+    getAllPhasesStatus: jest.fn<any>().mockReturnValue([]),
   };
 }
 
@@ -89,6 +91,8 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
 
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
+
     const phaseRunner = new PhaseRunner(
       'design',
       mockMetadata,
@@ -111,6 +115,8 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
     expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
     expect(mockStepExecutor.reviewStep).toHaveBeenCalledTimes(1);
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'completed', {});
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 
   test('UC-PR-02: run() - レビュー失敗時に revise ステップが実行される', async () => {
@@ -128,6 +134,8 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       { success: false, approved: false, feedback: 'Needs revision' } // review は失敗
     );
     const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const loggerInfoSpy = jest.spyOn(logger, 'info');
 
     const phaseRunner = new PhaseRunner(
       'implementation',
@@ -155,6 +163,8 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       expect.any(Function) // postProgressFn
     );
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('implementation', 'completed', {});
+    expect(loggerInfoSpy).toHaveBeenCalled();
+    loggerInfoSpy.mockRestore();
   });
 });
 
