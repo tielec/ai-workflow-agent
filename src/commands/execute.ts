@@ -6,8 +6,6 @@ import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
-import { ClaudeAgentClient } from '../core/claude-agent-client.js';
-import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { GitHubClient } from '../core/github-client.js';
 import {
   PHASE_PRESETS,
@@ -18,23 +16,20 @@ import { ResumeManager } from '../utils/resume.js';
 import { PhaseName } from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
-import type {
-  PhaseContext,
-  ExecutionSummary,
-  PhaseResultMap,
-  ExecuteCommandOptions,
-} from '../types/commands.js';
+import type { PhaseContext, ExecuteCommandOptions } from '../types/commands.js';
 
-import { PlanningPhase } from '../phases/planning.js';
-import { RequirementsPhase } from '../phases/requirements.js';
-import { DesignPhase } from '../phases/design.js';
-import { TestScenarioPhase } from '../phases/test-scenario.js';
-import { ImplementationPhase } from '../phases/implementation.js';
-import { TestImplementationPhase } from '../phases/test-implementation.js';
-import { TestingPhase } from '../phases/testing.js';
-import { DocumentationPhase } from '../phases/documentation.js';
-import { ReportPhase } from '../phases/report.js';
-import { EvaluationPhase } from '../phases/evaluation.js';
+// 新規モジュールからインポート
+import { validateExecuteOptions, parseExecuteOptions } from './execute/options-parser.js';
+import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
+import {
+  executePhasesSequential,
+  executePhasesFrom,
+} from './execute/workflow-executor.js';
+
+// phase-factory から createPhaseInstance を再エクスポート
+export { createPhaseInstance } from '../core/phase-factory.js';
+// workflow-executor から executePhasesSequential, executePhasesFrom を再エクスポート
+export { executePhasesSequential, executePhasesFrom } from './execute/workflow-executor.js';
 
 const PHASE_ORDER: PhaseName[] = [
   'planning',
@@ -54,31 +49,28 @@ const PHASE_ORDER: PhaseName[] = [
  * @param options - CLI オプション
  */
 export async function handleExecuteCommand(options: ExecuteCommandOptions): Promise<void> {
-  const issueNumber = String(options.issue);
-  const phaseOption: string = (options.phase ?? 'all').toLowerCase();
-  const presetOption: string | undefined = options.preset;
-  const skipDependencyCheck = Boolean(options.skipDependencyCheck);
-  const ignoreDependencies = Boolean(options.ignoreDependencies);
-  const forceReset = Boolean(options.forceReset);
-  const cleanupOnComplete = Boolean(options.cleanupOnComplete);
-  const cleanupOnCompleteForce = Boolean(options.cleanupOnCompleteForce);
-
-  if (presetOption && phaseOption !== 'all') {
-    logger.error("Options '--preset' and '--phase' are mutually exclusive.");
+  // 1. オプション検証（options-parser に委譲）
+  const validationResult = validateExecuteOptions(options);
+  if (!validationResult.valid) {
+    for (const error of validationResult.errors) {
+      logger.error(error);
+    }
     process.exit(1);
   }
 
-  if (!phaseOption && !presetOption) {
-    logger.error("Either '--phase' or '--preset' must be specified.");
-    process.exit(1);
-  }
-
-  if (skipDependencyCheck && ignoreDependencies) {
-    logger.error(
-      "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
-    );
-    process.exit(1);
-  }
+  // 2. オプション解析（options-parser に委譲）
+  const parsedOptions = parseExecuteOptions(options);
+  const {
+    issueNumber,
+    phaseOption,
+    presetOption,
+    agentMode,
+    skipDependencyCheck,
+    ignoreDependencies,
+    forceReset,
+    cleanupOnComplete,
+    cleanupOnCompleteForce,
+  } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
   let repoRoot: string;
@@ -148,80 +140,18 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   const workingDir = targetRepo?.path ?? repoRoot;
   const homeDir = config.getHomeDir();
 
-  const agentModeRaw = typeof options.agent === 'string' ? options.agent.toLowerCase() : 'auto';
-  const agentMode: 'auto' | 'codex' | 'claude' =
-    agentModeRaw === 'codex' || agentModeRaw === 'claude' ? agentModeRaw : 'auto';
-
   logger.info(`Agent mode: ${agentMode}`);
 
-  const claudeCandidatePaths: string[] = [];
-  const claudeCredentialsEnv = config.getClaudeCredentialsPath();
-  if (claudeCredentialsEnv) {
-    claudeCandidatePaths.push(claudeCredentialsEnv);
-  }
-  claudeCandidatePaths.push(path.join(homeDir, '.claude-code', 'credentials.json'));
-  claudeCandidatePaths.push(path.join(repoRoot, '.claude-code', 'credentials.json'));
+  // 4. 認証情報解決（agent-setup に委譲）
+  const credentials = resolveAgentCredentials(homeDir, repoRoot);
 
-  const claudeCredentialsPath =
-    claudeCandidatePaths.find((candidate) => candidate && fs.existsSync(candidate)) ?? null;
-
-  let codexClient: CodexAgentClient | null = null;
-  let claudeClient: ClaudeAgentClient | null = null;
-
-  const codexApiKey = config.getCodexApiKey();
-
-  switch (agentMode) {
-    case 'codex': {
-      if (!codexApiKey || !codexApiKey.trim()) {
-        throw new Error(
-          'Agent mode "codex" requires CODEX_API_KEY or OPENAI_API_KEY to be set with a valid Codex API key.',
-        );
-      }
-      const trimmed = codexApiKey.trim();
-      process.env.CODEX_API_KEY = trimmed;
-      if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
-        process.env.OPENAI_API_KEY = trimmed;
-      }
-      delete process.env.CLAUDE_CODE_CREDENTIALS_PATH;
-      codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-      logger.info('Codex agent enabled (codex mode).');
-      break;
-    }
-    case 'claude': {
-      if (!claudeCredentialsPath) {
-        throw new Error(
-          'Agent mode "claude" requires Claude Code credentials.json to be available.',
-        );
-      }
-      claudeClient = new ClaudeAgentClient({ workingDir, credentialsPath: claudeCredentialsPath });
-      process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
-      logger.info('Claude Code agent enabled (claude mode).');
-      break;
-    }
-    case 'auto':
-    default: {
-      if (codexApiKey && codexApiKey.trim().length > 0) {
-        const trimmed = codexApiKey.trim();
-        process.env.CODEX_API_KEY = trimmed;
-        if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
-          process.env.OPENAI_API_KEY = trimmed;
-        }
-        codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-        logger.info('Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
-      }
-
-      if (claudeCredentialsPath) {
-        if (!codexClient) {
-          logger.info('Codex agent unavailable. Using Claude Code.');
-        } else {
-          logger.info('Claude Code credentials detected. Fallback available.');
-        }
-        claudeClient = new ClaudeAgentClient({ workingDir, credentialsPath: claudeCredentialsPath });
-        process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
-      }
-      break;
-    }
-  }
+  // 5. エージェント初期化（agent-setup に委譲）
+  const { codexClient, claudeClient } = setupAgentClients(
+    agentMode,
+    workingDir,
+    credentials.codexApiKey,
+    credentials.claudeCredentialsPath,
+  );
 
   if (!codexClient && !claudeClient) {
     logger.error(
@@ -281,6 +211,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     }
   }
 
+  // 6. PhaseContext 構築
   const context: PhaseContext = {
     workingDir,
     metadataManager,
@@ -291,6 +222,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     ignoreDependencies,
   };
 
+  // 7. プリセット実行（workflow-executor に委譲）
   if (presetOption !== undefined) {
     const resolved = resolvePresetName(presetOption);
 
@@ -324,6 +256,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     process.exit(summary.success ? 0 : 1);
   }
 
+  // 8. 全フェーズ実行またはレジューム（workflow-executor に委譲）
   if (phaseOption === 'all') {
     const resumeManager = new ResumeManager(metadataManager);
 
@@ -382,6 +315,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     process.exit(summary.success ? 0 : 1);
   }
 
+  // 9. 単一フェーズ実行（workflow-executor に委譲）
   if (!isValidPhaseName(phaseOption)) {
     logger.error(`Unknown phase "${phaseOption}".`);
     process.exit(1);
@@ -399,134 +333,6 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   process.exit(summary.success ? 0 : 1);
 }
 
-/**
- * フェーズを順次実行
- * @param phases - 実行するフェーズリスト
- * @param context - フェーズ実行コンテキスト
- * @param gitManager - Git管理インスタンス
- * @param cleanupOnComplete - 完了時クリーンアップフラグ
- * @param cleanupOnCompleteForce - クリーンアップ強制フラグ
- * @returns 実行サマリー
- */
-export async function executePhasesSequential(
-  phases: PhaseName[],
-  context: PhaseContext,
-  gitManager: GitManager,
-  cleanupOnComplete?: boolean,
-  cleanupOnCompleteForce?: boolean,
-): Promise<ExecutionSummary> {
-  const results: PhaseResultMap = {} as PhaseResultMap;
-
-  for (const phaseName of phases) {
-    try {
-      const phaseInstance = createPhaseInstance(phaseName, context);
-      const success = await phaseInstance.run({
-        gitManager,
-        cleanupOnComplete,
-        cleanupOnCompleteForce,
-      });
-      results[phaseName] = { success };
-      if (!success) {
-        return {
-          success: false,
-          failedPhase: phaseName,
-          error: `Phase ${phaseName} failed.`,
-          results,
-        };
-      }
-    } catch (error) {
-      results[phaseName] = { success: false, error: getErrorMessage(error) };
-      return {
-        success: false,
-        failedPhase: phaseName,
-        error: getErrorMessage(error),
-        results,
-      };
-    }
-  }
-
-  return { success: true, results };
-}
-
-/**
- * 特定フェーズから実行
- * @param startPhase - 開始フェーズ
- * @param context - フェーズ実行コンテキスト
- * @param gitManager - Git管理インスタンス
- * @param cleanupOnComplete - 完了時クリーンアップフラグ
- * @param cleanupOnCompleteForce - クリーンアップ強制フラグ
- * @returns 実行サマリー
- */
-export async function executePhasesFrom(
-  startPhase: PhaseName,
-  context: PhaseContext,
-  gitManager: GitManager,
-  cleanupOnComplete?: boolean,
-  cleanupOnCompleteForce?: boolean,
-): Promise<ExecutionSummary> {
-  const startIndex = PHASE_ORDER.indexOf(startPhase);
-  if (startIndex === -1) {
-    return {
-      success: false,
-      failedPhase: startPhase,
-      error: `Unknown phase: ${startPhase}`,
-      results: {} as PhaseResultMap,
-    };
-  }
-
-  const remainingPhases = PHASE_ORDER.slice(startIndex);
-  return executePhasesSequential(
-    remainingPhases,
-    context,
-    gitManager,
-    cleanupOnComplete,
-    cleanupOnCompleteForce,
-  );
-}
-
-/**
- * フェーズインスタンスを作成
- * @param phaseName - フェーズ名
- * @param context - フェーズ実行コンテキスト
- * @returns フェーズインスタンス
- */
-export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext) {
-  const baseParams = {
-    workingDir: context.workingDir,
-    metadataManager: context.metadataManager,
-    codexClient: context.codexClient,
-    claudeClient: context.claudeClient,
-    githubClient: context.githubClient,
-    skipDependencyCheck: context.skipDependencyCheck,
-    ignoreDependencies: context.ignoreDependencies,
-    presetPhases: context.presetPhases,
-  };
-
-  switch (phaseName) {
-    case 'planning':
-      return new PlanningPhase(baseParams);
-    case 'requirements':
-      return new RequirementsPhase(baseParams);
-    case 'design':
-      return new DesignPhase(baseParams);
-    case 'test_scenario':
-      return new TestScenarioPhase(baseParams);
-    case 'implementation':
-      return new ImplementationPhase(baseParams);
-    case 'test_implementation':
-      return new TestImplementationPhase(baseParams);
-    case 'testing':
-      return new TestingPhase(baseParams);
-    case 'documentation':
-      return new DocumentationPhase(baseParams);
-    case 'report':
-      return new ReportPhase(baseParams);
-    case 'evaluation':
-      return new EvaluationPhase(baseParams);
-    default:
-      throw new Error(`Unknown phase: ${phaseName}`);
-  }
-}
 
 /**
  * プリセット名を解決（後方互換性対応）
@@ -664,9 +470,12 @@ export async function resetMetadata(
 
 /**
  * 実行サマリーを報告
+ *
+ * フェーズ実行完了後、成功または失敗をログに出力します。
+ *
  * @param summary - 実行サマリー
  */
-function reportExecutionSummary(summary: ExecutionSummary): void {
+function reportExecutionSummary(summary: import('../types/commands.js').ExecutionSummary): void {
   if (summary.success) {
     logger.info('All phases completed successfully.');
     return;
