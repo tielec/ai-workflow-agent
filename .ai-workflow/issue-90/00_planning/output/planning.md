@@ -160,29 +160,32 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: 型定義の追加 (0.5~1h)
+- [x] Task 4-1: 型定義の追加 (0.5~1h)
   - `src/types/commands.ts`: `RollbackCommandOptions`, `RollbackContext`, `RollbackHistoryEntry`型の追加
   - `src/types.ts`: `WorkflowState`型の拡張（`rollback_context`, `rollback_history`）
-- [ ] Task 4-2: MetadataManagerの拡張 (1~1.5h)
+- [x] Task 4-2: MetadataManagerの拡張 (1~1.5h)
   - `setRollbackContext()`メソッドの実装
   - `getRollbackContext()`メソッドの実装
   - `clearRollbackContext()`メソッドの実装
   - `addRollbackHistory()`メソッドの実装
-- [ ] Task 4-3: BasePhaseの拡張 (1~1.5h)
+  - `updatePhaseForRollback()`メソッドの実装
+  - `resetSubsequentPhases()`メソッドの実装
+- [x] Task 4-3: BasePhaseの拡張 (1~1.5h)
   - `loadPrompt()`メソッドの拡張（差し戻しコンテキストのチェックと注入）
   - `buildRollbackPromptSection()`メソッドの実装
-  - `run()`メソッドの拡張（revise完了後のクリア処理）
-- [ ] Task 4-4: ContentParserの拡張 (0.5~1h)
+  - ReviewCycleManagerでrevise完了後のクリア処理を実装
+- [ ] Task 4-4: ContentParserの拡張 (0.5~1h) **[P1機能として省略]**
   - `extractBlockers()`メソッドの実装（Markdownパース）
   - `extractSuggestions()`メソッドの実装（Markdownパース）
-- [ ] Task 4-5: rollbackコマンドの実装 (1.5~2h)
+  - **省略理由**: コア機能に注力するため、ブロッカー情報抽出は将来的に実装
+- [x] Task 4-5: rollbackコマンドの実装 (1.5~2h)
   - `src/commands/rollback.ts`の作成
   - `handleRollbackCommand()`関数の実装
   - バリデーション処理の実装
   - 確認プロンプトの実装
   - `ROLLBACK_REASON.md`生成処理の実装
   - 後続フェーズのリセット処理の実装
-- [ ] Task 4-6: CLIコマンドの追加 (0.5~0.5h)
+- [x] Task 4-6: CLIコマンドの追加 (0.5~0.5h)
   - `src/main.ts`に`rollback`コマンドの定義追加
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
