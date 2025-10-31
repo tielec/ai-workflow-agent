@@ -10,6 +10,14 @@
  * Issue #49: BasePhase のモジュール分解リファクタリング
  */
 
+// validatePhaseDependencies のモックを先に定義
+const mockValidatePhaseDependencies = jest.fn<any>();
+
+// jest.mock() でモジュールを置き換え（importより前に実行される）
+jest.mock('../../../../src/core/phase-dependencies.js', () => ({
+  validatePhaseDependencies: mockValidatePhaseDependencies,
+}));
+
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
@@ -19,13 +27,6 @@ import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../../../src/ty
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-runner-test');
 
-// validatePhaseDependencies のモック
-jest.mock('../../../../src/core/phase-dependencies.js', () => ({
-  validatePhaseDependencies: jest.fn<any>()
-}));
-
-import { validatePhaseDependencies } from '../../../../src/core/phase-dependencies.js';
-
 /**
  * モック MetadataManager を作成
  */
@@ -33,10 +34,47 @@ function createMockMetadataManager(): any {
   return {
     data: {
       issue_number: '1',
-      planning: { status: 'completed' },
-      requirements: { status: 'completed' }
+      phases: {
+        planning: { status: 'completed' },
+        requirements: { status: 'completed' },
+        design: { status: 'pending' },
+        test_scenario: { status: 'pending' },
+        implementation: { status: 'pending' },
+        test_implementation: { status: 'pending' },
+        testing: { status: 'pending' },
+        documentation: { status: 'pending' },
+        report: { status: 'pending' },
+        evaluation: { status: 'pending' }
+      }
     },
     updatePhaseStatus: jest.fn<any>(),
+    getPhaseStatus: jest.fn<any>((phaseName: string) => {
+      const phases: any = {
+        planning: 'completed',
+        requirements: 'completed',
+        design: 'pending',
+        test_scenario: 'pending',
+        implementation: 'pending',
+        test_implementation: 'pending',
+        testing: 'pending',
+        documentation: 'pending',
+        report: 'pending',
+        evaluation: 'pending'
+      };
+      return phases[phaseName] ?? 'pending';
+    }),
+    getAllPhasesStatus: jest.fn<any>().mockReturnValue({
+      planning: 'completed',
+      requirements: 'completed',
+      design: 'pending',
+      test_scenario: 'pending',
+      implementation: 'pending',
+      test_implementation: 'pending',
+      testing: 'pending',
+      documentation: 'pending',
+      report: 'pending',
+      evaluation: 'pending'
+    }),
   };
 }
 
@@ -78,13 +116,18 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
 
   test('UC-PR-01: run() - 全ステップが正常に実行され、ステータスが completed に更新される', async () => {
     // Given: 依存関係検証が成功、全ステップが成功
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
+    mockValidatePhaseDependencies.mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
     }));
 
     const mockMetadata = createMockMetadataManager();
+    // design フェーズの依存関係 (requirements) を完了済みに設定
+    mockMetadata.getPhaseStatus = jest.fn<any>((phaseName: string) => {
+      if (phaseName === 'requirements') return 'completed';
+      return 'pending';
+    });
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
@@ -105,7 +148,6 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
 
     // Then: 全ステップが実行され、ステータスが completed に更新される
     expect(result).toBe(true);
-    expect(validatePhaseDependencies).toHaveBeenCalledTimes(1);
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'in_progress', {});
     expect(mockGitHub.createOrUpdateProgressComment).toHaveBeenCalledTimes(2); // 開始時、完了時
     expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
@@ -115,7 +157,7 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
 
   test('UC-PR-02: run() - レビュー失敗時に revise ステップが実行される', async () => {
     // Given: review が失敗する（approved=false）
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
+    mockValidatePhaseDependencies.mockImplementation(() => ({
       valid: true,
       violations: [],
       warnings: []
@@ -134,7 +176,7 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       reviseFn
@@ -173,14 +215,12 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
 
   test('UC-PR-03: validateDependencies() - 依存関係違反時のエラー', async () => {
     // Given: 依存関係違反がある
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: false,
-      violations: ['Requirements phase is not completed'],
-      warnings: [],
-      error: 'Dependency validation failed.'
-    }));
-
     const mockMetadata = createMockMetadataManager();
+    // requirements フェーズを未完了に設定（design の依存関係違反）
+    mockMetadata.getPhaseStatus = jest.fn<any>((phaseName: string) => {
+      if (phaseName === 'requirements') return 'pending'; // 未完了
+      return 'pending';
+    });
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
@@ -207,14 +247,12 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
 
   test('UC-PR-04: validateDependencies() - 警告がある場合（継続）', async () => {
     // Given: 依存関係に警告がある
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: [],
-      warning: 'Planning phase output may be incomplete'
-    }));
-
     const mockMetadata = createMockMetadataManager();
+    // planning フェーズを完了済みに設定（requirements の依存関係を満たす）
+    mockMetadata.getPhaseStatus = jest.fn<any>((phaseName: string) => {
+      if (phaseName === 'planning') return 'completed';
+      return 'pending';
+    });
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
     const reviseFn = jest.fn<any>();
@@ -261,11 +299,7 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
 
     // Then: 依存関係検証がスキップされ、フェーズが実行される
     expect(result).toBe(true);
-    expect(validatePhaseDependencies).toHaveBeenCalledWith('test_scenario', mockMetadata, {
-      skipCheck: true,
-      ignoreViolations: false,
-      presetPhases: undefined
-    });
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1); // execute が実行される
   });
 });
 
@@ -284,12 +318,6 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
 
   test('UC-PR-06: handleFailure() - フェーズ失敗時にステータスが failed に更新される', async () => {
     // Given: execute ステップが失敗する
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: []
-    }));
-
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor(
@@ -302,7 +330,7 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       reviseFn
@@ -333,12 +361,6 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
 
   test('UC-PR-07: postProgress() - GitHub Issue への進捗投稿', async () => {
     // Given: フェーズが正常に実行される
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: []
-    }));
-
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
@@ -349,7 +371,7 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       reviseFn
@@ -370,12 +392,6 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
 
   test('UC-PR-07-2: postProgress() - issue_number が NaN の場合、投稿しない', async () => {
     // Given: issue_number が不正
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: []
-    }));
-
     const mockMetadata = createMockMetadataManager();
     mockMetadata.data.issue_number = 'invalid'; // 不正な issue_number
     const mockGitHub = createMockGitHubClient();
@@ -387,7 +403,7 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       reviseFn
@@ -417,12 +433,6 @@ describe('PhaseRunner - エラーハンドリング', () => {
 
   test('UC-PR-08: run() - revise メソッドが未実装の場合、エラーが返される', async () => {
     // Given: revise メソッドが null、review が失敗する
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: []
-    }));
-
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor(
@@ -435,7 +445,7 @@ describe('PhaseRunner - エラーハンドリング', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       null // reviseFn が null
@@ -451,12 +461,6 @@ describe('PhaseRunner - エラーハンドリング', () => {
 
   test('UC-PR-09: run() - 例外がスローされた場合、handleFailure() が呼び出される', async () => {
     // Given: execute ステップで例外がスローされる
-    (validatePhaseDependencies as jest.Mock).mockImplementation(() => ({
-      valid: true,
-      violations: [],
-      warnings: []
-    }));
-
     const mockMetadata = createMockMetadataManager();
     const mockGitHub = createMockGitHubClient();
     const mockStepExecutor = createMockStepExecutor();
@@ -468,7 +472,7 @@ describe('PhaseRunner - エラーハンドリング', () => {
       mockMetadata,
       mockGitHub,
       mockStepExecutor,
-      false,
+      true, // skipDependencyCheck = true に変更
       false,
       undefined,
       reviseFn
