@@ -9,9 +9,14 @@
  *   - all_phases: 全フェーズを一括実行
  *   - preset: 定義済みワークフローパターンを実行（推奨）
  *   - single_phase: 特定フェーズのみ実行（デバッグ用）
+ *   - rollback: フェーズ差し戻し実行（v0.4.0、Issue #90）
  * - PRESET: プリセット名（presetモード時のみ有効、デフォルト: quick-fix）
  *   - quick-fix, implementation, testing, review-requirements, review-design, review-test-scenario, finalize
  * - START_PHASE: 開始フェーズ（single_phaseモード時のみ有効、デフォルト: planning）
+ * - ROLLBACK_TO_PHASE: 差し戻し先フェーズ（rollbackモード時のみ有効、デフォルト: implementation）
+ * - ROLLBACK_TO_STEP: 差し戻し先ステップ（rollbackモード時、省略可、デフォルト: revise）
+ * - ROLLBACK_REASON: 差し戻し理由（rollbackモード時のみ有効、省略時はインタラクティブ入力）
+ * - ROLLBACK_REASON_FILE: 差し戻し理由ファイルパス（rollbackモード時、省略可）
  * - FORCE_RESET: 強制リセット（デフォルト: false）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - SKIP_REVIEW: レビュースキップ（デフォルト: false）
@@ -42,6 +47,10 @@
  *   - 例: quick-fix, implementation, testing, review-requirements, finalize
  * - single_phase: node dist/index.js execute --phase {START_PHASE} を実行
  *   - 指定されたフェーズのみ実行（デバッグ用）
+ * - rollback: node dist/index.js rollback を実行（v0.4.0、Issue #90）
+ *   - 指定されたフェーズに差し戻し、メタデータを更新
+ *   - 差し戻し理由を記録し、reviseプロンプトに自動注入
+ *   - CI環境では --force フラグを自動付与（確認プロンプトをスキップ）
  */
 
 // Jenkins共有ライブラリ（将来実装）
@@ -396,6 +405,46 @@ pipeline {
                                     --agent ${params.AGENT_MODE} \
                                     --issue ${env.ISSUE_NUMBER} \
                                     ${cleanupFlags}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Execute Rollback') {
+            when {
+                expression { params.EXECUTION_MODE == 'rollback' }
+            }
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Rollback - ${params.ROLLBACK_TO_PHASE}"
+                    echo "========================================="
+                    echo "Execution Mode: ${params.EXECUTION_MODE}"
+                    echo "Rollback To Phase: ${params.ROLLBACK_TO_PHASE}"
+                    echo "Rollback To Step: ${params.ROLLBACK_TO_STEP ?: 'revise (default)'}"
+                    echo "Rollback Reason: ${params.ROLLBACK_REASON ?: '(not provided)'}"
+                    echo "Rollback Reason File: ${params.ROLLBACK_REASON_FILE ?: '(not provided)'}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            echo "[DRY RUN] Rollback to ${params.ROLLBACK_TO_PHASE}をスキップ"
+                        } else {
+                            // 差し戻し実行
+                            // CI環境では --force フラグを自動付与（確認プロンプトをスキップ）
+                            def toStepFlag = params.ROLLBACK_TO_STEP ? "--to-step ${params.ROLLBACK_TO_STEP}" : ''
+                            def reasonFlag = params.ROLLBACK_REASON ? "--reason \"${params.ROLLBACK_REASON}\"" : ''
+                            def reasonFileFlag = params.ROLLBACK_REASON_FILE ? "--reason-file ${params.ROLLBACK_REASON_FILE}" : ''
+
+                            sh """
+                                node dist/index.js rollback \
+                                    --issue ${env.ISSUE_NUMBER} \
+                                    --to-phase ${params.ROLLBACK_TO_PHASE} \
+                                    ${toStepFlag} \
+                                    ${reasonFlag} \
+                                    ${reasonFileFlag} \
+                                    --force
                             """
                         }
                     }
