@@ -190,16 +190,17 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1.5h)
-  - `tests/unit/core/metadata-manager.test.ts`に新規メソッドのテストケース追加
-  - `tests/unit/phases/base-phase.test.ts`に`buildRollbackPromptSection()`のテストケース追加
-  - `tests/unit/core/content-parser.test.ts`に`extractBlockers()`のテストケース追加
+- [x] Task 5-1: ユニットテストの実装 (1~1.5h)
+  - `tests/unit/core/metadata-manager-rollback.test.ts`の作成（新規ファイル）
   - `tests/unit/commands/rollback.test.ts`の作成
-- [ ] Task 5-2: インテグレーションテストの実装 (1~1.5h)
+  - MetadataManager新規メソッドのテストケース実装（UC-MM-01 ~ UC-MM-09）
+  - Rollbackコマンドのテストケース実装（UC-RC-01 ~ UC-RC-16）
+- [x] Task 5-2: インテグレーションテストの実装 (1~1.5h)
   - `tests/integration/rollback-workflow.test.ts`の作成
-  - エンドツーエンドの差し戻しシナリオの実装
-  - プロンプト注入の検証
-  - `ROLLBACK_REASON.md`生成の検証
+  - エンドツーエンドの差し戻しシナリオの実装（IC-E2E-01 ~ IC-E2E-04）
+  - エラーハンドリングの検証（IC-ERR-01, IC-ERR-02, IC-ERR-04）
+  - 後方互換性の検証（IC-COMPAT-02）
+  - 差し戻し履歴の検証（IC-HISTORY-01）
 
 ### Phase 6: テスト実行 (見積もり: 0.5~1h)
 
@@ -339,9 +340,9 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4（Task 4-1 → Task 4-2, 4-3, 4-4 �
 
 ### Phase 5: テストコード実装
 
-- [ ] ユニットテストが実装されている（新規メソッドすべて）
-- [ ] インテグレーションテストが実装されている（エンドツーエンドシナリオ）
-- [ ] テストコードがTypeScriptのビルドエラーを起こさない
+- [x] ユニットテストが実装されている（新規メソッドすべて）
+- [x] インテグレーションテストが実装されている（エンドツーエンドシナリオ）
+- [x] テストコードがTypeScriptのビルドエラーを起こさない
 
 ### Phase 6: テスト実行
 
