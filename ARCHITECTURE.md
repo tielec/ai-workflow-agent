@@ -115,11 +115,15 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約150行、Issue #45で拡張）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions等の型を提供。コマンドハンドラの型安全性を確保。 |
-| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約698行、v0.3.1で52.4%削減、Issue #47でテンプレートメソッド追加）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
-| `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、v0.3.1で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
-| `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、v0.3.1で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
-| `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、v0.3.1で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
-| `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、v0.3.1で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
+| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約445行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
+| `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、Issue #23で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
+| `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、Issue #23で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
+| `src/phases/lifecycle/step-executor.ts` | ステップ実行ロジック（約233行、Issue #49で追加）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。 |
+| `src/phases/lifecycle/phase-runner.ts` | フェーズライフサイクル管理（約244行、Issue #49で追加）。フェーズ全体の実行、依存関係検証、エラーハンドリング、進捗投稿を担当。 |
+| `src/phases/context/context-builder.ts` | コンテキスト構築（約223行、Issue #49で追加）。オプショナルコンテキスト構築、ファイル参照生成（@filepath形式）、Planning Document参照を担当。 |
+| `src/phases/cleanup/artifact-cleaner.ts` | クリーンアップロジック（約228行、Issue #49で追加）。ワークフロークリーンアップ、パス検証（セキュリティ対策）、シンボリックリンクチェック、CI環境判定を担当。 |
+| `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、Issue #23で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
+| `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
@@ -182,6 +186,29 @@ BasePhase クラスは1420行から676行へリファクタリングされ（約
 
 **オーケストレーション**:
 BasePhase クラスは各モジュールを依存性注入により統合し、フェーズライフサイクル（execute → review → revise）のオーケストレーションのみを担当します。各モジュールは単一の責務を持ち（Single Responsibility Principle）、独立してテスト可能です。
+
+### BasePhase のさらなるモジュール分解（v0.3.1、Issue #49）
+
+Issue #49では、BasePhase クラスを676行から445行へさらにリファクタリングし（約40%削減）、4つの専門モジュールに責務を分離しました：
+
+**ライフサイクルモジュール**:
+- **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。
+- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。
+
+**コンテキスト構築モジュール**:
+- **ContextBuilder** (`src/phases/context/context-builder.ts`, 223行): コンテキスト構築を担当。オプショナルコンテキスト構築（`buildOptionalContext`）、ファイル参照生成（`@filepath` 形式、`buildFileReference`）、Planning Document参照（`buildPlanningDocumentReference`）を実施。ファイルが存在しない場合は適切なフォールバックメッセージを返し、依存関係を無視した柔軟な実行を可能にする。
+
+**クリーンアップモジュール**:
+- **ArtifactCleaner** (`src/phases/cleanup/artifact-cleaner.ts`, 228行): クリーンアップロジックを担当。ワークフロークリーンアップ（`cleanupWorkflowLogs`, `cleanupWorkflowArtifacts`）、パス検証（正規表現によるセキュリティ対策、`validateWorkflowPath`）、シンボリックリンクチェック（`isSymbolicLink`）、CI環境判定（`shouldAutoConfirm`）、確認プロンプト表示を実施。
+
+**ファサードパターンによる後方互換性**:
+BasePhase クラスは各専門モジュールのインスタンスを保持し、既存のpublicメソッドを対応するモジュールに委譲することで、後方互換性を100%維持します。依存性注入パターンにより、各モジュールは独立してテスト可能で、単一責任原則（SRP）に従った設計となっています。
+
+**主な利点**:
+- **保守性向上**: 各モジュールが明確な責務を持ち、コードの理解と変更が容易
+- **テスト容易性**: 独立したモジュールにより、ユニットテストとモックが容易
+- **拡張性向上**: 新機能の追加が特定のモジュールに限定され、影響範囲が明確
+- **コード削減**: 676行から445行へ34%削減（リファクタリング効果と重複削減）
 
 ## エージェントの選択
 

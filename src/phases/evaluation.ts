@@ -27,7 +27,8 @@ export class EvaluationPhase extends BasePhase {
       const issueNumber = parseInt(this.metadata.data.issue_number, 10);
 
       try {
-        await this.cleanupWorkflowLogs(issueNumber);
+        // BasePhase の cleanupWorkflowLogs() を使用（Issue #49）
+        await this.cleanupWorkflowLogs();
         logger.info('Workflow logs cleaned up successfully.');
 
         // ログクリーンナップによる削除をコミット・プッシュ（Issue #16）
@@ -54,18 +55,11 @@ export class EvaluationPhase extends BasePhase {
 
     // オプションが指定されている場合は、ワークフロー全体を削除（Issue #2）
     if (success && options.cleanupOnComplete) {
-      const gitManager = options.gitManager ?? null;
       const force = options.cleanupOnCompleteForce ?? false;
 
       try {
         await this.cleanupWorkflowArtifacts(force);
         logger.info('Workflow artifacts cleanup completed.');
-
-        // クリーンアップによる削除をコミット・プッシュ（Issue #2）
-        if (gitManager) {
-          await this.autoCommitAndPush(gitManager, null);
-          logger.info('Cleanup changes committed and pushed.');
-        }
       } catch (error) {
         const message = getErrorMessage(error);
         logger.warn(`Failed to cleanup workflow artifacts: ${message}`);
@@ -631,60 +625,5 @@ export class EvaluationPhase extends BasePhase {
     }
 
     return true;
-  }
-
-  /**
-   * ワークフローログをクリーンアップ（Issue #16）
-   * Report Phaseと同じパターンで、すべてのフェーズ（00-09）の実行ログを削除
-   */
-  private async cleanupWorkflowLogs(issueNumber: number): Promise<void> {
-    const baseDir = path.resolve(this.metadata.workflowDir, '..', `issue-${issueNumber}`);
-
-    // すべてのフェーズ（00-09）の実行ログを削除
-    const phaseDirectories = [
-      '00_planning',
-      '01_requirements',
-      '02_design',
-      '03_test_scenario',
-      '04_implementation',
-      '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
-      '09_evaluation',
-    ];
-
-    const targetSubdirs = ['execute', 'review', 'revise'];
-
-    let deletedCount = 0;
-    let skippedCount = 0;
-
-    for (const phaseDir of phaseDirectories) {
-      const phasePath = path.join(baseDir, phaseDir);
-
-      if (!fs.existsSync(phasePath)) {
-        skippedCount++;
-        continue;
-      }
-
-      for (const subdir of targetSubdirs) {
-        const subdirPath = path.join(phasePath, subdir);
-
-        if (fs.existsSync(subdirPath)) {
-          try {
-            fs.removeSync(subdirPath);
-            deletedCount++;
-            logger.info(`Deleted: ${path.relative(baseDir, subdirPath)}`);
-          } catch (error) {
-            const message = getErrorMessage(error);
-            logger.warn(`Failed to delete ${subdirPath}: ${message}`);
-          }
-        }
-      }
-    }
-
-    logger.info(
-      `Cleanup summary: ${deletedCount} directories deleted, ${skippedCount} phase directories skipped.`,
-    );
   }
 }
