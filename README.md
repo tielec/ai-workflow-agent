@@ -104,6 +104,15 @@ ai-workflow migrate \
   [--dry-run] \
   [--issue <number>] \
   [--repo <path>]
+
+ai-workflow rollback \
+  --issue <number> \
+  --to-phase <phase> \
+  --reason <text> | --reason-file <path> | --interactive \
+  [--to-step <step>] \
+  [--from-phase <phase>] \
+  [--force] \
+  [--dry-run]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -217,6 +226,101 @@ ai-workflow migrate --sanitize-tokens --repo /path/to/repo
 - **ドライランモード**: `--dry-run` でファイルを変更せず検出のみ実行
 
 **注意**: v0.3.1以降、`init` コマンド実行時に自動的にトークンが除去されるため、新規ワークフローでは不要です。既存ワークフロー（v0.3.1より前に作成）のメタデータ修正に使用してください。
+
+### Rollbackコマンド（フェーズ差し戻し）
+
+`rollback` コマンドは、ワークフローを前のフェーズに差し戻し、修正作業を行うための機能です（v0.4.0、Issue #90で追加）。レビューで問題が発見された場合や、実装方針の変更が必要な場合に使用します。
+
+```bash
+# 基本的な使用方法（直接理由を指定）
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase implementation \
+  --reason "テストでバグが発見されたため、実装を修正する必要があります"
+
+# ファイルから差し戻し理由を読み込む
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase design \
+  --reason-file /path/to/reason.md
+
+# インタラクティブモード（標準入力から理由を入力）
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase requirements \
+  --interactive
+
+# 特定のステップへの差し戻し（revise ステップから再開）
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase implementation \
+  --to-step revise \
+  --reason "レビューコメントの修正が必要"
+
+# ドライラン（実際には差し戻さず、変更内容のみ確認）
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase implementation \
+  --reason "テスト用" \
+  --dry-run
+```
+
+**主な機能**:
+
+- **差し戻し理由の記録**: `--reason`、`--reason-file`、`--interactive` の3つの入力方法をサポート
+- **メタデータ自動更新**: 差し戻し先フェーズを `in_progress` に、後続フェーズを `pending` にリセット
+- **差し戻し履歴の記録**: `metadata.json` の `rollback_history` 配列に履歴を保存
+- **プロンプト自動注入**: 差し戻し先フェーズの `revise` ステップで差し戻し理由が自動的にプロンプトに注入される
+- **ROLLBACK_REASON.md生成**: 差し戻し理由を記録したMarkdownファイルを自動生成
+
+**オプション**:
+
+- `--issue <number>`: 対象のIssue番号（必須）
+- `--to-phase <phase>`: 差し戻し先のフェーズ名（必須）
+  - 有効なフェーズ: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
+- `--reason <text>`: 差し戻し理由を直接指定（最大1000文字）
+- `--reason-file <path>`: 差し戻し理由が記載されたファイルパス（最大100KB）
+- `--interactive`: 標準入力から差し戻し理由を読み込む（EOF（Ctrl+D）で終了）
+- `--to-step <step>`: 差し戻し先のステップ（`execute` | `review` | `revise`、デフォルト: `revise`）
+- `--from-phase <phase>`: 差し戻し元のフェーズ（省略時は現在の最新完了フェーズ）
+- `--force`: 確認プロンプトをスキップ
+- `--dry-run`: 実際には差し戻さず、変更内容のみを表示
+
+**使用例**:
+
+```bash
+# ケース1: Phase 6（Testing）でバグ発見 → Phase 4（Implementation）に差し戻し
+ai-workflow rollback \
+  --issue 90 \
+  --to-phase implementation \
+  --reason "テスト実行時にNullPointerExceptionが発生。エラーハンドリングの追加が必要。"
+
+# ケース2: Phase 5（Test Implementation）でテスト設計の見直しが必要 → Phase 3（Test Scenario）に差し戻し
+ai-workflow rollback \
+  --issue 90 \
+  --to-phase test-scenario \
+  --reason-file review-comments.md \
+  --to-step execute
+
+# ケース3: 長文の差し戻し理由をインタラクティブに入力
+ai-workflow rollback --issue 90 --to-phase design --interactive
+# （標準入力から複数行の理由を入力し、Ctrl+Dで終了）
+
+# ケース4: 差し戻し前に変更内容を確認（ドライラン）
+ai-workflow rollback \
+  --issue 90 \
+  --to-phase implementation \
+  --reason "テスト用" \
+  --dry-run
+```
+
+**注意事項**:
+
+- 差し戻し先フェーズは少なくとも一度実行済み（`completed` または `in_progress`）である必要があります
+- `--reason`、`--reason-file`、`--interactive` のいずれか1つが必須です
+- 差し戻しを実行すると、後続フェーズのステータスはすべて `pending` にリセットされます
+- 差し戻し理由は `ROLLBACK_REASON.md` として `.ai-workflow/issue-<NUM>/<PHASE>/` ディレクトリに保存されます
+- 差し戻し後、次回の `execute` コマンドで差し戻し先フェーズの指定ステップから自動的に再開されます
 
 ## フェーズ概要
 
