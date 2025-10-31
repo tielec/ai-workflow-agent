@@ -213,12 +213,12 @@
 
 ### Phase 7: ドキュメント (見積もり: 1~1.5h)
 
-- [ ] Task 7-1: README.mdの更新 (0.5~0.75h)
+- [x] Task 7-1: README.mdの更新 (0.5~0.75h)
   - `rollback`コマンドの使用方法を追加
   - 使用例の追加
-- [ ] Task 7-2: CLAUDE.mdの更新 (0.25~0.375h)
+- [x] Task 7-2: CLAUDE.mdの更新 (0.25~0.375h)
   - アーキテクチャセクションに差し戻し機能の説明を追加
-- [ ] Task 7-3: ARCHITECTURE.mdの更新 (0.25~0.375h)
+- [x] Task 7-3: ARCHITECTURE.mdの更新 (0.25~0.375h)
   - モジュール構成セクションに`rollback`コマンドの説明を追加
 
 ### Phase 8: レポート (見積もり: 0.5~0.5h)
@@ -353,10 +353,10 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4（Task 4-1 → Task 4-2, 4-3, 4-4 �
 
 ### Phase 7: ドキュメント
 
-- [ ] README.mdに`rollback`コマンドの使用方法が追加されている
-- [ ] 使用例が具体的である
-- [ ] CLAUDE.mdが更新されている
-- [ ] ARCHITECTURE.mdが更新されている
+- [x] README.mdに`rollback`コマンドの使用方法が追加されている
+- [x] 使用例が具体的である
+- [x] CLAUDE.mdが更新されている
+- [x] ARCHITECTURE.mdが更新されている
 
 ### Phase 8: レポート
 
