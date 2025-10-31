@@ -17,11 +17,13 @@ import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import type { RollbackContext, RollbackHistoryEntry } from '../../../src/types/commands.js';
 import type { PhaseName } from '../../../src/types.js';
-import * as fs from 'fs-extra';
 import * as path from 'node:path';
 
 // fs-extraのモック
 jest.mock('fs-extra');
+
+import * as fs from 'fs-extra';
+const { existsSync } = fs as jest.Mocked<typeof fs>;
 
 describe('MetadataManager - Rollback機能', () => {
   let metadataManager: MetadataManager;
@@ -30,7 +32,7 @@ describe('MetadataManager - Rollback機能', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
+    existsSync.mockReturnValue(false);
     metadataManager = new MetadataManager(testMetadataPath);
 
     // メタデータの初期化（実装フェーズが完了している状態）

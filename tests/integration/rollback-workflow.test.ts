@@ -15,11 +15,18 @@ import { handleRollbackCommand } from '../../src/commands/rollback.js';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import type { RollbackCommandOptions } from '../../src/types/commands.js';
 import type { PhaseName } from '../../src/types.js';
-import * as fs from 'fs-extra';
 import * as path from 'node:path';
 
-// モジュールのモック
-jest.mock('fs-extra');
+// fs-extraのモック - モック化してからインポート
+jest.mock('fs-extra', () => ({
+  existsSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  readFileSync: jest.fn(),
+  statSync: jest.fn(),
+}));
+
+import * as fs from 'fs-extra';
 
 describe('Integration: Rollback Workflow', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-90';
@@ -28,9 +35,9 @@ describe('Integration: Rollback Workflow', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
-    (fs.ensureDirSync as jest.MockedFunction<typeof fs.ensureDirSync>).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.MockedFunction<typeof fs.writeFileSync>).mockImplementation(() => undefined);
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
 
     metadataManager = new MetadataManager(testMetadataPath);
 
@@ -58,8 +65,8 @@ describe('Integration: Rollback Workflow', () => {
       };
 
       // fs.existsSync のモックを設定（メタデータファイルが存在する）
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -99,8 +106,8 @@ describe('Integration: Rollback Workflow', () => {
         force: true
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -133,8 +140,8 @@ describe('Integration: Rollback Workflow', () => {
         force: true
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -162,8 +169,8 @@ describe('Integration: Rollback Workflow', () => {
         force: true
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -191,7 +198,7 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
+    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
     metadataManager = new MetadataManager(testMetadataPath);
   });
 
@@ -207,8 +214,8 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
         reason: 'Test'
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -231,8 +238,8 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
         reason: 'Test'
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -254,8 +261,8 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
         // reason, reasonFile が未指定
       };
 
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -273,7 +280,7 @@ describe('Integration: Rollback Workflow - 後方互換性', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
+    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
     metadataManager = new MetadataManager(testMetadataPath);
   });
 

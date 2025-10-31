@@ -20,11 +20,18 @@ import {
 } from '../../../src/commands/rollback.js';
 import type { RollbackCommandOptions } from '../../../src/types/commands.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
-import * as fs from 'fs-extra';
 import * as path from 'node:path';
 
-// モジュールのモック
-jest.mock('fs-extra');
+// fs-extraのモック - モック化してからインポート
+jest.mock('fs-extra', () => ({
+  existsSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  readFileSync: jest.fn(),
+  statSync: jest.fn(),
+}));
+
+import * as fs from 'fs-extra';
 
 describe('Rollback コマンド - バリデーション', () => {
   let metadataManager: MetadataManager;
@@ -33,7 +40,7 @@ describe('Rollback コマンド - バリデーション', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
     metadataManager = new MetadataManager(testMetadataPath);
 
     // メタデータの初期化（implementation フェーズが完了している状態）
@@ -207,9 +214,9 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
         toPhase: 'implementation',
         reasonFile: '/path/to/review/result.md'
       };
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.statSync as jest.MockedFunction<typeof fs.statSync>).mockReturnValue({ size: 1024 } as any);
-      (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue('Review result content' as any);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.statSync as jest.Mock).mockReturnValue({ size: 1024 } as any);
+      (fs.readFileSync as jest.Mock).mockReturnValue('Review result content' as any);
 
       // When: loadRollbackReason()を呼び出す
       const reason = await loadRollbackReason(options, testWorkflowDir);
@@ -230,7 +237,7 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
         toPhase: 'implementation',
         reasonFile: '/non-existent-file.md'
       };
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(false);
+      (fs.existsSync as jest.Mock).mockReturnValue(false);
 
       // When & Then: エラーがスローされる
       await expect(loadRollbackReason(options, testWorkflowDir))
@@ -249,8 +256,8 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
         toPhase: 'implementation',
         reasonFile: '/large-file.md'
       };
-      (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
-      (fs.statSync as jest.MockedFunction<typeof fs.statSync>).mockReturnValue({ size: 200 * 1024 } as any);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+      (fs.statSync as jest.Mock).mockReturnValue({ size: 200 * 1024 } as any);
 
       // When & Then: エラーがスローされる
       await expect(loadRollbackReason(options, testWorkflowDir))

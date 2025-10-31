@@ -85,8 +85,9 @@ async function loadWorkflowMetadata(issueNumber: string): Promise<{
 
 /**
  * Rollback オプションをバリデーション
+ * Issue #90: テストのためにエクスポート
  */
-function validateRollbackOptions(
+export function validateRollbackOptions(
   options: RollbackCommandOptions,
   metadataManager: MetadataManager
 ): void {
@@ -135,8 +136,9 @@ function validateRollbackOptions(
 
 /**
  * 差し戻し理由を読み込む
+ * Issue #90: テストのためにエクスポート
  */
-async function loadRollbackReason(
+export async function loadRollbackReason(
   options: RollbackCommandOptions,
   workflowDir: string
 ): Promise<string> {
@@ -387,8 +389,9 @@ async function executeRollback(
 
 /**
  * ROLLBACK_REASON.md を生成
+ * Issue #90: テストのためにエクスポート
  */
-function generateRollbackReasonMarkdown(
+export function generateRollbackReasonMarkdown(
   options: RollbackCommandOptions,
   reason: string
 ): string {
@@ -430,8 +433,9 @@ function generateRollbackReasonMarkdown(
 
 /**
  * フェーズ番号を取得
+ * Issue #90: テストのためにエクスポート
  */
-function getPhaseNumber(phase: PhaseName): string {
+export function getPhaseNumber(phase: PhaseName): string {
   const mapping: Record<PhaseName, string> = {
     planning: '00',
     requirements: '01',
