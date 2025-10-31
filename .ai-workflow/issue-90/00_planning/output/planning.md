@@ -148,11 +148,11 @@
 
 ### Phase 3: テストシナリオ (見積もり: 1~2h)
 
-- [ ] Task 3-1: ユニットテストシナリオの策定 (0.5~1h)
+- [x] Task 3-1: ユニットテストシナリオの策定 (0.5~1h)
   - `MetadataManager`新規メソッドのテストケース
   - `BasePhase.buildRollbackPromptSection()`のテストケース
   - `ContentParser.extractBlockers()`のテストケース
-- [ ] Task 3-2: インテグレーションテストシナリオの策定 (0.5~1h)
+- [x] Task 3-2: インテグレーションテストシナリオの策定 (0.5~1h)
   - エンドツーエンドの差し戻しシナリオ（Phase 6 → Phase 4）
   - プロンプト注入の検証シナリオ
   - メタデータ更新の検証シナリオ
