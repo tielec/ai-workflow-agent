@@ -182,7 +182,81 @@ export abstract class BasePhase {
     if (!fs.existsSync(promptPath)) {
       throw new Error(`Prompt file not found: ${promptPath}`);
     }
-    return fs.readFileSync(promptPath, 'utf-8');
+
+    let prompt = fs.readFileSync(promptPath, 'utf-8');
+
+    // Issue #90: 差し戻しコンテキストがある場合、プロンプトの先頭に追加
+    // revise ステップのみに差し戻し情報を注入
+    if (promptType === 'revise') {
+      const rollbackContext = this.metadata.getRollbackContext(this.phaseName);
+      if (rollbackContext) {
+        const rollbackSection = this.buildRollbackPromptSection(rollbackContext);
+        prompt = rollbackSection + '\n\n' + prompt;
+
+        logger.info(`Rollback context injected into revise prompt for phase ${this.phaseName}`);
+      }
+    }
+
+    return prompt;
+  }
+
+  /**
+   * Issue #90: 差し戻し情報をMarkdown形式で生成
+   * @param context - 差し戻しコンテキスト
+   * @returns Markdown形式の差し戻し情報
+   */
+  protected buildRollbackPromptSection(
+    context: import('../types/commands.js').RollbackContext,
+  ): string {
+    const sections: string[] = [];
+
+    // ヘッダー
+    sections.push('# ⚠️ 差し戻し情報');
+    sections.push('');
+
+    // 差し戻し元フェーズ
+    const fromPhaseText = context.from_phase
+      ? `Phase ${context.from_phase}`
+      : '不明なフェーズ';
+    sections.push(`**このフェーズは ${fromPhaseText} から差し戻されました。**`);
+    sections.push('');
+
+    // 差し戻しの理由
+    sections.push('## 差し戻しの理由:');
+    sections.push(context.reason);
+    sections.push('');
+
+    // 詳細情報（存在する場合）
+    if (context.details) {
+      sections.push('## 詳細情報:');
+
+      if (context.details.blocker_count !== undefined) {
+        sections.push(`- ブロッカー数: ${context.details.blocker_count}`);
+      }
+
+      if (context.details.suggestion_count !== undefined) {
+        sections.push(`- 改善提案数: ${context.details.suggestion_count}`);
+      }
+
+      if (context.details.affected_tests && context.details.affected_tests.length > 0) {
+        sections.push(`- 影響を受けるテスト: ${context.details.affected_tests.join(', ')}`);
+      }
+
+      sections.push('');
+    }
+
+    // 参照すべきドキュメント
+    if (context.review_result) {
+      sections.push('## 参照すべきドキュメント:');
+      sections.push(`- ${context.review_result}`);
+      sections.push('');
+    }
+
+    // 区切り線
+    sections.push('---');
+    sections.push('');
+
+    return sections.join('\n');
   }
 
   protected async executeWithAgent(
