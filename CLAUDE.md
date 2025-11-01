@@ -171,7 +171,9 @@ node dist/index.js rollback \
 - **`src/core/helpers/validation.ts`**: 共通バリデーション処理（47行、Issue #26で追加）
 - **`src/core/config.ts`**: 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジックの統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。
 - **`src/core/git-manager.ts`**: Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。
-- **`src/core/git/commit-manager.ts`**: コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。
+- **`src/core/git/commit-manager.ts`**: コミット操作の専門マネージャー（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput等）、FileSelector/CommitMessageBuilderへの委譲、SecretMasker統合、ensureGitConfig（Git設定管理）を担当。
+- **`src/core/git/file-selector.ts`**: ファイル選択・フィルタリング専門モジュール（約160行、Issue #52で追加）。getChangedFiles（変更ファイル検出）、filterPhaseFiles（Issue番号フィルタリング）、getPhaseSpecificFiles（フェーズ固有パターンマッチング）、scanDirectories、scanByPatterns、@tmp除外ロジックを担当。
+- **`src/core/git/commit-message-builder.ts`**: コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **`src/core/git/branch-manager.ts`**: ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。
 - **`src/core/git/remote-manager.ts`**: リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。
 - **`src/core/github-client.ts`**: Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。
@@ -352,6 +354,18 @@ if (config.isCI()) {
 - 統合テスト: `tests/integration/`（プリセット実行、マルチリポジトリワークフロー）
 - テストでのファイル操作には `fs-extra` を使用
 - **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
+
+### Jest設定（ESMパッケージ対応）
+
+`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`）を変換対象に含める設定を追加しています：
+
+```javascript
+transformIgnorePatterns: [
+  '/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)',
+],
+```
+
+この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。詳細は Issue #102 を参照してください。
 
 ## 主要な設計パターン
 

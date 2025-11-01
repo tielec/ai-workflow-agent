@@ -1,8 +1,9 @@
 import { join } from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
-import { minimatch } from 'minimatch';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { FileSelector } from './file-selector.js';
+import { CommitMessageBuilder } from './commit-message-builder.js';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 import type { SecretMasker } from '../secret-masker.js';
@@ -16,20 +17,22 @@ interface CommitResult {
 }
 
 /**
- * CommitManager - Specialized manager for Git commit operations
+ * CommitManager - Specialized manager for Git commit operations (Refactored)
  *
  * Responsibilities:
- * - Commit creation (phase output, step output, workflow init, cleanup logs)
- * - Commit message generation
- * - File operation helpers (changed files, filtering, scanning)
- * - Git configuration management
+ * - Commit orchestration (delegating to FileSelector and CommitMessageBuilder)
  * - SecretMasker integration
+ * - Git configuration management
  */
 export class CommitManager {
   private readonly git: SimpleGit;
   private readonly metadata: MetadataManager;
   private readonly secretMasker: SecretMasker;
   private readonly repoPath: string;
+
+  // Specialized modules
+  private readonly fileSelector: FileSelector;
+  private readonly messageBuilder: CommitMessageBuilder;
 
   constructor(
     git: SimpleGit,
@@ -41,6 +44,10 @@ export class CommitManager {
     this.metadata = metadataManager;
     this.secretMasker = secretMasker;
     this.repoPath = repoPath;
+
+    // Initialize specialized modules
+    this.fileSelector = new FileSelector(git);
+    this.messageBuilder = new CommitMessageBuilder(metadataManager);
   }
 
   /**
@@ -61,17 +68,18 @@ export class CommitManager {
       };
     }
 
-    const changedFiles = await this.getChangedFiles();
+    // 1. File selection (delegated to FileSelector)
+    const changedFiles = await this.fileSelector.getChangedFiles();
     logger.debug(`Git status detected ${changedFiles.length} changed files`);
     if (changedFiles.length > 0) {
       logger.debug(`Changed files: ${changedFiles.slice(0, 5).join(', ')}${changedFiles.length > 5 ? '...' : ''}`);
     }
 
     const targetFiles = new Set(
-      this.filterPhaseFiles(changedFiles, issueNumber),
+      this.fileSelector.filterPhaseFiles(changedFiles, issueNumber),
     );
 
-    const phaseSpecific = await this.getPhaseSpecificFiles(phaseName);
+    const phaseSpecific = await this.fileSelector.getPhaseSpecificFiles(phaseName);
     phaseSpecific.forEach((file) => targetFiles.add(file));
 
     logger.debug(`Target files for commit: ${targetFiles.size} files`);
@@ -90,7 +98,7 @@ export class CommitManager {
 
     const filesToCommit = Array.from(targetFiles);
 
-    // Issue #12: Mask secrets before commit
+    // 2. Secret masking
     const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
@@ -109,15 +117,18 @@ export class CommitManager {
       // Continue with commit (don't block)
     }
 
+    // 3. Git staging
     await this.git.add(filesToCommit);
     await this.ensureGitConfig();
 
-    const commitMessage = this.createCommitMessage(
+    // 4. Commit message generation (delegated to CommitMessageBuilder)
+    const commitMessage = this.messageBuilder.createCommitMessage(
       phaseName,
       status,
       reviewResult,
     );
 
+    // 5. Commit execution
     try {
       const commitResponse = await this.git.commit(commitMessage, filesToCommit, {
         '--no-verify': null,
@@ -152,15 +163,9 @@ export class CommitManager {
     issueNumber: number,
     workingDir: string,
   ): Promise<CommitResult> {
-    const message = this.buildStepCommitMessage(
-      phaseName,
-      phaseNumber,
-      step,
-      issueNumber,
-    );
-
-    const changedFiles = await this.getChangedFiles();
-    const targetFiles = this.filterPhaseFiles(changedFiles, issueNumber.toString());
+    // 1. File selection (delegated to FileSelector)
+    const changedFiles = await this.fileSelector.getChangedFiles();
+    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     if (targetFiles.length === 0) {
       logger.warn(`No files to commit for step: ${step}`);
@@ -171,7 +176,7 @@ export class CommitManager {
       };
     }
 
-    // Issue #12: Mask secrets before commit
+    // 2. Secret masking
     const workflowDir = join(workingDir, '.ai-workflow', `issue-${issueNumber}`);
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
@@ -190,9 +195,19 @@ export class CommitManager {
       // Continue with commit (don't block)
     }
 
+    // 3. Git staging
     await this.git.add(targetFiles);
     await this.ensureGitConfig();
 
+    // 4. Commit message generation (delegated to CommitMessageBuilder)
+    const message = this.messageBuilder.buildStepCommitMessage(
+      phaseName,
+      phaseNumber,
+      step,
+      issueNumber,
+    );
+
+    // 5. Commit execution
     try {
       const commitResponse = await this.git.commit(message, targetFiles, {
         '--no-verify': null,
@@ -223,9 +238,9 @@ export class CommitManager {
     issueNumber: number,
     branchName: string,
   ): Promise<CommitResult> {
-    // 1. Get changed files
-    const changedFiles = await this.getChangedFiles();
-    const targetFiles = this.filterPhaseFiles(changedFiles, issueNumber.toString());
+    // 1. File selection (delegated to FileSelector)
+    const changedFiles = await this.fileSelector.getChangedFiles();
+    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     // 2. No files to commit
     if (targetFiles.length === 0) {
@@ -237,7 +252,7 @@ export class CommitManager {
       };
     }
 
-    // Issue #54: Mask secrets in metadata.json before commit (Defense in Depth - Layer 2)
+    // 3. Secret masking (Issue #54: Defense in Depth - Layer 2)
     const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
@@ -257,16 +272,14 @@ export class CommitManager {
       throw new Error('Cannot commit metadata.json with unmasked secrets');
     }
 
-    // 3. Stage files
+    // 4. Git staging
     await this.git.add(targetFiles);
-
-    // 4. Ensure git config
     await this.ensureGitConfig();
 
-    // 5. Generate commit message
-    const message = this.createInitCommitMessage(issueNumber, branchName);
+    // 5. Commit message generation (delegated to CommitMessageBuilder)
+    const message = this.messageBuilder.createInitCommitMessage(issueNumber, branchName);
 
-    // 6. Create commit
+    // 6. Commit execution
     try {
       const commitResponse = await this.git.commit(message, targetFiles, {
         '--no-verify': null,
@@ -297,9 +310,9 @@ export class CommitManager {
     issueNumber: number,
     phase: 'report' | 'evaluation',
   ): Promise<CommitResult> {
-    // 1. Get changed files
-    const changedFiles = await this.getChangedFiles();
-    const targetFiles = this.filterPhaseFiles(changedFiles, issueNumber.toString());
+    // 1. File selection (delegated to FileSelector)
+    const changedFiles = await this.fileSelector.getChangedFiles();
+    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     // 2. No files to commit
     if (targetFiles.length === 0) {
@@ -311,16 +324,14 @@ export class CommitManager {
       };
     }
 
-    // 3. Stage files
+    // 3. Git staging
     await this.git.add(targetFiles);
-
-    // 4. Ensure git config
     await this.ensureGitConfig();
 
-    // 5. Generate commit message
-    const message = this.createCleanupCommitMessage(issueNumber, phase);
+    // 4. Commit message generation (delegated to CommitMessageBuilder)
+    const message = this.messageBuilder.createCleanupCommitMessage(issueNumber, phase);
 
-    // 6. Create commit
+    // 5. Commit execution
     try {
       const commitResponse = await this.git.commit(message, targetFiles, {
         '--no-verify': null,
@@ -346,223 +357,14 @@ export class CommitManager {
 
   /**
    * Create commit message for phase completion
+   * (Public API for backward compatibility with git-manager.ts)
    */
   public createCommitMessage(
     phaseName: PhaseName,
     status: 'completed' | 'failed',
     reviewResult?: string,
   ): string {
-    const phaseOrder: PhaseName[] = [
-      'planning',
-      'requirements',
-      'design',
-      'test_scenario',
-      'implementation',
-      'test_implementation',
-      'testing',
-      'documentation',
-      'report',
-      'evaluation',
-    ];
-
-    const phaseNumber = phaseOrder.indexOf(phaseName) + 1;
-    const issueNumber = this.metadata.data.issue_number;
-    const review = reviewResult ?? 'N/A';
-
-    return [
-      `[ai-workflow] Phase ${phaseNumber} (${phaseName}) - ${status}`,
-      '',
-      `Issue: #${issueNumber}`,
-      `Phase: ${phaseNumber} (${phaseName})`,
-      `Status: ${status}`,
-      `Review: ${review}`,
-      '',
-      'Auto-generated by AI Workflow',
-    ].join('\n');
-  }
-
-  /**
-   * Issue #10: Build step commit message
-   */
-  private buildStepCommitMessage(
-    phaseName: string,
-    phaseNumber: number,
-    step: string,
-    issueNumber: number,
-  ): string {
-    return [
-      `[ai-workflow] Phase ${phaseNumber} (${phaseName}) - ${step} completed`,
-      '',
-      `Issue: #${issueNumber}`,
-      `Phase: ${phaseNumber} (${phaseName})`,
-      `Step: ${step}`,
-      `Status: completed`,
-      '',
-      'Auto-generated by AI Workflow',
-    ].join('\n');
-  }
-
-  /**
-   * Issue #16: Create initialization commit message
-   */
-  private createInitCommitMessage(
-    issueNumber: number,
-    branchName: string,
-  ): string {
-    return [
-      `[ai-workflow] Initialize workflow for issue #${issueNumber}`,
-      '',
-      `Issue: #${issueNumber}`,
-      `Action: Create workflow metadata and directory structure`,
-      `Branch: ${branchName}`,
-      '',
-      'Auto-generated by AI Workflow',
-    ].join('\n');
-  }
-
-  /**
-   * Issue #16: Create cleanup commit message
-   */
-  private createCleanupCommitMessage(
-    issueNumber: number,
-    phase: 'report' | 'evaluation',
-  ): string {
-    // Calculate correct phase number
-    const phaseNumber = phase === 'report' ? 8 : 9;
-
-    return [
-      `[ai-workflow] Clean up workflow execution logs`,
-      '',
-      `Issue: #${issueNumber}`,
-      `Phase: ${phaseNumber} (${phase})`,
-      `Action: Remove agent execution logs (execute/review/revise directories)`,
-      `Preserved: metadata.json, output/*.md`,
-      '',
-      'Auto-generated by AI Workflow',
-    ].join('\n');
-  }
-
-  /**
-   * Get changed files from git status
-   */
-  private async getChangedFiles(): Promise<string[]> {
-    const status = await this.git.status();
-    const aggregated = new Set<string>();
-
-    const collect = (paths: string[] | undefined) => {
-      paths?.forEach((file) => {
-        if (!file.includes('@tmp')) {
-          aggregated.add(file);
-        }
-      });
-    };
-
-    collect(status.not_added);
-    collect(status.created);
-    collect(status.deleted);
-    collect(status.modified);
-    collect(status.renamed?.map((entry) => entry.to));
-    collect(status.staged);
-
-    status.files.forEach((file) => aggregated.add(file.path));
-
-    return Array.from(aggregated);
-  }
-
-  /**
-   * Filter files by issue number
-   */
-  private filterPhaseFiles(files: string[], issueNumber: string): string[] {
-    const targetPrefix = `.ai-workflow/issue-${issueNumber}/`;
-    const result: string[] = [];
-
-    for (const file of files) {
-      if (file.includes('@tmp')) {
-        continue;
-      }
-
-      if (file.startsWith(targetPrefix)) {
-        result.push(file);
-      } else if (file.startsWith('.ai-workflow/')) {
-        continue;
-      } else {
-        result.push(file);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Get phase-specific files based on phase name
-   */
-  private async getPhaseSpecificFiles(phaseName: PhaseName): Promise<string[]> {
-    switch (phaseName) {
-      case 'implementation':
-        return this.scanDirectories(['scripts', 'pulumi', 'ansible', 'jenkins']);
-      case 'test_implementation':
-        return this.scanByPatterns([
-          'test_*.py',
-          '*_test.py',
-          '*.test.js',
-          '*.spec.js',
-          '*.test.ts',
-          '*.spec.ts',
-          '*_test.go',
-          'Test*.java',
-          '*Test.java',
-          'test_*.sh',
-        ]);
-      case 'documentation':
-        return this.scanByPatterns(['*.md', '*.MD']);
-      default:
-        return [];
-    }
-  }
-
-  /**
-   * Scan specific directories for changed files
-   */
-  private async scanDirectories(directories: string[]): Promise<string[]> {
-    const changedFiles = await this.getChangedFiles();
-    const results: string[] = [];
-
-    for (const dir of directories) {
-      const prefix = `${dir}/`;
-      changedFiles.forEach((file) => {
-        if (file.startsWith(prefix) && !file.includes('@tmp')) {
-          results.push(file);
-        }
-      });
-    }
-
-    return results;
-  }
-
-  /**
-   * Scan files by glob patterns
-   */
-  private async scanByPatterns(patterns: string[]): Promise<string[]> {
-    const changedFiles = await this.getChangedFiles();
-    const results = new Set<string>();
-
-    changedFiles.forEach((file) => {
-      if (file.includes('@tmp')) {
-        return;
-      }
-
-      for (const pattern of patterns) {
-        if (
-          minimatch(file, pattern, { dot: true }) ||
-          minimatch(file, `**/${pattern}`, { dot: true })
-        ) {
-          results.add(file);
-          break;
-        }
-      }
-    });
-
-    return Array.from(results);
+    return this.messageBuilder.createCommitMessage(phaseName, status, reviewResult);
   }
 
   /**
