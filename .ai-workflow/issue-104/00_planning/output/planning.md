@@ -163,22 +163,22 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `RemainingTask` 型の拡張 (0.5h)
+- [x] Task 4-1: `RemainingTask` 型の拡張 (0.5h)
   - `src/types.ts` にフィールド追加
   - JSDoc コメント追加
 
-- [ ] Task 4-2: タイトル生成ロジックの実装 (1~1.5h)
+- [x] Task 4-2: タイトル生成ロジックの実装 (1~1.5h)
   - `generateFollowUpTitle()` メソッド実装
   - `extractKeywords()` メソッド実装
   - 80文字制限とフォールバック処理
 
-- [ ] Task 4-3: Issue 本文生成ロジックの拡張 (1~1.5h)
+- [x] Task 4-3: Issue 本文生成ロジックの拡張 (1~1.5h)
   - `createIssueFromEvaluation()` メソッドの拡張
   - 新規パラメータ（`IssueContext`）の追加
   - 各セクション生成ロジックの実装
   - 条件分岐（フィールド存在チェック）
 
-- [ ] Task 4-4: Evaluation Phase 側の修正 (0.5~1h)
+- [x] Task 4-4: Evaluation Phase 側の修正 (0.5~1h)
   - `handlePassWithIssues()` メソッドを修正
   - Evaluation レポートから情報抽出
   - `IssueContext` オブジェクトの構築
