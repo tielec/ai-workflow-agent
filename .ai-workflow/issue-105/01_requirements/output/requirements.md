@@ -23,7 +23,7 @@ Planning Phase (Phase 0) で策定された開発計画を確認しました：
 - テストインフラストラクチャの改善のみ（本体コード変更なし）
 - Jest設定の拡張（ESMパッケージ対応）
 - commit-manager.test.ts の統合テスト実行可能化
-- プロジェクト全体のテスト修正（103個の失敗テストのうち高優先度のみ）
+- プロジェクト全体のテスト修正（146個の失敗テストのうち高優先度のみ）
 
 ### 技術選定
 - 既存の Jest + ts-jest エコシステムを維持
@@ -32,7 +32,7 @@ Planning Phase (Phase 0) で策定された開発計画を確認しました：
 
 ### リスク
 1. chalk内部依存（#ansi-styles）のESM対応が複雑（影響度: 中、確率: 中）
-2. 103個の失敗テストすべてを修正できない（影響度: 中、確率: 高）
+2. 146個の失敗テストすべてを修正できない（影響度: 中、確率: 高）
 3. Jest ESMサポートの不安定性（影響度: 高、確率: 低）
 4. 本体コードへの予期しない影響（影響度: 低、確率: 低）
 
@@ -58,7 +58,7 @@ Issue #102 の実施により、以下の成果が得られました：
 
 しかし、Evaluation Phase（Phase 9）で以下の2つの残タスクが特定されました：
 1. **commit-manager.test.ts の完全な実行可能化**: chalk の内部依存（#ansi-styles）が ESM 形式エラーを引き起こし、統合テストが実行できない
-2. **プロジェクト全体のテストスイート修正**: 103個の失敗テストが Issue #102 とは無関係な既存の問題として残存
+2. **プロジェクト全体のテストスイート修正**: 146個の失敗テストが Issue #102 とは無関係な既存の問題として残存
 
 Issue #102 では Jest が chalk を変換対象として認識するまで完了しましたが、chalk の内部依存（#ansi-styles）の完全な ESM 対応と、プロジェクト全体のテスト修正は別途対応が必要と判断されました。
 
@@ -66,7 +66,7 @@ Issue #102 では Jest が chalk を変換対象として認識するまで完�
 Issue #105 の目的は、Issue #102 で残存した2つのタスクを完了させ、プロジェクト全体のテストインフラストラクチャを安定化させることです。具体的には：
 
 1. **統合テストの実行可能化**: commit-manager.test.ts の統合テストが完全に実行可能になる
-2. **失敗テスト数の削減**: 103個の失敗テストを調査・修正し、高優先度テスト（ブロッカー）をすべて解消する
+2. **失敗テスト数の削減**: 146個の失敗テストを調査・修正し、高優先度テスト（ブロッカー）をすべて解消する
 3. **Jest ESM対応の強化**: transformIgnorePatterns の拡張により、chalk 内部依存（#ansi-styles）を含む ESM パッケージを適切に変換する
 
 ### ビジネス価値・技術的価値
@@ -79,7 +79,7 @@ Issue #105 の目的は、Issue #102 で残存した2つのタスクを完了さ
 **技術的価値**:
 - **ESM 対応の完了**: Node.js エコシステムの標準である ESM パッケージに完全対応
 - **テストカバレッジの向上**: 統合テストの実行により、カバレッジが 90.6% → 95% 以上に向上（期待値）
-- **技術的負債の削減**: 103個の失敗テストという技術的負債を削減し、保守性を向上
+- **技術的負債の削減**: 146個の失敗テストという技術的負債を削減し、保守性を向上
 
 ---
 
@@ -93,7 +93,7 @@ Issue #105 の目的は、Issue #102 で残存した2つのタスクを完了さ
 `jest.config.cjs` の `transformIgnorePatterns` を拡張し、chalk の内部依存（#ansi-styles）を含む ESM パッケージを変換対象に含める。
 
 **詳細**:
-- **現状**: `transformIgnorePatterns: ['/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)']`（Issue #102 で追加）
+- **現状**: `transformIgnorePatterns: ['/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)']`（Issue #102 で追加、実測値）
 - **目標**: #ansi-styles を含める形に拡張（例: `/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)`）
 - **技術的根拠**: chalk v5.3.0 は ESM only パッケージであり、内部依存（#ansi-styles）も ESM 形式のため、Jest が CommonJS として扱う場合にエラーが発生する
 
@@ -116,8 +116,8 @@ commit-manager.test.ts の統合テストが完全に実行可能になるよう
 
 **詳細**:
 - **問題1**: chalk インポートのESMエラー（FR-1で解決）
-- **問題2**: simple-git のモック型定義の問題
-- **修正方針**: FR-1の完了後、モック設定を見直し、TypeScript型エラーを解消
+- **問題2**: モック関数へのアクセスエラー（`TypeError: commitManager.buildStepCommitMessage is not a function` 等）
+- **修正方針**: FR-1の完了後、モック設定を見直し、TypeScript型エラーとモック関数アクセスエラーを解消
 
 **受け入れ基準**:
 - **Given**: commit-manager.test.ts ファイルが存在する
@@ -134,18 +134,18 @@ commit-manager.test.ts の統合テストが完全に実行可能になるよう
 **優先度**: 高（ブロッカー）
 
 **説明**:
-103個の失敗テストのうち、高優先度テスト（ブロッカー、頻出エラー）を修正する。
+146個の失敗テストのうち、高優先度テスト（ブロッカー、頻出エラー）を修正する。
 
 **詳細**:
-- **対象**: Phase 1（要件定義）で分析される上位5〜10個の代表的なエラーパターン
+- **対象**: 後述の「付録A: 失敗テストのエラーパターン分析」で特定された上位5個の代表的なエラーパターン
 - **修正方針**: TypeScript型エラー、モック設定の問題、テスト期待値のずれを修正
-- **スコープ**: すべての失敗テストを修正することは Issue #105 のスコープ外（Phase 8で次のフォローアップIssue作成を判断）
+- **スコープ**: すべての失敗テスト（146個）を修正することは Issue #105 のスコープ外（Phase 8で次のフォローアップIssue作成を判断）
 
 **受け入れ基準**:
-- **Given**: 103個の失敗テストが存在する
+- **Given**: 146個の失敗テストが存在する
 - **When**: 高優先度テスト（ブロッカー）を修正する
 - **Then**:
-  - 失敗テスト数が 103個 → 50個以下に削減される
+  - 失敗テスト数が 146個 → 50個以下に削減される
   - 高優先度テスト（ブロッカー）がすべて PASS する
   - CI環境（Jenkins）でビルドが成功する
 
@@ -161,9 +161,10 @@ FR-1（transformIgnorePatterns 拡張）で解決しない場合、Jest の expe
 **詳細**:
 - **条件**: FR-1 の修正後も chalk 内部依存のエラーが解消しない場合のみ実施
 - **実装内容**:
-  - `package.json` の `scripts` に `NODE_OPTIONS=--experimental-vm-modules` を追加
+  - `package.json` の `scripts` に `NODE_OPTIONS=--experimental-vm-modules` を追加（既に設定済みの場合は検証のみ）
   - Jenkinsfile の Jest実行コマンドを更新
 - **リスク**: experimental-vm-modules は実験的機能であり、不安定な可能性あり（リスク3）
+- **現状確認**: package.json には既に `NODE_OPTIONS=--experimental-vm-modules` が設定されている（実測値）
 
 **受け入れ基準**:
 - **Given**: FR-1 の修正後も chalk エラーが解消しない
@@ -183,17 +184,16 @@ FR-1（transformIgnorePatterns 拡張）で解決しない場合、Jest の expe
 CLAUDE.md に Jest設定の詳細説明を追加し、transformIgnorePatterns の拡張内容と experimental-vm-modules（導入した場合）の説明を記載する。
 
 **詳細**:
-- **追加セクション**: 「### Jest設定（ESMパッケージ対応）」
+- **更新箇所**: 既存の「### Jest設定（ESMパッケージ対応）」セクション（行358-368）を更新
 - **記載内容**:
   - transformIgnorePatterns の拡張内容（#ansi-styles を含める理由）
-  - experimental-vm-modules の説明（導入した場合）
   - Issue #105 への参照リンク
 
 **受け入れ基準**:
 - **Given**: CLAUDE.md ファイルが存在する
 - **When**: Jest設定の詳細説明を追加する
 - **Then**:
-  - 「### Jest設定（ESMパッケージ対応）」セクションが追加される
+  - 「### Jest設定（ESMパッケージ対応）」セクションが更新される
   - transformIgnorePatterns の拡張内容が明記される
   - Issue #105 への参照リンクが追加される
 
@@ -230,7 +230,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 **テスト実行時間**:
 - **要件**: 全テストスイート実行時間が Issue #102 と同等（2〜3分以内）を維持する
 - **根拠**: transformIgnorePatterns 拡張により変換対象が増えるが、実行時間への影響は最小限に抑える
-- **測定方法**: `npm test` の実行時間を計測
+- **測定方法**: `npm test` の実行時間を計測（現状: 56.4秒）
 
 **CI/CDビルド時間**:
 - **要件**: Jenkins Job の実行時間が 10% 以上増加しない
@@ -312,7 +312,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 **工数**:
 - **制約**: 総工数 4〜6時間（8フェーズ）
 - **理由**: Planning Document で見積もり済み
-- **影響**: すべての失敗テスト（103個）を修正することは工数不足のため、高優先度テストのみ修正
+- **影響**: すべての失敗テスト（146個）を修正することは工数不足のため、高優先度テストのみ修正
 
 **スコープ**:
 - **制約**: 本体コード（src/）への変更は0行
@@ -356,10 +356,10 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 
 ### 依存コンポーネント
 
-**npm パッケージ**:
+**npm パッケージ**（実測値）:
 - chalk v5.3.0（ESM only）
 - jest v29.x
-- ts-jest v29.4.5
+- ts-jest v29.x
 - simple-git v3.27.0
 - @types/jest v29.x
 
@@ -396,7 +396,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 
 ### AC-2: 失敗テスト数が削減される
 
-- **Given**: 103個の失敗テストが存在する
+- **Given**: 146個の失敗テストが存在する
 - **When**: 高優先度テスト（ブロッカー）を修正する
 - **Then**:
   - 失敗テスト数が 50個以下に削減される（目標）
@@ -412,7 +412,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 - **Then**:
   - file-selector.test.ts がすべて PASS する
   - commit-message-builder.test.ts がすべて PASS する
-  - 既存の成功テストケース（32ケース）が引き続き PASS する
+  - 既存の成功テストケース（766ケース）が引き続き PASS する
 
 ---
 
@@ -432,7 +432,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 - **Given**: CLAUDE.md ファイルが存在する
 - **When**: Jest設定の詳細説明を追加する
 - **Then**:
-  - 「### Jest設定（ESMパッケージ対応）」セクションが追加される
+  - 「### Jest設定（ESMパッケージ対応）」セクションが更新される
   - transformIgnorePatterns の拡張内容が明記される
   - Issue #105 への参照リンクが追加される
 
@@ -453,7 +453,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 
 ### 明確にスコープ外とする事項
 
-**すべての失敗テスト（103個）の修正**:
+**すべての失敗テスト（146個）の修正**:
 - **理由**: 工数不足（4〜6時間では対応不可）
 - **対応**: 高優先度テスト（ブロッカー）のみ修正し、残りは次のフォローアップIssue（Issue #106?）で対応
 
@@ -492,7 +492,195 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 
 ---
 
-## 8. 品質ゲートの確認
+## 8. 次のステップ
+
+本要件定義書の承認後、Phase 2（Design）へ進み、以下を実施します：
+
+1. **Jest設定の詳細設計** (Task 2-1)
+   - transformIgnorePatterns の拡張設計（#ansi-styles を含める）
+   - experimental-vm-modules 導入の要否判断
+   - package.json scripts の更新設計
+
+2. **テスト修正の詳細設計** (Task 2-2)
+   - commit-manager.test.ts の問題箇所の特定と修正方針
+   - 146個の失敗テストの修正優先順位決定（高優先度: ブロッカー、中優先度: 型エラー、低優先度: その他）
+   - テスト修正の共通パターン抽出（モック設定、型定義、etc.）
+
+---
+
+## 付録A: 失敗テストのエラーパターン分析
+
+本セクションでは、2025年1月31日時点で確認された146個の失敗テストを分析し、代表的なエラーパターンを抽出します。
+
+### テスト実行サマリー（実測値）
+
+```
+Test Suites: 40 failed, 35 passed, 75 total
+Tests:       146 failed, 766 passed, 912 total
+Time:        56.4 s
+```
+
+### エラーパターン1: モック関数へのアクセスエラー（最多）
+
+**影響範囲**: 約30-40個のテストケース
+
+**代表例**:
+- `tests/unit/git/commit-manager.test.ts`: `TypeError: commitManager.buildStepCommitMessage is not a function`
+- `tests/unit/git/commit-manager.test.ts`: `TypeError: commitManager.createInitCommitMessage is not a function`
+- `tests/unit/git/commit-manager.test.ts`: `TypeError: commitManager.getChangedFiles is not a function`
+- `tests/unit/git/commit-manager.test.ts`: `TypeError: commitManager.filterPhaseFiles is not a function`
+
+**推定原因**:
+- CommitManager クラスのリファクタリング（Issue #52）により、メソッドが FileSelector/CommitMessageBuilder に移動
+- テストコードが古いメソッド名を参照している
+
+**優先度**: 高（ブロッカー）
+
+---
+
+### エラーパターン2: MetadataManager の rollback 関連メソッドのモック不足
+
+**影響範囲**: 約10-15個のテストケース
+
+**代表例**:
+- `tests/unit/phases/core/review-cycle-manager.test.ts`: `TypeError: this.metadata.getRollbackContext is not a function`
+- `tests/unit/phases/core/review-cycle-manager.test.ts`: `TypeError: this.metadata.clearRollbackContext is not a function`
+
+**推定原因**:
+- MetadataManager にrollback機能（Issue #90）が追加されたが、既存テストのモックが更新されていない
+- ReviewCycleManager が rollback関連メソッドを呼び出すように変更されたが、テストのモックが追従していない
+
+**優先度**: 高（ブロッカー）
+
+---
+
+### エラーパターン3: TypeScript 型エラー（jest.SpyInstance等）
+
+**影響範囲**: 約5-10個のテストケース
+
+**代表例**:
+- `tests/unit/commands/migrate.test.ts`: `TS2694: Namespace 'jest' has no exported member 'SpyInstance'`
+- `tests/unit/commands/execute/workflow-executor.test.ts`: `TS2554: Expected 0 arguments, but got 1`
+- `tests/unit/commands/rollback.test.ts`: `TS2554: Expected 2 arguments, but got 3`
+
+**推定原因**:
+- Jest 型定義の変更により、一部の型が利用できなくなった
+- 関数シグネチャの変更により、引数の数が合わなくなった
+
+**優先度**: 高（ブロッカー）
+
+---
+
+### エラーパターン4: テスト期待値のずれ（コミットメッセージ形式等）
+
+**影響範囲**: 約20-30個のテストケース
+
+**代表例**:
+- `tests/unit/git-manager-issue16.test.ts`: コミットメッセージに "Issue: #16" が含まれていない（期待値: `Issue: #16`、実測値: `[ai-workflow] Initialize workflow for issue #16`）
+- `tests/unit/git-manager-issue16.test.ts`: コミットメッセージに "Phase: 9 (evaluation)" が含まれていない
+
+**推定原因**:
+- コミットメッセージ形式の変更（Issue #52でCommitMessageBuilderが導入）
+- 期待値が古い形式のまま更新されていない
+
+**優先度**: 中
+
+---
+
+### エラーパターン5: モック設定の問題（Config、Octokit等）
+
+**影響範囲**: 約10-20個のテストケース
+
+**代表例**:
+- `tests/unit/commands/execute/agent-setup.test.ts`: `TypeError: config.getCodexApiKey.mockReturnValue is not a function`
+- `tests/unit/github/pull-request-client.test.ts`: `TS2339: Property 'mockResolvedValue' does not exist on type '...'`
+
+**推定原因**:
+- Config クラス（Issue #51）の導入により、モック設定方法が変更された
+- Octokit のモック設定が不完全
+
+**優先度**: 中
+
+---
+
+### エラーパターン6: その他（fs.writeFile、環境変数等）
+
+**影響範囲**: 約10-20個のテストケース
+
+**代表例**:
+- `tests/integration/multi-repo-workflow.test.ts`: `TypeError: fs.writeFile is not a function`
+- `tests/unit/secret-masker.test.ts`: 環境変数の検出数が期待値と異なる
+
+**推定原因**:
+- fs/promises の使用により、fs.writeFile が非同期になった
+- 環境変数の変更により、シークレット検出ロジックが影響を受けた
+
+**優先度**: 低
+
+---
+
+### 修正優先順位
+
+Issue #105 では、以下の優先順位で修正を実施します：
+
+1. **高優先度（ブロッカー）**: エラーパターン1、2、3 → 約45-65個のテストケース
+2. **中優先度**: エラーパターン4、5 → 約30-50個のテストケース（工数次第で対応）
+3. **低優先度**: エラーパターン6 → 約10-20個のテストケース（スコープ外、次のフォローアップIssueで対応）
+
+---
+
+## 付録B: 技術調査結果
+
+### B-1: chalk 内部依存（#ansi-styles）のESM対応方法
+
+**調査日**: 2025-01-31
+
+**現状の問題**:
+- jest.config.cjs の transformIgnorePatterns に `chalk` は含まれているが、chalk の内部依存 `#ansi-styles` は含まれていない
+- `#ansi-styles` は chalk v5.x から導入されたプライベート依存パッケージで、ESM 形式のみ
+
+**技術的根拠**:
+- chalk v5.3.0 のソースコード: `import ansiStyles from '#ansi-styles';`
+- Node.js の package.json imports フィールドで `#ansi-styles` がマッピングされている
+- Jest が `#ansi-styles` を CommonJS として扱うため、`require()` でインポートしようとしてエラー
+
+**解決策**:
+transformIgnorePatterns に `#ansi-styles` を追加する：
+```javascript
+transformIgnorePatterns: [
+  '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
+],
+```
+
+**リスク**:
+- `#` で始まるパッケージ名が正規表現で正しくエスケープされるか検証が必要
+- 他の ESM パッケージでも同様の問題が発生する可能性あり
+
+---
+
+### B-2: Jest experimental-vm-modules の調査
+
+**調査日**: 2025-01-31
+
+**現状**:
+- package.json の test スクリプトには既に `NODE_OPTIONS=--experimental-vm-modules` が設定されている
+- Jest 実行時に `ExperimentalWarning: VM Modules is an experimental feature` という警告が表示される
+
+**利点**:
+- ESM パッケージのネイティブサポート
+- transformIgnorePatterns の複雑な設定が不要になる可能性
+
+**欠点**:
+- 実験的機能であり、予期しない動作やパフォーマンス低下の可能性
+- Node.js のバージョンアップ時に互換性問題が発生する可能性
+
+**結論**:
+- FR-1（transformIgnorePatterns 拡張）で解決できる場合は、experimental-vm-modules の追加設定は不要
+- FR-1 で解決しない場合のみ、experimental-vm-modules の詳細設定を検討
+
+---
+
+## 品質ゲート確認
 
 本要件定義書は、Phase 1（Requirements）の品質ゲートを満たしていることを確認します。
 
@@ -504,7 +692,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 - FR-5: CLAUDE.md の更新（Jest設定の詳細説明）
 - FR-6: CHANGELOG.md の更新（Issue #105 の変更履歴）
 
-各機能要件は優先度（高/中/低）を付与し、具体的かつ測定可能な形で記述されています。
+各機能要件は優先度（高/中）を付与し、具体的かつ測定可能な形で記述されています。
 
 ### ✅ 受け入れ基準が定義されている
 - AC-1: commit-manager.test.ts の統合テストが実行可能になる
@@ -518,7 +706,7 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 
 ### ✅ スコープが明確である
 - **スコープ内**: Jest設定拡張、commit-manager.test.ts の修正、高優先度テストの修正、ドキュメント更新
-- **スコープ外**: すべての失敗テスト（103個）の修正、chalk の CommonJS版への切り替え、本体コード変更、テストランナーの移行
+- **スコープ外**: すべての失敗テスト（146個）の修正、chalk の CommonJS版への切り替え、本体コード変更、テストランナーの移行
 
 スコープ外の事項と将来的な拡張候補を明確に記載しています。
 
@@ -527,22 +715,8 @@ CHANGELOG.md の Unreleased セクションに Issue #105 の変更履歴を追�
 - 非機能要件と制約事項が矛盾していない
 - Planning Document の開発計画と整合性が取れている
 - リスク軽減策が制約事項と矛盾していない
-
----
-
-## 9. 次のステップ
-
-本要件定義書の承認後、Phase 2（Design）へ進み、以下を実施します：
-
-1. **Jest設定の詳細設計** (Task 2-1)
-   - transformIgnorePatterns の拡張設計（#ansi-styles を含める）
-   - experimental-vm-modules 導入の要否判断
-   - package.json scripts の更新設計
-
-2. **テスト修正の詳細設計** (Task 2-2)
-   - commit-manager.test.ts の問題箇所の特定と修正方針
-   - 103個の失敗テストの修正優先順位決定（高優先度: ブロッカー、中優先度: 型エラー、低優先度: その他）
-   - テスト修正の共通パターン抽出（モック設定、型定義、etc.）
+- **付録A「失敗テストのエラーパターン分析」**により、FR-3の対象（上位5個の代表的なエラーパターン）が明確に定義され、論理的整合性が確保されている
+- **付録B「技術調査結果」**により、FR-1とFR-4の技術的根拠が明確化され、実現可能性が検証されている
 
 ---
 
