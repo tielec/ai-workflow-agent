@@ -4,6 +4,7 @@
 **タイトル**: [FOLLOW-UP] Issue #102 - 残タスク
 **実行日時**: 2025-01-31
 **テストフレームワーク**: Jest (v29.x) + ts-jest
+**フェーズ判定**: **FAIL - Phase 4への差し戻しが必要**
 
 ---
 
@@ -155,7 +156,7 @@ import ansiStyles from '#ansi-styles';
 Jest の transformIgnorePatterns は、`#` で始まるパッケージ名（Node.js の package.json imports フィールドで定義されるサブパス）を正しく処理できない可能性があります。
 
 **対処方針**:
-以下の3つのアプローチを検討する必要があります：
+以下の2つのアプローチを検討する必要があります：
 
 1. **experimental-vm-modules の完全導入**（推奨）:
    - `package.json` の scripts を更新: `"test": "NODE_OPTIONS=--experimental-vm-modules jest --experimental-vm-modules"`
@@ -165,10 +166,6 @@ Jest の transformIgnorePatterns は、`#` で始まるパッケージ名（Node
 2. **chalk の CommonJS 版への切り替え**（短期的な回避策）:
    - `package.json` で chalk のバージョンを v4.x（CommonJS版）にダウングレード
    - `npm install chalk@4.1.2`
-
-3. **logger.ts の動的インポート**（部分的な回避策）:
-   - chalk を動的インポート（`await import('chalk')`）に変更
-   - ただし、この方法では logger.ts 全体を async 関数化する必要があり、影響範囲が大きい
 
 #### エラーパターン2: その他の既存エラー（継続中）
 
@@ -323,17 +320,49 @@ Planning Document で定義された必須基準（Must Have）のうち、**AC-
 
 **判定**: ✅ **品質ゲート3を満たしている**
 
+**品質ゲート総合判定**: ❌ **FAIL**（3項目のうち1項目がFAIL）
+
 ---
 
-## 次のステップ（推奨）
+## Phase 4への差し戻し記録
 
-Issue #105 の受け入れ基準が未達成であるため、**Phase 4（Implementation）に差し戻して修正が必要**です。
+### テスト失敗による実装修正の必要性
 
-### 推奨される対処方針
+**差し戻し日時**: 2025-01-31
+**差し戻し理由**: 品質ゲート2「主要なテストケースが成功している」がFAIL
+
+### 修正が必要な理由
+
+Issue #105で実施した修正（`#ansi-styles`をtransformIgnorePatternsに追加）が、**実際には機能していない**ことが判明しました。
+
+**具体的な問題**:
+1. Jest設定ファイルには正しく`#ansi-styles`が追加されている（`npx jest --showConfig`で確認済み）
+2. しかし、Jestが`#`で始まるパッケージ名（Node.js の package.json imports フィールドで定義されるサブパス）を正しく処理できていない
+3. その結果、commit-manager.test.tsが依然として実行不可能（`SyntaxError: Cannot use import statement outside a module`）
+4. 受け入れ基準AC-1、AC-2が未達成
+
+**Phase 4での設計判断の誤り**:
+- Phase 2（設計）では「`#ansi-styles`をtransformIgnorePatternsに追加するだけで解決できる」と判断
+- しかし、実際のテスト実行により、この判断が**誤り**であることが証明された
+- Jest の transformIgnorePatterns は、`#`で始まるサブパスインポートを正しく処理できない
+
+### 失敗したテスト
+
+**クリティカルな失敗**:
+- **commit-manager.test.ts**: 実行不可能（テストスイート自体が起動しない）
+- **chalk関連のすべてのテスト**: ESMインポートエラーで実行不可能
+
+**失敗数**:
+- 全テストスイート: 146個の失敗テスト（修正前と同じ）
+- 目標: 50個以下 → **未達成**
+
+### 必要な実装修正
+
+Phase 4に戻り、以下のいずれかを実装する必要があります：
 
 #### オプション1: experimental-vm-modules の完全導入（推奨）
 
-**理由**: chalk v5.3.0（ESM only）を完全にサポートするため
+**理由**: chalk v5.3.0（ESM only）を完全にサポートし、将来的なESM移行にも対応
 
 **変更内容**:
 
@@ -354,6 +383,7 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
   ],
+  // その他の既存設定を維持
 };
 ```
 
@@ -368,9 +398,20 @@ module.exports = {
 
 **見積もり工数**: 1〜2時間
 
+**メリット**:
+- chalk v5.3.0を完全にサポート
+- 将来的なESM移行にも対応
+- 根本的な解決策
+
+**デメリット**:
+- experimental機能のため、Node.jsバージョンによっては警告が表示される可能性
+- jest.config.cjsの大幅な変更が必要
+
+---
+
 #### オプション2: chalk の CommonJS 版への切り替え（短期的な回避策）
 
-**理由**: 最小限の変更で問題を回避
+**理由**: 最小限の変更で問題を回避し、短期的にテストを実行可能にする
 
 **変更内容**:
 
@@ -388,7 +429,34 @@ transformIgnorePatterns: [
 
 **見積もり工数**: 0.5〜1時間
 
-**注意**: chalk v4.x は CommonJS 形式のため、将来的に ESM 移行が必要になる可能性があります。
+**メリット**:
+- 最小限の変更で問題を解決
+- 安定したCommonJS版を使用
+- 既存のJest設定をほぼ維持
+
+**デメリット**:
+- chalk v4.xは古いバージョン（最新はv5.3.0）
+- 将来的にESM移行が必要になる可能性
+- 一時的な回避策であり、根本的な解決ではない
+
+---
+
+### 推奨される対処方針
+
+**推奨**: **オプション1（experimental-vm-modulesの完全導入）**
+
+**理由**:
+1. 根本的な解決策であり、将来的なESM移行にも対応
+2. chalk v5.3.0（ESM only）を完全にサポート
+3. 見積もり工数1〜2時間は許容範囲内
+4. 「80点で十分」の原則を適用できる状況ではない（品質ゲート2がFAILのため）
+
+**次のアクション**:
+1. Phase 4（Implementation）のrevise()を実行
+2. オプション1を実装（jest.config.cjsとpackage.jsonの修正）
+3. Phase 6（Testing）を再実行
+4. commit-manager.test.tsが実行可能になることを確認
+5. 失敗テスト数が削減されることを確認（目標: 50個以下）
 
 ---
 
@@ -499,4 +567,7 @@ Ran all test suites.
 
 **根本原因**: Jest の transformIgnorePatterns は、`#` で始まるパッケージ名（Node.js の package.json imports フィールドで定義されるサブパス）を正しく処理できない。
 
-**推奨される次のステップ**: Phase 4（Implementation）に差し戻して、experimental-vm-modules の完全導入、または chalk の CommonJS 版への切り替えを検討してください。
+**フェーズ判定**: **FAIL - Phase 4（Implementation）への差し戻しが必要**
+
+**推奨される次のステップ**:
+Phase 4（Implementation）に差し戻し、**オプション1（experimental-vm-modules の完全導入）**を実装してください。見積もり工数は1〜2時間です。実装完了後、Phase 6（Testing）を再実行し、commit-manager.test.tsが実行可能になることを確認してください。
