@@ -119,12 +119,12 @@
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: Issue 要件の詳細分析 (0.5~1h)
+- [x] Task 1-1: Issue 要件の詳細分析 (0.5~1h)
   - GitHub Issue #104 の要望を構造化
   - 改善前後の比較表を作成
   - Acceptance Criteria の明確化
 
-- [ ] Task 1-2: 既存実装の調査とギャップ分析 (0.5~1h)
+- [x] Task 1-2: 既存実装の調査とギャップ分析 (0.5~1h)
   - 現在の `createIssueFromEvaluation()` の挙動を確認
   - Evaluation レポートのフォーマット調査（既存 Issue の実例を確認）
   - 不足している情報を洗い出し
