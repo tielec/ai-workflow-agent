@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
-import { RemainingTask } from '../types.js';
+import { RemainingTask, IssueContext } from '../types.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IssueClient, type IssueCreationResult } from './github/issue-client.js';
@@ -146,11 +146,13 @@ export class GitHubClient {
     issueNumber: number,
     remainingTasks: RemainingTask[],
     evaluationReportPath: string,
+    issueContext?: IssueContext,
   ): Promise<IssueCreationResult> {
     return this.issueClient.createIssueFromEvaluation(
       issueNumber,
       remainingTasks,
       evaluationReportPath,
+      issueContext,
     );
   }
 

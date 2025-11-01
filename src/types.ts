@@ -29,10 +29,81 @@ export interface PhaseMetadata {
   rollback_context?: import('./types/commands.js').RollbackContext | null;
 }
 
+/**
+ * フォローアップ Issue の背景コンテキスト
+ * Evaluation Phase から IssueClient に渡される
+ */
+export interface IssueContext {
+  /**
+   * 元 Issue の概要
+   * 例: "Issue #91 では、BasePhase モジュール分解（Issue #49）で発生した 15 件のテスト失敗を修正しました。"
+   */
+  summary: string;
+
+  /**
+   * ブロッカーのステータス
+   * 例: "すべてのブロッカーは解決済み"
+   */
+  blockerStatus: string;
+
+  /**
+   * タスクが残った理由
+   * 例: "テスト失敗修正を優先したため、カバレッジ改善は後回しにした"
+   */
+  deferredReason: string;
+}
+
+/**
+ * Evaluation Phase で検出された残タスク
+ */
 export interface RemainingTask {
+  // ===== 既存フィールド（必須） =====
+  /** タスクの説明 */
   task: string;
+
+  /** 対象フェーズ（例: "implementation", "testing"） */
   phase: string;
+
+  /** 優先度（例: "High", "Medium", "Low"） */
   priority: string;
+
+  // ===== 新規フィールド（すべてオプショナル） =====
+
+  /**
+   * 優先度の理由
+   * 例: "元 Issue #91 の推奨事項、ブロッカーではない"
+   */
+  priorityReason?: string;
+
+  /**
+   * 対象ファイル/モジュールのリスト
+   * 例: ["src/core/phase-factory.ts", "src/commands/execute/agent-setup.ts"]
+   */
+  targetFiles?: string[];
+
+  /**
+   * 実行手順（番号付きリスト）
+   * 例: ["不足しているテストケースを特定", "エッジケースのテストを追加"]
+   */
+  steps?: string[];
+
+  /**
+   * 受け入れ基準（Acceptance Criteria）
+   * 例: ["すべての対象モジュールで 90% 以上のカバレッジを達成", "npm run test:coverage がすべてパス"]
+   */
+  acceptanceCriteria?: string[];
+
+  /**
+   * 依存タスク
+   * 例: ["Task 1 完了後に実行", "Phase 4 の修正が必要"]
+   */
+  dependencies?: string[];
+
+  /**
+   * 見積もり工数
+   * 例: "2-4h", "1日", "0.5h"
+   */
+  estimatedHours?: string;
 }
 
 export interface EvaluationPhaseMetadata extends PhaseMetadata {
