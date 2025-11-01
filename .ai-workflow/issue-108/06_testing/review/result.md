@@ -1,165 +1,328 @@
+I'll review the test results for Issue #108 Phase 6 (Testing). Let me first read the planning document to check against the checklist.
+Now let me also read the test file to verify the current state:
+Now I have all the necessary information. Let me verify the exact string that's expected. Let me check what the actual implementation produces:
+Perfect! Now I can provide a comprehensive review. Let me update the planning.md checklist and then provide the review.
+Wait, I need to review the test result more carefully. The test result shows that Test case 2.1.1 FAILED because the expected value in the test is `'Documentation updat'` (19 characters), but the actual implementation correctly produces `'Documentation update'` (20 characters). This means the **test expectation value is incorrect**, not the implementation. Let me re-read to understand if Phase 4 was supposed to fix this but didn't.
+
+Looking at the test result document, it clearly states:
+- **Phase 6 総合判定: FAIL**
+- **Phase 4（Implementation）に戻って修正が必要です。**
+- The issue is that in Phase 4, they incorrectly set the expected value to `'Documentation updat'` (19 chars) when it should be `'Documentation update'` (20 chars).
+
+So Phase 4 made an error in the fix, and now Phase 6 is reporting that the test failed. The test result document is correctly identifying that Phase 4 needs to go back and fix the expected value.
+
+Therefore, this review should result in **FAIL** because the quality gate "主要なテストケースが成功している" is NOT met - Test case 2.1.1 failed.
+
+Let me update the planning.md correctly:
+Actually wait - I need to reconsider. The planning document says they only ran 25 test cases (not 27). Let me check the actual test file to see how many tests there are:
+
+Looking at the test result, it says:
+- **総テストケース数**: 25個
+- **成功**: 24個
+- **失敗**: 1個
+
+But the planning document and other documents reference 27 test cases. This is a discrepancy, but not critical for the review. The key point is that Test case 2.1.1 failed.
+
+However, let me reconsider the quality gate item "回帰テストが成功している". The test result shows:
+- `tests/unit/github/issue-client.test.ts` - **実行失敗**（TypeScriptコンパイルエラー）
+- But the document correctly identifies this as "Issue #108の責任範囲外、既存の問題"
+
+So technically the regression test did NOT succeed, but it's an existing issue. According to the quality gate in planning.md, this should be marked as incomplete. Let me update:
+Now let me provide the comprehensive review:
+
 ## 品質ゲート評価
 
 **⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
 
-- [x] **テストが実行されている**: **PASS** - 25個のテストケースが正常に実行され、テスト実行コマンド、出力、結果が詳細に記録されています。
-- [ ] **主要なテストケースが成功している**: **FAIL** - 修正対象の4つのテストケースのうち1つ（Test case 2.1.1）が失敗しています。この失敗は修正の核心部分に関わるため、主要テストケースの失敗と判定します。
-- [x] **失敗したテストは分析されている**: **PASS** - Test case 2.1.1の失敗原因が詳細に分析され、根本原因（期待値の計算ミス）と対処方針（Phase 4への戻り）が明確に記載されています。
+- [x] **テストが実行されている**: **PASS** - 25個のテストケースが実行され、テスト出力が詳細に記録されています
+- [ ] **主要なテストケースが成功している**: **FAIL** - Test case 2.1.1（Issue #108の4つの修正対象テストケースのうち1つ）が失敗しています
+- [x] **失敗したテストは分析されている**: **PASS** - 失敗原因が徹底的に分析され、Phase 4での期待値計算ミスが特定されています
 
 **品質ゲート総合判定: FAIL**
-- 理由: 上記3項目のうち「主要なテストケースが成功している」がFAIL
+- FAIL: 上記3項目のうち「主要なテストケースが成功している」がFAIL
 
 **品質ゲート判定がFAILの場合、最終判定は自動的にFAILになります。**
+
+## Planning Phaseチェックリスト照合結果
+
+Phase 6のチェックリストと照合した結果：
+
+- [ ] **全テストケース（27ケース）が PASS している** - 未完了
+  - 不足: Test case 2.1.1 が失敗（25ケース実行、24 PASS、1 FAIL）
+- [ ] **回帰テストが成功している** - 未完了
+  - 不足: `issue-client.test.ts` がTypeScriptコンパイルエラーで実行失敗（ただし既存の問題でIssue #108の責任範囲外）
+- [x] **テスト失敗時は原因分析とロールバック手順が明確である** - 完了
+  - 失敗原因が詳細に分析され、Phase 4への戻り手順が明確
+
+**照合結果**: Phase 6のタスクが未完了のため、Phase 4に戻って修正が必要です。
 
 ## 詳細レビュー
 
 ### 1. テスト実行の確認
 
 **良好な点**:
-- テストが確実に実行され、25個のテストケース全体の実行結果が記録されています
-- テスト実行コマンド（`npm test tests/unit/github/issue-client-followup.test.ts`）が明記されています
-- テスト出力（抜粋）が詳細に記録され、どのテストが成功/失敗したか一目で分かります
-- 成功率（96%、24/25 PASS）が明確に示されています
-- 回帰テスト（`tests/unit/github/issue-client.test.ts`）も試みられています
+- ✅ テストが実際に実行されました（25個のテストケース）
+- ✅ テスト実行コマンドが明記されています（`npm test tests/unit/github/issue-client-followup.test.ts`）
+- ✅ テスト出力が詳細に記録されています（成功24個、失敗1個）
+- ✅ テスト実行日時が記録されています（2025-01-30）
+- ✅ 回帰テストも試行されました（`issue-client.test.ts`）
 
 **懸念点**:
-- 回帰テストがTypeScriptコンパイルエラーで実行失敗していますが、Issue #108の責任範囲外と正しく判断されています
+- ⚠️ テストケース数の不一致: Planning documentでは27ケースと記載されていますが、実際の実行は25ケースでした（軽微な不一致、ブロッカーではありません）
 
 ### 2. 主要テストケースの成功
 
 **良好な点**:
-- 修正対象4つのテストケースのうち3つ（Test case 2.1.3、2.1.4、2.2.4）が成功しています
-- 既存の21テストケース（修正対象外）がすべて成功しています
-- 成功したテストの詳細なリストが記載されています
+- ✅ 24個のテストケースが成功しています（96%の成功率）
+- ✅ Test case 2.1.3（英語括弧前まで抽出、20文字制限）- PASS
+- ✅ Test case 2.1.4（20文字切り詰め、末尾空白問題）- PASS
+- ✅ Test case 2.2.4（80文字タイトル切り詰め）- PASS
+- ✅ 既存の21テストケース（修正対象外）がすべて成功しています
 
 **懸念点**:
-- **Test case 2.1.1が失敗しています** - これは修正対象の中核テストケースであり、複数タスクからのキーワード抽出（20文字切り詰め）を検証する重要なテストです
-- 失敗内容: 期待値 `'Documentation updat'`（19文字）に対し、実際には `'Documentation update'`（20文字）が返されています
-- この失敗は、Phase 4での期待値計算ミスが原因です
+- ❌ **Test case 2.1.1が失敗しています** - これはIssue #108の4つの修正対象テストケースのうち1つであり、クリティカルな失敗です
+- ❌ 失敗原因: Phase 4で期待値を `'Documentation updat'`（19文字）に設定しましたが、正しくは `'Documentation update'`（20文字）です
+- ❌ これはPhase 4での計算ミスであり、実装コードは正しく動作しています
 
 ### 3. 失敗したテストの分析
 
 **良好な点**:
-- Test case 2.1.1の失敗原因が詳細に分析されています
-- 根本原因が明確に特定されています：
-  - タスクテキスト: `'Documentation updates'`（21文字）
-  - 実装の挙動: `.substring(0, 20)` → `'Documentation update'`（20文字）
-  - 修正した期待値: `'Documentation updat'`（19文字）❌
-  - 正しい期待値: `'Documentation update'`（20文字）✅
-- Phase 4での実装ログの誤解（lines 103-105）が根本原因として指摘されています
-- 対処方針が明確に記載されています：Phase 4に戻って期待値を修正
+- ✅ 失敗原因が徹底的に分析されています
+- ✅ 根本原因が明確に特定されています（Phase 4での期待値計算ミス）
+- ✅ 対処方針が具体的に記載されています（Phase 4に戻って修正）
+- ✅ 必要な修正箇所が3つ明記されています：
+  1. `tests/unit/github/issue-client-followup.test.ts` (line 71)
+  2. `implementation.md` (lines 45-48)
+  3. `test-scenario.md` (lines 98-101) - オプショナル
+- ✅ 修正後の期待結果が明記されています（25/25 PASS）
+- ✅ 実際のJavaScript動作検証も提案されています（Node.js REPLでの確認）
 
 **改善の余地**:
-- 特になし。失敗分析は非常に詳細で的確です
+- なし（分析は非常に詳細で、対処方針も明確です）
 
 ### 4. テスト範囲
 
 **良好な点**:
-- テストシナリオでカバーすべき範囲（4つの修正対象テストケース）がすべて実行されています
-- 既存の21テストケースも回帰テストとして実行され、影響がないことが確認されています
-- 各メソッド（`extractKeywords()`, `generateFollowUpTitle()`, `formatTaskDetails()`, `createIssueFromEvaluation()`）の機能がカバーされています
+- ✅ テストシナリオで定義された範囲がカバーされています
+- ✅ 4つの修正対象テストケースのうち3つが成功しています
+- ✅ 既存の21テストケースへの影響がないことが確認されています
 
 **改善の余地**:
-- 特になし。テスト範囲は適切です
+- ⚠️ 回帰テスト（`issue-client.test.ts`）がTypeScriptコンパイルエラーで実行失敗していますが、これは既存の問題でありIssue #108の責任範囲外です。ただし、将来的には別Issueとして修正することが推奨されます。
 
 ## ブロッカー（BLOCKER）
 
 **次フェーズに進めない重大な問題**
 
-1. **Test case 2.1.1の期待値が不正確**
-   - 問題: 修正対象の中核テストケース（複数タスクからのキーワード抽出）が失敗しています。期待値 `'Documentation updat'`（19文字）が不正確で、正しくは `'Documentation update'`（20文字）です。
-   - 影響: このテストケースはIssue #108の主要な修正対象（Task 2-1: Test case 2.1.1の期待値修正）であり、失敗したままでは次フェーズ（Documentation）に進めません。Issue #108の完了条件を満たしていません。
-   - 対策: **Phase 4（Implementation）に戻る必要があります**。以下を修正してください：
-     - `tests/unit/github/issue-client-followup.test.ts` (line 71): 期待値を `'Documentation updat'` → `'Documentation update'` に修正
-     - `.ai-workflow/issue-108/04_implementation/output/implementation.md`: Test case 2.1.1の詳細（lines 99-100）を訂正
-   - 修正後、Phase 6（Testing）を再実行して25/25 PASSを確認する必要があります
+### 1. **Test case 2.1.1の失敗**
+   - **問題**: Phase 4で修正した期待値が不正確です
+     - 現在の期待値: `'Documentation updat'`（19文字）
+     - 正しい期待値: `'Documentation update'`（20文字）
+   - **影響**: Issue #108の完了条件（すべての修正対象テストケースがPASS）を満たしていないため、次フェーズ（Documentation）に進めません
+   - **対策**: **Phase 4（Implementation）に戻って以下を修正してください**
+     1. `tests/unit/github/issue-client-followup.test.ts` (line 71): 期待値を `'Documentation update'` に修正
+     2. `implementation.md` (lines 45-48): Test case 2.1.1の詳細を訂正
+     3. （オプショナル）`test-scenario.md` (lines 98-101): 期待値を訂正
+   - **修正後**: Phase 6を再実行し、25/25 PASSを確認してください
 
 ## 改善提案（SUGGESTION）
 
 **次フェーズに進めるが、改善が望ましい事項**
 
-1. **回帰テスト（issue-client.test.ts）の別Issue化**
-   - 現状: `tests/unit/github/issue-client.test.ts` がTypeScriptコンパイルエラーで実行失敗していますが、Issue #108の責任範囲外と正しく判断されています。
-   - 提案: 別途Issueを作成して `issue-client.test.ts` のモック設定を修正することを、test-result.mdの「次のステップ」セクション（lines 243-260）で推奨しています。この提案は妥当です。
-   - 効果: 将来的に回帰テストを完全に実行できるようになり、コードベース全体の品質が向上します。
+### 1. **回帰テスト（issue-client.test.ts）の別Issue化**
+   - **現状**: `tests/unit/github/issue-client.test.ts` がTypeScriptコンパイルエラーで実行失敗していますが、Issue #108の責任範囲外です
+   - **提案**: 別途Issueを作成して `issue-client.test.ts` のモック設定を修正することを推奨します
+   - **効果**: 将来的に回帰テストを完全に実行できるようになり、コードベース全体の品質が向上します
 
-2. **テスト期待値の計算プロセスの改善**
-   - 現状: Phase 4での期待値計算時に、`.substring(0, 20)` の挙動を誤解（19文字と判断）したことが失敗の根本原因です。
-   - 提案: 将来の類似タスクでは、期待値計算時に実際のJavaScriptコンソールやREPLで動作確認することを推奨します。例：`'Documentation updates'.substring(0, 20)` を実行して結果を確認。
-   - 効果: 期待値の計算ミスを防ぎ、テスト修正の精度が向上します。
+### 2. **テスト期待値の計算プロセスの改善**
+   - **現状**: Phase 4での期待値計算時に、`.substring(0, 20)` の挙動を誤解（19文字と判断）したことが失敗の根本原因です
+   - **提案**: 将来の類似タスクでは、期待値計算時に実際のJavaScriptコンソールやREPLで動作確認することを推奨します
+   - **例**:
+     ```javascript
+     // Node.js REPL または ブラウザコンソールで確認
+     'Documentation updates'.substring(0, 20)
+     // → 'Documentation update' (20文字)
+     ```
+   - **効果**: 期待値の計算ミスを防ぎ、テスト修正の精度が向上します
 
-## Planning Phaseチェックリスト照合
-Phase 6のチェックリストを確認しました。照合結果に基づき、planning.mdを更新します：
-タスクチェックリストの照合結果に基づき、planning.mdを更新します：
 ## 総合評価
 
-テスト実行フェーズ（Phase 6）は、テスト実行と失敗分析において高い品質を示していますが、**主要なテストケースの1つ（Test case 2.1.1）が失敗している**ため、品質ゲートを満たしていません。
+Issue #108のPhase 6（Testing）では、テストが適切に実行され、失敗原因が徹底的に分析されました。test-result.mdは非常に詳細で、Phase 4への戻り手順も明確です。
 
-### Planning Phaseチェックリスト照合結果: FAIL
+**主な強み**:
+- ✅ テスト実行が適切に行われ、詳細なログが記録されています
+- ✅ 失敗原因の分析が非常に詳細で、根本原因（Phase 4での計算ミス）が明確に特定されています
+- ✅ 対処方針が具体的で、修正箇所が3つ明記されています
+- ✅ 24/25のテストケースが成功しており、既存機能への影響がないことが確認されています
+- ✅ 回帰テストの失敗が既存の問題であることを正しく識別しています
 
-以下のタスクが未完了です：
+**主な改善が必要な点**:
+- ❌ **Test case 2.1.1が失敗** - これはブロッカーです
+- ❌ Phase 4での期待値計算ミスにより、`'Documentation updat'`（19文字）が `'Documentation update'`（20文字）であるべきところを誤って設定しました
 
-- [ ] **Task 6-1: ユニットテスト実行** - 部分的完了
-  - 不足: すべてのテストケース（27ケース）が PASS することを確認 → 実際は25/25中24 PASSで、Test case 2.1.1が失敗
-
-- [ ] **品質ゲート: 全テストケース（27ケース）が PASS している** - 未達成
-  - 不足: 修正対象の4つのテストケースのうち1つ（Test case 2.1.1）が失敗
-
-**主要な問題点**:
-Test case 2.1.1は、Issue #108の中核タスク（Task 2-1: 複数タスクからのキーワード抽出、20文字切り詰め対応）であり、この失敗は次フェーズへの進行を妨げるブロッカーです。
+**Phase 4への戻りが必要な理由**:
+- Issue #108の中核タスク（Task 2-1: 複数タスクからのキーワード抽出、20文字切り詰め対応）の1つが失敗しています
+- これは完了条件（すべての修正対象テストケースがPASS）を満たしていません
+- 実装コードは正しいため、テスト期待値のみを修正すれば解決します
 
 **次のアクション**:
-Phase 4（Implementation）に戻り、`tests/unit/github/issue-client-followup.test.ts` (line 71) の期待値を修正してから、Phase 6を再実行してください。
-
-### 主な強み:
-- テスト実行が確実に行われ、詳細な結果が記録されている
-- Test case 2.1.1の失敗原因が非常に詳細かつ正確に分析されている（期待値の計算ミス）
-- 修正対象4つのうち3つ（Test case 2.1.3、2.1.4、2.2.4）は成功しており、修正アプローチは概ね正しい
-- 回帰テストの実行が試みられ、エラーがIssue #108の責任範囲外と正しく判断されている
-- 対処方針（Phase 4への戻り）が明確で実行可能
-
-### 主な改善提案:
-- Phase 4に戻り、Test case 2.1.1の期待値を `'Documentation updat'` → `'Documentation update'` に修正
-- 将来の類似タスクでは、期待値計算時にREPLで動作確認を行うことを推奨（例: `'Documentation updates'.substring(0, 20)` の実行結果確認）
-- 回帰テスト（issue-client.test.ts）の修正は別Issueとして提案することを推奨（test-result.mdで既に提案済み）
-
-Test case 2.1.1の失敗は、Phase 4での期待値計算時に `.substring(0, 20)` の挙動を誤解（19文字と判断）したことが根本原因です。修正後、Phase 6を再実行して25/25 PASSを確認してください。
+1. **Phase 4（Implementation）に戻って期待値を修正**
+   - `tests/unit/github/issue-client-followup.test.ts` (line 71): `'Documentation updat'` → `'Documentation update'`
+   - `implementation.md` (lines 45-48): 詳細を訂正
+   - （オプショナル）`test-scenario.md` (lines 98-101): 詳細を訂正
+2. **Phase 6（Testing）を再実行**
+   - `npm test tests/unit/github/issue-client-followup.test.ts`
+   - 期待結果: 25/25 PASS
+3. **25/25 PASS確認後、Phase 7（Documentation）へ進む**
 
 ---
 **判定: FAIL**
+Now let me provide the comprehensive review:
+
+## 品質ゲート評価
+
+**⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
+
+- [x] **テストが実行されている**: **PASS** - 25個のテストケースが実行され、テスト出力が詳細に記録されています
+- [ ] **主要なテストケースが成功している**: **FAIL** - Test case 2.1.1（Issue #108の4つの修正対象テストケースのうち1つ）が失敗しています
+- [x] **失敗したテストは分析されている**: **PASS** - 失敗原因が徹底的に分析され、Phase 4での期待値計算ミスが特定されています
+
+**品質ゲート総合判定: FAIL**
+- FAIL: 上記3項目のうち「主要なテストケースが成功している」がFAIL
+
+**品質ゲート判定がFAILの場合、最終判定は自動的にFAILになります。**
+
+## Planning Phaseチェックリスト照合結果
+
+Phase 6のチェックリストと照合した結果：
+
+- [ ] **全テストケース（27ケース）が PASS している** - 未完了
+  - 不足: Test case 2.1.1 が失敗（25ケース実行、24 PASS、1 FAIL）
+- [ ] **回帰テストが成功している** - 未完了
+  - 不足: `issue-client.test.ts` がTypeScriptコンパイルエラーで実行失敗（ただし既存の問題でIssue #108の責任範囲外）
+- [x] **テスト失敗時は原因分析とロールバック手順が明確である** - 完了
+  - 失敗原因が詳細に分析され、Phase 4への戻り手順が明確
+
+**照合結果**: Phase 6のタスクが未完了のため、Phase 4に戻って修正が必要です。
+
+## 詳細レビュー
+
+### 1. テスト実行の確認
+
+**良好な点**:
+- ✅ テストが実際に実行されました（25個のテストケース）
+- ✅ テスト実行コマンドが明記されています（`npm test tests/unit/github/issue-client-followup.test.ts`）
+- ✅ テスト出力が詳細に記録されています（成功24個、失敗1個）
+- ✅ テスト実行日時が記録されています（2025-01-30）
+- ✅ 回帰テストも試行されました（`issue-client.test.ts`）
+
+**懸念点**:
+- ⚠️ テストケース数の不一致: Planning documentでは27ケースと記載されていますが、実際の実行は25ケースでした（軽微な不一致、ブロッカーではありません）
+
+### 2. 主要テストケースの成功
+
+**良好な点**:
+- ✅ 24個のテストケースが成功しています（96%の成功率）
+- ✅ Test case 2.1.3（英語括弧前まで抽出、20文字制限）- PASS
+- ✅ Test case 2.1.4（20文字切り詰め、末尾空白問題）- PASS
+- ✅ Test case 2.2.4（80文字タイトル切り詰め）- PASS
+- ✅ 既存の21テストケース（修正対象外）がすべて成功しています
+
+**懸念点**:
+- ❌ **Test case 2.1.1が失敗しています** - これはIssue #108の4つの修正対象テストケースのうち1つであり、クリティカルな失敗です
+- ❌ 失敗原因: Phase 4で期待値を `'Documentation updat'`（19文字）に設定しましたが、正しくは `'Documentation update'`（20文字）です
+- ❌ これはPhase 4での計算ミスであり、実装コードは正しく動作しています
+
+### 3. 失敗したテストの分析
+
+**良好な点**:
+- ✅ 失敗原因が徹底的に分析されています
+- ✅ 根本原因が明確に特定されています（Phase 4での期待値計算ミス）
+- ✅ 対処方針が具体的に記載されています（Phase 4に戻って修正）
+- ✅ 必要な修正箇所が3つ明記されています：
+  1. `tests/unit/github/issue-client-followup.test.ts` (line 71)
+  2. `implementation.md` (lines 45-48)
+  3. `test-scenario.md` (lines 98-101) - オプショナル
+- ✅ 修正後の期待結果が明記されています（25/25 PASS）
+- ✅ 実際のJavaScript動作検証も提案されています（Node.js REPLでの確認）
+
+**改善の余地**:
+- なし（分析は非常に詳細で、対処方針も明確です）
+
+### 4. テスト範囲
+
+**良好な点**:
+- ✅ テストシナリオで定義された範囲がカバーされています
+- ✅ 4つの修正対象テストケースのうち3つが成功しています
+- ✅ 既存の21テストケースへの影響がないことが確認されています
+
+**改善の余地**:
+- ⚠️ 回帰テスト（`issue-client.test.ts`）がTypeScriptコンパイルエラーで実行失敗していますが、これは既存の問題でありIssue #108の責任範囲外です。ただし、将来的には別Issueとして修正することが推奨されます。
+
+## ブロッカー（BLOCKER）
+
+**次フェーズに進めない重大な問題**
+
+### 1. **Test case 2.1.1の失敗**
+   - **問題**: Phase 4で修正した期待値が不正確です
+     - 現在の期待値: `'Documentation updat'`（19文字）
+     - 正しい期待値: `'Documentation update'`（20文字）
+   - **影響**: Issue #108の完了条件（すべての修正対象テストケースがPASS）を満たしていないため、次フェーズ（Documentation）に進めません
+   - **対策**: **Phase 4（Implementation）に戻って以下を修正してください**
+     1. `tests/unit/github/issue-client-followup.test.ts` (line 71): 期待値を `'Documentation update'` に修正
+     2. `implementation.md` (lines 45-48): Test case 2.1.1の詳細を訂正
+     3. （オプショナル）`test-scenario.md` (lines 98-101): 期待値を訂正
+   - **修正後**: Phase 6を再実行し、25/25 PASSを確認してください
+
+## 改善提案（SUGGESTION）
+
+**次フェーズに進めるが、改善が望ましい事項**
+
+### 1. **回帰テスト（issue-client.test.ts）の別Issue化**
+   - **現状**: `tests/unit/github/issue-client.test.ts` がTypeScriptコンパイルエラーで実行失敗していますが、Issue #108の責任範囲外です
+   - **提案**: 別途Issueを作成して `issue-client.test.ts` のモック設定を修正することを推奨します
+   - **効果**: 将来的に回帰テストを完全に実行できるようになり、コードベース全体の品質が向上します
+
+### 2. **テスト期待値の計算プロセスの改善**
+   - **現状**: Phase 4での期待値計算時に、`.substring(0, 20)` の挙動を誤解（19文字と判断）したことが失敗の根本原因です
+   - **提案**: 将来の類似タスクでは、期待値計算時に実際のJavaScriptコンソールやREPLで動作確認することを推奨します
+   - **例**:
+     ```javascript
+     // Node.js REPL または ブラウザコンソールで確認
+     'Documentation updates'.substring(0, 20)
+     // → 'Documentation update' (20文字)
+     ```
+   - **効果**: 期待値の計算ミスを防ぎ、テスト修正の精度が向上します
+
 ## 総合評価
 
-テスト実行フェーズ（Phase 6）は、テスト実行と失敗分析において高い品質を示していますが、**主要なテストケースの1つ（Test case 2.1.1）が失敗している**ため、品質ゲートを満たしていません。
+Issue #108のPhase 6（Testing）では、テストが適切に実行され、失敗原因が徹底的に分析されました。test-result.mdは非常に詳細で、Phase 4への戻り手順も明確です。
 
-### Planning Phaseチェックリスト照合結果: FAIL
+**主な強み**:
+- ✅ テスト実行が適切に行われ、詳細なログが記録されています
+- ✅ 失敗原因の分析が非常に詳細で、根本原因（Phase 4での計算ミス）が明確に特定されています
+- ✅ 対処方針が具体的で、修正箇所が3つ明記されています
+- ✅ 24/25のテストケースが成功しており、既存機能への影響がないことが確認されています
+- ✅ 回帰テストの失敗が既存の問題であることを正しく識別しています
 
-以下のタスクが未完了です：
+**主な改善が必要な点**:
+- ❌ **Test case 2.1.1が失敗** - これはブロッカーです
+- ❌ Phase 4での期待値計算ミスにより、`'Documentation updat'`（19文字）が `'Documentation update'`（20文字）であるべきところを誤って設定しました
 
-- [ ] **Task 6-1: ユニットテスト実行** - 部分的完了
-  - 不足: すべてのテストケース（27ケース）が PASS することを確認 → 実際は25/25中24 PASSで、Test case 2.1.1が失敗
-
-- [ ] **品質ゲート: 全テストケース（27ケース）が PASS している** - 未達成
-  - 不足: 修正対象の4つのテストケースのうち1つ（Test case 2.1.1）が失敗
-
-**主要な問題点**:
-Test case 2.1.1は、Issue #108の中核タスク（Task 2-1: 複数タスクからのキーワード抽出、20文字切り詰め対応）であり、この失敗は次フェーズへの進行を妨げるブロッカーです。
+**Phase 4への戻りが必要な理由**:
+- Issue #108の中核タスク（Task 2-1: 複数タスクからのキーワード抽出、20文字切り詰め対応）の1つが失敗しています
+- これは完了条件（すべての修正対象テストケースがPASS）を満たしていません
+- 実装コードは正しいため、テスト期待値のみを修正すれば解決します
 
 **次のアクション**:
-Phase 4（Implementation）に戻り、`tests/unit/github/issue-client-followup.test.ts` (line 71) の期待値を修正してから、Phase 6を再実行してください。
-
-### 主な強み:
-- テスト実行が確実に行われ、詳細な結果が記録されている
-- Test case 2.1.1の失敗原因が非常に詳細かつ正確に分析されている（期待値の計算ミス）
-- 修正対象4つのうち3つ（Test case 2.1.3、2.1.4、2.2.4）は成功しており、修正アプローチは概ね正しい
-- 回帰テストの実行が試みられ、エラーがIssue #108の責任範囲外と正しく判断されている
-- 対処方針（Phase 4への戻り）が明確で実行可能
-
-### 主な改善提案:
-- Phase 4に戻り、Test case 2.1.1の期待値を `'Documentation updat'` → `'Documentation update'` に修正
-- 将来の類似タスクでは、期待値計算時にREPLで動作確認を行うことを推奨（例: `'Documentation updates'.substring(0, 20)` の実行結果確認）
-- 回帰テスト（issue-client.test.ts）の修正は別Issueとして提案することを推奨（test-result.mdで既に提案済み）
-
-Test case 2.1.1の失敗は、Phase 4での期待値計算時に `.substring(0, 20)` の挙動を誤解（19文字と判断）したことが根本原因です。修正後、Phase 6を再実行して25/25 PASSを確認してください。
+1. **Phase 4（Implementation）に戻って期待値を修正**
+   - `tests/unit/github/issue-client-followup.test.ts` (line 71): `'Documentation updat'` → `'Documentation update'`
+   - `implementation.md` (lines 45-48): 詳細を訂正
+   - （オプショナル）`test-scenario.md` (lines 98-101): 詳細を訂正
+2. **Phase 6（Testing）を再実行**
+   - `npm test tests/unit/github/issue-client-followup.test.ts`
+   - 期待結果: 25/25 PASS
+3. **25/25 PASS確認後、Phase 7（Documentation）へ進む**
 
 ---
 **判定: FAIL**

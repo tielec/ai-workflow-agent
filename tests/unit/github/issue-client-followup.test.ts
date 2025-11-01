@@ -68,7 +68,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       expect(keywords).toEqual([
         'Coverage improvement',    // 20文字に切り詰め (元: 'Coverage improvement to 90%')
         'Performance benchmar',    // 20文字に切り詰め (元: 'Performance benchmark execution')
-        'Documentation updat',     // 20文字に切り詰め (元: 'Documentation updates')
+        'Documentation update',    // 20文字に切り詰め (元: 'Documentation updates')
       ]);
     });
 

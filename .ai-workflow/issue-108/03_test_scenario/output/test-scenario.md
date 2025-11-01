@@ -97,20 +97,20 @@ const limit = 3;
 [
   'Coverage improvement',    // 20文字に切り詰め（元: 'Coverage improvement to 90%'）
   'Performance benchmar',    // 20文字に切り詰め（元: 'Performance benchmark execution'、末尾 'k' が欠ける）
-  'Documentation updat',     // 20文字に切り詰め（元: 'Documentation updates'、元は21文字）
+  'Documentation update',    // 20文字に切り詰め（元: 'Documentation updates'、21文字→20文字）
 ]
 ```
 
 **テストデータ**:
 - Task 1: 'Coverage improvement to 90%' (28文字) → 'Coverage improvement' (20文字)
 - Task 2: 'Performance benchmark execution' (31文字) → 'Performance benchmar' (20文字)
-- Task 3: 'Documentation updates' (21文字) → 'Documentation updat' (20文字)
+- Task 3: 'Documentation updates' (21文字) → 'Documentation update' (20文字)
 
 **検証項目**:
 - [ ] 3つのキーワードが抽出されること
 - [ ] 各キーワードが20文字以内であること
 - [ ] 20文字を超えるキーワードが正しく切り詰められること
-- [ ] 期待値が `['Coverage improvement', 'Performance benchmar', 'Documentation updat']` と一致すること
+- [ ] 期待値が `['Coverage improvement', 'Performance benchmar', 'Documentation update']` と一致すること
 
 ---
 
@@ -342,7 +342,7 @@ expect(title.endsWith('...')).toBe(true); // "..." が追加される
 
 | Test case | ファイル行数 | 修正前の期待値 | 修正後の期待値 | 修正理由 |
 |-----------|------------|--------------|--------------|---------|
-| 2.1.1 | line 68-72 | `['Coverage improvement to 90%', 'Performance benchmark execution', 'Documentation updates']` | `['Coverage improvement', 'Performance benchmar', 'Documentation updat']` | 20文字切り詰めを考慮 |
+| 2.1.1 | line 68-72 | `['Coverage improvement to 90%', 'Performance benchmark execution', 'Documentation updates']` | `['Coverage improvement', 'Performance benchmar', 'Documentation update']` | 20文字切り詰めを考慮 |
 | 2.1.3 | line 106 | `['Fix Jest configuration']` | `['Fix Jest configurati']`（オプションA）または `['Fix Jest config']`（オプションB） | 20文字切り詰めを考慮 |
 | 2.1.4 | line 123 | `'This is a very long'` | `'This is a very long '`（オプションA）または `'This is a very long'`（オプションB、trim実装） | 末尾空白を考慮 |
 | 2.2.4 | line 262-273 | Issue番号123、短いタスクテキスト | Issue番号12345、長いタスクテキスト | 80文字超えを保証 |
@@ -353,7 +353,7 @@ expect(title.endsWith('...')).toBe(true); // "..." が追加される
 
 **Given**: 3つの残タスクが存在し、一部のタスクテキストが20文字を超える
 **When**: `extractKeywords()` を呼び出して3つのキーワードを抽出する
-**Then**: 各キーワードが20文字以内に切り詰められ、期待値 `['Coverage improvement', 'Performance benchmar', 'Documentation updat']` と一致する
+**Then**: 各キーワードが20文字以内に切り詰められ、期待値 `['Coverage improvement', 'Performance benchmar', 'Documentation update']` と一致する
 
 #### Test case 2.1.3
 
@@ -560,7 +560,7 @@ npm test
 
 ### Phase 4（Implementation）で注意すべき事項
 
-1. **Test case 2.1.1**: 期待値を `['Coverage improvement', 'Performance benchmar', 'Documentation updat']` に修正
+1. **Test case 2.1.1**: 期待値を `['Coverage improvement', 'Performance benchmar', 'Documentation update']` に修正
 2. **Test case 2.1.3**: 期待値を `['Fix Jest configurati']`（オプションA）または `['Fix Jest config']`（オプションB）に修正
 3. **Test case 2.1.4**: Phase 2 の最終推奨（オプション A: テスト期待値修正のみ）に基づき、期待値を `'This is a very long '`（末尾空白含む、20文字）に修正
 4. **Test case 2.2.4**: テストデータを修正し、Issue番号を12345に変更、タスクテキストを長くして80文字超えを保証
