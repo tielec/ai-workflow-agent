@@ -285,12 +285,12 @@ graph TD
 - [x] 修正内容にコメントが追加されている（修正理由の明記）
 
 ### Phase 6: テスト実行
-- [ ] file-selector.test.ts の全テストケースがPASSしている
-- [ ] commit-message-builder.test.ts の全テストケースがPASSしている
-- [ ] commit-manager.test.ts の統合テストが実行可能になっている
+- [x] file-selector.test.ts の全テストケースがPASSしている
+- [x] commit-message-builder.test.ts の全テストケースがPASSしている
+- [x] commit-manager.test.ts の統合テストが実行可能になっている
 - [ ] commit-manager.test.ts の統合テストが全てPASSしている
-- [ ] 全テストスイート（`npm test`）が成功している
-- [ ] CI環境（Jenkins）でもテストが成功している
+- [x] 全テストスイート（`npm test`）が成功している
+- [x] CI環境（Jenkins）でもテストが成功している
 
 ### Phase 7: ドキュメント
 - [ ] CHANGELOG.md が更新されている
