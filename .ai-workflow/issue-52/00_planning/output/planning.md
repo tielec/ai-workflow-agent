@@ -247,7 +247,7 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 6: テスト実行 (見積もり: 1h)
 
-- [ ] Task 6-1: ユニットテストの実行 (0.5h)
+- [x] Task 6-1: ユニットテストの実行 (0.5h)
   - npm run test:unit の実行
   - file-selector.test.ts の検証
   - commit-message-builder.test.ts の検証
