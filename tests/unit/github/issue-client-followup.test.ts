@@ -4,6 +4,17 @@ import { RequestError } from '@octokit/request-error';
 import { IssueClient, IssueCreationResult } from '../../../src/core/github/issue-client.js';
 import { RemainingTask, IssueContext } from '../../../src/types.js';
 
+// @jest/globals を使用するため、jest.Mocked 型を any でキャストする必要がある
+type MockedOctokit = {
+  issues: {
+    get: ReturnType<typeof jest.fn>;
+    listComments: ReturnType<typeof jest.fn>;
+    createComment: ReturnType<typeof jest.fn>;
+    update: ReturnType<typeof jest.fn>;
+    create: ReturnType<typeof jest.fn>;
+  };
+};
+
 /**
  * テストスイート: Issue #104 - フォローアップ Issue 改善
  *
@@ -14,17 +25,21 @@ import { RemainingTask, IssueContext } from '../../../src/types.js';
  */
 describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
   let issueClient: IssueClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: MockedOctokit;
 
   beforeEach(() => {
     // Octokitモックの作成
     mockOctokit = {
       issues: {
+        get: jest.fn(),
+        listComments: jest.fn(),
+        createComment: jest.fn(),
+        update: jest.fn(),
         create: jest.fn(),
       },
-    } as unknown as jest.Mocked<Octokit>;
+    };
 
-    issueClient = new IssueClient(mockOctokit, 'owner', 'repo');
+    issueClient = new IssueClient(mockOctokit as any, 'owner', 'repo');
   });
 
   afterEach(() => {
@@ -438,7 +453,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/92',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
         91,
@@ -455,7 +470,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       );
 
       // 本文に背景セクションが含まれる
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
       expect(callArgs.body).toContain('## 背景');
       expect(callArgs.body).toContain(issueContext.summary);
       expect(callArgs.body).toContain('### 元 Issue のステータス');
@@ -486,7 +501,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/53',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result = await issueClient.createIssueFromEvaluation(
         52,
@@ -496,7 +511,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       );
 
       // タイトルが生成される
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
       expect(callArgs.title).toContain('[FOLLOW-UP]');
 
       // 本文にフォールバック形式の背景が含まれる
@@ -525,7 +540,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/54',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result = await issueClient.createIssueFromEvaluation(
         53,
@@ -534,7 +549,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       );
 
       // タイトルがフォールバック形式である
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
       expect(callArgs.title).toBe('[FOLLOW-UP] Issue #53 - 残タスク');
 
       // 本文に背景セクションが含まれるが、タスクは0件
@@ -564,7 +579,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/55',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result = await issueClient.createIssueFromEvaluation(
         54,
@@ -573,7 +588,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       );
 
       // タイトルに最大3つのキーワードが含まれる
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
       expect(callArgs.title).toContain('Task 1');
       expect(callArgs.title).toContain('Task 2');
       expect(callArgs.title).toContain('Task 3');
@@ -612,9 +627,9 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         },
       });
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockRejectedValue(mockError);
+      mockOctokit.issues.create.mockRejectedValue(mockError);
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       const result = await issueClient.createIssueFromEvaluation(
         100,
@@ -648,7 +663,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/60',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result = await issueClient.createIssueFromEvaluation(
         59,
@@ -656,7 +671,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         'eval.md',
       );
 
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
 
       // 本文に基本情報が含まれる
       expect(callArgs.body).toContain('### Task 1: Test task');
@@ -700,7 +715,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         html_url: 'https://github.com/owner/repo/issues/61',
       };
 
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const result = await issueClient.createIssueFromEvaluation(
         60,
@@ -708,7 +723,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
         'eval.md',
       );
 
-      const callArgs = (mockOctokit.issues.create as unknown as jest.Mock).mock.calls[0][0];
+      const callArgs = mockOctokit.issues.create.mock.calls[0][0] as any;
 
       // すべての新規フィールドが表示される
       expect(callArgs.body).toContain('**対象ファイル**:');
