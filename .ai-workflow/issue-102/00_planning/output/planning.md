@@ -141,14 +141,14 @@
 
 ### Phase 4: 実装 (見積もり: 0.75~1.25h)
 
-- [ ] Task 4-1: file-selector.test.ts の期待値修正 (0.25~0.5h)
+- [x] Task 4-1: file-selector.test.ts の期待値修正 (0.25~0.5h)
   - lines 72-79 の期待値を実装動作に合わせて修正
   - 修正内容のコメント追加（なぜこの期待値が正しいか）
-- [ ] Task 4-2: commit-message-builder.test.ts の期待値修正 (0.25~0.5h)
+- [x] Task 4-2: commit-message-builder.test.ts の期待値修正 (0.25~0.5h)
   - line 205 の期待値を実装動作に合わせて修正
   - line 222 の期待値を実装動作に合わせて修正
   - 修正内容のコメント追加（なぜこの期待値が正しいか）
-- [ ] Task 4-3: jest.config.cjs の修正 (0.25~0.25h)
+- [x] Task 4-3: jest.config.cjs の修正 (0.25~0.25h)
   - transformIgnorePatterns に chalk を追加
   - 設定ファイルのコメント更新（chalk追加理由を記載）
 
@@ -279,10 +279,10 @@ graph TD
 - [x] 全テスト実行による回帰テスト確認シナリオが定義されている
 
 ### Phase 4: 実装
-- [ ] file-selector.test.ts の期待値が修正されている（lines 72-79）
-- [ ] commit-message-builder.test.ts の期待値が修正されている（lines 205, 222）
-- [ ] jest.config.cjs の transformIgnorePatterns が修正されている
-- [ ] 修正内容にコメントが追加されている（修正理由の明記）
+- [x] file-selector.test.ts の期待値が修正されている（lines 72-79）
+- [x] commit-message-builder.test.ts の期待値が修正されている（lines 205, 222）
+- [x] jest.config.cjs の transformIgnorePatterns が修正されている
+- [x] 修正内容にコメントが追加されている（修正理由の明記）
 
 ### Phase 6: テスト実行
 - [ ] file-selector.test.ts の全テストケースがPASSしている
