@@ -112,7 +112,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
-| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約238行、Issue #24で追加）。Issue取得、コメント投稿、クローズ、残タスクIssue作成を担当。 |
+| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能を担当。 |
 | `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。 |
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
@@ -357,7 +357,7 @@ Evaluation Phase (Phase 9) 完了後、`--cleanup-on-complete` オプション�
 
 GitHubClient は702行から402行へリファクタリングされ（約42.7%削減）、ファサードパターンにより4つの専門クライアントに責務を分離しました：
 
-- **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。
+- **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。フォローアップIssue生成機能（タイトル生成、キーワード抽出、詳細フォーマット）を含む（Issue #104で拡張）。
 - **PullRequestClient** (`src/core/github/pull-request-client.ts`): PR操作を担当。PR作成、更新、検索、クローズ、PR番号取得を提供。
 - **CommentClient** (`src/core/github/comment-client.ts`): コメント操作を担当。ワークフロー進捗コメント、進捗コメント作成/更新を提供。
 - **ReviewClient** (`src/core/github/review-client.ts`): レビュー操作を担当。レビュー結果投稿を提供。

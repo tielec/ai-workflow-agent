@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
-import { PhaseExecutionResult, RemainingTask, PhaseName } from '../types.js';
+import { PhaseExecutionResult, RemainingTask, PhaseName, IssueContext } from '../types.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 
 type PhaseOutputInfo = {
@@ -417,33 +417,65 @@ export class EvaluationPhase extends BasePhase {
     );
   }
 
+  /**
+   * Evaluation 結果が「Pass with Issues」の場合の処理
+   * フォローアップ Issue を作成する
+   */
   private async handlePassWithIssues(
     remainingTasks: RemainingTask[],
     issueNumber: number,
     evaluationFile: string,
   ): Promise<{ success: boolean; createdIssueUrl?: string | null; error?: string }> {
     if (!remainingTasks.length) {
+      logger.warn('Evaluation result is "Pass with Issues", but no remaining tasks found');
       return { success: true, createdIssueUrl: null };
     }
+
+    logger.info(`Creating follow-up issue for ${remainingTasks.length} remaining tasks`);
 
     try {
       const agentWorkingDir = this.getAgentWorkingDirectory();
       const repoRoot = path.resolve(agentWorkingDir, '..', '..');
       const relativeReportPath = path.relative(repoRoot, evaluationFile);
 
+      // ===== 新規: Issue コンテキストの構築 =====
+
+      // Issue Summary: issueTitle から取得（メタデータに存在する場合）
+      const issueTitle = this.metadata.data.issue_title ?? `Issue #${issueNumber}`;
+
+      // Blocker Status: デフォルト値（Evaluation レポートからの抽出は Phase 1 で調査）
+      // TODO: 将来的には Evaluation レポートから抽出する（Phase 9 改善、別 Issue として提案）
+      const blockerStatus = 'すべてのブロッカーは解決済み';
+
+      // Deferred Reason: デフォルト値（同上）
+      // TODO: 将来的には Evaluation レポートから抽出する（Phase 9 改善、別 Issue として提案）
+      const deferredReason = 'タスク優先度の判断により後回し';
+
+      const issueContext: IssueContext = {
+        summary: `この Issue は、Issue #${issueNumber}「${issueTitle}」の Evaluation フェーズで特定された残タスクをまとめたものです。`,
+        blockerStatus,
+        deferredReason,
+      };
+
+      // ===== 既存: フォローアップ Issue 作成 =====
+
       const result = await this.github.createIssueFromEvaluation(
         issueNumber,
         remainingTasks,
         relativeReportPath,
+        issueContext, // 新規パラメータ
       );
 
       if (result.success) {
+        logger.info(`Follow-up issue created: #${result.issue_number}`);
+        logger.info(`Follow-up issue URL: ${result.issue_url}`);
         return { success: true, createdIssueUrl: result.issue_url ?? null };
       }
 
       return { success: false, error: result.error ?? 'Issue 作成に失敗しました' };
     } catch (error) {
       const message = getErrorMessage(error);
+      logger.error(`Failed to create follow-up issue: ${message}`);
       return { success: false, error: message };
     }
   }
