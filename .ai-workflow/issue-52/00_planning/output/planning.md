@@ -198,7 +198,7 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: FileSelector の実装 (2~3h)
+- [x] Task 4-1: FileSelector の実装 (2~3h)
   - クラス骨格とコンストラクタ
   - getChangedFiles メソッド（commit-manager.ts 448-470行から抽出）
   - filterPhaseFiles メソッド（475-494行から抽出）
@@ -206,14 +206,14 @@ import { CommitManager } from './git/commit-manager.js';
   - scanDirectories メソッド（526-540行から抽出）
   - scanByPatterns メソッド（545-566行から抽出）
 
-- [ ] Task 4-2: CommitMessageBuilder の実装 (1~2h)
+- [x] Task 4-2: CommitMessageBuilder の実装 (1~2h)
   - クラス骨格とコンストラクタ
   - createCommitMessage メソッド（350-382行から抽出）
   - buildStepCommitMessage メソッド（387-403行から抽出）
   - createInitCommitMessage メソッド（408-421行から抽出）
   - createCleanupCommitMessage メソッド（426-443行から抽出）
 
-- [ ] Task 4-3: CommitManager のリファクタリング (1h)
+- [x] Task 4-3: CommitManager のリファクタリング (1h)
   - FileSelector と CommitMessageBuilder のインスタンス化（コンストラクタ）
   - commitPhaseOutput の委譲実装
   - commitStepOutput の委譲実装
