@@ -261,13 +261,13 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 7: ドキュメント (見積もり: 1~2h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (0.5~1h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (0.5~1h)
   - GitManager モジュール構成セクションの更新
   - CommitManager の責務記述を更新（3モジュール体制に変更）
   - FileSelector の責務追加
   - CommitMessageBuilder の責務追加
 
-- [ ] Task 7-2: CLAUDE.md の更新 (0.5h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.5h)
   - コアモジュールセクションの更新
   - commit-manager.ts の行数更新（586行 → 約200行）
   - file-selector.ts の追加（約150行）
@@ -407,8 +407,8 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] ARCHITECTURE.md が更新されている
-- [ ] CLAUDE.md が更新されている
+- [x] ARCHITECTURE.md が更新されている
+- [x] CLAUDE.md が更新されている
 - [ ] 全てのコードにJSDocコメントがある
 
 ### Phase 8: レポート
