@@ -143,11 +143,14 @@
       "remaining_tasks": [],
       "created_issue_url": null,
       "abort_reason": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     }
   },
   "created_at": "2025-11-01T14:47:14.750Z",
-  "updated_at": "2025-11-01T15:34:14.104Z",
+  "updated_at": "2025-11-01T15:34:15.440Z",
   "branch_name": "ai-workflow/issue-108",
   "pr_number": 109,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/109",
