@@ -99,6 +99,13 @@ export class ReviewCycleManager {
         // Commit & Push after successful review (Issue #10)
         await commitAndPushStepFn('review');
 
+        // Issue #90: revise完了後にrollback_contextをクリア
+        const rollbackContext = this.metadata.getRollbackContext(this.phaseName);
+        if (rollbackContext) {
+          this.metadata.clearRollbackContext(this.phaseName);
+          logger.info(`Rollback context cleared after revise completion for phase ${this.phaseName}`);
+        }
+
         return;
       }
 

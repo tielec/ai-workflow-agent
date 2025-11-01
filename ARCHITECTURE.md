@@ -60,6 +60,20 @@ src/commands/review.ts (フェーズレビューコマンド処理)
 src/commands/list-presets.ts (プリセット一覧表示コマンド処理)
  └─ listPresets() … 利用可能なプリセット一覧を表示
 
+src/commands/rollback.ts (フェーズ差し戻しコマンド処理、v0.4.0、Issue #90で追加)
+ ├─ handleRollbackCommand() … フェーズ差し戻しコマンドハンドラ
+ ├─ validateRollbackOptions() … rollbackオプションのバリデーション（exported for testing）
+ ├─ loadRollbackReason() … 差し戻し理由の読み込み（--reason, --reason-file, --interactive）（exported for testing）
+ ├─ generateRollbackReasonMarkdown() … ROLLBACK_REASON.mdファイルの生成（exported for testing）
+ ├─ getPhaseNumber() … フェーズ名から番号を取得するヘルパー（exported for testing）
+ └─ MetadataManager拡張メソッドを利用
+     ├─ setRollbackContext() … 差し戻しコンテキストの設定
+     ├─ getRollbackContext() … 差し戻しコンテキストの取得
+     ├─ clearRollbackContext() … 差し戻しコンテキストのクリア
+     ├─ addRollbackHistory() … 差し戻し履歴の追加
+     ├─ updatePhaseForRollback() … 差し戻し先フェーズのステータス更新
+     └─ resetSubsequentPhases() … 後続フェーズのリセット
+
 src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
  ├─ parseIssueUrl() … GitHub Issue URLからリポジトリ情報を抽出
  ├─ resolveLocalRepoPath() … リポジトリ名からローカルパスを解決
@@ -86,6 +100,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46）。`executePhasesSequential()`, `executePhasesFrom()` を提供。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
+| `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
@@ -105,7 +120,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
 | `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
-| `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約239行、Issue #26で9.5%削減）。 |
+| `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約347行、Issue #26で9.5%削減、v0.4.0でrollback機能追加、Issue #90）。差し戻し機能用の6つの新規メソッド（`setRollbackContext()`, `getRollbackContext()`, `clearRollbackContext()`, `addRollbackHistory()`, `updatePhaseForRollback()`, `resetSubsequentPhases()`）を提供。 |
 | `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
 | `src/utils/logger.ts` | 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御（debug/info/warn/error）、カラーリング機能（chalk統合）、タイムスタンプ自動付与、環境変数制御（LOG_LEVEL、LOG_NO_COLOR）を提供。`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` をエクスポート。 |
@@ -114,8 +129,8 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
-| `src/types/commands.ts` | コマンド関連の型定義（約150行、Issue #45で拡張）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions等の型を提供。コマンドハンドラの型安全性を確保。 |
-| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約445行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。 |
+| `src/types/commands.ts` | コマンド関連の型定義（約240行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry等の型を提供。コマンドハンドラの型安全性を確保。 |
+| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約476行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。 |
 | `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、Issue #23で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
 | `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、Issue #23で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
 | `src/phases/lifecycle/step-executor.ts` | ステップ実行ロジック（約233行、Issue #49で追加）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。 |
@@ -274,6 +289,8 @@ BasePhase クラスは各専門モジュールのインスタンスを保持し�
 - `phases.*.status` … `pending | in_progress | completed | failed`
 - `phases.*.current_step` … 現在実行中のステップ（'execute' | 'review' | 'revise' | null）（v0.3.0 で追加）
 - `phases.*.completed_steps` … 完了済みステップの配列（v0.3.0 で追加）
+- `phases.*.rollback_context` … 差し戻しコンテキスト（triggered_at、from_phase、to_phase、to_step、reason等）（v0.4.0、Issue #90で追加、オプショナル）
+- `rollback_history` … 差し戻し履歴の配列（各エントリは triggered_at、from_phase、to_phase、to_step、reason等を含む）（v0.4.0、Issue #90で追加、オプショナル）
 - `retry_count` … revise 実行回数
 - `output_files` … 生成成果物のパス
 - `design_decisions` … 設計フェーズでの意思決定ログ

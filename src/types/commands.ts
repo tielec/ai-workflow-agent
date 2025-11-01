@@ -246,3 +246,138 @@ export interface MigrateOptions {
    */
   repo?: string;
 }
+
+/**
+ * Rollback コマンドのオプション定義（Issue #90）
+ */
+export interface RollbackCommandOptions {
+  /**
+   * Issue番号（必須）
+   */
+  issue: string;
+
+  /**
+   * 差し戻し先フェーズ（必須）
+   */
+  toPhase: string;
+
+  /**
+   * 差し戻し理由（--reason で指定された場合）
+   */
+  reason?: string;
+
+  /**
+   * 差し戻し理由ファイルパス（--reason-file で指定された場合）
+   */
+  reasonFile?: string;
+
+  /**
+   * 差し戻し先ステップ（オプション、デフォルト: 'revise'）
+   */
+  toStep?: string;
+
+  /**
+   * 差し戻し元フェーズ（オプション、自動検出可能）
+   */
+  fromPhase?: string;
+
+  /**
+   * 確認プロンプトをスキップ（オプション、デフォルト: false）
+   */
+  force?: boolean;
+
+  /**
+   * ドライランモード（オプション、デフォルト: false）
+   */
+  dryRun?: boolean;
+
+  /**
+   * 対話的入力モード（オプション、デフォルト: false）
+   */
+  interactive?: boolean;
+}
+
+/**
+ * 差し戻しコンテキスト（metadata.json の各フェーズに記録）（Issue #90）
+ */
+export interface RollbackContext {
+  /**
+   * 差し戻し実行時刻（ISO 8601形式、UTC）
+   */
+  triggered_at: string;
+
+  /**
+   * 差し戻し元フェーズ（オプション）
+   */
+  from_phase?: string | null;
+
+  /**
+   * 差し戻し元ステップ（オプション）
+   */
+  from_step?: import('../types.js').StepName | null;
+
+  /**
+   * 差し戻し理由（必須、1000文字以内）
+   */
+  reason: string;
+
+  /**
+   * レビュー結果ファイルへの @filepath 形式の参照（オプション）
+   */
+  review_result?: string | null;
+
+  /**
+   * 追加詳細情報（オプション）
+   */
+  details?: {
+    blocker_count?: number;
+    suggestion_count?: number;
+    affected_tests?: string[];
+    [key: string]: unknown;
+  } | null;
+}
+
+/**
+ * 差し戻し履歴エントリ（metadata.json のルートレベルに記録）（Issue #90）
+ */
+export interface RollbackHistoryEntry {
+  /**
+   * 差し戻し実行時刻（ISO 8601形式、UTC）
+   */
+  timestamp: string;
+
+  /**
+   * 差し戻し元フェーズ（オプション）
+   */
+  from_phase?: string | null;
+
+  /**
+   * 差し戻し元ステップ（オプション）
+   */
+  from_step?: import('../types.js').StepName | null;
+
+  /**
+   * 差し戻し先フェーズ（必須）
+   */
+  to_phase: string;
+
+  /**
+   * 差し戻し先ステップ（必須）
+   */
+  to_step: string;
+
+  /**
+   * 差し戻し理由（必須、1000文字以内）
+   */
+  reason: string;
+
+  /**
+   * トリガー元（manual | automatic、現在は manual のみ）
+   */
+  triggered_by: 'manual' | 'automatic';
+
+  /**
+   * レビュー結果ファイルのパス（オプション）
+   */
+  review_result_path?: string | null;
+}

@@ -7,6 +7,7 @@ import { handleExecuteCommand } from './commands/execute.js';
 import { handleReviewCommand } from './commands/review.js';
 import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
+import { handleRollbackCommand } from './commands/rollback.js';
 
 /**
  * CLIエントリーポイント
@@ -113,6 +114,27 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleMigrateCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // rollback コマンド (Issue #90)
+  program
+    .command('rollback')
+    .description('Roll back a phase to a previous step')
+    .requiredOption('--issue <number>', 'Issue number')
+    .requiredOption('--to-phase <phase>', 'Target phase to roll back to')
+    .option('--reason <text>', 'Rollback reason (text)')
+    .option('--reason-file <path>', 'Rollback reason (file path)')
+    .option('--to-step <step>', 'Target step (execute|review|revise)', 'revise')
+    .option('--from-phase <phase>', 'Source phase (auto-detected if not specified)')
+    .option('--force', 'Skip confirmation prompt', false)
+    .option('--dry-run', 'Preview changes without updating metadata', false)
+    .option('--interactive', 'Interactive mode for entering rollback reason', false)
+    .action(async (options) => {
+      try {
+        await handleRollbackCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
