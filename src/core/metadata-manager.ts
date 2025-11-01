@@ -294,7 +294,7 @@ export class MetadataManager {
   }
 
   /**
-   * Issue #90: フェーズを差し戻し用に更新（status, current_step, completed_at を変更）
+   * Issue #90: フェーズを差し戻し用に更新（status, current_step, completed_at, retry_count を変更）
    * @param phaseName - 対象フェーズ名
    * @param toStep - 差し戻し先ステップ（'execute' | 'review' | 'revise'）
    */
@@ -304,6 +304,7 @@ export class MetadataManager {
     phaseData.status = 'in_progress';
     phaseData.current_step = toStep;
     phaseData.completed_at = null;
+    phaseData.retry_count = 0; // リトライカウンタをリセット（P1: PR #95レビューコメント対応）
 
     // completed_steps は維持（execute, review は完了済みとして保持）
     // toStep が 'execute' の場合は completed_steps をクリア

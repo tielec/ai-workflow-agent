@@ -204,6 +204,23 @@ describe('MetadataManager - Rollback機能', () => {
       // completed_stepsは維持される
       expect(metadataManager.data.phases.implementation.completed_steps).toEqual(['execute', 'review', 'revise']);
     });
+
+    test('P1: retry_countがリセットされる（PR #95レビューコメント対応）', () => {
+      // Given: フェーズがリトライ上限に達している状態（retry_count=3）
+      const phaseName: PhaseName = 'implementation';
+      const toStep = 'revise';
+      metadataManager.data.phases.implementation.status = 'failed';
+      metadataManager.data.phases.implementation.retry_count = 3;
+      metadataManager.data.phases.implementation.completed_at = '2025-01-30T12:00:00.000Z';
+
+      // When: updatePhaseForRollback()を呼び出す
+      metadataManager.updatePhaseForRollback(phaseName, toStep);
+
+      // Then: retry_countが0にリセットされる
+      expect(metadataManager.data.phases.implementation.retry_count).toBe(0);
+      expect(metadataManager.data.phases.implementation.status).toBe('in_progress');
+      expect(metadataManager.data.phases.implementation.current_step).toBe('revise');
+    });
   });
 
   // =============================================================================
