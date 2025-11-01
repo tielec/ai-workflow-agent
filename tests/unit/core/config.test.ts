@@ -761,28 +761,66 @@ describe('Config - 動作環境判定メソッド', () => {
       expect(result).toBe(true);
     });
 
-    test('2.6.5: isCI_正常系_CIがfalseの場合', () => {
-      // Given: CI が 'false'
-      process.env.CI = 'false';
-      const testConfig = new Config();
+    describe('2.6.5: isCI_正常系_CIがfalseの場合', () => {
+      let originalJenkinsHome: string | undefined;
 
-      // When: isCI()を呼び出す
-      const result = testConfig.isCI();
+      beforeEach(() => {
+        // JENKINS_HOME環境変数を保存して削除
+        originalJenkinsHome = process.env.JENKINS_HOME;
+        delete process.env.JENKINS_HOME;
+      });
 
-      // Then: falseが返される
-      expect(result).toBe(false);
+      afterEach(() => {
+        // JENKINS_HOME環境変数を復元
+        if (originalJenkinsHome !== undefined) {
+          process.env.JENKINS_HOME = originalJenkinsHome;
+        } else {
+          delete process.env.JENKINS_HOME;
+        }
+      });
+
+      test('2.6.5: isCI_正常系_CIがfalseの場合', () => {
+        // Given: CI が 'false'
+        process.env.CI = 'false';
+        const testConfig = new Config();
+
+        // When: isCI()を呼び出す
+        const result = testConfig.isCI();
+
+        // Then: falseが返される
+        expect(result).toBe(false);
+      });
     });
 
-    test('2.6.6: isCI_正常系_CIが0の場合', () => {
-      // Given: CI が '0'
-      process.env.CI = '0';
-      const testConfig = new Config();
+    describe('2.6.6: isCI_正常系_CIが0の場合', () => {
+      let originalJenkinsHome: string | undefined;
 
-      // When: isCI()を呼び出す
-      const result = testConfig.isCI();
+      beforeEach(() => {
+        // JENKINS_HOME環境変数を保存して削除
+        originalJenkinsHome = process.env.JENKINS_HOME;
+        delete process.env.JENKINS_HOME;
+      });
 
-      // Then: falseが返される
-      expect(result).toBe(false);
+      afterEach(() => {
+        // JENKINS_HOME環境変数を復元
+        if (originalJenkinsHome !== undefined) {
+          process.env.JENKINS_HOME = originalJenkinsHome;
+        } else {
+          delete process.env.JENKINS_HOME;
+        }
+      });
+
+      test('2.6.6: isCI_正常系_CIが0の場合', () => {
+        // Given: CI が '0'
+        process.env.CI = '0';
+        const testConfig = new Config();
+
+        // When: isCI()を呼び出す
+        const result = testConfig.isCI();
+
+        // Then: falseが返される
+        expect(result).toBe(false);
+      });
     });
 
     test('2.6.7: isCI_正常系_CIもJENKINS_HOMEも未設定の場合', () => {
