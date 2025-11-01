@@ -1,0 +1,481 @@
+# テストシナリオフェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書と設計書から、詳細なテストシナリオを作成してください。**Phase 2で決定されたテスト戦略に基づいて**、適切なテスト種別のシナリオを作成します。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-104/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-104/01_requirements/output/requirements.md
+
+### 設計書
+@.ai-workflow/issue-104/02_design/output/design.md
+
+### テスト戦略（Phase 2で決定）
+**UNIT_INTEGRATION**
+
+### GitHub Issue情報（参考）
+## Issue概要
+
+- **Issue番号**: #104
+- **タイトル**: Evaluation Phase のフォローアップ Issue を改善: タイトルと本文を明確で実行可能にする
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/104
+- **ラベル**: なし
+
+### 本文
+
+## 問題
+
+現在、AI Workflow の Evaluation フェーズ（Phase 9）で自動生成されるフォローアップ Issue は、タイトルと本文の両方に問題があります。
+
+### 1. タイトルが内容を反映していない
+
+**現状の例**:
+- `[FOLLOW-UP] Issue #91 - 残タスク`
+- `[FOLLOW-UP] Issue #52 - 残タスク`
+- `[FOLLOW-UP] Issue #74 - 残タスク`
+
+**問題点**:
+- **すべて同じフォーマット**: どの Issue も「残タスク」としか書かれていない
+- **内容が推測できない**: Issue リストを見ても、何のタスクなのか分からない
+- **検索性が低い**: タイトルで検索できない（すべて「残タスク」で引っかかる）
+
+**改善例**:
+- `[FOLLOW-UP] #91: テストカバレッジ改善とパフォーマンスベンチマーク`
+- `[FOLLOW-UP] #52: Jest 設定修正とテスト期待値更新`
+- `[FOLLOW-UP] #74: ESLint ルール追加と SecretMasker 統合の検討`
+
+### 2. タスク内容が理解しにくい
+
+**現状の例**:
+```markdown
+## 残タスク一覧
+
+- [ ] Coverage improvement to 90% for key modules (Phase: test_implementation, 優先度: Medium)
+- [ ] Performance benchmark execution and verification (Phase: testing, 優先度: Medium)
+```
+
+**問題点**:
+- **何をすべきか不明確**: "Coverage improvement to 90%" だけでは、どのファイルをどう修正するのか分からない
+- **優先度の根拠がない**: なぜ Medium なのか？　何から始めればいいのか？
+- **成功条件が不明**: どうなれば完了とみなせるのか？
+
+### 3. コンテキスト情報が不足
+
+**現状**:
+```markdown
+## 参考
+
+- 元Issue: #91
+- Evaluation Report: `AI_Workflow/ai_workflow_orchestrator_develop/.ai-workflow/issue-91/09_evaluation/output/evaluation_report.md`
+```
+
+**問題点**:
+- Evaluation Report のパスが示されているが、GitHub Issue コメントからは直接アクセスできない
+- 元 Issue の Summary や、なぜこれらのタスクが残ったのかの説明がない
+- タスク間の依存関係が不明（例: タスク1完了後にタスク2を実行、など）
+
+### 4. 実行に必要な情報が欠けている
+
+**欠けている情報**:
+- **対象ファイル**: どのファイルを修正すべきか
+- **具体的な手順**: 何をどう変更すべきか（例: Jest設定の具体的な修正箇所）
+- **テスト手順**: 修正後にどうやって確認するか
+- **Acceptance Criteria**: どうなれば完了とみなせるか
+
+## 期待される改善
+
+### 1. タイトルの改善
+
+タスク内容を反映した、検索可能で分かりやすいタイトルにする：
+
+**フォーマット案**:
+```
+[FOLLOW-UP] #{元Issue番号}: {タスクの概要（1-3個のキーワード）}
+```
+
+**実装方法**:
+- 残タスクリストから主要なキーワードを抽出（最大3個）
+- または、元 Issue のタイトルを要約したものを使用
+- 長すぎる場合は 80 文字で切り詰め
+
+**例**:
+- `[FOLLOW-UP] #91: テストカバレッジ改善・パフォーマンスベンチマーク・ドキュメント更新`
+- `[FOLLOW-UP] #52: Jest 設定修正・テスト期待値更新`
+- `[FOLLOW-UP] #46: execute.ts リファクタリング・テスト失敗対応`
+
+### 2. タスク記述の改善
+
+各タスクに以下の情報を含める：
+
+```markdown
+### Task 1: カバレッジを 90% に改善
+
+**対象モジュール**:
+- `src/core/phase-factory.ts` (現在: 75%)
+- `src/commands/execute/agent-setup.ts` (現在: 80%)
+
+**必要な作業**:
+1. 不足しているテストケースを特定（カバレッジレポート参照）
+2. 以下のエッジケースのテストを追加:
+   - エラーハンドリング分岐
+   - 無効な入力値の処理
+   - タイムアウト処理
+
+**Acceptance Criteria**:
+- [ ] すべての対象モジュールで 90% 以上のカバレッジを達成
+- [ ] `npm run test:coverage` がすべてパス
+- [ ] 既存テストがすべてパス（リグレッションなし）
+
+**優先度**: Medium（元 Issue #91 の推奨事項、ブロッカーではない）
+
+**参考**:
+- Evaluation Report（該当箇所）: 行 XX-YY
+- Coverage Report: `tests/coverage/lcov-report/index.html`
+```
+
+### 3. コンテキスト情報の充実
+
+```markdown
+## 背景
+
+この Issue は、Issue #91「[FOLLOW-UP] Issue #49 - 残タスク」の Evaluation フェーズで特定された残タスクをまとめたものです。
+
+**元 Issue の要約**:
+Issue #91 では、BasePhase モジュール分解（Issue #49）で発生した 15 件のテスト失敗を修正しました。すべてのブロッカーは解決済みですが、以下の推奨改善項目が残っています。
+
+**なぜこれらのタスクが残ったか**:
+- テスト失敗修正を優先したため、カバレッジ改善は後回しにした（Planning Document 411-416 行）
+- パフォーマンスベンチマークは「強く推奨」だがマージのブロッカーではないと判断（Phase 6 テスト結果 386-388 行）
+```
+
+### 4. タスク間の依存関係を明示
+
+```markdown
+## タスク実行順序
+
+1. **Task 1** (ブロッカーなし): カバレッジ改善
+2. **Task 2** (Task 1 完了後): パフォーマンスベンチマーク実行
+3. **Task 3** (Task 2 完了後): パフォーマンス特性のドキュメント化
+```
+
+## 実装の提案
+
+### 修正対象ファイル
+- `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッド（178-232 行）
+
+### 必要な変更
+
+#### 1. タイトル生成ロジックの追加
+
+```typescript
+private generateFollowUpTitle(issueNumber: number, remainingTasks: RemainingTask[]): string {
+  // タスクから主要なキーワードを抽出
+  const keywords = this.extractKeywords(remainingTasks, 3);
+  
+  const title = keywords.length > 0
+    ? `[FOLLOW-UP] #${issueNumber}: ${keywords.join('・')}`
+    : `[FOLLOW-UP] Issue #${issueNumber} - 残タスク`; // フォールバック
+  
+  // 80文字制限
+  return title.length > 80 ? title.substring(0, 77) + '...' : title;
+}
+
+private extractKeywords(tasks: RemainingTask[], maxCount: number): string[] {
+  // タスクテキストから重要なキーワードを抽出
+  // 例: "Coverage improvement to 90%" -> "カバレッジ改善"
+  //     "Jest設定を修正して..." -> "Jest設定修正"
+  const keywords: string[] = [];
+  
+  for (const task of tasks.slice(0, maxCount)) {
+    const taskText = String(task.task ?? '');
+    // 簡略化ロジック（括弧前まで、または最初の20文字）
+    const keyword = taskText.split('（')[0].split('(')[0].trim().substring(0, 20);
+    if (keyword) keywords.push(keyword);
+  }
+  
+  return keywords;
+}
+```
+
+#### 2. Evaluation Report からの情報抽出を強化
+
+```typescript
+public async createIssueFromEvaluation(
+  issueNumber: number,
+  remainingTasks: RemainingTask[],
+  evaluationReportPath: string,
+  // 新規パラメータ
+  issueContext?: {
+    summary: string;
+    blockerStatus: string;
+    deferredReason: string;
+  },
+): Promise<IssueCreationResult> {
+  const title = this.generateFollowUpTitle(issueNumber, remainingTasks);
+  const lines: string[] = [];
+  
+  lines.push('## 背景', '');
+  lines.push(issueContext?.summary ?? `AI Workflow Issue #${issueNumber} の評価フェーズで残タスクが見つかりました。`, '');
+  
+  if (issueContext?.blockerStatus) {
+    lines.push('### 元 Issue のステータス', '');
+    lines.push(issueContext.blockerStatus, '');
+  }
+  
+  if (issueContext?.deferredReason) {
+    lines.push('### なぜこれらのタスクが残ったか', '');
+    lines.push(issueContext.deferredReason, '');
+  }
+  
+  lines.push('## 残タスク詳細', '');
+  
+  for (const task of remainingTasks) {
+    lines.push(`### ${task.task}`, '');
+    
+    if (task.targetFiles) {
+      lines.push('**対象ファイル**:', '');
+      task.targetFiles.forEach(file => lines.push(`- \`${file}\``));
+      lines.push('');
+    }
+    
+    if (task.steps) {
+      lines.push('**必要な作業**:', '');
+      task.steps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+      lines.push('');
+    }
+    
+    if (task.acceptanceCriteria) {
+      lines.push('**Acceptance Criteria**:', '');
+      task.acceptanceCriteria.forEach(ac => lines.push(`- [ ] ${ac}`));
+      lines.push('');
+    }
+    
+    lines.push(`**Phase**: ${task.phase ?? 'unknown'}`, '');
+    lines.push(`**優先度**: ${task.priority ?? '中'}${task.priorityReason ? ` - ${task.priorityReason}` : ''}`, '');
+    lines.push('');
+  }
+  
+  lines.push('## 参考', '');
+  lines.push(`- 元Issue: #${issueNumber}`);
+  lines.push(`- Evaluation Report: \`${evaluationReportPath}\``);
+  lines.push('', '---', '*自動生成: AI Workflow Phase 9 (Evaluation)*');
+  
+  const { data } = await this.octokit.issues.create({
+    owner: this.owner,
+    repo: this.repo,
+    title, // 改善されたタイトル
+    body: lines.join('\n'),
+    labels: ['enhancement', 'ai-workflow-follow-up'],
+  });
+  
+  // ...
+}
+```
+
+#### 3. RemainingTask 型の拡張（必要に応じて）
+
+```typescript
+// src/types.ts
+export interface RemainingTask {
+  task: string;
+  phase?: string;
+  priority?: string;
+  priorityReason?: string;        // 新規: 優先度の理由
+  targetFiles?: string[];         // 新規: 対象ファイル
+  steps?: string[];               // 新規: 実行手順
+  acceptanceCriteria?: string[];  // 新規: AC
+  dependencies?: string[];        // 新規: 依存タスク
+}
+```
+
+## Acceptance Criteria
+
+- [ ] フォローアップ Issue のタイトルがタスク内容を反映している（主要なキーワードを含む）
+- [ ] タイトルは 80 文字以内に収まる
+- [ ] タイトルから Issue の内容が推測できる
+- [ ] フォローアップ Issue に「背景」セクションが追加される（元 Issue の要約、なぜタスクが残ったか）
+- [ ] 各タスクに以下の情報が含まれる（該当する場合）:
+  - [ ] 対象ファイル/モジュール
+  - [ ] 必要な作業の具体的な手順
+  - [ ] Acceptance Criteria
+  - [ ] 優先度の根拠
+- [ ] タスク間の依存関係が明示される（該当する場合）
+- [ ] Evaluation Report へのアクセス方法が改善される（リンクまたは本文への埋め込み）
+- [ ] 既存のフォローアップ Issue 作成機能が壊れない（後方互換性）
+
+## 補足情報
+
+### 関連 Issue
+- Issue #94: `[FOLLOW-UP] Issue #91 - 残タスク`（タイトルが不明瞭）
+- Issue #96: `[FOLLOW-UP] Issue #90 - 残タスク`（タイトルが不明瞭）
+- Issue #98: `[FOLLOW-UP] Issue #74 - 残タスク`（タイトルが不明瞭）
+- Issue #102: `[FOLLOW-UP] Issue #52 - 残タスク`（タイトルが不明瞭）
+
+### 参考資料
+- `src/core/github/issue-client.ts:178-232` - 現在の実装
+- `src/types.ts` - `RemainingTask` 型定義（拡張が必要になる可能性あり）
+
+---
+*AI Workflow の改善提案*
+
+## テスト戦略別の対応
+
+Phase 2で決定されたテスト戦略に応じて、以下のテストシナリオを作成してください：
+
+### UNIT_ONLY: Unitテストのみ
+- 各関数・メソッド単位のテストケース
+- 正常系・異常系・境界値テスト
+- モック/スタブを使用した単体テスト
+
+### INTEGRATION_ONLY: Integrationテストのみ
+- コンポーネント間の連携テスト
+- 外部システムとの統合テスト
+- データフローの検証
+
+### BDD_ONLY: BDDテストのみ
+- ユーザーストーリーベースのシナリオ
+- Given-When-Then形式
+- ビジネス要件との対応
+
+### UNIT_INTEGRATION: Unit + Integration
+- Unitテストシナリオ（上記）
+- Integrationテストシナリオ（上記）
+
+### UNIT_BDD: Unit + BDD
+- Unitテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+### INTEGRATION_BDD: Integration + BDD
+- Integrationテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+### ALL: すべて
+- Unitテストシナリオ（上記）
+- Integrationテストシナリオ（上記）
+- BDDシナリオ（上記）
+
+## テストシナリオの構成
+
+### 1. テスト戦略サマリー
+- 選択されたテスト戦略（Phase 2から引用）
+- テスト対象の範囲
+- テストの目的
+
+### 2. Unitテストシナリオ（該当する場合）
+
+各関数・メソッドについて：
+
+**テストケース名**: （関数名_正常系/異常系/境界値）
+
+- **目的**: このテストで検証すること
+- **前提条件**: テスト実行前の状態
+- **入力**: 関数への入力パラメータ
+- **期待結果**: 期待される出力・状態変化
+- **テストデータ**: 使用するテストデータ
+
+**例**:
+```
+テストケース名: calculate_total_正常系
+目的: 合計金額が正しく計算されることを検証
+前提条件: 商品リストが存在する
+入力: items = [{price: 100, quantity: 2}, {price: 200, quantity: 1}]
+期待結果: 400が返される
+テストデータ: 上記items
+```
+
+### 3. Integrationテストシナリオ（該当する場合）
+
+各統合ポイントについて：
+
+**シナリオ名**: （統合する2つのコンポーネント名）
+
+- **目的**: この統合で検証すること
+- **前提条件**: 統合テスト実行前の状態
+- **テスト手順**: ステップバイステップの手順
+- **期待結果**: 統合後の期待される動作
+- **確認項目**: 確認すべきポイントのチェックリスト
+
+### 4. BDDシナリオ（該当する場合）
+
+ユーザーストーリーごとに：
+
+**Feature**: （機能名）
+
+**Scenario**: （シナリオ名）
+
+- **Given** (前提条件): システムの初期状態
+- **When** (操作): ユーザーが実行するアクション
+- **Then** (結果): 期待される結果
+
+**例**:
+```gherkin
+Feature: ユーザー登録機能
+
+Scenario: 新規ユーザーが正常に登録できる
+  Given ユーザーがログインしていない
+  When ユーザーが有効なメールアドレスとパスワードで登録フォームを送信する
+  Then ユーザーアカウントが作成される
+  And 確認メールが送信される
+  And ユーザーがログイン画面にリダイレクトされる
+```
+
+### 5. テストデータ
+- 各テストシナリオで使用するテストデータ
+- 正常データ、異常データ、境界値データ
+
+### 6. テスト環境要件
+- 必要なテスト環境（ローカル、CI/CD等）
+- 必要な外部サービス・データベース
+- モック/スタブの必要性
+
+## 品質ゲート（Phase 3）
+
+テストシナリオは以下の品質ゲートを満たす必要があります：
+
+- [ ] **Phase 2の戦略に沿ったテストシナリオである**
+- [ ] **主要な正常系がカバーされている**
+- [ ] **主要な異常系がカバーされている**
+- [ ] **期待結果が明確である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **戦略準拠**: Phase 2のテスト戦略を厳守してください
+   - 戦略に含まれないテスト種別は作成不要
+   - 例: UNIT_ONLYの場合、Integration/BDDシナリオは不要
+
+2. **要件との対応**: 要件定義書の各要件がテストでカバーされていることを確認
+   - 受け入れ基準がテストシナリオに反映されているか
+   - 機能要件がすべてテスト対象に含まれているか
+
+3. **実行可能性**: 実際に実行可能なテストシナリオを記述
+   - 曖昧な表現を避ける
+   - 具体的な入力・出力を記載
+   - 検証可能な期待結果
+
+4. **優先度**: すべてのエッジケースではなく、主要なケースに注目
+   - 80点で十分（完璧を目指さない）
+   - クリティカルパス優先
+   - 高リスク領域を優先的にカバー
+
+5. **レビューされることを意識**: テストシナリオはクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+
+## 出力形式
+
+テストシナリオを `.ai-workflow/issue-104/03_test_scenario/output/test-scenario.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。
+
+## 実装開始
+
+上記を踏まえ、テストシナリオを作成してください。
