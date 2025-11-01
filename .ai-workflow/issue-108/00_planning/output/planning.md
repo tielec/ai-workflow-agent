@@ -223,12 +223,12 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.3h)
 
-- [ ] Task 7-1: Issue #104 の Evaluation Report 更新 (10分)
+- [x] Task 7-1: Issue #104 の Evaluation Report 更新 (10分)
   - `.ai-workflow/issue-104/09_evaluation/output/evaluation_report.md` の残タスクセクションを更新
   - 完了したタスクにチェックマークを追加
   - 完了日時を記録
 
-- [ ] Task 7-2: 実装ログ作成 (10分)
+- [x] Task 7-2: 実装ログ作成 (10分)
   - Phase 4 の実装内容をドキュメント化
   - 修正したテスト期待値の詳細を記録
   - trim() 実装の有無と理由を記録
