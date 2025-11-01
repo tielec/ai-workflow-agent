@@ -133,7 +133,7 @@
 
 ### Phase 3: テストシナリオ (見積もり: 0.25~0.5h)
 
-- [ ] Task 3-1: テスト実行シナリオの定義 (0.25~0.5h)
+- [x] Task 3-1: テスト実行シナリオの定義 (0.25~0.5h)
   - file-selector.test.ts の修正後テストシナリオ
   - commit-message-builder.test.ts の修正後テストシナリオ
   - commit-manager.test.ts の統合テスト有効化シナリオ
@@ -273,10 +273,10 @@ graph TD
 - [x] Jest設定の修正方針が決定されている
 
 ### Phase 3: テストシナリオ
-- [ ] file-selector.test.ts の修正後テストシナリオが定義されている
-- [ ] commit-message-builder.test.ts の修正後テストシナリオが定義されている
-- [ ] commit-manager.test.ts の統合テスト有効化シナリオが定義されている
-- [ ] 全テスト実行による回帰テスト確認シナリオが定義されている
+- [x] file-selector.test.ts の修正後テストシナリオが定義されている
+- [x] commit-message-builder.test.ts の修正後テストシナリオが定義されている
+- [x] commit-manager.test.ts の統合テスト有効化シナリオが定義されている
+- [x] 全テスト実行による回帰テスト確認シナリオが定義されている
 
 ### Phase 4: 実装
 - [ ] file-selector.test.ts の期待値が修正されている（lines 72-79）
