@@ -322,6 +322,264 @@ ai-workflow rollback \
 - 差し戻し理由は `ROLLBACK_REASON.md` として `.ai-workflow/issue-<NUM>/<PHASE>/` ディレクトリに保存されます
 - 差し戻し後、次回の `execute` コマンドで差し戻し先フェーズの指定ステップから自動的に再開されます
 
+### Rollback機能の運用フロー
+
+rollback機能を使用する場合の典型的なオペレーションフローを説明します。
+
+#### フローチャート
+
+```mermaid
+flowchart TD
+    Start([ワークフロー開始<br/>execute --phase all]) --> Execute[Phase 0-9を順次実行]
+    Execute --> CheckFail{失敗?}
+
+    CheckFail -->|成功| Success([✅ ワークフロー完了])
+
+    CheckFail -->|Phase N で失敗| AnalyzeLog[ログを確認して<br/>原因を特定]
+
+    AnalyzeLog --> CheckCause{失敗の原因は?}
+
+    CheckCause -->|Phase N 自体の問題<br/>例: テストコードのバグ| DirectResume[そのまま再実行<br/>execute --phase all]
+    DirectResume --> ResumeN[resume機能により<br/>Phase N から自動再開]
+    ResumeN --> ReviseN[reviseステップで<br/>自動修正を試みる]
+    ReviseN --> CheckFail
+
+    CheckCause -->|Phase N-X の問題<br/>例: 設計・実装が不完全| Rollback[rollbackコマンド実行<br/>--to-phase N-X<br/>--reason ...]
+    Rollback --> UpdateMeta[メタデータ自動更新<br/>- Phase N-X: in_progress<br/>- Phase N-X+1以降: pending<br/>- rollback_context記録]
+    UpdateMeta --> ReExecute[再実行<br/>execute --phase all<br/>パラメータは同じ]
+    ReExecute --> ResumeNX[resume機能により<br/>Phase N-X から自動再開]
+    ResumeNX --> ReviseNX[reviseステップで<br/>差し戻し理由を注入して修正]
+    ReviseNX --> ContinuePhases[Phase N-X+1以降を<br/>順次実行]
+    ContinuePhases --> CheckFail
+
+    style Start fill:#e1f5ff
+    style Success fill:#d4edda
+    style Rollback fill:#fff3cd
+    style DirectResume fill:#d1ecf1
+    style UpdateMeta fill:#fff3cd
+    style ReExecute fill:#d1ecf1
+```
+
+#### パターン1: 自動修正可能な失敗（rollback不要）
+
+フェーズ自体の問題で失敗した場合、`rollback`コマンドは不要です。そのまま再実行すれば、自動的にreviseステップで修正が試みられます。
+
+```bash
+# 1. 初回実行
+ai-workflow execute --phase all --issue 123
+
+# → Phase 6 (Testing) で失敗
+# → reviseステップで3回自動修正を試みるが、すべて失敗
+# → phases.testing.status = "failed" が記録される
+
+# 2. そのまま再実行（rollbackなし）
+ai-workflow execute --phase all --issue 123
+
+# → resume機能により Phase 6 から自動的に再開
+# → reviseステップで再度修正を試みる
+# → 成功すれば Phase 7-9 を継続実行
+```
+
+**この場合、rollbackは不要です。** `--phase all` のまま再実行するだけでOKです。
+
+#### パターン2: 前のフェーズに問題がある場合（rollback必要）
+
+前のフェーズの設計・実装に問題があり、現在のフェーズでは修正できない場合、rollbackコマンドを使用します。
+
+```bash
+# 1. 初回実行
+ai-workflow execute --phase all --issue 123
+
+# → Phase 0-5: 成功
+# → Phase 6 (Testing): 失敗
+#    理由: "Phase 4のテストコード実装が不完全"と判明
+#    （reviseで3回修正を試みるが、Phase 6では解決できない）
+
+# 2. ログを確認して原因を特定
+cat .ai-workflow/issue-123/06_testing/output/test-result.md
+# → "Phase 4 (Implementation)のモック実装が不完全"と判明
+
+# 3. rollbackコマンドで Phase 4 に差し戻し
+ai-workflow rollback \
+  --issue 123 \
+  --to-phase implementation \
+  --reason "Testing Phaseで11個のテスト失敗。PhaseRunnerのモック実装が不完全。validatePhaseDependenciesの修正が必要"
+
+# → メタデータ自動更新:
+#    - phases.implementation.status = "in_progress"
+#    - phases.implementation.current_step = "revise"
+#    - phases.test_implementation.status = "pending" (リセット)
+#    - phases.testing.status = "pending" (リセット)
+#    - rollback_context に差し戻し理由を記録
+#    - ROLLBACK_REASON.md を生成
+
+# 4. 再実行（rollback後も --phase all のまま）
+ai-workflow execute --phase all --issue 123
+
+# → resume機能により Phase 4 から自動的に再開
+# → Phase 4 の revise ステップから開始
+#    （差し戻し理由が自動的にプロンプトに注入される）
+# → AIエージェントがテストコードを修正
+# → Phase 5-9 を順次実行
+# → 成功
+```
+
+**重要**: rollback後も `--phase all` のまま再実行してください。`--phase implementation` に変更する必要はありません。resume機能により自動的に正しいフェーズから再開されます。
+
+#### パターン3: Jenkins での運用フロー
+
+Jenkinsでも同様のフローになります。
+
+```mermaid
+sequenceDiagram
+    participant User as オペレーター
+    participant Jenkins as Jenkins Job
+    participant Workflow as AI Workflow
+    participant Metadata as metadata.json
+
+    Note over User,Metadata: Jenkins Job #1: 初回実行
+
+    User->>Jenkins: Build<br/>EXECUTION_MODE: all_phases<br/>ISSUE_URL: .../issues/123
+    Jenkins->>Workflow: execute --phase all --issue 123
+    Workflow->>Workflow: Phase 0-5: 成功 ✅
+    Workflow->>Workflow: Phase 6: Testing 失敗 ❌
+    Workflow->>Metadata: phases.testing.status = "failed"
+    Workflow-->>Jenkins: ❌ ビルド失敗
+    Jenkins-->>User: ❌ Phase 6 で失敗
+
+    Note over User,Metadata: ログ確認 → Phase 4 の問題と判明
+
+    User->>User: test-result.md を確認<br/>"Phase 4のモック実装が不完全"
+
+    Note over User,Metadata: Jenkins Job #2: rollback実行
+
+    User->>Jenkins: Build<br/>EXECUTION_MODE: rollback<br/>ROLLBACK_TO_PHASE: implementation<br/>ROLLBACK_REASON: ...
+    Jenkins->>Workflow: rollback --issue 123 --to-phase implementation --reason ... --force
+    Workflow->>Metadata: phases.implementation.status = "in_progress"
+    Workflow->>Metadata: phases.implementation.current_step = "revise"
+    Workflow->>Metadata: phases.test_implementation.status = "pending"
+    Workflow->>Metadata: phases.testing.status = "pending"
+    Workflow->>Metadata: rollback_context を記録
+    Workflow-->>Jenkins: ✅ rollback完了
+    Jenkins-->>User: ✅ メタデータ更新完了
+
+    Note over User,Metadata: Jenkins Job #3: 再実行（パラメータは最初と同じ）
+
+    User->>Jenkins: Build<br/>EXECUTION_MODE: all_phases ← 同じ<br/>ISSUE_URL: .../issues/123 ← 同じ
+    Jenkins->>Workflow: execute --phase all --issue 123
+    Workflow->>Metadata: current_step = "revise" を確認
+    Workflow->>Workflow: Phase 4: reviseステップから再開<br/>（差し戻し理由を注入）
+    Workflow->>Workflow: Phase 5-9: 順次実行
+    Workflow->>Metadata: phases.evaluation.status = "completed"
+    Workflow-->>Jenkins: ✅ ビルド成功
+    Jenkins-->>User: ✅ 全フェーズ完了
+```
+
+**Jenkinsでの設定例**:
+
+```bash
+# 1. Jenkins Job #1: 初回実行
+EXECUTION_MODE: all_phases
+ISSUE_URL: https://github.com/owner/repo/issues/123
+# → Phase 6 で失敗
+
+# 2. ログ確認 → Phase 4 の問題と判明
+
+# 3. Jenkins Job #2: rollback実行
+EXECUTION_MODE: rollback
+ROLLBACK_TO_PHASE: implementation
+ROLLBACK_REASON: "Testing Phaseで失敗。PhaseRunnerのモック実装が不完全"
+# → メタデータ更新
+
+# 4. Jenkins Job #3: 再実行（パラメータは最初と同じ）
+EXECUTION_MODE: all_phases  ← rollback前と同じ
+ISSUE_URL: https://github.com/owner/repo/issues/123
+# → Phase 4 から自動的に再開
+# → 成功
+```
+
+**Jenkinsでの注意点**:
+- rollback後は **EXECUTION_MODEを `all_phases` または `preset` に戻す**
+- `single_phase` モードは使用しない（自動的に後続フェーズが実行されない）
+- CI環境では `--force` フラグが自動的に付与されるため、確認プロンプトは表示されません
+
+#### パターン4: 差し戻し理由の伝達
+
+rollbackで記録された差し戻し理由は、次回実行時に自動的にAIエージェントに伝達されます。
+
+```markdown
+# Phase 4 (Implementation) - Revise プロンプト
+
+## ⚠️ 前のフェーズから差し戻されました
+
+**差し戻し元**: testing (Phase 6)
+**差し戻し日時**: 2025-01-30 14:00:00
+**差し戻し理由**:
+Testing Phaseで11個のテスト失敗。
+PhaseRunnerのモック実装が不完全。
+validatePhaseDependenciesの修正が必要。
+
+---
+
+## 修正指示
+
+上記の差し戻し理由を踏まえて、実装を修正してください。
+
+（以下、通常のreviseプロンプトが続く）
+```
+
+これにより、AIエージェントは問題の本質を理解して適切な修正を実施できます。
+
+#### まとめ: rollback vs 通常のresume
+
+```mermaid
+flowchart LR
+    subgraph Pattern1["パターン1: Phase N 自体の問題（rollback不要）"]
+        direction LR
+        A1([Phase N で失敗]) --> A2[そのまま再実行<br/>execute --phase all]
+        A2 --> A3[resume機能により<br/>Phase N から自動再開]
+        A3 --> A4[reviseステップで<br/>自動修正]
+        A4 --> A5([✅ 成功])
+
+        style A1 fill:#ffcccc
+        style A2 fill:#d1ecf1
+        style A3 fill:#d1ecf1
+        style A4 fill:#d1ecf1
+        style A5 fill:#d4edda
+    end
+
+    subgraph Pattern2["パターン2: Phase N-X の問題（rollback必要）"]
+        direction LR
+        B1([Phase N で失敗<br/>原因はPhase N-X]) --> B2[rollback実行<br/>--to-phase N-X<br/>--reason ...]
+        B2 --> B3[メタデータ更新]
+        B3 --> B4[execute --phase all<br/>で再実行]
+        B4 --> B5[resume機能により<br/>Phase N-X から自動再開]
+        B5 --> B6[差し戻し理由を<br/>プロンプトに注入]
+        B6 --> B7[reviseステップで修正]
+        B7 --> B8([✅ 成功])
+
+        style B1 fill:#ffcccc
+        style B2 fill:#fff3cd
+        style B3 fill:#fff3cd
+        style B4 fill:#d1ecf1
+        style B5 fill:#d1ecf1
+        style B6 fill:#d1ecf1
+        style B7 fill:#d1ecf1
+        style B8 fill:#d4edda
+    end
+```
+
+| 状況 | 使用コマンド | 次の実行 | resume開始フェーズ |
+|------|------------|----------|------------------|
+| **Phase N 自体の問題**<br/>（例: Testing失敗、テストコードのバグ） | なし（そのまま再実行） | `--phase all` で再実行 | Phase N |
+| **Phase N-X の問題**<br/>（例: Testing失敗、Implementationのモック不完全） | `rollback --to-phase N-X` | `--phase all` で再実行 | Phase N-X |
+
+**重要なポイント**:
+- ✅ rollback後も `--phase all` で実行する（`--phase <name>` に変更しない）
+- ✅ resume機能は自動的に働くので、メタデータさえ正しければ正しいフェーズから再開される
+- ✅ rollbackはメタデータを更新するだけなので、実行モードは変更不要
+- ✅ Jenkinsでも同じ（EXECUTION_MODEは `all_phases` または `preset` のまま）
+
 ## フェーズ概要
 
 | フェーズ | ファイル                         | 説明                                        |
