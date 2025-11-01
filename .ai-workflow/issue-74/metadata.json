@@ -120,14 +120,15 @@
       ]
     },
     "report": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-11-01T05:08:08.126Z",
-      "completed_at": null,
+      "completed_at": "2025-11-01T05:11:35.431Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     },
     "evaluation": {
@@ -144,7 +145,7 @@
     }
   },
   "created_at": "2025-11-01T04:40:12.187Z",
-  "updated_at": "2025-11-01T05:11:32.465Z",
+  "updated_at": "2025-11-01T05:11:36.050Z",
   "branch_name": "ai-workflow/issue-74",
   "pr_number": 97,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/97",
