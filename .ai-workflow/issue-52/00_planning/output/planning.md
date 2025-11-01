@@ -161,17 +161,17 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: FileSelector の設計 (1h)
+- [x] Task 2-1: FileSelector の設計 (1h)
   - インターフェース定義（依存性注入: SimpleGit）
   - メソッドシグネチャ設計（5メソッド）
   - minimatch パターンマッチング戦略
 
-- [ ] Task 2-2: CommitMessageBuilder の設計 (1h)
+- [x] Task 2-2: CommitMessageBuilder の設計 (1h)
   - インターフェース定義（依存性注入: MetadataManager）
   - メソッドシグネチャ設計（4メソッド）
   - phaseOrder 定数の共有戦略
 
-- [ ] Task 2-3: CommitManager の委譲パターン設計 (1h)
+- [x] Task 2-3: CommitManager の委譲パターン設計 (1h)
   - ファサードパターンの実装戦略（GitManager の実績パターンを踏襲）
   - コンストラクタ依存性注入設計
   - 既存公開メソッドの委譲マッピング
@@ -371,10 +371,10 @@ graph TD
 - [x] **実装戦略が明確に決定されている**（REFACTOR）
 - [x] **テスト戦略が明確に決定されている**（UNIT_INTEGRATION）
 - [x] **テストコード戦略が明確に決定されている**（BOTH_TEST）
-- [ ] FileSelector のインターフェース設計が完了している
-- [ ] CommitMessageBuilder のインターフェース設計が完了している
-- [ ] CommitManager の委譲パターン設計が完了している
-- [ ] 依存性注入戦略が明確である
+- [x] FileSelector のインターフェース設計が完了している
+- [x] CommitMessageBuilder のインターフェース設計が完了している
+- [x] CommitManager の委譲パターン設計が完了している
+- [x] 依存性注入戦略が明確である
 
 ### Phase 3: テストシナリオ
 
