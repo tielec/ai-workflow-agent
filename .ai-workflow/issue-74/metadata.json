@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_ONLY",
     "test_code_strategy": "EXTEND_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 221,
-    "total_output_tokens": 100825,
-    "total_cost_usd": 6.3201639499999995
+    "total_input_tokens": 238,
+    "total_output_tokens": 109464,
+    "total_cost_usd": 7.715360349999999
   },
   "phases": {
     "planning": {
@@ -132,20 +132,32 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-01T05:11:37.408Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "ESLint ルール追加（no-process-env）の検討",
+          "phase": "implementation",
+          "priority": "中"
+        },
+        {
+          "task": "SecretMasker との統合の検討",
+          "phase": "implementation",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/98",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-11-01T04:40:12.187Z",
-  "updated_at": "2025-11-01T05:11:36.050Z",
+  "updated_at": "2025-11-01T05:15:16.140Z",
   "branch_name": "ai-workflow/issue-74",
   "pr_number": 97,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/97",
