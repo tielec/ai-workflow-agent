@@ -27,6 +27,10 @@ const config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  // ESMパッケージ（chalk、strip-ansi、ansi-regex）を変換対象に含める
+  transformIgnorePatterns: [
+    '/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)',
+  ],
 };
 
 module.exports = config;

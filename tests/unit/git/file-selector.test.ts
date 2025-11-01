@@ -71,7 +71,11 @@ describe('FileSelector - getChangedFiles', () => {
     mockGit.status.mockResolvedValue({
       modified: ['src/index.ts'],
       staged: ['src/index.ts'],
-      files: ['src/index.ts', 'src/other.ts'],
+      // FileStatusResult 型に準拠（path, index, working_dir を含むオブジェクト）
+      files: [
+        { path: 'src/index.ts', index: 'M', working_dir: 'M' },
+        { path: 'src/other.ts', index: 'M', working_dir: 'M' }
+      ],
       not_added: [],
       created: [],
       deleted: [],

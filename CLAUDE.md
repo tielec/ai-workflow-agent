@@ -355,6 +355,18 @@ if (config.isCI()) {
 - テストでのファイル操作には `fs-extra` を使用
 - **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
 
+### Jest設定（ESMパッケージ対応）
+
+`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`）を変換対象に含める設定を追加しています：
+
+```javascript
+transformIgnorePatterns: [
+  '/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)',
+],
+```
+
+この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。詳細は Issue #102 を参照してください。
+
 ## 主要な設計パターン
 
 ### エージェントフォールバック戦略
