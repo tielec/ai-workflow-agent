@@ -178,20 +178,20 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 3: テストシナリオ (見積もり: 2h)
 
-- [ ] Task 3-1: FileSelector のテストシナリオ (1h)
+- [x] Task 3-1: FileSelector のテストシナリオ (1h)
   - getChangedFiles のシナリオ（git status 解析、@tmp 除外）
   - filterPhaseFiles のシナリオ（Issue番号フィルタリング）
   - getPhaseSpecificFiles のシナリオ（implementation, test_implementation, documentation）
   - scanDirectories のシナリオ（複数ディレクトリスキャン）
   - scanByPatterns のシナリオ（minimatch パターン検証）
 
-- [ ] Task 3-2: CommitMessageBuilder のテストシナリオ (0.5h)
+- [x] Task 3-2: CommitMessageBuilder のテストシナリオ (0.5h)
   - createCommitMessage のシナリオ（フェーズ完了メッセージ）
   - buildStepCommitMessage のシナリオ（ステップ完了メッセージ）
   - createInitCommitMessage のシナリオ（初期化メッセージ）
   - createCleanupCommitMessage のシナリオ（クリーンアップメッセージ）
 
-- [ ] Task 3-3: CommitManager 委譲動作のテストシナリオ (0.5h)
+- [x] Task 3-3: CommitManager 委譲動作のテストシナリオ (0.5h)
   - commitPhaseOutput の委譲検証（FileSelector + CommitMessageBuilder 統合）
   - commitStepOutput の委譲検証
   - 後方互換性検証（既存テストスイートの実行）
@@ -378,10 +378,10 @@ graph TD
 
 ### Phase 3: テストシナリオ
 
-- [ ] FileSelector の全メソッドにテストシナリオがある（5メソッド × 2~3シナリオ = 10~15シナリオ）
-- [ ] CommitMessageBuilder の全メソッドにテストシナリオがある（4メソッド × 1~2シナリオ = 4~8シナリオ）
-- [ ] CommitManager の委譲動作にテストシナリオがある
-- [ ] 後方互換性検証シナリオがある
+- [x] FileSelector の全メソッドにテストシナリオがある（5メソッド × 2~3シナリオ = 10~15シナリオ）
+- [x] CommitMessageBuilder の全メソッドにテストシナリオがある（4メソッド × 1~2シナリオ = 4~8シナリオ）
+- [x] CommitManager の委譲動作にテストシナリオがある
+- [x] 後方互換性検証シナリオがある
 
 ### Phase 4: 実装
 
