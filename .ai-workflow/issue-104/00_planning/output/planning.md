@@ -211,11 +211,11 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: ARCHITECTURE.md の更新 (0.25~0.5h)
+- [x] Task 7-1: ARCHITECTURE.md の更新 (0.25~0.5h)
   - IssueClient の機能拡張を記載
   - `RemainingTask` 型の拡張を記載
 
-- [ ] Task 7-2: CLAUDE.md の更新 (0.25~0.5h)
+- [x] Task 7-2: CLAUDE.md の更新 (0.25~0.5h)
   - Evaluation Phase のフォローアップ Issue 生成改善を記載
   - タイトル生成ロジックの説明を追加
 
