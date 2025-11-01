@@ -224,7 +224,7 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: FileSelector のユニットテスト実装 (1~1.5h)
+- [x] Task 5-1: FileSelector のユニットテスト実装 (1~1.5h)
   - file-selector.test.ts の作成
   - getChangedFiles のテスト（正常系・境界値）
   - filterPhaseFiles のテスト（正常系・異常系）
@@ -232,14 +232,14 @@ import { CommitManager } from './git/commit-manager.js';
   - scanDirectories のテスト
   - scanByPatterns のテスト（minimatch パターン検証）
 
-- [ ] Task 5-2: CommitMessageBuilder のユニットテスト実装 (0.5~1h)
+- [x] Task 5-2: CommitMessageBuilder のユニットテスト実装 (0.5~1h)
   - commit-message-builder.test.ts の作成
   - createCommitMessage のテスト（既存テストからマイグレーション）
   - buildStepCommitMessage のテスト（既存テストからマイグレーション）
   - createInitCommitMessage のテスト（既存テストからマイグレーション）
   - createCleanupCommitMessage のテスト（既存テストからマイグレーション）
 
-- [ ] Task 5-3: CommitManager の委譲テスト実装 (0.5~1h)
+- [x] Task 5-3: CommitManager の委譲テスト実装 (0.5~1h)
   - commit-manager.test.ts のリファクタリング
   - commitPhaseOutput の委譲検証テスト（モック使用）
   - commitStepOutput の委譲検証テスト
@@ -393,10 +393,10 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] FileSelector のテストが実装されている（約100行）
-- [ ] CommitMessageBuilder のテストが実装されている（約50行）
-- [ ] CommitManager のテストがリファクタリングされている
-- [ ] 既存テストスイート（363行）が全て実行可能である
+- [x] FileSelector のテストが実装されている（約100行）
+- [x] CommitMessageBuilder のテストが実装されている（約50行）
+- [x] CommitManager のテストがリファクタリングされている
+- [x] 既存テストスイート（363行）が全て実行可能である
 
 ### Phase 6: テスト実行
 
