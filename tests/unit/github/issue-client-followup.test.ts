@@ -66,9 +66,9 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       const keywords = (issueClient as any).extractKeywords(tasks, 3);
 
       expect(keywords).toEqual([
-        'Coverage improvement to 90%',
-        'Performance benchmark execution',
-        'Documentation updates',
+        'Coverage improvement',    // 20文字に切り詰め (元: 'Coverage improvement to 90%')
+        'Performance benchmar',    // 20文字に切り詰め (元: 'Performance benchmark execution')
+        'Documentation update',    // 20文字に切り詰め (元: 'Documentation updates')
       ]);
     });
 
@@ -103,7 +103,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
 
       const keywords = (issueClient as any).extractKeywords(tasks, 1);
 
-      expect(keywords).toEqual(['Fix Jest configuration']);
+      expect(keywords).toEqual(['Fix Jest configurati']); // 20文字に切り詰め (元: 'Fix Jest configuration')
     });
 
     /**
@@ -120,7 +120,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
 
       const keywords = (issueClient as any).extractKeywords(tasks, 1);
 
-      expect(keywords[0]).toBe('This is a very long');
+      expect(keywords[0]).toBe('This is a very long '); // 末尾空白を含めて20文字
       expect(keywords[0].length).toBe(20);
     });
 
@@ -261,12 +261,16 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
      */
     it('should truncate title to 80 characters with ellipsis', () => {
       const tasks: RemainingTask[] = [
-        { task: 'Very long task description number one', phase: 'implementation', priority: 'High' },
-        { task: 'Very long task description number two', phase: 'implementation', priority: 'High' },
-        { task: 'Very long task description number three', phase: 'implementation', priority: 'High' },
+        // より長いタスクテキストを使用し、Issue番号を5桁にして確実に80文字超えを保証
+        { task: 'Implement a comprehensive authentication and authorization system', phase: 'implementation', priority: 'High' },
+        { task: 'Add extensive unit and integration tests for all paths', phase: 'testing', priority: 'High' },
+        { task: 'Update all documentation and user guides thoroughly', phase: 'documentation', priority: 'High' },
       ];
 
-      const title = (issueClient as any).generateFollowUpTitle(123, tasks);
+      // Issue番号を12345（5桁）にして、タイトルを長くする
+      // [FOLLOW-UP] #12345: Implement a comprehe・Add extensive unit a・Update all documenta
+      // = 20 + 20 + 1 + 20 + 1 + 20 = 82文字 → 77文字 + "..." = 80文字
+      const title = (issueClient as any).generateFollowUpTitle(12345, tasks);
 
       expect(title.length).toBe(80);
       expect(title.endsWith('...')).toBe(true);
