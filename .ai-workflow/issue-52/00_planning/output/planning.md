@@ -147,13 +147,13 @@ import { CommitManager } from './git/commit-manager.js';
 
 ### Phase 1: 要件定義 (見積もり: 2h)
 
-- [ ] Task 1-1: 現行コードの責務分析 (1h)
+- [x] Task 1-1: 現行コードの責務分析 (1h)
   - commit-manager.ts の各メソッドを責務別に分類
   - ファイル選択ロジックの抽出箇所を特定（448-566行）
   - メッセージ構築ロジックの抽出箇所を特定（350-443行）
   - コミット実行ロジックの残存箇所を特定（46-345行）
 
-- [ ] Task 1-2: リファクタリング要件の明確化 (1h)
+- [x] Task 1-2: リファクタリング要件の明確化 (1h)
   - 後方互換性要件の確認（公開API維持）
   - FileSelector の責務定義（5メソッド: getChangedFiles, filterPhaseFiles, getPhaseSpecificFiles, scanDirectories, scanByPatterns）
   - CommitMessageBuilder の責務定義（4メソッド: createCommitMessage, buildStepCommitMessage, createInitCommitMessage, createCleanupCommitMessage）
@@ -362,9 +362,9 @@ graph TD
 
 ### Phase 1: 要件定義
 
-- [ ] commit-manager.ts の責務が3つに分類されている（ファイル選択、メッセージ構築、コミット実行）
-- [ ] 各モジュールの責務が明確に定義されている
-- [ ] 後方互換性要件が文書化されている
+- [x] commit-manager.ts の責務が3つに分類されている（ファイル選択、メッセージ構築、コミット実行）
+- [x] 各モジュールの責務が明確に定義されている
+- [x] 後方互換性要件が文書化されている
 
 ### Phase 2: 設計
 
