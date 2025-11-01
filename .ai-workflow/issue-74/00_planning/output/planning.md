@@ -115,11 +115,11 @@
 
 ### Phase 2: 設計 (見積もり: 0.5h)
 
-- [ ] Task 2-1: テスト環境セットアップ処理の設計 (0.3h)
+- [x] Task 2-1: テスト環境セットアップ処理の設計 (0.3h)
   - beforeEachフックでのJENKINS_HOME削除処理の設計
   - afterEachフックでの環境変数復元処理の設計
   - 既存テストスイートへの影響評価
-- [ ] Task 2-2: 将来的な拡張タスクの整理 (0.2h)
+- [x] Task 2-2: 将来的な拡張タスクの整理 (0.2h)
   - ESLint ルール追加（no-process-env）の別Issue作成要否の判断
   - SecretMasker統合の別Issue作成要否の判断
   - Evaluation Phaseでの記載方針決定
@@ -277,11 +277,11 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略（EXTEND）の判断根拠が明記されている
-- [ ] テスト戦略（UNIT_ONLY）の判断根拠が明記されている
-- [ ] テストコード戦略（EXTEND_TEST）の判断根拠が明記されている
-- [ ] beforeEach/afterEachフックの設計が明確である
-- [ ] 将来的な拡張タスクの別Issue作成要否が判断されている
+- [x] 実装戦略（EXTEND）の判断根拠が明記されている
+- [x] テスト戦略（UNIT_ONLY）の判断根拠が明記されている
+- [x] テストコード戦略（EXTEND_TEST）の判断根拠が明記されている
+- [x] beforeEach/afterEachフックの設計が明確である
+- [x] 将来的な拡張タスクの別Issue作成要否が判断されている
 
 ### Phase 3: テストシナリオ
 
