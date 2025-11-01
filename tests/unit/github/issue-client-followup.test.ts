@@ -253,7 +253,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       const title = (issueClient as any).generateFollowUpTitle(123, tasks);
 
       expect(title.length).toBe(80);
-      expect(title).toEndWith('...');
+      expect(title.endsWith('...')).toBe(true);
     });
 
     /**
