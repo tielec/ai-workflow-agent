@@ -265,20 +265,22 @@
 
 ### Phase 4: 実装 (見積もり: 1~2h)
 
-- [ ] Task 4-1: Jest設定の修正 (0.5~0.75h)
+- [x] Task 4-1: Jest設定の修正 (0.5~0.75h)
   - jest.config.cjs の transformIgnorePatterns 拡張（#ansi-styles を含める）
   - package.json の scripts 更新（experimental-vm-modules オプション追加、必要に応じて）
   - Jest設定の妥当性確認（構文エラーチェック）
 
-- [ ] Task 4-2: commit-manager.test.ts の問題修正 (0.25~0.5h)
+- [x] Task 4-2: commit-manager.test.ts の問題修正 (0.25~0.5h)
   - chalkインポートの問題修正（動的インポート、またはCommonJS版への切り替え）
   - モック設定の問題修正（simple-git のモック型定義）
   - 統合テスト実行確認
+  - **注**: 実測結果、既存テストコードは正しく実装されており修正不要と判明
 
-- [ ] Task 4-3: 高優先度テストの修正 (0.25~0.5h)
+- [x] Task 4-3: 高優先度テストの修正 (0.25~0.5h)
   - 103個の失敗テストのうち、高優先度テスト（ブロッカー、頻出エラー）の修正
   - TypeScript型エラーの解消
   - モック設定の問題修正
+  - **注**: 設計書で想定されたエラーパターン1・2・3は実際には発生せず、中優先度テストはPhase 6で対応
 
 ### Phase 5: テストコード実装 (見積もり: 0.5~0.75h)
 
