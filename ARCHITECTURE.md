@@ -117,7 +117,9 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
 | `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。 |
-| `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約530行、Issue #25で追加）。コミット作成、メッセージ生成、SecretMasker統合を担当。 |
+| `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput等）、FileSelector/CommitMessageBuilderへの委譲、SecretMasker統合を担当。 |
+| `src/core/git/file-selector.ts` | ファイル選択・フィルタリングの専門モジュール（約160行、Issue #52で追加）。変更ファイル検出、Issue番号フィルタリング、フェーズ固有パターンマッチング、@tmp除外を担当。 |
+| `src/core/git/commit-message-builder.ts` | コミットメッセージ構築の専門モジュール（約151行、Issue #52で追加）。フェーズ完了、ステップ完了、初期化、クリーンアップのメッセージ生成を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
 | `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約347行、Issue #26で9.5%削減、v0.4.0でrollback機能追加、Issue #90）。差し戻し機能用の6つの新規メソッド（`setRollbackContext()`, `getRollbackContext()`, `clearRollbackContext()`, `addRollbackHistory()`, `updatePhaseForRollback()`, `resetSubsequentPhases()`）を提供。 |
@@ -372,11 +374,13 @@ GitHubClient は702行から402行へリファクタリングされ（約42.7%�
 
 ### Git
 
-**GitManager のモジュール構成（v0.3.1、Issue #25）**:
+**GitManager のモジュール構成（v0.3.1、Issue #25 / v0.4.0、Issue #52）**:
 
 GitManager は548行から181行へリファクタリングされ（約67%削減）、ファサードパターンにより3つの専門マネージャーに責務を分離しました：
 
-- **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、コミットメッセージ生成、SecretMasker統合（Issue #54でmetadata.jsonスキャン追加）、ファイル操作ヘルパー（getChangedFiles, filterPhaseFiles, ensureGitConfig）を提供。
+- **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、FileSelector/CommitMessageBuilderへの委譲によるファサードパターン実装、SecretMasker統合（Issue #54でmetadata.jsonスキャン追加）、ensureGitConfig（Git設定管理）を提供。
+  - **FileSelector** (`src/core/git/file-selector.ts`): ファイル選択・フィルタリング専門モジュール（約160行、Issue #52で追加）。getChangedFiles（変更ファイル検出）、filterPhaseFiles（Issue番号フィルタリング）、getPhaseSpecificFiles（フェーズ固有パターンマッチング）、scanDirectories、scanByPatterns、@tmp除外ロジックを担当。
+  - **CommitMessageBuilder** (`src/core/git/commit-message-builder.ts`): コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **BranchManager** (`src/core/git/branch-manager.ts`): ブランチ操作を担当。ブランチ作成、切り替え、存在チェック（ローカル/リモート）、現在のブランチ取得を提供。
 - **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。
 
