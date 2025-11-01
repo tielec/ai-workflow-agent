@@ -105,10 +105,10 @@
 
 ### Phase 1: 要件定義 (見積もり: 0.5h)
 
-- [ ] Task 1-1: Issue #51のEvaluation Reportの確認 (0.2h)
+- [x] Task 1-1: Issue #51のEvaluation Reportの確認 (0.2h)
   - `.ai-workflow/issue-51/09_evaluation/output/evaluation_report.md` の内容確認
   - 残タスク3件の優先度と詳細内容の把握
-- [ ] Task 1-2: テストケース2.6.5と2.6.6の環境依存問題の調査 (0.3h)
+- [x] Task 1-2: テストケース2.6.5と2.6.6の環境依存問題の調査 (0.3h)
   - `tests/unit/core/config.test.ts` の該当テストケースの確認
   - JENKINS_HOME環境変数の影響範囲の特定
   - 修正方針の明確化（beforeEach/afterEachでの環境変数削除）
@@ -270,10 +270,10 @@ graph TD
 
 ### Phase 1: 要件定義
 
-- [ ] Issue #51のEvaluation Reportの内容が正確に把握されている
-- [ ] テストケース2.6.5、2.6.6の環境依存問題の原因が特定されている
-- [ ] 修正方針（JENKINS_HOME環境変数の明示的削除）が明確である
-- [ ] 残タスク3件の優先度が明確である
+- [x] Issue #51のEvaluation Reportの内容が正確に把握されている
+- [x] テストケース2.6.5、2.6.6の環境依存問題の原因が特定されている
+- [x] 修正方針（JENKINS_HOME環境変数の明示的削除）が明確である
+- [x] 残タスク3件の優先度が明確である
 
 ### Phase 2: 設計
 
