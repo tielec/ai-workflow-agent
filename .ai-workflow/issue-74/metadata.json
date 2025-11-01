@@ -1,0 +1,172 @@
+{
+  "issue_number": "74",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/74",
+  "issue_title": "Issue #74",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/jenkins-95cc8655/workspace/AI_Workflow/ai_workflow_orchestrator_develop",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "evaluation",
+  "design_decisions": {
+    "implementation_strategy": "EXTEND",
+    "test_strategy": "UNIT_ONLY",
+    "test_code_strategy": "EXTEND_TEST"
+  },
+  "cost_tracking": {
+    "total_input_tokens": 238,
+    "total_output_tokens": 109464,
+    "total_cost_usd": 7.715360349999999
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:40:17.961Z",
+      "completed_at": "2025-11-01T04:43:16.636Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:43:17.146Z",
+      "completed_at": "2025-11-01T04:47:10.101Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:47:10.654Z",
+      "completed_at": "2025-11-01T04:51:41.237Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:51:41.716Z",
+      "completed_at": "2025-11-01T04:55:23.816Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:55:24.501Z",
+      "completed_at": "2025-11-01T04:58:39.366Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T04:58:39.980Z",
+      "completed_at": "2025-11-01T05:01:17.592Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "testing": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T05:01:18.193Z",
+      "completed_at": "2025-11-01T05:05:33.880Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "documentation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T05:05:34.545Z",
+      "completed_at": "2025-11-01T05:08:07.453Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "report": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T05:08:08.126Z",
+      "completed_at": "2025-11-01T05:11:35.431Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "evaluation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-01T05:11:37.408Z",
+      "completed_at": "2025-11-01T05:15:18.883Z",
+      "review_result": null,
+      "decision": "PASS_WITH_ISSUES",
+      "failed_phase": null,
+      "remaining_tasks": [
+        {
+          "task": "ESLint ルール追加（no-process-env）の検討",
+          "phase": "implementation",
+          "priority": "中"
+        },
+        {
+          "task": "SecretMasker との統合の検討",
+          "phase": "implementation",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/98",
+      "abort_reason": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    }
+  },
+  "created_at": "2025-11-01T04:40:12.187Z",
+  "updated_at": "2025-11-01T05:15:19.507Z",
+  "branch_name": "ai-workflow/issue-74",
+  "pr_number": 97,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/97",
+  "github_integration": {
+    "progress_comment_id": 3475764182,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/74#issuecomment-3475764182"
+  }
+}
