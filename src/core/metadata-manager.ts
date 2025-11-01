@@ -237,4 +237,117 @@ export class MetadataManager {
     const phaseData = this.state.data.phases[phaseName];
     return phaseData.current_step ?? null;
   }
+
+  /**
+   * Issue #90: 差し戻しコンテキストを設定
+   * @param phaseName - 対象フェーズ名
+   * @param context - 差し戻しコンテキスト
+   */
+  public setRollbackContext(
+    phaseName: PhaseName,
+    context: import('../types/commands.js').RollbackContext,
+  ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    phaseData.rollback_context = context;
+    this.save();
+
+    logger.info(`Rollback context set for phase ${phaseName}`);
+  }
+
+  /**
+   * Issue #90: 差し戻しコンテキストを取得
+   * @param phaseName - 対象フェーズ名
+   * @returns 差し戻しコンテキスト（存在しない場合は null）
+   */
+  public getRollbackContext(
+    phaseName: PhaseName,
+  ): import('../types/commands.js').RollbackContext | null {
+    const phaseData = this.state.data.phases[phaseName];
+    return phaseData.rollback_context ?? null;
+  }
+
+  /**
+   * Issue #90: 差し戻しコンテキストをクリア
+   * @param phaseName - 対象フェーズ名
+   */
+  public clearRollbackContext(phaseName: PhaseName): void {
+    const phaseData = this.state.data.phases[phaseName];
+    phaseData.rollback_context = null;
+    this.save();
+
+    logger.info(`Rollback context cleared for phase ${phaseName}`);
+  }
+
+  /**
+   * Issue #90: 差し戻し履歴を追加
+   * @param entry - 差し戻し履歴エントリ
+   */
+  public addRollbackHistory(entry: import('../types/commands.js').RollbackHistoryEntry): void {
+    if (!this.state.data.rollback_history) {
+      this.state.data.rollback_history = [];
+    }
+
+    this.state.data.rollback_history.push(entry);
+    this.save();
+
+    logger.info(`Rollback history entry added: ${entry.to_phase} <- ${entry.from_phase ?? 'unknown'}`);
+  }
+
+  /**
+   * Issue #90: フェーズを差し戻し用に更新（status, current_step, completed_at, retry_count を変更）
+   * @param phaseName - 対象フェーズ名
+   * @param toStep - 差し戻し先ステップ（'execute' | 'review' | 'revise'）
+   */
+  public updatePhaseForRollback(phaseName: PhaseName, toStep: StepName): void {
+    const phaseData = this.state.data.phases[phaseName];
+
+    phaseData.status = 'in_progress';
+    phaseData.current_step = toStep;
+    phaseData.completed_at = null;
+    phaseData.retry_count = 0; // リトライカウンタをリセット（P1: PR #95レビューコメント対応）
+
+    // completed_steps は維持（execute, review は完了済みとして保持）
+    // toStep が 'execute' の場合は completed_steps をクリア
+    if (toStep === 'execute') {
+      phaseData.completed_steps = [];
+    }
+
+    this.save();
+
+    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}`);
+  }
+
+  /**
+   * Issue #90: 後続フェーズをリセット（指定フェーズより後のすべてのフェーズを pending に戻す）
+   * @param fromPhase - 起点となるフェーズ名
+   * @returns リセットされたフェーズ名の配列
+   */
+  public resetSubsequentPhases(fromPhase: PhaseName): PhaseName[] {
+    const phases = Object.keys(this.state.data.phases) as PhaseName[];
+    const startIndex = phases.indexOf(fromPhase);
+
+    if (startIndex === -1) {
+      logger.warn(`Phase ${fromPhase} not found in metadata`);
+      return [];
+    }
+
+    // 指定フェーズより後のフェーズをリセット
+    const subsequentPhases = phases.slice(startIndex + 1);
+
+    for (const phase of subsequentPhases) {
+      const phaseData = this.state.data.phases[phase];
+      phaseData.status = 'pending';
+      phaseData.started_at = null;
+      phaseData.completed_at = null;
+      phaseData.current_step = null;
+      phaseData.completed_steps = [];
+      phaseData.retry_count = 0;
+      phaseData.rollback_context = null; // 既存の差し戻しコンテキストもクリア
+    }
+
+    this.save();
+
+    logger.info(`Reset subsequent phases: ${subsequentPhases.join(', ')}`);
+    return subsequentPhases;
+  }
 }

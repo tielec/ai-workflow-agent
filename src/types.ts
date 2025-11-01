@@ -25,6 +25,8 @@ export interface PhaseMetadata {
   // Issue #10: ステップ単位の進捗管理
   current_step?: StepName | null;  // 現在実行中のステップ（実行中でない場合はnull）
   completed_steps?: StepName[];     // 完了済みステップの配列（実行順序を保持）
+  // Issue #90: 差し戻しコンテキスト（オプショナル）
+  rollback_context?: import('./types/commands.js').RollbackContext | null;
 }
 
 export interface RemainingTask {
@@ -116,6 +118,8 @@ export interface WorkflowMetadata {
   external_documents?: Record<string, string>;
   created_at: string;
   updated_at: string;
+  // Issue #90: 差し戻し履歴（オプショナル）
+  rollback_history?: import('./types/commands.js').RollbackHistoryEntry[];
 }
 
 export interface PhaseExecutionResult {
