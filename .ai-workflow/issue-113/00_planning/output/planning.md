@@ -187,11 +187,11 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1.5h)
+- [x] Task 5-1: ユニットテストの実装 (1~1.5h)
   - `BasePhase.handleMissingOutputFile()` のテスト追加
   - `BasePhase.extractContentFromLog()` のテスト追加
   - モックファイルシステム・モックエージェントログの準備
-- [ ] Task 5-2: 統合テストの実装 (1~1.5h)
+- [x] Task 5-2: 統合テストの実装 (1~1.5h)
   - `tests/integration/phases/fallback-mechanism.test.ts` の作成
   - 各フェーズでのフォールバック動作の統合テスト
   - リグレッションテスト（既存フェーズの動作確認）
@@ -355,10 +355,10 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] ユニットテストが実装されている（`handleMissingOutputFile()`, `extractContentFromLog()`）
-- [ ] 統合テストが実装されている（各フェーズのフォールバック動作）
-- [ ] モック/スタブが適切に準備されている
-- [ ] テストコードがコーディング規約に従っている
+- [x] ユニットテストが実装されている（`handleMissingOutputFile()`, `extractContentFromLog()`）
+- [x] 統合テストが実装されている（各フェーズのフォールバック動作）
+- [x] モック/スタブが適切に準備されている
+- [x] テストコードがコーディング規約に従っている
 
 ### Phase 6: テスト実行
 
