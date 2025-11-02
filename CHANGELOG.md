@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed Phase number expectations in `commit-message-builder.test.ts` (report=Phase 8, evaluation=Phase 9)
   - Added `chalk` to Jest transformIgnorePatterns for proper ESM package handling
   - Enabled integration test execution (`commit-manager.test.ts`)
+- **Issue #105**: Extended Jest ESM package support (Follow-up to #102)
+  - Added `#ansi-styles` (chalk's internal dependency) to Jest transformIgnorePatterns
+  - Known limitation: chalk v5.3.0's ESM subpath imports are not fully resolved by Jest + ts-jest
+  - `commit-manager.test.ts` still fails due to Node.js subpath imports compatibility issue
+  - Requires follow-up with experimental-vm-modules configuration or chalk v4.x downgrade
 
 ## [0.3.0] - 2025-01-20
 
