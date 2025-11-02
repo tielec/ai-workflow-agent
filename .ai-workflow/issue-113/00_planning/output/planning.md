@@ -140,7 +140,7 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: 汎用フォールバック機構の設計 (1.5~2h)
+- [x] Task 2-1: 汎用フォールバック機構の設計 (1.5~2h)
   - `BasePhase` に追加するメソッドのシグネチャ設計
     - `handleMissingOutputFile(phaseOutputFile: string, logDir: string): Promise<void>`
     - `extractContentFromLog(logDir: string, phaseType: string): Promise<string | null>`
@@ -148,7 +148,7 @@
     - `options` パラメータに `enableFallback?: boolean` 追加
     - フォールバックフローの詳細設計（ファイル不在 → ログ抽出 → revise 呼び出し）
   - エラーハンドリング戦略（フォールバック失敗時の挙動）
-- [ ] Task 2-2: Revise プロンプト標準化の設計 (0.5~1h)
+- [x] Task 2-2: Revise プロンプト標準化の設計 (0.5~1h)
   - Evaluation Phase の revise.txt をテンプレート化
   - `{previous_log_snippet}` 変数の仕様定義
   - 各フェーズ固有の指示内容の洗い出し（フェーズ別カスタマイズ箇所）
