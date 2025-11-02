@@ -101,35 +101,76 @@ export class PhaseRunner {
       logger.warn(`${dependencyResult.warning}`);
     }
 
-    // ステータス更新: pending → in_progress
-    this.updatePhaseStatus('in_progress');
-    await this.postProgress('in_progress', `${this.phaseName} フェーズを開始します。`);
+    // Issue #90: current_step と completed_steps を確認してレジューム
+    const currentStatus = this.metadata.getPhaseStatus(this.phaseName);
+    const currentStep = this.metadata.getCurrentStep(this.phaseName);
+    const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+
+    // フェーズが pending の場合のみステータス更新
+    if (currentStatus === 'pending') {
+      this.updatePhaseStatus('in_progress');
+      await this.postProgress('in_progress', `${this.phaseName} フェーズを開始します。`);
+    } else if (currentStatus === 'in_progress') {
+      // ロールバック等で in_progress の場合
+      logger.info(`Phase ${this.phaseName} resuming from step: ${currentStep ?? 'execute'}`);
+      await this.postProgress('in_progress', `${this.phaseName} フェーズを再開します (step: ${currentStep ?? 'execute'})。`);
+    }
 
     try {
-      // Execute Step
-      const executeResult = await this.stepExecutor.executeStep(gitManager);
-      if (!executeResult.success) {
-        await this.handleFailure(executeResult.error ?? 'Unknown execute error');
-        return false;
+      // Execute Step（完了済みならスキップ）
+      if (!completedSteps.includes('execute')) {
+        logger.info(`Phase ${this.phaseName}: executing 'execute' step`);
+        const executeResult = await this.stepExecutor.executeStep(gitManager);
+        if (!executeResult.success) {
+          await this.handleFailure(executeResult.error ?? 'Unknown execute error');
+          return false;
+        }
+      } else {
+        logger.info(`Phase ${this.phaseName}: skipping 'execute' step (already completed)`);
       }
 
-      // Review Step（if enabled）
+      // Review Step（完了済みならスキップ、skipReview フラグでもスキップ）
       if (!options.skipReview) {
-        const reviewResult = await this.stepExecutor.reviewStep(gitManager, false);
-        if (!reviewResult.success) {
-          // Revise Step（if review failed）
-          if (!this.reviseFn) {
-            logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
-            await this.handleFailure('revise() method not implemented');
-            return false;
-          }
+        if (!completedSteps.includes('review')) {
+          logger.info(`Phase ${this.phaseName}: executing 'review' step`);
+          const reviewResult = await this.stepExecutor.reviewStep(gitManager, false);
+          if (!reviewResult.success) {
+            // Revise Step（if review failed）
+            if (!this.reviseFn) {
+              logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
+              await this.handleFailure('revise() method not implemented');
+              return false;
+            }
 
-          await this.stepExecutor.reviseStep(
-            gitManager,
-            reviewResult,
-            this.reviseFn,
-            async (status: PhaseStatus, details?: string) => this.postProgress(status, details)
-          );
+            logger.info(`Phase ${this.phaseName}: executing 'revise' step`);
+            await this.stepExecutor.reviseStep(
+              gitManager,
+              reviewResult,
+              this.reviseFn,
+              async (status: PhaseStatus, details?: string) => this.postProgress(status, details)
+            );
+          }
+        } else {
+          logger.info(`Phase ${this.phaseName}: skipping 'review' step (already completed)`);
+
+          // Review は完了済みだが、current_step が 'revise' の場合（ロールバック）
+          if (currentStep === 'revise') {
+            if (!this.reviseFn) {
+              logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
+              await this.handleFailure('revise() method not implemented');
+              return false;
+            }
+
+            logger.info(`Phase ${this.phaseName}: executing 'revise' step (rollback)`);
+            // ロールバック時は review を再実行せず、直接 revise を実行
+            const reviewResult = { success: false, review_status: 'FAIL', feedback: 'Rollback triggered', needs_revision: true };
+            await this.stepExecutor.reviseStep(
+              gitManager,
+              reviewResult,
+              this.reviseFn,
+              async (status: PhaseStatus, details?: string) => this.postProgress(status, details)
+            );
+          }
         }
       }
 
