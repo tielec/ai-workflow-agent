@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_ONLY",
     "test_code_strategy": "EXTEND_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 6739,
-    "total_output_tokens": 158132,
-    "total_cost_usd": 12.699920050000003
+    "total_input_tokens": 6746,
+    "total_output_tokens": 167085,
+    "total_cost_usd": 13.224690950000003
   },
   "phases": {
     "planning": {
@@ -132,22 +132,38 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-02T14:02:55.592Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "統合テストのメタデータマネージャー実装完了",
+          "phase": "implementation",
+          "priority": "高"
+        },
+        {
+          "task": "CHANGELOG.md更新（次回リリース時）",
+          "phase": "documentation",
+          "priority": "高"
+        },
+        {
+          "task": "全テストスイート成功率向上（オプション）",
+          "phase": "testing",
+          "priority": "低"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/118",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     }
   },
   "created_at": "2025-11-02T12:15:14.557Z",
-  "updated_at": "2025-11-02T14:02:54.308Z",
+  "updated_at": "2025-11-02T14:05:49.955Z",
   "branch_name": "ai-workflow/issue-115",
   "pr_number": 117,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/117",
