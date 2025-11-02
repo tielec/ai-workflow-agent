@@ -147,16 +147,16 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: Integration test TypeScript compilation errors修正 (2~3h)
+- [x] Task 4-1: Integration test TypeScript compilation errors修正 (2~3h)
   - `tests/integration/phases/fallback-mechanism.test.ts` の型エラー修正
   - Jestモック（`jest.fn().mockResolvedValue()`）の型アノテーション追加
   - 15個の統合テストケース全体で型エラーを解消
   - コンパイル成功確認（`npm run build` または `tsc --noEmit`）
-- [ ] Task 4-2: Unit test mock configuration修正 (1h)
+- [x] Task 4-2: Unit test mock configuration修正 (1h)
   - `tests/unit/phases/base-phase-fallback.test.ts` のモック範囲見直し
   - `fs.readFileSync` モックが `loadPrompt()` に影響しないよう修正
   - 4個のexecutePhaseTemplateテストの修正
-- [ ] Task 4-3: isValidOutputContent test data修正 (0.5h)
+- [x] Task 4-3: isValidOutputContent test data修正 (0.5h)
   - テストデータに Planning phase キーワード（実装戦略、テスト戦略、タスク分割）を追加
   - 1個のテストケース（"should validate content with sufficient length and sections"）の修正
 
@@ -295,10 +295,10 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] Task 4-1: 15個の統合テストのTypeScriptコンパイルエラーが解消されている
-- [ ] Task 4-2: 4個のexecutePhaseTemplateユニットテストのモック設定が修正されている
-- [ ] Task 4-3: 1個のisValidOutputContentテストデータが修正されている
-- [ ] `tsc --noEmit` でTypeScriptコンパイルが成功する
+- [x] Task 4-1: 15個の統合テストのTypeScriptコンパイルエラーが解消されている
+- [x] Task 4-2: 4個のexecutePhaseTemplateユニットテストのモック設定が修正されている
+- [x] Task 4-3: 1個のisValidOutputContentテストデータが修正されている
+- [x] `tsc --noEmit` でTypeScriptコンパイルが成功する
 
 ### Phase 5: テストコード実装
 
