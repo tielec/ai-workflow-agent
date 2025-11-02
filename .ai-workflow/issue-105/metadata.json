@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "EXTEND_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 9637,
-    "total_output_tokens": 193169,
-    "total_cost_usd": 12.5410995
+    "total_input_tokens": 9644,
+    "total_output_tokens": 203397,
+    "total_cost_usd": 13.1545991
   },
   "phases": {
     "planning": {
@@ -145,23 +145,39 @@
       "rollback_context": null
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-02T03:02:01.036Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "フォローアップ Issue（#106 等）の作成 - chalk ESM エラーの根本的解決",
+          "phase": "report",
+          "priority": "高"
+        },
+        {
+          "task": "既知の制限の周知",
+          "phase": "report",
+          "priority": "中"
+        },
+        {
+          "task": "手動テストまたは代替テスト方法の検討",
+          "phase": "report",
+          "priority": "中"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/112",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": [],
       "rollback_context": null
     }
   },
   "created_at": "2025-11-01T23:14:30.476Z",
-  "updated_at": "2025-11-02T03:01:59.685Z",
+  "updated_at": "2025-11-02T03:05:09.178Z",
   "branch_name": "ai-workflow/issue-105",
   "pr_number": 111,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/111",
