@@ -357,15 +357,26 @@ if (config.isCI()) {
 
 ### Jest設定（ESMパッケージ対応）
 
-`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`）を変換対象に含める設定を追加しています：
+`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`, `#ansi-styles`）を変換対象に含める設定を追加しています：
 
 ```javascript
 transformIgnorePatterns: [
-  '/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)',
+  '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
 ],
 ```
 
-この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。詳細は Issue #102 を参照してください。
+この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。
+
+**主な変更履歴**:
+- Issue #102: chalk、strip-ansi、ansi-regex を transformIgnorePatterns に追加
+- Issue #105: chalk の内部依存（#ansi-styles）を transformIgnorePatterns に追加
+
+**既知の制限**:
+- chalk v5.3.0（ESM only）の内部依存である `#ansi-styles` は Node.js の subpath imports 機能を使用しています
+- Jest の `transformIgnorePatterns` に `#ansi-styles` を追加しても、一部の環境では完全にESMエラーが解決されない場合があります
+- 問題が継続する場合は、experimental-vm-modules の設定強化、または chalk v4.x（CommonJS版）への切り替えを検討してください
+
+詳細は Issue #102、Issue #105 を参照してください。
 
 ## 主要な設計パターン
 
