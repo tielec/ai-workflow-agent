@@ -169,19 +169,19 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: BasePhase への汎用フォールバック機構の実装 (2~3h)
+- [x] Task 4-1: BasePhase への汎用フォールバック機構の実装 (2~3h)
   - `handleMissingOutputFile()` メソッドの実装
   - `extractContentFromLog()` メソッドの実装（Evaluation Phase の `extractEvaluationFromLog()` を汎用化）
   - `executePhaseTemplate()` にフォールバックロジックを統合
   - エラーハンドリングとロギングの追加
-- [ ] Task 4-2: 各フェーズへのフォールバック有効化 (1~1.5h)
+- [x] Task 4-2: 各フェーズへのフォールバック有効化 (1~1.5h)
   - 6フェーズの `execute()` メソッドに `enableFallback: true` 追加
   - 各フェーズのテスト（ローカルで動作確認）
-- [ ] Task 4-3: Revise プロンプトの更新 (1~1.5h)
+- [x] Task 4-3: Revise プロンプトの更新 (1~1.5h)
   - 6フェーズの revise.txt を Evaluation Phase パターンに更新
   - `{previous_log_snippet}` 変数の統合
   - フェーズ固有の指示内容の追加
-- [ ] Task 4-4: 型定義の更新 (0.5h)
+- [x] Task 4-4: 型定義の更新 (0.5h)
   - `ExecutePhaseOptions` に `enableFallback?: boolean` 追加
   - 関連するインターフェースの更新
 

@@ -16,6 +16,7 @@ import { ContextBuilder } from './context/context-builder.js';
 import { ArtifactCleaner } from './cleanup/artifact-cleaner.js';
 import { StepExecutor } from './lifecycle/step-executor.js';
 import { PhaseRunner } from './lifecycle/phase-runner.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 // PhaseRunOptions を BasePhase から export（Issue #49）
 export interface PhaseRunOptions {
