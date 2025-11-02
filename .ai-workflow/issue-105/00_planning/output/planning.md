@@ -307,12 +307,12 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.25~0.5h)
 
-- [ ] Task 7-1: CLAUDE.md の更新 (0.25h)
+- [x] Task 7-1: CLAUDE.md の更新 (0.25h)
   - Jest設定の詳細説明追加（transformIgnorePatterns の拡張内容）
   - experimental-vm-modules の説明追加（導入した場合）
   - Issue #105 への参照追加
 
-- [ ] Task 7-2: CHANGELOG.md の更新 (0.25h)
+- [x] Task 7-2: CHANGELOG.md の更新 (0.25h)
   - Issue #105 の変更履歴を Unreleased セクションに追加
   - 修正内容のサマリー記載（Jest設定拡張、テスト修正）
 
