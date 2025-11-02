@@ -311,10 +311,12 @@
   - Jest設定の詳細説明追加（transformIgnorePatterns の拡張内容）
   - experimental-vm-modules の説明追加（導入した場合）
   - Issue #105 への参照追加
+  - **完了**: Jest設定セクション（358-398行目）に `#ansi-styles` 追加、変更履歴・既知の制限を明記
 
 - [x] Task 7-2: CHANGELOG.md の更新 (0.25h)
   - Issue #105 の変更履歴を Unreleased セクションに追加
   - 修正内容のサマリー記載（Jest設定拡張、テスト修正）
+  - **完了**: Unreleased > Fixed セクション（16-20行目）にIssue #105エントリ追加、既知の制限を明記
 
 ### Phase 8: レポート (見積もり: 0.25~0.5h)
 
