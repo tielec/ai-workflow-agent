@@ -168,10 +168,10 @@
 
 ### Phase 6: テスト実行 (見積もり: 1h)
 
-- [ ] Task 6-1: 修正したテストの実行確認 (0.5h)
+- [x] Task 6-1: 修正したテストの実行確認 (0.5h)
   - `npm test tests/integration/phases/fallback-mechanism.test.ts` で15個の統合テスト成功確認
   - `npm test tests/unit/phases/base-phase-fallback.test.ts` で33個のユニットテスト全て成功確認
-- [ ] Task 6-2: 全テストスイートの回帰テスト (0.5h)
+- [x] Task 6-2: 全テストスイートの回帰テスト (0.5h)
   - `npm test` で全57テストファイルが成功することを確認
   - 修正によって他のテストが破壊されていないことを確認
   - カバレッジレポート（`npm run test:coverage`）で問題ないことを確認
@@ -306,10 +306,10 @@ graph TD
 
 ### Phase 6: テスト実行
 
-- [ ] `npm test tests/integration/phases/fallback-mechanism.test.ts` が全て成功（15/15）
-- [ ] `npm test tests/unit/phases/base-phase-fallback.test.ts` が全て成功（33/33）
-- [ ] `npm test` で全テストスイートが成功（57ファイル全て）
-- [ ] カバレッジレポートで問題が検出されていない
+- [x] `npm test tests/integration/phases/fallback-mechanism.test.ts` が全て成功（15/15）
+- [x] `npm test tests/unit/phases/base-phase-fallback.test.ts` が全て成功（33/33）
+- [x] `npm test` で全テストスイートが成功（57ファイル全て）
+- [x] カバレッジレポートで問題が検出されていない
 
 ### Phase 7: ドキュメント
 
