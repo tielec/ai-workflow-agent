@@ -137,6 +137,18 @@ export class GitManager {
     return this.commitManager.createCommitMessage(phaseName, status, reviewResult);
   }
 
+  /**
+   * Issue #90: ロールバック用のコミットを作成
+   */
+  public async commitRollback(
+    files: string[],
+    toPhase: PhaseName,
+    toStep: StepName,
+    reason: string,
+  ): Promise<CommitResult> {
+    return this.commitManager.commitRollback(files, toPhase, toStep, reason);
+  }
+
   // Common operations (implemented in facade)
   public async getStatus(): Promise<StatusSummary> {
     const status = await this.git.status();

@@ -14,6 +14,7 @@ import readline from 'node:readline';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { MetadataManager } from '../core/metadata-manager.js';
+import { GitManager } from '../core/git-manager.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { PhaseName, StepName } from '../types.js';
 import type { RollbackCommandOptions, RollbackContext, RollbackHistoryEntry } from '../types/commands.js';
@@ -385,6 +386,39 @@ async function executeRollback(
 
   metadataManager.addRollbackHistory(historyEntry);
   logger.info('Rollback history entry added');
+
+  // 7. Git コミット & プッシュ
+  try {
+    const gitManager = new GitManager(workflowDir, metadataManager);
+
+    // コミット
+    const commitResult = await gitManager.commitRollback(
+      [
+        rollbackReasonPath,
+        metadataManager.metadataPath,
+      ],
+      toPhase,
+      toStep,
+      reason
+    );
+
+    if (!commitResult.success) {
+      throw new Error(commitResult.error ?? 'Commit failed');
+    }
+
+    logger.info(`Rollback committed: ${commitResult.commit_hash}`);
+
+    // プッシュ
+    const pushResult = await gitManager.pushToRemote();
+    if (!pushResult.success) {
+      throw new Error(pushResult.error ?? 'Push failed');
+    }
+
+    logger.info('Git commit and push completed');
+  } catch (error) {
+    logger.error(`Failed to commit and push changes: ${getErrorMessage(error)}`);
+    throw error;
+  }
 }
 
 /**
