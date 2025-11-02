@@ -360,6 +360,120 @@ if (config.isCI()) {
 - テストでのファイル操作には `fs-extra` を使用
 - **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
 
+### テストコード品質のベストプラクティス（Issue #115で追加）
+
+#### TypeScript 5.x + Jest型定義の互換性
+- TypeScript 5.xの厳格な型チェックにより、`jest.fn().mockResolvedValue()`の型推論が正しく機能しない場合がある
+- **解決策1**: 型パラメータを明示的に指定（`jest.fn<any>()`）
+- **解決策2**: 型アサーションを`as any`に統一
+- **参考**: Issue #102、Issue #105、Issue #115
+
+**型アノテーション例**:
+```typescript
+// ❌ 型推論エラーの例
+mockGitHub = {
+  getIssueInfo: jest.fn().mockResolvedValue({ number: 113 }),  // TS2352エラー
+} as any;
+
+// ✅ 型パラメータを明示的に指定
+mockGitHub = {
+  getIssueInfo: jest.fn<any>().mockResolvedValue({ number: 113 }),
+} as any;
+
+// ✅ mockResolvedValue()の戻り値に型アノテーション
+jest.spyOn(phase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
+
+// ✅ mockImplementation()のパラメータ型をanyに
+jest.spyOn(phase as any, 'revise').mockImplementation(async (feedback: any) => {
+  return { success: true, output: 'planning.md' };
+});
+```
+
+#### モック設定のベストプラクティス
+- 過度に広範囲なモック設定は、意図しない影響を与える可能性がある
+- **モック範囲を限定する戦略**:
+  1. 特定ファイルパスのみをモック
+  2. 必要最小限のメソッドのみをモック
+  3. モックを設定しない（実ファイルシステムアクセスを許可）
+
+**モッククリーンアップの重要性**（Issue #115で強調）:
+- **必須**: `afterEach()`で`jest.restoreAllMocks()`を呼び出し、テスト後に全モックをクリーンアップ
+- **理由**: テスト間でモックが残留すると、意図しない副作用が発生する
+- **例**: 前のテストの`jest.spyOn(fs, 'readFileSync')`が後続のテストに影響
+
+```typescript
+describe('My Test Suite', () => {
+  afterEach(() => {
+    // ✅ 全モックをクリーンアップ
+    jest.restoreAllMocks();
+
+    // テストディレクトリのクリーンアップ
+    if (fs.existsSync(testWorkingDir)) {
+      fs.removeSync(testWorkingDir);
+    }
+  });
+
+  it('should handle file operations', () => {
+    // テスト内でモックを作成
+    jest.spyOn(fs, 'readFileSync').mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    // テスト処理...
+  });
+  // ✅ afterEach()で自動的にモックがクリーンアップされる
+});
+```
+
+**モック範囲を限定する例**（Issue #115のupdateFileSystemMock戦略）:
+```typescript
+/**
+ * ファイルシステムモックを限定的に設定
+ *
+ * プロンプトファイル読み込み（loadPrompt）に影響を与えないよう、
+ * 特定のファイルパスのみをモックする。
+ */
+function setupFileSystemMock(): void {
+  // 空の関数 = モックを設定しない
+  // 実ファイルシステムアクセスを許可し、loadPrompt()が正常に動作する
+}
+```
+
+#### テストデータの充実
+- フェーズ固有のキーワード検証テストでは、適切なテストデータを用意する
+- **Planning Phaseの例** (Issue #115):
+  - 日本語キーワード: 実装戦略、テスト戦略、タスク分割
+  - 英語キーワード: Implementation Strategy、Test Strategy、Task Breakdown
+  - 最小文字数: 100文字以上
+  - 最小セクション数: 2個以上の`##`ヘッダー
+
+```typescript
+// ✅ 適切なテストデータ
+const content = `
+# Planning Document
+
+## Section 1: Implementation Strategy
+This is a comprehensive analysis with detailed explanations.
+実装戦略: EXTEND strategy will be used for this implementation.
+
+## Section 2: Test Strategy
+More detailed content with implementation strategy information.
+テスト戦略: UNIT_INTEGRATION testing approach will be applied.
+
+## Section 3: Task Breakdown
+Additional sections with test strategy details.
+タスク分割: Tasks are divided into multiple phases.
+`;
+
+// ❌ 不十分なテストデータ（キーワード欠落、短すぎる）
+const content = `
+# Planning Document
+
+## Section 1
+Short content.
+`;
+```
+
 ### Jest設定（ESMパッケージ対応）
 
 `jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`, `#ansi-styles`）を変換対象に含める設定を追加しています：

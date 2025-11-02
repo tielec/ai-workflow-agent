@@ -33,6 +33,10 @@ describe('Fallback Mechanism Integration Tests (Issue #113)', () => {
     testWorkingDir = path.join(process.cwd(), '.test-tmp', 'fallback-integration');
     fs.ensureDirSync(testWorkingDir);
 
+    // TypeScript 5.x strict type checking compatibility:
+    // Explicitly specify the type parameter for jest.fn() to avoid type inference issues.
+    // Reference: Issue #113 Evaluation Report, Issue #102, #105
+
     // Mock MetadataManager
     const workflowDir = path.join(testWorkingDir, '.ai-workflow', 'issue-113');
     mockMetadata = {
@@ -45,7 +49,7 @@ describe('Fallback Mechanism Integration Tests (Issue #113)', () => {
 
     // Mock GitHubClient
     mockGitHub = {
-      getIssueInfo: jest.fn().mockResolvedValue({
+      getIssueInfo: jest.fn<any>().mockResolvedValue({
         number: 113,
         title: 'Test Issue',
         state: 'open',
@@ -53,13 +57,13 @@ describe('Fallback Mechanism Integration Tests (Issue #113)', () => {
         labels: ['enhancement'],
         body: 'Test issue body',
       }),
-      postComment: jest.fn(),
+      postComment: jest.fn<any>(),
     } as any;
 
     // Mock CodexAgentClient
     mockCodex = {
-      executeAgent: jest.fn().mockResolvedValue([]),
-      getWorkingDirectory: jest.fn().mockReturnValue(testWorkingDir),
+      executeAgent: jest.fn<any>().mockResolvedValue([]),
+      getWorkingDirectory: jest.fn<any>().mockReturnValue(testWorkingDir),
     } as any;
   });
 
@@ -110,7 +114,7 @@ Phase 2: 設計 (2~3h)
         fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validPlanningLog, 'utf-8');
 
         // Mock executeWithAgent to not create output file
-        jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([]);
+        jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
         // When: Executing planning phase
         const result = await (planningPhase as any).execute();
@@ -151,10 +155,10 @@ Phase 2: 設計 (2~3h)
 
         // Mock execute to not create file
         const executeAgentSpy = jest.spyOn(planningPhase as any, 'executeWithAgent')
-          .mockResolvedValueOnce([]); // execute call
+          .mockResolvedValueOnce([] as any[]); // execute call
 
         // Mock revise to create file
-        jest.spyOn(planningPhase as any, 'revise').mockImplementation(async (feedback: string) => {
+        jest.spyOn(planningPhase as any, 'revise').mockImplementation(async (feedback: any) => {
           expect(feedback).toContain('planning.md が見つかりません');
           // Simulate revise creating the file
           fs.writeFileSync(path.join(outputDir, 'planning.md'), '# Planning Document\n\n## Section 1\nContent', 'utf-8');
@@ -211,7 +215,7 @@ Then: ログから抽出される
 `;
       fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validRequirementsLog, 'utf-8');
 
-      jest.spyOn(requirementsPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(requirementsPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // When: Executing requirements phase
       const result = await (requirementsPhase as any).execute();
@@ -268,7 +272,7 @@ BasePhase クラスの拡張について説明します。
 `;
       fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validDesignLog, 'utf-8');
 
-      jest.spyOn(designPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(designPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // When: Executing design phase
       const result = await (designPhase as any).execute();
@@ -324,7 +328,7 @@ BasePhase クラスの拡張について説明します。
 `;
       fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validTestScenarioLog, 'utf-8');
 
-      jest.spyOn(testScenarioPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(testScenarioPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // When: Executing test scenario phase
       const result = await (testScenarioPhase as any).execute();
@@ -376,7 +380,7 @@ BasePhase クラスの拡張について説明します。
 `;
       fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validImplementationLog, 'utf-8');
 
-      jest.spyOn(implementationPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(implementationPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // When: Executing implementation phase
       const result = await (implementationPhase as any).execute();
@@ -428,7 +432,7 @@ BasePhase クラスの拡張について説明します。
 `;
       fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validReportLog, 'utf-8');
 
-      jest.spyOn(reportPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // When: Executing report phase
       const result = await (reportPhase as any).execute();
@@ -461,12 +465,12 @@ BasePhase クラスの拡張について説明します。
       });
 
       // Mock executeWithAgent to not create file
-      jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([]);
+      jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
       // Mock executePhaseTemplate to not use fallback
       const originalExecutePhaseTemplate = (planningPhase as any).executePhaseTemplate.bind(planningPhase);
       jest.spyOn(planningPhase as any, 'executePhaseTemplate').mockImplementation(
-        async (phaseOutputFile: string, templateVariables: any, options: any) => {
+        async (phaseOutputFile: any, templateVariables: any, options: any) => {
           // Force enableFallback to false to test backward compatibility
           return originalExecutePhaseTemplate(phaseOutputFile, templateVariables, { ...options, enableFallback: false });
         }
@@ -499,7 +503,7 @@ BasePhase クラスの拡張について説明します。
         // Invalid log content
         fs.writeFileSync(path.join(executeDir, 'agent_log.md'), 'Invalid content', 'utf-8');
 
-        jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([]);
+        jest.spyOn(planningPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
 
         // Mock revise to also fail
         jest.spyOn(planningPhase as any, 'revise').mockImplementation(async () => {
