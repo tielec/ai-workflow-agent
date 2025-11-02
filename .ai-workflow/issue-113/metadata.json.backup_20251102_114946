@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "evaluation",
+  "current_phase": "report",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 10702,
-    "total_output_tokens": 193149,
-    "total_cost_usd": 14.705364549999999
+    "total_input_tokens": 5301,
+    "total_output_tokens": 187694,
+    "total_cost_usd": 13.2069836
   },
   "phases": {
     "planning": {
@@ -132,38 +132,20 @@
       ]
     },
     "evaluation": {
-      "status": "in_progress",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-11-02T11:49:49.589Z",
+      "started_at": null,
       "completed_at": null,
       "review_result": null,
-      "decision": "PASS_WITH_ISSUES",
+      "decision": null,
       "failed_phase": null,
-      "remaining_tasks": [
-        {
-          "task": "Fix integration test TypeScript compilation errors",
-          "phase": "test_implementation",
-          "priority": "高"
-        },
-        {
-          "task": "Fix unit test mock configuration",
-          "phase": "test_implementation",
-          "priority": "高"
-        },
-        {
-          "task": "Fix isValidOutputContent test data",
-          "phase": "test_implementation",
-          "priority": "高"
-        }
-      ],
-      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/115",
-      "abort_reason": null,
-      "current_step": "execute",
-      "completed_steps": []
+      "remaining_tasks": [],
+      "created_issue_url": null,
+      "abort_reason": null
     }
   },
   "created_at": "2025-11-02T10:18:44.326Z",
-  "updated_at": "2025-11-02T11:53:18.073Z",
+  "updated_at": "2025-11-02T11:18:41.342Z",
   "branch_name": "ai-workflow/issue-113",
   "pr_number": 114,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/114",
