@@ -406,4 +406,54 @@ export class CommitManager {
       `Git config ensured: user.name=${userName}, user.email=${userEmail}`,
     );
   }
+
+  /**
+   * Issue #90: ロールバック用のコミットを作成
+   */
+  public async commitRollback(
+    files: string[],
+    toPhase: PhaseName,
+    toStep: StepName,
+    reason: string,
+  ): Promise<CommitResult> {
+    if (files.length === 0) {
+      logger.warn('No files to commit for rollback.');
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
+
+    await this.ensureGitConfig();
+
+    // コミットメッセージ生成
+    const commitMessage = `[ai-workflow] Rollback to ${toPhase} (step: ${toStep})
+
+差し戻し理由:
+${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
+
+    try {
+      await this.git.add(files);
+      const commitResponse = await this.git.commit(commitMessage, files, {
+        '--no-verify': null,
+      });
+
+      logger.debug(`Rollback commit created: ${commitResponse.commit ?? 'unknown'}`);
+
+      return {
+        success: true,
+        commit_hash: commitResponse.commit ?? null,
+        files_committed: files,
+      };
+    } catch (error) {
+      logger.error(`Git commit failed for rollback: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: files,
+        error: getErrorMessage(error),
+      };
+    }
+  }
 }

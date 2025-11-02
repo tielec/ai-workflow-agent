@@ -132,10 +132,15 @@ node dist/index.js rollback \
 5. **フェーズ実行**: `BasePhase.run()` による順次実行（`src/commands/execute.ts` で管理）:
    - 依存関係検証
    - `execute()`: エージェントで成果物を生成
+     - **フォールバック機構** (Issue #113で追加): 成果物ファイル不在時の自動復旧
+       - `enableFallback: true` のフェーズ（Planning, Requirements, Design, TestScenario, Implementation, Report）で有効
+       - ① ログからの成果物抽出（`extractContentFromLog()`） → ② revise呼び出し
+       - フェーズ固有ヘッダーパターンでログを解析、コンテンツ検証後に保存
      - **Git コミット & プッシュ** (v0.3.0で追加)
    - `review()`: 出力を検証（オプション）
      - **Git コミット & プッシュ** (v0.3.0で追加)
    - `revise()`: 自動修正サイクル（最大 3 回まで）
+     - **previous_log_snippet 注入** (Issue #113で追加): agent_log.mdの先頭2000文字を自動注入
      - **Git コミット & プッシュ** (v0.3.0で追加)
 
 ### コアモジュール
@@ -152,7 +157,7 @@ node dist/index.js rollback \
 - **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
 - **`src/core/phase-factory.ts`**: フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。
 - **`src/types/commands.ts`**: コマンド関連の型定義（約240行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry等の型を提供。コマンドハンドラの型安全性を確保。
-- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス（約476行、v0.3.1で40%削減、Issue #23・#47・#49でリファクタリング、v0.4.0でrollbackプロンプト注入追加、Issue #90）。ファサードパターンにより専門モジュールへ委譲。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入。
+- **`src/phases/base-phase.ts`**: execute/review/revise ライフサイクルを持つ抽象基底クラス（約476行、v0.3.1で40%削減、Issue #23・#47・#49でリファクタリング、v0.4.0でrollbackプロンプト注入追加、Issue #90、Issue #113でfallback機構追加）。ファサードパターンにより専門モジュールへ委譲。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入。フォールバック機構（`handleMissingOutputFile()`, `extractContentFromLog()`, `isValidOutputContent()`）により、成果物ファイル生成失敗時にログから自動抽出またはrevise呼び出しで復旧。
 - **`src/phases/core/agent-executor.ts`**: エージェント実行ロジック（約270行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。
 - **`src/phases/core/review-cycle-manager.ts`**: レビューサイクル管理（約130行、v0.3.1で追加、Issue #23）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。
 - **`src/phases/lifecycle/step-executor.ts`**: ステップ実行ロジック（約233行、v0.3.1で追加、Issue #49）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。
@@ -355,17 +360,142 @@ if (config.isCI()) {
 - テストでのファイル操作には `fs-extra` を使用
 - **テストコードのロギング**: テストファイル（`tests/`配下）でも統一loggerモジュールを使用する。console.log/error/warn等の直接使用は禁止（ESLintの `no-console` ルールで強制）
 
+### テストコード品質のベストプラクティス（Issue #115で追加）
+
+#### TypeScript 5.x + Jest型定義の互換性
+- TypeScript 5.xの厳格な型チェックにより、`jest.fn().mockResolvedValue()`の型推論が正しく機能しない場合がある
+- **解決策1**: 型パラメータを明示的に指定（`jest.fn<any>()`）
+- **解決策2**: 型アサーションを`as any`に統一
+- **参考**: Issue #102、Issue #105、Issue #115
+
+**型アノテーション例**:
+```typescript
+// ❌ 型推論エラーの例
+mockGitHub = {
+  getIssueInfo: jest.fn().mockResolvedValue({ number: 113 }),  // TS2352エラー
+} as any;
+
+// ✅ 型パラメータを明示的に指定
+mockGitHub = {
+  getIssueInfo: jest.fn<any>().mockResolvedValue({ number: 113 }),
+} as any;
+
+// ✅ mockResolvedValue()の戻り値に型アノテーション
+jest.spyOn(phase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
+
+// ✅ mockImplementation()のパラメータ型をanyに
+jest.spyOn(phase as any, 'revise').mockImplementation(async (feedback: any) => {
+  return { success: true, output: 'planning.md' };
+});
+```
+
+#### モック設定のベストプラクティス
+- 過度に広範囲なモック設定は、意図しない影響を与える可能性がある
+- **モック範囲を限定する戦略**:
+  1. 特定ファイルパスのみをモック
+  2. 必要最小限のメソッドのみをモック
+  3. モックを設定しない（実ファイルシステムアクセスを許可）
+
+**モッククリーンアップの重要性**（Issue #115で強調）:
+- **必須**: `afterEach()`で`jest.restoreAllMocks()`を呼び出し、テスト後に全モックをクリーンアップ
+- **理由**: テスト間でモックが残留すると、意図しない副作用が発生する
+- **例**: 前のテストの`jest.spyOn(fs, 'readFileSync')`が後続のテストに影響
+
+```typescript
+describe('My Test Suite', () => {
+  afterEach(() => {
+    // ✅ 全モックをクリーンアップ
+    jest.restoreAllMocks();
+
+    // テストディレクトリのクリーンアップ
+    if (fs.existsSync(testWorkingDir)) {
+      fs.removeSync(testWorkingDir);
+    }
+  });
+
+  it('should handle file operations', () => {
+    // テスト内でモックを作成
+    jest.spyOn(fs, 'readFileSync').mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    // テスト処理...
+  });
+  // ✅ afterEach()で自動的にモックがクリーンアップされる
+});
+```
+
+**モック範囲を限定する例**（Issue #115のupdateFileSystemMock戦略）:
+```typescript
+/**
+ * ファイルシステムモックを限定的に設定
+ *
+ * プロンプトファイル読み込み（loadPrompt）に影響を与えないよう、
+ * 特定のファイルパスのみをモックする。
+ */
+function setupFileSystemMock(): void {
+  // 空の関数 = モックを設定しない
+  // 実ファイルシステムアクセスを許可し、loadPrompt()が正常に動作する
+}
+```
+
+#### テストデータの充実
+- フェーズ固有のキーワード検証テストでは、適切なテストデータを用意する
+- **Planning Phaseの例** (Issue #115):
+  - 日本語キーワード: 実装戦略、テスト戦略、タスク分割
+  - 英語キーワード: Implementation Strategy、Test Strategy、Task Breakdown
+  - 最小文字数: 100文字以上
+  - 最小セクション数: 2個以上の`##`ヘッダー
+
+```typescript
+// ✅ 適切なテストデータ
+const content = `
+# Planning Document
+
+## Section 1: Implementation Strategy
+This is a comprehensive analysis with detailed explanations.
+実装戦略: EXTEND strategy will be used for this implementation.
+
+## Section 2: Test Strategy
+More detailed content with implementation strategy information.
+テスト戦略: UNIT_INTEGRATION testing approach will be applied.
+
+## Section 3: Task Breakdown
+Additional sections with test strategy details.
+タスク分割: Tasks are divided into multiple phases.
+`;
+
+// ❌ 不十分なテストデータ（キーワード欠落、短すぎる）
+const content = `
+# Planning Document
+
+## Section 1
+Short content.
+`;
+```
+
 ### Jest設定（ESMパッケージ対応）
 
-`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`）を変換対象に含める設定を追加しています：
+`jest.config.cjs` の `transformIgnorePatterns` で、ESMパッケージ（`chalk`, `strip-ansi`, `ansi-regex`, `#ansi-styles`）を変換対象に含める設定を追加しています：
 
 ```javascript
 transformIgnorePatterns: [
-  '/node_modules/(?!(strip-ansi|ansi-regex|chalk)/)',
+  '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
 ],
 ```
 
-この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。詳細は Issue #102 を参照してください。
+この設定により、統合テスト（`commit-manager.test.ts` 等）で chalk を使用するモジュールが正しく処理されます。
+
+**主な変更履歴**:
+- Issue #102: chalk、strip-ansi、ansi-regex を transformIgnorePatterns に追加
+- Issue #105: chalk の内部依存（#ansi-styles）を transformIgnorePatterns に追加
+
+**既知の制限**:
+- chalk v5.3.0（ESM only）の内部依存である `#ansi-styles` は Node.js の subpath imports 機能を使用しています
+- Jest の `transformIgnorePatterns` に `#ansi-styles` を追加しても、一部の環境では完全にESMエラーが解決されない場合があります
+- 問題が継続する場合は、experimental-vm-modules の設定強化、または chalk v4.x（CommonJS版）への切り替えを検討してください
+
+詳細は Issue #102、Issue #105 を参照してください。
 
 ## 主要な設計パターン
 
@@ -400,6 +530,12 @@ transformIgnorePatterns: [
 8. **ロギング規約（Issue #61）**: console.log/error/warn等の直接使用は禁止。統一loggerモジュール（`src/utils/logger.ts`）を使用し、`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` を呼び出す。ESLintの `no-console` ルールで強制。
 9. **環境変数アクセス規約（Issue #51）**: `process.env` への直接アクセスは禁止。Config クラス（`src/core/config.ts`）の `config.getXxx()` メソッドを使用する。必須環境変数は例外をスロー、オプション環境変数は `null` を返す。
 10. **エラーハンドリング規約（Issue #48）**: `as Error` 型アサーションの使用は禁止。エラーハンドリングユーティリティ（`src/utils/error-utils.ts`）の `getErrorMessage()`, `getErrorStack()`, `isError()` を使用する。TypeScript の catch ブロックで `unknown` 型のエラーから安全にメッセージを抽出し、非 Error オブジェクト（string、number、null、undefined）がスローされる場合にも対応する。
+11. **フォールバック機構の制約（Issue #113）**: フォールバック機構（`enableFallback: true`）が有効なフェーズでは、エージェントが成果物ファイルを生成しなくても、ログから自動抽出またはrevise呼び出しで復旧を試みる。ただし、以下の条件を満たす必要がある：
+    - **ログ存在**: `agent_log.md` が存在すること
+    - **コンテンツ長**: 抽出内容が100文字以上
+    - **セクション数**: 2個以上のセクションヘッダー（`##`）を含む
+    - **キーワード**: フェーズ固有キーワードが少なくとも1つ含まれる（すべて欠落の場合は無効）
+    - **revise実装**: ログ抽出失敗時にreviseメソッドが実装されていること（未実装の場合はエラー）
 
 ## よくあるトラブルシューティング
 

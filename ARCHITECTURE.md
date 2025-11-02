@@ -151,6 +151,12 @@ src/types/commands.ts (コマンド関連の型定義)
 1. **依存関係チェック** … `validatePhaseDependencies` で前工程が完了しているか確認（フラグで無効化可能）。
 2. **execute()** … プロンプトを整形しエージェントを呼び出して成果物を生成。
    - **テンプレートメソッドパターン** … `executePhaseTemplate()` により重複コードを削減（Issue #47）
+   - **フォールバック機構** … エージェントが成果物ファイルの生成に失敗した場合の自動復旧（Issue #113）
+     - **2段階フォールバック**: ① ログからのコンテンツ抽出 → ② `revise()` による再生成
+     - **適用フェーズ**: Planning, Requirements, Design, TestScenario, Implementation, Report（`enableFallback: true` で有効化）
+     - **ログ抽出パターン**: 各フェーズ固有のヘッダーパターン（例: Planning → "# プロジェクト計画書"）で成果物を識別
+     - **コンテンツ検証**: 最低100文字、2個以上のセクションヘッダー、フェーズ固有キーワード検証
+     - **reviseプロンプト拡張**: `previous_log_snippet` 変数（agent_log.mdの先頭2000文字）を自動注入し、前回実行のコンテキストを提供
    - **Git自動コミット** … execute完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 3. **review()（任意）** … レビュープロンプトを実行し、`ContentParser` で PASS / FAIL を判定。必要に応じてフィードバックを GitHub に投稿。
    - **Git自動コミット** … review完了後、変更をコミット＆プッシュ（v0.3.0で追加）
@@ -179,6 +185,49 @@ protected async executePhaseTemplate<T extends Record<string, string>>(
 ```
 
 各フェーズの `execute()` メソッドは、テンプレート変数を定義して `executePhaseTemplate()` を呼び出すだけで済むようになりました。特殊ロジック（設計決定抽出、ファイル更新チェック等）は各フェーズで保持されます。
+
+### フォールバック機構（Issue #113）
+
+Evaluation Phase で実装されていたフォールバック機構を、Planning, Requirements, Design, TestScenario, Implementation, Reportの6フェーズに拡張しました。エージェントが成果物ファイルの生成に失敗した場合でも、自動復旧により再実行なしでワークフローを継続できます。
+
+**実装メソッド**:
+
+1. **handleMissingOutputFile()** … 成果物ファイル不在時の自動復旧処理
+   - エージェントログ（`agent_log.md`）が存在するかチェック
+   - `extractContentFromLog()` でログからコンテンツを抽出し保存
+   - 抽出失敗時は `revise()` メソッドを呼び出して再生成
+   - reviseメソッド未実装の場合は適切なエラーを返す
+
+2. **extractContentFromLog()** … ログから成果物を抽出
+   - フェーズ固有のヘッダーパターンで成果物を識別（例: Planning → `/# プロジェクト計画書/`）
+   - ヘッダーが見つからない場合、複数のMarkdownセクション（`##`）があればフォールバックパターンで抽出
+   - `isValidOutputContent()` でコンテンツを検証
+   - 有効なコンテンツのみを返却（無効な場合は `null`）
+
+3. **isValidOutputContent()** … 抽出コンテンツの検証
+   - 最低100文字以上の長さ
+   - 2個以上のセクションヘッダー（`##`）を含む
+   - フェーズ固有キーワード検証（例: Planning → "実装戦略", "テスト戦略", "タスク分割"）
+   - すべてのキーワードが欠落している場合は無効（少なくとも1つ必要）
+
+**enableFallback オプション**:
+
+`executePhaseTemplate()` に `enableFallback: boolean` オプションを追加。`true` の場合、成果物ファイル不在時に `handleMissingOutputFile()` を自動実行します。
+
+**フェーズ固有ヘッダーパターン**:
+
+| フェーズ | 日本語パターン | 英語パターン |
+|---------|---------------|-------------|
+| Planning | `# プロジェクト計画書` | `# Project Planning` |
+| Requirements | `# 要件定義書` | `# Requirements Specification` |
+| Design | `# 設計書` | `# Design Document` |
+| TestScenario | `# テストシナリオ` | `# Test Scenario` |
+| Implementation | `# 実装完了レポート` | `# Implementation Report` |
+| Report | `# Issue 完了レポート` | `# Issue Completion Report` |
+
+**revise プロンプト拡張**:
+
+各フェーズの `revise()` メソッドで `previous_log_snippet` 変数（`agent_log.md` の先頭2000文字）を自動注入し、前回実行のコンテキストをエージェントに提供します。これにより、エージェントは前回の失敗原因を理解し、より適切な修正が可能になります。
 
 ### ステップ単位のGitコミット（v0.3.0）
 

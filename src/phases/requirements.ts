@@ -22,10 +22,13 @@ export class RequirementsPhase extends BasePhase {
     const issueInfo = (await this.getIssueInfo()) as IssueInfo;
 
     // Issue #47: executePhaseTemplate() を使用してコード削減
+    // Issue #113: enableFallback: true を追加
     return this.executePhaseTemplate('requirements.md', {
       planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
       issue_info: this.formatIssueInfo(issueInfo),
       issue_number: String(issueInfo.number),
+    }, {
+      enableFallback: true  // Issue #113: フォールバック機構を有効化
     });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
@@ -100,13 +103,23 @@ export class RequirementsPhase extends BasePhase {
       };
     }
 
+    // Issue #113: 前回のログスニペットを取得
+    const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+    let previousLogSnippet = '';
+    if (fs.existsSync(agentLogPath)) {
+      const agentLog = fs.readFileSync(agentLogPath, 'utf-8');
+      previousLogSnippet = agentLog.substring(0, 2000);  // 最初の2000文字
+    }
+
     const revisePrompt = this.loadPrompt('revise')
       .replace('{planning_document_path}', planningReference)
       .replace('{requirements_document_path}', requirementsReference)
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', String(issueInfo.number));
+      .replace('{issue_number}', String(issueInfo.number))
+      .replace('{previous_log_snippet}', previousLogSnippet || '（ログなし）');  // Issue #113
 
+    logger.info(`Phase ${this.phaseName}: Starting revise with previous log snippet`);
     await this.executeWithAgent(revisePrompt, { maxTurns: 30, logDir: this.reviseDir });
 
     if (!fs.existsSync(requirementsFile)) {

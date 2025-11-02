@@ -1,0 +1,177 @@
+{
+  "issue_number": "115",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/115",
+  "issue_title": "Issue #115",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/jenkins-30fd7927/workspace/AI_Workflow/ai_workflow_orchestrator_develop",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "evaluation",
+  "design_decisions": {
+    "implementation_strategy": "EXTEND",
+    "test_strategy": "UNIT_ONLY",
+    "test_code_strategy": "EXTEND_TEST"
+  },
+  "cost_tracking": {
+    "total_input_tokens": 6746,
+    "total_output_tokens": 167085,
+    "total_cost_usd": 13.224690950000003
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:15:20.174Z",
+      "completed_at": "2025-11-02T12:19:23.611Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:19:24.135Z",
+      "completed_at": "2025-11-02T12:23:54.549Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:23:55.129Z",
+      "completed_at": "2025-11-02T12:30:29.796Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:30:31.177Z",
+      "completed_at": "2025-11-02T12:35:03.589Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:35:04.190Z",
+      "completed_at": "2025-11-02T12:53:02.640Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T12:53:03.355Z",
+      "completed_at": "2025-11-02T13:44:55.188Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "testing": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T13:44:55.777Z",
+      "completed_at": "2025-11-02T13:53:15.862Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "documentation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T13:53:16.443Z",
+      "completed_at": "2025-11-02T13:57:49.922Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "report": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T13:57:50.546Z",
+      "completed_at": "2025-11-02T14:02:53.773Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "evaluation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-02T14:02:55.592Z",
+      "completed_at": "2025-11-02T14:05:52.612Z",
+      "review_result": null,
+      "decision": "PASS_WITH_ISSUES",
+      "failed_phase": null,
+      "remaining_tasks": [
+        {
+          "task": "統合テストのメタデータマネージャー実装完了",
+          "phase": "implementation",
+          "priority": "高"
+        },
+        {
+          "task": "CHANGELOG.md更新（次回リリース時）",
+          "phase": "documentation",
+          "priority": "高"
+        },
+        {
+          "task": "全テストスイート成功率向上（オプション）",
+          "phase": "testing",
+          "priority": "低"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/118",
+      "abort_reason": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    }
+  },
+  "created_at": "2025-11-02T12:15:14.557Z",
+  "updated_at": "2025-11-02T14:05:53.220Z",
+  "branch_name": "ai-workflow/issue-115",
+  "pr_number": 117,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/117",
+  "github_integration": {
+    "progress_comment_id": 3477915240,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/115#issuecomment-3477915240"
+  }
+}

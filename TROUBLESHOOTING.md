@@ -362,7 +362,144 @@ Evaluation Phase（Issue #5）で修正された問題と同様、エージェ�
 3. ファイルが作成されることを確認
 4. 複数回実行して再現性を検証（推奨: 3回連続実行で100%成功率）
 
-## 12. ロギング・テスト関連
+## 12. フォールバック機構関連（Issue #113、v0.4.0）
+
+### エージェントが成果物ファイルを生成しないがフォールバックも失敗する
+
+フォールバック機構（`enableFallback: true`）が有効なフェーズ（Planning, Requirements, Design, TestScenario, Implementation, Report）で、エージェントが成果物を生成せず、ログからの抽出も失敗する場合：
+
+**症状**:
+```
+[INFO] Output file not found, attempting fallback recovery...
+[INFO] Trying to extract content from agent log...
+[WARNING] Failed to extract valid content from agent log
+[INFO] Calling revise() to regenerate the output...
+[ERROR] Phase failed: Fallback mechanism exhausted
+```
+
+**原因**:
+1. **ログファイル不在**: `agent_log.md` が存在しない
+2. **コンテンツ長不足**: 抽出内容が100文字未満
+3. **セクション不足**: セクションヘッダー（`##`）が2個未満
+4. **キーワード欠落**: フェーズ固有キーワードがすべて欠落
+5. **revise未実装**: ログ抽出失敗後に呼び出すreviseメソッドが実装されていない
+
+**対処法**:
+
+**1. ログファイルの確認**:
+```bash
+# agent_log.md が存在するか確認
+ls -la .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md
+
+# ログファイルの内容を確認
+cat .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md | head -n 50
+```
+
+**2. ヘッダーパターンの確認**:
+ログに以下のヘッダーパターンが含まれているか確認してください：
+
+| フェーズ | 日本語パターン | 英語パターン |
+|---------|---------------|-------------|
+| Planning | `# プロジェクト計画書` | `# Project Planning` |
+| Requirements | `# 要件定義書` | `# Requirements Specification` |
+| Design | `# 設計書` | `# Design Document` |
+| TestScenario | `# テストシナリオ` | `# Test Scenario` |
+| Implementation | `# 実装完了レポート` | `# Implementation Report` |
+| Report | `# Issue 完了レポート` | `# Issue Completion Report` |
+
+**3. コンテンツ検証の確認**:
+```bash
+# ログの文字数を確認（100文字以上必要）
+cat .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md | wc -c
+
+# セクションヘッダー（##）の数を確認（2個以上必要）
+cat .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md | grep -c '^## '
+```
+
+**4. フェーズ固有キーワードの確認**:
+
+各フェーズには固有のキーワード検証があります（少なくとも1つ必要）：
+
+- **Planning**: 実装戦略、テスト戦略、タスク分割、リスク分析、スケジュール
+- **Requirements**: 機能要件、非機能要件、ユースケース、制約条件
+- **Design**: アーキテクチャ、モジュール設計、データ構造、API設計
+- **TestScenario**: テストケース、正常系、異常系、境界値
+- **Implementation**: 実装内容、変更ファイル、コミット
+- **Report**: 完了サマリー、実装結果、テスト結果、残課題
+
+ログにこれらのキーワードが含まれているか確認してください。
+
+**5. プロンプトの改善**:
+
+エージェントがファイル保存を実行しない場合は、プロンプトの明示性を向上させてください（セクション11「エージェントがファイル保存を実行しない場合」を参照）。
+
+フォールバック機構はあくまでバックアップであり、エージェントが正常に成果物ファイルを生成することが望ましい動作です。
+
+**6. 手動復旧**:
+
+フォールバック機構が失敗した場合、以下の手順で手動復旧できます：
+
+```bash
+# 1. ログから手動で成果物を抽出
+cat .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md > extracted_content.md
+
+# 2. 成果物ファイルとして保存
+cp extracted_content.md .ai-workflow/issue-*/0X_<phase>/output/<filename>.md
+
+# 3. フェーズを再実行
+node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
+```
+
+### フォールバック機構でreviseが呼び出されない
+
+ログ抽出が失敗した際、reviseメソッドが呼び出されない場合：
+
+**症状**:
+```
+[WARNING] Failed to extract valid content from agent log
+[ERROR] Phase failed: revise() is not implemented for this phase
+```
+
+**原因**:
+- フェーズの具象クラスで `revise()` メソッドが実装されていない
+- BasePhaseの `revise()` はデフォルトで未実装エラーを返す
+
+**対処法**:
+1. フェーズ固有の `revise()` メソッドを実装する
+2. または、手動で成果物を作成する（上記の手動復旧方法を参照）
+
+### previous_log_snippet が注入されない
+
+revise実行時に `previous_log_snippet` 変数が注入されない場合：
+
+**症状**:
+- reviseプロンプトで `{previous_log_snippet}` が空文字列に置換される
+- エージェントが前回実行のコンテキストを認識できない
+
+**原因**:
+1. `agent_log.md` が存在しない
+2. ログファイルが空
+3. プロンプトテンプレートに `{previous_log_snippet}` 変数が含まれていない
+
+**対処法**:
+```bash
+# 1. agent_log.md の存在と内容を確認
+cat .ai-workflow/issue-*/0X_<phase>/execute/agent_log.md | head -n 100
+
+# 2. revise.txt プロンプトに変数が含まれているか確認
+grep -n "previous_log_snippet" src/prompts/<phase>/revise.txt
+
+# 3. プロンプトに変数を追加（例）
+echo -e "\n## 前回実行のログ（参考）\n\n{previous_log_snippet}" >> src/prompts/<phase>/revise.txt
+
+# 4. ビルドして再実行
+npm run build
+node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
+```
+
+**注意**: `previous_log_snippet` は `agent_log.md` の先頭2000文字のみが注入されます。完全なログが必要な場合は、エージェントに Read ツールで直接読み込ませてください。
+
+## 13. ロギング・テスト関連
 
 ### カラーリングテストの失敗
 
@@ -455,7 +592,7 @@ error: Unexpected console statement (no-console)
 
 **参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
 
-## 13. デバッグのヒント
+## 14. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
@@ -464,6 +601,7 @@ error: Unexpected console statement (no-console)
 - マルチリポジトリ関連の問題は、Issue URL が正しいか、対象リポジトリが正しくクローンされているか確認してください。
 - **ステップレジューム関連**: `metadata.json` の `current_step` と `completed_steps` フィールドを確認してください。
 - **ファイル保存問題**: エージェントログで Write ツール呼び出しを確認し、プロンプトの「最終ステップ」セクションの存在を確認してください。
+- **フォールバック機構関連**: `agent_log.md` の存在、ヘッダーパターン、セクション数、キーワードを確認してください。ログに `[INFO] Output file not found, attempting fallback recovery...` が表示されている場合、フォールバック機構が動作しています。
 - **カラーリングテスト関連**: `chalk.level` の強制設定と `LOG_NO_COLOR` 環境変数を確認してください。
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 
