@@ -18,9 +18,9 @@
     "test_code_strategy": "EXTEND_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 9486,
-    "total_output_tokens": 138767,
-    "total_cost_usd": 7.655127149999999
+    "total_input_tokens": 9468,
+    "total_output_tokens": 127468,
+    "total_cost_usd": 7.0587995999999995
   },
   "phases": {
     "planning": {
@@ -98,8 +98,8 @@
     },
     "testing": {
       "status": "in_progress",
-      "retry_count": 2,
-      "started_at": "2025-11-02T00:07:47.850Z",
+      "retry_count": 1,
+      "started_at": "2025-11-01T23:50:31.920Z",
       "completed_at": null,
       "review_result": null,
       "current_step": "revise",
@@ -112,18 +112,14 @@
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "report": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "evaluation": {
       "status": "pending",
@@ -135,13 +131,11 @@
       "failed_phase": null,
       "remaining_tasks": [],
       "created_issue_url": null,
-      "abort_reason": null,
-      "current_step": null,
-      "completed_steps": []
+      "abort_reason": null
     }
   },
   "created_at": "2025-11-01T23:14:30.476Z",
-  "updated_at": "2025-11-02T00:11:13.516Z",
+  "updated_at": "2025-11-01T23:58:01.184Z",
   "branch_name": "ai-workflow/issue-105",
   "pr_number": 111,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/111",
