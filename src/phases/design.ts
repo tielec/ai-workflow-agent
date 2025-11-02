@@ -30,12 +30,16 @@ export class DesignPhase extends BasePhase {
     );
 
     // Issue #47: executePhaseTemplate() を使用してコード削減
+    // Issue #113: enableFallback: true を追加
     const result = await this.executePhaseTemplate('design.md', {
       planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
       requirements_document_path: requirementsReference,
       issue_info: this.formatIssueInfo(issueInfo),
       issue_number: String(issueInfo.number),
-    }, { maxTurns: 40 });
+    }, {
+      maxTurns: 40,
+      enableFallback: true  // Issue #113: フォールバック機構を有効化
+    });
 
     // 特殊ロジック: 設計決定の抽出（Design Phase 特有のロジック）
     if (result.success && result.output) {
@@ -149,13 +153,23 @@ export class DesignPhase extends BasePhase {
       requirementsReference = '要件定義書は利用できません。設計内容から要件を推測してください。';
     }
 
+    // Issue #113: 前回のログスニペットを取得
+    const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+    let previousLogSnippet = '';
+    if (fs.existsSync(agentLogPath)) {
+      const agentLog = fs.readFileSync(agentLogPath, 'utf-8');
+      previousLogSnippet = agentLog.substring(0, 2000);  // 最初の2000文字
+    }
+
     const revisePrompt = this.loadPrompt('revise')
       .replace('{design_document_path}', designReference)
       .replace('{requirements_document_path}', requirementsReference)
       .replace('{review_feedback}', reviewFeedback)
       .replace('{issue_info}', this.formatIssueInfo(issueInfo))
-      .replace('{issue_number}', String(issueInfo.number));
+      .replace('{issue_number}', String(issueInfo.number))
+      .replace('{previous_log_snippet}', previousLogSnippet || '（ログなし）');  // Issue #113
 
+    logger.info(`Phase ${this.phaseName}: Starting revise with previous log snippet`);
     await this.executeWithAgent(revisePrompt, { maxTurns: 40, logDir: this.reviseDir });
 
     if (!fs.existsSync(designFile)) {

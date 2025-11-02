@@ -41,6 +41,7 @@ export class TestScenarioPhase extends BasePhase {
       'テスト戦略は設定されていません。要件と設計から適切なテスト戦略を決定してください。';
 
     // Issue #47: executePhaseTemplate() を使用してコード削減
+    // Issue #113: enableFallback: true を追加
     return this.executePhaseTemplate('test-scenario.md', {
       planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
       requirements_document_path: requirementsReference,
@@ -48,7 +49,10 @@ export class TestScenarioPhase extends BasePhase {
       test_strategy: testStrategy,
       issue_info: this.formatIssueInfo(issueInfo),
       issue_number: String(issueInfo.number),
-    }, { maxTurns: 60 });
+    }, {
+      maxTurns: 60,
+      enableFallback: true  // Issue #113: フォールバック機構を有効化
+    });
 
     // Phase outputはPRに含まれるため、Issue投稿は不要（Review resultのみ投稿）
   }
@@ -164,14 +168,24 @@ export class TestScenarioPhase extends BasePhase {
     const testStrategy = this.metadata.data.design_decisions.test_strategy ??
       'テスト戦略は設定されていません。テストシナリオ内容から適切なテスト戦略を決定してください。';
 
+    // Issue #113: 前回のログスニペットを取得
+    const agentLogPath = path.join(this.executeDir, 'agent_log.md');
+    let previousLogSnippet = '';
+    if (fs.existsSync(agentLogPath)) {
+      const agentLog = fs.readFileSync(agentLogPath, 'utf-8');
+      previousLogSnippet = agentLog.substring(0, 2000);  // 最初の2000文字
+    }
+
     const revisePrompt = this.loadPrompt('revise')
       .replace('{test_scenario_document_path}', scenarioReference)
       .replace('{design_document_path}', designReference)
       .replace('{requirements_document_path}', requirementsReference)
       .replace('{test_strategy}', testStrategy)
       .replace('{review_feedback}', reviewFeedback)
-      .replace('{issue_number}', String(issueInfo.number));
+      .replace('{issue_number}', String(issueInfo.number))
+      .replace('{previous_log_snippet}', previousLogSnippet || '（ログなし）');  // Issue #113
 
+    logger.info(`Phase ${this.phaseName}: Starting revise with previous log snippet`);
     await this.executeWithAgent(revisePrompt, { maxTurns: 60, logDir: this.reviseDir });
 
     if (!fs.existsSync(scenarioFile)) {
