@@ -128,12 +128,12 @@
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: Evaluation Phase フォールバック機構の詳細分析 (1~1.5h)
+- [x] Task 1-1: Evaluation Phase フォールバック機構の詳細分析 (1~1.5h)
   - `src/phases/evaluation.ts` の `handleMissingEvaluationFile()` の仕様を文書化
   - `extractEvaluationFromLog()` のログ解析ロジックを理解
   - フォールバックトリガー条件を特定（ファイル不在、空ファイル等）
   - 各フェーズでの成果物ファイル名を一覧化
-- [ ] Task 1-2: 各フェーズの要件定義 (0.5~1h)
+- [x] Task 1-2: 各フェーズの要件定義 (0.5~1h)
   - 6フェーズ（Planning, Requirements, Design, TestScenario, Implementation, Report）の成果物ファイル名確認
   - 各フェーズでのフォールバック要件の違いを洗い出し（例: Implementation Phase は複数ファイル生成の可能性）
   - 受け入れ基準の定義（「フォールバックが動作する」の定義）
