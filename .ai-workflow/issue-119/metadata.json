@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "EXTEND",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 37243765,
-    "total_output_tokens": 441973,
-    "total_cost_usd": 9.2322691
+    "total_input_tokens": 37243772,
+    "total_output_tokens": 451115,
+    "total_cost_usd": 9.6922335
   },
   "phases": {
     "planning": {
@@ -140,23 +140,39 @@
       "rollback_context": null
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-03T08:36:14.883Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
+      "remaining_tasks": [
+        {
+          "task": "実LLM API E2Eテストは手動検証に延期",
+          "phase": "test_implementation",
+          "priority": "低"
+        },
+        {
+          "task": "将来的にカスタムプロンプト設定機能を検討",
+          "phase": "requirements",
+          "priority": "低"
+        },
+        {
+          "task": "本番監視として将来対応を検討",
+          "phase": "requirements",
+          "priority": "低"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/123",
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": [],
       "rollback_context": null
     }
   },
   "created_at": "2025-11-03T01:36:47.324Z",
-  "updated_at": "2025-11-03T08:36:13.509Z",
+  "updated_at": "2025-11-03T08:39:16.986Z",
   "branch_name": "ai-workflow/issue-119",
   "pr_number": 120,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/120",
