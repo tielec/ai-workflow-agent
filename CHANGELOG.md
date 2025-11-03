@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Issue #121**: Auto-Issue command for automatic GitHub Issue creation
+  - Added `auto-issue` CLI command to automatically detect bugs, refactoring opportunities, and enhancement suggestions
+  - Phase 1 (MVP): Bug detection functionality using TypeScript AST analysis (ts-morph)
+  - Three core engines: RepositoryAnalyzer, IssueDeduplicator, IssueGenerator
+  - Two-stage duplicate detection: Cosine similarity + LLM semantic analysis
+  - OpenAI API integration for Issue content generation
+  - GitHub API integration for Issue creation with labels (`bug`, `auto-generated`)
+  - CLI options: `--category`, `--limit`, `--dry-run`, `--similarity-threshold`, `--creative-mode`
+  - New dependencies: `ts-morph` (v21.0.1), `cosine-similarity` (v1.0.1)
+
 ### Fixed
 - **Issue #102**: Test infrastructure improvements
   - Fixed test expectations in `file-selector.test.ts` to match SimpleGit's FileStatusResult type

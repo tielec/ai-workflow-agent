@@ -592,7 +592,124 @@ error: Unexpected console statement (no-console)
 
 **参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
 
-## 14. デバッグのヒント
+## 14. Auto-Issue コマンド関連（v0.5.0、Issue #121）
+
+### `OPENAI_API_KEY is required`
+
+Auto-Issue コマンドはOpenAI APIを使用してIssue内容を生成します。
+
+**対処法**:
+```bash
+export OPENAI_API_KEY="sk-..."
+node dist/index.js auto-issue --category bug --limit 5
+```
+
+### `No issues detected`
+
+バグが検出されなかった、または重複判定で全てスキップされた場合に表示されます。
+
+**原因**:
+1. リポジトリにバグパターンが存在しない（正常な状態）
+2. 既存のGitHub Issueと重複している
+3. Phase 1 (MVP)ではバグ検出のみ実装（リファクタリング・改善提案は未実装）
+
+**対処法**:
+1. `--dry-run` で検出候補を確認:
+   ```bash
+   node dist/index.js auto-issue --category bug --limit 10 --dry-run
+   ```
+2. 類似度閾値を調整（より緩く重複を許容）:
+   ```bash
+   node dist/index.js auto-issue --category bug --similarity-threshold 0.6
+   ```
+3. バグが存在しない場合は正常な状態です
+
+### `Rate limit exceeded`
+
+OpenAI APIまたはGitHub APIのレート制限に達しました。
+
+**対処法**:
+1. しばらく待ってから再実行（OpenAI: 分単位、GitHub: 時間単位）
+2. `--limit` オプションで一度に作成するIssue数を減らす:
+   ```bash
+   node dist/index.js auto-issue --category bug --limit 3
+   ```
+3. GitHub APIレート制限確認:
+   ```bash
+   curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/rate_limit
+   ```
+
+### `ts-morph parse error`
+
+TypeScriptファイルに構文エラーがある場合、AST解析が失敗します。
+
+**症状**:
+```
+[ERROR] Failed to analyze file: /path/to/file.ts
+Error: Unexpected token
+```
+
+**対処法**:
+1. TypeScriptコンパイラでファイルをチェック:
+   ```bash
+   npx tsc --noEmit
+   ```
+2. 構文エラーを修正してから再実行
+3. 特定のファイルをスキップしたい場合は手動で除外
+
+### `Insufficient similarity data`
+
+既存Issueの取得に失敗した、またはIssue数が少なすぎる場合に表示されます。
+
+**原因**:
+1. GitHub API認証エラー
+2. リポジトリにIssueが存在しない
+3. ネットワーク接続エラー
+
+**対処法**:
+1. `GITHUB_TOKEN` 環境変数を確認:
+   ```bash
+   echo $GITHUB_TOKEN
+   ```
+2. GitHub APIの疎通確認:
+   ```bash
+   curl -H "Authorization: token $GITHUB_TOKEN" \
+     https://api.github.com/repos/$GITHUB_REPOSITORY/issues
+   ```
+3. 新規リポジトリの場合は正常（Issueが作成される）
+
+### `Creative mode` の効果が分からない
+
+`--creative-mode` オプションはOpenAI APIの `temperature` パラメータを上げ、多様な提案を生成します。
+
+**使い分け**:
+- **通常モード**（デフォルト）: 安定的で一貫性のある提案（temperature: 0.3）
+- **クリエイティブモード**: より多様で創造的な提案（temperature: 0.7）
+  ```bash
+  node dist/index.js auto-issue --category bug --creative-mode
+  ```
+
+**注意**: クリエイティブモードでは提案の品質がばらつく可能性があります。重要なプロジェクトでは通常モードを推奨します。
+
+### Phase 1 (MVP) の制限事項
+
+現在のバージョンでは以下の制限があります：
+
+**実装済み**:
+- ✅ バグ検出（`--category bug`）
+- ✅ TypeScript/JavaScript解析（`.ts`, `.js`）
+- ✅ 4つのバグパターン検出（Null/Undefinedチェック漏れ、型アサーション、async/awaitエラー、try-catch不足）
+
+**未実装（将来追加予定）**:
+- ⏳ Phase 2: リファクタリング検出（`--category refactor`）
+- ⏳ Phase 3: 改善提案検出（`--category enhancement`）
+- ⏳ 他の言語サポート（Python、Go、Java等）
+
+**回避策**:
+- 現在は `--category bug` のみ使用可能
+- 他のカテゴリを指定すると `Not implemented` エラーが発生します
+
+## 15. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
