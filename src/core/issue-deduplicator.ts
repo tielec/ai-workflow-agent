@@ -90,17 +90,20 @@ export class IssueDeduplicator {
     existingIssues: Array<{ number: number; title: string; body: string }>,
     threshold: number,
   ): Array<{ number: number; title: string; body: string }> {
-    const candidateVector = this.textToVector(candidate.title + ' ' + candidate.description);
+    const candidateText = candidate.title + ' ' + candidate.description;
     const results: Array<{ issue: { number: number; title: string; body: string }; score: number }> = [];
 
     for (const issue of existingIssues) {
-      const issueVector = this.textToVector(issue.title + ' ' + issue.body);
+      const issueText = issue.title + ' ' + issue.body;
+
+      // 共有語彙を使ってベクトル化
+      const [candidateVector, issueVector] = this.textToVectorPair(candidateText, issueText);
 
       // cosineSimilarityは配列を返すので、最初の要素を取得
       const scoreArray = cosineSimilarity(candidateVector, issueVector);
       const score = Array.isArray(scoreArray) ? scoreArray[0] : scoreArray;
 
-      if (score >= threshold) {
+      if (!isNaN(score) && score >= threshold) {
         results.push({ issue, score });
       }
     }
@@ -166,9 +169,40 @@ Issue候補:
   }
 
   /**
-   * テキストをベクトル化（簡易実装: 単語頻度ベース）
+   * 2つのテキストを共有語彙でベクトル化
+   * @param text1 - テキスト1
+   * @param text2 - テキスト2
+   * @returns [text1のベクトル, text2のベクトル]
    */
-  private textToVector(text: string): number[] {
+  private textToVectorPair(text1: string, text2: string): [number[], number[]] {
+    // 各テキストの単語頻度を計算
+    const freq1 = this.calculateWordFrequency(text1);
+    const freq2 = this.calculateWordFrequency(text2);
+
+    // 共有語彙（両方のテキストに現れる全単語の和集合）を作成
+    const vocabulary = new Set<string>([...freq1.keys(), ...freq2.keys()]);
+
+    // 頻度の高い上位100単語に制限（メモリ効率化）
+    const topWords = Array.from(vocabulary)
+      .map((word) => ({
+        word,
+        totalFreq: (freq1.get(word) ?? 0) + (freq2.get(word) ?? 0),
+      }))
+      .sort((a, b) => b.totalFreq - a.totalFreq)
+      .slice(0, 100)
+      .map((item) => item.word);
+
+    // 共有語彙に基づいてベクトル化（存在しない単語は0）
+    const vector1 = topWords.map((word) => freq1.get(word) ?? 0);
+    const vector2 = topWords.map((word) => freq2.get(word) ?? 0);
+
+    return [vector1, vector2];
+  }
+
+  /**
+   * テキストから単語頻度を計算
+   */
+  private calculateWordFrequency(text: string): Map<string, number> {
     const words = text.toLowerCase().match(/\w+/g) ?? [];
     const wordFreq = new Map<string, number>();
 
@@ -176,12 +210,7 @@ Issue候補:
       wordFreq.set(word, (wordFreq.get(word) ?? 0) + 1);
     }
 
-    // 頻度の高い上位100単語をベクトル化
-    const topWords = Array.from(wordFreq.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 100);
-
-    return topWords.map(([, freq]) => freq);
+    return wordFreq;
   }
 
   /**
