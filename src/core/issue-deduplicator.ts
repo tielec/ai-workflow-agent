@@ -99,11 +99,13 @@ export class IssueDeduplicator {
       // 共有語彙を使ってベクトル化
       const [candidateVector, issueVector] = this.textToVectorPair(candidateText, issueText);
 
-      // cosineSimilarityは配列を返すので、最初の要素を取得
-      const scoreArray = cosineSimilarity(candidateVector, issueVector);
-      const score = Array.isArray(scoreArray) ? scoreArray[0] : scoreArray;
+      if (this.isZeroVector(candidateVector) || this.isZeroVector(issueVector)) {
+        continue;
+      }
 
-      if (!isNaN(score) && score >= threshold) {
+      const score = cosineSimilarity(candidateVector, issueVector);
+
+      if (Number.isFinite(score) && score >= threshold) {
         results.push({ issue, score });
       }
     }
@@ -180,23 +182,32 @@ Issue候補:
     const freq2 = this.calculateWordFrequency(text2);
 
     // 共有語彙（両方のテキストに現れる全単語の和集合）を作成
-    const vocabulary = new Set<string>([...freq1.keys(), ...freq2.keys()]);
-
-    // 頻度の高い上位100単語に制限（メモリ効率化）
-    const topWords = Array.from(vocabulary)
+    const sortedVocabulary = Array.from(new Set<string>([...freq1.keys(), ...freq2.keys()]))
       .map((word) => ({
         word,
         totalFreq: (freq1.get(word) ?? 0) + (freq2.get(word) ?? 0),
       }))
       .sort((a, b) => b.totalFreq - a.totalFreq)
       .slice(0, 100)
-      .map((item) => item.word);
+      .map((item) => item.word)
+      .sort();
+
+    if (sortedVocabulary.length === 0) {
+      return [[0], [0]];
+    }
 
     // 共有語彙に基づいてベクトル化（存在しない単語は0）
-    const vector1 = topWords.map((word) => freq1.get(word) ?? 0);
-    const vector2 = topWords.map((word) => freq2.get(word) ?? 0);
+    const vector1 = sortedVocabulary.map((word) => freq1.get(word) ?? 0);
+    const vector2 = sortedVocabulary.map((word) => freq2.get(word) ?? 0);
 
     return [vector1, vector2];
+  }
+
+  /**
+   * ベクトルが全て0かどうかを判定
+   */
+  private isZeroVector(vector: number[]): boolean {
+    return vector.every((value) => value === 0);
   }
 
   /**
