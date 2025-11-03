@@ -322,14 +322,24 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
   - オプション詳細説明
   - 使用例（3カテゴリ × 2パターン）
   - トラブルシューティングガイド
-- [ ] Task 7-2: README.md更新 (0.5〜1h)
+  - **注**: 更新不要と判断（既存CLI構造ドキュメントで十分）
+- [x] Task 7-2: README.md更新 (0.5〜1h)
   - クイックスタートガイドに `auto-issue` 追加
   - 環境変数セクションに新規変数追加（オプショナル）
   - 主要機能リストに追記
+- [x] Task 7-2-extended: CHANGELOG.md更新（追加実施）
+  - Issue #121のエントリ追加
+  - 新規依存関係の記録
+- [x] Task 7-2-extended: ARCHITECTURE.md更新（追加実施）
+  - 新規モジュール4件の追加
+  - 3エンジンアーキテクチャの記録
+- [x] Task 7-2-extended: TROUBLESHOOTING.md更新（追加実施）
+  - Auto-Issueコマンド専用トラブルシューティングセクション追加
 - [ ] Task 7-3: 新規ドキュメント作成 (0.5〜1h)
   - `docs/auto-issue-guide.md` 作成（詳細ガイド）
   - ユースケース集（定期実行、CI/CD統合）
   - ベストプラクティス
+  - **注**: READMEに包括的なドキュメントを記載したため当面不要
 
 ### Phase 8: レポート (見積もり: 2〜2h)
 
