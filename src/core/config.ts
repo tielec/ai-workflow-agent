@@ -57,6 +57,18 @@ export interface IConfig {
    */
   getClaudeDangerouslySkipPermissions(): boolean;
 
+  /**
+   * OpenAI APIキーを取得
+   * @returns OpenAI APIキー、または未設定の場合は null
+   */
+  getOpenAiApiKey(): string | null;
+
+  /**
+   * Anthropic APIキーを取得
+   * @returns Anthropic APIキー、または未設定の場合は null
+   */
+  getAnthropicApiKey(): string | null;
+
   // ========== Git関連 ==========
 
   /**
@@ -105,6 +117,48 @@ export interface IConfig {
    * @returns true: カラーリング無効、false: カラーリング有効
    */
   getLogNoColor(): boolean;
+
+  // ========== Follow-up LLM 設定 ==========
+
+  /**
+   * フォローアップ Issue 生成に使用する LLM モードを取得
+   */
+  getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'off' | null;
+
+  /**
+   * フォローアップ Issue 生成に使用する LLM モデル名を取得
+   */
+  getFollowupLlmModel(): string | null;
+
+  /**
+   * フォローアップ Issue 生成時のタイムアウト（ミリ秒）を取得
+   */
+  getFollowupLlmTimeoutMs(): number | null;
+
+  /**
+   * フォローアップ Issue 生成時の最大リトライ回数を取得
+   */
+  getFollowupLlmMaxRetries(): number | null;
+
+  /**
+   * フォローアップ Issue 生成結果にメタデータを追記するかどうか
+   */
+  getFollowupLlmAppendMetadata(): boolean | null;
+
+  /**
+   * フォローアップ Issue 生成時の温度パラメータを取得
+   */
+  getFollowupLlmTemperature(): number | null;
+
+  /**
+   * フォローアップ Issue 生成時の最大出力トークンを取得
+   */
+  getFollowupLlmMaxOutputTokens(): number | null;
+
+  /**
+   * フォローアップ Issue 生成時に LLM へ渡す最大タスク数を取得
+   */
+  getFollowupLlmMaxTasks(): number | null;
 
   // ========== 動作環境判定 ==========
 
@@ -165,6 +219,14 @@ export class Config implements IConfig {
     return this.getEnv('CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS', false) === '1';
   }
 
+  public getOpenAiApiKey(): string | null {
+    return this.getEnv('OPENAI_API_KEY', false) ?? this.getEnv('CODEX_API_KEY', false);
+  }
+
+  public getAnthropicApiKey(): string | null {
+    return this.getEnv('ANTHROPIC_API_KEY', false);
+  }
+
   // ========== Git関連 ==========
 
   public getGitCommitUserName(): string | null {
@@ -213,6 +275,70 @@ export class Config implements IConfig {
     return value === 'true' || value === '1';
   }
 
+  // ========== Follow-up LLM 設定 ==========
+
+  public getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'off' | null {
+    const value = this.getEnv('FOLLOWUP_LLM_MODE', false);
+    if (!value) {
+      return null;
+    }
+    const normalized = value.toLowerCase();
+    return ['auto', 'openai', 'claude', 'off'].includes(normalized)
+      ? (normalized as 'auto' | 'openai' | 'claude' | 'off')
+      : null;
+  }
+
+  public getFollowupLlmModel(): string | null {
+    return this.getEnv('FOLLOWUP_LLM_MODEL', false);
+  }
+
+  public getFollowupLlmTimeoutMs(): number | null {
+    return this.parseNumericEnv('FOLLOWUP_LLM_TIMEOUT_MS');
+  }
+
+  public getFollowupLlmMaxRetries(): number | null {
+    const value = this.parseNumericEnv('FOLLOWUP_LLM_MAX_RETRIES');
+    if (value === null) {
+      return null;
+    }
+    return Number.isFinite(value) ? Math.floor(value) : null;
+  }
+
+  public getFollowupLlmAppendMetadata(): boolean | null {
+    const value = this.getEnv('FOLLOWUP_LLM_APPEND_METADATA', false);
+    if (!value) {
+      return null;
+    }
+    const normalized = value.toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['0', 'false', 'no', 'off'].includes(normalized)) {
+      return false;
+    }
+    return null;
+  }
+
+  public getFollowupLlmTemperature(): number | null {
+    const value = this.parseNumericEnv('FOLLOWUP_LLM_TEMPERATURE');
+    if (value === null) {
+      return null;
+    }
+    return Number.isFinite(value) ? value : null;
+  }
+
+  public getFollowupLlmMaxOutputTokens(): number | null {
+    return this.parseNumericEnv('FOLLOWUP_LLM_MAX_OUTPUT_TOKENS');
+  }
+
+  public getFollowupLlmMaxTasks(): number | null {
+    const value = this.parseNumericEnv('FOLLOWUP_LLM_MAX_TASKS');
+    if (value === null) {
+      return null;
+    }
+    return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : null;
+  }
+
   // ========== 動作環境判定 ==========
 
   public isCI(): boolean {
@@ -257,6 +383,15 @@ export class Config implements IConfig {
       }
     }
     return null;
+  }
+
+  private parseNumericEnv(key: string): number | null {
+    const raw = this.getEnv(key, false);
+    if (raw === null) {
+      return null;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
   }
 }
 

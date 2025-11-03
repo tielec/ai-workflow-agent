@@ -106,6 +106,32 @@ export interface RemainingTask {
   estimatedHours?: string;
 }
 
+export interface IssueGenerationOptions {
+  enabled: boolean;
+  provider: 'auto' | 'openai' | 'claude';
+  model?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+  maxRetries?: number;
+  maxTasks?: number;
+  appendMetadata?: boolean;
+}
+
+export interface IssueAIGenerationResult {
+  title: string;
+  body: string;
+  metadata: {
+    provider: 'openai' | 'claude';
+    model: string;
+    durationMs: number;
+    retryCount: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    omittedTasks?: number;
+  };
+}
+
 export interface EvaluationPhaseMetadata extends PhaseMetadata {
   decision: string | null;
   failed_phase: PhaseName | null;

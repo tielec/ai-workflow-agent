@@ -7,7 +7,13 @@ import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { GitHubClient } from '../core/github-client.js';
 import { ContentParser } from '../core/content-parser.js';
-import { PhaseExecutionResult, PhaseName, PhaseStatus, PhaseMetadata } from '../types.js';
+import {
+  PhaseExecutionResult,
+  PhaseName,
+  PhaseStatus,
+  PhaseMetadata,
+  type IssueGenerationOptions,
+} from '../types.js';
 import { LogFormatter } from './formatters/log-formatter.js';
 import { ProgressFormatter } from './formatters/progress-formatter.js';
 import { AgentExecutor } from './core/agent-executor.js';
@@ -40,6 +46,7 @@ export type BasePhaseConstructorParams = {
   skipDependencyCheck?: boolean;
   ignoreDependencies?: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
+  issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
 };
 
 export type PhaseInitializationParams = Omit<BasePhaseConstructorParams, 'phaseName'>;
@@ -55,6 +62,7 @@ export abstract class BasePhase {
   protected readonly ignoreDependencies: boolean;
   protected readonly presetPhases: PhaseName[] | undefined; // プリセット実行時のフェーズリスト（Issue #396）
   protected readonly contentParser: ContentParser;
+  protected readonly issueGenerationOptions: IssueGenerationOptions;
 
   protected readonly phaseDir: string;
   protected readonly outputDir: string;
@@ -103,6 +111,9 @@ export abstract class BasePhase {
     this.ignoreDependencies = params.ignoreDependencies ?? false;
     this.presetPhases = params.presetPhases;
     this.contentParser = new ContentParser();
+    this.issueGenerationOptions = params.issueGenerationOptions
+      ? { ...params.issueGenerationOptions }
+      : { enabled: false, provider: 'auto' };
 
     const phaseNumber = this.getPhaseNumber(this.phaseName);
     this.phaseDir = path.join(this.metadata.workflowDir, `${phaseNumber}_${this.phaseName}`);

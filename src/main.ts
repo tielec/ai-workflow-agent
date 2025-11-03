@@ -73,6 +73,26 @@ export async function runCli(): Promise<void> {
     .option('--design-doc <path>', 'External design document path')
     .option('--test-scenario-doc <path>', 'External test scenario document path')
     .option(
+      '--followup-llm-mode <mode>',
+      'Follow-up issue LLM mode (off|auto|openai|claude)',
+    )
+    .option(
+      '--followup-llm-model <name>',
+      'Override model name when using follow-up LLM integration',
+    )
+    .option(
+      '--followup-llm-timeout <ms>',
+      'Timeout in milliseconds for follow-up LLM requests',
+    )
+    .option(
+      '--followup-llm-max-retries <count>',
+      'Maximum retry attempts for follow-up LLM requests',
+    )
+    .option(
+      '--followup-llm-append-metadata',
+      'Append LLM generation metadata section to the follow-up issue body',
+    )
+    .option(
       '--cleanup-on-complete',
       'Delete .ai-workflow directory after evaluation phase completes',
       false,

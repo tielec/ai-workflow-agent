@@ -2,7 +2,17 @@ import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 import { getErrorMessage } from '../../utils/error-utils.js';
-import { RemainingTask, IssueContext } from '../../types.js';
+import {
+  RemainingTask,
+  IssueContext,
+  IssueGenerationOptions,
+  IssueAIGenerationResult,
+} from '../../types.js';
+import {
+  IssueAIGenerator,
+  IssueAIUnavailableError,
+  IssueAIValidationError,
+} from './issue-ai-generator.js';
 
 export interface IssueInfo {
   number: number;
@@ -35,6 +45,17 @@ export interface GenericResult {
   error?: string | null;
 }
 
+const DEFAULT_ISSUE_GENERATION_OPTIONS: IssueGenerationOptions = {
+  enabled: false,
+  provider: 'auto',
+  temperature: 0.2,
+  maxOutputTokens: 1500,
+  timeoutMs: 25000,
+  maxRetries: 3,
+  maxTasks: 5,
+  appendMetadata: false,
+};
+
 /**
  * IssueClient handles all Issue-related operations with GitHub API.
  * Responsibilities:
@@ -48,11 +69,18 @@ export class IssueClient {
   private readonly octokit: Octokit;
   private readonly owner: string;
   private readonly repo: string;
+  private readonly issueAIGenerator: IssueAIGenerator | null;
 
-  constructor(octokit: Octokit, owner: string, repo: string) {
+  constructor(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    issueAIGenerator: IssueAIGenerator | null = null,
+  ) {
     this.octokit = octokit;
     this.owner = owner;
     this.repo = repo;
+    this.issueAIGenerator = issueAIGenerator;
   }
 
   /**
@@ -299,6 +327,7 @@ export class IssueClient {
    * @param remainingTasks - 残タスクのリスト
    * @param evaluationReportPath - Evaluation レポートのパス
    * @param issueContext - Issue コンテキスト（背景情報、オプショナル）
+   * @param options - フォローアップ Issue 生成オプション
    * @returns Issue 作成結果
    */
   public async createIssueFromEvaluation(
@@ -306,58 +335,36 @@ export class IssueClient {
     remainingTasks: RemainingTask[],
     evaluationReportPath: string,
     issueContext?: IssueContext,
+    options?: IssueGenerationOptions,
   ): Promise<IssueCreationResult> {
     try {
-      logger.info(`Creating follow-up issue for #${issueNumber} with ${remainingTasks.length} remaining tasks`);
+      logger.info(
+        `Creating follow-up issue for #${issueNumber} with ${remainingTasks.length} remaining tasks`,
+      );
 
-      // タイトル生成
-      const title = this.generateFollowUpTitle(issueNumber, remainingTasks);
+      const generationOptions = this.resolveIssueGenerationOptions(options);
+      const aiResult = await this.tryGenerateWithLLM(
+        issueNumber,
+        remainingTasks,
+        issueContext,
+        generationOptions,
+      );
 
-      // 本文生成
-      const lines: string[] = [];
+      const title = aiResult?.title ?? this.generateFollowUpTitle(issueNumber, remainingTasks);
+      let body = aiResult
+        ? aiResult.body
+        : this.buildLegacyBody(issueNumber, remainingTasks, evaluationReportPath, issueContext);
 
-      // 背景セクション（issueContext が存在する場合のみ）
-      if (issueContext) {
-        lines.push('## 背景', '');
-        lines.push(issueContext.summary, '');
-
-        if (issueContext.blockerStatus) {
-          lines.push('### 元 Issue のステータス', '');
-          lines.push(issueContext.blockerStatus, '');
-        }
-
-        if (issueContext.deferredReason) {
-          lines.push('### なぜこれらのタスクが残ったか', '');
-          lines.push(issueContext.deferredReason, '');
-        }
-      } else {
-        // フォールバック: issueContext がない場合は従来形式
-        lines.push('## 背景', '');
-        lines.push(`AI Workflow Issue #${issueNumber} の評価フェーズで残タスクが見つかりました。`, '');
+      if (aiResult) {
+        body = this.appendReferenceSection(body, issueNumber, evaluationReportPath);
+        body = this.appendMetadata(body, aiResult.metadata, generationOptions);
       }
-
-      // 残タスク詳細セクション
-      lines.push('## 残タスク詳細', '');
-
-      for (let i = 0; i < remainingTasks.length; i++) {
-        const task = remainingTasks[i];
-        const taskNumber = i + 1;
-
-        lines.push(...this.formatTaskDetails(task, taskNumber));
-        lines.push(''); // タスク間の空行
-      }
-
-      // 参考セクション
-      lines.push('## 参考', '');
-      lines.push(`- 元Issue: #${issueNumber}`);
-      lines.push(`- Evaluation Report: \`${evaluationReportPath}\``);
-      lines.push('', '---', '*自動生成: AI Workflow Phase 9 (Evaluation)*');
 
       const { data } = await this.octokit.issues.create({
         owner: this.owner,
         repo: this.repo,
         title,
-        body: lines.join('\n'),
+        body,
         labels: ['enhancement', 'ai-workflow-follow-up'],
       });
 
@@ -384,6 +391,174 @@ export class IssueClient {
         error: message,
       };
     }
+  }
+
+  private resolveIssueGenerationOptions(options?: IssueGenerationOptions): IssueGenerationOptions {
+    const merged: IssueGenerationOptions = { ...DEFAULT_ISSUE_GENERATION_OPTIONS };
+
+    if (!options) {
+      return merged;
+    }
+
+    for (const key of Object.keys(options) as (keyof IssueGenerationOptions)[]) {
+      const value = options[key];
+      if (value !== undefined) {
+        (merged as Record<keyof IssueGenerationOptions, unknown>)[key] = value;
+      }
+    }
+
+    return merged;
+  }
+
+  private async tryGenerateWithLLM(
+    issueNumber: number,
+    tasks: RemainingTask[],
+    issueContext: IssueContext | undefined,
+    options: IssueGenerationOptions,
+  ): Promise<IssueAIGenerationResult | null> {
+    if (!options.enabled) {
+      return null;
+    }
+
+    if (!this.issueAIGenerator) {
+      logger.warn('FOLLOWUP_LLM_FALLBACK', {
+        reason: 'issue_ai_generator_not_configured',
+        fallback: 'legacy_template',
+      });
+      return null;
+    }
+
+    if (!this.issueAIGenerator.isAvailable(options)) {
+      logger.warn('FOLLOWUP_LLM_FALLBACK', {
+        reason: 'provider_unavailable',
+        fallback: 'legacy_template',
+      });
+      return null;
+    }
+
+    try {
+      const result = await this.issueAIGenerator.generate(tasks, issueContext, issueNumber, options);
+      logger.debug('FOLLOWUP_LLM_SUCCESS', {
+        provider: result.metadata.provider,
+        model: result.metadata.model,
+        durationMs: result.metadata.durationMs,
+        retryCount: result.metadata.retryCount,
+      });
+      return result;
+    } catch (error) {
+      const reason = this.describeAiError(error);
+      logger.warn('FOLLOWUP_LLM_FALLBACK', {
+        reason,
+        fallback: 'legacy_template',
+      });
+      return null;
+    }
+  }
+
+  private describeAiError(error: unknown): string {
+    if (error instanceof IssueAIValidationError) {
+      return `validation_error: ${error.message}`;
+    }
+    if (error instanceof IssueAIUnavailableError) {
+      return `unavailable: ${error.message}`;
+    }
+    return getErrorMessage(error);
+  }
+
+  private buildLegacyBody(
+    issueNumber: number,
+    remainingTasks: RemainingTask[],
+    evaluationReportPath: string,
+    issueContext?: IssueContext,
+  ): string {
+    const lines: string[] = [];
+
+    if (issueContext) {
+      lines.push('## 背景', '');
+      lines.push(issueContext.summary, '');
+
+      if (issueContext.blockerStatus) {
+        lines.push('### 元 Issue のステータス', '');
+        lines.push(issueContext.blockerStatus, '');
+      }
+
+      if (issueContext.deferredReason) {
+        lines.push('### なぜこれらのタスクが残ったか', '');
+        lines.push(issueContext.deferredReason, '');
+      }
+    } else {
+      lines.push('## 背景', '');
+      lines.push(`AI Workflow Issue #${issueNumber} の評価フェーズで残タスクが見つかりました。`, '');
+    }
+
+    lines.push('## 残タスク詳細', '');
+
+    for (let i = 0; i < remainingTasks.length; i++) {
+      const task = remainingTasks[i];
+      const taskNumber = i + 1;
+
+      lines.push(...this.formatTaskDetails(task, taskNumber));
+      lines.push('');
+    }
+
+    lines.push('## 参考', '');
+    lines.push(`- 元Issue: #${issueNumber}`);
+    lines.push(`- Evaluation Report: \`${evaluationReportPath}\``);
+    lines.push('', '---', '*自動生成: AI Workflow Phase 9 (Evaluation)*');
+
+    return lines.join('\n');
+  }
+
+  private appendReferenceSection(
+    body: string,
+    issueNumber: number,
+    evaluationReportPath: string,
+  ): string {
+    const trimmed = body.trimEnd();
+    const hasReferenceHeading = /##\s*(参考|関連リソース)/.test(trimmed);
+    const hasEvaluationLink = trimmed.includes('Evaluation Report');
+
+    if (hasReferenceHeading && hasEvaluationLink) {
+      return trimmed;
+    }
+
+    const output: string[] = [trimmed, '', '## 関連リソース', ''];
+    output.push(`- 元Issue: #${issueNumber}`);
+    output.push(`- Evaluation Report: \`${evaluationReportPath}\``);
+
+    if (!trimmed.includes('---')) {
+      output.push('');
+      output.push('---');
+    }
+
+    if (!trimmed.includes('*自動生成: AI Workflow Phase 9 (Evaluation)*')) {
+      output.push('*自動生成: AI Workflow Phase 9 (Evaluation)*');
+    }
+
+    return output.join('\n');
+  }
+
+  private appendMetadata(
+    body: string,
+    metadata: IssueAIGenerationResult['metadata'],
+    options: IssueGenerationOptions,
+  ): string {
+    if (!options.appendMetadata) {
+      return body.trimEnd();
+    }
+
+    const lines = [
+      body.trimEnd(),
+      '',
+      '## 生成メタデータ',
+      '',
+      `- モデル: ${metadata.model} (${metadata.provider})`,
+      `- 所要時間: ${metadata.durationMs}ms / 再試行: ${metadata.retryCount}`,
+      `- トークン: in ${metadata.inputTokens ?? '-'} / out ${metadata.outputTokens ?? '-'}`,
+      `- 省略したタスク数: ${metadata.omittedTasks ?? 0}`,
+    ];
+
+    return lines.join('\n');
   }
 
   /**

@@ -111,6 +111,55 @@ node dist/index.js rollback \
 - `--force`: 確認プロンプトをスキップ
 - `--dry-run`: 実際には差し戻さず、変更内容のみを表示
 
+### フォローアップIssue生成オプション（v0.5.0、Issue #119で追加）
+```bash
+# OpenAIを使用してフォローアップIssueのタイトル/本文を生成
+node dist/index.js execute \
+  --issue <NUM> \
+  --phase evaluation \
+  --followup-llm-mode openai \
+  --followup-llm-model gpt-4o-mini \
+  --followup-llm-append-metadata
+
+# Claudeを使用してフォローアップIssueを生成
+node dist/index.js execute \
+  --issue <NUM> \
+  --phase evaluation \
+  --followup-llm-mode claude \
+  --followup-llm-model claude-3-sonnet-20240229
+
+# LLM生成を無効化（既存テンプレートを使用）
+node dist/index.js execute \
+  --issue <NUM> \
+  --phase evaluation \
+  --followup-llm-mode off
+```
+
+**主な機能**:
+- **LLM統合**: OpenAI（gpt-4o-mini）またはAnthropic（claude-3-sonnet-20240229）を使用してフォローアップIssueのタイトル/本文を生成
+- **自動フォールバック**: LLM呼び出し失敗時は既存テンプレートへ自動的にフォールバック
+- **セキュリティ**: プロンプト送信前にシークレット（APIキー、メールアドレス、トークン）を自動マスキング
+- **リトライ制御**: 指数バックオフ戦略で最大3回までリトライ
+- **メタデータ記録**: 生成元プロバイダ、モデル、実行時間、リトライ回数、トークン使用量を記録
+
+**オプション**:
+- `--followup-llm-mode <mode>`: LLMプロバイダ（`auto` | `openai` | `claude` | `off`、デフォルト: `off`）
+- `--followup-llm-model <model>`: 使用モデル（`gpt-4o-mini` | `claude-3-sonnet-20240229` 等）
+- `--followup-llm-timeout <ms>`: タイムアウト（ミリ秒、デフォルト: 30000）
+- `--followup-llm-max-retries <count>`: 最大リトライ回数（デフォルト: 3）
+- `--followup-llm-append-metadata`: Issue本文末尾に生成メタデータを追記
+
+**環境変数**:
+- `FOLLOWUP_LLM_MODE`: LLMプロバイダ（CLI引数より優先度低）
+- `FOLLOWUP_LLM_MODEL`: 使用モデル
+- `OPENAI_API_KEY`: OpenAI APIキー（`--followup-llm-mode openai` 使用時に必須）
+- `ANTHROPIC_API_KEY`: Anthropic APIキー（`--followup-llm-mode claude` 使用時に必須）
+
+**生成品質要件**:
+- タイトル: 50〜80文字の日本語タイトル
+- 本文: 5つの必須セクション（背景、実行内容、テスト、注意事項、参考情報）を含むMarkdown形式
+- バリデーション: タイトル長、セクション存在チェック、最小文字数検証
+
 ### エージェントモード
 - `--agent auto`（デフォルト）: `CODEX_API_KEY` が設定されていれば Codex を使用、なければ Claude にフォールバック
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）
@@ -305,6 +354,12 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 ### エージェント設定
 - `CODEX_API_KEY` または `OPENAI_API_KEY`: Codex エージェント用
 - `CLAUDE_CODE_CREDENTIALS_PATH`: Claude credentials.json へのパス（または `CLAUDE_CODE_OAUTH_TOKEN`）
+
+### フォローアップIssue生成設定（v0.5.0、Issue #119で追加）
+- `FOLLOWUP_LLM_MODE`: LLMプロバイダ（`auto` | `openai` | `claude` | `off`、デフォルト: `off`）
+- `FOLLOWUP_LLM_MODEL`: 使用モデル（`gpt-4o-mini` | `claude-3-sonnet-20240229` 等）
+- `OPENAI_API_KEY`: OpenAI APIキー（`--followup-llm-mode openai` 使用時）
+- `ANTHROPIC_API_KEY`: Anthropic APIキー（`--followup-llm-mode claude` 使用時）
 
 ### マルチリポジトリサポート
 - `REPOS_ROOT`: リポジトリの親ディレクトリ（v0.2.0）

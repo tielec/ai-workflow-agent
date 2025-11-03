@@ -90,7 +90,12 @@ ai-workflow execute \
   [--cleanup-on-complete] \
   [--cleanup-on-complete-force] \
   [--requirements-doc <path>] [...] \
-  [--git-user <name>] [--git-email <email>]
+  [--git-user <name>] [--git-email <email>] \
+  [--followup-llm-mode auto|openai|claude|off] \
+  [--followup-llm-model <model>] \
+  [--followup-llm-timeout <ms>] \
+  [--followup-llm-max-retries <count>] \
+  [--followup-llm-append-metadata]
 
 ai-workflow execute \
   --list-presets
@@ -195,6 +200,43 @@ ai-workflow execute --issue 2 --preset review-requirements
 - `design-phase` → `review-design`
 - `implementation-phase` → `implementation`
 - `full-workflow` → `--phase all`
+
+### フォローアップIssue生成オプション（v0.4.0、Issue #119で追加）
+
+フォローアップIssue生成時にLLM (OpenAI/Anthropic) を利用してタイトルと本文の品質を向上できます。LLM失敗時は既存テンプレートへ自動的にフォールバックします。
+
+- `--followup-llm-mode <mode>` … LLMモード選択（`auto`（既定）、`openai`、`claude`、`off`）
+- `--followup-llm-model <model>` … モデル指定（例: `gpt-4o-mini`、`claude-3-sonnet-20240229`）
+- `--followup-llm-timeout <ms>` … タイムアウト時間（ミリ秒、既定: 25000）
+- `--followup-llm-max-retries <count>` … 最大リトライ回数（既定: 3）
+- `--followup-llm-append-metadata` … 生成メタデータをIssue本文に追記
+
+**環境変数**:
+- `FOLLOWUP_LLM_MODE` … LLMモード（`auto` | `openai` | `claude` | `off`）
+- `FOLLOWUP_LLM_MODEL` … モデル名
+- `FOLLOWUP_LLM_TIMEOUT_MS` … タイムアウト（ミリ秒）
+- `FOLLOWUP_LLM_MAX_RETRIES` … 最大リトライ回数
+- `FOLLOWUP_LLM_APPEND_METADATA` … メタデータ追記フラグ（`true` | `false`）
+- `OPENAI_API_KEY` … OpenAI APIキー（`openai` モード使用時）
+- `ANTHROPIC_API_KEY` … Anthropic APIキー（`claude` モード使用時）
+
+**使用例**:
+```bash
+# OpenAIで生成（メタデータ追記あり）
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode openai --followup-llm-model gpt-4o-mini \
+  --followup-llm-append-metadata
+
+# Anthropicで生成（タイムアウト短縮）
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode claude --followup-llm-model claude-3-sonnet-20240229 \
+  --followup-llm-timeout 20000
+
+# LLM無効化（既存テンプレートを使用）
+node dist/index.js execute --issue 123 --phase evaluation --followup-llm-mode off
+```
+
+**注意**: デフォルトは無効（`enabled=false`）です。CLIオプションまたは環境変数で明示的に有効化してください。
 
 ### 依存関係チェックのフラグ
 

@@ -112,7 +112,8 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
-| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能を担当。 |
+| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**を担当。 |
+| `src/core/github/issue-ai-generator.ts` | フォローアップIssue用LLM生成エンジン（約450行、Issue #119で追加）。プロンプト生成、OpenAI/Anthropicアダプタ、レスポンス検証、リトライ制御、サニタイズ処理を担当。 |
 | `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。 |
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
@@ -406,10 +407,11 @@ Evaluation Phase (Phase 9) 完了後、`--cleanup-on-complete` オプション�
 
 GitHubClient は702行から402行へリファクタリングされ（約42.7%削減）、ファサードパターンにより4つの専門クライアントに責務を分離しました：
 
-- **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。フォローアップIssue生成機能（タイトル生成、キーワード抽出、詳細フォーマット）を含む（Issue #104で拡張）。
+- **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。フォローアップIssue生成機能（タイトル生成、キーワード抽出、詳細フォーマット）を含む（Issue #104で拡張）。**LLM統合によるフォローアップIssue生成**（Issue #119で追加）。LLM生成→フォールバック制御→メタデータ付与を実装し、`IssueAIGenerator`と連携してOpenAI/Anthropic経由で高品質なIssueタイトル・本文を生成。LLM失敗時は既存テンプレートへ自動フォールバック。
+- **IssueAIGenerator** (`src/core/github/issue-ai-generator.ts`): フォローアップIssue用LLM生成エンジン（Issue #119で追加）。プロンプト生成、サニタイズ（SecretMasker統合）、OpenAI/Anthropicアダプタ、レスポンス検証（タイトル長・必須セクションチェック）、リトライ制御（指数バックオフ）、利用量メトリクス記録を提供。OpenAI (`gpt-4o-mini`) とAnthropic (`claude-3-sonnet-20240229`) をサポート。
 - **PullRequestClient** (`src/core/github/pull-request-client.ts`): PR操作を担当。PR作成、更新、検索、クローズ、PR番号取得を提供。
-- **CommentClient** (`src/core/github/comment-client.ts`): コメント操作を担当。ワークフロー進捗コメント、進捗コメント作成/更新を提供。
-- **ReviewClient** (`src/core/github/review-client.ts`): レビュー操作を担当。レビュー結果投稿を提供。
+- **CommentClient** (`src/core/github/comment-client.ts`): コメント操作を担当。ワークフロー進捗コメント、進捗コメント作成/更新を担当。
+- **ReviewClient** (`src/core/github/review-client.ts`): レビュー操作を担当。レビュー結果投稿を担当。
 
 **ファサードパターンの設計**:
 - GitHubClient は各専門クライアントのインスタンスを保持し、既存のpublicメソッドを対応するクライアントに委譲
