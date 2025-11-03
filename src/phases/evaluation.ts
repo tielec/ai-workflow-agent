@@ -457,6 +457,8 @@ export class EvaluationPhase extends BasePhase {
         deferredReason,
       };
 
+      const generationOptions = { ...this.issueGenerationOptions };
+
       // ===== 既存: フォローアップ Issue 作成 =====
 
       const result = await this.github.createIssueFromEvaluation(
@@ -464,6 +466,7 @@ export class EvaluationPhase extends BasePhase {
         remainingTasks,
         relativeReportPath,
         issueContext, // 新規パラメータ
+        generationOptions,
       );
 
       if (result.success) {

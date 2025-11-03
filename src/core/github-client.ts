@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
-import { RemainingTask, IssueContext } from '../types.js';
+import { RemainingTask, IssueContext, type IssueGenerationOptions } from '../types.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IssueClient, type IssueCreationResult } from './github/issue-client.js';
@@ -11,6 +11,11 @@ import { PullRequestClient, type PullRequestSummary, type PullRequestResult } fr
 import { CommentClient, type ProgressCommentResult } from './github/comment-client.js';
 import { ReviewClient } from './github/review-client.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import {
+  IssueAIGenerator,
+  OpenAIAdapter,
+  AnthropicAdapter,
+} from './github/issue-ai-generator.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -103,7 +108,14 @@ export class GitHubClient {
     this.octokit = new Octokit({ auth: this.token });
 
     // Initialize specialized clients with dependency injection
-    this.issueClient = new IssueClient(this.octokit, this.owner, this.repo);
+    const openAiAdapter = new OpenAIAdapter(config.getOpenAiApiKey());
+    const anthropicAdapter = new AnthropicAdapter(config.getAnthropicApiKey());
+    const issueAIGenerator = new IssueAIGenerator({
+      openai: openAiAdapter,
+      claude: anthropicAdapter,
+    });
+
+    this.issueClient = new IssueClient(this.octokit, this.owner, this.repo, issueAIGenerator);
     this.pullRequestClient = new PullRequestClient(
       this.octokit,
       this.owner,
@@ -147,12 +159,14 @@ export class GitHubClient {
     remainingTasks: RemainingTask[],
     evaluationReportPath: string,
     issueContext?: IssueContext,
+    options?: IssueGenerationOptions,
   ): Promise<IssueCreationResult> {
     return this.issueClient.createIssueFromEvaluation(
       issueNumber,
       remainingTasks,
       evaluationReportPath,
       issueContext,
+      options,
     );
   }
 

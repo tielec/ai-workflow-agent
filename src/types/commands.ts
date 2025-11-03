@@ -1,4 +1,4 @@
-import type { PhaseName, PhaseExecutionResult } from '../types.js';
+import type { PhaseName, PhaseExecutionResult, IssueGenerationOptions } from '../types.js';
 import type { MetadataManager } from '../core/metadata-manager.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
@@ -16,6 +16,7 @@ export type PhaseContext = {
   skipDependencyCheck: boolean;
   ignoreDependencies: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
+  issueGenerationOptions: IssueGenerationOptions;
 };
 
 /**
@@ -186,6 +187,36 @@ export interface ExecuteCommandOptions {
    * 絶対パスまたは相対パスで指定
    */
   testScenarioDoc?: string;
+
+  /**
+   * フォローアップ Issue 生成で利用する LLM のモード
+   *
+   * - 'off': LLM を使用しない（フォールバックのみ）
+   * - 'auto': 利用可能なプロバイダを自動選択
+   * - 'openai': OpenAI を強制使用
+   * - 'claude': Claude を強制使用
+   */
+  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'off';
+
+  /**
+   * フォローアップ Issue 生成で利用する LLM モデル名
+   */
+  followupLlmModel?: string;
+
+  /**
+   * LLM 呼び出しのタイムアウト（ミリ秒）
+   */
+  followupLlmTimeout?: number;
+
+  /**
+   * LLM 呼び出しの最大リトライ回数
+   */
+  followupLlmMaxRetries?: number;
+
+  /**
+   * 生成したメタデータを Issue 本文に追記するかどうか
+   */
+  followupLlmAppendMetadata?: boolean;
 }
 
 /**
