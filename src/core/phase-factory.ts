@@ -35,6 +35,7 @@ export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext)
     skipDependencyCheck: context.skipDependencyCheck,
     ignoreDependencies: context.ignoreDependencies,
     presetPhases: context.presetPhases,
+    issueGenerationOptions: context.issueGenerationOptions,
   };
 
   // フェーズ名に応じてインスタンスを生成

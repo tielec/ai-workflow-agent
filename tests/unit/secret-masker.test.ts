@@ -320,6 +320,78 @@ describe('SecretMaskerファイル処理テスト', () => {
   });
 });
 
+describe('SecretMasker.maskObject 再帰コピー', () => {
+  const baseEnv = { ...process.env };
+  let originalClaudeToken: string | undefined;
+
+  beforeEach(() => {
+    originalClaudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    process.env.OPENAI_API_KEY = 'sk-proj-verylongsecretvalue-1234567890ABCDE';
+  });
+
+  afterEach(() => {
+    if (originalClaudeToken === undefined) {
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    } else {
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = originalClaudeToken;
+    }
+
+    if (baseEnv.OPENAI_API_KEY !== undefined) {
+      process.env.OPENAI_API_KEY = baseEnv.OPENAI_API_KEY;
+    } else {
+      delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  test('secret_masker_mask_object_正常系', () => {
+    // Given: シークレットと循環参照を含むオブジェクト
+    const masker = new SecretMasker();
+    const source: any = {
+      issueNumber: 119,
+      tasks: [
+        {
+          description: 'token=XYZ987654321 をクリアし、owner@example.com へ共有する',
+          meta: {
+            apiKey: 'sk-proj-verylongsecretvalue-1234567890ABCDE',
+            note: 'Bearer sk-test-abc12345 を含むログは除外する',
+          },
+        },
+        {
+          description: 'この項目はマスク対象外',
+          meta: {
+            raw: 'OPENAI KEY: sk-proj-verylongsecretvalue-1234567890ABCDE',
+          },
+        },
+      ],
+      context: {
+        summary: 'owner@example.com と調整済み',
+      },
+    };
+    source.self = source; // 循環参照
+
+    const masked = masker.maskObject(source, { ignoredPaths: ['tasks.1.meta'] });
+
+    // Then: 元オブジェクトは変更されない
+    expect(source.tasks[0].meta.apiKey).toBe('sk-proj-verylongsecretvalue-1234567890ABCDE');
+    expect(source.tasks[1].meta.raw).toContain('sk-proj-verylongsecretvalue');
+
+    // And: マスキング結果が期待通り
+    expect(masked).not.toBe(source);
+    expect(masked.tasks[0].description).toContain('[REDACTED_TOKEN]');
+    expect(masked.tasks[0].meta.apiKey).toContain('[REDACTED_TOKEN]');
+    expect(masked.tasks[0].meta.note).toContain('Bearer [REDACTED_TOKEN]');
+
+    // ignoredPaths に指定した箇所はマスクされない
+    expect(masked.tasks[1].meta.raw).toContain('sk-proj-verylongsecretvalue');
+
+    // メールアドレスはマスクされる
+    expect(masked.context.summary).toContain('[REDACTED_EMAIL]');
+
+    // 循環参照が保持される（self が存在する）
+    expect(masked.self).toBe(masked);
+  });
+});
+
 describe('SecretMaskerエラーハンドリングテスト', () => {
   const originalEnv = { ...process.env };
 

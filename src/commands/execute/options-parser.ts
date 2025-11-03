@@ -50,6 +50,31 @@ export interface ParsedExecuteOptions {
    * クリーンアップ強制フラグ
    */
   cleanupOnCompleteForce: boolean;
+
+  /**
+   * フォローアップ Issue 生成時の LLM モード
+   */
+  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'off';
+
+  /**
+   * フォローアップ Issue 生成時のモデル名
+   */
+  followupLlmModel?: string;
+
+  /**
+   * フォローアップ Issue 生成時のタイムアウト（ミリ秒）
+   */
+  followupLlmTimeout?: number;
+
+  /**
+   * フォローアップ Issue 生成時の最大リトライ回数
+   */
+  followupLlmMaxRetries?: number;
+
+  /**
+   * Issue 本文にメタデータを追記するかどうか
+   */
+  followupLlmAppendMetadata?: boolean;
 }
 
 /**
@@ -91,6 +116,35 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
   const cleanupOnComplete = Boolean(options.cleanupOnComplete);
   const cleanupOnCompleteForce = Boolean(options.cleanupOnCompleteForce);
 
+  const followupLlmModeRaw =
+    typeof options.followupLlmMode === 'string' ? options.followupLlmMode.toLowerCase() : undefined;
+  const followupLlmMode =
+    followupLlmModeRaw && ['auto', 'openai', 'claude', 'off'].includes(followupLlmModeRaw)
+      ? (followupLlmModeRaw as 'auto' | 'openai' | 'claude' | 'off')
+      : undefined;
+
+  const followupLlmModel =
+    typeof options.followupLlmModel === 'string' && options.followupLlmModel.trim().length > 0
+      ? options.followupLlmModel.trim()
+      : undefined;
+
+  const followupLlmTimeout =
+    options.followupLlmTimeout !== undefined && options.followupLlmTimeout !== null
+      ? Number(options.followupLlmTimeout)
+      : undefined;
+
+  const followupLlmMaxRetries =
+    options.followupLlmMaxRetries !== undefined && options.followupLlmMaxRetries !== null
+      ? Number(options.followupLlmMaxRetries)
+      : undefined;
+
+  const followupLlmAppendMetadata =
+    typeof options.followupLlmAppendMetadata === 'boolean'
+      ? options.followupLlmAppendMetadata
+      : options.followupLlmAppendMetadata !== undefined
+      ? String(options.followupLlmAppendMetadata).toLowerCase() === 'true'
+      : undefined;
+
   return {
     issueNumber,
     phaseOption,
@@ -101,6 +155,11 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     forceReset,
     cleanupOnComplete,
     cleanupOnCompleteForce,
+    followupLlmMode,
+    followupLlmModel,
+    followupLlmTimeout: Number.isFinite(followupLlmTimeout ?? NaN) ? followupLlmTimeout : undefined,
+    followupLlmMaxRetries: Number.isFinite(followupLlmMaxRetries ?? NaN) ? followupLlmMaxRetries : undefined,
+    followupLlmAppendMetadata,
   };
 }
 
@@ -142,6 +201,30 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
     errors.push(
       "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
     );
+  }
+
+  if (options.followupLlmMode) {
+    const mode = String(options.followupLlmMode).toLowerCase();
+    const allowed = ['auto', 'openai', 'claude', 'off'];
+    if (!allowed.includes(mode)) {
+      errors.push(
+        "Option '--followup-llm-mode' must be one of: auto, openai, claude, off.",
+      );
+    }
+  }
+
+  if (options.followupLlmTimeout !== undefined) {
+    const timeout = Number(options.followupLlmTimeout);
+    if (!Number.isFinite(timeout) || timeout < 0) {
+      errors.push("Option '--followup-llm-timeout' must be a non-negative number.");
+    }
+  }
+
+  if (options.followupLlmMaxRetries !== undefined) {
+    const retries = Number(options.followupLlmMaxRetries);
+    if (!Number.isInteger(retries) || retries < 0) {
+      errors.push("Option '--followup-llm-max-retries' must be a non-negative integer.");
+    }
   }
 
   return {

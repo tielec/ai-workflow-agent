@@ -56,6 +56,92 @@ export class SecretMasker {
   }
 
   /**
+   * 任意のオブジェクトをマスキングしつつディープコピーする
+   */
+  public maskObject<T>(input: T, options?: { ignoredPaths?: string[] }): T {
+    const replacementMap = new Map<string, string>();
+    for (const secret of this.getSecretList()) {
+      replacementMap.set(secret.value, `[REDACTED_${secret.name}]`);
+    }
+
+    const ignoredPatterns = (options?.ignoredPaths ?? []).map((pattern) => pattern.split('.'));
+    const visited = new WeakMap<object, unknown>();
+
+    const maskString = (value: string): string => {
+      let masked = value;
+      for (const [secretValue, replacement] of replacementMap) {
+        if (secretValue) {
+          masked = masked.split(secretValue).join(replacement);
+        }
+      }
+      masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
+      masked = masked.replace(/[A-Za-z0-9_-]{20,}/g, '[REDACTED_TOKEN]');
+      masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
+      masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
+      return masked;
+    };
+
+    const matchesPattern = (path: string[], pattern: string[]): boolean => {
+      if (pattern.length > path.length) {
+        return false;
+      }
+      for (let i = 0; i < pattern.length; i++) {
+        const token = pattern[i];
+        if (token === '*') {
+          continue;
+        }
+        if (token !== path[i]) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const isIgnoredPath = (path: string[]): boolean =>
+      ignoredPatterns.some((pattern) => matchesPattern(path, pattern));
+
+    const cloneAndMask = (value: unknown, path: string[]): unknown => {
+      if (typeof value === 'string') {
+        return maskString(value);
+      }
+
+      if (!value || typeof value !== 'object') {
+        return value;
+      }
+
+      if (visited.has(value as object)) {
+        return visited.get(value as object);
+      }
+
+      if (Array.isArray(value)) {
+        const result: unknown[] = [];
+        visited.set(value, result);
+        value.forEach((item, index) => {
+          const childPath = [...path, String(index)];
+          result.push(isIgnoredPath(childPath) ? item : cloneAndMask(item, childPath));
+        });
+        return result;
+      }
+
+      if (!this.isPlainObject(value)) {
+        return value;
+      }
+
+      const result: Record<string, unknown> = {};
+      visited.set(value as object, result);
+
+      for (const [key, entryValue] of Object.entries(value as Record<string, unknown>)) {
+        const childPath = [...path, key];
+        result[key] = isIgnoredPath(childPath) ? entryValue : cloneAndMask(entryValue, childPath);
+      }
+
+      return result;
+    };
+
+    return cloneAndMask(input as unknown, []) as T;
+  }
+
+  /**
    * Mask secrets in all files within workflow directory
    *
    * @param workflowDir - Path to .ai-workflow/issue-{number}/ directory
@@ -196,5 +282,13 @@ export class SecretMasker {
    */
   private replaceAll(text: string, search: string, replace: string): string {
     return text.split(search).join(replace);
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+    const proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
   }
 }

@@ -13,7 +13,7 @@ import {
   validateExternalDocument,
 } from '../core/phase-dependencies.js';
 import { ResumeManager } from '../utils/resume.js';
-import { PhaseName } from '../types.js';
+import { PhaseName, type IssueGenerationOptions } from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { PhaseContext, ExecuteCommandOptions } from '../types/commands.js';
@@ -44,6 +44,17 @@ const PHASE_ORDER: PhaseName[] = [
   'evaluation',
 ];
 
+const DEFAULT_FOLLOWUP_LLM_OPTIONS: IssueGenerationOptions = {
+  enabled: false,
+  provider: 'auto',
+  temperature: 0.2,
+  maxOutputTokens: 1500,
+  timeoutMs: 25000,
+  maxRetries: 3,
+  maxTasks: 5,
+  appendMetadata: false,
+};
+
 /**
  * フェーズ実行コマンドハンドラ
  * @param options - CLI オプション
@@ -70,6 +81,11 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     forceReset,
     cleanupOnComplete,
     cleanupOnCompleteForce,
+    followupLlmMode,
+    followupLlmModel,
+    followupLlmTimeout,
+    followupLlmMaxRetries,
+    followupLlmAppendMetadata,
   } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
@@ -211,6 +227,14 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     }
   }
 
+  const issueGenerationOptions = resolveIssueGenerationOptions({
+    cliMode: followupLlmMode,
+    cliModel: followupLlmModel,
+    cliTimeout: followupLlmTimeout,
+    cliMaxRetries: followupLlmMaxRetries,
+    cliAppendMetadata: followupLlmAppendMetadata,
+  });
+
   // 6. PhaseContext 構築
   const context: PhaseContext = {
     workingDir,
@@ -220,6 +244,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     githubClient,
     skipDependencyCheck,
     ignoreDependencies,
+    issueGenerationOptions,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）
@@ -331,6 +356,105 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   );
   reportExecutionSummary(summary);
   process.exit(summary.success ? 0 : 1);
+}
+
+type FollowupCliOverrides = {
+  cliMode?: 'auto' | 'openai' | 'claude' | 'off';
+  cliModel?: string;
+  cliTimeout?: number;
+  cliMaxRetries?: number;
+  cliAppendMetadata?: boolean;
+};
+
+function resolveIssueGenerationOptions(overrides: FollowupCliOverrides): IssueGenerationOptions {
+  const options: IssueGenerationOptions = { ...DEFAULT_FOLLOWUP_LLM_OPTIONS };
+
+  const applyMode = (mode?: 'auto' | 'openai' | 'claude' | 'off') => {
+    if (!mode) {
+      return;
+    }
+    if (mode === 'off') {
+      options.enabled = false;
+      options.provider = 'auto';
+      return;
+    }
+    options.enabled = true;
+    options.provider = mode;
+  };
+
+  applyMode(config.getFollowupLlmMode() ?? undefined);
+  applyMode(overrides.cliMode);
+
+  const envModel = config.getFollowupLlmModel();
+  if (envModel) {
+    options.model = envModel;
+  }
+  if (overrides.cliModel) {
+    options.model = overrides.cliModel;
+  }
+
+  const envTimeout = config.getFollowupLlmTimeoutMs();
+  if (typeof envTimeout === 'number') {
+    options.timeoutMs = envTimeout;
+  }
+  if (typeof overrides.cliTimeout === 'number' && Number.isFinite(overrides.cliTimeout)) {
+    options.timeoutMs = overrides.cliTimeout;
+  }
+
+  const envMaxRetries = config.getFollowupLlmMaxRetries();
+  if (typeof envMaxRetries === 'number') {
+    options.maxRetries = envMaxRetries;
+  }
+  if (typeof overrides.cliMaxRetries === 'number' && Number.isFinite(overrides.cliMaxRetries)) {
+    options.maxRetries = overrides.cliMaxRetries;
+  }
+
+  const envAppendMetadata = config.getFollowupLlmAppendMetadata();
+  if (typeof envAppendMetadata === 'boolean') {
+    options.appendMetadata = envAppendMetadata;
+  }
+  if (typeof overrides.cliAppendMetadata === 'boolean') {
+    options.appendMetadata = overrides.cliAppendMetadata;
+  }
+
+  const envTemperature = config.getFollowupLlmTemperature();
+  if (typeof envTemperature === 'number') {
+    options.temperature = envTemperature;
+  }
+
+  const envMaxOutputTokens = config.getFollowupLlmMaxOutputTokens();
+  if (typeof envMaxOutputTokens === 'number') {
+    options.maxOutputTokens = envMaxOutputTokens;
+  }
+
+  const envMaxTasks = config.getFollowupLlmMaxTasks();
+  if (typeof envMaxTasks === 'number') {
+    options.maxTasks = envMaxTasks;
+  }
+
+  const openAiKey = config.getOpenAiApiKey();
+  const anthropicKey = config.getAnthropicApiKey();
+
+  if (options.enabled) {
+    if (options.provider === 'openai' && !openAiKey) {
+      logger.warn(
+        '[FOLLOWUP_LLM] OpenAI provider requested but OPENAI_API_KEY is not configured. Falling back to legacy template.',
+      );
+      options.enabled = false;
+    } else if (options.provider === 'claude' && !anthropicKey) {
+      logger.warn(
+        '[FOLLOWUP_LLM] Claude provider requested but ANTHROPIC_API_KEY is not configured. Falling back to legacy template.',
+      );
+      options.enabled = false;
+    } else if (options.provider === 'auto' && !openAiKey && !anthropicKey) {
+      logger.warn(
+        '[FOLLOWUP_LLM] Follow-up LLM mode is "auto" but no provider credentials were detected. Using legacy template.',
+      );
+      options.enabled = false;
+    }
+  }
+
+  return options;
 }
 
 
