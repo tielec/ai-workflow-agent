@@ -185,6 +185,9 @@ pipeline {
                     env.REPO_OWNER = urlParts[-4]
                     env.REPO_NAME = urlParts[-3]
 
+                    // ビルドディスクリプションを設定
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${params.EXECUTION_MODE} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
                     echo "Issue URL: ${params.ISSUE_URL}"
                     echo "Issue Number: ${env.ISSUE_NUMBER}"
                     echo "Repository Owner: ${env.REPO_OWNER}"
@@ -325,6 +328,9 @@ pipeline {
                     echo "Execution Mode: ${params.EXECUTION_MODE}"
                     echo "Force Reset: ${params.FORCE_RESET}"
 
+                    // ビルドディスクリプションを更新
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | 全フェーズ実行中 (Phase 0-9) | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
                     dir(env.WORKFLOW_DIR) {
                         if (params.DRY_RUN) {
                             echo "[DRY RUN] 全フェーズ実行をスキップ"
@@ -360,6 +366,9 @@ pipeline {
                     echo "Execution Mode: ${params.EXECUTION_MODE}"
                     echo "Preset: ${params.PRESET}"
 
+                    // ビルドディスクリプションを更新
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | プリセット実行中: ${params.PRESET} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
                     dir(env.WORKFLOW_DIR) {
                         if (params.DRY_RUN) {
                             echo "[DRY RUN] Preset ${params.PRESET}実行をスキップ"
@@ -391,6 +400,9 @@ pipeline {
                     echo "========================================="
                     echo "Execution Mode: ${params.EXECUTION_MODE}"
                     echo "Target Phase: ${params.START_PHASE}"
+
+                    // ビルドディスクリプションを更新
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | 単一フェーズ実行: ${params.START_PHASE} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
                         if (params.DRY_RUN) {
@@ -426,6 +438,9 @@ pipeline {
                     echo "Rollback To Step: ${params.ROLLBACK_TO_STEP ?: 'revise (default)'}"
                     echo "Rollback Reason: ${params.ROLLBACK_REASON ?: '(not provided)'}"
                     echo "Rollback Reason File: ${params.ROLLBACK_REASON_FILE ?: '(not provided)'}"
+
+                    // ビルドディスクリプションを更新
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | フェーズ差し戻し: ${params.ROLLBACK_TO_PHASE} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
                         if (params.DRY_RUN) {
@@ -477,6 +492,36 @@ pipeline {
     }
 
     post {
+        always {
+            script {
+                // ビルドディスクリプションを更新（成功・失敗共通）
+                def executionType = ""
+                if (params.EXECUTION_MODE == 'all_phases') {
+                    executionType = "全フェーズ実行"
+                } else if (params.EXECUTION_MODE == 'preset') {
+                    executionType = "プリセット: ${params.PRESET}"
+                } else if (params.EXECUTION_MODE == 'single_phase') {
+                    executionType = "単一フェーズ: ${params.START_PHASE}"
+                } else if (params.EXECUTION_MODE == 'rollback') {
+                    executionType = "差し戻し: ${params.ROLLBACK_TO_PHASE}"
+                }
+                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${executionType} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                // クリーンアップ（オプション）
+                echo "========================================="
+                echo "Cleanup"
+                echo "========================================="
+
+                // 一時ファイルの削除など
+                // 注意: .ai-workflowは残す（成果物として保持）
+
+                // 成果物をアーカイブ（成功・失敗問わず）
+                dir('.ai-workflow') {
+                    archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
+                }
+            }
+        }
+
         success {
             script {
                 echo "========================================="
@@ -484,11 +529,6 @@ pipeline {
                 echo "========================================="
                 echo "Issue: ${params.ISSUE_URL}"
                 echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
-
-                // 成果物をアーカイブ
-                dir('.ai-workflow') {
-                    archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
-                }
             }
         }
 
@@ -499,23 +539,6 @@ pipeline {
                 echo "========================================="
                 echo "Issue: ${params.ISSUE_URL}"
                 echo "ログを確認してください"
-
-                // 失敗時もメタデータをアーカイブ
-                dir('.ai-workflow') {
-                    archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
-                }
-            }
-        }
-
-        always {
-            script {
-                // クリーンアップ（オプション）
-                echo "========================================="
-                echo "Cleanup"
-                echo "========================================="
-
-                // 一時ファイルの削除など
-                // 注意: .ai-workflowは残す（成果物として保持）
             }
         }
     }
