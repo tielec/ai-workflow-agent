@@ -59,12 +59,15 @@
 - [x] Task 4-1: issue-ai-generator.ts の実装 (2.5~3h)
   - プロンプト生成、API呼び出し、レスポンス整形、エラーハンドリングを実装
   - ログとトレース情報（入力長、エラー理由）を追加
+  - レビュー結果: issue-ai-generator.ts が完全に実装され、OpenAI/Anthropicアダプタ、プロンプト生成、検証ロジックが含まれているため完了
 - [x] Task 4-2: issue-client.ts のLLM統合 (2~2.5h)
   - 新モジュール呼び出しとフォールバック制御を実装
   - LLM無効化オプションやテレメトリ用ログを追加
+  - レビュー結果: issue-client.ts にLLM統合、フォールバック制御、メタデータ追加ロジックが実装されているため完了
 - [x] Task 4-3: 型/設定まわりの拡張 (1.5~2h)
   - `types.ts` と設定ファイルにオプションを追加
   - エージェント初期化・CLIオプションでのフラグ引き回しを反映
+  - レビュー結果: types.ts, types/commands.ts, config.ts, commands/execute.ts, main.ts, options-parser.tsすべてが拡張され、CLI→PhaseContext→EvaluationPhaseまでのオプション伝搬が実装されているため完了
 
 ### Phase 5: テストコード実装 (見積もり: 4~5h)
 - [x] Task 5-1: ユニットテスト実装 (2~2.5h)
