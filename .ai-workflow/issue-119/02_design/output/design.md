@@ -2,112 +2,106 @@
 
 **Issue番号**: #119  
 **タイトル**: フォローアップIssue生成品質の改善（LLM活用）  
-**バージョン**: 1.0 (Draft)
+**バージョン**: 1.1 (Design)
 
 ---
 
 ## 1. アーキテクチャ設計
 
-### 1.1 システム全体図
+### 1.1 システム全体フロー
 
 ```
-Evaluation Phase (PhaseRunner)
-        │ RemainingTask[], IssueContext, Report Path
-        ▼
-GitHubClient.createIssueFromEvaluation(issueNumber, tasks, report, context, options)
-        │
-        ▼
+EvaluationPhase (Phase 9)
+    │ RemainingTask[], IssueContext, evaluation report path, generation options
+    ▼
+GitHubClient.createIssueFromEvaluation(...)
+    │ delegates
+    ▼
 IssueClient (LLM-aware)
-   ├─ tryGenerateWithLLM(...)
-   │     │ sanitized prompt payload
-   │     ▼
-   │  IssueAIGenerator
-   │     ├─ buildPrompt()
-   │     ├─ invokeProvider(OpenAI | Anthropic)
-   │     └─ validateAndNormalize()
-   │            │
-   │            └─ JSON(title, body)
-   └─ fallbackToLegacyBuilders()  ← LLM disabled/エラー時
-        │
-        ▼
-Octokit.issues.create(...)  → GitHub Issue
+    ├─ IssueAIGenerator.generate(...)
+    │     └─ LLM Provider Adapter (OpenAI / Anthropic)
+    └─ Legacy builders (generateFollowUpTitle + buildLegacyBody)
+    ▼
+Octokit.issues.create(...) → GitHub Issue
 ```
 
-### 1.2 コンポーネント責務と関係
+### 1.2 コンポーネント責務
 
-| コンポーネント | 役割 | 入出力・備考 |
+| コンポーネント | 役割 | 主な入出力 |
 | --- | --- | --- |
-| `EvaluationPhase` | Phase 9 実装。残タスク発見時に Issue 作成を依頼 | `GitHubClient.createIssueFromEvaluation` 呼び出し |
-| `GitHubClient` | GitHub 操作ファサード | `IssueClient` へ委譲しつつ LLM オプションを引き渡す |
-| `IssueClient` | フォローアップ Issue 生成の中心 | 既存組版ロジックを保持しつつ、LLM 優先フローとフォールバック制御を担当 |
-| `IssueAIGenerator` (**新規**) | プロンプト生成・LLM呼び出し・レスポンス検証を集約 | OpenAI / Claude どちらにも対応するアダプタを組み込み |
-| `OpenAILLMAdapter` / `ClaudeLLMAdapter` (**新規サブモジュール**) | 各プロバイダの API 呼び出しを抽象化 | 公式 SDK (`openai`, `@anthropic-ai/sdk`) を利用 |
-| `SecretMasker` （既存） | プロンプトへの機密情報流出防止 | IssueAIGenerator 内で再利用 |
-| `Octokit` | GitHub REST API クライアント | 最終的な Issue 作成を実行 |
+| `EvaluationPhase` | Phase 9 の処理。残タスク検出後に GitHubClient へフォローアップ生成を依頼 | 入力: Evaluation結果 / 出力: IssueGenerationOptions 付き呼び出し |
+| `GitHubClient` | GitHub API ファサード。IssueClient へ委譲し設定を束ねる | 入力: issue番号, tasks, options / 出力: IssueCreationResult |
+| `IssueClient` | フォローアップIssue生成の集約。LLM生成→フォールバック制御→Octokit呼び出し | 入力: tasks, context, options / 出力: タイトル・本文・ログ |
+| `IssueAIGenerator` (新規) | LLMプロンプト生成、API呼び出し、レスポンス検証 | 入力: tasks, context, options / 出力: { title, body, metadata } |
+| `LlmProviderAdapter` (OpenAI / Anthropic) | 各APIのラッパー。タイムアウト・再試行を実装 | 入出力: prompt, call options, completion JSON |
+| `config` / CLI | 環境変数・CLIから LLM 設定を収集し PhaseContextへ渡す | 入出力: Follow-up LLM 設定値 |
+| `SecretMasker` (既存) | 機密情報のマスキング | 入力: プロンプトPayload / 出力: SanitizedPayload |
 
 ### 1.3 データフロー
 
-1. Evaluation Phase が `RemainingTask[]`, `IssueContext`, `evaluationReportPath` を構築し、`IssueGenerationOptions` を併せて `GitHubClient` に渡す。
-2. `GitHubClient` はパラメータを `IssueClient.createIssueFromEvaluation` に委譲。
-3. `IssueClient` は LLM が有効 (`options.enabled === true`) かつ `IssueAIGenerator` が利用可能な場合、`tryGenerateWithLLM()` を呼び出す。
-4. `IssueAIGenerator` は以下を順に処理:
-   - `sanitizeContext()` でタスクを最大5件に絞り、各フィールドを 512 文字にトリムしつつ、`SecretMasker` で機密値を除去。
-   - `buildPrompt()` で要件定義書記載のテンプレートを埋め込み、モデルへ渡す JSON 指示を生成。
-   - `invokeProvider()` で OpenAI もしくは Claude API を呼び出し、指数バックオフ付きリトライを適用。
-   - `validateResponse()` で JSON 形式・必須セクション・タイトル長(50-80文字)を検証。
-5. LLM 生成に成功した場合、`IssueClient` は生成タイトル/本文を採用し、Octokit へ送信。失敗や無効時は既存 `generateFollowUpTitle` / `formatTaskDetails` と同等のフォールバックを使用。
-6. 成否情報は LOGGER に WARN/INFO で記録され、呼び出し元へ `IssueCreationResult` として返却される。
+1. ユーザーが `ai-workflow execute ...` を実行し、CLI が Follow-up LLM オプションを解析 (デフォルトは無効)。
+2. `commands/execute` が `PhaseContext.issueGenerationOptions` を組み立て、`PhaseFactory` 経由で `EvaluationPhase` へ受け渡す。
+3. EvaluationPhase で残タスクが存在すると `GitHubClient.createIssueFromEvaluation(issueNumber, tasks, reportPath, context, options)` を呼び出す。
+4. `GitHubClient` は `IssueAIGenerator` をコンストラクタインジェクション済みの `IssueClient` に委譲。
+5. `IssueClient` が `options.enabled` と `IssueAIGenerator.isAvailable()` を確認し、利用可能なら `generate(tasks, context, options)` を試行。
+6. `IssueAIGenerator` は payload をサニタイズ→プロンプト生成→LLM呼び出し→検証し、成功時にタイトル・本文を返却。
+7. LLM 失敗または無効時、`IssueClient` は既存の `generateFollowUpTitle` と新設の `buildLegacyBody` でフォールバック本文を生成。
+8. 生成結果と `## 参考` セクション (＋オプションで LLM metadata) を結合し、Octokit で Issue を作成。ログへ成否とメタ情報を出力。
 
-### 1.4 プロンプト・レスポンス設計
+### 1.4 主なシーケンスと失敗時動作
 
-- プロンプトは Markdown ではなく JSON 指示テキストを生成し、LLM に `{ "title": "...", "body": "..." }` 形式で応答させる。
-- 本文は `## 背景`, `## 目的`, `## 実行内容`, `## 受け入れ基準`, `## 関連リソース` の順序を必須とし、`validateResponse()` でセクション存在を確認。
-- タイトルは 50〜80 文字制約。検証時に不足/超過があればフォールバック。
-- レスポンスは Markdown のみ許容。HTML タグやコードフェンス内の命令文は検出して除外。
+- LLM 成功: `IssueAIGenerator` → validated result → `IssueClient` が LLM 出力を採用 → `options.appendMetadata` が true の場合にメタデータ節を付加。
+- LLM タイムアウト / レート制限: Providerアダプタが指数バックオフで再試行。全失敗で `IssueAIError` を返し IssueClient が WARN を記録しフォールバック。
+- プロンプト検証失敗: `IssueAIGenerator` が `IssueAIValidationError` を送出し、同様にフォールバック。
+- Octokit 失敗: 既存処理と同様に ERROR ログを出力し `IssueCreationResult` で失敗を返却。
 
 ---
 
-## 2. 実装戦略判断
-
-### 実装戦略: EXTEND
+## 2. 実装戦略判断: EXTEND
 
 **判断根拠**:
-- 既存 `IssueClient` に LLM 優先の分岐を追加し、既存タイトル/本文組版ロジックを変更せずにフォールバックとして残すため。
-- `GitHubClient`, `EvaluationPhase`, CLI オプションなど既存フローとの統合が必要で、新規モジュール追加に加えて既存コードの拡張が中心となるため。
-- 既存テストスイート (`issue-client` ユニット/インテグレーション) を拡張し互換性を担保する計画であり、大規模なリファクタではないため。
+- 既存 `IssueClient` / `GitHubClient` / CLI フローを維持したまま責務を拡張する必要があるため。
+- フォールバックとして既存テンプレートを保持しつつ LLM 生成を追加する形で後方互換を守る。
+- Planning Document の戦略 (新規モジュール追加 + 既存コード拡張) と整合。
 
 ---
 
-## 3. テスト戦略判断
-
-### テスト戦略: UNIT_INTEGRATION
+## 3. テスト戦略判断: UNIT_INTEGRATION
 
 **判断根拠**:
-- LLM プロンプト生成・レスポンス検証・リトライ制御など純粋ロジックはモックで十分かつユニットテストで網羅可能。
-- `IssueClient` との統合作用（LLM成功/失敗・フォールバック・Octokit呼び出し）は依存注入を用いたインテグレーションテストで回帰防止が必要。
-- 実 API 呼び出しはオプトイン統合テスト（環境変数によるスキップ制御）で品質確認する計画のため、ユニットとインテグレーション双方が不可欠。
+- プロンプト生成・レスポンス検証・リトライといったロジックはモック化が容易であり、ユニットテストで網羅できる。
+- GitHub 連携や Phase からのオプション伝搬、フォールバック全体の動作は統合テストで確認する必要がある。
 
 ---
 
-## 4. テストコード戦略判断
-
-### テストコード戦略: BOTH_TEST
+## 4. テストコード戦略判断: BOTH_TEST
 
 **判断根拠**:
-- 既存 `tests/unit/github/issue-client(-followup).test.ts` に LLM フォールバックの追加ケースを組み込む必要がある（既存拡張）。
-- `IssueAIGenerator` 専用のユニットテストファイルを新規作成し、プロンプト/バリデーション/リトライ挙動を検証する必要がある（新規作成）。
+- 既存 `issue-client` テストに LLM 成功/失敗パスを追加する必要がある (既存テストの拡張)。
+- `IssueAIGenerator` 用の専用ユニットテストが新規に必要となる (新規テスト作成)。
 
 ---
 
 ## 5. 影響範囲分析
 
-- **コード**: `src/core/github/issue-client.ts`, `src/core/github-client.ts`, `src/phases/evaluation.ts`, `src/commands/execute.ts`, `src/commands/execute/options-parser.ts`, `src/types.ts`, `src/types/commands.ts` が主対象。  
-- **新規モジュール**: `src/core/github/issue-ai-generator.ts`（およびサブアダプタ/ユーティリティ）、`src/prompts/follow_up_issue/*.md`。  
-- **依存関係**: Anthropic 公式 SDK (`@anthropic-ai/sdk`) を追加予定。既存 `openai` は再利用。  
-- **設定**: `.env` / 環境変数に LLM 有効化フラグ・モデル指定・タイムアウト設定を追加。`config.ts` にゲッターを実装。  
-- **ドキュメント**: `ARCHITECTURE.md`, `CLAUDE.md`, `README.md` の LLM セクションを更新。  
-- **テスト**: ユニット・インテグレーションテストの拡張、新規 `tests/integration/followup-issue-llm.test.ts` を追加。  
-- **マイグレーション要否**: 既存 Issue には影響なし。新しい環境変数はデフォルトで無効 (`enabled = false`) とし、設定が無い場合は従来どおり動作。
+### 5.1 既存コードへの影響
+- `src/core/github/issue-client.ts`: 依存注入、LLM 分岐、本文生成をメソッド化、WARN/DEBUG ログ拡張。
+- `src/core/github-client.ts`: `IssueAIGenerator` の初期化と委譲。`createIssueFromEvaluation` にオプションパラメータ追加。
+- `src/phases/evaluation.ts`: `GitHubClient.createIssueFromEvaluation` 呼び出しに LLM オプションを渡す。
+- `src/commands/execute.ts` / `src/commands/execute/options-parser.ts`: CLI オプション解析に Follow-up LLM 設定を追加し `PhaseContext` へ渡す。
+- `src/types.ts`: `IssueGenerationOptions` や LLM 結果の型を追加。
+- `src/types/commands.ts`: `PhaseContext` に `issueGenerationOptions` プロパティを追加。
+- `src/core/config.ts`: LLM 設定用ゲッターを実装。
+- 既存テスト (`tests/unit/github/issue-client*.ts`, `tests/integration/github-client-facade.test.ts`) を LLM 統合ケースで更新。
+
+### 5.2 依存関係の変更
+- 追加パッケージは想定なし。既存 `openai`, `@anthropic-ai/claude-agent-sdk` を再利用。
+- Jest モックは既存 `jest-mock-extended` や手動モックを活用。
+
+### 5.3 マイグレーション要否
+- データマイグレーションは不要。
+- `.env.example` が存在する場合は Follow-up LLM 用環境変数を追加。
+- `ARCHITECTURE.md`, `CLAUDE.md`, `README.md` を更新して設定手順とフォールバック説明を追記。
 
 ---
 
@@ -115,13 +109,8 @@ Octokit.issues.create(...)  → GitHub Issue
 
 - **新規作成**
   - `src/core/github/issue-ai-generator.ts`
-  - `src/core/github/llm/base-llm-adapter.ts`
-  - `src/core/github/llm/openai-adapter.ts`
-  - `src/core/github/llm/anthropic-adapter.ts`
-  - `src/prompts/follow_up_issue/title_prompt.md`
-  - `src/prompts/follow_up_issue/body_prompt.md`
   - `tests/unit/github/issue-ai-generator.test.ts`
-  - `tests/integration/followup-issue-llm.test.ts`
+  - `tests/integration/followup-issue-llm.test.ts` (Octokit モック中心)
 - **既存修正**
   - `src/core/github/issue-client.ts`
   - `src/core/github-client.ts`
@@ -131,213 +120,273 @@ Octokit.issues.create(...)  → GitHub Issue
   - `src/types.ts`
   - `src/types/commands.ts`
   - `src/core/config.ts`
-  - 既存テスト: `tests/unit/github/issue-client.test.ts`, `tests/unit/github/issue-client-followup.test.ts`
-- **ドキュメント**
-  - `ARCHITECTURE.md`
-  - `CLAUDE.md`
-  - `README.md`（環境変数と使い方）
-- **削除**: なし
+  - `tests/unit/github/issue-client.test.ts`
+  - `tests/unit/github/issue-client-followup.test.ts`
+  - `tests/integration/github-client-facade.test.ts`
+  - ドキュメント (`ARCHITECTURE.md`, `CLAUDE.md`, `README.md`, `.env.example`)
+- **削除予定**: なし
 
 ---
 
 ## 7. 詳細設計
 
-### 7.1 IssueAIGenerator モジュール（新規）
+### 7.1 IssueGenerationOptions / IssueAIGenerationResult
 
-- **クラス構成**
-  ```mermaid
-  classDiagram
-    class IssueAIGenerator {
-      -options: IssueGenerationOptions
-      -provider: LLMProviderAdapter
-      -secretMasker: SecretMasker
-      -clock: Clock
-      +generateTitle(task: RemainingTask, ctx: IssueContext, meta: GenerationMeta): Promise<string>
-      +generateDescription(task: RemainingTask, ctx: IssueContext, meta: GenerationMeta): Promise<string>
-      +generateIssue(task: RemainingTask, ctx: IssueContext, meta: GenerationMeta): Promise<IssueAiResult>
-    }
-    class LLMProviderAdapter {
-      <<interface>>
-      +complete(prompt: string, opts: ProviderCallOptions): Promise<string>
-    }
-    IssueAIGenerator --> LLMProviderAdapter
-  ```
-- **主要責務**
-  - `sanitizeContext(tasks, context)`：  
-    - 最大5件の `RemainingTask` を対象。`task`, `steps`, `acceptanceCriteria`, `priorityReason`, `dependencies` は 512 文字にトリム。  
-    - `targetFiles` は 10 件に制限。  
-    - `SecretMasker` により既知のシークレット値を `[REDACTED_*]` に置換。  
-  - `buildPrompt(payload)`：要件定義書のテンプレートを読み込み、`JSON.stringify` で安全に埋め込む。タイトルと本文を同時生成する複合リクエスト（FR-1, FR-2 対応）。
-  - `invokeProvider(prompt)`：`options.maxRetries`（デフォルト3回）、指数バックオフ（1s, 2s, 4s）で再試行。`AbortController` による `timeoutMs` 制御。
-  - `validateResponse(raw)`：  
-    1. JSON 解析。  
-    2. `title` 文字数チェック (50〜80)。  
-    3. `body` に必須セクションが全て含まれるか正規表現で検証。  
-    4. Markdown 以外のタグ検出 (`/<\w+>/`) で拒否。  
-    5. 失敗時は `IssueAiValidationError` を throw。
-  - 成功時は `{ title, body, metadata }` を返却。`metadata` には使用モデル・推定トークン数・処理時間等を格納し DEBUG ログで出力。
+```ts
+export interface IssueGenerationOptions {
+  enabled: boolean;
+  provider: 'auto' | 'openai' | 'claude';
+  model?: string;
+  temperature?: number;          // default 0.2
+  maxOutputTokens?: number;      // default 1500
+  timeoutMs?: number;            // default 25000
+  maxRetries?: number;           // default 3
+  maxTasks?: number;             // default 5
+  appendMetadata?: boolean;      // default false
+}
 
-### 7.2 LLM Provider アダプタ
+export interface IssueAIGenerationResult {
+  title: string;
+  body: string;
+  metadata: {
+    provider: 'openai' | 'claude';
+    model: string;
+    durationMs: number;
+    retryCount: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    omittedTasks?: number;
+  };
+}
+```
+
+- `config` でデフォルトを構築し、CLI/環境変数で上書き可能にする。
+- `PhaseContext` に `issueGenerationOptions` を追加し、省略時は `{ enabled: false, provider: 'auto' }` を適用。
+
+### 7.2 IssueAIGenerator クラス (新規)
+
+- コンストラクタ: `(providers: Record<'openai' | 'claude', LlmProviderAdapter>, secretMasker = new SecretMasker())`。
+- 補助的なエラー型:
+  - `IssueAIUnavailableError` (credentials 不足など)
+  - `IssueAIValidationError` (出力検証失敗)
+- 公開メソッド:
+  - `isAvailable(options: IssueGenerationOptions): boolean`  
+    - `options.enabled` が true かつ選択された provider（`auto` の場合は利用可能なもの）が `hasCredentials()` を満たす。
+  - `generate(tasks, context, issueNumber, options): Promise<IssueAIGenerationResult>`  
+    1. `sanitizePayload(tasks, context, options.maxTasks ?? 5)`  
+       - `RemainingTask` を優先度順 (High→Medium→Low) に並べ、上位 `maxTasks` を採用。超過分は `omittedTasks` としてメタに記録。  
+       - 各文字列フィールドは 512 文字にトリム。`targetFiles` は 10 件、`steps` / `acceptanceCriteria` は各 8 件まで。  
+       - `SecretMasker.maskObject` で既知のシークレット値・トークン・メールアドレスを `[REDACTED_x]` に置換。
+    2. `buildPrompt(issueNumber, sanitizedPayload, context, options)`  
+       - JSON 文字列化し、テンプレートへ埋め込む。
+    3. `invokeProvider(prompt, options)`  
+       - 選択された provider の `complete()` を呼び出す。  
+       - レート制限時は指数バックオフ (2000ms, 4000ms, 8000ms) とし、回数は `options.maxRetries`。
+    4. `parseAndValidate(responseText)`  
+       - JSON パース → タイトル長 50〜80 文字 → 必須セクションを順番に確認 → `実行内容` セクションが番号付きリスト (`1.` 形式) とテスト手順 (`テスト` or `検証`) を含むか検証 → HTML タグを禁止。  
+       - 失敗時は `IssueAIValidationError`。
+    5. 成功時に metadata (provider, model, duration, retryCount, input/output tokens, omittedTasks) 付きで返却。
+
+### 7.3 LlmProviderAdapter
+
+```ts
+interface LlmProviderAdapter {
+  name: 'openai' | 'claude';
+  hasCredentials(): boolean;
+  complete(prompt: string, options: IssueGenerationOptions): Promise<LlmProviderResponse>;
+}
+
+interface LlmProviderResponse {
+  text: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  retryCount: number;
+  durationMs: number;
+}
+```
 
 - **OpenAIAdapter**
-  - 既存 `openai` パッケージを利用し `chat.completions.create()` を呼び出す。
-  - デフォルトモデル: `options.model ?? 'gpt-4o-mini'`。
-  - `response_format: { type: 'json_object' }` を指定し JSON を強制。
+  - `openai.chat.completions.create()` を呼び出し、`response_format: { type: 'json_object' }` を指定。
+  - `AbortController` で `timeoutMs` を強制。
+  - HTTP 429/5xx 時は指数バックオフで再試行。最終的に失敗ならエラーをスロー。
 - **AnthropicAdapter**
-  - 公式 SDK `@anthropic-ai/sdk` を追加。`messages.create()` を使用し JSON 出力を指示。
-  - `model` は `options.model ?? 'claude-3-5-sonnet-latest'`。
-  - プロンプトは `messages: [{ role: 'user', content: prompt }]` 形式。
-- **Adapter 選択ロジック**
-  - `IssueGenerationOptions.provider` が `claude`／`openai`／`auto` を選択。  
-  - `auto` 時は OpenAI API キーが存在すれば優先、なければ Claude にフォールバック。  
-  - API キー未設定・どちらも使用不可の場合は `IssueAIGenerator.isAvailable()` が `false` を返却し、IssueClient が即座にフォールバックする。
+  - `@anthropic-ai/claude-agent-sdk` の `messages.create()` を利用。
+  - `options.model` が無ければ `claude-3-sonnet-20240229` を使用。
+  - 応答の `content` を結合し JSON テキストを取得。
+- `provider: 'auto'` の場合は OpenAI キーが存在すれば OpenAIAdapter、それ以外は ClaudeAdapter を選択。
 
-### 7.3 プロンプトテンプレート
+### 7.4 プロンプト生成とバリデーション
 
-- `src/prompts/follow_up_issue/title_prompt.md` / `body_prompt.md` を追加し、テンプレート文字列中に `{{original_issue_title}}` 等のプレースホルダを定義。
-- IssueAIGenerator は `fs.readFileSync` (同期) で初期化時にロードし、ホットリロード不要。
-- プロンプトには以下を明示:
-  1. タイトル 50〜80文字。
-  2. 本文の必須セクション。
-  3. 各セクションの内容ガイドライン（目的は1文、実行内容は番号付きリストなど）。
-  4. JSON 形式で回答すること。
-- テンプレートは Markdown コメント (`<!-- -->`) でヒューマン向け説明を記載しつつ、モデルへの指示はプレーンテキストで記述。
+テンプレート例 (コード内定数として保持):
 
-### 7.4 IssueClient 拡張
+````markdown
+あなたはソフトウェア開発プロジェクトのIssue作成アシスタントです。
+以下のJSONを読み取り、フォローアップIssueを構築してください。
 
-- 依存注入: `constructor(octokit, owner, repo, aiGenerator?: IssueAIGenerator)` に変更。`GitHubClient` から `IssueAIGenerator` を渡す。
-- `createIssueFromEvaluation` 署名を以下に拡張:
+入力:
+{{payload}}
+
+要件:
+1. タイトルは50〜80文字。対象コンポーネントや目的のキーワードを含めること。
+2. 本文は以下の見出し順序とします。
+   ## 背景
+   ## 目的
+   ## 実行内容
+   ## 受け入れ基準
+   ## 関連リソース
+3. 実行内容には対象ファイル・手順・テスト方法を含めること。
+4. JSON 形式で回答してください。
+
+出力形式:
+{
+  "title": "...",
+  "body": "..."
+}
+````
+
+- `parseAndValidate` 検証ルール:
+  - JSON パース失敗 → `IssueAIValidationError`。
+  - タイトル文字数 (全角半角問わず) が 50 未満または 80 超過で失敗。
+  - 本文に必須5セクションが順番に存在するか正規表現で確認。
+  - `## 実行内容` 内に番号付きリスト (`^\d+\. `) があり、いずれかの行に `テスト`/`検証` を含むことを確認。
+  - HTML/スクリプトタグを検出したら失敗。
+  - 余分な末尾空行は `trimEnd()` で整理。
+
+### 7.5 IssueClient 拡張
+
+- コンストラクタに `IssueAIGenerator | null` を追加 (`new IssueClient(octokit, owner, repo, issueAIGenerator)`).
+- 新規ヘルパー:
+  - `private buildLegacyBody(...)`: 現行ロジックを抽出し、フォールバック時に再利用。
+  - `private appendMetadata(body, metadata, options)`: `options.appendMetadata` が true の場合に以下を追加。
+    ```
+    ## 生成メタデータ
+    - モデル: ${metadata.model} (${metadata.provider})
+    - 所要時間: ${metadata.durationMs}ms / 再試行: ${metadata.retryCount}
+    - トークン: in ${metadata.inputTokens ?? '-'} / out ${metadata.outputTokens ?? '-'}
+    - 省略したタスク数: ${metadata.omittedTasks ?? 0}
+    ```
+  - `private async tryGenerateWithLLM(...)`: LLM が利用可能か判定し、失敗時は WARN ログで理由を記録して `null` を返す。
+- `createIssueFromEvaluation` の流れ:
+  1. `const aiResult = await this.tryGenerateWithLLM(...);`
+  2. `const title = aiResult?.title ?? this.generateFollowUpTitle(...);`
+  3. `const baseBody = aiResult?.body ?? this.buildLegacyBody(...);`
+  4. `const body = aiResult ? this.appendMetadata(baseBody, aiResult.metadata, options) : baseBody;`
+  5. 既存どおり Octokit で Issue を作成。
+- ログ出力:
+  - 成功 (`logger.debug`): `FOLLOWUP_LLM_SUCCESS { provider, model, durationMs, retryCount }`
+  - フォールバック (`logger.warn`): `FOLLOWUP_LLM_FALLBACK { reason, fallback: 'legacy_template' }`
+  - ログにはプロンプト本文を含めない。
+
+### 7.6 GitHubClient / Phase 連携
+
+- `GitHubClient` コンストラクタで `IssueAIGenerator` を生成し `IssueClient` に渡す。
+- `createIssueFromEvaluation` の署名を `(..., issueContext?: IssueContext, options?: IssueGenerationOptions)` に拡張。`options` が無い場合は `config` から取得する。
+- `EvaluationPhase`:
   ```ts
-  public async createIssueFromEvaluation(
-    issueNumber: number,
-    remainingTasks: RemainingTask[],
-    evaluationReportPath: string,
-    issueContext?: IssueContext,
-    generationOptions?: IssueGenerationOptions,
-  ): Promise<IssueCreationResult>
+  const options = this.context.issueGenerationOptions ?? { enabled: false, provider: 'auto' };
+  const result = await this.github.createIssueFromEvaluation(
+    issueNumber,
+    remainingTasks,
+    relativeReportPath,
+    issueContext,
+    options,
+  );
   ```
-- 本文生成ロジック:
-  ```ts
-  let aiResult: IssueAiResult | null = null;
-  if (generationOptions?.enabled && this.aiGenerator?.isAvailable()) {
-    aiResult = await this.tryGenerateWithLLM(...).catch((error) => {
-      logger.warn(`LLM generation failed: ${encodeWarning(getErrorMessage(error))}`);
-      return null;
-    });
-  }
-  const title = aiResult?.title ?? this.generateFollowUpTitle(...);
-  const body = aiResult?.body ?? this.buildLegacyBody(...);
-  ```
-- `tryGenerateWithLLM` 内で:
-  - すべての `RemainingTask` を `IssueAIGenerator.generateIssue` に渡し、レスポンスを適用。
-  - 生成内容に必須セクションが欠落している場合は LLM 失敗扱いとし、WARN ログに詳細（セクション欠如、タイトル長超過など）を出力。
-  - 成功時は `## LLM生成メタデータ` を本文末尾（`## 参考` 手前）に追加し、モデル名・生成時刻を記録（要件 FR-5 のログ補助。ユーザーが不要な場合は `options.appendMetadata` で制御）。
+- `PhaseFactory` / `BasePhase` で `PhaseContext.issueGenerationOptions` を新たに受け渡す。
 
-### 7.5 GitHubClient / CLI / Phase 連携
+### 7.7 CLI / Config 拡張
 
-- `GitHubClient` コンストラクタで `IssueAIGenerator` を初期化。`config.ts` から取得した LLM 設定を渡す。
-- `createIssueFromEvaluation` 引数に `generationOptions` を追加。Phase 側で動的に変更したい場合に備える。
-- `ExecuteCommandOptions` / `ParsedExecuteOptions` に以下オプション追加:
-  - `followupLlmMode` (`'auto' | 'openai' | 'claude' | 'off'`, デフォルト `'off'`)
+- `ExecuteCommandOptions` に以下フィールドを追加:
+  - `followupLlmMode?: 'auto' | 'openai' | 'claude' | 'off'`
   - `followupLlmModel?: string`
   - `followupLlmTimeout?: number`
-  - `followupLlmRetries?: number`
-- CLI サンプル: `ai-workflow execute --issue 119 --phase evaluation --followup-llm-mode auto`.
-- `PhaseContext` に `issueGenerationOptions` を追加。`PhaseFactory` と各 Phase のコンストラクタに影響が出ないよう、`BasePhase` にプロパティを追加する。
-- `EvaluationPhase` では `this.context.issueGenerationOptions` を取得し、`this.github.createIssueFromEvaluation(..., options)` を呼び出す。
+  - `followupLlmMaxRetries?: number`
+  - `followupLlmAppendMetadata?: boolean`
+- `options-parser.ts` でバリデーション:
+  - `off` → `enabled` false。
+  - timeout/retries は正の整数 (0 許容)。
+  - provider 指定が `openai` なのに OpenAI APIキー不在の場合は警告ログを出して `enabled=false`。
+- `config.ts` で環境変数ゲッターを追加 (`FOLLOWUP_LLM_MODE`, `FOLLOWUP_LLM_MODEL`, `FOLLOWUP_LLM_TIMEOUT_MS`, `FOLLOWUP_LLM_MAX_RETRIES`, `FOLLOWUP_LLM_APPEND_METADATA`)。
+- CLI 例:  
+  `ai-workflow execute --issue 119 --phase evaluation --followup-llm-mode auto --followup-llm-model claude-3-sonnet-20240229`.
 
-### 7.6 型・設定拡張
+### 7.8 ロギング・モニタリング
 
-- `src/types.ts` に `IssueGenerationOptions` を追加:
-  ```ts
-  export interface IssueGenerationOptions {
-    enabled: boolean;
-    provider: 'auto' | 'openai' | 'claude';
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    timeoutMs?: number;
-    maxRetries?: number;
-    maxTasks?: number; // プロンプトへ含める残タスク数（デフォルト5）
-    appendMetadata?: boolean; // 本文末尾にAIメタデータを追記するか
-  }
-  ```
-- `config.ts` へ以下ゲッター追加:
-  - `getFollowupLlmMode()`, `getFollowupLlmModel()`, `getFollowupLlmTimeoutMs()`, `getFollowupLlmRetries()`, `getFollowupLlmEnabled()`.
-- 環境変数命名例:
-  - `FOLLOWUP_LLM_MODE` (`off` / `auto` / `openai` / `claude`)
-  - `FOLLOWUP_LLM_MODEL`
-  - `FOLLOWUP_LLM_TIMEOUT_MS`
-  - `FOLLOWUP_LLM_MAX_RETRIES`
-  - `FOLLOWUP_LLM_APPEND_METADATA`
+- LLM 成功時は DEBUG ログ、再試行数 > 0 の場合は WARN と INFO の両方に出力して追跡可能にする。
+- フォールバック発生時は WARN ログを構造化文字列 (JSON 互換) で出力。`event=FOLLOWUP_LLM_FALLBACK`, `fallback_mode=legacy_template`, `reason=...`。
+- `IssueAIGenerator.generate` 内で `performance.now()` を使い処理時間を計測。
+- ログには機密情報やプロンプト全文を含めない。
 
-### 7.7 テスト設計詳細
+### 7.9 テスト設計詳細
 
-- **ユニットテスト (`tests/unit/github/issue-ai-generator.test.ts`)**
-  1. `buildPrompt()` がタスク5件超過時に切り詰めること。
-  2. API 応答が JSON 以外の場合に `ValidationError` を throw。
-  3. 必須セクション欠落時に失敗すること。
-  4. タイトル長が 50 未満/80 超過で失敗すること。
-  5. リトライ設定が機能し、2回目で成功した場合に成功として返ること（モックで制御）。
-  6. シークレット値が `[REDACTED_*]` に置換されること。
-- **既存ユニットテスト拡張**
-  - `issue-client.followup` テストに LLM 成功シナリオを追加（モック `IssueAIGenerator` を注入）。
-  - LLM 例外時に WARN ログが発生し、既存フォールバックが使われることを検証。
-- **インテグレーションテスト (`tests/integration/followup-issue-llm.test.ts`)**
-  - Octokit モック + `IssueAIGenerator` フェイクを用意し、`createIssueFromEvaluation` が最終的に Octokit へ期待値を渡すことを確認。
-  - 実 API 呼び出しテストは `process.env.FOLLOWUP_LLM_E2E === '1'` の時のみ実行。APIキー未設定時は `it.skip`。
+| レイヤ | テストケース | 目的 |
+| --- | --- | --- |
+| Unit (`issue-ai-generator.test.ts`) | タスク数制限・文字列トリム・ターゲットファイル上限を検証 | サニタイズ仕様の担保 |
+|  | JSON 以外の応答で `IssueAIValidationError` を投げる | バリデーション |
+|  | 必須セクション欠落、タイトル長不正、HTMLタグ混入で失敗する | FR-1/FR-2 |
+|  | 1回目失敗→2回目成功のリトライ時に最終成功 | リトライ制御 |
+|  | `SecretMasker` により API キーがプロンプトに残らない | セキュリティ |
+| Unit (`issue-client.test.ts`) | LLM 成功時に Octokit へ LLM 出力が渡る | フロー検証 |
+|  | 例外発生時に WARN ログとフォールバックタイトル/本文が使用される | FR-3 |
+| Integration (`followup-issue-llm.test.ts`) | CLI -> PhaseContext -> GitHubClient -> IssueClient のオプション伝搬 | 設定連携 |
+|  | LLM が無効化されている場合に既存挙動が維持される | 後方互換 |
+|  | `FOLLOWUP_LLM_E2E=1` 時のみ実APIを使い、成功時タイトル/本文が要件を満たすか検証 (失敗時はテストをスキップ) | 実API検証 |
 
-### 7.8 ドキュメント更新
+### 7.10 要件トレーサビリティ
 
-- `ARCHITECTURE.md`: Evaluation Phase → GitHubClient → IssueAIGenerator フロー図と説明を追加。
-- `CLAUDE.md`: 新しい環境変数、Claude モデル選択、フォールバック挙動を追記。
-- `README.md`: CLI オプション、設定例（`.env` テンプレート抜粋）、Troubleshooting（LLM失敗時のログの読み方）を追加。
-
-### 7.9 要件トレーサビリティ
-
-| 要件ID | 設計対応箇所 |
+| 要件ID | 対応箇所 |
 | --- | --- |
-| FR-1 (タイトル 50-80文字) | 7.1 `validateResponse` で文字数検証、7.4 で LLM タイトル採用 |
-| FR-2 (本文セクション) | 7.1 `buildPrompt` / `validateResponse` と 7.4 本文構築 |
-| FR-3 (フォールバック) | 7.4 `tryGenerateWithLLM` → `buildLegacyBody` |
-| FR-4 (設定反映) | 7.5 CLI/Phase 連携、7.6 `IssueGenerationOptions` |
-| FR-5 (ログ) | 7.1 メタデータ記録、7.4 WARN/DEBUG ログ設計 |
+| FR-1 | 7.4 プロンプト設計・タイトル検証、7.5 タイトル採用ロジック |
+| FR-2 | 7.4 セクション検証、7.5 `buildLegacyBody` との比較で差異を吸収 |
+| FR-3 | 7.5 `tryGenerateWithLLM` フォールバック制御 |
+| FR-4 | 7.6 Phase 連携、7.7 CLI/Config 拡張 |
+| FR-5 | 7.5 ログ出力設計、7.8 モニタリング |
+
+### 7.11 ドキュメント更新
+
+- `ARCHITECTURE.md`: Evaluation → GitHubClient → IssueAIGenerator → IssueClient のフロー図と説明を追加。
+- `CLAUDE.md`: Follow-up LLM 設定方法、環境変数、フォールバック観察ポイントを追記。
+- `README.md`: CLI オプションと `.env` 設定例、フォールバック時のトラブルシューティングを追加。
 
 ---
 
 ## 8. セキュリティ考慮事項
 
-- プロンプト前処理で `SecretMasker` により環境変数シークレットを除去。ユーザー提供データ内のメール/トークン形式を正規表現で追加検査。
-- LLM 応答に URL やコマンドが含まれる場合はそのまま Issue へ反映するが、HTML/スクリプトタグは拒否。
-- ログには API 応答本文を含めず、`encodeWarning` でエラー文字列をエンコード。APIキーは `config` ゲッター経由のみ取得し、再出力しない。
-- 送信データには評価レポート本文等機密情報を含めない。ファイルパスは `evaluationReportPath` のみで内容は送信しない。
-- レート制限超過時は再試行後にフォールバックし、無限ループ防止のため maxRetries を強制適用。
+- `SecretMasker` と追加の簡易正規表現 (API キーフォーマット、メールアドレス) を `sanitizePayload` に適用し、機密情報送信を防止。
+- LLM 応答に HTML/スクリプトタグが含まれる場合はバリデーションエラーとし、フォールバックへ切り替える。
+- API キーは `config` ゲッター経由でのみ参照し、ログへ出力しない。
+- プロンプト・レスポンスをファイルへ書き出さない。ログにはメタデータのみを残す。
+- 再試行回数を `maxRetries` で制限し、無限ループやコスト過多を防止。
 
 ---
 
 ## 9. 非機能要件への対応
 
-- **パフォーマンス**: タイムアウト (`timeoutMs`, デフォルト 30,000ms) と最大再試行 3 回で最悪 90 秒以内にフォールバック。タスク数制限・文字数トリムでプロンプトサイズを制御。
-- **スケーラビリティ**: `IssueGenerationOptions.maxTasks` でプロンプト長を制御し、大規模残タスクでも安定。今後プロンプトテンプレート差し替えやモデル追加を `IssueAIGenerator` 内で閉じる設計。
-- **保守性**: Provider アダプタを分離しテスト可能に。設定値は `config` 経由で集中管理し、ドキュメント更新でオンボーディングを容易にする。
-- **可用性**: LLM 失敗時でも既存ロジックで必ず Issue 作成できる（FR-3）。WARN ログで原因を追跡可能。
+- **パフォーマンス**: `timeoutMs` と `maxRetries` で最悪ケースでも 25s × 3 = 75s 以内にフォールバック。タスク数・文字数の制限で入力サイズを抑制し、LLM 呼び出し平均 15s 以内を目指す。
+- **スケーラビリティ**: Provider 抽象化でモデル追加が容易。`maxTasks` で大規模残タスクでも安定して処理。
+- **保守性**: LLM ロジックを `IssueAIGenerator` に集約し、IssueClient と疎結合化。テストで回帰を検知しやすくする。
+- **可用性**: LLM 失敗時でも既存テンプレートで確実に Issue を生成 (FR-3)。WARN ログで運用監視が容易。
+- **コスト管理**: デフォルト無効 (`enabled=false`) で不要な API 呼び出しを防止。`appendMetadata` で生成コストを Issue 上に可視化可能。
 
 ---
 
 ## 10. 実装の順序
 
-1. **型・設定整備**: `IssueGenerationOptions` 追加、`config.ts` ゲッター、CLI オプション解析/PhaseContext 拡張を実装。
-2. **IssueAIGenerator 実装**: プロンプトテンプレート追加、Provider アダプタとサニタイズ・バリデーションロジックを開発。
-3. **IssueClient / GitHubClient 拡張**: 依存注入、LLM 優先フロー、フォールバック実装、ログ整備。
-4. **Phase/Evaluation 更新**: `IssueGenerationOptions` を渡すように修正。
-5. **テスト実装**: 新規/既存テストを追加・更新。API キーが無い環境でも全テストが通るようモック設計。
-6. **ドキュメント更新**: README / ARCHITECTURE / CLAUDE を更新し、利用手順と環境変数を明記。
-7. **検証**: `npm run test:unit`, `npm run test:integration` を実行。必要に応じて `FOLLOWUP_LLM_E2E=1` で手動統合テストを実施。
+1. **型と設定の整備**: `IssueGenerationOptions`、`PhaseContext`、CLI/Config 拡張。既存コードをコンパイル可能に更新。
+2. **IssueAIGenerator 実装**: プロンプトテンプレート、サニタイズ、Provider アダプタ、検証、専用エラーを実装。
+3. **IssueClient / GitHubClient 更新**: 依存注入、LLM 分岐、フォールバックとログ処理を追加。
+4. **Phase / CLI 連携**: EvaluationPhase がオプションを渡すよう調整し、実行時の設定反映を確認。
+5. **テスト追加・更新**: 新規ユニットテスト、既存テスト更新、統合テストでオプション伝搬とフォールバックを検証。
+6. **ドキュメント更新**: ARCHITECTURE / CLAUDE / README / `.env.example` を更新。
+7. **検証**: `npm run test:unit`, `npm run test:integration` 実行。必要に応じ `FOLLOWUP_LLM_E2E=1` で手動統合テストを確認。
 
 ---
 
-本設計は以下の品質ゲートを満たしています:
-- 実装戦略・テスト戦略・テストコード戦略の根拠を明記
-- 既存コードへの影響範囲を分析
-- 変更ファイルをリストアップ
-- 実装手順と要件トレーサビリティを提示し、実装可能な設計を提供
+## 11. 品質ゲート確認
+
+- 実装戦略 (EXTEND) の判断根拠を明記。
+- テスト戦略 (UNIT_INTEGRATION) の判断根拠を明記。
+- 既存コードへの影響と依存関係を分析。
+- 変更・追加ファイルを列挙。
+- 詳細設計と要件トレーサビリティを提示し実装可能性を保証。
+
