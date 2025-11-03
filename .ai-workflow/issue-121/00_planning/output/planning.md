@@ -284,19 +284,19 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
 
 ### Phase 5: テストコード実装 (見積もり: 6〜8h)
 
-- [ ] Task 5-1: リポジトリ探索エンジンのユニットテスト (2〜3h)
+- [x] Task 5-1: リポジトリ探索エンジンのユニットテスト (2〜3h)
   - `repository-analyzer.test.ts` 作成
   - モックリポジトリ準備（テストフィクスチャ）
   - 各カテゴリ（bug/refactor/enhancement）のテストケース実装
-- [ ] Task 5-2: 重複検出エンジンのユニットテスト (2〜3h)
+- [x] Task 5-2: 重複検出エンジンのユニットテスト (2〜3h)
   - `issue-deduplicator.test.ts` 作成
   - LLMアダプタのモック作成
   - 類似度計算のテストケース実装（エッジケース含む）
-- [ ] Task 5-3: Issue生成エンジンのユニットテスト (1〜2h)
+- [x] Task 5-3: Issue生成エンジンのユニットテスト (1〜2h)
   - `issue-generator.test.ts` 作成
   - テンプレート生成のテストケース
   - GitHub APIモック（`@octokit/rest`のモック）
-- [ ] Task 5-4: 統合テスト実装 (1h)
+- [x] Task 5-4: 統合テスト実装 (1h)
   - `auto-issue-flow.test.ts` 作成
   - エンドツーエンドシナリオ（モックサーバー利用）
 
