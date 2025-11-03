@@ -257,3 +257,72 @@ export interface EvaluationDecisionResult {
   remainingTasks?: RemainingTask[];
   error?: string;
 }
+
+// ========================================
+// Auto Issue Types
+// ========================================
+
+/**
+ * Issue候補の結果
+ */
+export interface IssueCandidateResult {
+  /** カテゴリ（bug/refactor/enhancement） */
+  category: IssueCategory;
+  /** Issueタイトル */
+  title: string;
+  /** Issue説明 */
+  description: string;
+  /** 該当ファイルパス */
+  file: string;
+  /** 該当行番号 */
+  lineNumber: number;
+  /** コードスニペット（前後10行） */
+  codeSnippet: string;
+  /** 信頼度スコア（0.0〜1.0） */
+  confidence: number;
+  /** 提案される解決策（配列） */
+  suggestedFixes: string[];
+  /** 期待される効果 */
+  expectedBenefits: string[];
+  /** 優先度（Low/Medium/High） */
+  priority: 'Low' | 'Medium' | 'High';
+}
+
+/**
+ * Issue類似度判定結果
+ */
+export interface IssueSimilarityResult {
+  /** 既存Issue番号 */
+  issueNumber: number;
+  /** 既存Issueタイトル */
+  issueTitle: string;
+  /** 類似度スコア（0.0〜1.0） */
+  similarityScore: number;
+  /** 重複判定（true=重複） */
+  isDuplicate: boolean;
+}
+
+/**
+ * Issueカテゴリ
+ */
+export enum IssueCategory {
+  BUG = 'bug',
+  REFACTOR = 'refactor',
+  ENHANCEMENT = 'enhancement',
+}
+
+/**
+ * auto-issueコマンドのオプション
+ */
+export interface AutoIssueOptions {
+  /** 作成するIssueのカテゴリ */
+  category: IssueCategory | 'all';
+  /** 作成するIssueの最大数（デフォルト: 5） */
+  limit: number;
+  /** ドライランモード（true=実際には作成しない） */
+  dryRun: boolean;
+  /** 重複判定の類似度閾値（デフォルト: 0.8） */
+  similarityThreshold: number;
+  /** 創造的提案モード（enhancementカテゴリ専用、Phase 3） */
+  creativeMode: boolean;
+}
