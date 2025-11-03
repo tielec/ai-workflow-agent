@@ -67,12 +67,14 @@
   - エージェント初期化・CLIオプションでのフラグ引き回しを反映
 
 ### Phase 5: テストコード実装 (見積もり: 4~5h)
-- [ ] Task 5-1: ユニットテスト実装 (2~2.5h)
+- [x] Task 5-1: ユニットテスト実装 (2~2.5h)
   - issue-ai-generator用モックテストを作成
   - フォールバック動作とプロンプト生成の検証テストを追加
-- [ ] Task 5-2: 統合テスト準備・実装 (2~2.5h)
+  - レビュー結果: tests/unit/github/issue-ai-generator.test.ts, tests/unit/github/issue-client-llm.test.ts, tests/unit/secret-masker.test.ts が実装され、すべてのユニットテストシナリオがカバーされたため完了
+- [x] Task 5-2: 統合テスト準備・実装 (2~2.5h)
   - 実API利用テストを環境変数制御で実行できるよう整備
   - テストデータ、レート制限保護の仕組み（スキップ条件等）を実装
+  - レビュー結果: tests/integration/followup-issue-llm.test.ts が実装され、成功フローとフォールバックフローの統合テストが完了したため完了
 
 ### Phase 6: テスト実行 (見積もり: 2~3h)
 - [ ] Task 6-1: テスト実行と結果分析 (2~3h)
