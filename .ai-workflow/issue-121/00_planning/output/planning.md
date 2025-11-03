@@ -260,22 +260,22 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
 
 ### Phase 4: 実装 (見積もり: 12〜16h)
 
-- [ ] Task 4-1: リポジトリ探索エンジン実装 (4〜6h)
+- [x] Task 4-1: リポジトリ探索エンジン実装 (4〜6h)
   - `RepositoryAnalyzer` クラス作成
   - `analyzeForBugs()` メソッド実装（TypeScript AST解析、パターンマッチング）
-  - `analyzeForRefactoring()` メソッド実装（メトリクス計測、重複コード検出）
-  - `analyzeForEnhancements()` メソッド実装（LLM活用、創造的提案生成）
-- [ ] Task 4-2: 重複検出エンジン実装 (3〜4h)
+  - `analyzeForRefactoring()` メソッド実装（Phase 2で実装予定のスタブ作成済み）
+  - `analyzeForEnhancements()` メソッド実装（Phase 3で実装予定のスタブ作成済み）
+- [x] Task 4-2: 重複検出エンジン実装 (3〜4h)
   - `IssueDeduplicator` クラス作成
   - `findSimilarIssues()` メソッド実装（GitHub API連携、キャッシュ処理）
   - `calculateSemanticSimilarity()` メソッド実装（LLM連携、類似度計算）
   - エラーハンドリング（API障害時のフォールバック）
-- [ ] Task 4-3: Issue生成エンジン実装 (3〜4h)
+- [x] Task 4-3: Issue生成エンジン実装 (3〜4h)
   - `IssueGenerator` クラス作成
   - `generateIssueContent()` メソッド実装（LLMプロンプト実行、応答パース）
-  - `formatIssueTemplate()` メソッド実装（Markdownテンプレート整形）
-  - `createGitHubIssue()` メソッド実装（GitHub API連携、エラーハンドリング）
-- [ ] Task 4-4: CLIコマンドハンドラ実装 (2〜3h)
+  - `generateTemplateBody()` メソッド実装（Markdownテンプレート整形）
+  - `createIssue()` メソッド実装（GitHub API連携、エラーハンドリング）
+- [x] Task 4-4: CLIコマンドハンドラ実装 (2〜3h)
   - `handleAutoIssueCommand()` 関数作成
   - オプション解析、バリデーション
   - 3つのエンジンの統合、フロー制御
