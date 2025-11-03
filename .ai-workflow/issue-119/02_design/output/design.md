@@ -87,12 +87,15 @@ Octokit.issues.create(...) → GitHub Issue
 ### 5.1 既存コードへの影響
 - `src/core/github/issue-client.ts`: 依存注入、LLM 分岐、本文生成をメソッド化、WARN/DEBUG ログ拡張。
 - `src/core/github-client.ts`: `IssueAIGenerator` の初期化と委譲。`createIssueFromEvaluation` にオプションパラメータ追加。
+- `src/core/phase-factory.ts`: `PhaseContext` へ追加した `issueGenerationOptions` を全 Phase に渡す初期化処理を拡張。
+- `src/phases/base-phase.ts`: Phase インスタンスが `issueGenerationOptions` を受け取り `this.context` へ保持できるようにする。
 - `src/phases/evaluation.ts`: `GitHubClient.createIssueFromEvaluation` 呼び出しに LLM オプションを渡す。
+- `src/core/secret-masker.ts`: `maskObject` を追加してネストした残タスクオブジェクトを一括マスキングできるようにする。
 - `src/commands/execute.ts` / `src/commands/execute/options-parser.ts`: CLI オプション解析に Follow-up LLM 設定を追加し `PhaseContext` へ渡す。
 - `src/types.ts`: `IssueGenerationOptions` や LLM 結果の型を追加。
 - `src/types/commands.ts`: `PhaseContext` に `issueGenerationOptions` プロパティを追加。
 - `src/core/config.ts`: LLM 設定用ゲッターを実装。
-- 既存テスト (`tests/unit/github/issue-client*.ts`, `tests/integration/github-client-facade.test.ts`) を LLM 統合ケースで更新。
+- 既存テスト (`tests/unit/github/issue-client*.ts`, `tests/integration/github-client-facade.test.ts`, `tests/unit/secret-masker.test.ts`) を LLM 統合ケースとシークレットマスキング強化に合わせて更新。
 
 ### 5.2 依存関係の変更
 - 追加パッケージは想定なし。既存 `openai`, `@anthropic-ai/claude-agent-sdk` を再利用。
@@ -114,7 +117,10 @@ Octokit.issues.create(...) → GitHub Issue
 - **既存修正**
   - `src/core/github/issue-client.ts`
   - `src/core/github-client.ts`
+  - `src/core/phase-factory.ts`
+  - `src/phases/base-phase.ts`
   - `src/phases/evaluation.ts`
+  - `src/core/secret-masker.ts`
   - `src/commands/execute.ts`
   - `src/commands/execute/options-parser.ts`
   - `src/types.ts`
@@ -122,6 +128,7 @@ Octokit.issues.create(...) → GitHub Issue
   - `src/core/config.ts`
   - `tests/unit/github/issue-client.test.ts`
   - `tests/unit/github/issue-client-followup.test.ts`
+  - `tests/unit/secret-masker.test.ts`
   - `tests/integration/github-client-facade.test.ts`
   - ドキュメント (`ARCHITECTURE.md`, `CLAUDE.md`, `README.md`, `.env.example`)
 - **削除予定**: なし
@@ -310,14 +317,29 @@ interface LlmProviderResponse {
 - CLI 例:  
   `ai-workflow execute --issue 119 --phase evaluation --followup-llm-mode auto --followup-llm-model claude-3-sonnet-20240229`.
 
-### 7.8 ロギング・モニタリング
+### 7.8 SecretMasker 拡張
+
+- 新規メソッド `maskObject<T>(input: T, options?: { ignoredPaths?: string[] }): T` を追加し、入力オブジェクトを破壊せずに深いコピーを返す。`ignoredPaths` は `['tasks.*.metadata']` のようなドット表記で除外を指定できる。
+- 処理フロー:
+  1. `getSecretList()` で環境変数ベースのシークレットを取得し、`[REDACTED_${name}]` への置換テーブルを構築。
+  2. 追加で以下のパターンを検出する正規表現を用意し、ヒットした文字列は `[REDACTED_PATTERN]` に置換する。  
+     - 長さ 20 文字以上の英数字+`-_` 混在トークン (`/[A-Za-z0-9_-]{20,}/g`)  
+     - メールアドレス (`/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g`)  
+     - `Bearer <token>` / `token=` 形式 (`/(Bearer|token=)[\w\-.]+/gi`)
+  3. 走査は DFS で実装し、`WeakSet` で循環参照を検出して二度処理しない。配列は同じく再帰し、プリミティブ以外は `Object.prototype.toString` で plain object のみを対象にする。
+  4. 文字列に対しては上記パターンとシークレット値を順次 `replaceAll` し、オブジェクト／配列はフィールド単位で再帰結果を集約する。
+- 戻り値は元の構造を維持した `sanitized` コピー。元のオブジェクトは変更せず、`undefined` や関数はそのまま返す。
+- `IssueAIGenerator.sanitizePayload` はこの `maskObject` の戻り値に対して文字数トリムやタスク数制限を適用し、マスキングと整形の責務を分離する。
+- 追加するユニットテストでは、ネストしたオブジェクトと配列、循環参照、`ignoredPaths` 指定時の除外、メールアドレス置換が期待通り動くことを確認する。
+
+### 7.9 ロギング・モニタリング
 
 - LLM 成功時は DEBUG ログ、再試行数 > 0 の場合は WARN と INFO の両方に出力して追跡可能にする。
 - フォールバック発生時は WARN ログを構造化文字列 (JSON 互換) で出力。`event=FOLLOWUP_LLM_FALLBACK`, `fallback_mode=legacy_template`, `reason=...`。
 - `IssueAIGenerator.generate` 内で `performance.now()` を使い処理時間を計測。
 - ログには機密情報やプロンプト全文を含めない。
 
-### 7.9 テスト設計詳細
+### 7.10 テスト設計詳細
 
 | レイヤ | テストケース | 目的 |
 | --- | --- | --- |
@@ -326,13 +348,15 @@ interface LlmProviderResponse {
 |  | 必須セクション欠落、タイトル長不正、HTMLタグ混入で失敗する | FR-1/FR-2 |
 |  | 1回目失敗→2回目成功のリトライ時に最終成功 | リトライ制御 |
 |  | `SecretMasker` により API キーがプロンプトに残らない | セキュリティ |
+| Unit (`secret-masker.test.ts`) | `maskObject` がネスト構造・配列・循環参照を安全にマスキングする | サニタイズ機構の信頼性 |
+|  | `ignoredPaths` 指定時に該当フィールドをスキップしつつ他をマスクする | 柔軟な除外設定 |
 | Unit (`issue-client.test.ts`) | LLM 成功時に Octokit へ LLM 出力が渡る | フロー検証 |
 |  | 例外発生時に WARN ログとフォールバックタイトル/本文が使用される | FR-3 |
 | Integration (`followup-issue-llm.test.ts`) | CLI -> PhaseContext -> GitHubClient -> IssueClient のオプション伝搬 | 設定連携 |
 |  | LLM が無効化されている場合に既存挙動が維持される | 後方互換 |
 |  | `FOLLOWUP_LLM_E2E=1` 時のみ実APIを使い、成功時タイトル/本文が要件を満たすか検証 (失敗時はテストをスキップ) | 実API検証 |
 
-### 7.10 要件トレーサビリティ
+### 7.11 要件トレーサビリティ
 
 | 要件ID | 対応箇所 |
 | --- | --- |
@@ -340,9 +364,9 @@ interface LlmProviderResponse {
 | FR-2 | 7.4 セクション検証、7.5 `buildLegacyBody` との比較で差異を吸収 |
 | FR-3 | 7.5 `tryGenerateWithLLM` フォールバック制御 |
 | FR-4 | 7.6 Phase 連携、7.7 CLI/Config 拡張 |
-| FR-5 | 7.5 ログ出力設計、7.8 モニタリング |
+| FR-5 | 7.5 ログ出力設計、7.9 モニタリング |
 
-### 7.11 ドキュメント更新
+### 7.12 ドキュメント更新
 
 - `ARCHITECTURE.md`: Evaluation → GitHubClient → IssueAIGenerator → IssueClient のフロー図と説明を追加。
 - `CLAUDE.md`: Follow-up LLM 設定方法、環境変数、フォールバック観察ポイントを追記。
@@ -389,4 +413,3 @@ interface LlmProviderResponse {
 - 既存コードへの影響と依存関係を分析。
 - 変更・追加ファイルを列挙。
 - 詳細設計と要件トレーサビリティを提示し実装可能性を保証。
-
