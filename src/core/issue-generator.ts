@@ -59,8 +59,7 @@ export class IssueGenerator {
 
     // 3. GitHub API経由でIssue作成
     const labels = this.getLabels(candidate);
-    const issueClient = this.githubClient.getIssueClient();
-    const result = await issueClient.createIssue(candidate.title, maskedBody, labels);
+    const result = await this.githubClient.createIssue(candidate.title, maskedBody, labels);
 
     logger.debug(`Issue created: #${result.number} - ${result.url}`);
   }

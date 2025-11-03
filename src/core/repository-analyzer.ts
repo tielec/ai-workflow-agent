@@ -75,7 +75,11 @@ export class RepositoryAnalyzer {
       if (!hasTryCatch) {
         const filePath = sourceFile.getFilePath();
         const lineNumber = fn.getStartLineNumber();
-        const fnName = fn.getName?.() ?? '<anonymous>';
+        // ArrowFunction doesn't have getName(), so we need to handle it differently
+        const fnName =
+          fn.getKind() === SyntaxKind.ArrowFunction
+            ? '<anonymous>'
+            : (fn as any).getName?.() ?? '<anonymous>';
         const codeSnippet = this.extractCodeSnippet(sourceFile, lineNumber);
 
         candidates.push({

@@ -154,6 +154,20 @@ export class GitHubClient {
     return this.issueClient.closeIssueWithReason(issueNumber, reason);
   }
 
+  public async listAllIssues(
+    state: 'open' | 'closed' | 'all' = 'all',
+  ): Promise<Array<{ number: number; title: string; body: string }>> {
+    return this.issueClient.listAllIssues(state);
+  }
+
+  public async createIssue(
+    title: string,
+    body: string,
+    labels: string[] = [],
+  ): Promise<{ number: number; url: string }> {
+    return this.issueClient.createIssue(title, body, labels);
+  }
+
   public async createIssueFromEvaluation(
     issueNumber: number,
     remainingTasks: RemainingTask[],

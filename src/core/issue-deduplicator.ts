@@ -51,7 +51,7 @@ export class IssueDeduplicator {
     logger.debug(`Checking for similar issues: ${candidate.title}`);
 
     // 1. 既存Issue一覧を取得
-    const existingIssues = await this.githubClient.getIssueClient().listAllIssues();
+    const existingIssues = await this.githubClient.listAllIssues();
     logger.debug(`Found ${existingIssues.length} existing issues.`);
 
     // 2. 第1段階: コサイン類似度でフィルタリング（高速）
