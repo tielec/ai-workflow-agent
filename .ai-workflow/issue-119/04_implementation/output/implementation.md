@@ -101,3 +101,20 @@
 ## 次のステップ
 - Phase 5（test_implementation）で LLM 成功/失敗/フォールバックをカバーするユニットテストを実装。
 - Phase 6（testing）で CLI オプション伝搬とログ出力を確認する統合テストを実行。
+
+---
+
+## 修正履歴
+
+### 修正1: TypeScript型定義の後方互換性確保（ブロッカー対応）
+- **指摘内容**: Phase 6（Testing）で既存テスト31個がコンパイルエラーとなり実行不可。`PhaseContext.issueGenerationOptions` と `BasePhaseConstructorParams.issueGenerationOptions` が必須フィールドとして定義されていたため、既存テストコードがすべて型エラーになった。
+- **修正内容**:
+  - `src/types/commands.ts` の `PhaseContext.issueGenerationOptions` をオプショナル (`?`) に変更
+  - `src/phases/base-phase.ts` の `BasePhaseConstructorParams.issueGenerationOptions` をオプショナル (`?`) に変更
+  - コンストラクタのデフォルト値設定ロジック（114-116行目）により、未指定時は `{ enabled: false, provider: 'auto' }` が自動的に設定される
+- **影響範囲**:
+  - `src/types/commands.ts`: 1箇所（19行目）
+  - `src/phases/base-phase.ts`: 1箇所（49行目）
+- **修正理由**: 既存の約50個のテストファイルがすべて `issueGenerationOptions` を提供していないため、フィールドを必須にすると破壊的変更となる。Phase 2の設計書では後方互換性を維持する方針だったが、型定義でそれが守られていなかった。オプショナルにすることで、既存テストは何も変更せずに動作し、新しいLLM機能を利用する場合のみオプションを渡す形になる。
+- **検証方法**: 型エラーが解消され、既存テスト（約667個）がすべて実行可能になることを確認。Issue #119の新規テスト（約14個）も正常に実行される。
+- **参考**: Phase 6テスト結果レポート（`.ai-workflow/issue-119/06_testing/output/test-result.md`）の推奨対応「オプション2: デフォルト値を提供する」に基づく修正。

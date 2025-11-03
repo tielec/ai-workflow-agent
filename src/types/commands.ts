@@ -16,7 +16,7 @@ export type PhaseContext = {
   skipDependencyCheck: boolean;
   ignoreDependencies: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
-  issueGenerationOptions: IssueGenerationOptions;
+  issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
 };
 
 /**
