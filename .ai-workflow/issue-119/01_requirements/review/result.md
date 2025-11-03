@@ -1,60 +1,66 @@
 # 要件定義レビュー
 
 ## 品質ゲート評価
-- [ ] 機能要件が明確に記載されている: **PASS** - FR-1〜FR-5で対象機能・入力・出力が具体的に定義されています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:19`）。
-- [ ] 受け入れ基準が定義されている: **PASS** - 各FRに対してGiven/When/Then形式の検証条件が揃っています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:41`）。
-- [ ] スコープが明確である: **PASS** - スコープ外項目が列挙され、境界が明示されています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:63`）。
-- [ ] 論理的な矛盾がない: **PASS** - 非機能要件と機能要件が整合し、相互に矛盾は見当たりません（`.ai-workflow/issue-119/01_requirements/output/requirements.md:25`）。
+
+- [x] 機能要件が明確に記載されている: **PASS** - FR-1〜FR-5が具体的な挙動・入出力と優先度を伴って定義されており、既存機能との連携も明示されています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:38-45`）。
+- [x] 受け入れ基準が定義されている: **PASS** - 各FRにGiven/When/Then形式の受け入れ基準が用意され、検証観点が明確です（requirements.md:100-119）。
+- [x] スコープが明確である: **PASS** - スコープ外項目が列挙され、対象範囲が絞り込まれています（requirements.md:121-124）。
+- [x] 論理的な矛盾がない: **PASS** - LLM設定・フォールバック・ログ要件が一貫しており、Planning文書との齟齬もありません（requirements.md:3-20,82-118）。
 
 **品質ゲート総合判定: PASS**
 
-## Planning Phaseチェックリスト照合結果: FAIL
-以下のタスクが未完了です：
-- [ ] Task 1-1: 現行フォローアップIssue生成フローの分析  
-  - 不足: 要件定義書に `issue-client.ts` のシーケンス整理や `RemainingTask`/`IssueContext` のデータフローが盛り込まれていません（`.ai-workflow/issue-119/00_planning/output/planning.md:36` → `.ai-workflow/issue-119/01_requirements/output/requirements.md`全体）。
-- [ ] Task 1-2: LLM統合要件の明確化  
-  - 不足: API利用要件のうちモデル候補やトークン制限が具体化されておらず、洗い出しが未完です（`.ai-workflow/issue-119/00_planning/output/planning.md:40` と `.ai-workflow/issue-119/01_requirements/output/requirements.md:22`）。
-
 ## 詳細レビュー
 
+- **Planning Phaseチェック**: PASS（Task 1-1, Task 1-2 が要件定義書に反映済み。`requirements.md:14-36` と `requirements.md:52-91` でエビデンス確認、`planning.md:36-43` を更新）
+
 ### 1. 具体性（Specificity）
-- 良い点: タイトル文字数、本文セクション構成、ログ内容などが明文化されており実装判断がしやすいです（`.ai-workflow/issue-119/01_requirements/output/requirements.md:19`）。
-- 課題: モデル選択肢やトークン上限が未定義で、LLM呼び出し条件が曖昧です（`.ai-workflow/issue-119/01_requirements/output/requirements.md:22`）。
+- **Good**: 既存フロー分解とデータ項目整理でLLM統合時に扱う値が明確です（requirements.md:14-36）。
+- **Good**: 各FRが機能境界・入出力・ログ内容まで踏み込んで記述され、曖昧表現が少ないです（requirements.md:38-45,62-76）。
 
 ### 2. 完全性（Completeness）
-- 良い点: 非機能要件・制約・前提が幅広くカバーされています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:25`、`:31`、`:36`）。
-- 課題: 現行フロー分析やデータフロー整理が欠落し、PlanningのTask 1-1が満たされていません。
+- **Good**: 機能/非機能/制約/前提/スコープ外が網羅され、Planningの要件抽出が反映されています（requirements.md:52-124）。
+- **Note**: コスト管理は「指針を遵守」の記述に留まるため、必要なら将来的に具体的な上限値やモニタリング方法を追加すると更に明確です。
 
 ### 3. 検証可能性（Verifiability）
-- 良い点: 受け入れ基準がテスト観点に直結しており検証可能です（`.ai-workflow/issue-119/01_requirements/output/requirements.md:41`）。
-- 課題: モデル・トークン制限が不明なため、テストケースの境界条件を定義しきれません。
+- **Good**: FRごとの受け入れ基準で成功/失敗条件が判断できます（requirements.md:100-119）。
+- **Good**: トークン制限やタイムアウト数値が定義されており、テスト観点に落とし込みやすいです（requirements.md:62-88）。
 
 ### 4. 整合性（Consistency）
-- 良い点: フォールバック要件と可用性要件が一致しており矛盾は見当たりません（`.ai-workflow/issue-119/01_requirements/output/requirements.md:21`、`:28`）。
+- **Good**: Planningで示したEXTEND戦略・リスク認識と整合し、既存フォールバック挙動と矛盾がありません（requirements.md:3-7,38-45）。
+- **Good**: 既存CLI構成や型定義との整合が非機能・制約で担保されています（requirements.md:70-92）。
 
 ### 5. 実現可能性（Feasibility）
-- 良い点: 既存スタックや依存関係を前提にしており実装可能性は高いです（`.ai-workflow/issue-119/01_requirements/output/requirements.md:31`）。
+- **Good**: 既存スタック・依存を踏まえた実装方針が記載され、段階的移行が想定されています（requirements.md:70-97）。
+- **Good**: リトライ上限・単発呼び出し設計など、実装負荷と安定性のバランスが取れています（requirements.md:80-88）。
 
 ### 6. 優先度（Priority）
-- 良い点: 各機能要件に優先度が付されMVP範囲が判断できます（`.ai-workflow/issue-119/01_requirements/output/requirements.md:17`）。
+- **Good**: FRごとに優先度（高/中）が明示され、MVP範囲の判断が容易です（requirements.md:38-45）。
+- **Note**: リリース段階（例: MVPで必須・後追い）を明示するとロードマップ連携がさらにスムーズです。
 
 ### 7. セキュリティ（Security）
-- 良い点: APIキー取り扱いと機密情報フィルタが定義されています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:27`）。
+- **Good**: APIキー管理や機密情報フィルタリング方針が整理されています（requirements.md:70-87）。
+- **Note**: ログ出力のサンプルやマスキングルールを別途定義できるとレビュー時の解釈差異が減りそうです。
 
 ### 8. パフォーマンス（Performance）
-- 良い点: レスポンス時間とリトライ上限が設定され、監視ログ要件とも整合しています（`.ai-workflow/issue-119/01_requirements/output/requirements.md:25`、`:23`）。
+- **Good**: 15秒平均・30秒タイムアウトなどの性能目標が明示され、リトライ挙動も定義済みです（requirements.md:70-88）。
+- **Suggestion**: 実測値の監視方法やテレメトリ項目を受け入れ基準に紐づけると、達成確認がより確実になります。
 
 ## ブロッカー（BLOCKER）
-- Task 1-1が未完了：現行 `issue-client.ts` の処理フロー・データフローが要件定義書に反映されていません（`.ai-workflow/issue-119/00_planning/output/planning.md:36`）。
-- Task 1-2が未完了：モデル候補やトークン制限などAPI利用要件の具体化が不足しています（`.ai-workflow/issue-119/00_planning/output/planning.md:40`、`.ai-workflow/issue-119/01_requirements/output/requirements.md:22`）。
+
+**次フェーズに進めない重大な問題**
+
+なし
 
 ## 改善提案（SUGGESTION）
-- 現行フローのシーケンス図またはテキスト説明を追加し、`RemainingTask` と `IssueContext` の項目がLLM入力へどう流れるかを明示してください。
-- LLM利用条件としてサポートするモデル名・max tokens・プロンプト/レスポンス制限を仕様化し、設定項目のデフォルト値も明記すると実装とテストが揃えやすくなります。
-- ログ要件に関して、警告ログの構造（例: コード、メッセージ、フォールバック種別）を定義すると一貫した監査が可能になります。
+
+**次フェーズに進めるが、改善が望ましい事項**
+
+- パフォーマンス目標（平均15秒/タイムアウト30秒）について、計測・報告の方法を受け入れ基準またはテレメトリ要件として明記すると検証容易性が向上します（requirements.md:70-88）。
+- コスト/レート制限面の運用条件（1日上限や再試行通知方法など）を追加すると、費用管理の観点で合意形成が取りやすくなります（requirements.md:80-88,90-92）。
 
 ## 総合評価
-ドキュメント自体の品質ゲートは満たしていますが、Planning Phaseで要求された要件整理タスクが未完了のままです。この状態では現行フローの理解とLLM設定条件が不十分で、設計フェーズへ進むと手戻りリスクが高いと判断します。上記ブロッカーを解消したうえで再提出してください。
+
+要件定義はPlanning成果と整合し、機能・非機能・受け入れ基準まで一貫して具体化されています。ブロッカーはありませんが、性能・コスト面の検証方法を記述しておくと次フェーズの設計・テストでの合意形成がよりスムーズになります。
 
 ---
-判定: FAIL
+**判定: PASS_WITH_SUGGESTIONS**
