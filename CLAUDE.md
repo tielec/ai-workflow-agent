@@ -160,6 +160,56 @@ node dist/index.js execute \
 - 本文: 5つの必須セクション（背景、実行内容、テスト、注意事項、参考情報）を含むMarkdown形式
 - バリデーション: タイトル長、セクション存在チェック、最小文字数検証
 
+### 自動Issue作成（v0.5.0、Issue #121で追加）
+```bash
+# リポジトリのコードを自動分析してバグIssueを作成
+node dist/index.js auto-issue --category bug --limit 5 --dry-run
+
+# 実際にIssueを作成（ドライランなし）
+node dist/index.js auto-issue --category bug --limit 3
+
+# 類似度閾値を調整
+node dist/index.js auto-issue \
+  --category bug \
+  --limit 10 \
+  --similarity-threshold 0.7
+
+# すべてのカテゴリで分析（Phase 1ではbugのみ実装）
+node dist/index.js auto-issue --category all --limit 5
+```
+
+**主な機能（Phase 1 MVP）**:
+- **バグ検出**: TypeScript AST解析（ts-morph）によるバグパターン検出
+  - エラーハンドリング不足（async関数のtry-catch欠如）
+  - 型安全性問題（any型の使用）
+  - リソースリーク（createReadStream未クローズ）
+- **重複検出**: 2段階重複判定（コサイン類似度0.6 + LLM意味的判定0.8）
+- **Issue自動生成**: OpenAI API（gpt-4o-mini）による詳細なIssue本文生成
+- **セキュリティ**: SecretMasker統合（APIキー・トークン自動マスク）
+
+**オプション**:
+- `--category <type>`: Issue検出カテゴリ（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
+  - Phase 1ではbugのみ実装、Phase 2/3でrefactor/enhancementを追加予定
+- `--limit <number>`: 作成するIssue上限（1〜50、デフォルト: 5）
+- `--dry-run`: 実際には作成せず、候補のみ表示
+- `--similarity-threshold <number>`: 重複判定の類似度閾値（0.0〜1.0、デフォルト: 0.8）
+- `--creative-mode`: 創造的提案モード（Phase 3のenhancementカテゴリ専用、未実装）
+
+**環境変数**:
+- `OPENAI_API_KEY`: OpenAI APIキー（重複検出・Issue生成に使用、必須）
+- `GITHUB_TOKEN`: GitHub APIトークン（既存Issue取得・新規Issue作成に使用、必須）
+- `AUTO_ISSUE_DEFAULT_LIMIT`: デフォルトIssue作成上限（オプション）
+- `AUTO_ISSUE_SIMILARITY_THRESHOLD`: デフォルト類似度閾値（オプション）
+
+**コアエンジン**（src/core/）:
+- `repository-analyzer.ts`: TypeScript AST解析によるバグ検出（約270行）
+- `issue-deduplicator.ts`: 2段階重複検出（コサイン類似度 + LLM判定、約200行）
+- `issue-generator.ts`: Issue本文AI生成（OpenAI統合、約180行）
+
+**将来拡張（Phase 2/3）**:
+- Phase 2: リファクタリング検出（複雑度、コード重複、命名規約違反）
+- Phase 3: 機能拡張提案（創造的提案モード、AI駆動の提案生成）
+
 ### エージェントモード
 - `--agent auto`（デフォルト）: `CODEX_API_KEY` が設定されていれば Codex を使用、なければ Claude にフォールバック
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）
@@ -203,6 +253,10 @@ node dist/index.js execute \
 - **`src/commands/review.ts`**: フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。
 - **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。
 - **`src/commands/rollback.ts`**: フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。
+- **`src/commands/auto-issue.ts`**: 自動Issue作成コマンド処理（約185行、v0.5.0、Issue #121で追加）。リポジトリのコードを自動分析し、バグ・リファクタリング・改善提案のIssueを作成。Phase 1 (MVP)ではバグ検出機能のみ実装。`handleAutoIssueCommand()` を提供。3つのコアエンジン（RepositoryAnalyzer、IssueDeduplicator、IssueGenerator）を統合したワークフロー。
+- **`src/core/repository-analyzer.ts`**: リポジトリ分析エンジン（約270行、v0.5.0、Issue #121で追加）。TypeScript AST解析（ts-morph）によるバグ検出を担当。Phase 1では3つのパターン検出（エラーハンドリング不足、型安全性問題、リソースリーク）。`analyzeForBugs()`, `detectMissingErrorHandling()`, `detectTypeSafetyIssues()`, `detectResourceLeaks()` を提供。Phase 2/3でリファクタリング・改善提案機能を追加予定。
+- **`src/core/issue-deduplicator.ts`**: Issue重複検出エンジン（約200行、v0.5.0、Issue #121で追加）。2段階の重複判定（コサイン類似度0.6 + LLM精密判定0.8）を担当。`findSimilarIssues()`, `filterByCosineSimilarity()`, `calculateSemanticSimilarity()`, `textToVector()` を提供。キャッシング機構によるコスト削減実装。cosine-similarityライブラリとOpenAI API (gpt-4o-mini) を使用。
+- **`src/core/issue-generator.ts`**: Issue生成エンジン（約180行、v0.5.0、Issue #121で追加）。OpenAI API統合によるIssue内容生成を担当。`generateIssues()`, `generateIssueContent()`, `fallbackTemplate()`, `getLabels()` を提供。AI生成失敗時のフォールバックテンプレート、SecretMasker統合、GitHub API統合（ラベル: auto-generated, bug等）。gpt-4o-miniモデルを使用し、検出箇所のコード・ファイル名・行番号を含む詳細な説明を生成。
 - **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
 - **`src/core/phase-factory.ts`**: フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。
 - **`src/types/commands.ts`**: コマンド関連の型定義（約240行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry等の型を提供。コマンドハンドラの型安全性を確保。

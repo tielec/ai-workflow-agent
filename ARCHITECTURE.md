@@ -82,31 +82,31 @@ src/commands/auto-issue.ts (自動Issue作成コマンド処理、v0.5.0、Issue
  │   └─ IssueGenerator … Issue生成（OpenAI API）
  └─ CLI options: category, limit, dry-run, similarity-threshold, creative-mode
 
-src/engines/repository-analyzer.ts (リポジトリ分析エンジン、v0.5.0、Issue #121で追加)
- ├─ analyzeBugs() … バグ検出（Phase 1 MVP）
+src/core/repository-analyzer.ts (リポジトリ分析エンジン、v0.5.0、Issue #121で追加)
+ ├─ analyzeForBugs() … バグ検出（Phase 1 MVP）
  ├─ TypeScript AST解析（ts-morph）
- │   ├─ detectNullChecks() … Null/Undefinedチェック漏れ
- │   ├─ detectTypeAssertions() … 型アサーションの危険な使用
- │   ├─ detectAsyncErrors() … Promise/asyncのエラーハンドリング不足
- │   └─ detectTryCatch() … 例外処理の欠如
- └─ 将来拡張: analyzeRefactoring() (Phase 2), analyzeEnhancements() (Phase 3)
+ │   ├─ detectMissingErrorHandling() … エラーハンドリング不足の検出
+ │   ├─ detectTypeSafetyIssues() … 型安全性の問題検出（any型使用）
+ │   └─ detectResourceLeaks() … リソースリーク検出（createReadStream未クローズ）
+ └─ 将来拡張: analyzeForRefactoring() (Phase 2), analyzeForEnhancements() (Phase 3)
 
-src/engines/issue-deduplicator.ts (Issue重複検出エンジン、v0.5.0、Issue #121で追加)
- ├─ filterDuplicates() … 2段階の重複検出
- ├─ Stage 1: コサイン類似度（高速フィルタリング）
- │   ├─ vectorizeText() … TF-IDFベクトル化
+src/core/issue-deduplicator.ts (Issue重複検出エンジン、v0.5.0、Issue #121で追加)
+ ├─ findSimilarIssues() … 2段階の重複検出
+ ├─ Stage 1: コサイン類似度（高速フィルタリング、閾値0.6）
+ │   ├─ textToVector() … TF-IDFベクトル化
  │   └─ cosine-similarity ライブラリ
- └─ Stage 2: LLM判定（精密判定）
+ └─ Stage 2: LLM判定（精密判定、閾値0.8）
      ├─ OpenAI API (gpt-4o-mini)
-     └─ セマンティック分析
+     ├─ セマンティック分析
+     └─ キャッシング機構（コスト削減）
 
-src/engines/issue-generator.ts (Issue生成エンジン、v0.5.0、Issue #121で追加)
- ├─ generateIssue() … Issue内容生成
- ├─ OpenAI API統合 (gpt-4o-mini)
- │   ├─ generateTitle() … タイトル生成
- │   └─ generateBody() … 本文生成（コード・ファイル名・行番号含む）
+src/core/issue-generator.ts (Issue生成エンジン、v0.5.0、Issue #121で追加)
+ ├─ generateIssues() … Issue一括生成
+ ├─ generateIssueContent() … Issue本文のAI生成
+ │   ├─ OpenAI API統合 (gpt-4o-mini)
+ │   └─ フォールバックテンプレート（AI失敗時）
  ├─ SecretMasker統合（トークン自動マスク）
- └─ GitHub API統合（ラベル: bug, auto-generated）
+ └─ GitHub API統合（ラベル: auto-generated, bug等）
 
 src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
  ├─ parseIssueUrl() … GitHub Issue URLからリポジトリ情報を抽出
@@ -135,10 +135,10 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。 |
-| `src/commands/auto-issue.ts` | 自動Issue作成コマンド処理（約350行、v0.5.0、Issue #121で追加）。リポジトリのコードを自動分析し、バグ・リファクタリング・改善提案のIssueを作成。Phase 1 (MVP)ではバグ検出機能のみ実装。`handleAutoIssueCommand()` を提供。3つのコアエンジン（RepositoryAnalyzer、IssueDeduplicator、IssueGenerator）を統合したワークフロー。CLI options: `--category`, `--limit`, `--dry-run`, `--similarity-threshold`, `--creative-mode`。 |
-| `src/engines/repository-analyzer.ts` | リポジトリ分析エンジン（約400行、v0.5.0、Issue #121で追加）。TypeScript AST解析（ts-morph）によるバグ検出を担当。Phase 1では4つのパターン検出（Null/Undefinedチェック漏れ、型アサーションの危険な使用、Promise/asyncのエラーハンドリング不足、例外処理の欠如）。`analyzeBugs()`, `detectNullChecks()`, `detectTypeAssertions()`, `detectAsyncErrors()`, `detectTryCatch()` を提供。Phase 2/3でリファクタリング・改善提案機能を追加予定。 |
-| `src/engines/issue-deduplicator.ts` | Issue重複検出エンジン（約300行、v0.5.0、Issue #121で追加）。2段階の重複判定（コサイン類似度による高速フィルタリング + LLMによる精密判定）を担当。`filterDuplicates()`, `vectorizeText()`, `calculateSimilarity()`, `semanticDuplicateCheck()` を提供。cosine-similarity ライブラリとOpenAI API (gpt-4o-mini) を使用。 |
-| `src/engines/issue-generator.ts` | Issue生成エンジン（約350行、v0.5.0、Issue #121で追加）。OpenAI API統合によるIssue内容生成を担当。`generateIssue()`, `generateTitle()`, `generateBody()`, `createGitHubIssue()` を提供。SecretMasker統合（トークン自動マスク）、GitHub API統合（ラベル: `bug`, `auto-generated`）。gpt-4o-miniモデルを使用し、検出箇所のコード・ファイル名・行番号を含む詳細な説明を生成。 |
+| `src/commands/auto-issue.ts` | 自動Issue作成コマンド処理（約185行、v0.5.0、Issue #121で追加）。リポジトリのコードを自動分析し、バグ・リファクタリング・改善提案のIssueを作成。Phase 1 (MVP)ではバグ検出機能のみ実装。`handleAutoIssueCommand()` を提供。3つのコアエンジン（RepositoryAnalyzer、IssueDeduplicator、IssueGenerator）を統合したワークフロー。CLI options: `--category`, `--limit`, `--dry-run`, `--similarity-threshold`, `--creative-mode`。 |
+| `src/core/repository-analyzer.ts` | リポジトリ分析エンジン（約270行、v0.5.0、Issue #121で追加）。TypeScript AST解析（ts-morph）によるバグ検出を担当。Phase 1では3つのパターン検出（エラーハンドリング不足、型安全性問題（any型）、リソースリーク（createReadStream未クローズ））。`analyzeForBugs()`, `detectMissingErrorHandling()`, `detectTypeSafetyIssues()`, `detectResourceLeaks()` を提供。Phase 2/3でリファクタリング・改善提案機能を追加予定。 |
+| `src/core/issue-deduplicator.ts` | Issue重複検出エンジン（約200行、v0.5.0、Issue #121で追加）。2段階の重複判定（コサイン類似度による高速フィルタリング（閾値0.6） + LLMによる精密判定（閾値0.8））を担当。`findSimilarIssues()`, `filterByCosineSimilarity()`, `calculateSemanticSimilarity()`, `textToVector()` を提供。キャッシング機構によるコスト削減実装。cosine-similarity ライブラリとOpenAI API (gpt-4o-mini) を使用。 |
+| `src/core/issue-generator.ts` | Issue生成エンジン（約180行、v0.5.0、Issue #121で追加）。OpenAI API統合によるIssue内容生成を担当。`generateIssues()`, `generateIssueContent()`, `fallbackTemplate()`, `getLabels()` を提供。AI生成失敗時のフォールバックテンプレート、SecretMasker統合（トークン自動マスク）、GitHub API統合（ラベル: `auto-generated`, `bug`等）。gpt-4o-miniモデルを使用し、検出箇所のコード・ファイル名・行番号を含む詳細な説明を生成。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
