@@ -32,7 +32,7 @@ describe('RepositoryAnalyzer', () => {
 
       // Then: エラーハンドリング欠如が検出される
       const missingErrorHandling = candidates.filter((c) =>
-        c.title.includes('Missing error handling'),
+        c.title.includes('エラーハンドリングの欠如'),
       );
 
       expect(missingErrorHandling.length).toBeGreaterThan(0);
@@ -56,7 +56,7 @@ describe('RepositoryAnalyzer', () => {
 
       // Then: fetchDataWithTryCatch関数は検出されない
       const falsePositives = candidates.filter(
-        (c) => c.title.includes('fetchDataWithTryCatch') && c.title.includes('Missing error handling'),
+        (c) => c.title.includes('fetchDataWithTryCatch') && c.title.includes('エラーハンドリングの欠如'),
       );
 
       expect(falsePositives.length).toBe(0);
@@ -71,13 +71,16 @@ describe('RepositoryAnalyzer', () => {
       const candidates = await analyzer.analyzeForBugs();
 
       // Then: any型使用が検出される
-      const typeSafetyIssues = candidates.filter((c) => c.title.includes('Type safety issue'));
+      const typeSafetyIssues = candidates.filter((c) => c.title.includes('型安全性の問題'));
 
       expect(typeSafetyIssues.length).toBeGreaterThan(0);
 
-      const firstIssue = typeSafetyIssues[0];
+      // type-safety-issues.tsからany型が検出されることを確認
+      const typeIssuesInTargetFile = typeSafetyIssues.filter((c) => c.file.includes('type-safety-issues.ts'));
+      expect(typeIssuesInTargetFile.length).toBeGreaterThan(0);
+
+      const firstIssue = typeIssuesInTargetFile[0];
       expect(firstIssue.category).toBe(IssueCategory.BUG);
-      expect(firstIssue.file).toContain('type-safety-issues.ts');
       expect(firstIssue.confidence).toBeGreaterThanOrEqual(0.6);
       expect(firstIssue.priority).toBe('Medium');
     });
@@ -91,7 +94,7 @@ describe('RepositoryAnalyzer', () => {
       const candidates = await analyzer.analyzeForBugs();
 
       // Then: リソースリークが検出される
-      const resourceLeaks = candidates.filter((c) => c.title.includes('resource leak'));
+      const resourceLeaks = candidates.filter((c) => c.title.includes('リソースリーク'));
 
       expect(resourceLeaks.length).toBeGreaterThan(0);
 

@@ -3,7 +3,7 @@
  * Phase 5 Test Implementation: Issue #121
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { handleAutoIssueCommand } from '../../../src/commands/auto-issue.js';
 import { IssueCategory, type AutoIssueOptions } from '../../../src/types.js';
 
@@ -16,6 +16,7 @@ describe('AutoIssueCommandHandler', () => {
   let mockRepositoryAnalyzer: any;
   let mockIssueDeduplicator: any;
   let mockIssueGenerator: any;
+  let processExitSpy: jest.SpiedFunction<typeof process.exit>;
 
   beforeEach(() => {
     // モックの初期化
@@ -32,6 +33,16 @@ describe('AutoIssueCommandHandler', () => {
     mockIssueGenerator = {
       generateIssues: jest.fn(),
     };
+
+    // process.exitのモック
+    processExitSpy = jest.spyOn(process, 'exit').mockImplementation(((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as any);
+  });
+
+  afterEach(() => {
+    // モックのクリーンアップ
+    jest.restoreAllMocks();
   });
 
   describe('handleAutoIssueCommand', () => {

@@ -19,14 +19,13 @@ export class RepositoryAnalyzer {
         tsConfigFilePath: path.join(this.repoRoot, 'tsconfig.json'),
       });
 
-      // プロジェクトにソースファイルを追加
-      this.project.addSourceFilesAtPaths('src/**/*.ts');
+      // tsconfig.jsonのincludeパターンに従ってソースファイルが自動的に追加される
       logger.debug(`Loaded ${this.project.getSourceFiles().length} TypeScript files.`);
     } catch (error) {
       // tsconfig.jsonが存在しない場合は、デフォルト設定でプロジェクトを作成
       logger.warn('tsconfig.json not found. Using default TypeScript configuration.');
       this.project = new Project();
-      this.project.addSourceFilesAtPaths(path.join(this.repoRoot, 'src/**/*.ts'));
+      this.project.addSourceFilesAtPaths(path.join(this.repoRoot, '**/*.ts'));
       logger.debug(`Loaded ${this.project.getSourceFiles().length} TypeScript files.`);
     }
   }
@@ -63,9 +62,9 @@ export class RepositoryAnalyzer {
 
     // 非同期関数を取得
     const asyncFunctions = [
-      ...sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction).filter((fn) => fn.isAsync()),
-      ...sourceFile.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).filter((fn) => fn.isAsync()),
-      ...sourceFile.getDescendantsOfKind(SyntaxKind.MethodDeclaration).filter((fn) => fn.isAsync()),
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.ArrowFunction).filter((fn: import('ts-morph').ArrowFunction) => fn.isAsync()),
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.FunctionDeclaration).filter((fn: import('ts-morph').FunctionDeclaration) => fn.isAsync()),
+      ...sourceFile.getDescendantsOfKind(SyntaxKind.MethodDeclaration).filter((fn: import('ts-morph').MethodDeclaration) => fn.isAsync()),
     ];
 
     for (const fn of asyncFunctions) {
