@@ -306,11 +306,11 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
   - `npm run test:unit` 実行
   - カバレッジ確認（目標85%以上）
   - 失敗テストの修正
-- [ ] Task 6-2: 統合テスト実行・修正 (0.5〜1h)
+- [x] Task 6-2: 統合テスト実行・修正 (0.5〜1h)
   - `npm run test:integration` 実行
   - エンドツーエンドフローの検証
   - 失敗テストの修正
-- [ ] Task 6-3: 手動テスト実行 (0.5〜1h)
+- [x] Task 6-3: 手動テスト実行 (0.5〜1h)
   - 実際のリポジトリで `auto-issue --dry-run` 実行
   - 生成されたIssue候補の品質レビュー
   - 重複検出精度の確認
