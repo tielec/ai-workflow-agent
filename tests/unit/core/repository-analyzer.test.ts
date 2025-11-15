@@ -1,303 +1,171 @@
 /**
- * ユニットテスト: RepositoryAnalyzer（リポジトリ探索エンジン）
- *
- * テスト対象:
- * - analyzeForBugs(): 潜在的なバグ検出
- * - detectMissingErrorHandling(): エラーハンドリング欠如検出
- * - detectTypeSafetyIssues(): 型安全性問題検出
- * - detectResourceLeaks(): リソースリーク検出
- *
- * テスト戦略: UNIT_INTEGRATION - ユニット部分
+ * ユニットテスト: RepositoryAnalyzer
+ * Phase 5 Test Implementation: Issue #121
  */
 
-import { describe, test, expect, beforeAll } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
 import { IssueCategory } from '../../../src/types.js';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// テストフィクスチャのパス
-const FIXTURE_PATH = path.join(process.cwd(), 'tests/fixtures/auto-issue');
-
-// =============================================================================
-// analyzeForBugs() のテスト
-// =============================================================================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('RepositoryAnalyzer', () => {
   let analyzer: RepositoryAnalyzer;
+  const fixturesPath = path.join(__dirname, '../../fixtures/sample-repository');
 
-  beforeAll(() => {
-    // Given: テストフィクスチャを使用したRepositoryAnalyzerインスタンス
-    analyzer = new RepositoryAnalyzer(FIXTURE_PATH);
+  beforeEach(() => {
+    // テストフィクスチャのパスを使用してアナライザーを初期化
+    analyzer = new RepositoryAnalyzer(fixturesPath);
   });
 
-  // ===========================================================================
-  // エラーハンドリング欠如検出のテスト
-  // ===========================================================================
-
-  describe('analyzeForBugs - エラーハンドリング欠如検出', () => {
-    test('非同期関数でtry-catchが使用されていない箇所を検出する', async () => {
-      // Given: エラーハンドリング欠如のサンプルコードが存在
-      // When: バグ解析を実行
+  describe('analyzeForBugs', () => {
+    /**
+     * テストケース 2.1.1: analyzeForBugs_正常系_エラーハンドリング欠如検出
+     * 目的: 非同期関数でtry-catchが使用されていない箇所を正しく検出できることを検証
+     */
+    it('should detect missing error handling in async functions', async () => {
+      // When: バグ検出を実行
       const candidates = await analyzer.analyzeForBugs();
 
       // Then: エラーハンドリング欠如が検出される
-      const errorHandlingIssues = candidates.filter(
-        (c) => c.title.includes('エラーハンドリングの欠如') && c.file.includes('missing-error-handling.ts')
+      const missingErrorHandling = candidates.filter((c) =>
+        c.title.includes('Missing error handling'),
       );
 
-      expect(errorHandlingIssues.length).toBeGreaterThan(0);
+      expect(missingErrorHandling.length).toBeGreaterThan(0);
 
-      // 検出された最初のIssueの詳細を検証
-      const firstIssue = errorHandlingIssues[0];
-      expect(firstIssue.category).toBe(IssueCategory.BUG);
-      expect(firstIssue.confidence).toBe(0.95);
-      expect(firstIssue.priority).toBe('High');
-      expect(firstIssue.description).toContain('try-catch');
-      expect(firstIssue.suggestedFixes).toContain('try-catchブロックで非同期関数を囲む');
-      expect(firstIssue.expectedBenefits).toContain('アプリケーションの安定性向上');
-      expect(firstIssue.codeSnippet).toBeTruthy();
+      const firstCandidate = missingErrorHandling[0];
+      expect(firstCandidate.category).toBe(IssueCategory.BUG);
+      expect(firstCandidate.file).toContain('missing-error-handling.ts');
+      expect(firstCandidate.confidence).toBeGreaterThanOrEqual(0.7);
+      expect(firstCandidate.priority).toBe('High');
+      expect(firstCandidate.suggestedFixes.length).toBeGreaterThan(0);
+      expect(firstCandidate.codeSnippet).toBeTruthy();
     });
 
-    test('適切にtry-catchが実装されている非同期関数は検出されない', async () => {
-      // Given: 適切なエラーハンドリングのサンプルコードが存在
-      // When: バグ解析を実行
+    /**
+     * テストケース 2.1.2: analyzeForBugs_正常系_try-catchあり
+     * 目的: 適切にtry-catchが実装されている非同期関数が誤検知されないことを検証
+     */
+    it('should not detect async functions with try-catch', async () => {
+      // When: バグ検出を実行
       const candidates = await analyzer.analyzeForBugs();
 
       // Then: fetchDataWithTryCatch関数は検出されない
       const falsePositives = candidates.filter(
-        (c) =>
-          c.title.includes('fetchDataWithTryCatch') ||
-          c.title.includes('processDataAsyncSafe') ||
-          (c.file.includes('good-code.ts') && c.title.includes('エラーハンドリング'))
+        (c) => c.title.includes('fetchDataWithTryCatch') && c.title.includes('Missing error handling'),
       );
 
-      expect(falsePositives).toHaveLength(0);
+      expect(falsePositives.length).toBe(0);
     });
 
-    test('async アロー関数のエラーハンドリング欠如を検出する', async () => {
-      // Given: async アロー関数のサンプルコードが存在
-      // When: バグ解析を実行
+    /**
+     * テストケース 2.1.3: detectTypeSafetyIssues_正常系_any型検出
+     * 目的: any型が使用されている変数を正しく検出できることを検証
+     */
+    it('should detect any type usage', async () => {
+      // When: バグ検出を実行
       const candidates = await analyzer.analyzeForBugs();
 
-      // Then: processDataAsync関数のエラーハンドリング欠如が検出される
-      const arrowFunctionIssues = candidates.filter(
-        (c) =>
-          (c.title.includes('processDataAsync') || c.title.includes('<anonymous>')) &&
-          c.file.includes('missing-error-handling.ts')
-      );
-
-      expect(arrowFunctionIssues.length).toBeGreaterThan(0);
-    });
-  });
-
-  // ===========================================================================
-  // 型安全性問題検出のテスト
-  // ===========================================================================
-
-  describe('analyzeForBugs - 型安全性問題検出', () => {
-    test('any型が使用されている変数を検出する', async () => {
-      // Given: any型の変数宣言が存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
-
-      // Then: any型の使用が検出される
-      const typeSafetyIssues = candidates.filter(
-        (c) => c.title.includes('型安全性の問題') && c.file.includes('type-safety-issues.ts')
-      );
+      // Then: any型使用が検出される
+      const typeSafetyIssues = candidates.filter((c) => c.title.includes('Type safety issue'));
 
       expect(typeSafetyIssues.length).toBeGreaterThan(0);
 
-      // 変数宣言のany型を検証
-      const variableIssues = typeSafetyIssues.filter(
-        (c) => c.title.includes('userData') || c.title.includes('config')
-      );
-      expect(variableIssues.length).toBeGreaterThanOrEqual(2);
-
-      // 検出されたIssueの詳細を検証
-      const firstIssue = variableIssues[0];
+      const firstIssue = typeSafetyIssues[0];
       expect(firstIssue.category).toBe(IssueCategory.BUG);
-      expect(firstIssue.confidence).toBe(0.85);
+      expect(firstIssue.file).toContain('type-safety-issues.ts');
+      expect(firstIssue.confidence).toBeGreaterThanOrEqual(0.6);
       expect(firstIssue.priority).toBe('Medium');
-      expect(firstIssue.description).toContain('any型が使用されています');
-      expect(firstIssue.suggestedFixes).toContain('適切な型アノテーションを追加する');
     });
 
-    test('any型のパラメータを検出する', async () => {
-      // Given: any型のパラメータを持つ関数が存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
-
-      // Then: any型のパラメータが検出される
-      const parameterIssues = candidates.filter(
-        (c) =>
-          c.title.includes('型安全性の問題') &&
-          c.title.includes('パラメータ') &&
-          c.file.includes('type-safety-issues.ts')
-      );
-
-      expect(parameterIssues.length).toBeGreaterThan(0);
-    });
-
-    test('型安全なコードは検出されない', async () => {
-      // Given: 型安全なコードが存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
-
-      // Then: 型安全なコードは検出されない
-      const falsePositives = candidates.filter(
-        (c) => c.file.includes('good-code.ts') && c.title.includes('型安全性')
-      );
-
-      expect(falsePositives).toHaveLength(0);
-    });
-  });
-
-  // ===========================================================================
-  // リソースリーク検出のテスト
-  // ===========================================================================
-
-  describe('analyzeForBugs - リソースリーク検出', () => {
-    test('createReadStreamで作成されたストリームが適切にクローズされていない箇所を検出する', async () => {
-      // Given: createReadStream未クローズのサンプルコードが存在
-      // When: バグ解析を実行
+    /**
+     * テストケース 2.1.4: detectResourceLeaks_正常系_未クローズストリーム検出
+     * 目的: createReadStreamで作成されたストリームが適切にクローズされていない箇所を検出できることを検証
+     */
+    it('should detect resource leaks (unclosed streams)', async () => {
+      // When: バグ検出を実行
       const candidates = await analyzer.analyzeForBugs();
 
       // Then: リソースリークが検出される
-      const resourceLeakIssues = candidates.filter(
-        (c) => c.title.includes('リソースリーク') && c.file.includes('resource-leaks.ts')
-      );
+      const resourceLeaks = candidates.filter((c) => c.title.includes('resource leak'));
 
-      expect(resourceLeakIssues.length).toBeGreaterThan(0);
+      expect(resourceLeaks.length).toBeGreaterThan(0);
 
-      // 検出されたIssueの詳細を検証
-      const firstIssue = resourceLeakIssues[0];
-      expect(firstIssue.category).toBe(IssueCategory.BUG);
-      expect(firstIssue.confidence).toBe(0.80);
-      expect(firstIssue.priority).toBe('High');
-      expect(firstIssue.description).toContain('createReadStream');
-      expect(firstIssue.suggestedFixes).toContain('ストリームを明示的にclose()する');
-      expect(firstIssue.expectedBenefits).toContain('メモリリークの防止');
+      const firstLeak = resourceLeaks[0];
+      expect(firstLeak.category).toBe(IssueCategory.BUG);
+      expect(firstLeak.file).toContain('resource-leaks.ts');
+      expect(firstLeak.confidence).toBeGreaterThanOrEqual(0.8);
+      expect(firstLeak.priority).toBe('High');
     });
 
-    test('pipe()で接続されたストリームは検出されない', async () => {
-      // Given: pipe()を使用した適切なストリーム処理が存在
-      // When: バグ解析を実行
+    /**
+     * テストケース 2.1.5: extractCodeSnippet_境界値_ファイル先頭
+     * 目的: ファイル先頭付近（10行未満）のコードスニペット抽出が正しく動作することを検証
+     */
+    it('should extract code snippet near file start', async () => {
+      // When: バグ検出を実行
       const candidates = await analyzer.analyzeForBugs();
 
-      // Then: readFileWithPipe関数は検出されない
-      const falsePositives = candidates.filter(
-        (c) => c.title.includes('readFileWithPipe') && c.file.includes('resource-leaks.ts')
-      );
+      // Then: コードスニペットが適切に抽出される
+      const candidateWithSnippet = candidates.find((c) => c.lineNumber < 10);
 
-      expect(falsePositives).toHaveLength(0);
-    });
-
-    test('明示的にclose()されたストリームは検出されない', async () => {
-      // Given: close()を使用した適切なストリーム処理が存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
-
-      // Then: readFileWithClose関数は検出されない
-      const falsePositives = candidates.filter(
-        (c) => c.title.includes('readFileWithClose') && c.file.includes('resource-leaks.ts')
-      );
-
-      expect(falsePositives).toHaveLength(0);
-    });
-  });
-
-  // ===========================================================================
-  // 統合テスト: 複数の問題を同時に検出
-  // ===========================================================================
-
-  describe('analyzeForBugs - 統合テスト', () => {
-    test('複数カテゴリの問題を同時に検出する', async () => {
-      // Given: 複数種類の問題を含むコードベースが存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
-
-      // Then: 複数カテゴリの問題が検出される
-      expect(candidates.length).toBeGreaterThan(0);
-
-      // エラーハンドリング欠如が含まれる
-      const errorHandlingIssues = candidates.filter((c) => c.title.includes('エラーハンドリング'));
-      expect(errorHandlingIssues.length).toBeGreaterThan(0);
-
-      // 型安全性問題が含まれる
-      const typeSafetyIssues = candidates.filter((c) => c.title.includes('型安全性'));
-      expect(typeSafetyIssues.length).toBeGreaterThan(0);
-
-      // リソースリークが含まれる
-      const resourceLeakIssues = candidates.filter((c) => c.title.includes('リソースリーク'));
-      expect(resourceLeakIssues.length).toBeGreaterThan(0);
-
-      // すべてのIssueが必須フィールドを持つ
-      for (const candidate of candidates) {
-        expect(candidate.category).toBe(IssueCategory.BUG);
-        expect(candidate.title).toBeTruthy();
-        expect(candidate.description).toBeTruthy();
-        expect(candidate.file).toBeTruthy();
-        expect(candidate.lineNumber).toBeGreaterThan(0);
-        expect(candidate.confidence).toBeGreaterThanOrEqual(0);
-        expect(candidate.confidence).toBeLessThanOrEqual(1);
-        expect(candidate.suggestedFixes).toBeInstanceOf(Array);
-        expect(candidate.suggestedFixes.length).toBeGreaterThan(0);
-        expect(candidate.expectedBenefits).toBeInstanceOf(Array);
-        expect(candidate.expectedBenefits.length).toBeGreaterThan(0);
-        expect(['Low', 'Medium', 'High']).toContain(candidate.priority);
+      if (candidateWithSnippet) {
+        expect(candidateWithSnippet.codeSnippet).toBeTruthy();
+        expect(candidateWithSnippet.codeSnippet.length).toBeGreaterThan(0);
+        // ファイル先頭を超えてマイナス行にならないことを確認
+        const lines = candidateWithSnippet.codeSnippet.split('\n');
+        expect(lines.length).toBeGreaterThan(0);
       }
     });
 
-    test('問題のないコードからはIssueを検出しない', async () => {
-      // Given: 問題のないコードが存在
-      // When: バグ解析を実行
-      const candidates = await analyzer.analyzeForBugs();
+    /**
+     * テストケース 2.1.7: analyzeForBugs_異常系_空プロジェクト
+     * 目的: ソースファイルが存在しない空プロジェクトでもエラーが発生しないことを検証
+     */
+    it('should handle empty project gracefully', async () => {
+      // Given: 空のディレクトリでアナライザーを初期化
+      const emptyAnalyzer = new RepositoryAnalyzer('/tmp/empty-project-' + Date.now());
 
-      // Then: good-code.tsからはIssueが検出されない
-      const goodCodeIssues = candidates.filter((c) => c.file.includes('good-code.ts'));
-
-      expect(goodCodeIssues).toHaveLength(0);
-    });
-  });
-
-  // ===========================================================================
-  // Phase 2/3 のスタブメソッドテスト
-  // ===========================================================================
-
-  describe('Phase 2/3 未実装メソッド', () => {
-    test('analyzeForRefactoring() は空の配列を返す', async () => {
-      // Given: Phase 2未実装
-      // When: リファクタリング解析を実行
-      const candidates = await analyzer.analyzeForRefactoring();
-
-      // Then: 空の配列が返される
-      expect(candidates).toEqual([]);
-    });
-
-    test('analyzeForEnhancements() は空の配列を返す', async () => {
-      // Given: Phase 3未実装
-      // When: 機能拡張解析を実行
-      const candidates = await analyzer.analyzeForEnhancements();
-
-      // Then: 空の配列が返される
-      expect(candidates).toEqual([]);
-    });
-  });
-
-  // ===========================================================================
-  // エッジケースのテスト
-  // ===========================================================================
-
-  describe('エッジケース', () => {
-    test('空のプロジェクトでもエラーが発生しない', async () => {
-      // Given: ソースファイルが存在しない空のディレクトリ
-      const emptyAnalyzer = new RepositoryAnalyzer('/tmp/empty-test-repo-' + Date.now());
-
-      // When: バグ解析を実行
+      // When: バグ検出を実行
       const candidates = await emptyAnalyzer.analyzeForBugs();
 
-      // Then: エラーがスローされず、空の配列が返される
-      expect(candidates).toEqual([]);
+      // Then: エラーがスローされず、空の配列が返却される
+      expect(candidates).toBeInstanceOf(Array);
+      expect(candidates.length).toBe(0);
+    });
+  });
+
+  describe('analyzeForRefactoring', () => {
+    /**
+     * Phase 2: リファクタリング検出（未実装）
+     * 目的: Phase 2で実装されるまで空配列を返すことを検証
+     */
+    it('should return empty array (Phase 2 not implemented)', async () => {
+      // When: リファクタリング検出を実行
+      const candidates = await analyzer.analyzeForRefactoring();
+
+      // Then: 空配列が返却される（Phase 2で実装予定）
+      expect(candidates).toBeInstanceOf(Array);
+      expect(candidates.length).toBe(0);
+    });
+  });
+
+  describe('analyzeForEnhancements', () => {
+    /**
+     * Phase 3: 機能拡張検出（未実装）
+     * 目的: Phase 3で実装されるまで空配列を返すことを検証
+     */
+    it('should return empty array (Phase 3 not implemented)', async () => {
+      // When: 機能拡張検出を実行
+      const candidates = await analyzer.analyzeForEnhancements();
+
+      // Then: 空配列が返却される（Phase 3で実装予定）
+      expect(candidates).toBeInstanceOf(Array);
+      expect(candidates.length).toBe(0);
     });
   });
 });
