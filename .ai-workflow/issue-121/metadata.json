@@ -18,9 +18,9 @@
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 15891,
-    "total_output_tokens": 380340,
-    "total_cost_usd": 32.349252500000006
+    "total_input_tokens": 15915,
+    "total_output_tokens": 386039,
+    "total_cost_usd": 32.918334400000006
   },
   "phases": {
     "planning": {
@@ -98,8 +98,10 @@
       "started_at": "2025-11-15T13:27:06.509Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute",
-      "completed_steps": [],
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ],
       "rollback_context": null
     },
     "testing": {
@@ -149,7 +151,7 @@
     }
   },
   "created_at": "2025-11-03T12:12:36.640Z",
-  "updated_at": "2025-11-15T13:34:29.043Z",
+  "updated_at": "2025-11-15T13:36:25.843Z",
   "branch_name": "ai-workflow/issue-121",
   "pr_number": 125,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/125",
