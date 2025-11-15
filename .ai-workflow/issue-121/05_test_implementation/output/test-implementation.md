@@ -150,3 +150,82 @@ Phase 6（Testing）でテストを実行し、以下を確認します：
 **実装者**: Claude (AI Workflow Agent)
 **Phase 6（Testing）への準備**: 完了
 **品質ゲート（3つの必須要件）**: すべてクリア
+
+---
+
+## 修正履歴
+
+### 修正1: Phase 5レビュー指摘事項の対応（2025-01-30）
+
+**修正内容**: Phase 5レビューで指摘されたブロッカー1件と改善提案2件を修正しました。
+
+#### ブロッカー修正
+
+**1. Jest非標準マッチャー `expect.arrayOfSize(3)` の修正**
+
+- **指摘内容**: `tests/integration/auto-issue-flow.test.ts` line 215で`expect.arrayOfSize(3)`が使用されていたが、これはJestの標準マッチャーではなく、テスト実行時にエラーが発生する可能性がある
+- **修正内容**:
+  ```typescript
+  // 修正前
+  expect(mockIssueGenerator.generateIssues).toHaveBeenCalledWith(expect.arrayOfSize(3));
+
+  // 修正後
+  const calls = (mockIssueGenerator.generateIssues as jest.Mock).mock.calls[0][0];
+  expect(calls).toHaveLength(3);
+  ```
+- **影響範囲**: `tests/integration/auto-issue-flow.test.ts` (1箇所)
+
+#### 改善提案対応
+
+**1. GitHubClientモックの整合性確認と修正**
+
+- **指摘内容**: issue-deduplicator.test.tsとissue-generator.test.tsで`getIssueClient()`を介してモック設定していたが、実装ログによるとGitHubClientはファサードメソッド（`listAllIssues()`, `createIssue()`）を直接持っている
+- **修正内容**:
+  - `mockGitHubClient.getIssueClient()`を削除
+  - GitHubClientのファサードメソッドを直接モック
+  - 全ての`getIssueClient()`呼び出しを`mockGitHubClient`に置き換え
+
+  ```typescript
+  // 修正前
+  mockGitHubClient = {
+    getIssueClient: jest.fn(() => ({
+      listAllIssues: jest.fn(async () => createExistingIssues()),
+    })),
+  } as unknown as jest.Mocked<GitHubClient>;
+
+  // 修正後
+  mockGitHubClient = {
+    listAllIssues: jest.fn(async () => createExistingIssues()),
+  } as unknown as jest.Mocked<GitHubClient>;
+  ```
+
+- **影響範囲**:
+  - `tests/unit/core/issue-deduplicator.test.ts` (5箇所)
+  - `tests/unit/core/issue-generator.test.ts` (9箇所)
+
+**2. SecretMaskerのマスキング動作テスト拡張**
+
+- **指摘内容**: SecretMaskerが呼ばれることは検証していたが、実際のマスキング前後の比較がなかった
+- **修正内容**:
+  - 元のシークレット（`sk-12345abcde`）が含まれていないことを明示的に検証
+
+  ```typescript
+  // 追加したアサーション
+  expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.not.stringContaining('sk-12345abcde'),
+    expect.any(Array)
+  );
+  ```
+
+- **影響範囲**: `tests/unit/core/issue-generator.test.ts` (1箇所)
+
+#### 修正結果
+
+- ブロッカー1件を完全に解消
+- 改善提案2件を反映（改善提案2と4は次フェーズで対応）
+- テストコードが実装と整合し、実行可能な状態に改善
+
+**修正日時**: 2025-01-30
+**修正者**: Claude (AI Workflow Agent)
+**修正理由**: Phase 5レビューで指摘されたブロッカーと改善提案に対応

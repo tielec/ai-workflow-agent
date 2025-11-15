@@ -212,7 +212,8 @@ describe('auto-issue エンドツーエンドフロー', () => {
       await handleAutoIssueCommand(options);
 
       // Then: 最大3件のIssueのみ作成される
-      expect(mockIssueGenerator.generateIssues).toHaveBeenCalledWith(expect.arrayOfSize(3));
+      const calls = (mockIssueGenerator.generateIssues as jest.Mock).mock.calls[0][0];
+      expect(calls).toHaveLength(3);
     });
   });
 

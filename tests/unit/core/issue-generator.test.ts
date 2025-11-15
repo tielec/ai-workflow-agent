@@ -60,11 +60,9 @@ describe('IssueGenerator', () => {
   beforeEach(() => {
     // GitHubClientのモック
     mockGitHubClient = {
-      getIssueClient: jest.fn(() => ({
-        createIssue: jest.fn(async (title, body, labels) => ({
-          number: 999,
-          url: 'https://github.com/owner/repo/issues/999',
-        })),
+      createIssue: jest.fn(async (title, body, labels) => ({
+        number: 999,
+        url: 'https://github.com/owner/repo/issues/999',
       })),
     } as unknown as jest.Mocked<GitHubClient>;
 
@@ -131,8 +129,7 @@ describe('IssueGenerator', () => {
       await generator.generateIssues(candidates);
 
       // Then: 3件のIssueが作成される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledTimes(3);
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledTimes(3);
     });
 
     test('一部のIssue作成が失敗しても、他のIssue作成が継続される', async () => {
@@ -144,20 +141,19 @@ describe('IssueGenerator', () => {
       ];
 
       let callCount = 0;
-      const issueClient = mockGitHubClient.getIssueClient();
-      issueClient.createIssue = jest.fn(async () => {
+      mockGitHubClient.createIssue = jest.fn(async () => {
         callCount++;
         if (callCount === 2) {
           throw new Error('GitHub API error');
         }
         return { number: 999, url: 'https://github.com/owner/repo/issues/999' };
-      }) as typeof issueClient.createIssue;
+      }) as typeof mockGitHubClient.createIssue;
 
       // When: Issue一括生成
       await generator.generateIssues(candidates);
 
       // Then: 3回試行される（2件目は失敗するがエラーログを記録して継続）
-      expect(issueClient.createIssue).toHaveBeenCalledTimes(3);
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -177,8 +173,7 @@ describe('IssueGenerator', () => {
       expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
 
       // Issue本文が生成され、GitHubに送信される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining('## 概要'),
         expect.any(Array)
@@ -197,8 +192,7 @@ describe('IssueGenerator', () => {
       await generator.generateIssues(candidates);
 
       // Then: テンプレートベースの本文が生成される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining('## 概要'),
         expect.any(Array)
@@ -233,10 +227,16 @@ APIキーはsk-12345abcdeです`,
       expect(mockSecretMasker.maskSecrets).toHaveBeenCalled();
 
       // マスキングされた本文がGitHub APIに送信される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining('sk-*****'),
+        expect.any(Array)
+      );
+
+      // 元のAPIキーが含まれていないことを確認
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.stringContaining('sk-12345abcde'),
         expect.any(Array)
       );
     });
@@ -260,8 +260,7 @@ APIキーはsk-12345abcdeです`,
       await generator.generateIssues(candidates);
 
       // Then: 適切なラベルが付与される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
         expect.arrayContaining(['auto-generated', IssueCategory.BUG, 'priority:high'])
@@ -280,8 +279,7 @@ APIキーはsk-12345abcdeです`,
       await generator.generateIssues(candidates);
 
       // Then: priority:mediumラベルが付与される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
         expect.arrayContaining(['priority:medium'])
@@ -306,8 +304,7 @@ APIキーはsk-12345abcdeです`,
       await generatorNoOpenAI.generateIssues(candidates);
 
       // Then: テンプレートベースの本文が生成され、Issueが作成される
-      const issueClient = mockGitHubClient.getIssueClient();
-      expect(issueClient.createIssue).toHaveBeenCalledWith(
+      expect(mockGitHubClient.createIssue).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining('## 概要'),
         expect.any(Array)

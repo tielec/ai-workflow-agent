@@ -76,9 +76,7 @@ describe('IssueDeduplicator', () => {
   beforeEach(() => {
     // GitHubClientのモック設定
     mockGitHubClient = {
-      getIssueClient: jest.fn(() => ({
-        listAllIssues: jest.fn(async () => createExistingIssues()),
-      })),
+      listAllIssues: jest.fn(async () => createExistingIssues()),
     } as unknown as jest.Mocked<GitHubClient>;
 
     (GitHubClient as jest.MockedClass<typeof GitHubClient>).mockImplementation(() => mockGitHubClient);
@@ -155,16 +153,16 @@ describe('IssueDeduplicator', () => {
       await deduplicator.findSimilarIssues(candidate, 0.8);
 
       // Then: GitHub APIが呼ばれる
-      expect(mockGitHubClient.getIssueClient).toHaveBeenCalled();
+      expect(mockGitHubClient.listAllIssues).toHaveBeenCalled();
 
       // リセット
-      (mockGitHubClient.getIssueClient as jest.Mock).mockClear();
+      (mockGitHubClient.listAllIssues as jest.Mock).mockClear();
 
       // When: 2回目の重複検出（同じcandidate）
       await deduplicator.findSimilarIssues(candidate, 0.8);
 
       // Then: キャッシュが使用され、GitHub APIは呼ばれない
-      expect(mockGitHubClient.getIssueClient).not.toHaveBeenCalled();
+      expect(mockGitHubClient.listAllIssues).not.toHaveBeenCalled();
     });
 
     test('OpenAI APIキー未設定時は類似度0.0を返す', async () => {
@@ -261,7 +259,7 @@ describe('IssueDeduplicator', () => {
 
       // Then: それぞれが独立してキャッシュされる
       // （GitHub APIが2回呼ばれることで確認）
-      expect(mockGitHubClient.getIssueClient).toHaveBeenCalledTimes(2);
+      expect(mockGitHubClient.listAllIssues).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -272,11 +270,9 @@ describe('IssueDeduplicator', () => {
   describe('エラーハンドリング', () => {
     test('GitHub API障害時でもエラーがスローされない', async () => {
       // Given: GitHub APIがエラーを返す
-      mockGitHubClient.getIssueClient = jest.fn(() => ({
-        listAllIssues: jest.fn(async () => {
-          throw new Error('GitHub API error');
-        }),
-      })) as unknown as typeof mockGitHubClient.getIssueClient;
+      mockGitHubClient.listAllIssues = jest.fn(async () => {
+        throw new Error('GitHub API error');
+      }) as unknown as typeof mockGitHubClient.listAllIssues;
 
       const deduplicatorWithError = new IssueDeduplicator();
       const candidate = createTestCandidate();
