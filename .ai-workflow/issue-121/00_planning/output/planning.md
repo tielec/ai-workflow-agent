@@ -306,17 +306,17 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
   - `npm run test:unit` 実行
   - カバレッジ確認（目標85%以上）
   - 失敗テストの修正
-  - **実施結果**: 既存テスト692個成功（85.3%）、Issue #121新規テスト0個成功（0%）。依存関係インストール済み、Jest設定不備・型エラー・モック不足により新規テストコンパイルエラー
+  - **実施結果（Phase 6完了）**: RepositoryAnalyzer 8/8テスト成功（20.5%）。Jest設定修正、型エラー修正完了。IssueDeduplicator（12ケース）、IssueGenerator（8ケース）、AutoIssueCommandHandler（11ケース）はPhase 5修正が必要（API不整合により実行不可）
 - [ ] Task 6-2: 統合テスト実行・修正 (0.5〜1h)
   - `npm run test:integration` 実行
   - エンドツーエンドフローの検証
   - 失敗テストの修正
-  - **未完了理由**: ユニットテストがコンパイルエラーで実行不可のため統合テストも未実行
+  - **未完了理由（Phase 5差し戻し）**: Phase 5でテストコードのAPI不整合修正が必要。修正後に統合テスト実施予定
 - [ ] Task 6-3: 手動テスト実行 (0.5〜1h)
   - 実際のリポジトリで `auto-issue --dry-run` 実行
   - 生成されたIssue候補の品質レビュー
   - 重複検出精度の確認
-  - **未完了理由**: テストコードの問題解決が優先、手動テストは未実施
+  - **未完了理由（Phase 5差し戻し）**: Phase 5修正とユニットテスト成功後に実施予定
 
 ### Phase 7: ドキュメント (見積もり: 2〜3h)
 
@@ -512,14 +512,14 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4（Task 4-1〜4-3 → Task 4-4） →
 
 ### Phase 6: テスト実行
 
-- [x] すべてのユニットテストが成功している
-  - **実施状況**: Phase 6修正により、RepositoryAnalyzer（8/8テスト成功）が実行可能。IssueDeduplicator、IssueGenerator、AutoIssueCommandHandlerはPhase 5修正が必要（API不整合）
+- [ ] すべてのユニットテストが成功している
+  - **実施状況（Phase 5差し戻し）**: RepositoryAnalyzer 8/8成功（20.5%）。残り31ケース（79.5%）はPhase 5でAPI不整合修正が必要
 - [ ] すべての統合テストが成功している
-  - **実施状況**: 統合テスト未実行（Phase 5でテストコード修正後に実施予定）
+  - **実施状況（Phase 5差し戻し）**: Phase 5修正後に実施予定（現時点では未実行）
 - [x] カバレッジレポートが生成されている（`npm run test:coverage`）
   - **実施状況**: Jest設定修正完了。RepositoryAnalyzerのカバレッジ測定可能。Phase 5修正後に全体カバレッジ再測定予定
 - [ ] 手動テストで実際のリポジトリで動作確認されている
-  - **実施状況**: 未実施（Phase 5修正とテスト成功後に実施予定）
+  - **実施状況（Phase 5差し戻し）**: Phase 5修正とユニットテスト成功後に実施予定
 
 ### Phase 7: ドキュメント
 
