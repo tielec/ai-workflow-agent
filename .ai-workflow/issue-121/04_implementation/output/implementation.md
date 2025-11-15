@@ -331,48 +331,30 @@ private getLabels(candidate: IssueCandidateResult): string[] {
 }
 ```
 
-### 6. IssueClient の拡張 (src/core/github/issue-client.ts)
+### 6. GitHubClient の拡張 (src/core/github-client.ts)
 
-**変更内容:** 約80行追加
+**変更内容:** 約15行追加（ファサードメソッド）
 
 #### 6.1 既存Issue一覧取得
+
+GitHubClientに`listAllIssues()`メソッドを追加し、内部でIssueClientに委譲：
 
 ```typescript
 public async listAllIssues(
   state: 'open' | 'closed' | 'all' = 'all',
 ): Promise<Array<{ number: number; title: string; body: string }>> {
-  const allIssues: Array<{ number: number; title: string; body: string }> = [];
-  let page = 1;
-  const perPage = 100;
-
-  while (true) {
-    const response = await this.octokit.issues.listForRepo({
-      owner: this.owner,
-      repo: this.repo,
-      state,
-      per_page: perPage,
-      page,
-    });
-
-    if (response.data.length === 0) break;
-
-    allIssues.push(
-      ...response.data.map((issue) => ({
-        number: issue.number,
-        title: issue.title,
-        body: issue.body || '',
-      })),
-    );
-
-    page++;
-  }
-
-  logger.info(`Fetched ${allIssues.length} existing issues from GitHub.`);
-  return allIssues;
+  return this.issueClient.listAllIssues(state);
 }
 ```
 
+**IssueClient内の実装**（約80行、既存ファイルに追加）：
+- ページネーション処理で100件ずつ取得
+- すべてのIssueを取得するまでループ
+- `{ number, title, body }` の配列を返却
+
 #### 6.2 Issue作成
+
+GitHubClientに`createIssue()`メソッドを追加し、内部でIssueClientに委譲：
 
 ```typescript
 public async createIssue(
@@ -380,21 +362,19 @@ public async createIssue(
   body: string,
   labels: string[] = [],
 ): Promise<{ number: number; url: string }> {
-  const response = await this.octokit.issues.create({
-    owner: this.owner,
-    repo: this.repo,
-    title,
-    body,
-    labels,
-  });
-
-  logger.info(`Created issue #${response.data.number}: ${title}`);
-  return {
-    number: response.data.number,
-    url: response.data.html_url,
-  };
+  return this.issueClient.createIssue(title, body, labels);
 }
 ```
+
+**IssueClient内の実装**（約20行、既存ファイルに追加）：
+- GitHub API経由でIssue作成
+- タイトル、本文、ラベルを指定
+- `{ number, url }` を返却
+
+**設計パターン**: ファサードパターンに準拠
+- ユーザーコードは`GitHubClient`のメソッドを呼び出す
+- 内部的には`IssueClient`に委譲
+- 既存のアーキテクチャを維持
 
 ### 7. CLI コマンドハンドラの実装 (src/commands/auto-issue.ts)
 
@@ -586,10 +566,11 @@ program
 | src/core/repository-analyzer.ts | 270 | 新規 |
 | src/core/issue-deduplicator.ts | 200 | 新規 |
 | src/core/issue-generator.ts | 180 | 新規 |
-| src/core/github/issue-client.ts | +80 | 変更 |
+| src/core/github-client.ts | +15 | 変更（ファサードメソッド） |
+| src/core/github/issue-client.ts | +100 | 変更（内部実装） |
 | src/commands/auto-issue.ts | 185 | 新規 |
 | src/main.ts | +45 | 変更 |
-| **合計** | **約1,033行** | - |
+| **合計** | **約1,068行** | - |
 
 ### 新規作成ファイル: 4件
 - src/core/repository-analyzer.ts
@@ -597,10 +578,11 @@ program
 - src/core/issue-generator.ts
 - src/commands/auto-issue.ts
 
-### 既存ファイル変更: 4件
+### 既存ファイル変更: 5件
 - src/types.ts
 - package.json
-- src/core/github/issue-client.ts
+- src/core/github-client.ts（ファサードメソッド追加）
+- src/core/github/issue-client.ts（内部実装追加）
 - src/main.ts
 
 ## 品質ゲート確認
@@ -899,6 +881,32 @@ Phase 1 (MVP) の実装が完了しました。
 
 ---
 
+## 修正履歴
+
+### 修正1: 実装ログの記載内容を実際の実装に合わせて修正（Phase 9評価レポート対応）
+
+**指摘内容（評価レポート行161-168）:**
+- 実装ログに「IssueClientへのメソッド追加」と記載されていたが、実際には「GitHubClientにファサードメソッドを追加し、内部でIssueClientに委譲」という実装になっていた
+- この不整合が、Phase 5のテストコード実装時に誤った期待（`mockGitHubClient.getIssueClient().listAllIssues()`）を生み出し、36ケース（66.7%）のコンパイルエラーの根本原因となった
+
+**修正内容:**
+- Section 6のタイトルを「IssueClient の拡張」から「GitHubClient の拡張」に修正
+- GitHubClientのファサードメソッド（約15行）と、IssueClientの内部実装（約100行）を明確に区別して記載
+- ファサードパターンに準拠していることを明記
+- ユーザーコードが`GitHubClient`のメソッドを直接呼び出す実装であることを明確化
+
+**影響範囲:**
+- `.ai-workflow/issue-121/04_implementation/output/implementation.md` 第6章、実装統計
+- 実装コード自体の変更は不要（既に正しく実装されている）
+
+**修正日時:** 2025-01-30
+**修正者:** Claude (AI Workflow Agent)
+**修正理由:** Phase 9評価レポートで指摘された実装ログと実際のコードの不整合を解消
+
+---
+
 **実装日時:** 2025-01-XX
 **実装者:** Claude (AI Workflow Agent)
 **レビュー待ち:** Phase 4 実装完了、Phase 5（テスト実装）に進む前にレビューが必要
+**修正完了日時:** 2025-01-30
+**修正後ステータス:** 実装ログが実際のコードと整合、Phase 5のテスト実装に正しいAPI情報を提供可能
