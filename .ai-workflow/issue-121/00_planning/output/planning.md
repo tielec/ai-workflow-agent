@@ -272,7 +272,7 @@ AUTO_ISSUE_SIMILARITY_THRESHOLD=0.8  # 重複判定の類似度閾値
   - エラーハンドリング（API障害時のフォールバック）
 - [x] Task 4-3: Issue生成エンジン実装 (3〜4h)
   - `IssueGenerator` クラス作成
-  - `generateIssueContent()` メソッド実装（LLMプロンプト実行、応答パース）
+  - `generateIssueContent()` メソッド実装（LLMプロンプト実装、応答パース）
   - `generateTemplateBody()` メソッド実装（Markdownテンプレート整形）
   - `createIssue()` メソッド実装（GitHub API連携、エラーハンドリング）
 - [x] Task 4-4: CLIコマンドハンドラ実装 (2〜3h)
