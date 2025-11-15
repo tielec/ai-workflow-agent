@@ -21,7 +21,7 @@
 - **Issue**: #{issue_number} - Issue #121
 - **リポジトリ**: tielec/ai-workflow-agent
 - **ブランチ**: ai-workflow/issue-121
-- **ワークフローディレクトリ**: /tmp/jenkins-b563d066/workspace/AI_Workflow/ai_workflow_orchestrator_develop/.ai-workflow/issue-121
+- **ワークフローディレクトリ**: /tmp/jenkins-164f3aef/workspace/AI_Workflow/ai_workflow_orchestrator_develop/.ai-workflow/issue-121
 
 ## 評価対象のフェーズ成果物
 

@@ -86,10 +86,10 @@
       "rollback_context": null
     },
     "test_implementation": {
-      "status": "pending",
-      "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "retry_count": 1,
+      "started_at": "2025-11-15T06:08:10.799Z",
+      "completed_at": "2025-11-15T06:21:09.794Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -100,10 +100,10 @@
       "rollback_context": null
     },
     "testing": {
-      "status": "pending",
+      "status": "completed",
       "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2025-11-15T06:21:10.979Z",
+      "completed_at": "2025-11-15T06:28:07.531Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -113,10 +113,10 @@
       "rollback_context": null
     },
     "documentation": {
-      "status": "pending",
+      "status": "completed",
       "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2025-11-15T06:28:08.082Z",
+      "completed_at": "2025-11-15T06:39:26.339Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -126,10 +126,10 @@
       "rollback_context": null
     },
     "report": {
-      "status": "pending",
+      "status": "completed",
       "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2025-11-15T06:39:26.871Z",
+      "completed_at": "2025-11-15T06:51:41.763Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -139,9 +139,9 @@
       "rollback_context": null
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-15T06:51:43.478Z",
       "completed_at": null,
       "review_result": null,
       "decision": "FAIL_PHASE_TEST_IMPLEMENTATION",
@@ -155,7 +155,7 @@
     }
   },
   "created_at": "2025-11-03T12:12:36.640Z",
-  "updated_at": "2025-11-15T06:59:16.412Z",
+  "updated_at": "2025-11-15T06:59:14.707Z",
   "branch_name": "ai-workflow/issue-121",
   "pr_number": 125,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/125",
