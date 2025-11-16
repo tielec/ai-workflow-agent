@@ -562,6 +562,95 @@ export class IssueClient {
   }
 
   /**
+   * Issue作成（簡易版）
+   * @param title - Issueタイトル
+   * @param body - Issue本文
+   * @param labels - ラベル配列
+   * @returns Issue番号とURL
+   */
+  public async createIssue(
+    title: string,
+    body: string,
+    labels: string[] = [],
+  ): Promise<{ number: number; url: string }> {
+    try {
+      const response = await this.octokit.issues.create({
+        owner: this.owner,
+        repo: this.repo,
+        title,
+        body,
+        labels,
+      });
+
+      return {
+        number: response.data.number,
+        url: response.data.html_url,
+      };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to create issue: ${this.encodeWarning(message)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Issue一覧取得（ページネーション対応）
+   * @param state - Issue状態（'open' | 'closed' | 'all'）
+   * @returns Issue一覧
+   */
+  public async listAllIssues(
+    state: 'open' | 'closed' | 'all' = 'all',
+  ): Promise<Array<{ number: number; title: string; body: string }>> {
+    try {
+      logger.debug(`Fetching all issues (state: ${state})...`);
+      const issues: Array<{ number: number; title: string; body: string }> = [];
+      let page = 1;
+      const perPage = 100;
+
+      while (true) {
+        const response = await this.octokit.issues.listForRepo({
+          owner: this.owner,
+          repo: this.repo,
+          state,
+          per_page: perPage,
+          page,
+        });
+
+        if (response.data.length === 0) {
+          break;
+        }
+
+        for (const issue of response.data) {
+          issues.push({
+            number: issue.number,
+            title: issue.title,
+            body: issue.body ?? '',
+          });
+        }
+
+        if (response.data.length < perPage) {
+          break;
+        }
+
+        page++;
+      }
+
+      logger.debug(`Fetched ${issues.length} issues.`);
+      return issues;
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to list issues: ${this.encodeWarning(message)}`);
+      throw error;
+    }
+  }
+
+  /**
    * Helper method to encode warning messages for safe logging.
    */
   private encodeWarning(message: string): string {

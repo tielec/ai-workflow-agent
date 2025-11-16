@@ -36,6 +36,7 @@ ai-workflow-agent/
 - Codex API キー（`CODEX_API_KEY` または `OPENAI_API_KEY`）
 - Claude Code 認証ファイル（`credentials.json`）
 - GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org`）
+- （任意）OpenAI API キー（`OPENAI_API_KEY`） … `auto-issue` コマンドで使用
 - （任意）環境変数 `REPOS_ROOT` … マルチリポジトリ環境でリポジトリの親ディレクトリを指定
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
@@ -71,6 +72,10 @@ node dist/index.js execute --phase requirements --issue 1 --agent codex
 node dist/index.js init \
   --issue-url https://github.com/owner/my-app/issues/123
 node dist/index.js execute --phase all --issue 123
+
+# 自動Issue作成: リポジトリからバグを検出してIssueを自動生成
+export OPENAI_API_KEY="sk-..."
+node dist/index.js auto-issue --category bug --limit 5 --dry-run
 ```
 
 ## CLI オプション
@@ -118,6 +123,13 @@ ai-workflow rollback \
   [--from-phase <phase>] \
   [--force] \
   [--dry-run]
+
+ai-workflow auto-issue \
+  [--category bug|refactor|enhancement|all] \
+  [--limit <number>] \
+  [--dry-run] \
+  [--similarity-threshold <number>] \
+  [--creative-mode]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -621,6 +633,119 @@ flowchart LR
 - ✅ resume機能は自動的に働くので、メタデータさえ正しければ正しいフェーズから再開される
 - ✅ rollbackはメタデータを更新するだけなので、実行モードは変更不要
 - ✅ Jenkinsでも同じ（EXECUTION_MODEは `all_phases` または `preset` のまま）
+
+### Auto-Issueコマンド（自動Issue作成）
+
+`auto-issue` コマンドは、リポジトリのコードを自動的に分析し、バグ・リファクタリング・改善提案などのIssueを作成します（v0.5.0、Issue #121で追加）。
+
+**Phase 1 (MVP)** では、**バグ検出機能のみ**を実装しています。リファクタリング検出（Phase 2）と改善提案検出（Phase 3）は今後のアップデートで追加予定です。
+
+#### 基本的な使用方法
+
+```bash
+# 環境変数の設定（必須）
+export OPENAI_API_KEY="sk-..."         # OpenAI APIキー（Issue生成用）
+export GITHUB_TOKEN="ghp_..."          # GitHub パーソナルアクセストークン
+export GITHUB_REPOSITORY="owner/repo" # 対象リポジトリ
+
+# バグを検出してGitHub Issueを自動作成（最大5件）
+node dist/index.js auto-issue --category bug --limit 5
+
+# ドライラン（Issueを作成せず、検出結果のみを表示）
+node dist/index.js auto-issue --category bug --limit 10 --dry-run
+
+# 類似度判定の閾値を調整（デフォルト: 0.7）
+node dist/index.js auto-issue --category bug --similarity-threshold 0.8
+
+# クリエイティブモード（より多様な提案を生成）
+node dist/index.js auto-issue --category bug --creative-mode
+```
+
+#### オプション
+
+- `--category <type>`: 検出カテゴリ（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
+  - **Phase 1 (MVP)**: `bug` のみ実装済み
+  - **Phase 2**: `refactor` を追加予定
+  - **Phase 3**: `enhancement` を追加予定
+- `--limit <number>`: 最大作成Issue数（デフォルト: 5、最大: 20）
+- `--dry-run`: ドライランモード（Issueを作成せず、検出結果のみを表示）
+- `--similarity-threshold <number>`: 重複判定の類似度閾値（0.0〜1.0、デフォルト: 0.7）
+  - 値を大きくすると、より厳密に重複を除外
+  - 値を小さくすると、より緩く重複を許容
+- `--creative-mode`: クリエイティブモード（OpenAI APIの`temperature`を上げ、多様な提案を生成）
+
+#### 環境変数
+
+- `OPENAI_API_KEY` … OpenAI APIキー（必須）
+- `GITHUB_TOKEN` … GitHub パーソナルアクセストークン（必須）
+- `GITHUB_REPOSITORY` … 対象リポジトリ（`owner/repo` 形式、必須）
+- `AUTO_ISSUE_CATEGORY` … デフォルトのカテゴリ（`bug` | `refactor` | `enhancement` | `all`）
+- `AUTO_ISSUE_LIMIT` … デフォルトの最大Issue数
+- `AUTO_ISSUE_SIMILARITY_THRESHOLD` … デフォルトの類似度閾値
+- `AUTO_ISSUE_CREATIVE_MODE` … クリエイティブモード有効化（`true` | `false`）
+
+#### 動作の仕組み
+
+1. **リポジトリ分析（RepositoryAnalyzer）**:
+   - TypeScript/JavaScriptファイルを解析（ts-morphによるAST解析）
+   - Phase 1では以下のバグパターンを検出:
+     - Null/Undefinedチェック漏れ
+     - 型アサーションの危険な使用
+     - Promise/asyncのエラーハンドリング不足
+     - 例外処理の欠如
+
+2. **重複検出（IssueDeduplicator）**:
+   - 既存のGitHub Issueを取得
+   - 2段階の重複判定:
+     - **高速フィルタリング**: コサイン類似度による数値的比較
+     - **精密判定**: LLM（OpenAI API）によるセマンティック分析
+   - 重複と判定されたIssueは作成をスキップ
+
+3. **Issue生成（IssueGenerator）**:
+   - OpenAI APIを使用してIssueタイトル・本文を生成
+   - 検出箇所のコード・ファイル名・行番号を含む詳細な説明
+   - 修正方法の提案を自動生成
+   - GitHub APIでIssueを作成（ラベル: `bug`, `auto-generated`）
+
+#### Phase 1 (MVP) の制限事項
+
+- **バグ検出のみ**: リファクタリング（`--category refactor`）と改善提案（`--category enhancement`）は未実装
+- **TypeScript/JavaScript限定**: 現在は`.ts`と`.js`ファイルのみを解析対象
+- **静的解析のみ**: 実行時エラーや動的な問題は検出できません
+- **OpenAI API必須**: Issue生成にOpenAI APIを使用（Claude APIは未サポート）
+
+#### 使用例
+
+```bash
+# ケース1: 既存プロジェクトのバグを一括検出
+node dist/index.js auto-issue --category bug --limit 10 --dry-run
+# → 10件のバグ候補を表示（Issueは作成しない）
+
+# ケース2: 検出結果を確認後、実際にIssueを作成
+node dist/index.js auto-issue --category bug --limit 5
+# → 5件のバグIssueを作成
+
+# ケース3: 重複判定を厳密化（高品質なIssueのみを作成）
+node dist/index.js auto-issue --category bug --limit 10 --similarity-threshold 0.85
+# → 類似度85%以上の既存Issueがある場合はスキップ
+
+# ケース4: クリエイティブモードで多様な提案を生成
+node dist/index.js auto-issue --category bug --creative-mode --limit 5
+# → より多様な表現でIssueを生成
+```
+
+#### トラブルシューティング
+
+- **"OPENAI_API_KEY is required"**: `OPENAI_API_KEY` 環境変数を設定してください
+- **"No issues detected"**: バグが検出されなかった場合、または重複判定で全てスキップされた場合に表示されます
+- **"Rate limit exceeded"**: OpenAI APIまたはGitHub APIのレート制限に達しました。しばらく待ってから再実行してください
+- **"ts-morph parse error"**: TypeScriptファイルに構文エラーがある可能性があります。`tsc --noEmit` でファイルをチェックしてください
+
+#### 今後の予定
+
+- **Phase 2**: リファクタリング検出機能の追加（`--category refactor`）
+- **Phase 3**: 改善提案検出機能の追加（`--category enhancement`）
+- **将来**: 他の言語サポート（Python、Go、Java等）
 
 ## フェーズ概要
 

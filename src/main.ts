@@ -8,6 +8,7 @@ import { handleReviewCommand } from './commands/review.js';
 import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand } from './commands/rollback.js';
+import { handleAutoIssueCommand } from './commands/auto-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -155,6 +156,41 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleRollbackCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // auto-issue コマンド (Issue #121)
+  program
+    .command('auto-issue')
+    .description('Automatically detect and create GitHub issues from codebase analysis')
+    .addOption(
+      new Option('--category <type>', 'Issue category to detect')
+        .choices(['bug', 'refactor', 'enhancement', 'all'])
+        .default('bug'),
+    )
+    .option('--limit <number>', 'Maximum number of issues to create', '5')
+    .option('--dry-run', 'Preview issues without creating them', false)
+    .option(
+      '--similarity-threshold <number>',
+      'Duplicate detection threshold (0.0-1.0)',
+      '0.8',
+    )
+    .option(
+      '--creative-mode',
+      'Enable creative mode for enhancement suggestions (Phase 3)',
+      false,
+    )
+    .action(async (options) => {
+      try {
+        await handleAutoIssueCommand({
+          category: options.category,
+          limit: parseInt(options.limit, 10),
+          dryRun: options.dryRun,
+          similarityThreshold: parseFloat(options.similarityThreshold),
+          creativeMode: options.creativeMode,
+        });
       } catch (error) {
         reportFatalError(error);
       }

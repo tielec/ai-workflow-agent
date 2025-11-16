@@ -26,6 +26,8 @@ const config = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^ts-morph$': '<rootDir>/node_modules/ts-morph/dist/ts-morph.js',
+    '^cosine-similarity$': '<rootDir>/node_modules/cosine-similarity/index.js',
   },
   // ESMパッケージ（chalk、strip-ansi、ansi-regex、#ansi-styles）を変換対象に含める
   transformIgnorePatterns: [
