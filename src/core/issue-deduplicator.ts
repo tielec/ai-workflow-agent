@@ -27,22 +27,32 @@ export interface ExistingIssue {
  *
  * コサイン類似度による初期フィルタリングとLLM判定による最終判定の
  * 2段階フィルタリングにより、既存Issueとの重複を検出します。
+ *
+ * OPENAI_API_KEY が未設定の場合はコサイン類似度のみで判定します。
  */
 export class IssueDeduplicator {
-  private readonly openai: OpenAI;
+  private readonly openai: OpenAI | null;
+  private readonly llmEnabled: boolean;
 
   /**
    * コンストラクタ
    *
-   * @throws OPENAI_API_KEY が未設定の場合
+   * OPENAI_API_KEY が設定されている場合はLLM判定を有効化します。
+   * 未設定の場合はコサイン類似度のみで判定します（警告ログを出力）。
    */
   constructor() {
-    // OpenAI クライアントを初期化
     const apiKey = config.getOpenAiApiKey();
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is required for duplicate detection.');
+    if (apiKey) {
+      this.openai = new OpenAI({ apiKey });
+      this.llmEnabled = true;
+      logger.debug('IssueDeduplicator initialized with LLM support (OpenAI API)');
+    } else {
+      this.openai = null;
+      this.llmEnabled = false;
+      logger.warn(
+        'OPENAI_API_KEY is not set. Duplicate detection will use cosine similarity only (LLM validation disabled).',
+      );
     }
-    this.openai = new OpenAI({ apiKey });
   }
 
   /**
@@ -85,11 +95,21 @@ export class IssueDeduplicator {
         );
 
         if (similarity >= threshold) {
-          // 第2段階: LLM判定
-          const llmResult = await this.checkDuplicateWithLLM(candidate, issue);
-          if (llmResult) {
+          // 第2段階: LLM判定（LLM無効の場合はコサイン類似度のみで判定）
+          if (this.llmEnabled) {
+            const llmResult = await this.checkDuplicateWithLLM(candidate, issue);
+            if (llmResult) {
+              logger.info(
+                `Duplicate detected (LLM confirmed): "${candidate.title}" (similar to Issue #${issue.number}, similarity: ${similarity.toFixed(2)})`,
+              );
+              isDuplicate = true;
+              duplicateIssue = issue;
+              break;
+            }
+          } else {
+            // LLM無効の場合: コサイン類似度のみで重複と判定
             logger.info(
-              `Duplicate detected: "${candidate.title}" (similar to Issue #${issue.number}, similarity: ${similarity.toFixed(2)})`,
+              `Duplicate detected (cosine similarity only): "${candidate.title}" (similar to Issue #${issue.number}, similarity: ${similarity.toFixed(2)})`,
             );
             isDuplicate = true;
             duplicateIssue = issue;
@@ -171,6 +191,12 @@ export class IssueDeduplicator {
     candidate: BugCandidate,
     issue: ExistingIssue,
   ): Promise<boolean> {
+    // OpenAI クライアントが初期化されていない場合はフォールバック
+    if (!this.openai) {
+      logger.debug('LLM check skipped: OpenAI client not initialized');
+      return false;
+    }
+
     const prompt = `
 以下の2つのIssueは重複していますか？
 
