@@ -126,8 +126,13 @@ export class CodexAgentClient {
       let stdoutBuffer = '';
       let stderrBuffer = '';
 
-      child.stdin?.write(options.stdinPayload);
-      child.stdin?.end();
+      // Explicitly check for stdin availability before writing
+      if (!child.stdin) {
+        reject(new Error('Failed to open stdin pipe for child process'));
+        return;
+      }
+      child.stdin.write(options.stdinPayload);
+      child.stdin.end();
 
       child.stdout?.on('data', (chunk: Buffer) => {
         stdoutBuffer += chunk.toString();
