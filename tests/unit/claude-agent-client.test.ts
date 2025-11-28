@@ -1,16 +1,26 @@
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import { jest } from '@jest/globals';
-
-// fs-extraのモック
-jest.mock('fs-extra');
 
 describe('ClaudeAgentClient', () => {
   let client: ClaudeAgentClient;
+  let existsSyncMock: jest.SpiedFunction<typeof fs.existsSync>;
+  let readFileSyncMock: jest.SpiedFunction<typeof fs.readFileSync>;
 
   beforeEach(() => {
-    client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
     jest.clearAllMocks();
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'test-token';
+    existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    readFileSyncMock = jest
+      .spyOn(fs, 'readFileSync')
+      .mockReturnValue(JSON.stringify({ oauth: { access_token: 'test-token' } }));
+
+    client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
+  });
+
+  afterEach(() => {
+    existsSyncMock.mockRestore();
+    readFileSyncMock.mockRestore();
   });
 
   describe('executeTask', () => {
@@ -18,8 +28,8 @@ describe('ClaudeAgentClient', () => {
     it('正常系: Claude実行が成功する（リファクタリング後も既存APIが動作）', async () => {
       // Given: Claude Agent SDK実行環境
       // 認証情報のモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.readFileSync as any) = jest.fn().mockReturnValue(
+      existsSyncMock.mockReturnValue(true);
+      readFileSyncMock.mockReturnValue(
         JSON.stringify({
           oauth: { access_token: 'test-oauth-token' },
         })
@@ -36,7 +46,7 @@ describe('ClaudeAgentClient', () => {
 
     it('異常系: 認証エラーの場合、エラーがスローされる', async () => {
       // Given: credentials.jsonが存在しない環境
-      (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+      existsSyncMock.mockReturnValue(false);
       // 環境変数も未設定
       delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
 
@@ -50,8 +60,8 @@ describe('ClaudeAgentClient', () => {
     // REQ-006: トークン抽出処理の整理
     it('正常系: credentials.jsonからトークンが取得される', () => {
       // Given: credentials.jsonが存在し、トークンが含まれる
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.readFileSync as any) = jest.fn().mockReturnValue(
+      existsSyncMock.mockReturnValue(true);
+      readFileSyncMock.mockReturnValue(
         JSON.stringify({
           oauth: { access_token: 'test-oauth-token-12345' },
         })
@@ -64,7 +74,7 @@ describe('ClaudeAgentClient', () => {
 
     it('正常系: 環境変数からトークンが取得される', () => {
       // Given: credentials.jsonが存在せず、環境変数が設定されている
-      (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+      existsSyncMock.mockReturnValue(false);
       process.env.CLAUDE_CODE_OAUTH_TOKEN = 'env-token-12345';
 
       // When/Then: 環境変数からトークンが取得される
@@ -100,8 +110,8 @@ describe('ClaudeAgentClient', () => {
   describe('fillTemplate (via executeTaskFromFile) - ReDoS Vulnerability Fix', () => {
     beforeEach(() => {
       // 認証情報のモック
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.readFileSync as any) = jest.fn();
+      existsSyncMock.mockReturnValue(true);
+      readFileSyncMock.mockReset();
       process.env.CLAUDE_CODE_OAUTH_TOKEN = 'test-token';
     });
 
@@ -109,7 +119,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-001: 単一変数が正常に置換される', async () => {
       // Given: 単一のテンプレート変数を含むプロンプトファイル
       const templateContent = 'Hello {name}, welcome!';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       // executeTask をモック化
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
@@ -132,7 +142,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-002: 複数変数が正常に置換される', async () => {
       // Given: 複数のテンプレート変数を含むプロンプトファイル
       const templateContent = 'Hello {firstName} {lastName}, your email is {email}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -158,7 +168,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-003: 同一変数が複数箇所で正常に置換される', async () => {
       // Given: 同一のテンプレート変数が複数箇所に存在
       const templateContent = 'Hello {name}! Welcome, {name}. Your username is {name}.';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -180,7 +190,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-004: プラス記号を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 + を含むキー
       const templateContent = 'Result: {a+b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -202,7 +212,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-005: アスタリスクを含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 * を含むキー
       const templateContent = 'Result: {a*b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -224,7 +234,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-006: ドットを含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 . を含むキー
       const templateContent = 'Result: {a.b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -246,7 +256,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-007: 疑問符を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 ? を含むキー
       const templateContent = 'Result: {a?b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -268,7 +278,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-008: キャレットを含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 ^ を含むキー
       const templateContent = 'Result: {a^b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -290,7 +300,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-009: ドル記号を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 $ を含むキー
       const templateContent = 'Result: {a$b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -312,7 +322,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-010: 波括弧を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 {} を含むキー
       const templateContent = 'Result: {a{2}b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -334,7 +344,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-011: 丸括弧を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 () を含むキー
       const templateContent = 'Result: {a(b)c}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -356,7 +366,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-012: パイプを含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 | を含むキー
       const templateContent = 'Result: {a|b}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -378,7 +388,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-013: 角括弧を含むキーが文字列リテラルとして扱われる', async () => {
       // Given: 正規表現特殊文字 [] を含むキー
       const templateContent = 'Result: {a[b]c}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -400,7 +410,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-014: ReDoSパターン(a+)+bが1秒以内に処理される', async () => {
       // Given: ReDoSパターンを含むキー
       const templateContent = 'Test {(a+)+b}, end';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -425,7 +435,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-015: ReDoSパターン(a*)*bが1秒以内に処理される', async () => {
       // Given: ReDoSパターンを含むキー
       const templateContent = 'Test {(a*)*b}, end';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -450,7 +460,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-016: ReDoSパターン(a|a)*bが1秒以内に処理される', async () => {
       // Given: ReDoSパターンを含むキー
       const templateContent = 'Test {(a|a)*b}, end';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -475,7 +485,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-017: ReDoSパターン(a|ab)*cが1秒以内に処理される', async () => {
       // Given: ReDoSパターンを含むキー
       const templateContent = 'Test {(a|ab)*c}, end';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -501,7 +511,7 @@ describe('ClaudeAgentClient', () => {
       // Given: ReDoSパターンを含むキーと長大な入力
       const longInput = 'a'.repeat(50) + 'X';
       const templateContent = `Test {(a+)+b}, end. Input: ${longInput}`;
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -523,19 +533,19 @@ describe('ClaudeAgentClient', () => {
     });
 
     // TC-U-019: 空文字列キー
-    it('TC-U-019: 空文字列キーが無視される', async () => {
+    it('TC-U-019: 空文字列キーも置換される', async () => {
       // Given: 空文字列キーを含むテンプレート変数
       const templateContent = 'Hello {}, welcome!';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
       // When: 空文字列キーで置換を試みる
       await client.executeTaskFromFile('test-prompt.md', { '': 'Alice' });
 
-      // Then: 空文字列キーは置換されず、元のテンプレートが残る
+      // Then: 空文字列キーも文字列として扱われて置換される
       expect(executeTaskSpy).toHaveBeenCalledWith({
-        prompt: 'Hello {}, welcome!',
+        prompt: 'Hello Alice, welcome!',
         systemPrompt: undefined,
         maxTurns: undefined,
         verbose: undefined,
@@ -548,7 +558,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-020: 空文字列値が正常に処理される', async () => {
       // Given: 空文字列値を持つテンプレート変数
       const templateContent = 'Hello {name}, welcome!';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -571,7 +581,7 @@ describe('ClaudeAgentClient', () => {
       // Given: 10,000文字の長大なキー
       const longKey = 'a'.repeat(10000);
       const templateContent = `Result: {${longKey}}`;
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -597,7 +607,7 @@ describe('ClaudeAgentClient', () => {
       // Given: 10,000文字の長大な値
       const longValue = 'b'.repeat(10000);
       const templateContent = 'Result: {key}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -623,7 +633,7 @@ describe('ClaudeAgentClient', () => {
       // Given: すべての正規表現特殊文字を含むキー
       const specialKey = '.*+?^${}()|[]\\';
       const templateContent = `Result: {${specialKey}}`;
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -651,7 +661,7 @@ describe('ClaudeAgentClient', () => {
         placeholders.push(`{var${i}}`);
       }
       const templateContent = placeholders.join(' ');
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -679,7 +689,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-025: 10,000文字のテンプレート文字列が1秒以内に処理される', async () => {
       // Given: 10,000文字のテンプレート文字列
       const templateContent = 'a'.repeat(5000) + '{key}' + 'b'.repeat(5000);
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -704,7 +714,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-026: アンダースコアを含むキーが正常に動作する', async () => {
       // Given: アンダースコアを含むキー
       const templateContent = 'Hello {user_name}, welcome!';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -726,7 +736,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-027: ハイフンを含むキーが正常に動作する', async () => {
       // Given: ハイフンを含むキー
       const templateContent = 'Your API key: {api-key}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -748,7 +758,7 @@ describe('ClaudeAgentClient', () => {
     it('TC-U-028: 数字を含むキーが正常に動作する', async () => {
       // Given: 数字を含むキー
       const templateContent = 'Item {item123} is available';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 

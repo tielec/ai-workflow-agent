@@ -1,10 +1,10 @@
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 import { jest } from '@jest/globals';
 
-// fs-extraのモック
-jest.mock('fs-extra');
+let existsSyncMock: jest.SpiedFunction<typeof fs.existsSync>;
+let readFileSyncMock: jest.SpiedFunction<typeof fs.readFileSync>;
 
 /**
  * Issue #140: ReDoS脆弱性修正のインテグレーションテスト
@@ -19,15 +19,19 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
   const testWorkspaceDir = '/test/integration/workspace';
 
   beforeEach(() => {
-    client = new ClaudeAgentClient({ workingDir: testWorkspaceDir });
     jest.clearAllMocks();
 
     // 認証情報のモック
-    (fs.existsSync as any) = jest.fn().mockReturnValue(true);
     process.env.CLAUDE_CODE_OAUTH_TOKEN = 'test-integration-token';
+    existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    readFileSyncMock = jest.spyOn(fs, 'readFileSync');
+
+    client = new ClaudeAgentClient({ workingDir: testWorkspaceDir });
   });
 
   afterEach(() => {
+    existsSyncMock.mockRestore();
+    readFileSyncMock.mockRestore();
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
   });
 
@@ -37,7 +41,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: テスト用プロンプトファイル
       const promptFilePath = path.join(testWorkspaceDir, 'test-prompt.md');
       const templateContent = 'Hello {name}, your role is {role}.';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       // executeTask をモック化
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
@@ -65,7 +69,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: 複数のテンプレート変数を含むプロンプトファイル
       const promptFilePath = path.join(testWorkspaceDir, 'test-multi-vars.md');
       const templateContent = 'Project: {project_name}\nVersion: {version}\nAuthor: {author}\nDescription: {description}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -97,7 +101,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: 通常のテンプレート変数を含むプロンプトファイル
       const promptFilePath = path.join(testWorkspaceDir, 'test-normal.md');
       const templateContent = 'Please summarize the following topic: {topic}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Summary result' }),
@@ -126,7 +130,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: 特殊文字を含むテンプレート変数
       const promptFilePath = path.join(testWorkspaceDir, 'test-special-chars.md');
       const templateContent = 'Please explain the pattern: {regex_pattern}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Explanation result' }),
@@ -158,7 +162,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: ReDoSパターンを含むテンプレート変数
       const promptFilePath = path.join(testWorkspaceDir, 'test-redos.md');
       const templateContent = 'Pattern: {dangerous_pattern}, Description: {description}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Analysis result' }),
@@ -190,7 +194,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: 複数のReDoSパターンを含むテンプレート変数
       const promptFilePath = path.join(testWorkspaceDir, 'test-multiple-redos.md');
       const templateContent = 'Pattern1: {pattern1}, Pattern2: {pattern2}, Pattern3: {pattern3}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Multi-pattern result' }),
@@ -236,7 +240,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
 
       // 10,000文字のテンプレート文字列を生成
       const templateContent = 'a'.repeat(5000) + placeholders.join(' ') + 'b'.repeat(5000);
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Performance test result' }),
@@ -280,7 +284,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       }
 
       const templateContent = placeholders.join(' ');
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue([
         JSON.stringify({ type: 'text', content: 'Special chars performance result' }),
@@ -314,7 +318,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: テンプレート変数とオプションパラメータ
       const promptFilePath = path.join(testWorkspaceDir, 'test-options.md');
       const templateContent = 'Task: {task}';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -341,7 +345,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: テンプレート変数なしのプロンプトファイル
       const promptFilePath = path.join(testWorkspaceDir, 'test-no-vars.md');
       const templateContent = 'Please analyze the code.';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
@@ -366,7 +370,7 @@ describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
       // Given: 空のテンプレート変数オブジェクト
       const promptFilePath = path.join(testWorkspaceDir, 'test-empty-vars.md');
       const templateContent = 'Hello, world!';
-      (fs.readFileSync as any).mockReturnValue(templateContent);
+      readFileSyncMock.mockReturnValue(templateContent);
 
       const executeTaskSpy = jest.spyOn(client as any, 'executeTask').mockResolvedValue(['result']);
 
