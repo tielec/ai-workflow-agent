@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Issue #126**: Auto-issue command for automatic bug detection and GitHub Issue generation
+  - New `auto-issue` CLI command with 5 options (--category, --limit, --dry-run, --similarity-threshold, --agent)
+  - RepositoryAnalyzer module for automatic code analysis (TypeScript/Python support in Phase 1 MVP)
+  - IssueDeduplicator module with 2-stage duplicate detection (cosine similarity + LLM judgment)
+  - IssueGenerator module for automatic GitHub Issue creation
+  - Phase 1 MVP scope: bug detection only, TypeScript/Python file support, src/ directory analysis
+  - Comprehensive test coverage: 52 test cases (10 RepositoryAnalyzer, 10 IssueDeduplicator, 8 IssueGenerator, 10 CLI, 14 integration)
+
 ### Fixed
 - **Issue #102**: Test infrastructure improvements
   - Fixed test expectations in `file-selector.test.ts` to match SimpleGit's FileStatusResult type

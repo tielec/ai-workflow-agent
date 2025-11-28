@@ -4,12 +4,13 @@
  * GitHub IssueからPR作成まで、Claude AIによる自動開発を実行
  *
  * パラメータ（Job DSLで定義）:
- * - ISSUE_URL: GitHub Issue URL（必須）
+ * - ISSUE_URL: GitHub Issue URL（auto_issue以外のモードで必須）
  * - EXECUTION_MODE: 実行モード（デフォルト: all_phases）
  *   - all_phases: 全フェーズを一括実行
  *   - preset: 定義済みワークフローパターンを実行（推奨）
  *   - single_phase: 特定フェーズのみ実行（デバッグ用）
  *   - rollback: フェーズ差し戻し実行（v0.4.0、Issue #90）
+ *   - auto_issue: AIエージェントによる自動Issue作成（v0.5.0、Issue #121）
  * - PRESET: プリセット名（presetモード時のみ有効、デフォルト: quick-fix）
  *   - quick-fix, implementation, testing, review-requirements, review-design, review-test-scenario, finalize
  * - START_PHASE: 開始フェーズ（single_phaseモード時のみ有効、デフォルト: planning）
@@ -17,6 +18,13 @@
  * - ROLLBACK_TO_STEP: 差し戻し先ステップ（rollbackモード時、省略可、デフォルト: revise）
  * - ROLLBACK_REASON: 差し戻し理由（rollbackモード時のみ有効、省略時はインタラクティブ入力）
  * - ROLLBACK_REASON_FILE: 差し戻し理由ファイルパス（rollbackモード時、省略可）
+ * - AUTO_ISSUE_CATEGORY: Issue検出カテゴリ（auto_issueモード時、デフォルト: bug）
+ *   - bug: バグ検出
+ *   - refactor: リファクタリング候補（Phase 2で実装予定）
+ *   - enhancement: 機能拡張提案（Phase 3で実装予定）
+ *   - all: 全カテゴリ
+ * - AUTO_ISSUE_LIMIT: 作成するIssue上限（auto_issueモード時、デフォルト: 5）
+ * - AUTO_ISSUE_SIMILARITY_THRESHOLD: 重複判定の類似度閾値（auto_issueモード時、デフォルト: 0.8）
  * - FORCE_RESET: 強制リセット（デフォルト: false）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - SKIP_REVIEW: レビュースキップ（デフォルト: false）
@@ -51,6 +59,10 @@
  *   - 指定されたフェーズに差し戻し、メタデータを更新
  *   - 差し戻し理由を記録し、reviseプロンプトに自動注入
  *   - CI環境では --force フラグを自動付与（確認プロンプトをスキップ）
+ * - auto_issue: node dist/index.js auto-issue を実行（v0.5.0、Issue #121）
+ *   - AIエージェントがリポジトリを探索し、バグ・改善点を検出
+ *   - 既存Issueとの重複を自動チェック
+ *   - 検出結果をGitHub Issueとして自動作成
  */
 
 // Jenkins共有ライブラリ（将来実装）
@@ -166,32 +178,59 @@ pipeline {
                     echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
                     echo "========================================="
 
-                    // パラメータ検証
-                    if (!params.ISSUE_URL) {
-                        error("ISSUE_URL パラメータが必須です")
+                    // auto_issue モードの場合は ISSUE_URL 不要
+                    if (params.EXECUTION_MODE == 'auto_issue') {
+                        // auto_issue モード: GITHUB_REPOSITORY からリポジトリ情報を取得
+                        if (!params.GITHUB_REPOSITORY) {
+                            error("auto_issue モードでは GITHUB_REPOSITORY パラメータが必須です")
+                        }
+                        def repoParts = params.GITHUB_REPOSITORY.split('/')
+                        if (repoParts.length != 2) {
+                            error("GITHUB_REPOSITORY は 'owner/repo' 形式である必要があります: ${params.GITHUB_REPOSITORY}")
+                        }
+                        env.REPO_OWNER = repoParts[0]
+                        env.REPO_NAME = repoParts[1]
+                        env.ISSUE_NUMBER = 'auto'  // auto_issue モードでは Issue 番号なし
+
+                        // ビルドディスクリプションを設定
+                        currentBuild.description = "Auto Issue | ${params.AUTO_ISSUE_CATEGORY ?: 'bug'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                        echo "Execution Mode: auto_issue"
+                        echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
+                        echo "Repository Owner: ${env.REPO_OWNER}"
+                        echo "Repository Name: ${env.REPO_NAME}"
+                        echo "Auto Issue Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
+                        echo "Auto Issue Limit: ${params.AUTO_ISSUE_LIMIT ?: 5}"
+                        echo "Auto Issue Similarity Threshold: ${params.AUTO_ISSUE_SIMILARITY_THRESHOLD ?: 0.8}"
+                    } else {
+                        // 通常モード: ISSUE_URL が必須
+                        if (!params.ISSUE_URL) {
+                            error("ISSUE_URL パラメータが必須です")
+                        }
+
+                        if (!params.ISSUE_URL.startsWith('https://github.com/')) {
+                            error("ISSUE_URL は GitHub Issue URLである必要があります: ${params.ISSUE_URL}")
+                        }
+
+                        if (!params.ISSUE_URL.contains('/issues/')) {
+                            error("ISSUE_URL は GitHub Issue URL (/issues/) である必要があります: ${params.ISSUE_URL}")
+                        }
+
+                        // Issue番号とリポジトリ情報抽出
+                        def urlParts = params.ISSUE_URL.split('/')
+                        env.ISSUE_NUMBER = urlParts[-1]
+                        env.REPO_OWNER = urlParts[-4]
+                        env.REPO_NAME = urlParts[-3]
+
+                        // ビルドディスクリプションを設定
+                        currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${params.EXECUTION_MODE} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                        echo "Issue URL: ${params.ISSUE_URL}"
+                        echo "Issue Number: ${env.ISSUE_NUMBER}"
+                        echo "Repository Owner: ${env.REPO_OWNER}"
+                        echo "Repository Name: ${env.REPO_NAME}"
                     }
 
-                    if (!params.ISSUE_URL.startsWith('https://github.com/')) {
-                        error("ISSUE_URL は GitHub Issue URLである必要があります: ${params.ISSUE_URL}")
-                    }
-
-                    if (!params.ISSUE_URL.contains('/issues/')) {
-                        error("ISSUE_URL は GitHub Issue URL (/issues/) である必要があります: ${params.ISSUE_URL}")
-                    }
-
-                    // Issue番号とリポジトリ情報抽出
-                    def urlParts = params.ISSUE_URL.split('/')
-                    env.ISSUE_NUMBER = urlParts[-1]
-                    env.REPO_OWNER = urlParts[-4]
-                    env.REPO_NAME = urlParts[-3]
-
-                    // ビルドディスクリプションを設定
-                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${params.EXECUTION_MODE} | ${env.REPO_OWNER}/${env.REPO_NAME}"
-
-                    echo "Issue URL: ${params.ISSUE_URL}"
-                    echo "Issue Number: ${env.ISSUE_NUMBER}"
-                    echo "Repository Owner: ${env.REPO_OWNER}"
-                    echo "Repository Name: ${env.REPO_NAME}"
                     echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
                     echo "Start Phase: ${params.START_PHASE}"
                     echo "Agent Mode: ${params.AGENT_MODE}"
@@ -289,6 +328,9 @@ pipeline {
         }
 
         stage('Initialize Workflow') {
+            when {
+                expression { params.EXECUTION_MODE != 'auto_issue' }
+            }
             steps {
                 script {
                     echo "========================================="
@@ -467,6 +509,45 @@ pipeline {
             }
         }
 
+        stage('Execute Auto Issue') {
+            when {
+                expression { params.EXECUTION_MODE == 'auto_issue' }
+            }
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Auto Issue"
+                    echo "========================================="
+                    echo "Execution Mode: ${params.EXECUTION_MODE}"
+                    echo "Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
+                    echo "Limit: ${params.AUTO_ISSUE_LIMIT ?: 5}"
+                    echo "Similarity Threshold: ${params.AUTO_ISSUE_SIMILARITY_THRESHOLD ?: 0.8}"
+                    echo "Dry Run: ${params.DRY_RUN}"
+
+                    // ビルドディスクリプションを更新
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Auto Issue | ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        // auto-issue コマンドを実行
+                        def category = params.AUTO_ISSUE_CATEGORY ?: 'bug'
+                        def limit = params.AUTO_ISSUE_LIMIT ?: 5
+                        def similarityThreshold = params.AUTO_ISSUE_SIMILARITY_THRESHOLD ?: 0.8
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+
+                        sh """
+                            node dist/index.js auto-issue \
+                                --category ${category} \
+                                --limit ${limit} \
+                                --similarity-threshold ${similarityThreshold} \
+                                --agent ${params.AGENT_MODE} \
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Create Pull Request') {
             steps {
                 script {
@@ -504,8 +585,16 @@ pipeline {
                     executionType = "単一フェーズ: ${params.START_PHASE}"
                 } else if (params.EXECUTION_MODE == 'rollback') {
                     executionType = "差し戻し: ${params.ROLLBACK_TO_PHASE}"
+                } else if (params.EXECUTION_MODE == 'auto_issue') {
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    executionType = "Auto Issue: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}${dryRunLabel}"
                 }
-                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${executionType} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                // auto_issue モードでは Issue 番号の代わりに 'Auto Issue' を表示
+                if (params.EXECUTION_MODE == 'auto_issue') {
+                    currentBuild.description = "Auto Issue | ${executionType} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                } else {
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | ${executionType} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                }
 
                 // クリーンアップ（オプション）
                 echo "========================================="
@@ -516,8 +605,11 @@ pipeline {
                 // 注意: .ai-workflowは残す（成果物として保持）
 
                 // 成果物をアーカイブ（成功・失敗問わず）
-                dir('.ai-workflow') {
-                    archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
+                // auto_issue モードでは .ai-workflow ディレクトリは使用しない
+                if (params.EXECUTION_MODE != 'auto_issue') {
+                    dir('.ai-workflow') {
+                        archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
+                    }
                 }
             }
         }
@@ -527,8 +619,14 @@ pipeline {
                 echo "========================================="
                 echo "✅ AI Workflow 成功"
                 echo "========================================="
-                echo "Issue: ${params.ISSUE_URL}"
-                echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
+                if (params.EXECUTION_MODE == 'auto_issue') {
+                    echo "Mode: Auto Issue"
+                    echo "Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
+                    echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                } else {
+                    echo "Issue: ${params.ISSUE_URL}"
+                    echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
+                }
             }
         }
 
@@ -537,7 +635,13 @@ pipeline {
                 echo "========================================="
                 echo "❌ AI Workflow 失敗"
                 echo "========================================="
-                echo "Issue: ${params.ISSUE_URL}"
+                if (params.EXECUTION_MODE == 'auto_issue') {
+                    echo "Mode: Auto Issue"
+                    echo "Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
+                    echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                } else {
+                    echo "Issue: ${params.ISSUE_URL}"
+                }
                 echo "ログを確認してください"
             }
         }

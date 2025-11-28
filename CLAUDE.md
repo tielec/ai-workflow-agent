@@ -160,6 +160,49 @@ node dist/index.js execute \
 - 本文: 5つの必須セクション（背景、実行内容、テスト、注意事項、参考情報）を含むMarkdown形式
 - バリデーション: タイトル長、セクション存在チェック、最小文字数検証
 
+### 自動バグ検出＆Issue生成（v0.5.0、Issue #126で追加）
+```bash
+# リポジトリのバグを自動検出してGitHub Issueを生成
+node dist/index.js auto-issue
+
+# プレビューモード（Issue生成せず、検出結果のみ表示）
+node dist/index.js auto-issue --dry-run
+
+# 検出数を制限（最大5件のIssueを生成）
+node dist/index.js auto-issue --limit 5
+
+# 類似度閾値を調整（より厳格な重複判定）
+node dist/index.js auto-issue --similarity-threshold 0.85
+
+# すべてのオプションを組み合わせ
+node dist/index.js auto-issue \
+  --category bug \
+  --limit 10 \
+  --dry-run \
+  --similarity-threshold 0.8 \
+  --agent codex
+```
+
+**主な機能**:
+- **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグを検出（TypeScript / Python サポート）
+- **IssueDeduplicator**: 2段階の重複検出アルゴリズム
+  - Stage 1: コサイン類似度による高速フィルタリング（TF-IDF ベクトル化）
+  - Stage 2: LLM による意味的類似性の判定
+- **IssueGenerator**: 検出されたバグから自動的にGitHub Issueを作成
+
+**オプション**:
+- `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
+  - **Phase 1 MVP**: `bug` のみサポート
+- `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
+- `--dry-run`: プレビューモード（Issue生成せず、検出結果のみ表示）
+- `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75）
+- `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
+
+**Phase 1 MVP の制限事項**:
+- 対象ファイル: TypeScript (`.ts`) と Python (`.py`) のみ
+- Issue種類: `bug` カテゴリのみ
+- 分析対象: `src/` ディレクトリ配下のファイル
+
 ### エージェントモード
 - `--agent auto`（デフォルト）: `CODEX_API_KEY` が設定されていれば Codex を使用、なければ Claude にフォールバック
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）

@@ -8,6 +8,7 @@ import { handleReviewCommand } from './commands/review.js';
 import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand } from './commands/rollback.js';
+import { handleAutoIssueCommand } from './commands/auto-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -155,6 +156,27 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleRollbackCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // auto-issue コマンド (Issue #126)
+  program
+    .command('auto-issue')
+    .description('Detect bugs using AI agents and create GitHub Issues')
+    .option('--category <type>', 'Detection category (bug|refactor|enhancement|all)', 'bug')
+    .option('--limit <number>', 'Maximum number of issues to create', '5')
+    .option('--dry-run', 'Preview mode (do not create issues)', false)
+    .option('--similarity-threshold <number>', 'Duplicate detection threshold (0.0-1.0)', '0.8')
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .action(async (options) => {
+      try {
+        await handleAutoIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
