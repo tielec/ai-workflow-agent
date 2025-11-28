@@ -2,6 +2,46 @@
 
 TypeScript CLI をローカルまたは Jenkins で利用する際によく発生する事象と対処方法をまとめました。
 
+## 0. システム要件
+
+### Node.js バージョン要件
+
+**最低バージョン**: Node.js 15.0.0以降
+
+**理由**:
+- `String.prototype.replaceAll()` メソッドが Node.js 15.0.0 以降で利用可能です
+- Issue #140 のセキュリティ修正により、Claude Agent Client の `fillTemplate` メソッドで `replaceAll()` を使用しています
+- これにより ReDoS（Regular Expression Denial of Service）脆弱性を完全に排除しています
+
+**推奨バージョン**: Node.js 18.x 以降（LTS版）
+
+**確認方法**:
+```bash
+node --version
+# v18.0.0 以降であれば問題なし
+```
+
+**Node.js のアップグレード**:
+```bash
+# nvm を使用している場合
+nvm install 18
+nvm use 18
+
+# または最新のLTS版をインストール
+nvm install --lts
+nvm use --lts
+```
+
+**互換性マトリックス**:
+| Node.js バージョン | AI Workflow サポート | `replaceAll()` サポート |
+|-------------------|---------------------|------------------------|
+| 14.x 以前         | ❌ 非対応            | ❌ 利用不可            |
+| 15.x - 16.x       | ✅ 動作可能          | ✅ 利用可能            |
+| 18.x (LTS)        | ✅ 推奨              | ✅ 利用可能            |
+| 20.x (LTS)        | ✅ 推奨              | ✅ 利用可能            |
+
+**関連Issue**: Issue #140 (ReDoS脆弱性の修正)
+
 ## 1. Codex CLI 関連
 
 ### `exceeded retry limit, last status: 401 Unauthorized`

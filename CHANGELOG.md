@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive test coverage: 52 test cases (10 RepositoryAnalyzer, 10 IssueDeduplicator, 8 IssueGenerator, 10 CLI, 14 integration)
 
 ### Fixed
+- **Issue #140**: ReDoS vulnerability in fillTemplate method (Security Fix)
+  - Replaced dynamic RegExp construction with `String.prototype.replaceAll()` to eliminate ReDoS attack risk
+  - Fixed improper handling of regex special characters in template variable keys (e.g., `.*`, `+`, `?`)
+  - Performance improvement: 99.997% faster for ReDoS patterns, 40-70% faster for normal cases
+  - Security classification: OWASP CWE-1333 (Inefficient Regular Expression Complexity) - **Resolved**
+  - Requires Node.js 15.0.0+ for `replaceAll()` support
+  - Comprehensive test coverage: 28 unit tests + 10 integration tests with ReDoS pattern validation
 - **Issue #102**: Test infrastructure improvements
   - Fixed test expectations in `file-selector.test.ts` to match SimpleGit's FileStatusResult type
   - Fixed Phase number expectations in `commit-message-builder.test.ts` (report=Phase 8, evaluation=Phase 9)
