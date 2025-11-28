@@ -51,6 +51,62 @@ export interface BugCandidate {
 }
 
 /**
+ * リファクタリング候補
+ *
+ * エージェント（Codex/Claude）がリポジトリのコード解析で検出した
+ * リファクタリングが必要な箇所の候補情報を表します。
+ */
+export interface RefactorCandidate {
+  /**
+   * リファクタリングの種類
+   * - large-file: 大きすぎるファイル（500行以上）
+   * - large-function: 大きすぎる関数（50行以上）
+   * - high-complexity: 複雑な条件分岐（ネスト深さ4以上）
+   * - duplication: コード重複
+   * - unused-code: 未使用コード
+   * - missing-docs: ドキュメント欠落
+   */
+  type:
+    | 'large-file'
+    | 'large-function'
+    | 'high-complexity'
+    | 'duplication'
+    | 'unused-code'
+    | 'missing-docs';
+
+  /**
+   * 対象ファイルの相対パス
+   */
+  filePath: string;
+
+  /**
+   * 該当する行範囲（オプショナル）
+   */
+  lineRange?: {
+    start: number;
+    end: number;
+  };
+
+  /**
+   * 問題の詳細説明（最小20文字）
+   */
+  description: string;
+
+  /**
+   * 推奨される改善策（最小20文字）
+   */
+  suggestion: string;
+
+  /**
+   * 優先度
+   * - low: 低（可読性向上）
+   * - medium: 中（保守性向上）
+   * - high: 高（技術的負債の削減）
+   */
+  priority: 'low' | 'medium' | 'high';
+}
+
+/**
  * CLIオプション
  *
  * auto-issue コマンドで使用されるオプション設定を表します。

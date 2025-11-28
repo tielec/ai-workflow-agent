@@ -16,7 +16,7 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate, IssueCreationResult } from '../types/auto-issue.js';
+import type { BugCandidate, RefactorCandidate, IssueCreationResult } from '../types/auto-issue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -267,6 +267,165 @@ ${candidate.suggestedFix}
     } catch (error) {
       logger.warn(`Failed to cleanup output file: ${getErrorMessage(error)}`);
     }
+  }
+
+  /**
+   * リファクタリングIssueを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param dryRun - dry-runモード（true: Issue作成をスキップ）
+   * @returns Issue作成結果
+   */
+  public async generateRefactorIssue(
+    candidate: RefactorCandidate,
+    agent: 'auto' | 'codex' | 'claude',
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    logger.info(
+      `Generating refactoring issue for: "${candidate.type}" in "${candidate.filePath}"`,
+    );
+
+    // 1. タイトルとラベルを生成
+    const title = this.generateRefactorTitle(candidate);
+    const labels = this.generateRefactorLabels(candidate);
+
+    // 2. Issue本文を生成
+    const issueBody = this.createRefactorBody(candidate);
+
+    // 3. dry-runモードの場合はスキップ
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping refactoring issue creation.');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    // 4. GitHub APIでIssueを作成
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+
+      logger.info(`Refactoring issue created: #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * リファクタリングIssueのタイトルを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns Issueタイトル
+   */
+  private generateRefactorTitle(candidate: RefactorCandidate): string {
+    const typeLabels: Record<RefactorCandidate['type'], string> = {
+      'large-file': 'ファイルサイズの削減',
+      'large-function': '関数の分割',
+      'high-complexity': '複雑度の削減',
+      'duplication': 'コード重複の削減',
+      'unused-code': '未使用コードの削除',
+      'missing-docs': 'ドキュメントの追加',
+    };
+
+    const typeLabel = typeLabels[candidate.type];
+    const fileName = path.basename(candidate.filePath);
+
+    return `[Refactor] ${typeLabel}: ${fileName}`;
+  }
+
+  /**
+   * リファクタリングIssueのラベルを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns ラベルのリスト
+   */
+  private generateRefactorLabels(candidate: RefactorCandidate): string[] {
+    const labels = ['auto-generated', 'refactor'];
+
+    // 優先度に応じたラベルを追加
+    const priorityLabels: Record<RefactorCandidate['priority'], string> = {
+      high: 'priority:high',
+      medium: 'priority:medium',
+      low: 'priority:low',
+    };
+    labels.push(priorityLabels[candidate.priority]);
+
+    // タイプに応じたラベルを追加
+    const typeLabels: Record<RefactorCandidate['type'], string> = {
+      'large-file': 'code-quality',
+      'large-function': 'code-quality',
+      'high-complexity': 'code-quality',
+      'duplication': 'duplication',
+      'unused-code': 'cleanup',
+      'missing-docs': 'documentation',
+    };
+    labels.push(typeLabels[candidate.type]);
+
+    return labels;
+  }
+
+  /**
+   * リファクタリングIssue本文を生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns Markdown形式のIssue本文
+   */
+  private createRefactorBody(candidate: RefactorCandidate): string {
+    const lineRangeText = candidate.lineRange
+      ? ` (${candidate.lineRange.start}〜${candidate.lineRange.end}行目)`
+      : '';
+
+    const priorityEmoji: Record<RefactorCandidate['priority'], string> = {
+      high: '🔴',
+      medium: '🟡',
+      low: '🟢',
+    };
+
+    const priorityText: Record<RefactorCandidate['priority'], string> = {
+      high: '高 - 技術的負債の削減、保守性への重大な影響',
+      medium: '中 - 保守性の向上、中程度の改善効果',
+      low: '低 - 可読性の向上、軽微な改善',
+    };
+
+    return `## 概要
+
+${candidate.description}
+
+## 詳細
+
+**リファクタリング種別**: ${candidate.type}
+**優先度**: ${priorityEmoji[candidate.priority]} ${priorityText[candidate.priority]}
+
+## 推奨される改善策
+
+${candidate.suggestion}
+
+## 対象ファイル
+
+- \`${candidate.filePath}\`${lineRangeText}
+
+## アクションアイテム
+
+- [ ] 影響範囲を調査する
+- [ ] リファクタリング計画を作成する
+- [ ] コード変更を実施する
+- [ ] テストを実施する
+- [ ] コードレビューを受ける
+
+---
+*このIssueは自動生成されました*`;
   }
 
   /**
