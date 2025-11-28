@@ -159,7 +159,7 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2〜3h)
 
-- [ ] Task 5-1: ユニットテスト実装 (1〜1.5h)
+- [x] Task 5-1: ユニットテスト実装 (1〜1.5h)
   - `tests/unit/repository-analyzer.test.ts` にリファクタリング検出テストを追加
   - `validateRefactorCandidate()` の正常系・異常系テスト
   - 除外パターンのテスト（生成ファイル、ロックファイル、バイナリ）
@@ -288,9 +288,9 @@ graph TD
 - [ ] コードレビュー観点: 既存コード（Phase 1）への影響がないことを確認
 
 ### Phase 5: テストコード実装
-- [ ] ユニットテストが実装されている（`validateRefactorCandidate()` 等）
+- [x] ユニットテストが実装されている（`validateRefactorCandidate()` 等）
 - [ ] インテグレーションテストが実装されている（E2E、dry-run、言語非依存性）
-- [ ] Phase 1のリグレッションテスト（`--category bug`）が追加されている
+- [x] Phase 1のリグレッションテスト（`--category bug`）が追加されている
 - [ ] テストカバレッジが既存水準を維持している
 
 ### Phase 6: テスト実行
