@@ -139,21 +139,21 @@
 
 ### Phase 4: 実装 (見積もり: 4〜5h)
 
-- [ ] Task 4-1: 型定義の拡張 (0.5h)
+- [x] Task 4-1: 型定義の拡張 (0.5h)
   - `src/types/auto-issue.ts` に `RefactorCandidate` インターフェース追加
   - `AutoIssueOptions.category` の型に `'refactor'` を追加
-- [ ] Task 4-2: プロンプトテンプレートの作成 (1h)
+- [x] Task 4-2: プロンプトテンプレートの作成 (1h)
   - `src/prompts/auto-issue/detect-refactoring.txt` 新規作成
   - 4つの検出パターン（コード品質、重複、未使用、ドキュメント）の指示文を記述
   - 出力JSON形式のサンプルを記載
-- [ ] Task 4-3: `RepositoryAnalyzer` の拡張 (1.5〜2h)
+- [x] Task 4-3: `RepositoryAnalyzer` の拡張 (1.5〜2h)
   - `analyzeForRefactoring()` メソッド実装
   - `validateRefactorCandidate()` メソッド実装
   - `analyze()` メソッドから共通化できるロジックをリファクタリング
-- [ ] Task 4-4: `handleAutoIssueCommand` の拡張 (1h)
+- [x] Task 4-4: `handleAutoIssueCommand` の拡張 (1h)
   - `parseOptions` でカテゴリ `'refactor'` を処理
   - カテゴリに応じて `analyzer.analyze()` または `analyzer.analyzeForRefactoring()` を呼び出す条件分岐追加
-- [ ] Task 4-5: `IssueGenerator` の拡張（リファクタリング用テンプレート） (0.5〜1h)
+- [x] Task 4-5: `IssueGenerator` の拡張（リファクタリング用テンプレート） (0.5〜1h)
   - リファクタリング用Issue本文テンプレートの生成ロジック追加
   - 既存のバグ用テンプレートとの共通化
 
