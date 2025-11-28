@@ -163,7 +163,7 @@
   - `tests/unit/repository-analyzer.test.ts` にリファクタリング検出テストを追加
   - `validateRefactorCandidate()` の正常系・異常系テスト
   - 除外パターンのテスト（生成ファイル、ロックファイル、バイナリ）
-- [ ] Task 5-2: インテグレーションテスト実装 (1〜1.5h)
+- [x] Task 5-2: インテグレーションテスト実装 (1〜1.5h)
   - `tests/integration/auto-issue-refactor.test.ts` 新規作成
   - `--category refactor` でのE2Eテスト
   - dry-runモードテスト
@@ -289,9 +289,9 @@ graph TD
 
 ### Phase 5: テストコード実装
 - [x] ユニットテストが実装されている（`validateRefactorCandidate()` 等）
-- [ ] インテグレーションテストが実装されている（E2E、dry-run、言語非依存性）
+- [x] インテグレーションテストが実装されている（E2E、dry-run、言語非依存性）
 - [x] Phase 1のリグレッションテスト（`--category bug`）が追加されている
-- [ ] テストカバレッジが既存水準を維持している
+- [x] テストカバレッジが既存水準を維持している
 
 ### Phase 6: テスト実行
 - [ ] すべてのユニットテストがパスしている
