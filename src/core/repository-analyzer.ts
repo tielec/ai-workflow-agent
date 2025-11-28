@@ -128,48 +128,93 @@ export class RepositoryAnalyzer {
     // エージェントプロンプトで「JSON形式で出力」を指示しているため、
     // rawOutput から JSON ブロックを抽出してパース
 
-    // パターン1: ```json ... ``` 形式
-    const jsonMatch = rawOutput.match(/```json\n([\s\S]*?)\n```/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1]);
-        if (parsed.bugs && Array.isArray(parsed.bugs)) {
-          logger.debug(`Successfully parsed ${parsed.bugs.length} bugs from JSON block.`);
-          return parsed.bugs as BugCandidate[];
-        }
-      } catch (error) {
-        logger.warn(`Failed to parse JSON output: ${getErrorMessage(error)}`);
+    // 複数のJSONブロックをすべて抽出（エージェントが複数のバグを別々に出力する場合）
+    const allCandidates: BugCandidate[] = [];
+
+    // パターン1: ```json ... ``` 形式（複数マッチ対応）
+    const jsonMatches = rawOutput.matchAll(/```json\n([\s\S]*?)\n```/g);
+    for (const match of jsonMatches) {
+      const parsed = this.tryParseJson(match[1], 'JSON block');
+      if (parsed) {
+        allCandidates.push(...parsed);
       }
     }
 
-    // パターン2: ``` ... ``` 形式（jsonキーワードなし）
-    const codeBlockMatch = rawOutput.match(/```\n([\s\S]*?)\n```/);
-    if (codeBlockMatch) {
-      try {
-        const parsed = JSON.parse(codeBlockMatch[1]);
-        if (parsed.bugs && Array.isArray(parsed.bugs)) {
-          logger.debug(`Successfully parsed ${parsed.bugs.length} bugs from code block.`);
-          return parsed.bugs as BugCandidate[];
+    // パターン2: ``` ... ``` 形式（jsonキーワードなし、複数マッチ対応）
+    if (allCandidates.length === 0) {
+      const codeBlockMatches = rawOutput.matchAll(/```\n([\s\S]*?)\n```/g);
+      for (const match of codeBlockMatches) {
+        const parsed = this.tryParseJson(match[1], 'code block');
+        if (parsed) {
+          allCandidates.push(...parsed);
         }
-      } catch (error) {
-        logger.debug(`Code block is not valid JSON: ${getErrorMessage(error)}`);
       }
     }
 
-    // パターン3: 直接JSON（コードブロックなし）
+    // パターン3: { で始まり } で終わるJSONオブジェクトを抽出（コードブロックなし）
+    if (allCandidates.length === 0) {
+      const jsonObjectMatches = rawOutput.matchAll(/(\{[\s\S]*?"title"[\s\S]*?"file"[\s\S]*?\})/g);
+      for (const match of jsonObjectMatches) {
+        const parsed = this.tryParseJson(match[1], 'inline JSON');
+        if (parsed) {
+          allCandidates.push(...parsed);
+        }
+      }
+    }
+
+    // パターン4: 直接JSON（出力全体がJSON）
+    if (allCandidates.length === 0) {
+      const parsed = this.tryParseJson(rawOutput.trim(), 'raw output');
+      if (parsed) {
+        allCandidates.push(...parsed);
+      }
+    }
+
+    if (allCandidates.length === 0) {
+      logger.warn('Failed to parse agent output as JSON. Returning empty array.');
+      logger.debug(`Raw output (first 500 chars): ${rawOutput.substring(0, 500)}`);
+    } else {
+      logger.debug(`Successfully parsed ${allCandidates.length} candidates from agent output.`);
+    }
+
+    return allCandidates;
+  }
+
+  /**
+   * JSONをパースしてBugCandidate配列に変換
+   *
+   * @param jsonStr - JSON文字列
+   * @param source - ログ用のソース説明
+   * @returns BugCandidate配列、またはパース失敗時はnull
+   */
+  private tryParseJson(jsonStr: string, source: string): BugCandidate[] | null {
     try {
-      const parsed = JSON.parse(rawOutput);
+      const parsed = JSON.parse(jsonStr);
+
+      // パターンA: { "bugs": [...] } 形式
       if (parsed.bugs && Array.isArray(parsed.bugs)) {
-        logger.debug(`Successfully parsed ${parsed.bugs.length} bugs from raw JSON.`);
+        logger.debug(`Parsed ${parsed.bugs.length} bugs from ${source} (bugs array format).`);
         return parsed.bugs as BugCandidate[];
       }
-    } catch (error) {
-      logger.debug(`Raw output is not valid JSON: ${getErrorMessage(error)}`);
-    }
 
-    // フォールバック: パース失敗
-    logger.warn('Failed to parse agent output as JSON. Returning empty array.');
-    return [];
+      // パターンB: [...] 配列形式
+      if (Array.isArray(parsed)) {
+        logger.debug(`Parsed ${parsed.length} bugs from ${source} (array format).`);
+        return parsed as BugCandidate[];
+      }
+
+      // パターンC: 単一オブジェクト形式（{ "title": ..., "file": ... }）
+      if (parsed.title && parsed.file) {
+        logger.debug(`Parsed 1 bug from ${source} (single object format).`);
+        return [parsed as BugCandidate];
+      }
+
+      logger.debug(`${source}: JSON parsed but no valid bug structure found.`);
+      return null;
+    } catch (error) {
+      logger.debug(`${source}: Failed to parse JSON - ${getErrorMessage(error)}`);
+      return null;
+    }
   }
 
   /**
