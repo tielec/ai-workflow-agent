@@ -8,6 +8,7 @@
  */
 
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
@@ -18,6 +19,17 @@ import type { BugCandidate } from '../types/auto-issue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * 出力ファイルパスを生成
+ *
+ * @returns 一時ディレクトリ内のユニークなファイルパス
+ */
+function generateOutputFilePath(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return path.join(os.tmpdir(), `auto-issue-bugs-${timestamp}-${random}.json`);
+}
 
 /**
  * RepositoryAnalyzer クラス
@@ -64,11 +76,16 @@ export class RepositoryAnalyzer {
 
     const template = fs.readFileSync(promptPath, 'utf-8');
 
-    // 2. プロンプト変数を置換
-    const prompt = template.replace('{repository_path}', repoPath);
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath();
+    logger.debug(`Output file path: ${outputFilePath}`);
 
-    // 3. エージェントを選択（auto の場合は Codex → Claude フォールバック）
-    let rawOutput: string;
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{repository_path}', repoPath)
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
 
     if (agent === 'codex' || agent === 'auto') {
@@ -82,8 +99,7 @@ export class RepositoryAnalyzer {
       } else {
         try {
           logger.info('Using Codex agent for bug detection.');
-          const events = await this.codexClient.executeTask({ prompt });
-          rawOutput = events.join('\n');
+          await this.codexClient.executeTask({ prompt });
         } catch (error) {
           if (agent === 'codex') {
             throw error;
@@ -100,134 +116,82 @@ export class RepositoryAnalyzer {
         throw new Error('Claude agent is not available.');
       }
       logger.info('Using Claude agent for bug detection.');
-      const events = await this.claudeClient.executeTask({ prompt });
-      rawOutput = events.join('\n');
+      await this.claudeClient.executeTask({ prompt });
     }
 
-    // 4. エージェント出力をパース
-    const candidates = this.parseAgentOutput(rawOutput!);
+    // 5. 出力ファイルからJSONを読み込み
+    const candidates = this.readOutputFile(outputFilePath);
 
-    // 5. バリデーション
+    // 6. バリデーション
     const validCandidates = candidates.filter((c) => this.validateBugCandidate(c));
 
     logger.info(
       `Parsed ${candidates.length} candidates, ${validCandidates.length} valid after validation.`,
     );
 
+    // 7. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
     return validCandidates;
   }
 
   /**
-   * エージェント出力をパース
+   * 出力ファイルからバグ候補を読み込み
    *
-   * @param rawOutput - エージェントの生出力（JSON/Markdown）
-   * @returns パース済みバグ候補のリスト
+   * @param filePath - 出力ファイルパス
+   * @returns バグ候補のリスト
    */
-  private parseAgentOutput(rawOutput: string): BugCandidate[] {
-    // JSON形式の出力を期待
-    // エージェントプロンプトで「JSON形式で出力」を指示しているため、
-    // rawOutput から JSON ブロックを抽出してパース
-
-    // 改行コードを正規化（\r\n -> \n）
-    const normalizedOutput = rawOutput.replace(/\r\n/g, '\n');
-
-    // 複数のJSONブロックをすべて抽出（エージェントが複数のバグを別々に出力する場合）
-    const allCandidates: BugCandidate[] = [];
-
-    // パターン1: ```json ... ``` 形式（複数マッチ対応、改行の柔軟性向上）
-    const jsonMatches = normalizedOutput.matchAll(/```json\s*\n([\s\S]*?)\n\s*```/g);
-    for (const match of jsonMatches) {
-      const parsed = this.tryParseJson(match[1].trim(), 'JSON block');
-      if (parsed) {
-        allCandidates.push(...parsed);
-      }
+  private readOutputFile(filePath: string): BugCandidate[] {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Agent may have failed to write the file.`);
+      return [];
     }
 
-    // パターン2: ``` ... ``` 形式（jsonキーワードなし、複数マッチ対応）
-    if (allCandidates.length === 0) {
-      const codeBlockMatches = normalizedOutput.matchAll(/```\s*\n([\s\S]*?)\n\s*```/g);
-      for (const match of codeBlockMatches) {
-        const parsed = this.tryParseJson(match[1].trim(), 'code block');
-        if (parsed) {
-          allCandidates.push(...parsed);
-        }
-      }
-    }
-
-    // パターン3: {"bugs": [...]} 形式を直接抽出
-    if (allCandidates.length === 0) {
-      const bugsArrayMatch = normalizedOutput.match(/\{\s*"bugs"\s*:\s*\[[\s\S]*?\]\s*\}/);
-      if (bugsArrayMatch) {
-        const parsed = this.tryParseJson(bugsArrayMatch[0], 'bugs array');
-        if (parsed) {
-          allCandidates.push(...parsed);
-        }
-      }
-    }
-
-    // パターン4: { で始まり } で終わるJSONオブジェクトを抽出（コードブロックなし）
-    if (allCandidates.length === 0) {
-      const jsonObjectMatches = normalizedOutput.matchAll(/(\{[\s\S]*?"title"[\s\S]*?"file"[\s\S]*?\})/g);
-      for (const match of jsonObjectMatches) {
-        const parsed = this.tryParseJson(match[1], 'inline JSON');
-        if (parsed) {
-          allCandidates.push(...parsed);
-        }
-      }
-    }
-
-    // パターン5: 直接JSON（出力全体がJSON）
-    if (allCandidates.length === 0) {
-      const parsed = this.tryParseJson(normalizedOutput.trim(), 'raw output');
-      if (parsed) {
-        allCandidates.push(...parsed);
-      }
-    }
-
-    if (allCandidates.length === 0) {
-      logger.warn('Failed to parse agent output as JSON. Returning empty array.');
-      logger.debug(`Raw output (first 1000 chars): ${normalizedOutput.substring(0, 1000)}`);
-    } else {
-      logger.debug(`Successfully parsed ${allCandidates.length} candidates from agent output.`);
-    }
-
-    return allCandidates;
-  }
-
-  /**
-   * JSONをパースしてBugCandidate配列に変換
-   *
-   * @param jsonStr - JSON文字列
-   * @param source - ログ用のソース説明
-   * @returns BugCandidate配列、またはパース失敗時はnull
-   */
-  private tryParseJson(jsonStr: string, source: string): BugCandidate[] | null {
     try {
-      const parsed = JSON.parse(jsonStr);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
 
-      // パターンA: { "bugs": [...] } 形式
+      const parsed = JSON.parse(content);
+
+      // { "bugs": [...] } 形式
       if (parsed.bugs && Array.isArray(parsed.bugs)) {
-        logger.debug(`Parsed ${parsed.bugs.length} bugs from ${source} (bugs array format).`);
+        logger.info(`Read ${parsed.bugs.length} bug candidates from output file.`);
         return parsed.bugs as BugCandidate[];
       }
 
-      // パターンB: [...] 配列形式
+      // [...] 配列形式
       if (Array.isArray(parsed)) {
-        logger.debug(`Parsed ${parsed.length} bugs from ${source} (array format).`);
+        logger.info(`Read ${parsed.length} bug candidates from output file.`);
         return parsed as BugCandidate[];
       }
 
-      // パターンC: 単一オブジェクト形式（{ "title": ..., "file": ... }）
+      // 単一オブジェクト形式
       if (parsed.title && parsed.file) {
-        logger.debug(`Parsed 1 bug from ${source} (single object format).`);
+        logger.info('Read 1 bug candidate from output file.');
         return [parsed as BugCandidate];
       }
 
-      logger.debug(`${source}: JSON parsed but no valid bug structure found.`);
-      return null;
+      logger.warn('Output file does not contain valid bug candidates structure.');
+      return [];
     } catch (error) {
-      logger.debug(`${source}: Failed to parse JSON - ${getErrorMessage(error)}`);
-      return null;
+      logger.error(`Failed to read/parse output file: ${getErrorMessage(error)}`);
+      return [];
+    }
+  }
+
+  /**
+   * 一時出力ファイルをクリーンアップ
+   *
+   * @param filePath - 出力ファイルパス
+   */
+  private cleanupOutputFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.removeSync(filePath);
+        logger.debug(`Cleaned up output file: ${filePath}`);
+      }
+    } catch (error) {
+      logger.warn(`Failed to cleanup output file: ${getErrorMessage(error)}`);
     }
   }
 
