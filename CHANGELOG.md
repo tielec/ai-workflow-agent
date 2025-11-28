@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+- **Issue #150**: Null/Nil Pointer Dereference Possibility in child.stdin?.write()
+  - Replaced optional chaining (`?.`) with explicit null check in `runCodexProcess()` method
+  - Prevents silent failures when stdin pipe fails to open
+  - Immediately rejects Promise with clear error message: 'Failed to open stdin pipe for child process'
+  - Improves reliability in resource-constrained environments (CI/CD, containers)
+  - No impact on normal operation (when stdin opens successfully)
 - **Issue #140**: ReDoS vulnerability in fillTemplate method (Security Fix)
   - Replaced dynamic RegExp construction with `String.prototype.replaceAll()` to eliminate ReDoS attack risk
   - Fixed improper handling of regex special characters in template variable keys (e.g., `.*`, `+`, `?`)
