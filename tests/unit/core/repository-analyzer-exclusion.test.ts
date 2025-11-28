@@ -405,7 +405,7 @@ describe('RepositoryAnalyzer - Exclusion Patterns (Issue #144)', () => {
         line: 25,
         severity: 'high',
         description:
-          'user.goでnilポインタデリファレンスが発生する可能性があります。これは重要な問題です。',
+          'user.goでnilポインタデリファレンスが発生する可能性があります。これは重要な問題です。追加のチェックが必要です。',
         suggestedFix: 'nilチェックを追加してください。これは適切な修正方法です。',
         category: 'bug',
       };

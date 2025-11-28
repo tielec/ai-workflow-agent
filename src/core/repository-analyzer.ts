@@ -139,13 +139,20 @@ function isExcludedDirectory(filePath: string): boolean {
   // パス正規化（セキュリティ対策）
   const normalizedPath = path.normalize(filePath).replace(/\\/g, '/');
 
+  // 先頭の './' を削除し、トップレベルディレクトリも検出できるようにする
+  const sanitizedPath = normalizedPath.replace(/^\.\//, '');
+
   // パストラバーサル攻撃防止（../ を含むパスを拒否）
   if (normalizedPath.includes('../')) {
     logger.warn(`Potentially malicious path detected: ${filePath}`);
     return true; // 疑わしいパスは除外
   }
 
-  return EXCLUDED_DIRECTORIES.some((dir) => normalizedPath.includes(`/${dir}`));
+  return EXCLUDED_DIRECTORIES.some((dir) => {
+    const normalizedDir = dir.endsWith('/') ? dir.slice(0, -1) : dir;
+    const boundaryPattern = new RegExp(`(?:^|/)${normalizedDir}(?:/|$)`);
+    return boundaryPattern.test(sanitizedPath);
+  });
 }
 
 /**
