@@ -128,13 +128,16 @@ export class RepositoryAnalyzer {
     // エージェントプロンプトで「JSON形式で出力」を指示しているため、
     // rawOutput から JSON ブロックを抽出してパース
 
+    // 改行コードを正規化（\r\n -> \n）
+    const normalizedOutput = rawOutput.replace(/\r\n/g, '\n');
+
     // 複数のJSONブロックをすべて抽出（エージェントが複数のバグを別々に出力する場合）
     const allCandidates: BugCandidate[] = [];
 
-    // パターン1: ```json ... ``` 形式（複数マッチ対応）
-    const jsonMatches = rawOutput.matchAll(/```json\n([\s\S]*?)\n```/g);
+    // パターン1: ```json ... ``` 形式（複数マッチ対応、改行の柔軟性向上）
+    const jsonMatches = normalizedOutput.matchAll(/```json\s*\n([\s\S]*?)\n\s*```/g);
     for (const match of jsonMatches) {
-      const parsed = this.tryParseJson(match[1], 'JSON block');
+      const parsed = this.tryParseJson(match[1].trim(), 'JSON block');
       if (parsed) {
         allCandidates.push(...parsed);
       }
@@ -142,18 +145,29 @@ export class RepositoryAnalyzer {
 
     // パターン2: ``` ... ``` 形式（jsonキーワードなし、複数マッチ対応）
     if (allCandidates.length === 0) {
-      const codeBlockMatches = rawOutput.matchAll(/```\n([\s\S]*?)\n```/g);
+      const codeBlockMatches = normalizedOutput.matchAll(/```\s*\n([\s\S]*?)\n\s*```/g);
       for (const match of codeBlockMatches) {
-        const parsed = this.tryParseJson(match[1], 'code block');
+        const parsed = this.tryParseJson(match[1].trim(), 'code block');
         if (parsed) {
           allCandidates.push(...parsed);
         }
       }
     }
 
-    // パターン3: { で始まり } で終わるJSONオブジェクトを抽出（コードブロックなし）
+    // パターン3: {"bugs": [...]} 形式を直接抽出
     if (allCandidates.length === 0) {
-      const jsonObjectMatches = rawOutput.matchAll(/(\{[\s\S]*?"title"[\s\S]*?"file"[\s\S]*?\})/g);
+      const bugsArrayMatch = normalizedOutput.match(/\{\s*"bugs"\s*:\s*\[[\s\S]*?\]\s*\}/);
+      if (bugsArrayMatch) {
+        const parsed = this.tryParseJson(bugsArrayMatch[0], 'bugs array');
+        if (parsed) {
+          allCandidates.push(...parsed);
+        }
+      }
+    }
+
+    // パターン4: { で始まり } で終わるJSONオブジェクトを抽出（コードブロックなし）
+    if (allCandidates.length === 0) {
+      const jsonObjectMatches = normalizedOutput.matchAll(/(\{[\s\S]*?"title"[\s\S]*?"file"[\s\S]*?\})/g);
       for (const match of jsonObjectMatches) {
         const parsed = this.tryParseJson(match[1], 'inline JSON');
         if (parsed) {
@@ -162,9 +176,9 @@ export class RepositoryAnalyzer {
       }
     }
 
-    // パターン4: 直接JSON（出力全体がJSON）
+    // パターン5: 直接JSON（出力全体がJSON）
     if (allCandidates.length === 0) {
-      const parsed = this.tryParseJson(rawOutput.trim(), 'raw output');
+      const parsed = this.tryParseJson(normalizedOutput.trim(), 'raw output');
       if (parsed) {
         allCandidates.push(...parsed);
       }
@@ -172,7 +186,7 @@ export class RepositoryAnalyzer {
 
     if (allCandidates.length === 0) {
       logger.warn('Failed to parse agent output as JSON. Returning empty array.');
-      logger.debug(`Raw output (first 500 chars): ${rawOutput.substring(0, 500)}`);
+      logger.debug(`Raw output (first 1000 chars): ${normalizedOutput.substring(0, 1000)}`);
     } else {
       logger.debug(`Successfully parsed ${allCandidates.length} candidates from agent output.`);
     }
