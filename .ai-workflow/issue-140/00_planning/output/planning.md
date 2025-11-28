@@ -190,10 +190,10 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: コードコメントの追加 (0.25~0.5h)
+- [x] Task 7-1: コードコメントの追加 (0.25~0.5h)
   - `fillTemplate`メソッドのJSDocコメント追加
   - セキュリティ対策の説明コメント追加
-- [ ] Task 7-2: CLAUDE.mdの更新 (0.25~0.5h)
+- [x] Task 7-2: CLAUDE.mdの更新 (0.25~0.5h)
   - セキュリティベストプラクティスの追記
   - ReDoS対策に関する注意事項の追加
 
@@ -347,10 +347,10 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 6 → Phase 7 → Phase 8
 
 ### Phase 7: ドキュメント
 
-- [ ] `fillTemplate`メソッドのJSDocコメントが追加されている
-- [ ] セキュリティ対策の説明コメントが追加されている
-- [ ] CLAUDE.mdにセキュリティベストプラクティスが追記されている
-- [ ] ReDoS対策に関する注意事項が追加されている
+- [x] `fillTemplate`メソッドのJSDocコメントが追加されている
+- [x] セキュリティ対策の説明コメントが追加されている
+- [x] CLAUDE.mdにセキュリティベストプラクティスが追記されている
+- [x] ReDoS対策に関する注意事項が追加されている
 
 ### Phase 8: レポート
 
@@ -611,10 +611,10 @@ private fillTemplate(template: string, variables: Record<string, string>): strin
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: コードコメントの追加 (0.25~0.5h)
+- [x] Task 7-1: コードコメントの追加 (0.25~0.5h)
   - `fillTemplate`メソッドのJSDocコメント追加
   - セキュリティ対策の説明コメント追加
-- [ ] Task 7-2: CLAUDE.mdの更新 (0.25~0.5h)
+- [x] Task 7-2: CLAUDE.mdの更新 (0.25~0.5h)
   - セキュリティベストプラクティスの追記
   - ReDoS対策に関する注意事項の追加
 
@@ -768,10 +768,10 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 6 → Phase 7 → Phase 8
 
 ### Phase 7: ドキュメント
 
-- [ ] `fillTemplate`メソッドのJSDocコメントが追加されている
-- [ ] セキュリティ対策の説明コメントが追加されている
-- [ ] CLAUDE.mdにセキュリティベストプラクティスが追記されている
-- [ ] ReDoS対策に関する注意事項が追加されている
+- [x] `fillTemplate`メソッドのJSDocコメントが追加されている
+- [x] セキュリティ対策の説明コメントが追加されている
+- [x] CLAUDE.mdにセキュリティベストプラクティスが追記されている
+- [x] ReDoS対策に関する注意事項が追加されている
 
 ### Phase 8: レポート
 
