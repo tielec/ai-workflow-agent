@@ -12,7 +12,7 @@ import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
 import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
 import { IssueGenerator } from '../../src/core/issue-generator.js';
 import { jest } from '@jest/globals';
-import type { RefactorCandidate } from '../../src/types/auto-issue.js';
+import type { RefactorCandidate, BugCandidate } from '../../src/types/auto-issue.js';
 
 // モック設定
 jest.mock('../../src/core/repository-analyzer.js');
@@ -642,7 +642,7 @@ describe('auto-issue refactor workflow integration tests', () => {
     it('should not affect bug detection workflow', async () => {
       // Given: バグ検出用のモック
       const mockBugAnalyzer = {
-        analyze: jest.fn().mockResolvedValue([]),
+        analyze: jest.fn<() => Promise<BugCandidate[]>>().mockResolvedValue([]),
       } as unknown as jest.Mocked<RepositoryAnalyzer>;
 
       (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
