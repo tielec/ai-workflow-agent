@@ -18,9 +18,9 @@
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 11,
-    "total_output_tokens": 17893,
-    "total_cost_usd": 0.8879795
+    "total_input_tokens": 44,
+    "total_output_tokens": 25253,
+    "total_cost_usd": 1.311569
   },
   "phases": {
     "planning": {
@@ -41,7 +41,10 @@
       "started_at": "2025-11-28T12:32:50.504Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "design": {
       "status": "pending",
@@ -106,7 +109,7 @@
     }
   },
   "created_at": "2025-11-28T12:29:40.173Z",
-  "updated_at": "2025-11-28T12:35:00.759Z",
+  "updated_at": "2025-11-28T12:37:17.440Z",
   "branch_name": "ai-workflow/issue-140",
   "pr_number": 142,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/142",
