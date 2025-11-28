@@ -175,18 +175,18 @@
 
 ### Phase 2: 設計 (見積もり: 4~5h)
 
-- [ ] Task 2-1: モジュール設計 (1.5~2h)
+- [x] Task 2-1: モジュール設計 (1.5~2h)
   - `RepositoryAnalyzer` クラスの設計（バグ検出パターンのメソッド定義）
   - `IssueDeduplicator` クラスの設計（類似度計算アルゴリズム）
   - `IssueGenerator` クラスの設計（テンプレート構造）
-- [ ] Task 2-2: 型定義の設計 (1~1.5h)
+- [x] Task 2-2: 型定義の設計 (1~1.5h)
   - `AutoIssueCommandOptions` インターフェースの定義
   - `BugPattern` 型の定義（検出されたバグ情報）
   - `IssueSimilarity` 型の定義（重複判定結果）
-- [ ] Task 2-3: CLIオプションの設計 (0.5~1h)
+- [x] Task 2-3: CLIオプションの設計 (0.5~1h)
   - `--category`, `--limit`, `--dry-run`, `--similarity-threshold` のデフォルト値決定
   - バリデーションルールの定義
-- [ ] Task 2-4: エラーハンドリング設計 (1~1.5h)
+- [x] Task 2-4: エラーハンドリング設計 (1~1.5h)
   - ts-morph パースエラーのハンドリング
   - GitHub API エラーのハンドリング
   - OpenAI API エラーのハンドリング（タイムアウト、レート制限等）
