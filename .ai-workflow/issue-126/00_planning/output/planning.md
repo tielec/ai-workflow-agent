@@ -236,18 +236,18 @@
 
 ### Phase 2: 設計 (見積もり: 3~4h)
 
-- [ ] Task 2-1: モジュール設計 (1.5~2h)
+- [x] Task 2-1: モジュール設計 (1.5~2h)
   - RepositoryAnalyzer クラス設計（メソッド: `analyze()`, `parseAgentOutput()`）
   - IssueDeduplicator クラス設計（メソッド: `filterDuplicates()`, `calculateSimilarity()`）
   - IssueGenerator クラス設計（メソッド: `generate()`, `createIssueBody()`）
   - 型定義設計（`BugCandidate`, `AutoIssueOptions`, `DuplicateCheckResult`）
 
-- [ ] Task 2-2: CLIインターフェース設計 (1~1.5h)
+- [x] Task 2-2: CLIインターフェース設計 (1~1.5h)
   - `handleAutoIssueCommand()` フロー設計
   - コマンドオプション仕様（`--category`, `--limit`, `--dry-run`, `--similarity-threshold`, `--agent`）
   - エラーハンドリング仕様（エージェント失敗時、GitHub API失敗時）
 
-- [ ] Task 2-3: エージェント統合設計 (0.5~1h)
+- [x] Task 2-3: エージェント統合設計 (0.5~1h)
   - 既存 `resolveAgentCredentials()` の活用方法
   - エージェント選択ロジック（`--agent auto|codex|claude`）
   - フォールバック戦略（Codex失敗時にClaude使用）
