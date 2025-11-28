@@ -134,11 +134,11 @@
 
 ### Phase 3: テストシナリオ (見積もり: 1h)
 
-- [ ] Task 3-1: ユニットテストシナリオ作成 (0.5h)
+- [x] Task 3-1: ユニットテストシナリオ作成 (0.5h)
   - 多言語ファイルパス検証テスト（Go, Java, Ruby等）
   - 除外パターンテスト（バイナリ、node_modules/等）
   - 既存TypeScript/Python検出の回帰テスト
-- [ ] Task 3-2: インテグレーションテストシナリオ作成 (0.5h)
+- [x] Task 3-2: インテグレーションテストシナリオ作成 (0.5h)
   - 多言語リポジトリでのエンドツーエンドテスト
   - CI/CD設定ファイル（Jenkinsfile, Dockerfile）検出テスト
 
@@ -272,10 +272,10 @@ graph TD
 
 ### Phase 3: テストシナリオ
 
-- [ ] 多言語ファイルパステストシナリオが定義されている（Go, Java, Ruby等）
-- [ ] 除外パターンテストシナリオが定義されている（バイナリ、node_modules/等）
-- [ ] 既存TypeScript/Python検出の回帰テストシナリオが定義されている
-- [ ] CI/CD設定ファイル（Jenkinsfile, Dockerfile）の検出テストシナリオが定義されている
+- [x] 多言語ファイルパステストシナリオが定義されている（Go, Java, Ruby等）
+- [x] 除外パターンテストシナリオが定義されている（バイナリ、node_modules/等）
+- [x] 既存TypeScript/Python検出の回帰テストシナリオが定義されている
+- [x] CI/CD設定ファイル（Jenkinsfile, Dockerfile）の検出テストシナリオが定義されている
 
 ### Phase 4: 実装
 
