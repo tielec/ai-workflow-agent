@@ -267,35 +267,35 @@
 
 ### Phase 4: 実装 (見積もり: 8~10h)
 
-- [ ] Task 4-1: 型定義の実装 (0.5~1h)
+- [x] Task 4-1: 型定義の実装 (0.5~1h)
   - `src/types/auto-issue.ts` の作成
   - `BugCandidate`, `AutoIssueOptions`, `DuplicateCheckResult` 型の定義
 
-- [ ] Task 4-2: RepositoryAnalyzer の実装 (2~2.5h)
+- [x] Task 4-2: RepositoryAnalyzer の実装 (2~2.5h)
   - `src/core/repository-analyzer.ts` の作成
   - `analyze()` メソッド: エージェント実行 + 出力パース
   - `parseAgentOutput()`: JSON/Markdown出力から BugCandidate[] を抽出
   - バグ検出プロンプトの実装（prompts/auto-issue/detect-bugs.txt）
 
-- [ ] Task 4-3: IssueDeduplicator の実装 (2~2.5h)
+- [x] Task 4-3: IssueDeduplicator の実装 (2~2.5h)
   - `src/core/issue-deduplicator.ts` の作成
   - `filterDuplicates()` メソッド: GitHub API → OpenAI API → フィルタリング
   - `calculateSimilarity()`: コサイン類似度 + LLM判定
   - OpenAI API統合（`openai` パッケージ活用）
 
-- [ ] Task 4-4: IssueGenerator の実装 (1.5~2h)
+- [x] Task 4-4: IssueGenerator の実装 (1.5~2h)
   - `src/core/issue-generator.ts` の作成
   - `generate()` メソッド: エージェント実行 + GitHub API呼び出し
   - `createIssueBody()`: Issue本文テンプレート生成
   - ラベル自動付与ロジック（`auto-generated`, `bug`）
 
-- [ ] Task 4-5: CLIコマンドハンドラの実装 (1.5~2h)
+- [x] Task 4-5: CLIコマンドハンドラの実装 (1.5~2h)
   - `src/commands/auto-issue.ts` の作成
   - `handleAutoIssueCommand()`: オプションパース → 各モジュール呼び出し
   - エージェント認証ロジック（`resolveAgentCredentials` 活用）
   - dry-runモードの実装
 
-- [ ] Task 4-6: main.tsへのコマンド登録 (0.5h)
+- [x] Task 4-6: main.tsへのコマンド登録 (0.5h)
   - `src/main.ts` に `auto-issue` コマンド追加
   - commander.js オプション定義
 
