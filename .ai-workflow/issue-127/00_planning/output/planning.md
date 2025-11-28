@@ -115,14 +115,14 @@
 
 ### Phase 2: 設計 (見積もり: 2〜3h)
 
-- [ ] Task 2-1: `RefactorCandidate` 型定義の設計 (0.5h)
+- [x] Task 2-1: `RefactorCandidate` 型定義の設計 (0.5h)
   - `src/types/auto-issue.ts` にインターフェース定義を追加
   - バリデーションルール（最小文字数、必須フィールド）の設計
-- [ ] Task 2-2: プロンプトテンプレート設計 (1h)
+- [x] Task 2-2: プロンプトテンプレート設計 (1h)
   - `detect-refactoring.txt` の内容設計
   - エージェント指示文の明確化（4つの検出パターン別）
   - 出力JSON形式の例示
-- [ ] Task 2-3: `RepositoryAnalyzer` 拡張設計 (1〜1.5h)
+- [x] Task 2-3: `RepositoryAnalyzer` 拡張設計 (1〜1.5h)
   - `analyzeForRefactoring()` メソッドのシグネチャ設計
   - `validateRefactorCandidate()` メソッドの設計
   - 除外ディレクトリ・ファイルパターンの再利用確認
@@ -269,11 +269,11 @@ graph TD
 - [x] Phase 1の既存機能（バグ検出）への影響範囲が分析されている
 
 ### Phase 2: 設計
-- [ ] **実装戦略の判断根拠が明記されている**（EXTEND戦略を選択した理由）
-- [ ] **テスト戦略の判断根拠が明記されている**（UNIT_INTEGRATION戦略を選択した理由）
-- [ ] **テストコード戦略の判断根拠が明記されている**（BOTH_TEST戦略を選択した理由）
-- [ ] プロンプトテンプレート設計が完了している（`detect-refactoring.txt`のドラフト）
-- [ ] `RefactorCandidate` 型定義が完了している
+- [x] **実装戦略の判断根拠が明記されている**（EXTEND戦略を選択した理由）
+- [x] **テスト戦略の判断根拠が明記されている**（UNIT_INTEGRATION戦略を選択した理由）
+- [x] **テストコード戦略の判断根拠が明記されている**（BOTH_TEST戦略を選択した理由）
+- [x] プロンプトテンプレート設計が完了している（`detect-refactoring.txt`のドラフト）
+- [x] `RefactorCandidate` 型定義が完了している
 
 ### Phase 3: テストシナリオ
 - [ ] ユニットテストシナリオが具体的に記載されている（正常系・異常系）
