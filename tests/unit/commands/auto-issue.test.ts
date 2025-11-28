@@ -10,6 +10,7 @@ import type { AutoIssueOptions, IssueCreationResult } from '../../../src/types/a
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
 import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
+import { jest } from '@jest/globals';
 
 // モック設定
 jest.mock('../../../src/core/repository-analyzer.js');
@@ -103,7 +104,7 @@ describe('auto-issue command handler', () => {
         limit: '10',
         dryRun: true,
         similarityThreshold: '0.9',
-        agent: 'codex',
+        agent: 'codex' as const,
       };
 
       mockAnalyzer.analyze.mockResolvedValue([]);
@@ -202,7 +203,7 @@ describe('auto-issue command handler', () => {
         limit: '2',
         dryRun: true,
         similarityThreshold: '0.8',
-        agent: 'codex',
+        agent: 'codex' as const,
       };
 
       // When: handleAutoIssueCommand を実行

@@ -12,6 +12,7 @@ import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
 import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
 import { IssueDeduplicator } from '../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../src/core/issue-generator.js';
+import { jest } from '@jest/globals';
 
 // モック設定
 jest.mock('../../src/core/repository-analyzer.js');

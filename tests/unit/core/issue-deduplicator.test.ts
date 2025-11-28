@@ -6,6 +6,7 @@
  */
 
 import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
+import { jest } from '@jest/globals';
 import type { BugCandidate } from '../../../src/types/auto-issue.js';
 import { OpenAI } from 'openai';
 

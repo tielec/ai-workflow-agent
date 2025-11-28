@@ -10,6 +10,7 @@ import type { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../../src/core/claude-agent-client.js';
 import type { BugCandidate, IssueCreationResult } from '../../../src/types/auto-issue.js';
 import { Octokit } from '@octokit/rest';
+import { jest } from '@jest/globals';
 
 // モック設定
 jest.mock('../../../src/core/codex-agent-client.js');
@@ -28,18 +29,19 @@ describe('IssueGenerator', () => {
   beforeEach(() => {
     // Codex クライアントのモック
     mockCodexClient = {
-      runTask: jest.fn(),
+      executeTask: jest.fn(),
     } as unknown as jest.Mocked<CodexAgentClient>;
 
     // Claude クライアントのモック
     mockClaudeClient = {
-      runTask: jest.fn(),
+      executeTask: jest.fn(),
     } as unknown as jest.Mocked<ClaudeAgentClient>;
 
-    // Octokit のモック
+    // Octokit のモック - jest.fn()を使用して型安全なモック作成
+    const mockCreate = jest.fn();
     mockOctokit = {
       issues: {
-        create: jest.fn(),
+        create: mockCreate,
       },
     } as unknown as jest.Mocked<Octokit>;
 
@@ -69,7 +71,7 @@ describe('IssueGenerator', () => {
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockResolvedValue('```markdown\n## 概要\nTest issue body\n```');
+      mockCodexClient.executeTask.mockResolvedValue(['```markdown\n## 概要\nTest issue body\n```']);
 
       // When: generate() を dry-run モードで実行
       const result = await generator.generate(candidate, 'codex', true);
@@ -100,9 +102,9 @@ describe('IssueGenerator', () => {
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockResolvedValue(
+      mockCodexClient.executeTask.mockResolvedValue([
         '```markdown\n## 概要\nMemory leak in test module\n```'
-      );
+      ]);
 
       mockOctokit.issues.create.mockResolvedValue({
         data: {
@@ -140,7 +142,7 @@ describe('IssueGenerator', () => {
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockResolvedValue('```markdown\n## 概要\nTest\n```');
+      mockCodexClient.executeTask.mockResolvedValue(['```markdown\n## 概要\nTest\n```']);
 
       mockOctokit.issues.create.mockRejectedValue(new Error('API rate limit exceeded'));
 
@@ -171,17 +173,17 @@ describe('IssueGenerator', () => {
         category: 'bug',
       };
 
-      mockClaudeClient.runTask.mockResolvedValue(
+      mockClaudeClient.executeTask.mockResolvedValue([
         '```markdown\n## 概要\nClaude generated issue body\n```'
-      );
+      ]);
 
       // When: generate() を Claude で実行
       const result = await generator.generate(candidate, 'claude', true);
 
       // Then: Claude が使用される
       expect(result.success).toBe(true);
-      expect(mockClaudeClient.runTask).toHaveBeenCalledTimes(1);
-      expect(mockCodexClient.runTask).not.toHaveBeenCalled();
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockCodexClient.executeTask).not.toHaveBeenCalled();
     });
   });
 
@@ -203,7 +205,7 @@ describe('IssueGenerator', () => {
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockRejectedValue(new Error('Codex API failed'));
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
 
       // When: generate() を codex モードで実行
       const result = await generator.generate(candidate, 'codex', false);
@@ -247,7 +249,7 @@ Detailed description here.
 Additional text.
 `;
 
-      mockCodexClient.runTask.mockResolvedValue(agentOutput);
+      mockCodexClient.executeTask.mockResolvedValue([agentOutput]);
 
       // When: generate() を dry-run で実行
       const result = await generator.generate(candidate, 'codex', true);
@@ -275,7 +277,7 @@ Additional text.
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockResolvedValue('Plain text output without markdown block');
+      mockCodexClient.executeTask.mockResolvedValue(['Plain text output without markdown block');
 
       // When: generate() を dry-run で実行
       const result = await generator.generate(candidate, 'codex', true);
@@ -303,7 +305,7 @@ Additional text.
         category: 'bug',
       };
 
-      mockCodexClient.runTask.mockResolvedValue('## 概要\nTest body');
+      mockCodexClient.executeTask.mockResolvedValue(['## 概要\nTest body');
 
       mockOctokit.issues.create.mockResolvedValue({
         data: {

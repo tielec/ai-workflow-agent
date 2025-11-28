@@ -9,6 +9,7 @@ import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
 import type { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../../src/core/claude-agent-client.js';
 import type { BugCandidate } from '../../../src/types/auto-issue.js';
+import { jest } from '@jest/globals';
 
 // モック設定
 jest.mock('../../../src/core/codex-agent-client.js');
@@ -23,12 +24,12 @@ describe('RepositoryAnalyzer', () => {
   beforeEach(() => {
     // Codex クライアントのモック
     mockCodexClient = {
-      runTask: jest.fn(),
+      executeTask: jest.fn(),
     } as unknown as jest.Mocked<CodexAgentClient>;
 
     // Claude クライアントのモック
     mockClaudeClient = {
-      runTask: jest.fn(),
+      executeTask: jest.fn(),
     } as unknown as jest.Mocked<ClaudeAgentClient>;
 
     // RepositoryAnalyzer インスタンス作成
@@ -54,14 +55,14 @@ describe('RepositoryAnalyzer', () => {
             file: 'src/core/codex-agent-client.ts',
             line: 42,
             severity: 'high',
-            description: 'executeTask()メソッドでエラーハンドリングが不足しています。',
-            suggestedFix: 'try-catchブロックを追加してください。',
+            description: 'executeTask()メソッドでエラーハンドリングが不足しています。APIコールの失敗時に適切なエラー処理が行われていません。',
+            suggestedFix: 'try-catchブロックを追加して、エラーを適切にハンドリングしてください。',
             category: 'bug',
           },
         ],
       });
 
-      mockCodexClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -71,7 +72,7 @@ describe('RepositoryAnalyzer', () => {
       expect(result[0].title).toBe('エラーハンドリングの欠如');
       expect(result[0].file).toBe('src/core/codex-agent-client.ts');
       expect(result[0].severity).toBe('high');
-      expect(mockCodexClient.runTask).toHaveBeenCalledTimes(1);
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -97,7 +98,7 @@ describe('RepositoryAnalyzer', () => {
         ],
       });
 
-      mockClaudeClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'claude');
@@ -105,8 +106,8 @@ describe('RepositoryAnalyzer', () => {
       // Then: バグ候補が返される
       expect(result).toHaveLength(1);
       expect(result[0].title).toBe('型安全性の問題');
-      expect(mockClaudeClient.runTask).toHaveBeenCalledTimes(1);
-      expect(mockCodexClient.runTask).not.toHaveBeenCalled();
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockCodexClient.executeTask).not.toHaveBeenCalled();
     });
   });
 
@@ -118,7 +119,7 @@ describe('RepositoryAnalyzer', () => {
   describe('TC-RA-003: analyze with auto mode fallback', () => {
     it('should fallback to Claude when Codex fails', async () => {
       // Given: Codex が失敗し、Claude が成功する
-      mockCodexClient.runTask.mockRejectedValue(new Error('Codex API failed'));
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
 
       const mockOutput = JSON.stringify({
         bugs: [
@@ -134,15 +135,15 @@ describe('RepositoryAnalyzer', () => {
         ],
       });
 
-      mockClaudeClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を auto モードで実行
       const result = await analyzer.analyze('/path/to/repo', 'auto');
 
       // Then: Claude にフォールバックして成功
       expect(result).toHaveLength(1);
-      expect(mockCodexClient.runTask).toHaveBeenCalledTimes(1);
-      expect(mockClaudeClient.runTask).toHaveBeenCalledTimes(1);
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -154,7 +155,7 @@ describe('RepositoryAnalyzer', () => {
   describe('TC-RA-004: analyze with invalid JSON output', () => {
     it('should return empty array when agent output is invalid JSON', async () => {
       // Given: Codex が不正な JSON を返す
-      mockCodexClient.runTask.mockResolvedValue('```json\n{ invalid json }\n```');
+      mockCodexClient.executeTask.mockResolvedValue(['```json\n{ invalid json }\n```']);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -195,7 +196,7 @@ describe('RepositoryAnalyzer', () => {
 `;
 
       // When: parseAgentOutput を実行（privateメソッドなので、analyze経由でテスト）
-      mockCodexClient.runTask.mockResolvedValue(rawOutput);
+      mockCodexClient.executeTask.mockResolvedValue([rawOutput]);
 
       // Then: 正しくパースされる
       return analyzer.analyze('/path/to/repo', 'codex').then((result) => {
@@ -213,7 +214,7 @@ describe('RepositoryAnalyzer', () => {
   describe('TC-RA-006: parseAgentOutput without JSON block', () => {
     it('should return empty array when no JSON block is found', async () => {
       // Given: JSON ブロックを含まない出力
-      mockCodexClient.runTask.mockResolvedValue('This is plain text without JSON block');
+      mockCodexClient.executeTask.mockResolvedValue(['This is plain text without JSON block']);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -246,7 +247,7 @@ describe('RepositoryAnalyzer', () => {
         ],
       });
 
-      mockCodexClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -273,13 +274,13 @@ describe('RepositoryAnalyzer', () => {
             severity: 'high',
             description:
               'This is a valid description with at least 50 characters to pass the validation.',
-            suggestedFix: 'This is a valid fix.',
+            suggestedFix: 'This is a valid fix with sufficient length for validation requirements.',
             category: 'bug',
           },
         ],
       });
 
-      mockCodexClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -306,13 +307,13 @@ describe('RepositoryAnalyzer', () => {
             severity: 'high',
             description:
               'This is a valid description with at least 50 characters to pass the validation.',
-            suggestedFix: 'This is a valid fix.',
+            suggestedFix: 'This is a valid fix with minimum required length of 20 characters.',
             category: 'bug',
           },
         ],
       });
 
-      mockCodexClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
@@ -338,13 +339,13 @@ describe('RepositoryAnalyzer', () => {
             line: 1,
             severity: 'high',
             description: 'This is a valid description with at least 50 characters to pass.',
-            suggestedFix: 'This is a valid fix suggestion.',
+            suggestedFix: 'This is a valid fix suggestion with required minimum length.',
             category: 'bug',
           },
         ],
       });
 
-      mockCodexClient.runTask.mockResolvedValue(`\`\`\`json\n${mockOutput}\n\`\`\``);
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyze() を実行
       const result = await analyzer.analyze('/path/to/repo', 'codex');
