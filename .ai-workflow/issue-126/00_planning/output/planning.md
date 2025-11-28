@@ -301,13 +301,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 3~4h)
 
-- [ ] Task 5-1: ユニットテスト実装 (2~2.5h)
+- [x] Task 5-1: ユニットテスト実装 (2~2.5h)
   - `tests/unit/core/repository-analyzer.test.ts`
   - `tests/unit/core/issue-deduplicator.test.ts`
   - `tests/unit/core/issue-generator.test.ts`
   - `tests/unit/commands/auto-issue.test.ts`
 
-- [ ] Task 5-2: インテグレーションテスト実装 (1~1.5h)
+- [x] Task 5-2: インテグレーションテスト実装 (1~1.5h)
   - `tests/integration/auto-issue-workflow.test.ts`
   - dry-runモードテスト
   - エージェントフォールバックテスト
