@@ -21,6 +21,173 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * 除外ディレクトリパターン
+ *
+ * これらのディレクトリは依存関係、生成ファイル、バージョン管理メタデータを含むため、
+ * バグ検出対象から除外します。
+ */
+const EXCLUDED_DIRECTORIES = [
+  'node_modules/',
+  'vendor/',
+  '.git/',
+  'dist/',
+  'build/',
+  'out/',
+  'target/',
+  '__pycache__/',
+  '.venv/',
+  'venv/',
+  '.pytest_cache/',
+  '.mypy_cache/',
+  'coverage/',
+  '.next/',
+  '.nuxt/',
+];
+
+/**
+ * 除外ファイルパターン
+ *
+ * これらのパターンに一致するファイルは生成ファイル、ロックファイル、
+ * バイナリファイルであるため、バグ検出対象から除外します。
+ */
+const EXCLUDED_FILE_PATTERNS = {
+  // 生成ファイル
+  generated: [
+    '*.min.js',
+    '*.bundle.js',
+    '*.generated.*',
+    '*.g.go', // Go generated files
+    '*.pb.go', // Protocol Buffer generated files
+    '*.gen.ts', // TypeScript generated files
+  ],
+
+  // ロックファイル
+  lockFiles: [
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'Gemfile.lock',
+    'poetry.lock',
+    'Pipfile.lock',
+    'go.sum',
+    'Cargo.lock',
+    'composer.lock',
+  ],
+
+  // バイナリファイル拡張子
+  binary: [
+    '.exe',
+    '.dll',
+    '.so',
+    '.dylib',
+    '.a',
+    '.lib', // 実行ファイル/ライブラリ
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.ico',
+    '.svg',
+    '.webp', // 画像
+    '.pdf',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.ppt',
+    '.pptx', // ドキュメント
+    '.zip',
+    '.tar',
+    '.gz',
+    '.bz2',
+    '.7z',
+    '.rar', // アーカイブ
+    '.mp3',
+    '.mp4',
+    '.avi',
+    '.mov',
+    '.mkv', // メディア
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot', // フォント
+  ],
+};
+
+/**
+ * ワイルドカードパターンマッチング（簡易版）
+ *
+ * @param fileName - ファイル名
+ * @param pattern - パターン（*.min.js, *.generated.* 等）
+ * @returns マッチする場合は true
+ */
+function matchesWildcard(fileName: string, pattern: string): boolean {
+  // '*' を正規表現の '.*' に置換（ReDoS対策として replaceAll を使用）
+  const regexPattern = pattern.replaceAll('.', '\\.').replaceAll('*', '.*');
+
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(fileName);
+}
+
+/**
+ * ファイルパスが除外ディレクトリに含まれるかチェック
+ *
+ * @param filePath - チェック対象のファイルパス
+ * @returns 除外すべき場合は true
+ */
+function isExcludedDirectory(filePath: string): boolean {
+  // パス正規化（セキュリティ対策）
+  const normalizedPath = path.normalize(filePath).replace(/\\/g, '/');
+
+  // 先頭の './' を削除し、トップレベルディレクトリも検出できるようにする
+  const sanitizedPath = normalizedPath.replace(/^\.\//, '');
+
+  // パストラバーサル攻撃防止（../ を含むパスを拒否）
+  if (normalizedPath.includes('../')) {
+    logger.warn(`Potentially malicious path detected: ${filePath}`);
+    return true; // 疑わしいパスは除外
+  }
+
+  return EXCLUDED_DIRECTORIES.some((dir) => {
+    const normalizedDir = dir.endsWith('/') ? dir.slice(0, -1) : dir;
+    const boundaryPattern = new RegExp(`(?:^|/)${normalizedDir}(?:/|$)`);
+    return boundaryPattern.test(sanitizedPath);
+  });
+}
+
+/**
+ * ファイルパスが除外ファイルパターンに一致するかチェック
+ *
+ * @param filePath - チェック対象のファイルパス
+ * @returns 除外すべき場合は true
+ */
+function isExcludedFile(filePath: string): boolean {
+  const fileName = path.basename(filePath);
+  const extension = path.extname(filePath);
+
+  // 生成ファイルチェック
+  if (
+    EXCLUDED_FILE_PATTERNS.generated.some((pattern) =>
+      pattern.includes('*') ? matchesWildcard(fileName, pattern) : fileName === pattern,
+    )
+  ) {
+    return true;
+  }
+
+  // ロックファイルチェック
+  if (EXCLUDED_FILE_PATTERNS.lockFiles.includes(fileName)) {
+    return true;
+  }
+
+  // バイナリファイルチェック
+  if (EXCLUDED_FILE_PATTERNS.binary.includes(extension)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 出力ファイルパスを生成
  *
  * @returns 一時ディレクトリ内のユニークなファイルパス
@@ -220,17 +387,21 @@ export class RepositoryAnalyzer {
       return false;
     }
 
-    // ファイルパス検証（TypeScript または Python のみ、Phase 1限定）
+    // ファイルパス検証
     if (!candidate.file || typeof candidate.file !== 'string') {
       logger.debug('Invalid candidate: missing or invalid file');
       return false;
     }
-    const isTypeScript = candidate.file.endsWith('.ts') || candidate.file.endsWith('.tsx');
-    const isPython = candidate.file.endsWith('.py');
-    if (!isTypeScript && !isPython) {
-      logger.debug(
-        `Invalid candidate: file "${candidate.file}" is not TypeScript or Python (Phase 1 limitation)`,
-      );
+
+    // 除外ディレクトリチェック
+    if (isExcludedDirectory(candidate.file)) {
+      logger.debug(`Invalid candidate: file "${candidate.file}" is in excluded directory`);
+      return false;
+    }
+
+    // 除外ファイルパターンチェック
+    if (isExcludedFile(candidate.file)) {
+      logger.debug(`Invalid candidate: file "${candidate.file}" matches excluded file pattern`);
       return false;
     }
 

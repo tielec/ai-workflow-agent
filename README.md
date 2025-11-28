@@ -756,9 +756,24 @@ ai-workflow auto-issue --dry-run --limit 1
    実際に生成するには --dry-run オプションを外してください。
 ```
 
-**Phase 1 MVP の制限事項**:
+**サポート対象言語**（v0.5.1、Issue #144で汎用化）:
 
-- **対象ファイル**: TypeScript (`.ts`) と Python (`.py`) のみ
+| カテゴリ | 言語/ファイル |
+|---------|--------------|
+| **スクリプト言語** | JavaScript (.js, .jsx, .mjs), TypeScript (.ts, .tsx), Python (.py), Ruby (.rb), PHP (.php), Perl (.pl), Shell (.sh, .bash) |
+| **コンパイル言語** | Go (.go), Java (.java), Kotlin (.kt), Rust (.rs), C (.c, .h), C++ (.cpp, .hpp), C# (.cs), Swift (.swift) |
+| **JVM言語** | Groovy (.groovy), Scala (.scala) |
+| **CI/CD設定** | Jenkinsfile, Dockerfile, Makefile |
+| **設定/データ** | YAML (.yml, .yaml), JSON (.json), TOML (.toml), XML (.xml) |
+| **IaC** | Terraform (.tf), CloudFormation (.template) |
+
+**除外パターン**:
+- **ディレクトリ**: `node_modules/`, `vendor/`, `.git/`, `dist/`, `build/`, `out/`, `target/`, `__pycache__/`, `.venv/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `coverage/`, `.next/`, `.nuxt/`
+- **生成ファイル**: `*.min.js`, `*.bundle.js`, `*.generated.*`, `*.g.go`, `*.pb.go`, `*.gen.ts`
+- **ロックファイル**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Gemfile.lock`, `poetry.lock`, `Pipfile.lock`, `go.sum`, `Cargo.lock`, `composer.lock`
+- **バイナリ**: `.exe`, `.dll`, `.so`, `.dylib`, `.a`, `.lib`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.ico`, `.svg`, `.webp`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.tar`, `.gz`, `.bz2`, `.7z`, `.rar`, `.mp3`, `.mp4`, `.avi`, `.mov`, `.mkv`, `.woff`, `.woff2`, `.ttf`, `.eot`
+
+**Phase 1 MVP の制限事項**:
 - **Issue種類**: `bug` カテゴリのみ（`refactor`, `enhancement` は将来追加予定）
 - **分析対象**: `src/` ディレクトリ配下のファイル（カスタマイズ不可）
 - **重複判定**: 既存Issueとの重複チェックのみ（他のリポジトリとの重複は未対応）
