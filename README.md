@@ -100,6 +100,13 @@ ai-workflow execute \
 ai-workflow execute \
   --list-presets
 
+ai-workflow auto-issue \
+  [--category bug|refactor|enhancement|all] \
+  [--limit <number>] \
+  [--dry-run] \
+  [--similarity-threshold <0.0-1.0>] \
+  [--agent auto|codex|claude]
+
 ai-workflow review \
   --phase <name> \
   --issue <number>
@@ -621,6 +628,147 @@ flowchart LR
 - ✅ resume機能は自動的に働くので、メタデータさえ正しければ正しいフェーズから再開される
 - ✅ rollbackはメタデータを更新するだけなので、実行モードは変更不要
 - ✅ Jenkinsでも同じ（EXECUTION_MODEは `all_phases` または `preset` のまま）
+
+### auto-issueコマンド（自動バグ検出＆Issue生成）
+
+`auto-issue` コマンドは、リポジトリのコードベースを自動分析してバグを検出し、重複を除外した上でGitHub Issueを自動生成する機能です（v0.5.0、Issue #126で追加）。
+
+```bash
+# 基本的な使用方法（バグ検出とIssue生成）
+ai-workflow auto-issue
+
+# プレビューモード（Issue生成せず、検出結果のみ表示）
+ai-workflow auto-issue --dry-run
+
+# 検出数を制限（最大5件のIssueを生成）
+ai-workflow auto-issue --limit 5
+
+# 類似度閾値を調整（より厳格な重複判定）
+ai-workflow auto-issue --similarity-threshold 0.85
+
+# 使用するエージェントを指定
+ai-workflow auto-issue --agent codex
+
+# すべてのオプションを組み合わせ
+ai-workflow auto-issue \
+  --category bug \
+  --limit 10 \
+  --dry-run \
+  --similarity-threshold 0.8 \
+  --agent auto
+```
+
+**主な機能**:
+
+1. **リポジトリ分析（RepositoryAnalyzer）**:
+   - コードベース全体を自動分析し、潜在的なバグを検出
+   - TypeScript / Python ファイルをサポート（Phase 1 MVP）
+   - AIエージェント（Codex / Claude）による高精度な分析
+
+2. **重複除外（IssueDeduplicator）**:
+   - 2段階の重複検出アルゴリズム
+     - Stage 1: コサイン類似度による高速フィルタリング（TF-IDF ベクトル化）
+     - Stage 2: LLM による意味的類似性の判定
+   - 既存のGitHub Issueとの重複チェック
+   - 検出されたバグ同士の重複チェック
+
+3. **Issue自動生成（IssueGenerator）**:
+   - 検出されたバグから自動的にGitHub Issueを作成
+   - タイトル、説明、ラベル、優先度を自動設定
+   - `--dry-run` モードで事前確認が可能
+
+**オプション**:
+
+- `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`）
+  - **Phase 1 MVP**: `bug` のみサポート（デフォルト）
+  - 将来的に `refactor`, `enhancement` もサポート予定
+- `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
+  - 大規模リポジトリでのテスト時に有用
+- `--dry-run`: プレビューモード
+  - Issue生成せず、検出結果のみをコンソールに表示
+  - 実際のIssue生成前の確認に使用
+- `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75）
+  - 高い値（例: 0.85）: より厳格な重複判定（重複を少なく判定）
+  - 低い値（例: 0.65）: より緩い重複判定（重複を多く判定）
+- `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
+  - `auto`（デフォルト）: Codex優先、なければClaudeにフォールバック
+  - `codex`: Codexのみ使用（`gpt-5-codex`）
+  - `claude`: Claude Code強制使用
+
+**環境変数**:
+
+```bash
+export GITHUB_TOKEN="ghp_..."          # GitHub Personal Access Token（必須）
+export GITHUB_REPOSITORY="owner/repo" # 対象リポジトリ（必須）
+export CODEX_API_KEY="sk-code..."     # Codexキー（--agent codex 使用時）
+export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json" # Claude認証
+```
+
+**使用例**:
+
+```bash
+# ケース1: 初めての使用（プレビューモードで確認）
+ai-workflow auto-issue --dry-run --limit 3
+# → 最大3件のバグを検出し、Issue内容をプレビュー表示（実際には生成しない）
+
+# ケース2: 本番実行（最大5件のIssueを生成）
+ai-workflow auto-issue --limit 5
+# → バグを検出し、重複を除外して最大5件のGitHub Issueを自動生成
+
+# ケース3: 高精度モード（Codex専用、厳格な重複判定）
+ai-workflow auto-issue \
+  --agent codex \
+  --similarity-threshold 0.85 \
+  --limit 10
+# → Codexで高精度な分析を実施、類似度85%以上で重複判定
+
+# ケース4: 大規模リポジトリのテスト
+ai-workflow auto-issue --dry-run --limit 1
+# → 1件のみ検出してプレビュー（動作確認用）
+```
+
+**出力例（--dry-runモード）**:
+
+```
+🔍 リポジトリ分析中...
+✅ 15個の潜在的なバグを検出しました
+
+🔄 重複チェック中...
+  - Stage 1 (コサイン類似度): 3件の重複を検出
+  - Stage 2 (LLM判定): 2件の重複を確認
+✅ 10個のユニークなバグに絞り込みました
+
+📝 Issue生成プレビュー（--dry-runモード）:
+
+[Issue 1]
+タイトル: Potential null pointer exception in UserService.getUser()
+説明: src/services/user.service.ts:45 で null チェックが不足...
+ラベル: bug, priority:high
+
+[Issue 2]
+タイトル: Missing error handling in DataProcessor.process()
+説明: src/processors/data.processor.ts:120 でエラーハンドリングが不足...
+ラベル: bug, priority:medium
+
+...（省略）
+
+ℹ️ --dry-run モードのため、Issueは生成されませんでした。
+   実際に生成するには --dry-run オプションを外してください。
+```
+
+**Phase 1 MVP の制限事項**:
+
+- **対象ファイル**: TypeScript (`.ts`) と Python (`.py`) のみ
+- **Issue種類**: `bug` カテゴリのみ（`refactor`, `enhancement` は将来追加予定）
+- **分析対象**: `src/` ディレクトリ配下のファイル（カスタマイズ不可）
+- **重複判定**: 既存Issueとの重複チェックのみ（他のリポジトリとの重複は未対応）
+
+**注意事項**:
+
+- 初回実行時は分析に時間がかかる場合があります（リポジトリサイズに依存）
+- `--dry-run` モードでの事前確認を推奨します
+- GitHub APIレート制限に注意してください（大量のIssue生成時）
+- `--limit` オプションでテスト実行することを推奨します
 
 ## フェーズ概要
 
