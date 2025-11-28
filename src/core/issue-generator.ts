@@ -8,6 +8,7 @@
  */
 
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import fs from 'fs-extra';
 import { Octokit } from '@octokit/rest';
@@ -19,6 +20,17 @@ import type { BugCandidate, IssueCreationResult } from '../types/auto-issue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * 出力ファイルパスを生成
+ *
+ * @returns 一時ディレクトリ内のユニークなファイルパス
+ */
+function generateOutputFilePath(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return path.join(os.tmpdir(), `auto-issue-body-${timestamp}-${random}.md`);
+}
 
 /**
  * IssueGenerator クラス
@@ -87,11 +99,16 @@ export class IssueGenerator {
 
     const template = fs.readFileSync(promptPath, 'utf-8');
 
-    // 2. プロンプト変数を置換
-    const prompt = template.replace('{bug_candidate_json}', JSON.stringify(candidate, null, 2));
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath();
+    logger.debug(`Output file path: ${outputFilePath}`);
 
-    // 3. エージェントを選択（RepositoryAnalyzer と同じロジック）
-    let rawOutput: string;
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{bug_candidate_json}', JSON.stringify(candidate, null, 2))
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択（RepositoryAnalyzer と同じロジック）
     let selectedAgent = agent;
 
     if (agent === 'codex' || agent === 'auto') {
@@ -107,8 +124,7 @@ export class IssueGenerator {
       } else {
         try {
           logger.info('Using Codex agent for issue body generation.');
-          const events = await this.codexClient.executeTask({ prompt });
-          rawOutput = events.join('\n');
+          await this.codexClient.executeTask({ prompt });
         } catch (error) {
           if (agent === 'codex') {
             return {
@@ -130,14 +146,16 @@ export class IssueGenerator {
         };
       }
       logger.info('Using Claude agent for issue body generation.');
-      const events = await this.claudeClient.executeTask({ prompt });
-      rawOutput = events.join('\n');
+      await this.claudeClient.executeTask({ prompt });
     }
 
-    // 4. Issue本文を生成
-    const issueBody = this.createIssueBody(candidate, rawOutput!);
+    // 5. 出力ファイルからIssue本文を読み込み
+    const issueBody = this.readOutputFile(outputFilePath, candidate);
 
-    // 5. dry-runモードの場合はスキップ
+    // 6. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
+    // 7. dry-runモードの場合はスキップ
     if (dryRun) {
       logger.info('[DRY RUN] Skipping issue creation.');
       logger.info(`Title: ${candidate.title}`);
@@ -148,7 +166,7 @@ export class IssueGenerator {
       };
     }
 
-    // 6. GitHub APIでIssueを作成
+    // 8. GitHub APIでIssueを作成
     try {
       const result = await this.createIssueOnGitHub(
         candidate.title,
@@ -171,23 +189,84 @@ export class IssueGenerator {
   }
 
   /**
-   * Issue本文を生成
+   * 出力ファイルからIssue本文を読み込み
    *
-   * エージェント出力からMarkdownブロックを抽出します。
-   *
-   * @param candidate - バグ候補
-   * @param agentOutput - エージェントの生成結果
+   * @param filePath - 出力ファイルパス
+   * @param candidate - バグ候補（フォールバック用）
    * @returns Markdown形式のIssue本文
    */
-  private createIssueBody(candidate: BugCandidate, agentOutput: string): string {
-    // エージェント出力から Markdown ブロックを抽出
-    const markdownMatch = agentOutput.match(/```markdown\n([\s\S]*?)\n```/);
-    if (markdownMatch) {
-      return markdownMatch[1];
+  private readOutputFile(filePath: string, candidate: BugCandidate): string {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Using fallback template.`);
+      return this.createFallbackBody(candidate);
     }
 
-    // フォールバック: エージェント出力をそのまま使用
-    return agentOutput;
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      // 内容が空の場合はフォールバック
+      if (!content) {
+        logger.warn('Output file is empty. Using fallback template.');
+        return this.createFallbackBody(candidate);
+      }
+
+      // 最低限の検証: ## セクションが含まれているか
+      if (!content.includes('##')) {
+        logger.warn('Output file does not contain valid Markdown sections. Using fallback template.');
+        return this.createFallbackBody(candidate);
+      }
+
+      logger.info('Successfully read issue body from output file.');
+      return content;
+    } catch (error) {
+      logger.error(`Failed to read output file: ${getErrorMessage(error)}`);
+      return this.createFallbackBody(candidate);
+    }
+  }
+
+  /**
+   * フォールバック用のIssue本文を生成
+   *
+   * @param candidate - バグ候補
+   * @returns Markdown形式のIssue本文
+   */
+  private createFallbackBody(candidate: BugCandidate): string {
+    return `## 概要
+
+${candidate.description}
+
+## 詳細
+
+**深刻度**: ${candidate.severity}
+**カテゴリ**: ${candidate.category}
+
+## 修正案
+
+${candidate.suggestedFix}
+
+## 関連ファイル
+
+- \`${candidate.file}\` (${candidate.line}行目)
+
+---
+*このIssueは自動生成されました（フォールバックテンプレート使用）*`;
+  }
+
+  /**
+   * 一時出力ファイルをクリーンアップ
+   *
+   * @param filePath - 出力ファイルパス
+   */
+  private cleanupOutputFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.removeSync(filePath);
+        logger.debug(`Cleaned up output file: ${filePath}`);
+      }
+    } catch (error) {
+      logger.warn(`Failed to cleanup output file: ${getErrorMessage(error)}`);
+    }
   }
 
   /**
