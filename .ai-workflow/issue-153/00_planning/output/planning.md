@@ -196,10 +196,10 @@ Jenkins環境で`auto-issue`コマンドを実行した際、`GITHUB_REPOSITORY`
 
 ### Phase 7: ドキュメント (見積もり: 0.5h)
 
-- [ ] Task 7-1: CLAUDE.md の更新 (0.25h)
+- [x] Task 7-1: CLAUDE.md の更新 (0.25h)
   - `auto-issue` コマンドの動作説明に「対象リポジトリ解決」を追記
   - Jenkins 環境での動作説明を更新
-- [ ] Task 7-2: README.md の更新 (0.25h)
+- [x] Task 7-2: README.md の更新 (0.25h)
   - `auto-issue` コマンドの使用例に `REPOS_ROOT` 環境変数の説明追加
   - Jenkins 実行時の動作説明を更新
 
@@ -314,9 +314,9 @@ P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8
 - [x] 既存テストが壊れていない（モックインフラ問題はIssue #153固有ではなくプロジェクト全体の問題であることを確認、既存機能との互換性を静的検証で確認）
 
 ### Phase 7: ドキュメント
-- [ ] CLAUDE.md が更新されている
-- [ ] README.md が更新されている
-- [ ] 変更内容が明確に記載されている
+- [x] CLAUDE.md が更新されている
+- [x] README.md が更新されている
+- [x] 変更内容が明確に記載されている
 
 ### Phase 8: レポート
 - [ ] PR 説明文が作成されている
