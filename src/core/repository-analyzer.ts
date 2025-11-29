@@ -191,12 +191,13 @@ function isExcludedFile(filePath: string): boolean {
 /**
  * 出力ファイルパスを生成
  *
+ * @param prefix - ファイル名のプレフィックス（'bugs' | 'refactor'）
  * @returns 一時ディレクトリ内のユニークなファイルパス
  */
-function generateOutputFilePath(): string {
+function generateOutputFilePath(prefix: 'bugs' | 'refactor' = 'bugs'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  return path.join(os.tmpdir(), `auto-issue-bugs-${timestamp}-${random}.json`);
+  return path.join(os.tmpdir(), `auto-issue-${prefix}-${timestamp}-${random}.json`);
 }
 
 /**
@@ -325,15 +326,17 @@ export class RepositoryAnalyzer {
 
     const template = fs.readFileSync(promptPath, 'utf-8');
 
-    // 2. リポジトリコードを収集
-    const repositoryCode = await this.collectRepositoryCode(repoPath);
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath('refactor');
+    logger.debug(`Output file path: ${outputFilePath}`);
 
     // 3. プロンプト変数を置換
-    const prompt = template.replace('{{REPOSITORY_CODE}}', repositoryCode);
+    const prompt = template
+      .replace('{repository_path}', repoPath)
+      .replace(/{output_file_path}/g, outputFilePath);
 
     // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
-    let agentEvents: string[] = [];
 
     if (agent === 'codex' || agent === 'auto') {
       if (!this.codexClient) {
@@ -346,8 +349,7 @@ export class RepositoryAnalyzer {
       } else {
         try {
           logger.info('Using Codex agent for refactoring detection.');
-          const response = await this.codexClient.executeTask({ prompt });
-          agentEvents = Array.isArray(response) ? response : [];
+          await this.codexClient.executeTask({ prompt });
         } catch (error) {
           if (agent === 'codex') {
             throw error;
@@ -364,13 +366,11 @@ export class RepositoryAnalyzer {
         throw new Error('Claude agent is not available.');
       }
       logger.info('Using Claude agent for refactoring detection.');
-      const response = await this.claudeClient.executeTask({ prompt });
-      agentEvents = Array.isArray(response) ? response : [];
+      await this.claudeClient.executeTask({ prompt });
     }
 
-    // 5. エージェント出力からJSONを抽出してパース
-    const agentResponse = this.extractRefactoringOutput(agentEvents, selectedAgent);
-    const candidates = this.parseRefactoringResponse(agentResponse);
+    // 5. 出力ファイルからJSONを読み込み
+    const candidates = this.readRefactorOutputFile(outputFilePath);
 
     // 6. バリデーション
     const validCandidates = candidates.filter((c) => this.validateRefactorCandidate(c));
@@ -379,7 +379,54 @@ export class RepositoryAnalyzer {
       `Parsed ${candidates.length} refactoring candidates, ${validCandidates.length} valid after validation.`,
     );
 
+    // 7. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
     return validCandidates;
+  }
+
+  /**
+   * 出力ファイルからリファクタリング候補を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @returns リファクタリング候補のリスト
+   */
+  private readRefactorOutputFile(filePath: string): RefactorCandidate[] {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Agent may have failed to write the file.`);
+      return [];
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      const parsed = JSON.parse(content);
+
+      // [...] 配列形式
+      if (Array.isArray(parsed)) {
+        logger.info(`Read ${parsed.length} refactoring candidates from output file.`);
+        return parsed as RefactorCandidate[];
+      }
+
+      // { "candidates": [...] } 形式
+      if (parsed.candidates && Array.isArray(parsed.candidates)) {
+        logger.info(`Read ${parsed.candidates.length} refactoring candidates from output file.`);
+        return parsed.candidates as RefactorCandidate[];
+      }
+
+      // 単一オブジェクト形式
+      if (parsed.type && parsed.filePath) {
+        logger.info('Read 1 refactoring candidate from output file.');
+        return [parsed as RefactorCandidate];
+      }
+
+      logger.warn('Output file does not contain valid refactoring candidates structure.');
+      return [];
+    } catch (error) {
+      logger.error(`Failed to read/parse refactoring output file: ${getErrorMessage(error)}`);
+      return [];
+    }
   }
 
   /**
