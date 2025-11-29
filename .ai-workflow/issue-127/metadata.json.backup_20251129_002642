@@ -97,10 +97,10 @@
       ]
     },
     "testing": {
-      "status": "pending",
-      "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "retry_count": 3,
+      "started_at": "2025-11-28T23:34:20.141Z",
+      "completed_at": "2025-11-29T00:08:20.577Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -110,10 +110,10 @@
       ]
     },
     "documentation": {
-      "status": "pending",
+      "status": "completed",
       "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2025-11-29T00:08:21.452Z",
+      "completed_at": "2025-11-29T00:14:27.913Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -122,10 +122,10 @@
       ]
     },
     "report": {
-      "status": "pending",
+      "status": "completed",
       "retry_count": 0,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2025-11-29T00:14:28.507Z",
+      "completed_at": "2025-11-29T00:19:36.447Z",
       "review_result": null,
       "current_step": null,
       "completed_steps": [
@@ -134,13 +134,13 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-29T00:19:38.440Z",
       "completed_at": null,
       "review_result": null,
-      "decision": "FAIL_PHASE_6",
-      "failed_phase": "testing",
+      "decision": null,
+      "failed_phase": null,
       "remaining_tasks": [],
       "created_issue_url": null,
       "abort_reason": null,
@@ -148,7 +148,7 @@
     }
   },
   "created_at": "2025-11-28T22:50:55.288Z",
-  "updated_at": "2025-11-29T00:26:42.500Z",
+  "updated_at": "2025-11-29T00:26:40.779Z",
   "branch_name": "ai-workflow/issue-127",
   "pr_number": 152,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/152",
