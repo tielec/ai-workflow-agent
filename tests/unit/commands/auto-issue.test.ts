@@ -12,10 +12,30 @@ import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
 import { jest } from '@jest/globals';
 
+// モック関数の事前定義（グローバルスコープで定義）
+const mockAnalyze = jest.fn<any>();
+const mockFilterDuplicates = jest.fn<any>();
+const mockGenerate = jest.fn<any>();
+
 // モック設定
-jest.mock('../../../src/core/repository-analyzer.js');
-jest.mock('../../../src/core/issue-deduplicator.js');
-jest.mock('../../../src/core/issue-generator.js');
+jest.mock('../../../src/core/repository-analyzer.js', () => ({
+  RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
+    analyze: mockAnalyze,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-deduplicator.js', () => ({
+  IssueDeduplicator: jest.fn().mockImplementation(() => ({
+    filterDuplicates: mockFilterDuplicates,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-generator.js', () => ({
+  IssueGenerator: jest.fn().mockImplementation(() => ({
+    generate: mockGenerate,
+  })),
+}));
+
 jest.mock('../../../src/commands/execute/agent-setup.js');
 jest.mock('../../../src/core/config.js');
 jest.mock('../../../src/utils/logger.js');
@@ -23,39 +43,21 @@ jest.mock('../../../src/core/repository-utils.js');
 jest.mock('@octokit/rest');
 
 describe('auto-issue command handler', () => {
-  let mockAnalyzer: jest.Mocked<RepositoryAnalyzer>;
-  let mockDeduplicator: jest.Mocked<IssueDeduplicator>;
-  let mockGenerator: jest.Mocked<IssueGenerator>;
+  // 変数名のエイリアス（既存コードとの互換性のため）
+  const mockAnalyzer = { analyze: mockAnalyze };
+  const mockDeduplicator = { filterDuplicates: mockFilterDuplicates };
+  const mockGenerator = { generate: mockGenerate };
 
   beforeEach(async () => {
-    // モックインスタンスの作成
-    mockAnalyzer = {
-      analyze: jest.fn(),
-    } as unknown as jest.Mocked<RepositoryAnalyzer>;
+    // モック関数のクリア
+    mockAnalyze.mockClear();
+    mockFilterDuplicates.mockClear();
+    mockGenerate.mockClear();
 
-    mockDeduplicator = {
-      filterDuplicates: jest.fn(),
-    } as unknown as jest.Mocked<IssueDeduplicator>;
-
-    mockGenerator = {
-      generate: jest.fn(),
-    } as unknown as jest.Mocked<IssueGenerator>;
-
-    // コンストラクタのモック（ESM対応 - 動的インポートでモジュールを取得してmock関数を上書き）
-    const { RepositoryAnalyzer: RealRepositoryAnalyzer } = await import(
-      '../../../src/core/repository-analyzer.js'
-    );
-    const { IssueDeduplicator: RealIssueDeduplicator } = await import(
-      '../../../src/core/issue-deduplicator.js'
-    );
-    const { IssueGenerator: RealIssueGenerator } = await import(
-      '../../../src/core/issue-generator.js'
-    );
-
-    // mock関数として定義
-    (RealRepositoryAnalyzer as any) = jest.fn(() => mockAnalyzer);
-    (RealIssueDeduplicator as any) = jest.fn(() => mockDeduplicator);
-    (RealIssueGenerator as any) = jest.fn(() => mockGenerator);
+    // デフォルトの動作設定
+    mockAnalyze.mockResolvedValue([]);
+    mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
+    mockGenerate.mockResolvedValue({ success: true });
 
     // config のモック
     const config = require('../../../src/core/config.js');
@@ -685,7 +687,7 @@ describe('auto-issue command handler', () => {
         },
       ]);
 
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       mockGenerator.generate.mockResolvedValue({
         success: true,
@@ -721,7 +723,7 @@ describe('auto-issue command handler', () => {
         },
       ]);
 
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       mockGenerator.generate.mockResolvedValue({
         success: true,
@@ -779,7 +781,7 @@ describe('auto-issue command handler', () => {
       ];
 
       mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       // 1つ目と3つ目は成功、2つ目は失敗
       mockGenerator.generate
@@ -834,7 +836,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(goCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/1',
@@ -877,7 +879,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(javaCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/2',
@@ -920,7 +922,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(rubyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/3',
@@ -963,7 +965,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(groovyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/4',
@@ -1007,7 +1009,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(jenkinsfileCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/5',
@@ -1050,7 +1052,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(dockerfileCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/6',
@@ -1093,7 +1095,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(tsCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/7',
@@ -1136,7 +1138,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(pyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/8',
@@ -1218,7 +1220,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(multiLangCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/999',
