@@ -204,14 +204,14 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~2h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1h)
+- [x] Task 5-1: ユニットテストの実装 (1~1h)
   - `executeAgentWithFallback`メソッドのテストケース実装
     - モック設定（CodexAgentClient、ClaudeAgentClient、fs-extra）
     - 各テストシナリオの実装（Task 3-1で定義）
   - `validateAnalysisResult`メソッドのテストケース実装
     - 各バリデーションルールの検証
 
-- [ ] Task 5-2: インテグレーションテストの実装 (1~1h)
+- [x] Task 5-2: インテグレーションテストの実装 (1~1h)
   - `analyze()`メソッドのリグレッションテスト実装
     - リファクタリング前後の出力比較
     - エージェントフォールバック動作の検証
@@ -358,9 +358,9 @@ graph TD
 - [x] ESLint、TypeScriptコンパイルエラーがない
 
 ### Phase 5: テストコード実装
-- [ ] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
-- [ ] インテグレーションテストが実装されている（`analyze`、`analyzeForRefactoring`のリグレッション検証）
-- [ ] モッククリーンアップ（`afterEach(() => jest.restoreAllMocks())`）が実装されている
+- [x] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
+- [x] インテグレーションテストが実装されている（`analyze`、`analyzeForRefactoring`のリグレッション検証）
+- [x] モッククリーンアップ（`afterEach(() => jest.restoreAllMocks())`）が実装されている
 
 ### Phase 6: テスト実行
 - [ ] 全ユニットテストがパスしている
@@ -673,14 +673,14 @@ async analyzeForRefactoring(): Promise<RefactorCandidate[]> {
 
 ### Phase 5: テストコード実装 (見積もり: 2~2h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1h)
+- [x] Task 5-1: ユニットテストの実装 (1~1h)
   - `executeAgentWithFallback`メソッドのテストケース実装
     - モック設定（CodexAgentClient、ClaudeAgentClient、fs-extra）
     - 各テストシナリオの実装（Task 3-1で定義）
   - `validateAnalysisResult`メソッドのテストケース実装
     - 各バリデーションルールの検証
 
-- [ ] Task 5-2: インテグレーションテストの実装 (1~1h)
+- [x] Task 5-2: インテグレーションテストの実装 (1~1h)
   - `analyze()`メソッドのリグレッションテスト実装
     - リファクタリング前後の出力比較
     - エージェントフォールバック動作の検証
@@ -827,9 +827,9 @@ graph TD
 - [x] ESLint、TypeScriptコンパイルエラーがない
 
 ### Phase 5: テストコード実装
-- [ ] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
-- [ ] インテグレーションテストが実装されている（`analyze`、`analyzeForRefactoring`のリグレッション検証）
-- [ ] モッククリーンアップ（`afterEach(() => jest.restoreAllMocks())`）が実装されている
+- [x] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
+- [x] インテグレーションテストが実装されている（`analyze`、`analyzeForRefactoring`のリグレッション検証）
+- [x] モッククリーンアップ（`afterEach(() => jest.restoreAllMocks())`）が実装されている
 
 ### Phase 6: テスト実行
 - [ ] 全ユニットテストがパスしている
