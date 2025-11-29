@@ -15,6 +15,8 @@ import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setu
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { IssueDeduplicator, type ExistingIssue } from '../core/issue-deduplicator.js';
 import { IssueGenerator } from '../core/issue-generator.js';
+import type { CodexAgentClient } from '../core/codex-agent-client.js';
+import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
 
 /**
@@ -73,76 +75,247 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const octokit = new Octokit({ auth: githubToken });
     logger.info(`GitHub repository: ${repoName}`);
 
-    // 6. リポジトリ探索エンジンでバグを検出
+    // 6. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
     const analyzer = new RepositoryAnalyzer(codexClient, claudeClient);
-    logger.info('Analyzing repository for bugs...');
-    const candidates = await analyzer.analyze(workingDir, options.agent);
-    logger.info(`Found ${candidates.length} bug candidates.`);
 
-    if (candidates.length === 0) {
-      logger.info('No bug candidates found. Exiting.');
-      return;
+    if (options.category === 'bug') {
+      logger.info('Analyzing repository for bugs...');
+      const bugCandidates = await analyzer.analyze(workingDir, options.agent);
+      logger.info(`Found ${bugCandidates.length} bug candidates.`);
+
+      if (bugCandidates.length === 0) {
+        logger.info('No bug candidates found. Exiting.');
+        return;
+      }
+
+      // バグ候補の処理を継続
+      await processBugCandidates(
+        bugCandidates,
+        octokit,
+        repoName,
+        codexClient,
+        claudeClient,
+        options,
+      );
+    } else if (options.category === 'refactor') {
+      logger.info('Analyzing repository for refactoring...');
+      const refactorCandidates = await analyzer.analyzeForRefactoring(workingDir, options.agent);
+      logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
+
+      if (refactorCandidates.length === 0) {
+        logger.info('No refactoring candidates found. Exiting.');
+        return;
+      }
+
+      // リファクタリング候補の処理を継続
+      await processRefactorCandidates(
+        refactorCandidates,
+        octokit,
+        repoName,
+        codexClient,
+        claudeClient,
+        options,
+      );
+    } else {
+      // 'enhancement' と 'all' は Phase 3 以降で実装予定
+      throw new Error(
+        `Category "${options.category}" is not yet supported. Please use "bug" or "refactor".`,
+      );
     }
-
-    // 7. 既存Issueを取得（リポジトリ情報から）
-    const [owner, repo] = repoName.split('/');
-    if (!owner || !repo) {
-      throw new Error(`Invalid repository name: ${repoName}`);
-    }
-
-    logger.info('Fetching existing issues...');
-    const existingIssuesResponse = await octokit.issues.listForRepo({
-      owner,
-      repo,
-      state: 'open',
-      per_page: 100, // 最大100件取得
-    });
-
-    const existingIssues: ExistingIssue[] = existingIssuesResponse.data.map((issue) => ({
-      number: issue.number,
-      title: issue.title,
-      body: issue.body ?? '',
-    }));
-
-    logger.info(`Fetched ${existingIssues.length} existing open issues.`);
-
-    // 8. 重複検出でフィルタリング
-    const deduplicator = new IssueDeduplicator();
-    logger.info('Filtering duplicate issues...');
-    const filteredCandidates = await deduplicator.filterDuplicates(
-      candidates,
-      existingIssues,
-      options.similarityThreshold,
-    );
-    logger.info(`After deduplication: ${filteredCandidates.length} candidates.`);
-
-    if (filteredCandidates.length === 0) {
-      logger.info('No non-duplicate candidates found. Exiting.');
-      return;
-    }
-
-    // 9. limitオプションで制限
-    const limitedCandidates = filteredCandidates.slice(0, options.limit);
-    logger.info(`Limiting to ${limitedCandidates.length} candidates (limit: ${options.limit}).`);
-
-    // 10. Issue生成
-    const generator = new IssueGenerator(codexClient, claudeClient, octokit, repoName);
-    const results: IssueCreationResult[] = [];
-
-    for (const candidate of limitedCandidates) {
-      logger.info(`Generating issue for: "${candidate.title}"`);
-      const result = await generator.generate(candidate, options.agent, options.dryRun);
-      results.push(result);
-    }
-
-    // 11. 結果サマリーを表示
-    reportResults(results, options.dryRun);
 
     logger.info('auto-issue command completed successfully.');
   } catch (error) {
     logger.error(`auto-issue command failed: ${getErrorMessage(error)}`);
     throw error;
   }
+}
+
+/**
+ * バグ候補を処理してIssueを作成
+ *
+ * @param candidates - バグ候補のリスト
+ * @param octokit - GitHub API クライアント
+ * @param repoName - リポジトリ名（owner/repo 形式）
+ * @param codexClient - Codex エージェントクライアント
+ * @param claudeClient - Claude エージェントクライアント
+ * @param options - auto-issue オプション
+ */
+async function processBugCandidates(
+  candidates: import('../types/auto-issue.js').BugCandidate[],
+  octokit: Octokit,
+  repoName: string,
+  codexClient: CodexAgentClient | null,
+  claudeClient: ClaudeAgentClient | null,
+  options: AutoIssueOptions,
+): Promise<void> {
+  // 既存Issueを取得（リポジトリ情報から）
+  const [owner, repo] = repoName.split('/');
+  if (!owner || !repo) {
+    throw new Error(`Invalid repository name: ${repoName}`);
+  }
+
+  logger.info('Fetching existing issues...');
+  const existingIssuesResponse = await octokit.issues.listForRepo({
+    owner,
+    repo,
+    state: 'open',
+    per_page: 100, // 最大100件取得
+  });
+
+  const existingIssues: ExistingIssue[] = existingIssuesResponse.data.map((issue) => ({
+    number: issue.number,
+    title: issue.title,
+    body: issue.body ?? '',
+  }));
+
+  logger.info(`Fetched ${existingIssues.length} existing open issues.`);
+
+  // 重複検出でフィルタリング
+  const deduplicator = new IssueDeduplicator();
+  logger.info('Filtering duplicate issues...');
+  const filteredCandidates = await deduplicator.filterDuplicates(
+    candidates,
+    existingIssues,
+    options.similarityThreshold,
+  );
+  logger.info(`After deduplication: ${filteredCandidates.length} candidates.`);
+
+  if (filteredCandidates.length === 0) {
+    logger.info('No non-duplicate candidates found. Exiting.');
+    return;
+  }
+
+  // limitオプションで制限
+  const limitedCandidates = filteredCandidates.slice(0, options.limit);
+  logger.info(`Limiting to ${limitedCandidates.length} candidates (limit: ${options.limit}).`);
+
+  // Issue生成
+  const generator = new IssueGenerator(codexClient, claudeClient, octokit, repoName);
+  const results: IssueCreationResult[] = [];
+
+  for (const candidate of limitedCandidates) {
+    logger.info(`Generating issue for: "${candidate.title}"`);
+    const result = await generator.generate(candidate, options.agent, options.dryRun);
+    results.push(result);
+  }
+
+  // 結果サマリーを表示
+  reportResults(results, options.dryRun);
+}
+
+/**
+ * リファクタリング候補を処理してIssueを作成
+ *
+ * @param candidates - リファクタリング候補のリスト
+ * @param octokit - GitHub API クライアント
+ * @param repoName - リポジトリ名（owner/repo 形式）
+ * @param codexClient - Codex エージェントクライアント
+ * @param claudeClient - Claude エージェントクライアント
+ * @param options - auto-issue オプション
+ */
+async function processRefactorCandidates(
+  candidates: import('../types/auto-issue.js').RefactorCandidate[],
+  octokit: Octokit,
+  repoName: string,
+  codexClient: CodexAgentClient | null,
+  claudeClient: ClaudeAgentClient | null,
+  options: AutoIssueOptions,
+): Promise<void> {
+  // 優先度でソート（high → medium → low）
+  const sortedCandidates = candidates.sort((a, b) => {
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    return priorityOrder[b.priority] - priorityOrder[a.priority];
+  });
+
+  // limitオプションで制限
+  const limitedCandidates = sortedCandidates.slice(0, options.limit);
+  logger.info(`Limiting to ${limitedCandidates.length} candidates (limit: ${options.limit}).`);
+
+  // Issue生成
+  const generator = new IssueGenerator(codexClient, claudeClient, octokit, repoName);
+  const results: IssueCreationResult[] = [];
+
+  for (const candidate of limitedCandidates) {
+    logger.info(
+      `Generating refactoring issue for: "${candidate.type}" in "${candidate.filePath}"`,
+    );
+    const result = await generator.generateRefactorIssue(candidate, options.agent, options.dryRun);
+    results.push(result);
+  }
+
+  // 結果サマリーを表示
+  reportResults(results, options.dryRun);
+}
+
+/**
+ * バグ候補を処理してIssueを作成（旧バージョン - 削除予定）
+ *
+ * この関数は既存のコードとの互換性のために残していますが、
+ * 新しいコードでは processBugCandidates を使用してください。
+ *
+ * @deprecated Use processBugCandidates instead
+ */
+async function processLegacyBugFlow(
+  candidates: import('../types/auto-issue.js').BugCandidate[],
+  octokit: Octokit,
+  repoName: string,
+  codexClient: CodexAgentClient | null,
+  claudeClient: ClaudeAgentClient | null,
+  options: AutoIssueOptions,
+): Promise<void> {
+  // 7. 既存Issueを取得（リポジトリ情報から）
+  const [owner, repo] = repoName.split('/');
+  if (!owner || !repo) {
+    throw new Error(`Invalid repository name: ${repoName}`);
+  }
+
+  logger.info('Fetching existing issues...');
+  const existingIssuesResponse = await octokit.issues.listForRepo({
+    owner,
+    repo,
+    state: 'open',
+    per_page: 100, // 最大100件取得
+  });
+
+  const existingIssues: ExistingIssue[] = existingIssuesResponse.data.map((issue) => ({
+    number: issue.number,
+    title: issue.title,
+    body: issue.body ?? '',
+  }));
+
+  logger.info(`Fetched ${existingIssues.length} existing open issues.`);
+
+  // 8. 重複検出でフィルタリング
+  const deduplicator = new IssueDeduplicator();
+  logger.info('Filtering duplicate issues...');
+  const filteredCandidates = await deduplicator.filterDuplicates(
+    candidates,
+    existingIssues,
+    options.similarityThreshold,
+  );
+  logger.info(`After deduplication: ${filteredCandidates.length} candidates.`);
+
+  if (filteredCandidates.length === 0) {
+    logger.info('No non-duplicate candidates found. Exiting.');
+    return;
+  }
+
+  // 9. limitオプションで制限
+  const limitedCandidates = filteredCandidates.slice(0, options.limit);
+  logger.info(`Limiting to ${limitedCandidates.length} candidates (limit: ${options.limit}).`);
+
+  // 10. Issue生成
+  const generator = new IssueGenerator(codexClient, claudeClient, octokit, repoName);
+  const results: IssueCreationResult[] = [];
+
+  for (const candidate of limitedCandidates) {
+    logger.info(`Generating issue for: "${candidate.title}"`);
+    const result = await generator.generate(candidate, options.agent, options.dryRun);
+    results.push(result);
+  }
+
+  // 11. 結果サマリーを表示
+  reportResults(results, options.dryRun);
 }
 
 /**
