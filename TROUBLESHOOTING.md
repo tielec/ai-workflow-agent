@@ -10,7 +10,7 @@ TypeScript CLI をローカルまたは Jenkins で利用する際によく発�
 
 **理由**:
 - `String.prototype.replaceAll()` メソッドが Node.js 15.0.0 以降で利用可能です
-- Issue #140 のセキュリティ修正により、Claude Agent Client の `fillTemplate` メソッドで `replaceAll()` を使用しています
+- Issue #140、Issue #161 のセキュリティ修正により、Claude Agent Client および Codex Agent Client の `fillTemplate` メソッドで `replaceAll()` を使用しています
 - これにより ReDoS（Regular Expression Denial of Service）脆弱性を完全に排除しています
 
 **推奨バージョン**: Node.js 18.x 以降（LTS版）
@@ -40,7 +40,7 @@ nvm use --lts
 | 18.x (LTS)        | ✅ 推奨              | ✅ 利用可能            |
 | 20.x (LTS)        | ✅ 推奨              | ✅ 利用可能            |
 
-**関連Issue**: Issue #140 (ReDoS脆弱性の修正)
+**関連Issue**: Issue #140 (Claude Agent Client ReDoS脆弱性の修正), Issue #161 (Codex Agent Client ReDoS脆弱性の修正)
 
 ## 1. Codex CLI 関連
 

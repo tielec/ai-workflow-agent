@@ -671,11 +671,11 @@ transformIgnorePatterns: [
     - **セクション数**: 2個以上のセクションヘッダー（`##`）を含む
     - **キーワード**: フェーズ固有キーワードが少なくとも1つ含まれる（すべて欠落の場合は無効）
     - **revise実装**: ログ抽出失敗時にreviseメソッドが実装されていること（未実装の場合はエラー）
-12. **セキュリティ: ReDoS攻撃の防止（Issue #140）**: 正規表現を動的に生成する場合、ユーザー入力やテンプレート変数をそのまま `new RegExp()` に渡すと ReDoS（Regular Expression Denial of Service）攻撃のリスクがある。以下の対策を推奨：
+12. **セキュリティ: ReDoS攻撃の防止（Issue #140、Issue #161で完了）**: 正規表現を動的に生成する場合、ユーザー入力やテンプレート変数をそのまま `new RegExp()` に渡すと ReDoS（Regular Expression Denial of Service）攻撃のリスクがある。以下の対策を推奨：
     - **文字列置換**: リテラル文字列の置換には `String.prototype.replaceAll()` を使用（Node.js 15.0.0以降）
     - **エスケープ処理**: 正規表現が必須の場合は、ユーザー入力を適切にエスケープ（例: `escape-string-regexp` ライブラリ）
     - **パフォーマンステスト**: 正規表現パターンに対してタイムアウトテストを実施（OWASP CWE-1333）
-    - **例**: `fillTemplate` メソッド（`src/core/claude-agent-client.ts`）では、`new RegExp(\`{${key}}\`, 'g')` を `replaceAll(\`{${key}}\`, value)` に置換し、ReDoS脆弱性を完全に排除（99.997%のパフォーマンス改善を達成）
+    - **実装完了**: `fillTemplate` メソッド（`src/core/claude-agent-client.ts` および `src/core/codex-agent-client.ts`）では、`new RegExp(\`{${key}}\`, 'g')` を `replaceAll(\`{${key}}\`, value)` に置換し、ReDoS脆弱性を完全に排除（99.997%のパフォーマンス改善を達成、Issue #161で修正完了）
 
 ## よくあるトラブルシューティング
 
