@@ -286,14 +286,79 @@ ${candidate.suggestedFix}
       `Generating refactoring issue for: "${candidate.type}" in "${candidate.filePath}"`,
     );
 
-    // 1. タイトルとラベルを生成
+    // 1. プロンプトテンプレートを読み込み
+    const promptPath = path.resolve(
+      __dirname,
+      '../prompts/auto-issue/generate-refactor-issue-body.txt',
+    );
+    if (!fs.existsSync(promptPath)) {
+      logger.warn(`Prompt template not found: ${promptPath}. Using fallback template.`);
+      return this.generateRefactorIssueWithFallback(candidate, dryRun);
+    }
+
+    const template = fs.readFileSync(promptPath, 'utf-8');
+
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath();
+    logger.debug(`Output file path: ${outputFilePath}`);
+
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{refactor_candidate_json}', JSON.stringify(candidate, null, 2))
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択
+    let selectedAgent = agent;
+
+    if (agent === 'codex' || agent === 'auto') {
+      if (!this.codexClient) {
+        if (agent === 'codex') {
+          return {
+            success: false,
+            error: 'Codex agent is not available.',
+          };
+        }
+        logger.warn('Codex not available, falling back to Claude.');
+        selectedAgent = 'claude';
+      } else {
+        try {
+          logger.info('Using Codex agent for refactor issue body generation.');
+          await this.codexClient.executeTask({ prompt });
+        } catch (error) {
+          if (agent === 'codex') {
+            return {
+              success: false,
+              error: `Codex failed: ${getErrorMessage(error)}`,
+            };
+          }
+          logger.warn(`Codex failed, falling back to Claude.`);
+          selectedAgent = 'claude';
+        }
+      }
+    }
+
+    if (selectedAgent === 'claude') {
+      if (!this.claudeClient) {
+        return {
+          success: false,
+          error: 'Claude agent is not available.',
+        };
+      }
+      logger.info('Using Claude agent for refactor issue body generation.');
+      await this.claudeClient.executeTask({ prompt });
+    }
+
+    // 5. 出力ファイルからIssue本文を読み込み
+    const issueBody = this.readRefactorOutputFile(outputFilePath, candidate);
+
+    // 6. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
+    // 7. タイトルとラベルを生成
     const title = this.generateRefactorTitle(candidate);
     const labels = this.generateRefactorLabels(candidate);
 
-    // 2. Issue本文を生成
-    const issueBody = this.createRefactorBody(candidate);
-
-    // 3. dry-runモードの場合はスキップ
+    // 8. dry-runモードの場合はスキップ
     if (dryRun) {
       logger.info('[DRY RUN] Skipping refactoring issue creation.');
       logger.info(`Title: ${title}`);
@@ -305,7 +370,7 @@ ${candidate.suggestedFix}
       };
     }
 
-    // 4. GitHub APIでIssueを作成
+    // 9. GitHub APIでIssueを作成
     try {
       const result = await this.createIssueOnGitHub(title, issueBody, labels);
 
@@ -320,6 +385,85 @@ ${candidate.suggestedFix}
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
       };
+    }
+  }
+
+  /**
+   * フォールバック用のリファクタリングIssue生成
+   *
+   * @param candidate - リファクタリング候補
+   * @param dryRun - dry-runモード
+   * @returns Issue作成結果
+   */
+  private async generateRefactorIssueWithFallback(
+    candidate: RefactorCandidate,
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    const title = this.generateRefactorTitle(candidate);
+    const labels = this.generateRefactorLabels(candidate);
+    const issueBody = this.createRefactorFallbackBody(candidate);
+
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping refactoring issue creation (fallback).');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+      logger.info(`Refactoring issue created (fallback): #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * 出力ファイルからリファクタリングIssue本文を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @param candidate - リファクタリング候補（フォールバック用）
+   * @returns Markdown形式のIssue本文
+   */
+  private readRefactorOutputFile(filePath: string, candidate: RefactorCandidate): string {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Using fallback template.`);
+      return this.createRefactorFallbackBody(candidate);
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      if (!content) {
+        logger.warn('Output file is empty. Using fallback template.');
+        return this.createRefactorFallbackBody(candidate);
+      }
+
+      if (!content.includes('##')) {
+        logger.warn(
+          'Output file does not contain valid Markdown sections. Using fallback template.',
+        );
+        return this.createRefactorFallbackBody(candidate);
+      }
+
+      logger.info('Successfully read refactor issue body from output file.');
+      return content;
+    } catch (error) {
+      logger.error(`Failed to read output file: ${getErrorMessage(error)}`);
+      return this.createRefactorFallbackBody(candidate);
     }
   }
 
@@ -377,12 +521,12 @@ ${candidate.suggestedFix}
   }
 
   /**
-   * リファクタリングIssue本文を生成
+   * フォールバック用のリファクタリングIssue本文を生成
    *
    * @param candidate - リファクタリング候補
    * @returns Markdown形式のIssue本文
    */
-  private createRefactorBody(candidate: RefactorCandidate): string {
+  private createRefactorFallbackBody(candidate: RefactorCandidate): string {
     const lineRangeText = candidate.lineRange
       ? ` (${candidate.lineRange.start}〜${candidate.lineRange.end}行目)`
       : '';
