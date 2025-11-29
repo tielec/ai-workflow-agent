@@ -713,6 +713,7 @@ ai-workflow auto-issue \
 ```bash
 export GITHUB_TOKEN="ghp_..."          # GitHub Personal Access Token（必須）
 export GITHUB_REPOSITORY="owner/repo" # 対象リポジトリ（必須）
+export REPOS_ROOT="$HOME/projects"    # リポジトリの親ディレクトリ（Jenkins環境では必須、Issue #153で追加）
 export CODEX_API_KEY="sk-code..."     # Codexキー（--agent codex 使用時）
 export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json" # Claude認証
 ```
