@@ -629,13 +629,16 @@ flowchart LR
 - ✅ rollbackはメタデータを更新するだけなので、実行モードは変更不要
 - ✅ Jenkinsでも同じ（EXECUTION_MODEは `all_phases` または `preset` のまま）
 
-### auto-issueコマンド（自動バグ検出＆Issue生成）
+### auto-issueコマンド（自動バグ・リファクタリング検出＆Issue生成）
 
-`auto-issue` コマンドは、リポジトリのコードベースを自動分析してバグを検出し、重複を除外した上でGitHub Issueを自動生成する機能です（v0.5.0、Issue #126で追加）。
+`auto-issue` コマンドは、リポジトリのコードベースを自動分析してバグやリファクタリング機会を検出し、重複を除外した上でGitHub Issueを自動生成する機能です（v0.5.0、Issue #126でバグ検出機能追加、Issue #127でリファクタリング検出機能追加）。
 
 ```bash
 # 基本的な使用方法（バグ検出とIssue生成）
 ai-workflow auto-issue
+
+# リファクタリング機会を検出してIssue生成
+ai-workflow auto-issue --category refactor
 
 # プレビューモード（Issue生成せず、検出結果のみ表示）
 ai-workflow auto-issue --dry-run
@@ -643,7 +646,7 @@ ai-workflow auto-issue --dry-run
 # 検出数を制限（最大5件のIssueを生成）
 ai-workflow auto-issue --limit 5
 
-# 類似度閾値を調整（より厳格な重複判定）
+# 類似度閾値を調整（より厳格な重複判定、バグ検出時のみ有効）
 ai-workflow auto-issue --similarity-threshold 0.85
 
 # 使用するエージェントを指定
@@ -661,27 +664,36 @@ ai-workflow auto-issue \
 **主な機能**:
 
 1. **リポジトリ分析（RepositoryAnalyzer）**:
-   - コードベース全体を自動分析し、潜在的なバグを検出
-   - TypeScript / Python ファイルをサポート（Phase 1 MVP）
+   - コードベース全体を自動分析し、潜在的なバグやリファクタリング機会を検出
+   - 30+ のプログラミング言語をサポート（Issue #144で汎用化）
    - AIエージェント（Codex / Claude）による高精度な分析
+   - **バグ検出**（`--category bug`、デフォルト）: 潜在的なバグ、エラーハンドリング不足、null参照など
+   - **リファクタリング検出**（`--category refactor`）: コード品質、重複、未使用コード、ドキュメント不足など
 
 2. **重複除外（IssueDeduplicator）**:
-   - 2段階の重複検出アルゴリズム
+   - 2段階の重複検出アルゴリズム（バグ検出時のみ有効）
      - Stage 1: コサイン類似度による高速フィルタリング（TF-IDF ベクトル化）
      - Stage 2: LLM による意味的類似性の判定
    - 既存のGitHub Issueとの重複チェック
    - 検出されたバグ同士の重複チェック
+   - ※ リファクタリング検出時は重複除外を実行しません
 
 3. **Issue自動生成（IssueGenerator）**:
-   - 検出されたバグから自動的にGitHub Issueを作成
+   - 検出されたバグまたはリファクタリング機会から自動的にGitHub Issueを作成
    - タイトル、説明、ラベル、優先度を自動設定
+   - **バグIssue**: エージェント生成の詳細な説明と修正提案
+   - **リファクタリングIssue**: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
    - `--dry-run` モードで事前確認が可能
 
 **オプション**:
 
 - `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`）
-  - **Phase 1 MVP**: `bug` のみサポート（デフォルト）
-  - 将来的に `refactor`, `enhancement` もサポート予定
+  - **`bug`**（デフォルト）: バグ検出（Phase 1 MVP、Issue #126）
+  - **`refactor`**: リファクタリング機会検出（Phase 2、Issue #127）
+    - 6種類のリファクタリングタイプ: `large-file`, `large-function`, `high-complexity`, `duplication`, `unused-code`, `missing-docs`
+    - 優先度による自動ソート（high → medium → low）
+    - 重複除外は実行されません
+  - **`enhancement`**, **`all`**: Phase 3 以降で実装予定
 - `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
   - 大規模リポジトリでのテスト時に有用
 - `--dry-run`: プレビューモード
@@ -690,6 +702,7 @@ ai-workflow auto-issue \
 - `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75）
   - 高い値（例: 0.85）: より厳格な重複判定（重複を少なく判定）
   - 低い値（例: 0.65）: より緩い重複判定（重複を多く判定）
+  - **注意**: バグ検出時のみ有効（リファクタリング検出時は無視されます）
 - `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
   - `auto`（デフォルト）: Codex優先、なければClaudeにフォールバック
   - `codex`: Codexのみ使用（`gpt-5-codex`）
@@ -707,22 +720,30 @@ export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json" # Clau
 **使用例**:
 
 ```bash
-# ケース1: 初めての使用（プレビューモードで確認）
+# ケース1: 初めての使用（バグ検出、プレビューモードで確認）
 ai-workflow auto-issue --dry-run --limit 3
 # → 最大3件のバグを検出し、Issue内容をプレビュー表示（実際には生成しない）
 
-# ケース2: 本番実行（最大5件のIssueを生成）
+# ケース2: リファクタリング機会の検出（プレビューモード）
+ai-workflow auto-issue --category refactor --dry-run --limit 5
+# → 最大5件のリファクタリング機会を検出し、Issue内容をプレビュー表示
+
+# ケース3: 本番実行（最大5件のバグIssueを生成）
 ai-workflow auto-issue --limit 5
 # → バグを検出し、重複を除外して最大5件のGitHub Issueを自動生成
 
-# ケース3: 高精度モード（Codex専用、厳格な重複判定）
+# ケース4: リファクタリングIssueの生成（優先度順）
+ai-workflow auto-issue --category refactor --limit 10
+# → リファクタリング機会を検出し、優先度順（high → medium → low）で最大10件のIssueを生成
+
+# ケース5: 高精度モード（Codex専用、厳格な重複判定）
 ai-workflow auto-issue \
   --agent codex \
   --similarity-threshold 0.85 \
   --limit 10
-# → Codexで高精度な分析を実施、類似度85%以上で重複判定
+# → Codexで高精度なバグ分析を実施、類似度85%以上で重複判定
 
-# ケース4: 大規模リポジトリのテスト
+# ケース6: 大規模リポジトリのテスト
 ai-workflow auto-issue --dry-run --limit 1
 # → 1件のみ検出してプレビュー（動作確認用）
 ```
@@ -756,12 +777,33 @@ ai-workflow auto-issue --dry-run --limit 1
    実際に生成するには --dry-run オプションを外してください。
 ```
 
-**Phase 1 MVP の制限事項**:
+**サポート対象言語**（v0.5.1、Issue #144で汎用化）:
 
-- **対象ファイル**: TypeScript (`.ts`) と Python (`.py`) のみ
-- **Issue種類**: `bug` カテゴリのみ（`refactor`, `enhancement` は将来追加予定）
+| カテゴリ | 言語/ファイル |
+|---------|--------------|
+| **スクリプト言語** | JavaScript (.js, .jsx, .mjs), TypeScript (.ts, .tsx), Python (.py), Ruby (.rb), PHP (.php), Perl (.pl), Shell (.sh, .bash) |
+| **コンパイル言語** | Go (.go), Java (.java), Kotlin (.kt), Rust (.rs), C (.c, .h), C++ (.cpp, .hpp), C# (.cs), Swift (.swift) |
+| **JVM言語** | Groovy (.groovy), Scala (.scala) |
+| **CI/CD設定** | Jenkinsfile, Dockerfile, Makefile |
+| **設定/データ** | YAML (.yml, .yaml), JSON (.json), TOML (.toml), XML (.xml) |
+| **IaC** | Terraform (.tf), CloudFormation (.template) |
+
+**除外パターン**:
+- **ディレクトリ**: `node_modules/`, `vendor/`, `.git/`, `dist/`, `build/`, `out/`, `target/`, `__pycache__/`, `.venv/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `coverage/`, `.next/`, `.nuxt/`
+- **生成ファイル**: `*.min.js`, `*.bundle.js`, `*.generated.*`, `*.g.go`, `*.pb.go`, `*.gen.ts`
+- **ロックファイル**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Gemfile.lock`, `poetry.lock`, `Pipfile.lock`, `go.sum`, `Cargo.lock`, `composer.lock`
+- **バイナリ**: `.exe`, `.dll`, `.so`, `.dylib`, `.a`, `.lib`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.ico`, `.svg`, `.webp`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.tar`, `.gz`, `.bz2`, `.7z`, `.rar`, `.mp3`, `.mp4`, `.avi`, `.mov`, `.mkv`, `.woff`, `.woff2`, `.ttf`, `.eot`
+
+**現在の実装状況**:
+- ✅ **Phase 1 (Issue #126)**: `bug` カテゴリ（バグ検出とIssue生成）
+- ✅ **Phase 2 (Issue #127)**: `refactor` カテゴリ（リファクタリング機会検出とIssue生成）
+- ⏳ **Phase 3**: `enhancement` カテゴリ（将来実装予定）
+- ⏳ **Phase 4**: `all` カテゴリ（将来実装予定）
+
+**制限事項**:
 - **分析対象**: `src/` ディレクトリ配下のファイル（カスタマイズ不可）
 - **重複判定**: 既存Issueとの重複チェックのみ（他のリポジトリとの重複は未対応）
+- **リファクタリング検出**: 重複除外は実行されません（優先度順でソートのみ）
 
 **注意事項**:
 

@@ -15,20 +15,189 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate } from '../types/auto-issue.js';
+import type { BugCandidate, RefactorCandidate } from '../types/auto-issue.js';
+import { parseCodexEvent } from './helpers/agent-event-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * 除外ディレクトリパターン
+ *
+ * これらのディレクトリは依存関係、生成ファイル、バージョン管理メタデータを含むため、
+ * バグ検出対象から除外します。
+ */
+const EXCLUDED_DIRECTORIES = [
+  'node_modules/',
+  'vendor/',
+  '.git/',
+  'dist/',
+  'build/',
+  'out/',
+  'target/',
+  '__pycache__/',
+  '.venv/',
+  'venv/',
+  '.pytest_cache/',
+  '.mypy_cache/',
+  'coverage/',
+  '.next/',
+  '.nuxt/',
+];
+
+/**
+ * 除外ファイルパターン
+ *
+ * これらのパターンに一致するファイルは生成ファイル、ロックファイル、
+ * バイナリファイルであるため、バグ検出対象から除外します。
+ */
+const EXCLUDED_FILE_PATTERNS = {
+  // 生成ファイル
+  generated: [
+    '*.min.js',
+    '*.bundle.js',
+    '*.generated.*',
+    '*.g.go', // Go generated files
+    '*.pb.go', // Protocol Buffer generated files
+    '*.gen.ts', // TypeScript generated files
+  ],
+
+  // ロックファイル
+  lockFiles: [
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'Gemfile.lock',
+    'poetry.lock',
+    'Pipfile.lock',
+    'go.sum',
+    'Cargo.lock',
+    'composer.lock',
+  ],
+
+  // バイナリファイル拡張子
+  binary: [
+    '.exe',
+    '.dll',
+    '.so',
+    '.dylib',
+    '.a',
+    '.lib', // 実行ファイル/ライブラリ
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.ico',
+    '.svg',
+    '.webp', // 画像
+    '.pdf',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.ppt',
+    '.pptx', // ドキュメント
+    '.zip',
+    '.tar',
+    '.gz',
+    '.bz2',
+    '.7z',
+    '.rar', // アーカイブ
+    '.mp3',
+    '.mp4',
+    '.avi',
+    '.mov',
+    '.mkv', // メディア
+    '.woff',
+    '.woff2',
+    '.ttf',
+    '.eot', // フォント
+  ],
+};
+
+/**
+ * ワイルドカードパターンマッチング（簡易版）
+ *
+ * @param fileName - ファイル名
+ * @param pattern - パターン（*.min.js, *.generated.* 等）
+ * @returns マッチする場合は true
+ */
+function matchesWildcard(fileName: string, pattern: string): boolean {
+  // '*' を正規表現の '.*' に置換（ReDoS対策として replaceAll を使用）
+  const regexPattern = pattern.replaceAll('.', '\\.').replaceAll('*', '.*');
+
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(fileName);
+}
+
+/**
+ * ファイルパスが除外ディレクトリに含まれるかチェック
+ *
+ * @param filePath - チェック対象のファイルパス
+ * @returns 除外すべき場合は true
+ */
+function isExcludedDirectory(filePath: string): boolean {
+  // パス正規化（セキュリティ対策）
+  const normalizedPath = path.normalize(filePath).replace(/\\/g, '/');
+
+  // 先頭の './' を削除し、トップレベルディレクトリも検出できるようにする
+  const sanitizedPath = normalizedPath.replace(/^\.\//, '');
+
+  // パストラバーサル攻撃防止（../ を含むパスを拒否）
+  if (normalizedPath.includes('../')) {
+    logger.warn(`Potentially malicious path detected: ${filePath}`);
+    return true; // 疑わしいパスは除外
+  }
+
+  return EXCLUDED_DIRECTORIES.some((dir) => {
+    const normalizedDir = dir.endsWith('/') ? dir.slice(0, -1) : dir;
+    const boundaryPattern = new RegExp(`(?:^|/)${normalizedDir}(?:/|$)`);
+    return boundaryPattern.test(sanitizedPath);
+  });
+}
+
+/**
+ * ファイルパスが除外ファイルパターンに一致するかチェック
+ *
+ * @param filePath - チェック対象のファイルパス
+ * @returns 除外すべき場合は true
+ */
+function isExcludedFile(filePath: string): boolean {
+  const fileName = path.basename(filePath);
+  const extension = path.extname(filePath);
+
+  // 生成ファイルチェック
+  if (
+    EXCLUDED_FILE_PATTERNS.generated.some((pattern) =>
+      pattern.includes('*') ? matchesWildcard(fileName, pattern) : fileName === pattern,
+    )
+  ) {
+    return true;
+  }
+
+  // ロックファイルチェック
+  if (EXCLUDED_FILE_PATTERNS.lockFiles.includes(fileName)) {
+    return true;
+  }
+
+  // バイナリファイルチェック
+  if (EXCLUDED_FILE_PATTERNS.binary.includes(extension)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 出力ファイルパスを生成
  *
+ * @param prefix - ファイル名のプレフィックス（'bugs' | 'refactor'）
  * @returns 一時ディレクトリ内のユニークなファイルパス
  */
-function generateOutputFilePath(): string {
+function generateOutputFilePath(prefix: 'bugs' | 'refactor' = 'bugs'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  return path.join(os.tmpdir(), `auto-issue-bugs-${timestamp}-${random}.json`);
+  return path.join(os.tmpdir(), `auto-issue-${prefix}-${timestamp}-${random}.json`);
 }
 
 /**
@@ -136,6 +305,305 @@ export class RepositoryAnalyzer {
   }
 
   /**
+   * リポジトリを解析してリファクタリング候補を検出
+   *
+   * @param repoPath - リポジトリパス
+   * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @returns リファクタリング候補のリスト
+   * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
+   */
+  public async analyzeForRefactoring(
+    repoPath: string,
+    agent: 'auto' | 'codex' | 'claude',
+  ): Promise<RefactorCandidate[]> {
+    logger.info(`Analyzing repository for refactoring: ${repoPath}`);
+
+    // 1. プロンプトテンプレートを読み込み
+    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-refactoring.txt');
+    if (!fs.existsSync(promptPath)) {
+      throw new Error(`Prompt template not found: ${promptPath}`);
+    }
+
+    const template = fs.readFileSync(promptPath, 'utf-8');
+
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath('refactor');
+    logger.debug(`Output file path: ${outputFilePath}`);
+
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{repository_path}', repoPath)
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
+    let selectedAgent = agent;
+
+    if (agent === 'codex' || agent === 'auto') {
+      if (!this.codexClient) {
+        if (agent === 'codex') {
+          throw new Error('Codex agent is not available.');
+        }
+        // auto モードで Codex が利用不可の場合、Claude にフォールバック
+        logger.warn('Codex not available, falling back to Claude.');
+        selectedAgent = 'claude';
+      } else {
+        try {
+          logger.info('Using Codex agent for refactoring detection.');
+          await this.codexClient.executeTask({ prompt });
+        } catch (error) {
+          if (agent === 'codex') {
+            throw error;
+          }
+          // auto モードで Codex 失敗の場合、Claude にフォールバック
+          logger.warn(`Codex failed (${getErrorMessage(error)}), falling back to Claude.`);
+          selectedAgent = 'claude';
+        }
+      }
+    }
+
+    if (selectedAgent === 'claude') {
+      if (!this.claudeClient) {
+        throw new Error('Claude agent is not available.');
+      }
+      logger.info('Using Claude agent for refactoring detection.');
+      await this.claudeClient.executeTask({ prompt });
+    }
+
+    // 5. 出力ファイルからJSONを読み込み
+    const candidates = this.readRefactorOutputFile(outputFilePath);
+
+    // 6. バリデーション
+    const validCandidates = candidates.filter((c) => this.validateRefactorCandidate(c));
+
+    logger.info(
+      `Parsed ${candidates.length} refactoring candidates, ${validCandidates.length} valid after validation.`,
+    );
+
+    // 7. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
+    return validCandidates;
+  }
+
+  /**
+   * 出力ファイルからリファクタリング候補を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @returns リファクタリング候補のリスト
+   */
+  private readRefactorOutputFile(filePath: string): RefactorCandidate[] {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Agent may have failed to write the file.`);
+      return [];
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      const parsed = JSON.parse(content);
+
+      // [...] 配列形式
+      if (Array.isArray(parsed)) {
+        logger.info(`Read ${parsed.length} refactoring candidates from output file.`);
+        return parsed as RefactorCandidate[];
+      }
+
+      // { "candidates": [...] } 形式
+      if (parsed.candidates && Array.isArray(parsed.candidates)) {
+        logger.info(`Read ${parsed.candidates.length} refactoring candidates from output file.`);
+        return parsed.candidates as RefactorCandidate[];
+      }
+
+      // 単一オブジェクト形式
+      if (parsed.type && parsed.filePath) {
+        logger.info('Read 1 refactoring candidate from output file.');
+        return [parsed as RefactorCandidate];
+      }
+
+      logger.warn('Output file does not contain valid refactoring candidates structure.');
+      return [];
+    } catch (error) {
+      logger.error(`Failed to read/parse refactoring output file: ${getErrorMessage(error)}`);
+      return [];
+    }
+  }
+
+  /**
+   * リポジトリコードを収集
+   *
+   * @param repoPath - リポジトリパス
+   * @returns 収集したコードの文字列表現
+   */
+  private async collectRepositoryCode(repoPath: string): Promise<string> {
+    const codeFiles: string[] = [];
+
+    const collectFiles = async (dir: string): Promise<void> => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relativePath = path.relative(repoPath, fullPath);
+
+        if (entry.isDirectory()) {
+          // 除外ディレクトリをスキップ
+          if (!isExcludedDirectory(relativePath)) {
+            await collectFiles(fullPath);
+          }
+        } else if (entry.isFile()) {
+          // 除外ファイルをスキップ
+          if (!isExcludedFile(relativePath)) {
+            // ソースコードファイルのみ収集（拡張子で判定）
+            const ext = path.extname(entry.name);
+            if (
+              [
+                '.ts',
+                '.tsx',
+                '.js',
+                '.jsx',
+                '.py',
+                '.go',
+                '.java',
+                '.c',
+                '.cpp',
+                '.h',
+                '.hpp',
+                '.rs',
+                '.rb',
+                '.php',
+              ].includes(ext)
+            ) {
+              try {
+                const content = await fs.readFile(fullPath, 'utf-8');
+                codeFiles.push(`\n// File: ${relativePath}\n${content}`);
+              } catch (error) {
+                logger.warn(`Failed to read file ${relativePath}: ${getErrorMessage(error)}`);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    await collectFiles(repoPath);
+
+    // ファイル数と総文字数をログ出力
+    const totalChars = codeFiles.reduce((sum, f) => sum + f.length, 0);
+    logger.info(
+      `Collected ${codeFiles.length} source files (${totalChars.toLocaleString()} chars)`,
+    );
+
+    return codeFiles.join('\n\n');
+  }
+
+  /**
+   * エージェントイベントからリファクタリング結果の本文を抽出
+   *
+   * Codex/Claudeのイベントログからアシスタントが返したJSONレスポンス部分を拾う。
+   *
+   * @param events - エージェントイベント配列
+   * @param agent - 使用したエージェント
+   * @returns 抽出したレスポンス文字列（見つからない場合は生ログ結合を返却）
+   */
+  private extractRefactoringOutput(events: string[], agent: 'auto' | 'codex' | 'claude'): string {
+    const outputs: string[] = [];
+
+    if (agent === 'codex' || agent === 'auto') {
+      for (const rawEvent of events) {
+        const payload = parseCodexEvent(rawEvent);
+        if (!payload) {
+          continue;
+        }
+
+        if (payload.type === 'assistant') {
+          const contents = payload.message?.content ?? [];
+          for (const block of contents) {
+            if (block && typeof block === 'object' && block['type'] === 'text') {
+              const text = typeof block['text'] === 'string' ? block['text'].trim() : '';
+              if (text) {
+                outputs.push(text);
+              }
+            }
+          }
+        }
+
+        if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim()) {
+          outputs.push(payload.result.trim());
+        }
+      }
+    }
+
+    if (agent === 'claude') {
+      for (const rawEvent of events) {
+        try {
+          const message = JSON.parse(rawEvent) as { type?: string; message?: { content?: Array<Record<string, unknown>> }; result?: string };
+          if (message.type === 'assistant') {
+            const contents = message.message?.content ?? [];
+            for (const block of contents) {
+              if (block && typeof block === 'object' && block['type'] === 'text') {
+                const text = typeof block['text'] === 'string' ? block['text'].trim() : '';
+                if (text) {
+                  outputs.push(text);
+                }
+              }
+            }
+          }
+
+          if (message.type === 'result' && typeof message.result === 'string' && message.result.trim()) {
+            outputs.push(message.result.trim());
+          }
+        } catch (error) {
+          logger.debug(`Failed to parse Claude event for refactoring output: ${getErrorMessage(error)}`);
+        }
+      }
+    }
+
+    if (outputs.length === 0 && events.length > 0) {
+      logger.warn('Failed to extract refactoring output from agent events. Falling back to raw logs.');
+      return events.join('\n');
+    }
+
+    return outputs.join('\n');
+  }
+
+  /**
+   * エージェントのレスポンスからリファクタリング候補をパース
+   *
+   * @param response - エージェントのレスポンス
+   * @returns リファクタリング候補のリスト
+   */
+  private parseRefactoringResponse(response: string): RefactorCandidate[] {
+    try {
+      // JSON コードブロックを抽出（```json ... ``` または ``` ... ```）
+      const jsonMatch = response.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      const jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
+
+      logger.debug(`Parsing refactoring response (first 500 chars): ${jsonStr.substring(0, 500)}`);
+
+      const parsed = JSON.parse(jsonStr);
+
+      // 配列形式
+      if (Array.isArray(parsed)) {
+        logger.info(`Parsed ${parsed.length} refactoring candidates from agent response.`);
+        return parsed as RefactorCandidate[];
+      }
+
+      // 単一オブジェクト形式
+      if (parsed.type && parsed.filePath) {
+        logger.info('Parsed 1 refactoring candidate from agent response.');
+        return [parsed as RefactorCandidate];
+      }
+
+      logger.warn('Agent response does not contain valid refactoring candidates structure.');
+      return [];
+    } catch (error) {
+      logger.error(`Failed to parse refactoring response: ${getErrorMessage(error)}`);
+      logger.debug(`Raw response: ${response.substring(0, 1000)}`);
+      return [];
+    }
+  }
+
+  /**
    * 出力ファイルからバグ候補を読み込み
    *
    * @param filePath - 出力ファイルパス
@@ -220,17 +688,21 @@ export class RepositoryAnalyzer {
       return false;
     }
 
-    // ファイルパス検証（TypeScript または Python のみ、Phase 1限定）
+    // ファイルパス検証
     if (!candidate.file || typeof candidate.file !== 'string') {
       logger.debug('Invalid candidate: missing or invalid file');
       return false;
     }
-    const isTypeScript = candidate.file.endsWith('.ts') || candidate.file.endsWith('.tsx');
-    const isPython = candidate.file.endsWith('.py');
-    if (!isTypeScript && !isPython) {
-      logger.debug(
-        `Invalid candidate: file "${candidate.file}" is not TypeScript or Python (Phase 1 limitation)`,
-      );
+
+    // 除外ディレクトリチェック
+    if (isExcludedDirectory(candidate.file)) {
+      logger.debug(`Invalid candidate: file "${candidate.file}" is in excluded directory`);
+      return false;
+    }
+
+    // 除外ファイルパターンチェック
+    if (isExcludedFile(candidate.file)) {
+      logger.debug(`Invalid candidate: file "${candidate.file}" matches excluded file pattern`);
       return false;
     }
 
@@ -273,6 +745,106 @@ export class RepositoryAnalyzer {
     // カテゴリ検証（Phase 1では 'bug' 固定）
     if (candidate.category !== 'bug') {
       logger.debug(`Invalid candidate: invalid category "${candidate.category}" (must be "bug")`);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * リファクタリング候補のバリデーション
+   *
+   * @param candidate - リファクタリング候補
+   * @returns バリデーション結果（true: 有効、false: 無効）
+   */
+  private validateRefactorCandidate(candidate: RefactorCandidate): boolean {
+    // 必須フィールドの存在確認
+    if (!candidate || typeof candidate !== 'object') {
+      logger.debug('Invalid refactor candidate: not an object');
+      return false;
+    }
+
+    // type 検証
+    const validTypes = [
+      'large-file',
+      'large-function',
+      'high-complexity',
+      'duplication',
+      'unused-code',
+      'missing-docs',
+    ];
+    if (!validTypes.includes(candidate.type)) {
+      logger.debug(`Invalid refactor candidate: invalid type "${candidate.type}"`);
+      return false;
+    }
+
+    // filePath 検証
+    if (!candidate.filePath || typeof candidate.filePath !== 'string') {
+      logger.debug('Invalid refactor candidate: missing or invalid filePath');
+      return false;
+    }
+
+    // 除外ディレクトリチェック
+    if (isExcludedDirectory(candidate.filePath)) {
+      logger.debug(
+        `Invalid refactor candidate: filePath "${candidate.filePath}" is in excluded directory`,
+      );
+      return false;
+    }
+
+    // 除外ファイルパターンチェック
+    if (isExcludedFile(candidate.filePath)) {
+      logger.debug(
+        `Invalid refactor candidate: filePath "${candidate.filePath}" matches excluded file pattern`,
+      );
+      return false;
+    }
+
+    // lineRange 検証（オプショナル）
+    if (candidate.lineRange !== undefined) {
+      if (
+        typeof candidate.lineRange !== 'object' ||
+        typeof candidate.lineRange.start !== 'number' ||
+        typeof candidate.lineRange.end !== 'number'
+      ) {
+        logger.debug('Invalid refactor candidate: invalid lineRange structure');
+        return false;
+      }
+      if (candidate.lineRange.start < 1 || candidate.lineRange.end < candidate.lineRange.start) {
+        logger.debug(
+          `Invalid refactor candidate: invalid lineRange values (start: ${candidate.lineRange.start}, end: ${candidate.lineRange.end})`,
+        );
+        return false;
+      }
+    }
+
+    // description 検証（最小20文字）
+    if (!candidate.description || typeof candidate.description !== 'string') {
+      logger.debug('Invalid refactor candidate: missing or invalid description');
+      return false;
+    }
+    if (candidate.description.length < 20) {
+      logger.debug(
+        `Invalid refactor candidate: description length ${candidate.description.length} is too short (min 20)`,
+      );
+      return false;
+    }
+
+    // suggestion 検証（最小20文字）
+    if (!candidate.suggestion || typeof candidate.suggestion !== 'string') {
+      logger.debug('Invalid refactor candidate: missing or invalid suggestion');
+      return false;
+    }
+    if (candidate.suggestion.length < 20) {
+      logger.debug(
+        `Invalid refactor candidate: suggestion length ${candidate.suggestion.length} is too short (min 20)`,
+      );
+      return false;
+    }
+
+    // priority 検証
+    if (!['low', 'medium', 'high'].includes(candidate.priority)) {
+      logger.debug(`Invalid refactor candidate: invalid priority "${candidate.priority}"`);
       return false;
     }
 

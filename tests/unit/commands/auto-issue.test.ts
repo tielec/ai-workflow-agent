@@ -391,4 +391,432 @@ describe('auto-issue command handler', () => {
       expect(mockGenerator.generate).toHaveBeenCalledTimes(3);
     });
   });
+
+  /**
+   * Issue #144: 言語サポートの汎用化に関するテスト
+   *
+   * テスト対象: validateBugCandidate() の言語制限撤廃と除外パターン
+   */
+  describe('Issue #144: Multi-language support and exclusion patterns', () => {
+    /**
+     * TC-LANG-001: Go言語ファイルが検証を通過する（正常系）
+     *
+     * 目的: 言語制限撤廃後、Go言語（.go）ファイルがバリデーションを通過することを検証
+     */
+    describe('TC-LANG-001: Go language file validation', () => {
+      it('should accept Go language files (.go)', async () => {
+        // Given: Go言語ファイルのバグ候補
+        const goCandidates = [
+          {
+            title: 'Nil pointer dereference in GetUser function',
+            file: 'src/services/user-service.go',
+            line: 42,
+            severity: 'high' as const,
+            description:
+              'GetUser()メソッドでnilポインタデリファレンスが発生する可能性があります。ユーザーが存在しない場合、nilチェックなしでポインタを参照しています。',
+            suggestedFix: 'nilチェックを追加し、エラーハンドリングを実装してください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(goCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/1',
+          issueNumber: 1,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Go言語ファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'src/services/user-service.go',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-002: Java言語ファイルが検証を通過する（正常系）
+     *
+     * 目的: Java言語（.java）ファイルがバリデーションを通過することを検証
+     */
+    describe('TC-LANG-002: Java language file validation', () => {
+      it('should accept Java language files (.java)', async () => {
+        // Given: Java言語ファイルのバグ候補
+        const javaCandidates = [
+          {
+            title: 'Unclosed resource in FileReader implementation',
+            file: 'src/main/java/com/example/FileProcessor.java',
+            line: 85,
+            severity: 'medium' as const,
+            description:
+              'FileReaderがtry-with-resources構文で管理されておらず、リソースリークの可能性があります。',
+            suggestedFix: 'try-with-resources構文を使用してFileReaderを自動的にクローズしてください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(javaCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/2',
+          issueNumber: 2,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Java言語ファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'src/main/java/com/example/FileProcessor.java',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-003: Ruby言語ファイルが検証を通過する（正常系）
+     *
+     * 目的: Ruby言語（.rb）ファイルがバリデーションを通過することを検証
+     */
+    describe('TC-LANG-003: Ruby language file validation', () => {
+      it('should accept Ruby language files (.rb)', async () => {
+        // Given: Ruby言語ファイルのバグ候補
+        const rubyCandidates = [
+          {
+            title: 'Exception not rescued in process_data method',
+            file: 'lib/data_processor.rb',
+            line: 23,
+            severity: 'high' as const,
+            description:
+              'process_data()メソッドで例外がrescueされておらず、エラーハンドリングが不足しています。',
+            suggestedFix: 'begin-rescueブロックを追加し、適切なエラーハンドリングを実装してください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(rubyCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/3',
+          issueNumber: 3,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Ruby言語ファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'lib/data_processor.rb',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-004: Groovy言語ファイルが検証を通過する（正常系）
+     *
+     * 目的: Groovy言語（.groovy）ファイルがバリデーションを通過することを検証
+     */
+    describe('TC-LANG-004: Groovy language file validation', () => {
+      it('should accept Groovy language files (.groovy)', async () => {
+        // Given: Groovy言語ファイルのバグ候補
+        const groovyCandidates = [
+          {
+            title: 'Command injection in executeShell method',
+            file: 'scripts/deployment.groovy',
+            line: 67,
+            severity: 'high' as const,
+            description:
+              'executeShell()でユーザー入力が直接シェルコマンドに渡されており、コマンドインジェクションの可能性があります。',
+            suggestedFix: '入力をサニタイズし、パラメータ化されたコマンド実行を使用してください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(groovyCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/4',
+          issueNumber: 4,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Groovy言語ファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'scripts/deployment.groovy',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-005: Jenkinsfile（拡張子なし）が検証を通過する（正常系）
+     *
+     * 目的: 拡張子のないCI/CD設定ファイル（Jenkinsfile）がバリデーションを通過することを検証
+     */
+    describe('TC-LANG-005: Jenkinsfile validation', () => {
+      it('should accept Jenkinsfile (extensionless file)', async () => {
+        // Given: Jenkinsfileのバグ候補
+        const jenkinsfileCandidates = [
+          {
+            title: 'Hardcoded credential in pipeline configuration',
+            file: 'Jenkinsfile',
+            line: 12,
+            severity: 'high' as const,
+            description:
+              'パイプライン定義でクレデンシャルがハードコードされており、セキュリティリスクがあります。',
+            suggestedFix:
+              'Jenkins Credentials Pluginを使用して、クレデンシャルを安全に管理してください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(jenkinsfileCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/5',
+          issueNumber: 5,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Jenkinsfileが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'Jenkinsfile',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-006: Dockerfile（拡張子なし）が検証を通過する（正常系）
+     *
+     * 目的: Dockerfileがバリデーションを通過することを検証
+     */
+    describe('TC-LANG-006: Dockerfile validation', () => {
+      it('should accept Dockerfile (extensionless file)', async () => {
+        // Given: Dockerfileのバグ候補
+        const dockerfileCandidates = [
+          {
+            title: 'Root user in production Docker image',
+            file: 'Dockerfile',
+            line: 8,
+            severity: 'medium' as const,
+            description:
+              '本番環境イメージでrootユーザーが使用されており、セキュリティリスクがあります。',
+            suggestedFix: '非特権ユーザーを作成し、USERディレクティブで切り替えてください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(dockerfileCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/6',
+          issueNumber: 6,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Dockerfileが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'Dockerfile',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-007: TypeScriptファイルが引き続き検証を通過する（回帰テスト）
+     *
+     * 目的: 言語制限撤廃後も、既存のTypeScriptファイルが正しく検証を通過することを確認
+     */
+    describe('TC-LANG-007: TypeScript regression test', () => {
+      it('should still accept TypeScript files (.ts)', async () => {
+        // Given: TypeScriptファイルのバグ候補
+        const tsCandidates = [
+          {
+            title: 'Unhandled promise rejection in fetchData method',
+            file: 'src/services/api-client.ts',
+            line: 34,
+            severity: 'high' as const,
+            description:
+              'fetchData()メソッドでPromiseの拒否が適切にハンドリングされておらず、エラーがキャッチされません。',
+            suggestedFix: 'async/awaitを使用し、try-catchブロックでエラーをハンドリングしてください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(tsCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/7',
+          issueNumber: 7,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: TypeScriptファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'src/services/api-client.ts',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-LANG-008: Pythonファイルが引き続き検証を通過する（回帰テスト）
+     *
+     * 目的: 言語制限撤廃後も、既存のPythonファイルが正しく検証を通過することを確認
+     */
+    describe('TC-LANG-008: Python regression test', () => {
+      it('should still accept Python files (.py)', async () => {
+        // Given: Pythonファイルのバグ候補
+        const pyCandidates = [
+          {
+            title: 'File handle not closed in read_config function',
+            file: 'src/utils/config_loader.py',
+            line: 19,
+            severity: 'medium' as const,
+            description:
+              'read_config()でファイルハンドルがクローズされておらず、リソースリークの可能性があります。',
+            suggestedFix: 'with文を使用して、ファイルハンドルを自動的にクローズしてください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(pyCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/8',
+          issueNumber: 8,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: Pythonファイルが正常に処理される
+        expect(mockGenerator.generate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            file: 'src/utils/config_loader.py',
+          }),
+          expect.any(String),
+          false,
+        );
+      });
+    });
+
+    /**
+     * TC-EXCL-001: 複数言語のファイルが同時に処理される（統合テスト）
+     *
+     * 目的: TypeScript, Python, Go, Java, Rubyのファイルが同時に処理されることを検証
+     */
+    describe('TC-EXCL-001: Multi-language integration test', () => {
+      it('should process multiple languages simultaneously', async () => {
+        // Given: 複数言語のバグ候補
+        const multiLangCandidates = [
+          {
+            title: 'TypeScript bug with minimum length',
+            file: 'src/services/api.ts',
+            line: 10,
+            severity: 'high' as const,
+            description:
+              'TypeScriptファイルのバグです。このバグは重要な問題を引き起こす可能性があります。',
+            suggestedFix: '適切な修正を適用してください。',
+            category: 'bug' as const,
+          },
+          {
+            title: 'Python bug with minimum length',
+            file: 'src/utils/helper.py',
+            line: 20,
+            severity: 'medium' as const,
+            description:
+              'Pythonファイルのバグです。このバグは中程度の問題を引き起こす可能性があります。',
+            suggestedFix: '適切な修正を適用してください。',
+            category: 'bug' as const,
+          },
+          {
+            title: 'Go bug with minimum length',
+            file: 'pkg/service/user.go',
+            line: 30,
+            severity: 'low' as const,
+            description: 'Goファイルのバグです。このバグは軽微な問題を引き起こす可能性があります。',
+            suggestedFix: '適切な修正を適用してください。',
+            category: 'bug' as const,
+          },
+          {
+            title: 'Java bug with minimum length',
+            file: 'src/main/java/App.java',
+            line: 40,
+            severity: 'high' as const,
+            description:
+              'Javaファイルのバグです。このバグは重要な問題を引き起こす可能性があります。',
+            suggestedFix: '適切な修正を適用してください。',
+            category: 'bug' as const,
+          },
+          {
+            title: 'Ruby bug with minimum length',
+            file: 'lib/processor.rb',
+            line: 50,
+            severity: 'medium' as const,
+            description:
+              'Rubyファイルのバグです。このバグは中程度の問題を引き起こす可能性があります。',
+            suggestedFix: '適切な修正を適用してください。',
+            category: 'bug' as const,
+          },
+        ];
+
+        mockAnalyzer.analyze.mockResolvedValue(multiLangCandidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockGenerator.generate.mockResolvedValue({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/999',
+          issueNumber: 999,
+        });
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ dryRun: false });
+
+        // Then: すべての言語のファイルが処理される
+        expect(mockGenerator.generate).toHaveBeenCalledTimes(5);
+      });
+    });
+  });
 });

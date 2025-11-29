@@ -160,10 +160,13 @@ node dist/index.js execute \
 - 本文: 5つの必須セクション（背景、実行内容、テスト、注意事項、参考情報）を含むMarkdown形式
 - バリデーション: タイトル長、セクション存在チェック、最小文字数検証
 
-### 自動バグ検出＆Issue生成（v0.5.0、Issue #126で追加）
+### 自動バグ・リファクタリング検出＆Issue生成（v0.5.0、Issue #126/#127で追加）
 ```bash
 # リポジトリのバグを自動検出してGitHub Issueを生成
 node dist/index.js auto-issue
+
+# リファクタリング機会を検出してGitHub Issueを生成
+node dist/index.js auto-issue --category refactor
 
 # プレビューモード（Issue生成せず、検出結果のみ表示）
 node dist/index.js auto-issue --dry-run
@@ -171,7 +174,7 @@ node dist/index.js auto-issue --dry-run
 # 検出数を制限（最大5件のIssueを生成）
 node dist/index.js auto-issue --limit 5
 
-# 類似度閾値を調整（より厳格な重複判定）
+# 類似度閾値を調整（より厳格な重複判定、バグ検出時のみ有効）
 node dist/index.js auto-issue --similarity-threshold 0.85
 
 # すべてのオプションを組み合わせ
@@ -184,24 +187,50 @@ node dist/index.js auto-issue \
 ```
 
 **主な機能**:
-- **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグを検出（TypeScript / Python サポート）
-- **IssueDeduplicator**: 2段階の重複検出アルゴリズム
+- **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグやリファクタリング機会を検出（30+ 言語サポート、Issue #144で汎用化）
+  - **バグ検出**（`analyzeForBugs`）: 潜在的なバグ、エラーハンドリング不足、null参照など
+  - **リファクタリング検出**（`analyzeForRefactoring`）: 6種類のリファクタリングタイプ（large-file, large-function, high-complexity, duplication, unused-code, missing-docs）
+- **IssueDeduplicator**: 2段階の重複検出アルゴリズム（バグ検出時のみ有効）
   - Stage 1: コサイン類似度による高速フィルタリング（TF-IDF ベクトル化）
   - Stage 2: LLM による意味的類似性の判定
-- **IssueGenerator**: 検出されたバグから自動的にGitHub Issueを作成
+- **IssueGenerator**: 検出されたバグまたはリファクタリング機会から自動的にGitHub Issueを作成
+  - **バグIssue**（`generate`）: エージェント生成の詳細な説明と修正提案
+  - **リファクタリングIssue**（`generateRefactorIssue`）: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
 
 **オプション**:
 - `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
-  - **Phase 1 MVP**: `bug` のみサポート
+  - **Phase 1 (Issue #126)**: `bug`（バグ検出とIssue生成）
+  - **Phase 2 (Issue #127)**: `refactor`（リファクタリング機会検出とIssue生成）
+    - 6種類のリファクタリングタイプをサポート
+    - 優先度による自動ソート（high → medium → low）
+    - 重複除外は実行されません
 - `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
 - `--dry-run`: プレビューモード（Issue生成せず、検出結果のみ表示）
-- `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75）
+- `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75、バグ検出時のみ有効）
 - `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
 
-**Phase 1 MVP の制限事項**:
-- 対象ファイル: TypeScript (`.ts`) と Python (`.py`) のみ
-- Issue種類: `bug` カテゴリのみ
-- 分析対象: `src/` ディレクトリ配下のファイル
+**サポート対象言語**（v0.5.1、Issue #144で汎用化）:
+
+| カテゴリ | 言語/ファイル |
+|---------|--------------|
+| **スクリプト言語** | JavaScript (.js, .jsx, .mjs), TypeScript (.ts, .tsx), Python (.py), Ruby (.rb), PHP (.php), Perl (.pl), Shell (.sh, .bash) |
+| **コンパイル言語** | Go (.go), Java (.java), Kotlin (.kt), Rust (.rs), C (.c, .h), C++ (.cpp, .hpp), C# (.cs), Swift (.swift) |
+| **JVM言語** | Groovy (.groovy), Scala (.scala) |
+| **CI/CD設定** | Jenkinsfile, Dockerfile, Makefile |
+| **設定/データ** | YAML (.yml, .yaml), JSON (.json), TOML (.toml), XML (.xml) |
+| **IaC** | Terraform (.tf), CloudFormation (.template) |
+
+**除外パターン**:
+- **ディレクトリ**: `node_modules/`, `vendor/`, `.git/`, `dist/`, `build/`, `out/`, `target/`, `__pycache__/`, `.venv/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `coverage/`, `.next/`, `.nuxt/`
+- **生成ファイル**: `*.min.js`, `*.bundle.js`, `*.generated.*`, `*.g.go`, `*.pb.go`, `*.gen.ts`
+- **ロックファイル**: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Gemfile.lock`, `poetry.lock`, `Pipfile.lock`, `go.sum`, `Cargo.lock`, `composer.lock`
+- **バイナリ**: `.exe`, `.dll`, `.so`, `.dylib`, `.a`, `.lib`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.ico`, `.svg`, `.webp`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.tar`, `.gz`, `.bz2`, `.7z`, `.rar`, `.mp3`, `.mp4`, `.avi`, `.mov`, `.mkv`, `.woff`, `.woff2`, `.ttf`, `.eot`
+
+**現在の実装状況**:
+- ✅ **Phase 1 (Issue #126)**: `bug` カテゴリ（バグ検出とIssue生成）
+- ✅ **Phase 2 (Issue #127)**: `refactor` カテゴリ（リファクタリング機会検出とIssue生成）
+- ⏳ **Phase 3**: `enhancement` カテゴリ（将来実装予定）
+- ⏳ **Phase 4**: `all` カテゴリ（将来実装予定）
 
 ### エージェントモード
 - `--agent auto`（デフォルト）: `CODEX_API_KEY` が設定されていれば Codex を使用、なければ Claude にフォールバック

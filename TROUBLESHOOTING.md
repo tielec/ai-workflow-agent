@@ -60,6 +60,38 @@ nvm use --lts
 - グローバルにインストールします: `npm install -g @openai/codex`
 - PATH を通すか、`CODEX_CLI_PATH` に実行ファイルのパスを指定します（Jenkins / Docker でも同様）。
 
+### `Failed to open stdin pipe for child process`
+
+**症状**:
+```
+[ERROR] Failed to open stdin pipe for child process
+```
+
+**原因**:
+- Codex CLI の子プロセス起動時に stdin パイプのオープンに失敗した
+- リソース制約環境（CI/CD、コンテナ環境）でファイルディスクリプタが不足している可能性
+
+**対処法**:
+1. **リトライ**: エラーが適切に伝播するため、コマンドを再実行すると成功する可能性があります
+2. **システムリソース確認**: ファイルディスクリプタの上限を確認
+   ```bash
+   ulimit -n  # 現在の上限を表示
+   ulimit -n 4096  # 上限を増やす（必要に応じて）
+   ```
+3. **プロセス競合の確認**: 同時に実行中の Codex プロセス数を減らす
+4. **コンテナリソース**: Docker コンテナの場合、リソース制限を緩和する
+
+**デバッグ方法**:
+- エージェントログ（`agent_log.md`）でエラーの詳細を確認
+- システムログで stdin パイプ関連のエラーを確認
+- タイムアウトではなく即座にエラーが返される場合、この問題の可能性が高い
+
+**影響範囲**:
+- すべての Codex エージェント通信（`executeTask()`, `executeTaskFromFile()` 経由）
+- 正常系フロー（stdin が正常に開かれる場合）には影響なし
+
+**注意**: v0.5.0 以降（Issue #150）では、stdin パイプ失敗時に即座に明確なエラーメッセージが返されるようになりました。以前のバージョンでは、タイムアウトまでハングしていました。
+
 ## 2. Claude Code 関連
 
 ### `Claude Code credentials are not configured`

@@ -16,7 +16,7 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate, IssueCreationResult } from '../types/auto-issue.js';
+import type { BugCandidate, RefactorCandidate, IssueCreationResult } from '../types/auto-issue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -267,6 +267,309 @@ ${candidate.suggestedFix}
     } catch (error) {
       logger.warn(`Failed to cleanup output file: ${getErrorMessage(error)}`);
     }
+  }
+
+  /**
+   * リファクタリングIssueを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param dryRun - dry-runモード（true: Issue作成をスキップ）
+   * @returns Issue作成結果
+   */
+  public async generateRefactorIssue(
+    candidate: RefactorCandidate,
+    agent: 'auto' | 'codex' | 'claude',
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    logger.info(
+      `Generating refactoring issue for: "${candidate.type}" in "${candidate.filePath}"`,
+    );
+
+    // 1. プロンプトテンプレートを読み込み
+    const promptPath = path.resolve(
+      __dirname,
+      '../prompts/auto-issue/generate-refactor-issue-body.txt',
+    );
+    if (!fs.existsSync(promptPath)) {
+      logger.warn(`Prompt template not found: ${promptPath}. Using fallback template.`);
+      return this.generateRefactorIssueWithFallback(candidate, dryRun);
+    }
+
+    const template = fs.readFileSync(promptPath, 'utf-8');
+
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath();
+    logger.debug(`Output file path: ${outputFilePath}`);
+
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{refactor_candidate_json}', JSON.stringify(candidate, null, 2))
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択
+    let selectedAgent = agent;
+
+    if (agent === 'codex' || agent === 'auto') {
+      if (!this.codexClient) {
+        if (agent === 'codex') {
+          return {
+            success: false,
+            error: 'Codex agent is not available.',
+          };
+        }
+        logger.warn('Codex not available, falling back to Claude.');
+        selectedAgent = 'claude';
+      } else {
+        try {
+          logger.info('Using Codex agent for refactor issue body generation.');
+          await this.codexClient.executeTask({ prompt });
+        } catch (error) {
+          if (agent === 'codex') {
+            return {
+              success: false,
+              error: `Codex failed: ${getErrorMessage(error)}`,
+            };
+          }
+          logger.warn(`Codex failed, falling back to Claude.`);
+          selectedAgent = 'claude';
+        }
+      }
+    }
+
+    if (selectedAgent === 'claude') {
+      if (!this.claudeClient) {
+        return {
+          success: false,
+          error: 'Claude agent is not available.',
+        };
+      }
+      logger.info('Using Claude agent for refactor issue body generation.');
+      await this.claudeClient.executeTask({ prompt });
+    }
+
+    // 5. 出力ファイルからIssue本文を読み込み
+    const issueBody = this.readRefactorOutputFile(outputFilePath, candidate);
+
+    // 6. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
+    // 7. タイトルとラベルを生成
+    const title = this.generateRefactorTitle(candidate);
+    const labels = this.generateRefactorLabels(candidate);
+
+    // 8. dry-runモードの場合はスキップ
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping refactoring issue creation.');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    // 9. GitHub APIでIssueを作成
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+
+      logger.info(`Refactoring issue created: #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * フォールバック用のリファクタリングIssue生成
+   *
+   * @param candidate - リファクタリング候補
+   * @param dryRun - dry-runモード
+   * @returns Issue作成結果
+   */
+  private async generateRefactorIssueWithFallback(
+    candidate: RefactorCandidate,
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    const title = this.generateRefactorTitle(candidate);
+    const labels = this.generateRefactorLabels(candidate);
+    const issueBody = this.createRefactorFallbackBody(candidate);
+
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping refactoring issue creation (fallback).');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+      logger.info(`Refactoring issue created (fallback): #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * 出力ファイルからリファクタリングIssue本文を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @param candidate - リファクタリング候補（フォールバック用）
+   * @returns Markdown形式のIssue本文
+   */
+  private readRefactorOutputFile(filePath: string, candidate: RefactorCandidate): string {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Using fallback template.`);
+      return this.createRefactorFallbackBody(candidate);
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      if (!content) {
+        logger.warn('Output file is empty. Using fallback template.');
+        return this.createRefactorFallbackBody(candidate);
+      }
+
+      if (!content.includes('##')) {
+        logger.warn(
+          'Output file does not contain valid Markdown sections. Using fallback template.',
+        );
+        return this.createRefactorFallbackBody(candidate);
+      }
+
+      logger.info('Successfully read refactor issue body from output file.');
+      return content;
+    } catch (error) {
+      logger.error(`Failed to read output file: ${getErrorMessage(error)}`);
+      return this.createRefactorFallbackBody(candidate);
+    }
+  }
+
+  /**
+   * リファクタリングIssueのタイトルを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns Issueタイトル
+   */
+  private generateRefactorTitle(candidate: RefactorCandidate): string {
+    const typeLabels: Record<RefactorCandidate['type'], string> = {
+      'large-file': 'ファイルサイズの削減',
+      'large-function': '関数の分割',
+      'high-complexity': '複雑度の削減',
+      'duplication': 'コード重複の削減',
+      'unused-code': '未使用コードの削除',
+      'missing-docs': 'ドキュメントの追加',
+    };
+
+    const typeLabel = typeLabels[candidate.type];
+    const fileName = path.basename(candidate.filePath);
+
+    return `[Refactor] ${typeLabel}: ${fileName}`;
+  }
+
+  /**
+   * リファクタリングIssueのラベルを生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns ラベルのリスト
+   */
+  private generateRefactorLabels(candidate: RefactorCandidate): string[] {
+    const labels = ['auto-generated', 'refactor'];
+
+    // 優先度に応じたラベルを追加
+    const priorityLabels: Record<RefactorCandidate['priority'], string> = {
+      high: 'priority:high',
+      medium: 'priority:medium',
+      low: 'priority:low',
+    };
+    labels.push(priorityLabels[candidate.priority]);
+
+    // タイプに応じたラベルを追加
+    const typeLabels: Record<RefactorCandidate['type'], string> = {
+      'large-file': 'code-quality',
+      'large-function': 'code-quality',
+      'high-complexity': 'code-quality',
+      'duplication': 'duplication',
+      'unused-code': 'cleanup',
+      'missing-docs': 'documentation',
+    };
+    labels.push(typeLabels[candidate.type]);
+
+    return labels;
+  }
+
+  /**
+   * フォールバック用のリファクタリングIssue本文を生成
+   *
+   * @param candidate - リファクタリング候補
+   * @returns Markdown形式のIssue本文
+   */
+  private createRefactorFallbackBody(candidate: RefactorCandidate): string {
+    const lineRangeText = candidate.lineRange
+      ? ` (${candidate.lineRange.start}〜${candidate.lineRange.end}行目)`
+      : '';
+
+    const priorityEmoji: Record<RefactorCandidate['priority'], string> = {
+      high: '🔴',
+      medium: '🟡',
+      low: '🟢',
+    };
+
+    const priorityText: Record<RefactorCandidate['priority'], string> = {
+      high: '高 - 技術的負債の削減、保守性への重大な影響',
+      medium: '中 - 保守性の向上、中程度の改善効果',
+      low: '低 - 可読性の向上、軽微な改善',
+    };
+
+    return `## 概要
+
+${candidate.description}
+
+## 詳細
+
+**リファクタリング種別**: ${candidate.type}
+**優先度**: ${priorityEmoji[candidate.priority]} ${priorityText[candidate.priority]}
+
+## 推奨される改善策
+
+${candidate.suggestion}
+
+## 対象ファイル
+
+- \`${candidate.filePath}\`${lineRangeText}
+
+## アクションアイテム
+
+- [ ] 影響範囲を調査する
+- [ ] リファクタリング計画を作成する
+- [ ] コード変更を実施する
+- [ ] テストを実施する
+- [ ] コードレビューを受ける
+
+---
+*このIssueは自動生成されました*`;
   }
 
   /**

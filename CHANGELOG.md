@@ -8,15 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Issue #127**: Auto-issue Phase 2 - Refactoring detection and GitHub Issue generation (v0.5.0)
+  - New `--category refactor` option for auto-issue command
+  - RefactorCandidate type definition with 6 refactoring types (large-file, large-function, high-complexity, duplication, unused-code, missing-docs)
+  - RepositoryAnalyzer.analyzeForRefactoring() method for automatic refactoring opportunity detection
+  - IssueGenerator.generateRefactorIssue() method for template-based refactoring Issue creation
+  - Priority-based sorting (high → medium → low) for refactoring candidates
+  - No deduplication for refactoring Issues (design decision)
+  - Language-agnostic support (30+ languages, inherited from Issue #144)
+  - Test coverage: 32 test cases (18 unit tests for RepositoryAnalyzer validation, 14 integration tests)
 - **Issue #126**: Auto-issue command for automatic bug detection and GitHub Issue generation
   - New `auto-issue` CLI command with 5 options (--category, --limit, --dry-run, --similarity-threshold, --agent)
-  - RepositoryAnalyzer module for automatic code analysis (TypeScript/Python support in Phase 1 MVP)
+  - RepositoryAnalyzer module for automatic code analysis (30+ languages and file types support after Issue #144)
   - IssueDeduplicator module with 2-stage duplicate detection (cosine similarity + LLM judgment)
   - IssueGenerator module for automatic GitHub Issue creation
-  - Phase 1 MVP scope: bug detection only, TypeScript/Python file support, src/ directory analysis
+  - Phase 1 MVP scope: bug detection only, 30+ programming languages/file types support, src/ directory analysis
   - Comprehensive test coverage: 52 test cases (10 RepositoryAnalyzer, 10 IssueDeduplicator, 8 IssueGenerator, 10 CLI, 14 integration)
+- **Issue #144**: Auto-issue language support generalization (v0.5.1)
+  - Removed TypeScript/Python-only restriction from RepositoryAnalyzer
+  - Added support for 30+ programming languages across 6 categories:
+    - Script languages (JavaScript, TypeScript, Python, Ruby, PHP, Perl, Shell)
+    - Compiled languages (Go, Java, Kotlin, Rust, C, C++, C#, Swift)
+    - JVM languages (Groovy, Scala)
+    - CI/CD configuration (Jenkinsfile, Dockerfile, Makefile)
+    - Configuration/Data (YAML, JSON, TOML, XML)
+    - Infrastructure as Code (Terraform, CloudFormation)
+  - Implemented exclusion patterns for 15+ directories (node_modules, dist, build, etc.)
+  - Implemented exclusion patterns for 30+ file patterns (generated files, lock files, binaries)
+  - Made detect-bugs.txt prompt language-agnostic
+  - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+- **Issue #150**: Null/Nil Pointer Dereference Possibility in child.stdin?.write()
+  - Replaced optional chaining (`?.`) with explicit null check in `runCodexProcess()` method
+  - Prevents silent failures when stdin pipe fails to open
+  - Immediately rejects Promise with clear error message: 'Failed to open stdin pipe for child process'
+  - Improves reliability in resource-constrained environments (CI/CD, containers)
+  - No impact on normal operation (when stdin opens successfully)
 - **Issue #140**: ReDoS vulnerability in fillTemplate method (Security Fix)
   - Replaced dynamic RegExp construction with `String.prototype.replaceAll()` to eliminate ReDoS attack risk
   - Fixed improper handling of regex special characters in template variable keys (e.g., `.*`, `+`, `?`)
