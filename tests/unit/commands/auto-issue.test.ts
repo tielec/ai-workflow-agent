@@ -27,7 +27,7 @@ describe('auto-issue command handler', () => {
   let mockDeduplicator: jest.Mocked<IssueDeduplicator>;
   let mockGenerator: jest.Mocked<IssueGenerator>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // モックインスタンスの作成
     mockAnalyzer = {
       analyze: jest.fn(),
@@ -41,16 +41,21 @@ describe('auto-issue command handler', () => {
       generate: jest.fn(),
     } as unknown as jest.Mocked<IssueGenerator>;
 
-    // コンストラクタのモック
-    (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
-      () => mockAnalyzer
+    // コンストラクタのモック（ESM対応 - 動的インポートでモジュールを取得してmock関数を上書き）
+    const { RepositoryAnalyzer: RealRepositoryAnalyzer } = await import(
+      '../../../src/core/repository-analyzer.js'
     );
-    (IssueDeduplicator as jest.MockedClass<typeof IssueDeduplicator>).mockImplementation(
-      () => mockDeduplicator
+    const { IssueDeduplicator: RealIssueDeduplicator } = await import(
+      '../../../src/core/issue-deduplicator.js'
     );
-    (IssueGenerator as jest.MockedClass<typeof IssueGenerator>).mockImplementation(
-      () => mockGenerator
+    const { IssueGenerator: RealIssueGenerator } = await import(
+      '../../../src/core/issue-generator.js'
     );
+
+    // mock関数として定義
+    (RealRepositoryAnalyzer as any) = jest.fn(() => mockAnalyzer);
+    (RealIssueDeduplicator as any) = jest.fn(() => mockDeduplicator);
+    (RealIssueGenerator as any) = jest.fn(() => mockGenerator);
 
     // config のモック
     const config = require('../../../src/core/config.js');
