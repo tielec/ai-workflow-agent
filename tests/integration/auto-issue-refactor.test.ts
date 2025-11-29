@@ -8,62 +8,63 @@
  * 実際のエージェント・GitHub API を使用するテストは Phase 6 で実施します。
  */
 
-import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
-import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
-import { IssueGenerator } from '../../src/core/issue-generator.js';
 import { jest } from '@jest/globals';
 import type { RefactorCandidate, BugCandidate } from '../../src/types/auto-issue.js';
 
-// モック設定
-jest.mock('../../src/core/repository-analyzer.js');
-jest.mock('../../src/core/issue-generator.js');
-jest.mock('../../src/commands/execute/agent-setup.js');
-jest.mock('../../src/core/config.js');
+// モック関数を作成（ES Modules環境対応 - importより前に設定）
+const mockResolveAgentCredentials = jest.fn();
+const mockSetupAgentClients = jest.fn();
+
+jest.mock('../../src/commands/execute/agent-setup.js', () => ({
+  resolveAgentCredentials: mockResolveAgentCredentials,
+  setupAgentClients: mockSetupAgentClients,
+}));
+
 jest.mock('../../src/utils/logger.js');
 jest.mock('@octokit/rest');
 
+// モック設定後にimport
+import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
+import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
+import { IssueGenerator } from '../../src/core/issue-generator.js';
+import { config } from '../../src/core/config.js';
+
 describe('auto-issue refactor workflow integration tests', () => {
-  let mockAnalyzer: jest.Mocked<RepositoryAnalyzer>;
-  let mockGenerator: jest.Mocked<IssueGenerator>;
+  let mockAnalyzeForRefactoring: ReturnType<typeof jest.spyOn>;
+  let mockGenerateRefactorIssue: ReturnType<typeof jest.spyOn>;
+  let mockGetGitHubToken: ReturnType<typeof jest.spyOn>;
+  let mockGetGitHubRepository: ReturnType<typeof jest.spyOn>;
+  let mockGetHomeDir: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
-    // モックインスタンスの作成
-    mockAnalyzer = {
-      analyzeForRefactoring: jest.fn(),
-    } as unknown as jest.Mocked<RepositoryAnalyzer>;
-
-    mockGenerator = {
-      generateRefactorIssue: jest.fn(),
-    } as unknown as jest.Mocked<IssueGenerator>;
-
-    // コンストラクタのモック
-    (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
-      () => mockAnalyzer
-    );
-    (IssueGenerator as jest.MockedClass<typeof IssueGenerator>).mockImplementation(
-      () => mockGenerator
-    );
-
-    // config のモック
-    const config = require('../../src/core/config.js');
-    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-    config.getHomeDir = jest.fn().mockReturnValue('/home/test');
-
-    // agent-setup のモック
-    const agentSetup = require('../../src/commands/execute/agent-setup.js');
-    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
+    // agent-setup モックのリセットと再設定
+    mockResolveAgentCredentials.mockReset().mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
-      codexClient: {},
-      claudeClient: {},
+
+    mockSetupAgentClients.mockReset().mockReturnValue({
+      codexClient: {} as any,
+      claudeClient: {} as any,
     });
+
+    // ES Modules環境では jest.spyOn を使用
+    mockAnalyzeForRefactoring = jest
+      .spyOn(RepositoryAnalyzer.prototype, 'analyzeForRefactoring')
+      .mockResolvedValue([]);
+
+    mockGenerateRefactorIssue = jest
+      .spyOn(IssueGenerator.prototype, 'generateRefactorIssue')
+      .mockResolvedValue({ success: true, issueUrl: '', issueNumber: 0 });
+
+    // config のモック（ES Modules環境対応）
+    mockGetGitHubToken = jest.spyOn(config, 'getGitHubToken').mockReturnValue('test-token');
+    mockGetGitHubRepository = jest.spyOn(config, 'getGitHubRepository').mockReturnValue('owner/repo');
+    mockGetHomeDir = jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/test');
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   /**
@@ -95,8 +96,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/123',
         issueNumber: 123,
@@ -109,17 +110,17 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: リファクタリング解析が実行される
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledTimes(1);
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledWith(
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String)
       );
 
       // Then: 2件のIssueが作成される（優先度順: high → medium）
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledTimes(2);
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledTimes(2);
 
       // 1件目: high優先度
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenNthCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           type: 'large-file',
@@ -130,7 +131,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       );
 
       // 2件目: medium優先度
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenNthCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           type: 'duplication',
@@ -153,8 +154,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/124',
         issueNumber: 124,
@@ -167,7 +168,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: バリデーション済みの候補でIssueが作成される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'large-file',
           filePath: 'src/services/user-service.ts',
@@ -210,8 +211,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
@@ -223,18 +224,18 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: リファクタリング解析は実行される
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledTimes(1);
 
       // Then: generateRefactorIssue は dry-run モードで呼ばれる（Issue作成はスキップ）
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledTimes(2);
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledTimes(2);
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(String),
         true // dry-run フラグ
       );
 
       // Then: Issue作成がスキップされたことを示す結果が返される
-      const firstCallResult = await mockGenerator.generateRefactorIssue.mock.results[0].value;
+      const firstCallResult = await mockGenerateRefactorIssue.mock.results[0].value;
       expect(firstCallResult).toEqual({
         success: true,
         skippedReason: 'dry-run mode',
@@ -254,8 +255,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
@@ -267,7 +268,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: GitHub API呼び出しなしでIssue生成がスキップされる
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(String),
         true
@@ -333,8 +334,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
@@ -346,14 +347,14 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: すべてのパターンが検出される
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledTimes(1);
 
       // Then: 5件すべてのIssueが処理される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledTimes(5);
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledTimes(5);
 
       // Then: 各パターンが正しく処理される
-      const calls = mockGenerator.generateRefactorIssue.mock.calls;
-      const types = calls.map((call) => call[0].type);
+      const calls = mockGenerateRefactorIssue.mock.calls;
+      const types = calls.map((call: any) => call[0].type);
 
       // コード品質（large-file, high-complexity）
       expect(types).toContain('large-file');
@@ -395,8 +396,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
@@ -408,7 +409,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: 優先度順（high → medium → low）で処理される
-      const calls = mockGenerator.generateRefactorIssue.mock.calls;
+      const calls = mockGenerateRefactorIssue.mock.calls;
       expect(calls[0][0].priority).toBe('high');
       expect(calls[1][0].priority).toBe('medium');
       expect(calls[2][0].priority).toBe('low');
@@ -435,8 +436,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/125',
         issueNumber: 125,
@@ -449,7 +450,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: Issue生成時に候補情報が正しく渡される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'large-file',
           filePath: 'src/core/repository-analyzer.ts',
@@ -475,8 +476,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/126',
         issueNumber: 126,
@@ -489,7 +490,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: lineRange が Issue生成に渡される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledWith(
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledWith(
         expect.objectContaining({
           lineRange: { start: 45, end: 60 },
         }),
@@ -505,7 +506,7 @@ describe('auto-issue refactor workflow integration tests', () => {
   describe('Agent selection for refactor category', () => {
     it('should use Codex agent when specified', async () => {
       // Given: Codex エージェント指定
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue([]);
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
 
       // When: --agent codex --category refactor で実行
       await handleAutoIssueCommand({
@@ -515,7 +516,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: Codex エージェントが使用される
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledWith(
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledWith(
         expect.any(String),
         'codex'
       );
@@ -523,7 +524,7 @@ describe('auto-issue refactor workflow integration tests', () => {
 
     it('should use Claude agent when specified', async () => {
       // Given: Claude エージェント指定
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue([]);
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
 
       // When: --agent claude --category refactor で実行
       await handleAutoIssueCommand({
@@ -533,7 +534,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: Claude エージェントが使用される
-      expect(mockAnalyzer.analyzeForRefactoring).toHaveBeenCalledWith(
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledWith(
         expect.any(String),
         'claude'
       );
@@ -554,8 +555,8 @@ describe('auto-issue refactor workflow integration tests', () => {
         priority: 'medium',
       }));
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
-      mockGenerator.generateRefactorIssue.mockResolvedValue({
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockGenerateRefactorIssue.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
@@ -568,7 +569,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: 3件のみ処理される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledTimes(3);
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -578,7 +579,7 @@ describe('auto-issue refactor workflow integration tests', () => {
   describe('Error handling for refactor category', () => {
     it('should handle analyzer failure gracefully', async () => {
       // Given: アナライザーが失敗
-      mockAnalyzer.analyzeForRefactoring.mockRejectedValue(
+      mockAnalyzeForRefactoring.mockRejectedValue(
         new Error('Refactor analyzer failed')
       );
 
@@ -610,10 +611,10 @@ describe('auto-issue refactor workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyzeForRefactoring.mockResolvedValue(mockCandidates);
+      mockAnalyzeForRefactoring.mockResolvedValue(mockCandidates);
 
       // 1つ目は成功、2つ目は失敗
-      mockGenerator.generateRefactorIssue
+      mockGenerateRefactorIssue
         .mockResolvedValueOnce({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/200',
@@ -631,7 +632,7 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: 部分的な失敗でも処理が継続される
-      expect(mockGenerator.generateRefactorIssue).toHaveBeenCalledTimes(2);
+      expect(mockGenerateRefactorIssue).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -640,14 +641,10 @@ describe('auto-issue refactor workflow integration tests', () => {
    */
   describe('Phase 1 compatibility (regression prevention)', () => {
     it('should not affect bug detection workflow', async () => {
-      // Given: バグ検出用のモック
-      const mockBugAnalyzer = {
-        analyze: jest.fn<() => Promise<BugCandidate[]>>().mockResolvedValue([]),
-      } as unknown as jest.Mocked<RepositoryAnalyzer>;
-
-      (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
-        () => mockBugAnalyzer
-      );
+      // Given: バグ検出用のモック（ES Modules環境対応）
+      const mockAnalyze = jest
+        .spyOn(RepositoryAnalyzer.prototype, 'analyze')
+        .mockResolvedValue([]);
 
       // When: --category bug で実行（Phase 1の動作）
       await handleAutoIssueCommand({
@@ -656,8 +653,11 @@ describe('auto-issue refactor workflow integration tests', () => {
       });
 
       // Then: analyzeForRefactoring ではなく analyze が呼ばれる
-      expect(mockBugAnalyzer.analyze).toHaveBeenCalledTimes(1);
-      expect(mockAnalyzer.analyzeForRefactoring).not.toHaveBeenCalled();
+      expect(mockAnalyze).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForRefactoring).not.toHaveBeenCalled();
+
+      // クリーンアップ
+      mockAnalyze.mockRestore();
     });
   });
 });

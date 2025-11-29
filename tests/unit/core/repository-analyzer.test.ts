@@ -378,6 +378,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -410,6 +411,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -441,6 +443,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -470,6 +473,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -497,6 +501,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -525,6 +530,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -553,6 +559,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -581,6 +588,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -609,6 +617,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -631,12 +640,13 @@ describe('RepositoryAnalyzer', () => {
         {
           type: 'large-file',
           filePath: 'src/services/user-service.ts',
-          description: 'This is exactly 20.', // 正確に20文字
+          description: 'This is exactly 20!', // 正確に20文字
           suggestion: '認証ロジックをauth-service.tsに分割することを推奨',
           priority: 'high',
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -660,11 +670,12 @@ describe('RepositoryAnalyzer', () => {
           type: 'large-file',
           filePath: 'src/services/user-service.ts',
           description: 'ファイルサイズが750行あり、複数の責務を持っている',
-          suggestion: 'This is exactly 20.', // 正確に20文字
+          suggestion: 'This is exactly 20!', // 正確に20文字
           priority: 'high',
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
@@ -728,6 +739,7 @@ describe('RepositoryAnalyzer', () => {
         },
       ]);
 
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
       mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
 
       // When: analyzeForRefactoring() を実行
