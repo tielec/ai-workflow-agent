@@ -237,71 +237,26 @@ export class RepositoryAnalyzer {
   ): Promise<BugCandidate[]> {
     logger.info(`Analyzing repository: ${repoPath}`);
 
-    // 1. プロンプトテンプレートを読み込み
+    // 1. プロンプトパスと出力ファイルパスを準備
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-bugs.txt');
-    if (!fs.existsSync(promptPath)) {
-      throw new Error(`Prompt template not found: ${promptPath}`);
-    }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
-
-    // 2. 出力ファイルパスを生成
     const outputFilePath = generateOutputFilePath();
     logger.debug(`Output file path: ${outputFilePath}`);
 
-    // 3. プロンプト変数を置換
-    const prompt = template
-      .replace('{repository_path}', repoPath)
-      .replace(/{output_file_path}/g, outputFilePath);
+    try {
+      // 2. 共通エージェント実行メソッド呼び出し
+      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent);
 
-    // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
-    let selectedAgent = agent;
+      // 3. 出力ファイルからJSONを読み込み
+      const candidates = this.readOutputFile(outputFilePath);
 
-    if (agent === 'codex' || agent === 'auto') {
-      if (!this.codexClient) {
-        if (agent === 'codex') {
-          throw new Error('Codex agent is not available.');
-        }
-        // auto モードで Codex が利用不可の場合、Claude にフォールバック
-        logger.warn('Codex not available, falling back to Claude.');
-        selectedAgent = 'claude';
-      } else {
-        try {
-          logger.info('Using Codex agent for bug detection.');
-          await this.codexClient.executeTask({ prompt });
-        } catch (error) {
-          if (agent === 'codex') {
-            throw error;
-          }
-          // auto モードで Codex 失敗の場合、Claude にフォールバック
-          logger.warn(`Codex failed (${getErrorMessage(error)}), falling back to Claude.`);
-          selectedAgent = 'claude';
-        }
-      }
+      // 4. 共通バリデーションメソッド呼び出し
+      const validCandidates = this.validateAnalysisResult(candidates, 'bug');
+
+      return validCandidates;
+    } finally {
+      // 5. 一時ファイルをクリーンアップ（成功・失敗に関わらず）
+      this.cleanupOutputFile(outputFilePath);
     }
-
-    if (selectedAgent === 'claude') {
-      if (!this.claudeClient) {
-        throw new Error('Claude agent is not available.');
-      }
-      logger.info('Using Claude agent for bug detection.');
-      await this.claudeClient.executeTask({ prompt });
-    }
-
-    // 5. 出力ファイルからJSONを読み込み
-    const candidates = this.readOutputFile(outputFilePath);
-
-    // 6. バリデーション
-    const validCandidates = candidates.filter((c) => this.validateBugCandidate(c));
-
-    logger.info(
-      `Parsed ${candidates.length} candidates, ${validCandidates.length} valid after validation.`,
-    );
-
-    // 7. 一時ファイルをクリーンアップ
-    this.cleanupOutputFile(outputFilePath);
-
-    return validCandidates;
   }
 
   /**
@@ -318,24 +273,58 @@ export class RepositoryAnalyzer {
   ): Promise<RefactorCandidate[]> {
     logger.info(`Analyzing repository for refactoring: ${repoPath}`);
 
-    // 1. プロンプトテンプレートを読み込み
+    // 1. プロンプトパスと出力ファイルパスを準備
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-refactoring.txt');
-    if (!fs.existsSync(promptPath)) {
-      throw new Error(`Prompt template not found: ${promptPath}`);
-    }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
-
-    // 2. 出力ファイルパスを生成
     const outputFilePath = generateOutputFilePath('refactor');
     logger.debug(`Output file path: ${outputFilePath}`);
 
-    // 3. プロンプト変数を置換
+    try {
+      // 2. 共通エージェント実行メソッド呼び出し
+      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent);
+
+      // 3. 出力ファイルからJSONを読み込み
+      const candidates = this.readRefactorOutputFile(outputFilePath);
+
+      // 4. 共通バリデーションメソッド呼び出し
+      const validCandidates = this.validateAnalysisResult(candidates, 'refactor');
+
+      return validCandidates;
+    } finally {
+      // 5. 一時ファイルをクリーンアップ（成功・失敗に関わらず）
+      this.cleanupOutputFile(outputFilePath);
+    }
+  }
+
+  /**
+   * エージェント実行とフォールバックの共通処理
+   *
+   * プロンプトテンプレートの読み込み、変数置換、エージェント選択・実行を行います。
+   * `agent='auto'` の場合、Codex → Claude のフォールバックを実行します。
+   *
+   * @param promptPath - プロンプトテンプレートファイルのパス（絶対パス）
+   * @param outputFilePath - エージェントが結果を書き込むファイルのパス
+   * @param repoPath - 解析対象のリポジトリパス
+   * @param agent - 使用するエージェント（'auto' | 'codex' | 'claude'）
+   * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
+   */
+  private async executeAgentWithFallback(
+    promptPath: string,
+    outputFilePath: string,
+    repoPath: string,
+    agent: 'auto' | 'codex' | 'claude',
+  ): Promise<void> {
+    // 1. プロンプトテンプレート読み込み
+    if (!fs.existsSync(promptPath)) {
+      throw new Error(`Prompt template not found: ${promptPath}`);
+    }
+    const template = fs.readFileSync(promptPath, 'utf-8');
+
+    // 2. 変数置換
     const prompt = template
       .replace('{repository_path}', repoPath)
       .replace(/{output_file_path}/g, outputFilePath);
 
-    // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
+    // 3. エージェント選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
 
     if (agent === 'codex' || agent === 'auto') {
@@ -348,11 +337,12 @@ export class RepositoryAnalyzer {
         selectedAgent = 'claude';
       } else {
         try {
-          logger.info('Using Codex agent for refactoring detection.');
+          logger.info('Using Codex agent for analysis.');
           await this.codexClient.executeTask({ prompt });
+          return; // 成功したら終了
         } catch (error) {
           if (agent === 'codex') {
-            throw error;
+            throw error; // codex強制モードではエラーをスロー
           }
           // auto モードで Codex 失敗の場合、Claude にフォールバック
           logger.warn(`Codex failed (${getErrorMessage(error)}), falling back to Claude.`);
@@ -361,26 +351,42 @@ export class RepositoryAnalyzer {
       }
     }
 
+    // 4. Claude エージェント実行
     if (selectedAgent === 'claude') {
       if (!this.claudeClient) {
         throw new Error('Claude agent is not available.');
       }
-      logger.info('Using Claude agent for refactoring detection.');
+      logger.info('Using Claude agent for analysis.');
       await this.claudeClient.executeTask({ prompt });
     }
+  }
 
-    // 5. 出力ファイルからJSONを読み込み
-    const candidates = this.readRefactorOutputFile(outputFilePath);
-
-    // 6. バリデーション
-    const validCandidates = candidates.filter((c) => this.validateRefactorCandidate(c));
+  /**
+   * 解析結果のバリデーション（共通処理）
+   *
+   * candidateType に基づいて適切なバリデーションメソッドを選択し、
+   * 有効な候補のみをフィルタリングします。
+   *
+   * @param candidates - バリデーション対象の候補リスト
+   * @param candidateType - 候補のタイプ（'bug' | 'refactor'）
+   * @returns 有効な候補のみをフィルタリングした配列
+   */
+  private validateAnalysisResult<T extends BugCandidate | RefactorCandidate>(
+    candidates: T[],
+    candidateType: 'bug' | 'refactor',
+  ): T[] {
+    // candidateType に基づいて適切なバリデータを選択
+    const validCandidates = candidates.filter((c) => {
+      if (candidateType === 'bug') {
+        return this.validateBugCandidate(c as BugCandidate);
+      } else {
+        return this.validateRefactorCandidate(c as RefactorCandidate);
+      }
+    });
 
     logger.info(
-      `Parsed ${candidates.length} refactoring candidates, ${validCandidates.length} valid after validation.`,
+      `Parsed ${candidates.length} ${candidateType} candidates, ${validCandidates.length} valid after validation.`,
     );
-
-    // 7. 一時ファイルをクリーンアップ
-    this.cleanupOutputFile(outputFilePath);
 
     return validCandidates;
   }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Issue #155**: [Refactor] コード重複の削減: repository-analyzer.ts
+  - Extract Method パターン適用により `repository-analyzer.ts` の重複コードを削減（~150行 → ~50行、67%削減）
+  - 新規プライベートメソッド追加: `executeAgentWithFallback()`, `validateAnalysisResult()`
+  - DRY原則の徹底により保守性・可読性を向上
+  - Public API（`analyze()`, `analyzeForRefactoring()`）のインターフェース維持（破壊的変更なし）
+
 ### Added
 - **Issue #127**: Auto-issue Phase 2 - Refactoring detection and GitHub Issue generation (v0.5.0)
   - New `--category refactor` option for auto-issue command
