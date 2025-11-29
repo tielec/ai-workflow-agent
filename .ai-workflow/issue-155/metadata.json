@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "implementation_strategy": "REFACTOR",
     "test_strategy": "UNIT_INTEGRATION",
     "test_code_strategy": "EXTEND_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 55415,
-    "total_output_tokens": 164623,
-    "total_cost_usd": 13.281939300000001
+    "total_input_tokens": 55422,
+    "total_output_tokens": 170868,
+    "total_cost_usd": 13.8286025
   },
   "phases": {
     "planning": {
@@ -132,20 +132,27 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-11-29T05:47:55.421Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "テストモックをファイル書き込みベースに更新",
+          "phase": "test_implementation",
+          "priority": "Medium"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/160",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-11-29T04:54:10.022Z",
-  "updated_at": "2025-11-29T05:47:54.235Z",
+  "updated_at": "2025-11-29T05:50:16.922Z",
   "branch_name": "ai-workflow/issue-155",
   "pr_number": 159,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/159",
