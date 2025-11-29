@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Issue #127**: Auto-issue Phase 2 - Refactoring detection and GitHub Issue generation (v0.5.0)
+  - New `--category refactor` option for auto-issue command
+  - RefactorCandidate type definition with 6 refactoring types (large-file, large-function, high-complexity, duplication, unused-code, missing-docs)
+  - RepositoryAnalyzer.analyzeForRefactoring() method for automatic refactoring opportunity detection
+  - IssueGenerator.generateRefactorIssue() method for template-based refactoring Issue creation
+  - Priority-based sorting (high → medium → low) for refactoring candidates
+  - No deduplication for refactoring Issues (design decision)
+  - Language-agnostic support (30+ languages, inherited from Issue #144)
+  - Test coverage: 32 test cases (18 unit tests for RepositoryAnalyzer validation, 14 integration tests)
 - **Issue #126**: Auto-issue command for automatic bug detection and GitHub Issue generation
   - New `auto-issue` CLI command with 5 options (--category, --limit, --dry-run, --similarity-threshold, --agent)
   - RepositoryAnalyzer module for automatic code analysis (30+ languages and file types support after Issue #144)
