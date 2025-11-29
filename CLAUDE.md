@@ -197,6 +197,12 @@ node dist/index.js auto-issue \
   - **バグIssue**（`generate`）: エージェント生成の詳細な説明と修正提案
   - **リファクタリングIssue**（`generateRefactorIssue`）: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
 
+**リポジトリパス解決**（Issue #153で修正）:
+- `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
+- `REPOS_ROOT` が設定されている場合、優先的に使用（Jenkins環境では必須）
+- `REPOS_ROOT` 未設定時はフォールバック候補パス（`~/TIELEC/development/{repo}`、`~/projects/{repo}`、`../{repo}`）を探索
+- リポジトリが見つからない場合、明確なエラーメッセージを表示し、`REPOS_ROOT` 設定またはJenkinsfile確認を促す
+
 **オプション**:
 - `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
   - **Phase 1 (Issue #126)**: `bug`（バグ検出とIssue生成）
@@ -435,6 +441,8 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 
 ### マルチリポジトリサポート
 - `REPOS_ROOT`: リポジトリの親ディレクトリ（v0.2.0）
+  - Jenkins環境では必須（Issue #153で明確化）
+  - `auto-issue` コマンド実行時、対象リポジトリの自動解決に使用
 
 ### ロギング設定（Issue #61で追加）
 - `LOG_LEVEL`: ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）

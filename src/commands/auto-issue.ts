@@ -15,6 +15,7 @@ import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setu
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { IssueDeduplicator, type ExistingIssue } from '../core/issue-deduplicator.js';
 import { IssueGenerator } from '../core/issue-generator.js';
+import { resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
@@ -45,18 +46,46 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
     logger.info(`Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}`);
 
-    // 2. 作業ディレクトリとリポジトリルートを取得
-    const workingDir = process.cwd();
-    logger.info(`Working directory: ${workingDir}`);
+    // 2. GITHUB_REPOSITORY から owner/repo を取得
+    const githubRepository = config.getGitHubRepository();
+    if (!githubRepository) {
+      throw new Error('GITHUB_REPOSITORY environment variable is required.');
+    }
+    logger.info(`GitHub repository: ${githubRepository}`);
 
-    // 3. エージェント認証情報を解決（既存の resolveAgentCredentials を活用）
+    // 3. リポジトリ名を抽出（例: "tielec/reflection-cloud-api" → "reflection-cloud-api"）
+    const [owner, repo] = githubRepository.split('/');
+    if (!owner || !repo) {
+      throw new Error(`Invalid repository name: ${githubRepository}`);
+    }
+
+    // 4. ローカルリポジトリパスを解決
+    let repoPath: string;
+    try {
+      repoPath = resolveLocalRepoPath(repo);
+      logger.info(`Resolved repository path: ${repoPath}`);
+    } catch (error) {
+      logger.error(`Failed to resolve repository path: ${getErrorMessage(error)}`);
+      throw new Error(
+        `Repository '${repo}' not found locally.\n` +
+        `Please ensure REPOS_ROOT is set correctly in Jenkins environment,\n` +
+        `or run the command from the repository root in local environment.\n` +
+        `Original error: ${getErrorMessage(error)}`
+      );
+    }
+
+    // 5. REPOS_ROOT の値をログ出力
+    const reposRoot = config.getReposRoot();
+    logger.info(`REPOS_ROOT: ${reposRoot || '(not set)'}`);
+
+    // 6. エージェント認証情報を解決（既存の resolveAgentCredentials を活用）
     const homeDir = config.getHomeDir();
-    const credentials = resolveAgentCredentials(homeDir, workingDir);
+    const credentials = resolveAgentCredentials(homeDir, repoPath);
 
-    // 4. エージェントクライアントを初期化（既存の setupAgentClients を活用）
+    // 7. エージェントクライアントを初期化（既存の setupAgentClients を活用）
     const { codexClient, claudeClient } = setupAgentClients(
       options.agent,
-      workingDir,
+      repoPath,
       credentials.codexApiKey,
       credentials.claudeCredentialsPath,
     );
@@ -65,22 +94,17 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       throw new Error('Agent mode requires a valid agent configuration.');
     }
 
-    // 5. GitHubクライアントを初期化
+    // 8. GitHubクライアントを初期化
     const githubToken = config.getGitHubToken();
-    const repoName = config.getGitHubRepository();
-    if (!repoName) {
-      throw new Error('GITHUB_REPOSITORY environment variable is required.');
-    }
-
     const octokit = new Octokit({ auth: githubToken });
-    logger.info(`GitHub repository: ${repoName}`);
 
-    // 6. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
+    // 9. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
     const analyzer = new RepositoryAnalyzer(codexClient, claudeClient);
 
     if (options.category === 'bug') {
       logger.info('Analyzing repository for bugs...');
-      const bugCandidates = await analyzer.analyze(workingDir, options.agent);
+      logger.info(`Analyzing repository: ${repoPath}`);
+      const bugCandidates = await analyzer.analyze(repoPath, options.agent);
       logger.info(`Found ${bugCandidates.length} bug candidates.`);
 
       if (bugCandidates.length === 0) {
@@ -92,14 +116,15 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       await processBugCandidates(
         bugCandidates,
         octokit,
-        repoName,
+        githubRepository,
         codexClient,
         claudeClient,
         options,
       );
     } else if (options.category === 'refactor') {
       logger.info('Analyzing repository for refactoring...');
-      const refactorCandidates = await analyzer.analyzeForRefactoring(workingDir, options.agent);
+      logger.info(`Analyzing repository: ${repoPath}`);
+      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent);
       logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
 
       if (refactorCandidates.length === 0) {
@@ -111,7 +136,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       await processRefactorCandidates(
         refactorCandidates,
         octokit,
-        repoName,
+        githubRepository,
         codexClient,
         claudeClient,
         options,

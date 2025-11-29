@@ -262,8 +262,29 @@ pipeline {
                         # REPOS_ROOT ディレクトリ作成
                         mkdir -p ${reposRoot}
 
-                        # 対象リポジトリをクローン（ai-workflow-agentリポジトリ自体へのIssueの場合はスキップ）
-                        if [ "${env.REPO_NAME}" != "ai-workflow-agent" ]; then
+                        # auto_issue モードの場合、対象リポジトリをクローン
+                        if [ "${params.EXECUTION_MODE}" = "auto_issue" ]; then
+                            echo "Auto-issue mode detected. Cloning target repository..."
+
+                            # 対象リポジトリ情報を取得
+                            REPO_NAME=\$(echo ${params.GITHUB_REPOSITORY} | cut -d'/' -f2)
+                            TARGET_REPO_PATH="${reposRoot}/\${REPO_NAME}"
+
+                            if [ ! -d "\${TARGET_REPO_PATH}" ]; then
+                                echo "Cloning repository ${params.GITHUB_REPOSITORY}..."
+                                cd ${reposRoot}
+                                git clone --depth 1 https://\${GITHUB_TOKEN}@github.com/${params.GITHUB_REPOSITORY}.git
+                            else
+                                echo "Repository \${REPO_NAME} already exists. Pulling latest changes..."
+                                cd "\${TARGET_REPO_PATH}"
+                                git pull
+                            fi
+
+                            echo "Target repository setup completed: \${TARGET_REPO_PATH}"
+                        fi
+
+                        # 通常モード（init/execute）の場合、Issue URLから対象リポジトリをクローン
+                        if [ "${params.EXECUTION_MODE}" != "auto_issue" ] && [ "${env.REPO_NAME}" != "ai-workflow-agent" ]; then
                             if [ ! -d ${reposRoot}/${env.REPO_NAME} ]; then
                                 echo "Cloning repository ${env.REPO_OWNER}/${env.REPO_NAME}..."
                                 cd ${reposRoot}
@@ -273,13 +294,10 @@ pipeline {
                                 cd ${reposRoot}/${env.REPO_NAME}
                                 git pull
                             fi
-                            echo "Repository ${env.REPO_NAME} setup completed."
-                        else
-                            echo "Target repository is ai-workflow-agent. Using WORKSPACE directly."
                         fi
 
                         echo "REPOS_ROOT contents:"
-                        ls -la ${reposRoot} || echo "REPOS_ROOT is empty (using WORKSPACE for ai-workflow-agent)"
+                        ls -la ${reposRoot} || echo "REPOS_ROOT is empty"
                     """
 
                     // REPOS_ROOT 環境変数を設定
