@@ -1,0 +1,162 @@
+{
+  "issue_number": "153",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/153",
+  "issue_title": "Issue #153",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/jenkins-6bf1d8c2/workspace/AI_Workflow/ai_workflow_orchestrator_develop",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "evaluation",
+  "design_decisions": {
+    "implementation_strategy": "EXTEND",
+    "test_strategy": "UNIT_INTEGRATION",
+    "test_code_strategy": "EXTEND_TEST"
+  },
+  "cost_tracking": {
+    "total_input_tokens": 74636,
+    "total_output_tokens": 191981,
+    "total_cost_usd": 13.154571999999998
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:06:59.259Z",
+      "completed_at": "2025-11-29T02:10:42.473Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:10:43.160Z",
+      "completed_at": "2025-11-29T02:14:13.620Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:14:14.165Z",
+      "completed_at": "2025-11-29T02:18:34.881Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:18:35.611Z",
+      "completed_at": "2025-11-29T02:22:50.160Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:22:50.708Z",
+      "completed_at": "2025-11-29T02:28:21.882Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:28:22.420Z",
+      "completed_at": "2025-11-29T02:33:23.568Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "testing": {
+      "status": "completed",
+      "retry_count": 3,
+      "started_at": "2025-11-29T02:33:24.190Z",
+      "completed_at": "2025-11-29T02:58:43.397Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "revise",
+        "review"
+      ]
+    },
+    "documentation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T02:58:44.019Z",
+      "completed_at": "2025-11-29T03:05:00.882Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "report": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T03:05:01.459Z",
+      "completed_at": "2025-11-29T03:09:23.559Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "evaluation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-11-29T03:09:25.331Z",
+      "completed_at": "2025-11-29T03:12:16.997Z",
+      "review_result": null,
+      "decision": "PASS",
+      "failed_phase": null,
+      "remaining_tasks": [],
+      "created_issue_url": null,
+      "abort_reason": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    }
+  },
+  "created_at": "2025-11-29T02:06:54.059Z",
+  "updated_at": "2025-11-29T03:12:17.593Z",
+  "branch_name": "ai-workflow/issue-153",
+  "pr_number": 157,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/157",
+  "github_integration": {
+    "progress_comment_id": 3590862024,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/153#issuecomment-3590862024"
+  }
+}

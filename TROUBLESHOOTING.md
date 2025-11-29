@@ -217,6 +217,57 @@ ai-workflow migrate --sanitize-tokens --issue 123
   - `<current-repo>/../<repo-name>`
 - 対象リポジトリに `.git` ディレクトリが存在するか確認します（Git リポジトリとして認識される条件）。
 
+### auto-issue コマンドが対象リポジトリではなくワークスペースを解析してしまう（Issue #153）
+
+Jenkins環境で `auto-issue` コマンドを実行すると、対象リポジトリではなくJenkinsワークスペースを解析してしまう場合があります。
+
+**症状**:
+```
+[ERROR] Repository 'target-repo' not found locally
+```
+または、誤ったリポジトリ（Jenkinsワークスペース）を解析してしまう
+
+**原因**:
+- `REPOS_ROOT` 環境変数が設定されていない（Jenkins環境では必須）
+- `GITHUB_REPOSITORY` 環境変数から対象リポジトリ名を取得しているが、リポジトリパスの解決に失敗している
+
+**対処法（Jenkins環境）**:
+1. Jenkinsfile の Setup Environment stage で `REPOS_ROOT` を設定:
+   ```groovy
+   stage('Setup Environment') {
+       steps {
+           script {
+               env.REPOS_ROOT = env.WORKSPACE
+           }
+       }
+   }
+   ```
+2. `GITHUB_REPOSITORY` 環境変数が正しく設定されているか確認:
+   ```bash
+   echo $GITHUB_REPOSITORY
+   # 出力例: owner/repo-name
+   ```
+3. リポジトリが `$REPOS_ROOT/<repo-name>` に存在するか確認:
+   ```bash
+   ls -la $REPOS_ROOT/
+   ```
+
+**対処法（ローカル環境）**:
+- ローカル環境では `REPOS_ROOT` は任意です。未設定の場合、以下のフォールバック候補パスが自動探索されます:
+  - `~/TIELEC/development/<repo-name>`
+  - `~/projects/<repo-name>`
+  - `<current-repo>/../<repo-name>`
+
+**確認方法**:
+```bash
+# auto-issue コマンドのログで以下を確認
+# - GitHub repository: owner/repo-name
+# - Resolved repository path: /path/to/repo
+# - REPOS_ROOT: /path/to/repos (または "(not set)")
+```
+
+**関連ドキュメント**: README.md の環境変数セクション、CLAUDE.md の auto-issue セクションを参照してください。
+
 ### `Workflow metadata for issue <number> not found`
 
 - `execute` コマンドで Issue 番号を指定した際、対応するメタデータが見つからない場合に発生します。

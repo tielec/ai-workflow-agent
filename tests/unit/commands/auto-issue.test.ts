@@ -12,44 +12,52 @@ import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
 import { jest } from '@jest/globals';
 
+// モック関数の事前定義（グローバルスコープで定義）
+const mockAnalyze = jest.fn<any>();
+const mockFilterDuplicates = jest.fn<any>();
+const mockGenerate = jest.fn<any>();
+
 // モック設定
-jest.mock('../../../src/core/repository-analyzer.js');
-jest.mock('../../../src/core/issue-deduplicator.js');
-jest.mock('../../../src/core/issue-generator.js');
+jest.mock('../../../src/core/repository-analyzer.js', () => ({
+  RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
+    analyze: mockAnalyze,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-deduplicator.js', () => ({
+  IssueDeduplicator: jest.fn().mockImplementation(() => ({
+    filterDuplicates: mockFilterDuplicates,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-generator.js', () => ({
+  IssueGenerator: jest.fn().mockImplementation(() => ({
+    generate: mockGenerate,
+  })),
+}));
+
 jest.mock('../../../src/commands/execute/agent-setup.js');
 jest.mock('../../../src/core/config.js');
 jest.mock('../../../src/utils/logger.js');
+jest.mock('../../../src/core/repository-utils.js');
 jest.mock('@octokit/rest');
 
 describe('auto-issue command handler', () => {
-  let mockAnalyzer: jest.Mocked<RepositoryAnalyzer>;
-  let mockDeduplicator: jest.Mocked<IssueDeduplicator>;
-  let mockGenerator: jest.Mocked<IssueGenerator>;
+  // 変数名のエイリアス（既存コードとの互換性のため）
+  const mockAnalyzer = { analyze: mockAnalyze };
+  const mockDeduplicator = { filterDuplicates: mockFilterDuplicates };
+  const mockGenerator = { generate: mockGenerate };
 
-  beforeEach(() => {
-    // モックインスタンスの作成
-    mockAnalyzer = {
-      analyze: jest.fn(),
-    } as unknown as jest.Mocked<RepositoryAnalyzer>;
+  beforeEach(async () => {
+    // モック関数のクリア
+    mockAnalyze.mockClear();
+    mockFilterDuplicates.mockClear();
+    mockGenerate.mockClear();
 
-    mockDeduplicator = {
-      filterDuplicates: jest.fn(),
-    } as unknown as jest.Mocked<IssueDeduplicator>;
-
-    mockGenerator = {
-      generate: jest.fn(),
-    } as unknown as jest.Mocked<IssueGenerator>;
-
-    // コンストラクタのモック
-    (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
-      () => mockAnalyzer
-    );
-    (IssueDeduplicator as jest.MockedClass<typeof IssueDeduplicator>).mockImplementation(
-      () => mockDeduplicator
-    );
-    (IssueGenerator as jest.MockedClass<typeof IssueGenerator>).mockImplementation(
-      () => mockGenerator
-    );
+    // デフォルトの動作設定
+    mockAnalyze.mockResolvedValue([]);
+    mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
+    mockGenerate.mockResolvedValue({ success: true });
 
     // config のモック
     const config = require('../../../src/core/config.js');
@@ -233,6 +241,414 @@ describe('auto-issue command handler', () => {
   });
 
   /**
+   * Issue #153: Jenkins環境で対象リポジトリではなくワークスペースを解析してしまう問題の修正
+   *
+   * テスト対象: リポジトリパス解決ロジック
+   */
+  describe('Issue #153: Repository path resolution in Jenkins environment', () => {
+    /**
+     * UT-1-1: GITHUB_REPOSITORY が設定されている場合（正常系）
+     *
+     * 目的: GITHUB_REPOSITORY環境変数からowner/repoを正しく取得できることを検証
+     */
+    describe('UT-1-1: GITHUB_REPOSITORY is set correctly', () => {
+      it('should extract owner and repo from GITHUB_REPOSITORY', async () => {
+        // Given: GITHUB_REPOSITORY が tielec/reflection-cloud-api に設定されている
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: resolveLocalRepoPath が "reflection-cloud-api" で呼び出される
+        expect(repositoryUtils.resolveLocalRepoPath).toHaveBeenCalledWith('reflection-cloud-api');
+
+        // And: RepositoryAnalyzer.analyze が正しいパスで呼び出される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
+          'auto',
+        );
+      });
+    });
+
+    /**
+     * UT-1-2: GITHUB_REPOSITORY が未設定の場合（異常系）
+     *
+     * 目的: GITHUB_REPOSITORY環境変数が未設定の場合にエラーがスローされることを検証
+     */
+    describe('UT-1-2: GITHUB_REPOSITORY is not set', () => {
+      it('should throw error with meaningful message', async () => {
+        // Given: GITHUB_REPOSITORY が未設定
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue(null);
+
+        // When & Then: エラーがスローされる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(
+          'GITHUB_REPOSITORY environment variable is required.',
+        );
+      });
+    });
+
+    /**
+     * UT-1-3: GITHUB_REPOSITORY の形式が不正な場合（異常系）
+     *
+     * 目的: GITHUB_REPOSITORYの形式がowner/repoでない場合にエラーがスローされることを検証
+     */
+    describe('UT-1-3: GITHUB_REPOSITORY has invalid format', () => {
+      const invalidFormats = [
+        { value: 'invalid-format', description: 'スラッシュなし' },
+        { value: 'owner/', description: 'repo部分が空' },
+        { value: '/repo', description: 'owner部分が空' },
+        { value: '', description: '空文字列' },
+      ];
+
+      test.each(invalidFormats)(
+        'should throw error when GITHUB_REPOSITORY is $description',
+        async ({ value }) => {
+          // Given: GITHUB_REPOSITORY が不正な形式
+          const config = require('../../../src/core/config.js');
+          config.getGitHubRepository.mockReturnValue(value);
+
+          // When & Then: エラーがスローされる
+          await expect(handleAutoIssueCommand({})).rejects.toThrow(/Invalid repository name/);
+        },
+      );
+    });
+
+    /**
+     * UT-2-1: REPOS_ROOT が設定されている場合（正常系）
+     *
+     * 目的: REPOS_ROOTが設定されている場合、正しいパスが解決されることを検証
+     */
+    describe('UT-2-1: REPOS_ROOT is set', () => {
+      it('should resolve repository path from REPOS_ROOT', async () => {
+        // Given: REPOS_ROOT が設定されている
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: resolveLocalRepoPath が呼び出される
+        expect(repositoryUtils.resolveLocalRepoPath).toHaveBeenCalledWith('reflection-cloud-api');
+
+        // And: 正しいパスが解決される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
+          'auto',
+        );
+      });
+    });
+
+    /**
+     * UT-2-3: リポジトリが見つからない場合（異常系）
+     *
+     * 目的: リポジトリが見つからない場合に適切なエラーメッセージが表示されることを検証
+     */
+    describe('UT-2-3: Repository not found', () => {
+      it('should throw error with helpful message when repository is not found', async () => {
+        // Given: リポジトリが見つからない
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/non-existent-repo');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest.fn().mockImplementation(() => {
+          throw new Error("Repository 'non-existent-repo' not found.");
+        });
+
+        // When & Then: エラーがスローされる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(
+          /Repository 'non-existent-repo' not found locally/,
+        );
+
+        // And: エラーメッセージに REPOS_ROOT 設定の提案が含まれる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(/REPOS_ROOT/);
+      });
+    });
+
+    /**
+     * UT-4-1: 正常系のログ出力確認
+     *
+     * 目的: 正常系の実行時に期待されるログが正しく出力されることを検証
+     */
+    describe('UT-4-1: Log output in normal case', () => {
+      it('should log correct repository information', async () => {
+        // Given: 正常な環境変数設定
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+
+        const logger = require('../../../src/utils/logger.js');
+        logger.info = jest.fn();
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: ログに正しい情報が出力される
+        expect(logger.info).toHaveBeenCalledWith('GitHub repository: tielec/reflection-cloud-api');
+        expect(logger.info).toHaveBeenCalledWith(
+          'Resolved repository path: /tmp/ai-workflow-repos-12345/reflection-cloud-api',
+        );
+        expect(logger.info).toHaveBeenCalledWith('REPOS_ROOT: /tmp/ai-workflow-repos-12345');
+        expect(logger.info).toHaveBeenCalledWith(
+          'Analyzing repository: /tmp/ai-workflow-repos-12345/reflection-cloud-api',
+        );
+      });
+    });
+
+    /**
+     * UT-4-2: REPOS_ROOT が未設定の場合のログ出力確認
+     *
+     * 目的: REPOS_ROOTが未設定の場合、ログに(not set)が表示されることを検証
+     */
+    describe('UT-4-2: Log output when REPOS_ROOT is not set', () => {
+      it('should log "(not set)" when REPOS_ROOT is undefined', async () => {
+        // Given: REPOS_ROOT が未設定
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
+        config.getReposRoot.mockReturnValue(null);
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+
+        const logger = require('../../../src/utils/logger.js');
+        logger.info = jest.fn();
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: ログに "(not set)" が出力される
+        expect(logger.info).toHaveBeenCalledWith('REPOS_ROOT: (not set)');
+      });
+    });
+
+    /**
+     * IT-1-1: Jenkins環境でのエンドツーエンドフロー（正常系）
+     *
+     * 目的: Jenkins環境でGITHUB_REPOSITORYからリポジトリパスを解決し、
+     *       RepositoryAnalyzer.analyzeが正しいパスで呼び出されることを検証
+     */
+    describe('IT-1-1: End-to-end flow in Jenkins environment', () => {
+      it('should resolve repository path and analyze correctly', async () => {
+        // Given: Jenkins環境の設定
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({ agent: 'codex' });
+
+        // Then: resolveLocalRepoPath が正しいパラメータで呼び出される
+        expect(repositoryUtils.resolveLocalRepoPath).toHaveBeenCalledWith('reflection-cloud-api');
+
+        // And: RepositoryAnalyzer.analyze が正しいパラメータで呼び出される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
+          'codex',
+        );
+      });
+    });
+
+    /**
+     * IT-1-2: ローカル環境でのエンドツーエンドフロー（正常系）
+     *
+     * 目的: ローカル環境でREPOS_ROOT未設定の場合、フォールバック候補から
+     *       リポジトリパスを解決し、解析が実行されることを検証
+     */
+    describe('IT-1-2: End-to-end flow in local environment', () => {
+      it('should resolve repository path from fallback candidates', async () => {
+        // Given: ローカル環境の設定（REPOS_ROOT未設定）
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
+        config.getReposRoot.mockReturnValue(null);
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: フォールバック候補からリポジトリパスが解決される
+        expect(repositoryUtils.resolveLocalRepoPath).toHaveBeenCalledWith('ai-workflow-agent');
+
+        // And: RepositoryAnalyzer.analyze が正しいパラメータで呼び出される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/home/user/TIELEC/development/ai-workflow-agent',
+          'auto',
+        );
+      });
+    });
+
+    /**
+     * IT-2-1: リポジトリが見つからない場合のエラーフロー（異常系）
+     *
+     * 目的: リポジトリが見つからない場合、適切なエラーメッセージが表示され、
+     *       解析が実行されないことを検証
+     */
+    describe('IT-2-1: Error flow when repository is not found', () => {
+      it('should display helpful error message and not execute analysis', async () => {
+        // Given: リポジトリが見つからない環境
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/non-existent-repo');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest.fn().mockImplementation(() => {
+          throw new Error(
+            "Repository 'non-existent-repo' not found.\nPlease set REPOS_ROOT environment variable or clone the repository.",
+          );
+        });
+
+        // When & Then: エラーがスローされる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(
+          /Repository 'non-existent-repo' not found locally/,
+        );
+
+        // And: エラーメッセージに REPOS_ROOT 設定の提案が含まれる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(
+          /Please ensure REPOS_ROOT is set correctly in Jenkins environment/,
+        );
+
+        // And: RepositoryAnalyzer.analyze が呼び出されない
+        expect(mockAnalyzer.analyze).not.toHaveBeenCalled();
+      });
+    });
+
+    /**
+     * IT-2-2: GITHUB_REPOSITORY が不正な形式の場合のエラーフロー（異常系）
+     *
+     * 目的: GITHUB_REPOSITORYが不正な形式の場合、早期にエラーが発生し、
+     *       解析が実行されないことを検証
+     */
+    describe('IT-2-2: Error flow when GITHUB_REPOSITORY has invalid format', () => {
+      it('should throw error early without executing analysis', async () => {
+        // Given: GITHUB_REPOSITORY が不正な形式
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('invalid-format');
+
+        // When & Then: エラーがスローされる
+        await expect(handleAutoIssueCommand({})).rejects.toThrow(
+          'Invalid repository name: invalid-format',
+        );
+
+        // And: RepositoryAnalyzer.analyze が呼び出されない
+        expect(mockAnalyzer.analyze).not.toHaveBeenCalled();
+      });
+    });
+
+    /**
+     * IT-3-1: Jenkins環境での動作確認
+     *
+     * 目的: Jenkins環境（REPOS_ROOT設定あり）で正しく動作することを検証
+     */
+    describe('IT-3-1: Verification in Jenkins environment', () => {
+      it('should work correctly with REPOS_ROOT set', async () => {
+        // Given: Jenkins環境を模擬
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
+        config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+
+        const logger = require('../../../src/utils/logger.js');
+        logger.info = jest.fn();
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: REPOS_ROOT配下のリポジトリが解析される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
+          'auto',
+        );
+
+        // And: ログに REPOS_ROOT が出力される
+        expect(logger.info).toHaveBeenCalledWith('REPOS_ROOT: /tmp/ai-workflow-repos-12345');
+      });
+    });
+
+    /**
+     * IT-3-2: ローカル環境での動作確認
+     *
+     * 目的: ローカル環境（REPOS_ROOT未設定）で既存動作が維持されることを検証
+     */
+    describe('IT-3-2: Verification in local environment', () => {
+      it('should work correctly without REPOS_ROOT using fallback', async () => {
+        // Given: ローカル環境を模擬（REPOS_ROOT未設定）
+        const config = require('../../../src/core/config.js');
+        config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
+        config.getReposRoot.mockReturnValue(null);
+
+        const repositoryUtils = require('../../../src/core/repository-utils.js');
+        repositoryUtils.resolveLocalRepoPath = jest
+          .fn()
+          .mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+
+        const logger = require('../../../src/utils/logger.js');
+        logger.info = jest.fn();
+
+        mockAnalyzer.analyze.mockResolvedValue([]);
+
+        // When: handleAutoIssueCommand を実行
+        await handleAutoIssueCommand({});
+
+        // Then: フォールバック候補からリポジトリパスが解決される
+        expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+          '/home/user/TIELEC/development/ai-workflow-agent',
+          'auto',
+        );
+
+        // And: ログに "(not set)" が出力される
+        expect(logger.info).toHaveBeenCalledWith('REPOS_ROOT: (not set)');
+      });
+    });
+  });
+
+  /**
    * TC-CLI-007: handleAutoIssueCommand_異常系_エージェント未設定
    *
    * 目的: エージェントが設定されていない場合、エラーがスローされることを検証
@@ -271,7 +687,7 @@ describe('auto-issue command handler', () => {
         },
       ]);
 
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       mockGenerator.generate.mockResolvedValue({
         success: true,
@@ -307,7 +723,7 @@ describe('auto-issue command handler', () => {
         },
       ]);
 
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       mockGenerator.generate.mockResolvedValue({
         success: true,
@@ -365,7 +781,7 @@ describe('auto-issue command handler', () => {
       ];
 
       mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
 
       // 1つ目と3つ目は成功、2つ目は失敗
       mockGenerator.generate
@@ -420,7 +836,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(goCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/1',
@@ -463,7 +879,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(javaCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/2',
@@ -506,7 +922,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(rubyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/3',
@@ -549,7 +965,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(groovyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/4',
@@ -593,7 +1009,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(jenkinsfileCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/5',
@@ -636,7 +1052,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(dockerfileCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/6',
@@ -679,7 +1095,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(tsCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/7',
@@ -722,7 +1138,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(pyCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/8',
@@ -804,7 +1220,7 @@ describe('auto-issue command handler', () => {
         ];
 
         mockAnalyzer.analyze.mockResolvedValue(multiLangCandidates);
-        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+        mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
         mockGenerator.generate.mockResolvedValue({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/999',

@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+- **Issue #153**: auto-issue: Jenkins環境で対象リポジトリではなくワークスペースを解析してしまう
+  - `auto-issue` コマンドで `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
+  - `resolveLocalRepoPath()` を使用してリポジトリパスを正しく解決（Jenkins環境では `REPOS_ROOT` を優先使用）
+  - Jenkins環境では `REPOS_ROOT` が必須、ローカル環境ではフォールバック候補パス探索
+  - リポジトリが見つからない場合、明確なエラーメッセージと `REPOS_ROOT` 設定提案を表示
+  - Jenkins Pipelineに `REPOS_ROOT` 環境変数設定を追加（Setup Environment stage）
+  - テストカバレッジ: 18個の新規テストケース（ユニット10個、統合6個、パラメトリック1個、エラーハンドリング1個）
 - **Issue #150**: Null/Nil Pointer Dereference Possibility in child.stdin?.write()
   - Replaced optional chaining (`?.`) with explicit null check in `runCodexProcess()` method
   - Prevents silent failures when stdin pipe fails to open
