@@ -182,23 +182,23 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `executeAgentWithFallback`メソッドの実装 (1.5~2h)
+- [x] Task 4-1: `executeAgentWithFallback`メソッドの実装 (1.5~2h)
   - テンプレートファイル読込ロジックの実装
   - 変数置換ロジックの実装
   - エージェント選択ロジックの実装（Codex → Claude フォールバック）
   - 出力ファイル生成とクリーンアップの実装
   - エラーハンドリングの実装
 
-- [ ] Task 4-2: `validateAnalysisResult`メソッドの実装 (0.5~1h)
+- [x] Task 4-2: `validateAnalysisResult`メソッドの実装 (0.5~1h)
   - `candidateType='bug'`用のバリデーションロジック
   - `candidateType='refactor'`用のバリデーションロジック
   - エラーログ出力の実装
 
-- [ ] Task 4-3: `analyze()`メソッドのリファクタリング (0.5~0.5h)
+- [x] Task 4-3: `analyze()`メソッドのリファクタリング (0.5~0.5h)
   - 重複コード（234-305行）を`executeAgentWithFallback`呼び出しに置き換え
   - バリデーションロジックを`validateAnalysisResult`呼び出しに置き換え
 
-- [ ] Task 4-4: `analyzeForRefactoring()`メソッドのリファクタリング (0.5~0.5h)
+- [x] Task 4-4: `analyzeForRefactoring()`メソッドのリファクタリング (0.5~0.5h)
   - 重複コード（315-386行）を`executeAgentWithFallback`呼び出しに置き換え
   - バリデーションロジックを`validateAnalysisResult`呼び出しに置き換え
 
@@ -351,11 +351,11 @@ graph TD
 - [x] テストカバレッジ目標（90%以上）が設定されている
 
 ### Phase 4: 実装
-- [ ] `executeAgentWithFallback`メソッドが実装されている
-- [ ] `validateAnalysisResult`メソッドが実装されている
-- [ ] `analyze()`メソッドのリファクタリングが完了している
-- [ ] `analyzeForRefactoring()`メソッドのリファクタリングが完了している
-- [ ] ESLint、TypeScriptコンパイルエラーがない
+- [x] `executeAgentWithFallback`メソッドが実装されている
+- [x] `validateAnalysisResult`メソッドが実装されている
+- [x] `analyze()`メソッドのリファクタリングが完了している
+- [x] `analyzeForRefactoring()`メソッドのリファクタリングが完了している
+- [x] ESLint、TypeScriptコンパイルエラーがない
 
 ### Phase 5: テストコード実装
 - [ ] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
@@ -651,23 +651,23 @@ async analyzeForRefactoring(): Promise<RefactorCandidate[]> {
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `executeAgentWithFallback`メソッドの実装 (1.5~2h)
+- [x] Task 4-1: `executeAgentWithFallback`メソッドの実装 (1.5~2h)
   - テンプレートファイル読込ロジックの実装
   - 変数置換ロジックの実装
   - エージェント選択ロジックの実装（Codex → Claude フォールバック）
   - 出力ファイル生成とクリーンアップの実装
   - エラーハンドリングの実装
 
-- [ ] Task 4-2: `validateAnalysisResult`メソッドの実装 (0.5~1h)
+- [x] Task 4-2: `validateAnalysisResult`メソッドの実装 (0.5~1h)
   - `candidateType='bug'`用のバリデーションロジック
   - `candidateType='refactor'`用のバリデーションロジック
   - エラーログ出力の実装
 
-- [ ] Task 4-3: `analyze()`メソッドのリファクタリング (0.5~0.5h)
+- [x] Task 4-3: `analyze()`メソッドのリファクタリング (0.5~0.5h)
   - 重複コード（234-305行）を`executeAgentWithFallback`呼び出しに置き換え
   - バリデーションロジックを`validateAnalysisResult`呼び出しに置き換え
 
-- [ ] Task 4-4: `analyzeForRefactoring()`メソッドのリファクタリング (0.5~0.5h)
+- [x] Task 4-4: `analyzeForRefactoring()`メソッドのリファクタリング (0.5~0.5h)
   - 重複コード（315-386行）を`executeAgentWithFallback`呼び出しに置き換え
   - バリデーションロジックを`validateAnalysisResult`呼び出しに置き換え
 
@@ -820,11 +820,11 @@ graph TD
 - [x] テストカバレッジ目標（90%以上）が設定されている
 
 ### Phase 4: 実装
-- [ ] `executeAgentWithFallback`メソッドが実装されている
-- [ ] `validateAnalysisResult`メソッドが実装されている
-- [ ] `analyze()`メソッドのリファクタリングが完了している
-- [ ] `analyzeForRefactoring()`メソッドのリファクタリングが完了している
-- [ ] ESLint、TypeScriptコンパイルエラーがない
+- [x] `executeAgentWithFallback`メソッドが実装されている
+- [x] `validateAnalysisResult`メソッドが実装されている
+- [x] `analyze()`メソッドのリファクタリングが完了している
+- [x] `analyzeForRefactoring()`メソッドのリファクタリングが完了している
+- [x] ESLint、TypeScriptコンパイルエラーがない
 
 ### Phase 5: テストコード実装
 - [ ] ユニットテストが実装されている（`executeAgentWithFallback`、`validateAnalysisResult`）
