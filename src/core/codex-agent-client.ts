@@ -197,10 +197,22 @@ export class CodexAgentClient {
     }
   }
 
+  /**
+   * Fills template placeholders with provided variables.
+   *
+   * Security: Uses replaceAll() instead of RegExp to prevent ReDoS attacks.
+   * The replaceAll() method treats the search string as a literal, not a regex pattern.
+   *
+   * @param template - Template string with {key} placeholders
+   * @param variables - Key-value pairs to replace in template
+   * @returns Template string with placeholders replaced
+   */
   private fillTemplate(template: string, variables: Record<string, string>): string {
     let content = template;
     for (const [key, value] of Object.entries(variables)) {
-      content = content.replace(new RegExp(`{${key}}`, 'g'), value);
+      // Security: Use replaceAll() instead of RegExp to prevent ReDoS attacks
+      // replaceAll() treats the search string as a literal, not a regex pattern
+      content = content.replaceAll(`{${key}}`, value);
     }
     return content;
   }
