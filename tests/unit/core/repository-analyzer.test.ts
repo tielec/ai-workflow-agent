@@ -5,6 +5,7 @@
  * テストシナリオ: test-scenario.md の TC-RA-001 〜 TC-RA-010
  */
 
+import path from 'node:path';
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
 import type { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../../src/core/claude-agent-client.js';
@@ -755,6 +756,399 @@ describe('RepositoryAnalyzer', () => {
         'unused-code',
         'missing-docs',
       ]);
+    });
+  });
+
+  /**
+   * Phase 5: Issue #155 - リファクタリング後の新規メソッドテスト
+   * 新規メソッド: executeAgentWithFallback, validateAnalysisResult
+   */
+
+  /**
+   * 2.1 executeAgentWithFallback メソッドのユニットテスト
+   */
+
+  /**
+   * TC-3.1.1: executeAgentWithFallback_正常系_Codex成功パターン
+   *
+   * 目的: agent='codex'でCodexエージェントが利用可能な場合、Codexが実行され正常に完了することを検証
+   */
+  describe('TC-3.1.1: executeAgentWithFallback - Codex success', () => {
+    it('should execute Codex agent successfully when agent=codex', async () => {
+      // Given: Codex クライアントが利用可能
+      const mockPromptPath = path.resolve(__dirname, '../../../src/prompts/auto-issue/detect-bugs.txt');
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Test bug with enough length',
+            file: 'test.ts',
+            line: 1,
+            severity: 'high',
+            description: 'Test description with at least 50 characters for validation.',
+            suggestedFix: 'Test fix suggestion',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を codex モードで実行
+      const result = await analyzer.analyze('/path/to/repo', 'codex');
+
+      // Then: Codex エージェントが1回呼び出され、Claude は呼び出されない
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockClaudeClient.executeTask).not.toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  /**
+   * TC-3.1.2: executeAgentWithFallback_正常系_Codex利用不可→Claudeフォールバック
+   *
+   * 目的: agent='auto'でCodexが利用不可の場合、自動的にClaudeにフォールバックすることを検証
+   */
+  describe('TC-3.1.2: executeAgentWithFallback - Codex unavailable fallback to Claude', () => {
+    it('should fallback to Claude when Codex is not available', async () => {
+      // Given: Codex が null（利用不可）
+      const analyzerWithoutCodex = new RepositoryAnalyzer(null, mockClaudeClient);
+
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Test bug with enough length for validation',
+            file: 'test.ts',
+            line: 1,
+            severity: 'high',
+            description: 'Test description with at least 50 characters to pass validation.',
+            suggestedFix: 'Test fix suggestion with minimum length',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を auto モードで実行
+      const result = await analyzerWithoutCodex.analyze('/path/to/repo', 'auto');
+
+      // Then: Claude にフォールバック
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  /**
+   * TC-3.1.3: executeAgentWithFallback_正常系_Codex実行失敗→Claudeフォールバック
+   *
+   * 目的: agent='auto'でCodex実行中にエラーが発生した場合、自動的にClaudeにフォールバックすることを検証
+   */
+  describe('TC-3.1.3: executeAgentWithFallback - Codex failure fallback to Claude', () => {
+    it('should fallback to Claude when Codex execution fails', async () => {
+      // Given: Codex が実行失敗
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex API error'));
+
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Test bug with enough length for validation',
+            file: 'test.ts',
+            line: 1,
+            severity: 'high',
+            description: 'Test description with at least 50 characters to pass validation.',
+            suggestedFix: 'Test fix suggestion with minimum length',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を auto モードで実行
+      const result = await analyzer.analyze('/path/to/repo', 'auto');
+
+      // Then: Codex が失敗し、Claude にフォールバック
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  /**
+   * TC-3.1.4: executeAgentWithFallback_異常系_両エージェント利用不可
+   *
+   * 目的: agent='auto'でCodexとClaudeの両方が利用不可の場合、適切なエラーがスローされることを検証
+   */
+  describe('TC-3.1.4: executeAgentWithFallback - both agents unavailable', () => {
+    it('should throw error when both agents are unavailable', async () => {
+      // Given: 両エージェントが null
+      const analyzerWithoutAgents = new RepositoryAnalyzer(null, null);
+
+      // When/Then: analyze() を実行するとエラーがスローされる
+      await expect(analyzerWithoutAgents.analyze('/path/to/repo', 'auto')).rejects.toThrow(
+        'Claude agent is not available.',
+      );
+    });
+  });
+
+  /**
+   * TC-3.1.5: executeAgentWithFallback_異常系_Codex強制モードで失敗
+   *
+   * 目的: agent='codex'でCodex実行失敗時、フォールバックせずエラーがスローされることを検証
+   */
+  describe('TC-3.1.5: executeAgentWithFallback - Codex forced mode failure', () => {
+    it('should throw error when Codex fails in forced mode', async () => {
+      // Given: Codex が実行失敗
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex authentication failed'));
+
+      // When/Then: analyze() を codex 強制モードで実行するとエラーがスローされる
+      await expect(analyzer.analyze('/path/to/repo', 'codex')).rejects.toThrow(
+        'Codex authentication failed',
+      );
+
+      // Claude は呼び出されない（フォールバックなし）
+      expect(mockClaudeClient.executeTask).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * 2.2 validateAnalysisResult メソッドのユニットテスト
+   */
+
+  /**
+   * TC-3.2.1: validateAnalysisResult_正常系_バグ候補全て有効
+   *
+   * 目的: candidateType='bug'で全ての候補が有効な場合、全候補が返されることを検証
+   */
+  describe('TC-3.2.1: validateAnalysisResult - all valid bug candidates', () => {
+    it('should return all candidates when all are valid', async () => {
+      // Given: 有効なバグ候補3つ
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Bug 1 with enough length',
+            file: 'a.ts',
+            line: 10,
+            severity: 'high',
+            description: 'Description 1 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 1 with minimum length',
+            category: 'bug',
+          },
+          {
+            title: 'Bug 2 with enough length',
+            file: 'b.ts',
+            line: 20,
+            severity: 'medium',
+            description: 'Description 2 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 2 with minimum length',
+            category: 'bug',
+          },
+          {
+            title: 'Bug 3 with enough length',
+            file: 'c.ts',
+            line: 30,
+            severity: 'low',
+            description: 'Description 3 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 3 with minimum length',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を実行
+      const result = await analyzer.analyze('/path/to/repo', 'codex');
+
+      // Then: 3個全てが返される
+      expect(result).toHaveLength(3);
+    });
+  });
+
+  /**
+   * TC-3.2.2: validateAnalysisResult_正常系_バグ候補一部無効
+   *
+   * 目的: candidateType='bug'で一部の候補が無効な場合、有効な候補のみが返されることを検証
+   */
+  describe('TC-3.2.2: validateAnalysisResult - some invalid bug candidates', () => {
+    it('should return only valid candidates when some are invalid', async () => {
+      // Given: 3個の候補のうち1個が無効（titleが短すぎる）
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Bug 1 with enough length',
+            file: 'a.ts',
+            line: 10,
+            severity: 'high',
+            description: 'Description 1 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 1 with minimum length',
+            category: 'bug',
+          },
+          {
+            title: 'Short', // 無効（10文字未満）
+            file: 'b.ts',
+            line: 20,
+            severity: 'medium',
+            description: 'Description 2 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 2 with minimum length',
+            category: 'bug',
+          },
+          {
+            title: 'Bug 3 with enough length',
+            file: 'c.ts',
+            line: 30,
+            severity: 'low',
+            description: 'Description 3 with at least 50 characters for validation.',
+            suggestedFix: 'Fix 3 with minimum length',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を実行
+      const result = await analyzer.analyze('/path/to/repo', 'codex');
+
+      // Then: 2個の有効な候補のみが返される
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('Bug 1 with enough length');
+      expect(result[1].title).toBe('Bug 3 with enough length');
+    });
+  });
+
+  /**
+   * TC-3.2.3: validateAnalysisResult_正常系_リファクタリング候補全て有効
+   *
+   * 目的: candidateType='refactor'で全ての候補が有効な場合、全候補が返されることを検証
+   */
+  describe('TC-3.2.3: validateAnalysisResult - all valid refactor candidates', () => {
+    it('should return all refactor candidates when all are valid', async () => {
+      // Given: 有効なリファクタリング候補2つ
+      const mockOutput = JSON.stringify([
+        {
+          type: 'large-file',
+          filePath: 'a.ts',
+          description: 'Description with minimum 20 characters',
+          suggestion: 'Suggestion with minimum 20 characters',
+          priority: 'high',
+        },
+        {
+          type: 'duplication',
+          filePath: 'b.ts',
+          lineRange: { start: 10, end: 20 },
+          description: 'Another description with enough length',
+          suggestion: 'Another suggestion with enough length',
+          priority: 'medium',
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForRefactoring() を実行
+      const result = await analyzer.analyzeForRefactoring('/path/to/repo', 'codex');
+
+      // Then: 2個全てが返される
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  /**
+   * TC-3.2.4: validateAnalysisResult_正常系_リファクタリング候補一部無効
+   *
+   * 目的: candidateType='refactor'で一部の候補が無効な場合、有効な候補のみが返されることを検証
+   */
+  describe('TC-3.2.4: validateAnalysisResult - some invalid refactor candidates', () => {
+    it('should return only valid refactor candidates when some are invalid', async () => {
+      // Given: 2個の候補のうち1個が無効（descriptionが短すぎる）
+      const mockOutput = JSON.stringify([
+        {
+          type: 'large-file',
+          filePath: 'a.ts',
+          description: 'Description with minimum 20 characters',
+          suggestion: 'Suggestion with minimum 20 characters',
+          priority: 'high',
+        },
+        {
+          type: 'duplication',
+          filePath: 'b.ts',
+          description: 'Too short', // 無効（20文字未満）
+          suggestion: 'Another suggestion with enough length',
+          priority: 'medium',
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForRefactoring() を実行
+      const result = await analyzer.analyzeForRefactoring('/path/to/repo', 'codex');
+
+      // Then: 1個の有効な候補のみが返される
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe('large-file');
+    });
+  });
+
+  /**
+   * TC-3.2.5: validateAnalysisResult_境界値_空の候補リスト
+   *
+   * 目的: 候補リストが空の場合、空配列が返されることを検証
+   */
+  describe('TC-3.2.5: validateAnalysisResult - empty candidate list', () => {
+    it('should return empty array when candidate list is empty', async () => {
+      // Given: 空の候補リスト
+      const mockOutput = JSON.stringify({ bugs: [] });
+
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を実行
+      const result = await analyzer.analyze('/path/to/repo', 'codex');
+
+      // Then: 空配列が返される
+      expect(result).toEqual([]);
+    });
+  });
+
+  /**
+   * TC-3.2.6: validateAnalysisResult_境界値_全ての候補が無効
+   *
+   * 目的: 全ての候補が無効な場合、空配列が返されることを検証
+   */
+  describe('TC-3.2.6: validateAnalysisResult - all candidates invalid', () => {
+    it('should return empty array when all candidates are invalid', async () => {
+      // Given: 全て無効な候補
+      const mockOutput = JSON.stringify({
+        bugs: [
+          {
+            title: 'Short', // 無効
+            file: 'a.ts',
+            line: 1,
+            severity: 'high',
+            description: 'Description with at least 50 characters for validation.',
+            suggestedFix: 'Fix with minimum length',
+            category: 'bug',
+          },
+          {
+            title: 'Another short', // 無効
+            file: 'b.ts',
+            line: 1,
+            severity: 'high',
+            description: 'Description with at least 50 characters for validation.',
+            suggestedFix: 'Fix with minimum length',
+            category: 'bug',
+          },
+        ],
+      });
+
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyze() を実行
+      const result = await analyzer.analyze('/path/to/repo', 'codex');
+
+      // Then: 空配列が返される
+      expect(result).toEqual([]);
     });
   });
 });
