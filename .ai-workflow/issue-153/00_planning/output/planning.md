@@ -159,15 +159,15 @@ Jenkins環境で`auto-issue`コマンドを実行した際、`GITHUB_REPOSITORY`
 
 ### Phase 4: 実装 (見積もり: 2~3h)
 
-- [ ] Task 4-1: `src/commands/auto-issue.ts` の修正 (1~1.5h)
+- [x] Task 4-1: `src/commands/auto-issue.ts` の修正 (1~1.5h)
   - `GITHUB_REPOSITORY` から owner/repo を抽出（Line 70-76 の後に追加）
   - `resolveLocalRepoPath(repoName)` を呼び出してリポジトリパスを取得
   - 解決したパスで `analyzer.analyze(repoPath, options.agent)` を実行
   - エラーハンドリング追加（リポジトリが見つからない場合）
-- [ ] Task 4-2: ロギング強化 (0.5h)
+- [x] Task 4-2: ロギング強化 (0.5h)
   - 解析対象リポジトリパスをログ出力（`Analyzing repository: {repoPath}`）
   - `REPOS_ROOT` の値をログ出力（未設定の場合も明示）
-- [ ] Task 4-3: Jenkinsfile の修正 (0.5~1h)
+- [x] Task 4-3: Jenkinsfile の修正 (0.5~1h)
   - `Setup Environment` ステージに `auto_issue` モード判定追加
   - 対象リポジトリクローンロジック追加（GitHub Token を使用した git clone）
   - 既存リポジトリ存在時の pull 処理追加
@@ -296,9 +296,9 @@ P1 → P2 → P3 → P4 → P5 → P6 → P7 → P8
 - [x] エッジケース（リポジトリ未発見、クローン失敗）がカバーされている
 
 ### Phase 4: 実装
-- [ ] `src/commands/auto-issue.ts` の修正が完了している
-- [ ] ロギング強化が完了している（解析対象パス、`REPOS_ROOT` の値を出力）
-- [ ] Jenkinsfile の修正が完了している
+- [x] `src/commands/auto-issue.ts` の修正が完了している
+- [x] ロギング強化が完了している（解析対象パス、`REPOS_ROOT` の値を出力）
+- [x] Jenkinsfile の修正が完了している
 - [ ] コードレビューで指摘された問題が修正されている
 
 ### Phase 5: テストコード実装
