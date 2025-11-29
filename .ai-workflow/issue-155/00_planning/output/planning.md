@@ -232,14 +232,14 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5~0.5h)
 
-- [ ] Task 7-1: コードコメントの更新 (0.25~0.25h)
+- [x] Task 7-1: コードコメントの更新 (0.25~0.25h)
   - `executeAgentWithFallback`メソッドのJSDocコメント追加
   - `validateAnalysisResult`メソッドのJSDocコメント追加
   - リファクタリング後の`analyze()`、`analyzeForRefactoring()`のコメント更新
 
-- [ ] Task 7-2: ARCHITECTURE.mdの更新 (0.25~0.25h)
-  - `repository-analyzer.ts`のモジュール説明に、リファクタリング内容を反映
-  - Extract Methodパターンの適用を明記
+- [x] Task 7-2: CHANGELOG.mdの更新 (0.25~0.25h)
+  - [Unreleased]セクションに新規エントリ追加
+  - Issue #155の変更内容を記録
 
 ### Phase 8: レポート (見積もり: 0~0h)
 
@@ -369,8 +369,8 @@ graph TD
 - [x] リグレッションテストで、リファクタリング前後の出力が一致している
 
 ### Phase 7: ドキュメント
-- [ ] JSDocコメントが追加されている（新規メソッド）
-- [ ] ARCHITECTURE.mdが更新されている（リファクタリング内容を反映）
+- [x] JSDocコメントが追加されている（新規メソッド）
+- [x] CHANGELOG.mdが更新されている（リファクタリング内容を反映）
 
 ### Phase 8: レポート
 - [ ] PR本文が自動生成されている
@@ -701,14 +701,14 @@ async analyzeForRefactoring(): Promise<RefactorCandidate[]> {
 
 ### Phase 7: ドキュメント (見積もり: 0.5~0.5h)
 
-- [ ] Task 7-1: コードコメントの更新 (0.25~0.25h)
+- [x] Task 7-1: コードコメントの更新 (0.25~0.25h)
   - `executeAgentWithFallback`メソッドのJSDocコメント追加
   - `validateAnalysisResult`メソッドのJSDocコメント追加
   - リファクタリング後の`analyze()`、`analyzeForRefactoring()`のコメント更新
 
-- [ ] Task 7-2: ARCHITECTURE.mdの更新 (0.25~0.25h)
-  - `repository-analyzer.ts`のモジュール説明に、リファクタリング内容を反映
-  - Extract Methodパターンの適用を明記
+- [x] Task 7-2: CHANGELOG.mdの更新 (0.25~0.25h)
+  - [Unreleased]セクションに新規エントリ追加
+  - Issue #155の変更内容を記録
 
 ### Phase 8: レポート (見積もり: 0~0h)
 
@@ -838,8 +838,8 @@ graph TD
 - [x] リグレッションテストで、リファクタリング前後の出力が一致している
 
 ### Phase 7: ドキュメント
-- [ ] JSDocコメントが追加されている（新規メソッド）
-- [ ] ARCHITECTURE.mdが更新されている（リファクタリング内容を反映）
+- [x] JSDocコメントが追加されている（新規メソッド）
+- [x] CHANGELOG.mdが更新されている（リファクタリング内容を反映）
 
 ### Phase 8: レポート
 - [ ] PR本文が自動生成されている
