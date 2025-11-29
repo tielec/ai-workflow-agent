@@ -16,6 +16,7 @@ import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
 import type { BugCandidate, RefactorCandidate } from '../types/auto-issue.js';
+import { parseCodexEvent } from './helpers/agent-event-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -332,7 +333,7 @@ export class RepositoryAnalyzer {
 
     // 4. エージェントを選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
-    let agentResponse = '';
+    let agentEvents: string[] = [];
 
     if (agent === 'codex' || agent === 'auto') {
       if (!this.codexClient) {
@@ -346,7 +347,7 @@ export class RepositoryAnalyzer {
         try {
           logger.info('Using Codex agent for refactoring detection.');
           const response = await this.codexClient.executeTask({ prompt });
-          agentResponse = Array.isArray(response) ? response.join('\n') : '';
+          agentEvents = Array.isArray(response) ? response : [];
         } catch (error) {
           if (agent === 'codex') {
             throw error;
@@ -364,10 +365,11 @@ export class RepositoryAnalyzer {
       }
       logger.info('Using Claude agent for refactoring detection.');
       const response = await this.claudeClient.executeTask({ prompt });
-      agentResponse = Array.isArray(response) ? response.join('\n') : '';
+      agentEvents = Array.isArray(response) ? response : [];
     }
 
     // 5. エージェント出力からJSONを抽出してパース
+    const agentResponse = this.extractRefactoringOutput(agentEvents, selectedAgent);
     const candidates = this.parseRefactoringResponse(agentResponse);
 
     // 6. バリデーション
@@ -445,6 +447,76 @@ export class RepositoryAnalyzer {
     );
 
     return codeFiles.join('\n\n');
+  }
+
+  /**
+   * エージェントイベントからリファクタリング結果の本文を抽出
+   *
+   * Codex/Claudeのイベントログからアシスタントが返したJSONレスポンス部分を拾う。
+   *
+   * @param events - エージェントイベント配列
+   * @param agent - 使用したエージェント
+   * @returns 抽出したレスポンス文字列（見つからない場合は生ログ結合を返却）
+   */
+  private extractRefactoringOutput(events: string[], agent: 'auto' | 'codex' | 'claude'): string {
+    const outputs: string[] = [];
+
+    if (agent === 'codex' || agent === 'auto') {
+      for (const rawEvent of events) {
+        const payload = parseCodexEvent(rawEvent);
+        if (!payload) {
+          continue;
+        }
+
+        if (payload.type === 'assistant') {
+          const contents = payload.message?.content ?? [];
+          for (const block of contents) {
+            if (block && typeof block === 'object' && block['type'] === 'text') {
+              const text = typeof block['text'] === 'string' ? block['text'].trim() : '';
+              if (text) {
+                outputs.push(text);
+              }
+            }
+          }
+        }
+
+        if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim()) {
+          outputs.push(payload.result.trim());
+        }
+      }
+    }
+
+    if (agent === 'claude') {
+      for (const rawEvent of events) {
+        try {
+          const message = JSON.parse(rawEvent) as { type?: string; message?: { content?: Array<Record<string, unknown>> }; result?: string };
+          if (message.type === 'assistant') {
+            const contents = message.message?.content ?? [];
+            for (const block of contents) {
+              if (block && typeof block === 'object' && block['type'] === 'text') {
+                const text = typeof block['text'] === 'string' ? block['text'].trim() : '';
+                if (text) {
+                  outputs.push(text);
+                }
+              }
+            }
+          }
+
+          if (message.type === 'result' && typeof message.result === 'string' && message.result.trim()) {
+            outputs.push(message.result.trim());
+          }
+        } catch (error) {
+          logger.debug(`Failed to parse Claude event for refactoring output: ${getErrorMessage(error)}`);
+        }
+      }
+    }
+
+    if (outputs.length === 0 && events.length > 0) {
+      logger.warn('Failed to extract refactoring output from agent events. Falling back to raw logs.');
+      return events.join('\n');
+    }
+
+    return outputs.join('\n');
   }
 
   /**
