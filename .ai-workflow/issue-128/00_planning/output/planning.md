@@ -299,13 +299,13 @@
 
 ### Phase 7: ドキュメント (見積もり: 4〜6h)
 
-- [ ] Task 7-1: CLAUDE.md更新 (2〜3h)
+- [x] Task 7-1: CLAUDE.md更新 (2〜3h)
   - `auto-issue` コマンドの `--category enhancement` オプション説明追加
   - `--creative-mode` オプション説明追加
   - Phase 3実装完了のマーク追加
   - EnhancementProposal型の説明追加
 
-- [ ] Task 7-2: README.md更新 (2〜3h)
+- [x] Task 7-2: README.md更新 (2〜3h)
   - `auto-issue` コマンドのCLI使用例追加（`--category enhancement`）
   - `--creative-mode` オプションの説明追加
   - enhancementカテゴリの使用例追加（プレビューモード、本番実行）
@@ -474,10 +474,10 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] CLAUDE.mdに `--category enhancement` と `--creative-mode` の説明が追加されている
-- [ ] README.mdに使用例（プレビューモード、本番実行）が追加されている
-- [ ] Phase 3実装完了のマーク（✅）がCLAUDE.mdに記載されている
-- [ ] EnhancementProposal型の説明がCLAUDE.mdに追加されている
+- [x] CLAUDE.mdに `--category enhancement` と `--creative-mode` の説明が追加されている
+- [x] README.mdに使用例（プレビューモード、本番実行）が追加されている
+- [x] Phase 3実装完了のマーク（✅）がCLAUDE.mdに記載されている
+- [x] EnhancementProposal型の説明がCLAUDE.mdに追加されている
 
 ### Phase 8: レポート
 
