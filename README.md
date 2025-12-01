@@ -105,7 +105,8 @@ ai-workflow auto-issue \
   [--limit <number>] \
   [--dry-run] \
   [--similarity-threshold <0.0-1.0>] \
-  [--agent auto|codex|claude]
+  [--agent auto|codex|claude] \
+  [--creative-mode]
 
 ai-workflow review \
   --phase <name> \
@@ -640,6 +641,12 @@ ai-workflow auto-issue
 # リファクタリング機会を検出してIssue生成
 ai-workflow auto-issue --category refactor
 
+# 機能拡張提案を検出してIssue生成
+ai-workflow auto-issue --category enhancement
+
+# 創造的な機能拡張提案を検出してIssue生成
+ai-workflow auto-issue --category enhancement --creative-mode
+
 # プレビューモード（Issue生成せず、検出結果のみ表示）
 ai-workflow auto-issue --dry-run
 
@@ -664,11 +671,12 @@ ai-workflow auto-issue \
 **主な機能**:
 
 1. **リポジトリ分析（RepositoryAnalyzer）**:
-   - コードベース全体を自動分析し、潜在的なバグやリファクタリング機会を検出
+   - コードベース全体を自動分析し、潜在的なバグ、リファクタリング機会、機能拡張提案を検出
    - 30+ のプログラミング言語をサポート（Issue #144で汎用化）
    - AIエージェント（Codex / Claude）による高精度な分析
    - **バグ検出**（`--category bug`、デフォルト）: 潜在的なバグ、エラーハンドリング不足、null参照など
    - **リファクタリング検出**（`--category refactor`）: コード品質、重複、未使用コード、ドキュメント不足など
+   - **機能拡張提案**（`--category enhancement`）: 機能改善、統合、自動化、DX向上、品質改善、エコシステム拡張など
 
 2. **重複除外（IssueDeduplicator）**:
    - 2段階の重複検出アルゴリズム（バグ検出時のみ有効）
@@ -679,10 +687,11 @@ ai-workflow auto-issue \
    - ※ リファクタリング検出時は重複除外を実行しません
 
 3. **Issue自動生成（IssueGenerator）**:
-   - 検出されたバグまたはリファクタリング機会から自動的にGitHub Issueを作成
+   - 検出されたバグ、リファクタリング機会、または機能拡張提案から自動的にGitHub Issueを作成
    - タイトル、説明、ラベル、優先度を自動設定
    - **バグIssue**: エージェント生成の詳細な説明と修正提案
    - **リファクタリングIssue**: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
+   - **機能拡張Issue**: エージェント生成の詳細な提案（根拠、実装ヒント、期待される効果、工数見積もり）
    - `--dry-run` モードで事前確認が可能
 
 **オプション**:
@@ -693,7 +702,12 @@ ai-workflow auto-issue \
     - 6種類のリファクタリングタイプ: `large-file`, `large-function`, `high-complexity`, `duplication`, `unused-code`, `missing-docs`
     - 優先度による自動ソート（high → medium → low）
     - 重複除外は実行されません
-  - **`enhancement`**, **`all`**: Phase 3 以降で実装予定
+  - **`enhancement`**: 機能拡張提案検出（Phase 3、Issue #128）
+    - 6種類の拡張タイプ: `improvement`, `integration`, `automation`, `dx`, `quality`, `ecosystem`
+    - 優先度（expected_impact）による自動ソート（high → medium → low）
+    - 重複除外は実行されません
+    - `--creative-mode` オプションで実験的・創造的な提案を有効化
+  - **`all`**: Phase 4 で実装予定
 - `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
   - 大規模リポジトリでのテスト時に有用
 - `--dry-run`: プレビューモード
@@ -707,6 +721,9 @@ ai-workflow auto-issue \
   - `auto`（デフォルト）: Codex優先、なければClaudeにフォールバック
   - `codex`: Codexのみ使用（`gpt-5-codex`）
   - `claude`: Claude Code強制使用
+- `--creative-mode`: 創造的・実験的な提案を有効化（`enhancement` カテゴリのみ有効）
+  - より野心的で革新的な機能拡張アイデアを生成
+  - 実験的な統合やエコシステム改善の提案を含む
 
 **環境変数**:
 
@@ -747,6 +764,14 @@ ai-workflow auto-issue \
 # ケース6: 大規模リポジトリのテスト
 ai-workflow auto-issue --dry-run --limit 1
 # → 1件のみ検出してプレビュー（動作確認用）
+
+# ケース7: 機能拡張提案の検出（プレビューモード）
+ai-workflow auto-issue --category enhancement --dry-run --limit 5
+# → 最大5件の機能拡張提案を検出し、Issue内容をプレビュー表示
+
+# ケース8: 創造的な機能拡張提案の生成
+ai-workflow auto-issue --category enhancement --creative-mode --limit 10
+# → より野心的・革新的な機能拡張アイデアを最大10件生成
 ```
 
 **出力例（--dry-runモード）**:
@@ -798,7 +823,7 @@ ai-workflow auto-issue --dry-run --limit 1
 **現在の実装状況**:
 - ✅ **Phase 1 (Issue #126)**: `bug` カテゴリ（バグ検出とIssue生成）
 - ✅ **Phase 2 (Issue #127)**: `refactor` カテゴリ（リファクタリング機会検出とIssue生成）
-- ⏳ **Phase 3**: `enhancement` カテゴリ（将来実装予定）
+- ✅ **Phase 3 (Issue #128)**: `enhancement` カテゴリ（機能拡張提案とIssue生成）
 - ⏳ **Phase 4**: `all` カテゴリ（将来実装予定）
 
 **制限事項**:

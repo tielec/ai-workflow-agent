@@ -168,6 +168,12 @@ node dist/index.js auto-issue
 # リファクタリング機会を検出してGitHub Issueを生成
 node dist/index.js auto-issue --category refactor
 
+# 機能拡張提案を検出してGitHub Issueを生成
+node dist/index.js auto-issue --category enhancement
+
+# 創造的な機能拡張提案を検出してGitHub Issueを生成（--creative-modeオプション）
+node dist/index.js auto-issue --category enhancement --creative-mode
+
 # プレビューモード（Issue生成せず、検出結果のみ表示）
 node dist/index.js auto-issue --dry-run
 
@@ -187,15 +193,17 @@ node dist/index.js auto-issue \
 ```
 
 **主な機能**:
-- **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグやリファクタリング機会を検出（30+ 言語サポート、Issue #144で汎用化）
+- **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグ、リファクタリング機会、機能拡張提案を検出（30+ 言語サポート、Issue #144で汎用化）
   - **バグ検出**（`analyzeForBugs`）: 潜在的なバグ、エラーハンドリング不足、null参照など
   - **リファクタリング検出**（`analyzeForRefactoring`）: 6種類のリファクタリングタイプ（large-file, large-function, high-complexity, duplication, unused-code, missing-docs）
+  - **機能拡張提案**（`analyzeForEnhancements`）: 6種類の拡張タイプ（improvement, integration, automation, dx, quality, ecosystem）、--creative-modeオプション対応
 - **IssueDeduplicator**: 2段階の重複検出アルゴリズム（バグ検出時のみ有効）
   - Stage 1: コサイン類似度による高速フィルタリング（TF-IDF ベクトル化）
   - Stage 2: LLM による意味的類似性の判定
-- **IssueGenerator**: 検出されたバグまたはリファクタリング機会から自動的にGitHub Issueを作成
+- **IssueGenerator**: 検出されたバグ、リファクタリング機会、または機能拡張提案から自動的にGitHub Issueを作成
   - **バグIssue**（`generate`）: エージェント生成の詳細な説明と修正提案
   - **リファクタリングIssue**（`generateRefactorIssue`）: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
+  - **機能拡張Issue**（`generateEnhancementIssue`）: エージェント生成の詳細な提案（根拠、実装ヒント、期待される効果、工数見積もり）
 
 **リポジトリパス解決**（Issue #153で修正）:
 - `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
@@ -210,10 +218,18 @@ node dist/index.js auto-issue \
     - 6種類のリファクタリングタイプをサポート
     - 優先度による自動ソート（high → medium → low）
     - 重複除外は実行されません
+  - **Phase 3 (Issue #128)**: `enhancement`（機能拡張提案とIssue生成）
+    - 6種類の拡張タイプをサポート（improvement, integration, automation, dx, quality, ecosystem）
+    - 優先度（expected_impact）による自動ソート（high → medium → low）
+    - 重複除外は実行されません
+    - `--creative-mode` オプションで実験的・創造的な提案を有効化
 - `--limit <number>`: 生成するIssueの最大数（デフォルト: 無制限）
 - `--dry-run`: プレビューモード（Issue生成せず、検出結果のみ表示）
 - `--similarity-threshold <0.0-1.0>`: 重複判定の類似度閾値（デフォルト: 0.75、バグ検出時のみ有効）
 - `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
+- `--creative-mode`: 創造的・実験的な提案を有効化（`enhancement` カテゴリのみ有効）
+  - より野心的で革新的な機能拡張アイデアを生成
+  - 実験的な統合やエコシステム改善の提案を含む
 
 **サポート対象言語**（v0.5.1、Issue #144で汎用化）:
 
@@ -235,7 +251,7 @@ node dist/index.js auto-issue \
 **現在の実装状況**:
 - ✅ **Phase 1 (Issue #126)**: `bug` カテゴリ（バグ検出とIssue生成）
 - ✅ **Phase 2 (Issue #127)**: `refactor` カテゴリ（リファクタリング機会検出とIssue生成）
-- ⏳ **Phase 3**: `enhancement` カテゴリ（将来実装予定）
+- ✅ **Phase 3 (Issue #128)**: `enhancement` カテゴリ（機能拡張提案とIssue生成）
 - ⏳ **Phase 4**: `all` カテゴリ（将来実装予定）
 
 ### エージェントモード
