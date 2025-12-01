@@ -1151,4 +1151,422 @@ describe('RepositoryAnalyzer', () => {
       expect(result).toEqual([]);
     });
   });
+
+  /**
+   * Phase 3: Enhancement proposal 機能のテスト
+   * テストシナリオ: test-scenario.md のセクション2（ユニットテスト）- Enhancement関連
+   */
+
+  /**
+   * TC-4.1.1: analyzeForEnhancements_正常系_Codexエージェント使用
+   *
+   * 目的: Codexエージェントを使用して機能拡張提案を正しく生成できることを検証
+   */
+  describe('TC-4.1.1: analyzeForEnhancements with Codex agent', () => {
+    it('should generate enhancement proposals using Codex agent', async () => {
+      // Given: Codex クライアントが正常な JSON 出力を返す
+      const mockOutput = JSON.stringify([
+        {
+          type: 'improvement',
+          title: 'CLI UI の改善 - プログレスバーとカラフルな出力を追加する',
+          description:
+            'CLI実行時にプログレスバーとカラフルな出力を追加することで、ユーザー体験を向上させる機能。実行中の進捗状況が視覚的に分かりやすくなる。',
+          rationale: '長時間のタスク実行時にユーザーがフリーズしているのか判断できない問題を解決する。',
+          implementation_hints: ['ora ライブラリを使用してスピナーを追加', 'chalk ライブラリでカラフルな出力を実装'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/commands/auto-issue.ts', 'src/main.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: 機能拡張提案が返される
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe('improvement');
+      expect(result[0].title).toContain('CLI UI の改善');
+      expect(result[0].expected_impact).toBe('high');
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  /**
+   * TC-4.1.2: analyzeForEnhancements_正常系_Claudeエージェント使用
+   *
+   * 目的: Claudeエージェントを使用して機能拡張提案を正しく生成できることを検証
+   */
+  describe('TC-4.1.2: analyzeForEnhancements with Claude agent', () => {
+    it('should generate enhancement proposals using Claude agent', async () => {
+      // Given: Claude クライアントが正常な JSON 出力を返す
+      const mockOutput = JSON.stringify([
+        {
+          type: 'integration',
+          title: 'Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能',
+          description:
+            'AI Workflow Agent のワークフロー完了時に Slack チャンネルへ自動通知を送信する機能。チーム全体でワークフローの進捗を共有できる。',
+          rationale: 'チームメンバーがワークフロー完了をリアルタイムで把握できる。',
+          implementation_hints: ['Slack Incoming Webhook を使用', '@slack/web-api パッケージを導入'],
+          expected_impact: 'medium',
+          effort_estimate: 'small',
+          related_files: ['src/phases/evaluation.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'claude', {
+        creativeMode: false,
+      });
+
+      // Then: 機能拡張提案が返される
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe('integration');
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockCodexClient.executeTask).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * TC-4.1.3: analyzeForEnhancements_正常系_creativeMode有効
+   *
+   * 目的: creativeMode有効時、より創造的な提案が生成されることを検証
+   */
+  describe('TC-4.1.3: analyzeForEnhancements with creative mode enabled', () => {
+    it('should generate creative proposals when creativeMode is true', async () => {
+      // Given: creative mode 有効
+      const mockOutput = JSON.stringify([
+        {
+          type: 'ecosystem',
+          title: 'プラグインシステムの実装 - カスタムフェーズを追加できる拡張機構を実装する',
+          description:
+            'ユーザーが独自のフェーズを定義できるプラグインシステムを実装する機能。プラグインローダーとフェーズインターフェースを提供する。',
+          rationale: 'プロダクトの拡張性を大幅に向上させ、コミュニティ主導の成長を促進する。',
+          implementation_hints: ['プラグインローダーを実装', 'フェーズインターフェースを定義'],
+          expected_impact: 'high',
+          effort_estimate: 'large',
+          related_files: ['src/core/plugin-loader.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を creative mode で実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: true,
+      });
+
+      // Then: 創造的な提案が返される
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe('ecosystem');
+      expect(result[0].effort_estimate).toBe('large');
+    });
+  });
+
+  /**
+   * TC-4.1.4: analyzeForEnhancements_正常系_autoモードでCodex→Claudeフォールバック
+   *
+   * 目的: autoモードでCodex失敗時にClaudeにフォールバックすることを検証
+   */
+  describe('TC-4.1.4: analyzeForEnhancements with auto mode fallback', () => {
+    it('should fallback to Claude when Codex fails in auto mode', async () => {
+      // Given: Codex が失敗し、Claude が成功する
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
+
+      const mockOutput = JSON.stringify([
+        {
+          type: 'automation',
+          title: '自動テスト生成機能の追加 - 既存コードから単体テストを自動生成する機能',
+          description:
+            '既存コードを解析して単体テストのスケルトンを自動生成する機能。テストカバレッジの向上に貢献する。',
+          rationale: 'テスト作成の手間を削減し、開発速度を向上させる。',
+          implementation_hints: ['AST解析でコード構造を把握', 'テストテンプレートを自動生成'],
+          expected_impact: 'medium',
+          effort_estimate: 'medium',
+          related_files: ['src/core/test-generator.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockClaudeClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を auto モードで実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'auto', {
+        creativeMode: false,
+      });
+
+      // Then: Claude にフォールバックして成功
+      expect(result).toHaveLength(1);
+      expect(mockCodexClient.executeTask).toHaveBeenCalledTimes(1);
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  /**
+   * TC-4.1.5: analyzeForEnhancements_異常系_エージェント出力が不正なJSON
+   *
+   * 目的: エージェント出力が不正なJSON形式の場合、空配列を返すことを検証
+   */
+  describe('TC-4.1.5: analyzeForEnhancements with invalid JSON output', () => {
+    it('should return empty array when agent output is invalid JSON', async () => {
+      // Given: Codex が不正な JSON を返す
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue(['```json\n{ invalid json }\n```']);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: 空配列が返される
+      expect(result).toEqual([]);
+    });
+  });
+
+  /**
+   * TC-4.2.1: validateEnhancementProposal_正常系_有効な提案
+   *
+   * 目的: すべてのフィールドが有効な提案がバリデーションを通過することを検証
+   */
+  describe('TC-4.2.1: validateEnhancementProposal with valid proposal', () => {
+    it('should accept valid enhancement proposal', async () => {
+      // Given: 有効な機能拡張提案
+      const mockOutput = JSON.stringify([
+        {
+          type: 'improvement',
+          title: 'エラーメッセージの改善 - より詳細で分かりやすいエラーメッセージを提供する機能',
+          description:
+            'エラー発生時に、原因と解決方法を含む詳細なエラーメッセージを表示する機能。ユーザーが問題を自己解決できるようになる。この機能により、サポートコストの削減にも貢献できる。',
+          rationale:
+            '現状のエラーメッセージは簡素すぎて、ユーザーが原因を特定できないケースが多い。詳細なエラーメッセージによりユーザー体験が向上する。',
+          implementation_hints: ['エラークラスを拡張して詳細情報を保持', 'エラーフォーマッターを実装'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/utils/error-handler.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: バリデーションを通過
+      expect(result).toHaveLength(1);
+      expect(result[0].type).toBe('improvement');
+    });
+  });
+
+  /**
+   * TC-4.2.2: validateEnhancementProposal_異常系_タイトルが短すぎる
+   *
+   * 目的: タイトルが50文字未満の場合、バリデーションに失敗することを検証
+   */
+  describe('TC-4.2.2: validateEnhancementProposal with short title', () => {
+    it('should reject proposal with title shorter than 50 characters', async () => {
+      // Given: タイトルが短すぎる提案
+      const mockOutput = JSON.stringify([
+        {
+          type: 'improvement',
+          title: '短いタイトル', // 7文字（50文字未満）
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['実装ヒント1'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: バリデーションで除外される
+      expect(result).toEqual([]);
+    });
+  });
+
+  /**
+   * TC-4.2.3: validateEnhancementProposal_異常系_descriptionが短すぎる
+   *
+   * 目的: descriptionが100文字未満の場合、バリデーションに失敗することを検証
+   */
+  describe('TC-4.2.3: validateEnhancementProposal with short description', () => {
+    it('should reject proposal with description shorter than 100 characters', async () => {
+      // Given: description が短すぎる提案
+      const mockOutput = JSON.stringify([
+        {
+          type: 'improvement',
+          title: 'これは有効なタイトルです。50文字以上を満たすために十分な長さのテキストを記載しています。',
+          description: '短い説明', // 5文字（100文字未満）
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['実装ヒント1'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: バリデーションで除外される
+      expect(result).toEqual([]);
+    });
+  });
+
+  /**
+   * TC-4.2.4: validateEnhancementProposal_異常系_無効なtype
+   *
+   * 目的: 定義されていない型が指定された場合にバリデーションで弾かれることを検証
+   */
+  describe('TC-4.2.4: validateEnhancementProposal with invalid type', () => {
+    it('should reject proposal with invalid type value', async () => {
+      // Given: 無効な type の提案
+      const mockOutput = JSON.stringify([
+        {
+          type: 'invalid-type', // 無効な type
+          title: 'これは有効なタイトルです。50文字以上を満たすために十分な長さのテキストを記載しています。',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['実装ヒント1'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: バリデーションで除外される
+      expect(result).toEqual([]);
+    });
+  });
+
+  /**
+   * TC-4.2.5: validateEnhancementProposal_正常系_全てのtype検証
+   *
+   * 目的: 6つすべての type フィールド値が正しく処理されることを検証
+   */
+  describe('TC-4.2.5: validateEnhancementProposal with all enhancement types', () => {
+    it('should accept all valid enhancement types', async () => {
+      // Given: 6つすべての type を含む提案
+      const mockOutput = JSON.stringify([
+        {
+          type: 'improvement',
+          title: 'improvement type - これは50文字以上の有効なタイトルです。',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+        {
+          type: 'integration',
+          title: 'integration type - これは50文字以上の有効なタイトルです。',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'medium',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+        {
+          type: 'automation',
+          title: 'automation type - これは50文字以上の有効なタイトルです。',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'high',
+          effort_estimate: 'medium',
+          related_files: ['src/test.ts'],
+        },
+        {
+          type: 'dx',
+          title: 'dx type - これは50文字以上の有効なタイトルです。開発者体験を向上させる機能',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'medium',
+          effort_estimate: 'medium',
+          related_files: ['src/test.ts'],
+        },
+        {
+          type: 'quality',
+          title: 'quality type - これは50文字以上の有効なタイトルです。品質を向上させる機能',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'high',
+          effort_estimate: 'small',
+          related_files: ['src/test.ts'],
+        },
+        {
+          type: 'ecosystem',
+          title: 'ecosystem type - これは50文字以上の有効なタイトルです。エコシステムを拡張する機能',
+          description:
+            'これは有効な説明文です。最小100文字以上を満たすために、十分な長さのテキストを記載する必要があります。この説明は適切な長さを持っています。',
+          rationale: 'これは有効な理由文です。最小50文字以上を満たすために、十分な長さのテキストを記載します。',
+          implementation_hints: ['hint'],
+          expected_impact: 'high',
+          effort_estimate: 'large',
+          related_files: ['src/test.ts'],
+        },
+      ]);
+
+      jest.spyOn(analyzer as any, 'collectRepositoryCode').mockReturnValue('mock repository code');
+      mockCodexClient.executeTask.mockResolvedValue([`\`\`\`json\n${mockOutput}\n\`\`\``]);
+
+      // When: analyzeForEnhancements() を実行
+      const result = await analyzer.analyzeForEnhancements('/path/to/repo', 'codex', {
+        creativeMode: false,
+      });
+
+      // Then: すべての候補がバリデーションを通過
+      expect(result).toHaveLength(6);
+      expect(result.map((r) => r.type)).toEqual([
+        'improvement',
+        'integration',
+        'automation',
+        'dx',
+        'quality',
+        'ecosystem',
+      ]);
+    });
+  });
 });
