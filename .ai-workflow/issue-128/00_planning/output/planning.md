@@ -273,13 +273,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 8〜12h)
 
-- [ ] Task 5-1: ユニットテスト実装 (4〜6h)
+- [x] Task 5-1: ユニットテスト実装 (4〜6h)
   - `tests/unit/validators/enhancement-validator.test.ts` 作成
   - `tests/unit/core/repository-analyzer.test.ts` に `analyzeForEnhancements()` テスト追加
   - `tests/unit/core/issue-generator.test.ts` に `generateEnhancementIssue()` テスト追加
-  - `tests/unit/commands/auto-issue.test.ts` に `--creative-mode` パーステスト追加
+  - `tests/unit/core/enhancement-utils.test.ts` 作成（タイトル・ラベル生成・JSONパーステスト）
 
-- [ ] Task 5-2: インテグレーションテスト実装 (4〜6h)
+- [x] Task 5-2: インテグレーションテスト実装 (4〜6h)
   - `tests/integration/auto-issue-enhancement.test.ts` 作成
   - エンドツーエンドフローのテスト実装
   - dry-runモードのテスト実装
