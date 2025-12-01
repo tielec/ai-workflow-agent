@@ -216,19 +216,19 @@
 
 ### Phase 2: 設計 (見積もり: 8〜12h)
 
-- [ ] Task 2-1: プロンプトテンプレート設計 (4〜6h)
+- [x] Task 2-1: プロンプトテンプレート設計 (4〜6h)
   - `src/prompts/auto-issue/detect-enhancements.txt` のドラフト作成
   - リポジトリ分析セクションの設計（技術スタック検出、アーキテクチャ理解、ドキュメント解析）
   - 提案生成セクションの設計（既存機能改善、新機能提案、創造的発想の促進）
   - 出力形式の設計（JSON構造、フィールド定義、サンプル出力）
   - `--creative-mode` オプション使用時のプロンプト差分設計
 
-- [ ] Task 2-2: RepositoryAnalyzer拡張設計 (2〜3h)
+- [x] Task 2-2: RepositoryAnalyzer拡張設計 (2〜3h)
   - `analyzeForEnhancements()` メソッドのシグネチャ設計
   - `validateEnhancementProposal()` バリデーションロジックの設計
   - エージェント実行フローの設計（Codex → Claude フォールバック）
 
-- [ ] Task 2-3: IssueGenerator拡張設計 (2〜3h)
+- [x] Task 2-3: IssueGenerator拡張設計 (2〜3h)
   - `generateEnhancementIssue()` メソッドのシグネチャ設計
   - タイトル生成ロジックの設計（提案タイプごとのプレフィックス）
   - ラベル生成ロジックの設計（`auto-generated`, `enhancement`, `priority:*`, タイプ別ラベル）
