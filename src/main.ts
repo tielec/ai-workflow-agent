@@ -174,6 +174,11 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .option(
+      '--creative-mode',
+      'Enable creative mode for enhancement proposals (experimental ideas)',
+      false,
+    )
     .action(async (options) => {
       try {
         await handleAutoIssueCommand(options);

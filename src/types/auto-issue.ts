@@ -107,6 +107,60 @@ export interface RefactorCandidate {
 }
 
 /**
+ * 機能拡張提案
+ *
+ * エージェント（Codex/Claude）がリポジトリの特性を分析し、
+ * 創造的な機能拡張の提案を生成した情報を表します。
+ */
+export interface EnhancementProposal {
+  /**
+   * 提案のタイプ
+   * - improvement: 既存機能の改善
+   * - integration: 他ツール連携
+   * - automation: ワークフロー自動化
+   * - dx: 開発者体験向上
+   * - quality: 品質保証強化
+   * - ecosystem: エコシステム拡張
+   */
+  type: 'improvement' | 'integration' | 'automation' | 'dx' | 'quality' | 'ecosystem';
+
+  /**
+   * 提案タイトル（50〜100文字）
+   */
+  title: string;
+
+  /**
+   * 提案の詳細説明（100文字以上）
+   */
+  description: string;
+
+  /**
+   * なぜこの提案が有用か（50文字以上）
+   */
+  rationale: string;
+
+  /**
+   * 実装のヒント（配列、最低1つ）
+   */
+  implementation_hints: string[];
+
+  /**
+   * 期待される効果
+   */
+  expected_impact: 'low' | 'medium' | 'high';
+
+  /**
+   * 実装の難易度
+   */
+  effort_estimate: 'small' | 'medium' | 'large';
+
+  /**
+   * 関連するファイル・モジュール（配列、最低1つ）
+   */
+  related_files: string[];
+}
+
+/**
  * CLIオプション
  *
  * auto-issue コマンドで使用されるオプション設定を表します。
@@ -139,6 +193,13 @@ export interface AutoIssueOptions {
    * 使用エージェント（auto/codex/claude、デフォルト: auto）
    */
   agent: 'auto' | 'codex' | 'claude';
+
+  /**
+   * 創造的モード（デフォルト: false）
+   * true の場合、より実験的・創造的な提案を含める
+   * enhancement カテゴリでのみ有効
+   */
+  creativeMode?: boolean;
 }
 
 /**
