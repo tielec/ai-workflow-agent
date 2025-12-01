@@ -248,25 +248,25 @@
 
 ### Phase 4: 実装 (見積もり: 12〜18h)
 
-- [ ] Task 4-1: EnhancementProposal型定義の実装 (1〜2h)
+- [x] Task 4-1: EnhancementProposal型定義の実装 (1〜2h)
   - `src/types/auto-issue.ts` に型定義追加
   - TSDocコメント追加
 
-- [ ] Task 4-2: プロンプトテンプレート実装 (2〜3h)
+- [x] Task 4-2: プロンプトテンプレート実装 (2〜3h)
   - `src/prompts/auto-issue/detect-enhancements.txt` 作成
   - 変数プレースホルダー（`{repository_path}`, `{output_file_path}`, `{creative_mode}` 等）の埋め込み
 
-- [ ] Task 4-3: RepositoryAnalyzer拡張実装 (4〜6h)
+- [x] Task 4-3: RepositoryAnalyzer拡張実装 (4〜6h)
   - `analyzeForEnhancements()` メソッド実装
   - `validateEnhancementProposal()` バリデーションロジック実装
   - プロンプト読み込み・変数置換・エージェント実行の統合
 
-- [ ] Task 4-4: IssueGenerator拡張実装 (3〜5h)
+- [x] Task 4-4: IssueGenerator拡張実装 (3〜5h)
   - `generateEnhancementIssue()` メソッド実装
   - `generateEnhancementTitle()`, `generateEnhancementLabels()` 実装
   - `createEnhancementFallbackBody()` フォールバックテンプレート実装
 
-- [ ] Task 4-5: CLIコマンド拡張実装 (2〜3h)
+- [x] Task 4-5: CLIコマンド拡張実装 (2〜3h)
   - `src/commands/auto-issue.ts` に `category === 'enhancement'` 分岐追加
   - `processEnhancementCandidates()` ヘルパー関数実装
   - `src/main.ts` に `--creative-mode` オプション追加
