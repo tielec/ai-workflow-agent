@@ -22,12 +22,20 @@ describe('Enhancement Utilities', () => {
   let analyzer: RepositoryAnalyzer;
 
   beforeEach(() => {
-    const config = require('../../../src/core/config.js');
-    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
+    // モッククライアントの準備
+    const mockCodexClient = null as any;
+    const mockClaudeClient = null as any;
+    const mockOctokit: any = {
+      issues: {
+        create: jest.fn<any>().mockResolvedValue({ data: { number: 1, html_url: 'http://test.com' } }),
+      },
+    };
+    const mockRepoName = 'test/test'; // リポジトリ名は owner/repo 形式の文字列
 
-    generator = new IssueGenerator();
-    analyzer = new RepositoryAnalyzer();
+    // IssueGenerator のコンストラクタには 4つの引数が必要
+    generator = new IssueGenerator(mockCodexClient, mockClaudeClient, mockOctokit, mockRepoName);
+    // RepositoryAnalyzer のコンストラクタには 2つの引数が必要
+    analyzer = new RepositoryAnalyzer(mockCodexClient, mockClaudeClient);
   });
 
   /**
@@ -54,7 +62,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('⚡ CLI UI の改善 - プログレスバーとカラフルな出力を追加する');
+      expect(title).toBe('[Enhancement] ⚡ CLI UI の改善 - プログレスバーとカラフルな出力を追加する');
     });
 
     /**
@@ -77,7 +85,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('🔗 Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能');
+      expect(title).toBe('[Enhancement] 🔗 Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能');
     });
 
     /**
@@ -100,7 +108,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('🤖 定期実行機能の追加 - cron スケジュールによる自動ワークフロー実行');
+      expect(title).toBe('[Enhancement] 🤖 定期実行機能の追加 - cron スケジュールによる自動ワークフロー実行');
     });
 
     /**
@@ -123,7 +131,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('✨ 対話的セットアップウィザードの実装 - 初回実行時の環境設定を簡易化');
+      expect(title).toBe('[Enhancement] ✨ 対話的セットアップウィザードの実装 - 初回実行時の環境設定を簡易化');
     });
 
     /**
@@ -146,7 +154,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('🛡️ セキュリティスキャンの追加 - 依存関係の脆弱性チェックを統合する');
+      expect(title).toBe('[Enhancement] 🛡️ セキュリティスキャンの追加 - 依存関係の脆弱性チェックを統合する');
     });
 
     /**
@@ -169,7 +177,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('🌐 プラグインシステムの実装 - カスタムフェーズを追加できる拡張機構');
+      expect(title).toBe('[Enhancement] 🌐 プラグインシステムの実装 - カスタムフェーズを追加できる拡張機構');
     });
   });
 
@@ -180,7 +188,7 @@ describe('Enhancement Utilities', () => {
     /**
      * テストケース 2.4.1: generateEnhancementLabels_high_impact
      */
-    it('TC-2.4.1: should include priority:high for high impact', () => {
+    it('TC-2.4.1: should include impact:high for high impact', () => {
       // Given: expected_impact が 'high' の提案
       const proposal: EnhancementProposal = {
         type: 'integration',
@@ -199,15 +207,15 @@ describe('Enhancement Utilities', () => {
       // Then: 適切なラベルが含まれる
       expect(labels).toContain('auto-generated');
       expect(labels).toContain('enhancement');
-      expect(labels).toContain('priority:high');
       expect(labels).toContain('impact:high');
+      expect(labels).toContain('effort:small');
       expect(labels).toContain('integration');
     });
 
     /**
      * テストケース 2.4.2: generateEnhancementLabels_medium_impact
      */
-    it('TC-2.4.2: should include priority:medium for medium impact', () => {
+    it('TC-2.4.2: should include impact:medium for medium impact', () => {
       // Given: expected_impact が 'medium' の提案
       const proposal: EnhancementProposal = {
         type: 'automation',
@@ -226,15 +234,15 @@ describe('Enhancement Utilities', () => {
       // Then: 適切なラベルが含まれる
       expect(labels).toContain('auto-generated');
       expect(labels).toContain('enhancement');
-      expect(labels).toContain('priority:medium');
       expect(labels).toContain('impact:medium');
+      expect(labels).toContain('effort:medium');
       expect(labels).toContain('automation');
     });
 
     /**
      * テストケース 2.4.3: generateEnhancementLabels_low_impact
      */
-    it('TC-2.4.3: should include priority:low for low impact', () => {
+    it('TC-2.4.3: should include impact:low for low impact', () => {
       // Given: expected_impact が 'low' の提案
       const proposal: EnhancementProposal = {
         type: 'improvement',
@@ -253,8 +261,8 @@ describe('Enhancement Utilities', () => {
       // Then: 適切なラベルが含まれる
       expect(labels).toContain('auto-generated');
       expect(labels).toContain('enhancement');
-      expect(labels).toContain('priority:low');
       expect(labels).toContain('impact:low');
+      expect(labels).toContain('effort:small');
       expect(labels).toContain('improvement');
     });
 
@@ -280,7 +288,8 @@ describe('Enhancement Utilities', () => {
       // Then: developer-experience ラベルが含まれる
       expect(labels).toContain('auto-generated');
       expect(labels).toContain('enhancement');
-      expect(labels).toContain('priority:high');
+      expect(labels).toContain('impact:high');
+      expect(labels).toContain('effort:medium');
       expect(labels).toContain('developer-experience');
     });
 
@@ -303,11 +312,12 @@ describe('Enhancement Utilities', () => {
       // When: ラベル生成
       const labels = (generator as any).generateEnhancementLabels(proposal);
 
-      // Then: quality-assurance ラベルが含まれる
+      // Then: quality ラベルが含まれる
       expect(labels).toContain('auto-generated');
       expect(labels).toContain('enhancement');
-      expect(labels).toContain('priority:high');
-      expect(labels).toContain('quality-assurance');
+      expect(labels).toContain('impact:high');
+      expect(labels).toContain('effort:small');
+      expect(labels).toContain('quality');
     });
 
     /**

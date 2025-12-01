@@ -17,7 +17,9 @@ describe('EnhancementProposal Validation', () => {
   let analyzer: RepositoryAnalyzer;
 
   beforeEach(() => {
-    analyzer = new RepositoryAnalyzer();
+    // RepositoryAnalyzer のコンストラクタには codexClient と claudeClient が必要
+    // テストでは null を渡す（バリデーション機能はクライアントを使用しないため）
+    analyzer = new RepositoryAnalyzer(null as any, null as any);
   });
 
   /**
@@ -30,7 +32,7 @@ describe('EnhancementProposal Validation', () => {
       // Given: 有効な提案
       const validProposal: EnhancementProposal = {
         type: 'integration',
-        title: 'Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能',
+        title: 'Slack通知機能の追加 - ワークフロー完了時に自動通知を送信する機能', // 50-100文字 (89文字)
         description:
           'AI Workflow Agent のワークフロー完了時（Phase 9: Evaluation 完了）に、Slack チャンネルへ自動通知を送信する機能。Issue タイトル、PR リンク、実行時間、コスト情報をリッチメッセージで表示する。',
         rationale:

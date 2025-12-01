@@ -33,47 +33,81 @@ jest.mock('../../src/core/issue-generator.js', () => ({
   })),
 }));
 
-jest.mock('../../src/commands/execute/agent-setup.js');
-jest.mock('../../src/core/config.js');
+// モック関数をグローバルに定義
+const mockGetGitHubToken = jest.fn<any>().mockReturnValue('test-token');
+const mockGetGitHubRepository = jest.fn<any>().mockReturnValue('owner/repo');
+const mockGetHomeDir = jest.fn<any>().mockReturnValue('/home/test');
+const mockResolveLocalRepoPath = jest.fn<any>().mockReturnValue('/test/repo');
+const mockResolveAgentCredentials = jest.fn<any>().mockReturnValue({
+  codexApiKey: 'test-codex-key',
+  claudeCredentialsPath: '/path/to/claude',
+});
+const mockSetupAgentClients = jest.fn<any>().mockReturnValue({
+  codexClient: {},
+  claudeClient: {},
+});
+
+jest.mock('../../src/commands/execute/agent-setup.js', () => ({
+  resolveAgentCredentials: mockResolveAgentCredentials,
+  setupAgentClients: mockSetupAgentClients,
+}));
+
+jest.mock('../../src/core/config.js', () => ({
+  getGitHubToken: mockGetGitHubToken,
+  getGitHubRepository: mockGetGitHubRepository,
+  getHomeDir: mockGetHomeDir,
+}));
+
+jest.mock('../../src/core/repository-utils.js', () => ({
+  resolveLocalRepoPath: mockResolveLocalRepoPath,
+}));
+
 jest.mock('../../src/utils/logger.js');
-jest.mock('../../src/core/repository-utils.js');
 jest.mock('@octokit/rest');
 
 describe('Integration: auto-issue enhancement category', () => {
   beforeEach(() => {
+    // 環境変数を設定（モックよりも確実）
+    process.env.GITHUB_TOKEN = 'test-token';
+    process.env.GITHUB_REPOSITORY = 'owner/repo';
+    process.env.HOME = '/home/test';
+
     // モック関数のクリア
     mockAnalyzeForEnhancements.mockClear();
     mockFilterDuplicates.mockClear();
     mockGenerateEnhancementIssue.mockClear();
+    mockGetGitHubToken.mockClear();
+    mockGetGitHubRepository.mockClear();
+    mockGetHomeDir.mockClear();
+    mockResolveLocalRepoPath.mockClear();
+    mockResolveAgentCredentials.mockClear();
+    mockSetupAgentClients.mockClear();
 
     // デフォルトの動作設定
     mockAnalyzeForEnhancements.mockResolvedValue([]);
     mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
     mockGenerateEnhancementIssue.mockResolvedValue({ success: true });
-
-    // config のモック
-    const config = require('../../src/core/config.js');
-    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-    config.getHomeDir = jest.fn().mockReturnValue('/home/test');
-
-    // repository-utils のモック
-    const repositoryUtils = require('../../src/core/repository-utils.js');
-    repositoryUtils.resolveLocalRepoPath = jest.fn().mockReturnValue('/test/repo');
-
-    // agent-setup のモック
-    const agentSetup = require('../../src/commands/execute/agent-setup.js');
-    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
+    mockGetGitHubToken.mockReturnValue('test-token');
+    mockGetGitHubRepository.mockReturnValue('owner/repo');
+    mockGetHomeDir.mockReturnValue('/home/test');
+    mockResolveLocalRepoPath.mockReturnValue('/test/repo');
+    mockResolveAgentCredentials.mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
+    mockSetupAgentClients.mockReturnValue({
       codexClient: {},
       claudeClient: {},
     });
   });
 
   afterEach(() => {
+    // 環境変数をクリーンアップ
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.HOME;
+
+    // モック関数をクリア
     jest.clearAllMocks();
   });
 
@@ -329,9 +363,13 @@ describe('Integration: auto-issue enhancement category', () => {
 
       // Then: high impact が最初に処理される
       const calls = mockGenerateEnhancementIssue.mock.calls;
-      expect(calls[0][0].expected_impact).toBe('high');
-      expect(calls[1][0].expected_impact).toBe('medium');
-      expect(calls[2][0].expected_impact).toBe('low');
+      // Jestモック関数の型推論のため、型アサーションを追加
+      const firstCall = calls[0][0] as EnhancementProposal;
+      const secondCall = calls[1][0] as EnhancementProposal;
+      const thirdCall = calls[2][0] as EnhancementProposal;
+      expect(firstCall.expected_impact).toBe('high');
+      expect(secondCall.expected_impact).toBe('medium');
+      expect(thirdCall.expected_impact).toBe('low');
     });
   });
 });
