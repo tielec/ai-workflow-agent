@@ -241,14 +241,14 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~1.5h)
 
-- [ ] Task 5-1: ユニットテストの実装 (0.5~1h)
+- [x] Task 5-1: ユニットテストの実装 (0.5~1h)
   - `tests/unit/commands/auto-close-issue.test.ts` の作成
   - CLIオプションパースのテスト（`parseOptions`）
   - カテゴリフィルタリングのテスト
   - エージェント出力パースのテスト
   - `tests/unit/core/issue-inspector.test.ts` の作成
 
-- [ ] Task 5-2: インテグレーションテストの実装 (0.5~0.5h)
+- [x] Task 5-2: インテグレーションテストの実装 (0.5~0.5h)
   - `tests/integration/auto-close-issue.test.ts` の作成
   - GitHub API連携のテスト（モック使用）
   - エージェント実行のテスト（モック使用）
