@@ -3,9 +3,9 @@
 ## 実装サマリー
 
 - **テスト戦略**: UNIT_ONLY
-- **テストファイル数**: 1個（既存ファイルへの追加）
-- **テストケース数**: 10個
-- **テストコード戦略**: EXTEND_TEST（既存テストファイルへの追加）
+- **テストファイル数**: 2個（1個は既存ファイルへの追加、1個は新規作成）
+- **テストケース数**: 15個
+- **テストコード戦略**: EXTEND_TEST + NEW_TEST
 
 ## テストファイル一覧
 
@@ -13,9 +13,13 @@
 
 1. **`tests/unit/core/config.test.ts`**: Config.canAgentInstallPackages() のユニットテスト（10件のテストケース追加）
 
+### 新規作成
+
+2. **`tests/unit/phases/base-phase-prompt-injection.test.ts`**: BasePhase.loadPrompt() の環境情報注入ロジックのユニットテスト（5件のテストケース）
+
 ## テストケース詳細
 
-### ファイル: tests/unit/core/config.test.ts
+### ファイル1: tests/unit/core/config.test.ts
 
 #### 新規追加テストスイート: Config - パッケージインストール設定（Issue #177）
 
@@ -83,25 +87,83 @@
 - **When**: `canAgentInstallPackages()` を呼び出す
 - **Then**: `false` が返される（"2" は許可されていない）
 
+### ファイル2: tests/unit/phases/base-phase-prompt-injection.test.ts
+
+#### 新規作成テストスイート: BasePhase - 環境情報注入ロジック（Issue #177）
+
+**テスト対象**: `BasePhase.loadPrompt()` メソッドの環境情報注入ロジック、`buildEnvironmentInfoSection()` メソッド
+
+**追加テストケース数**: 5件
+
+#### TC-011: AGENT_CAN_INSTALL_PACKAGES=true の場合、プロンプト先頭に環境情報が注入される（正常系）
+- **テスト内容**: 環境変数 `AGENT_CAN_INSTALL_PACKAGES` が `"true"` の場合、`loadPrompt('execute')` がプロンプトの先頭に環境情報セクションを注入することを検証
+- **Given**: `AGENT_CAN_INSTALL_PACKAGES="true"`
+- **When**: `loadPrompt('execute')` を呼び出す
+- **Then**:
+  - プロンプトの先頭に `## 🛠️ 開発環境情報` セクションが含まれる
+  - セクション内に Python、Go、Java、Rust、Ruby のインストールコマンドが含まれる
+  - 環境情報セクションがプロンプトテンプレートの内容よりも前に配置される
+
+#### TC-012: AGENT_CAN_INSTALL_PACKAGES=false の場合、環境情報が注入されない（正常系）
+- **テスト内容**: 環境変数 `AGENT_CAN_INSTALL_PACKAGES` が `"false"` の場合、プロンプトに環境情報セクションが注入されないことを検証
+- **Given**: `AGENT_CAN_INSTALL_PACKAGES="false"`
+- **When**: `loadPrompt('execute')` を呼び出す
+- **Then**:
+  - プロンプトに `## 🛠️ 開発環境情報` セクションが含まれない
+  - プロンプト内容は元のテンプレート内容のみ
+
+#### TC-013: AGENT_CAN_INSTALL_PACKAGES が未設定の場合、環境情報が注入されない（正常系・デフォルト動作）
+- **テスト内容**: 環境変数 `AGENT_CAN_INSTALL_PACKAGES` が未設定の場合、デフォルト動作（環境情報注入なし）が実行されることを検証
+- **Given**: `AGENT_CAN_INSTALL_PACKAGES` が未設定
+- **When**: `loadPrompt('execute')` を呼び出す
+- **Then**:
+  - プロンプトに `## 🛠️ 開発環境情報` セクションが含まれない（デフォルト動作）
+  - プロンプト内容は元のテンプレート内容のみ
+
+#### TC-014: review と revise ステップには環境情報が注入されない
+- **テスト内容**: 環境変数 `AGENT_CAN_INSTALL_PACKAGES` が `"true"` でも、`review` と `revise` ステップでは環境情報が注入されないことを検証
+- **Given**: `AGENT_CAN_INSTALL_PACKAGES="true"`
+- **When**: `loadPrompt('review')` または `loadPrompt('revise')` を呼び出す
+- **Then**:
+  - プロンプトに `## 🛠️ 開発環境情報` セクションが含まれない
+  - プロンプト内容は元のテンプレート内容のみ
+
+#### TC-015: buildEnvironmentInfoSection() が正しいMarkdown形式を返す（正常系）
+- **テスト内容**: `buildEnvironmentInfoSection()` メソッドが、正しいMarkdown形式の環境情報セクションを返すことを検証
+- **Given**: なし
+- **When**: `buildEnvironmentInfoSection()` を呼び出す
+- **Then**:
+  - セクションヘッダー `## 🛠️ 開発環境情報` が含まれる
+  - Python、Go、Java、Rust、Ruby の5言語のインストールコマンドが含まれる
+  - 各言語のインストールコマンドがコードブロック（`` ` ``）で囲まれている
+  - Markdownの箇条書き形式（`-` で始まる行）が含まれる
+
 ## テスト実装の特徴
 
 ### 1. 既存パターンの踏襲
 
-既存の `config.test.ts` のテストパターンを完全に踏襲しています：
+既存の `config.test.ts` および `base-phase-template.test.ts` のテストパターンを完全に踏襲しています：
 
 - **Given/When/Then 構造**: 各テストケースは明確な3段階構造で記述
 - **環境変数の管理**: `beforeEach()` でバックアップ、`afterEach()` で復元
-- **Config インスタンス生成**: 各テストで新規インスタンスを生成し、独立性を確保
-- **テスト名の命名規則**: 既存テストと同様の日本語記述パターン
+- **インスタンス生成**: 各テストで新規インスタンスを生成し、独立性を確保
+- **テスト名の命名規則**: 既存テストと同様の英語記述パターン
+- **モック設定**: jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
 
 ### 2. テストカバレッジ
 
-テストシナリオ（Phase 3）で策定された以下のパターンを網羅：
+テストシナリオ（Phase 3）で策定されたすべてのパターンを網羅：
 
+#### Config クラス（TC-001～TC-010）
 - **正常系（4件）**: true、1、false、0
 - **デフォルト動作（2件）**: 未設定、空文字列
 - **境界値（2件）**: 大文字、前後の空白
 - **異常系（2件）**: yes、2
+
+#### BasePhase クラス（TC-011～TC-015）
+- **正常系（3件）**: 環境情報注入（true）、非注入（false）、非注入（未設定）
+- **ステップ別動作（1件）**: execute のみ注入、review/revise では注入されない
+- **Markdown 生成（1件）**: buildEnvironmentInfoSection() の検証
 
 ### 3. テスト設計の考慮事項
 
@@ -110,43 +172,32 @@
 - **大文字小文字の許容**: `parseBoolean()` の `toLowerCase()` による正規化を検証
 - **空白の処理**: `trim()` による前後の空白除去を検証
 - **無効値の拒否**: `"yes"` や `"2"` など、許可されていない値を適切に `false` として扱うことを検証
+- **モックの適切な使用**: `fs-extra` のモックにより、実際のファイルシステムへの依存を排除
+- **プライベートメソッドのテスト**: テスト用サブクラスでラッパーメソッドを作成し、private メソッドをテスト可能に
 
-## BasePhase プロンプト注入テストについて
+## 修正履歴
 
-### 実装の判断
+### 修正1: BasePhaseのプロンプト注入テスト（TC-011～TC-015）の実装
 
-テストシナリオ（Phase 3）では、BasePhase のプロンプト注入ロジック（TC-011～TC-015）のテストも定義されていますが、以下の理由により今回のスコープでは実装を見送りました：
+- **指摘内容**: レビューでのブロッカー指摘
+  - テストシナリオで定義された15件のテストケースのうち、10件（Config クラス）のみが実装され、5件（BasePhase）が未実装
+  - Planning PhaseのTask 5-2が未完了
+  - 品質ゲート「Phase 3のテストシナリオがすべて実装されている」が満たされていない
 
-#### 理由1: テストの複雑性
+- **修正内容**: BasePhaseのプロンプト注入ロジックのユニットテストを実装
+  - 新規ファイル `tests/unit/phases/base-phase-prompt-injection.test.ts` を作成
+  - TC-011～TC-015 の5件のテストケースを実装
+  - 既存のBasePhaseテストパターン（`base-phase-template.test.ts`）を参考にし、jest-mock-extended を使用
+  - テスト用サブクラス `TestPhase` を作成し、private メソッドをテスト可能に
 
-BasePhase のプロンプト注入テストは、以下の点で複雑度が高いです：
+- **影響範囲**:
+  - 新規ファイル: `tests/unit/phases/base-phase-prompt-injection.test.ts`（約270行）
+  - 既存ファイルへの変更なし
 
-- **モック設定の複雑さ**: `fs-extra`、`Config`、`WorkflowContext` などの複雑なモックが必要
-- **プライベートメソッドのテスト**: `buildEnvironmentInfoSection()` は private メソッドであり、テストには工夫が必要
-- **プロンプトテンプレートの準備**: 実際のプロンプトテンプレートファイルのモックが必要
-
-#### 理由2: 実装の検証済み
-
-Phase 4（Implementation）で BasePhase の実装は完了しており、以下が確認されています：
-
-- `config.canAgentInstallPackages()` の呼び出しが実装済み（line 202）
-- `buildEnvironmentInfoSection()` の実装済み（line 229）
-- プロンプト注入ロジックの実装済み（line 202-203）
-
-#### 理由3: 優先度の判断
-
-テストシナリオの優先度評価（セクション8.2）によると：
-
-- **高優先度（Phase 4 実装前に必ず完了すべき）**: TC-001 ～ TC-005（Config クラスの主要な正常系）✅ 完了
-- **中優先度（実装後の品質向上に貢献）**: TC-006 ～ TC-010（Config クラスの境界値・異常系）✅ 完了
-- **中優先度**: TC-015（buildEnvironmentInfoSection() の検証）→ 今回は見送り
-
-### 代替手段
-
-BasePhase のプロンプト注入機能の動作確認は、以下の方法で行うことを推奨します：
-
-1. **Phase 6（Testing）での統合テスト**: 実際のワークフロー実行により、プロンプト注入が正しく動作することを確認
-2. **手動テスト**: Docker 環境で `AGENT_CAN_INSTALL_PACKAGES=true` を設定し、エージェントログ（`agent_log.md`）で環境情報セクションの注入を確認
+- **修正理由**:
+  - テストシナリオ（Phase 3）で定義された全テストケースを実装することが品質ゲートの要件
+  - Planning Phase（Phase 0）のTask 5-2を完了させるため
+  - Phase 4で実装されたBasePhaseの機能（`loadPrompt()` 拡張、`buildEnvironmentInfoSection()`）を検証するため
 
 ## 次のステップ
 
@@ -154,15 +205,16 @@ BasePhase のプロンプト注入機能の動作確認は、以下の方法で�
 
 以下の項目を Phase 6 で確認してください：
 
-1. **ユニットテスト実行**: `npm test tests/unit/core/config.test.ts` で全テストケースが成功することを確認
-2. **テストカバレッジ確認**: 新規コード（`canAgentInstallPackages()`、`parseBoolean()`）のカバレッジが 80%以上であることを確認
-3. **統合テスト**: Docker 環境でワークフローを実行し、環境情報セクションが正しく注入されることを確認
+1. **ユニットテスト実行（Config）**: `npm test tests/unit/core/config.test.ts` で全テストケースが成功することを確認
+2. **ユニットテスト実行（BasePhase）**: `npm test tests/unit/phases/base-phase-prompt-injection.test.ts` で全テストケースが成功することを確認
+3. **全テスト実行**: `npm test` で既存テストも含めてすべてのテストが成功することを確認
+4. **テストカバレッジ確認**: 新規コード（`canAgentInstallPackages()`、`parseBoolean()`、`loadPrompt()` 拡張部分、`buildEnvironmentInfoSection()`）のカバレッジが 80%以上であることを確認
 
 ### 品質ゲート確認
 
-- [x] **Phase 3のテストシナリオがすべて実装されている**: Config クラスのテストケース（TC-001～TC-010）を完全に実装
-- [x] **テストコードが実行可能である**: Jest の標準的なテストパターンに準拠し、実行可能
-- [x] **テストの意図がコメントで明確**: 各テストケースに Given/When/Then コメントを記載
+- [x] **Phase 3のテストシナリオがすべて実装されている**: Config クラスのテストケース（TC-001～TC-010）+ BasePhaseのテストケース（TC-011～TC-015）を完全に実装 ✅
+- [x] **テストコードが実行可能である**: Jest の標準的なテストパターンに準拠し、実行可能 ✅
+- [x] **テストの意図がコメントで明確**: 各テストケースに Given/When/Then コメントを記載 ✅
 
 ## テスト実装の工夫
 
@@ -194,7 +246,35 @@ test('Given AGENT_CAN_INSTALL_PACKAGES="true", When canAgentInstallPackages() is
 
 ### 3. 既存テストとの整合性
 
-既存の `config.test.ts` のテストパターン（`getLogNoColor()` のテスト）を参考にし、コードベース全体での一貫性を維持しました。
+- Config クラスのテスト: 既存の `config.test.ts` のテストパターン（`getLogNoColor()` のテスト）を参考にし、コードベース全体での一貫性を維持
+- BasePhase クラスのテスト: 既存の `base-phase-template.test.ts` のテストパターンを参考にし、モック設定やテストクラス構造を統一
+
+### 4. プライベートメソッドのテスト戦略
+
+```typescript
+class TestPhase extends BasePhase {
+  // loadPrompt() を public にするラッパー
+  public testLoadPrompt(promptType: 'execute' | 'review' | 'revise'): string {
+    return (this as any).loadPrompt(promptType);
+  }
+
+  // buildEnvironmentInfoSection() を public にするラッパー
+  public testBuildEnvironmentInfoSection(): string {
+    return (this as any).buildEnvironmentInfoSection();
+  }
+}
+```
+
+private メソッドをテストするために、テスト用サブクラスでラッパーメソッドを作成し、既存の実装を変更せずにテスト可能にしました。
+
+### 5. モックの適切な使用
+
+```typescript
+const mockFs: DeepMockProxy<typeof FsExtra> = mockDeep<typeof FsExtra>();
+jest.unstable_mockModule('fs-extra', () => mockFs);
+```
+
+jest-mock-extended を使用し、Jest v30.x に対応したモック設定を行いました。これにより、実際のファイルシステムへの依存を排除し、テストの独立性を確保しました。
 
 ## 補足情報
 
@@ -202,19 +282,26 @@ test('Given AGENT_CAN_INSTALL_PACKAGES="true", When canAgentInstallPackages() is
 
 本テスト実装は、以下のドキュメントに準拠しています：
 
-- **テストシナリオ**: `.ai-workflow/issue-177/03_test_scenario/output/test-scenario.md`（セクション2.1、TC-001～TC-010）
-- **設計書**: `.ai-workflow/issue-177/02_design/output/design.md`（セクション8.2、Config クラス拡張設計）
-- **実装ログ**: `.ai-workflow/issue-177/04_implementation/output/implementation.md`（ファイル2、Config クラスの拡張）
+- **テストシナリオ**: `.ai-workflow/issue-177/03_test_scenario/output/test-scenario.md`（セクション2.1・2.2、TC-001～TC-015）
+- **設計書**: `.ai-workflow/issue-177/02_design/output/design.md`（セクション8.2、Config クラス拡張設計、セクション8.3、BasePhase 拡張設計）
+- **実装ログ**: `.ai-workflow/issue-177/04_implementation/output/implementation.md`（ファイル2、Config クラスの拡張、ファイル3、BasePhase の拡張）
 
 ### 参考資料
 
+#### Config クラスのテスト
 - 既存のテストパターン: `tests/unit/core/config.test.ts` の `getLogNoColor()` テスト（line 639-699）
 - Config クラス実装: `src/core/config.ts` の `canAgentInstallPackages()` メソッド（line 365-368）
 - Config クラス実装: `src/core/config.ts` の `parseBoolean()` ヘルパーメソッド（line 425-432）
 
+#### BasePhase クラスのテスト
+- 既存のテストパターン: `tests/unit/phases/base-phase-template.test.ts` の `executePhaseTemplate()` テスト
+- BasePhase 実装: `src/phases/base-phase.ts` の `loadPrompt()` メソッド（line 193-222）
+- BasePhase 実装: `src/phases/base-phase.ts` の `buildEnvironmentInfoSection()` メソッド（line 229-241）
+
 ---
 
 **作成日時**: 2025-01-31
+**最終更新日時**: 2025-01-31（修正1: BasePhaseテスト追加）
 **作成者**: AI Workflow Agent (Test Implementation Phase)
 **Issue番号**: #177
-**バージョン**: v1.0
+**バージョン**: v1.1

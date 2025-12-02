@@ -187,7 +187,7 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1.5h)
 
-- [ ] Task 5-1: Config ユニットテスト実装 (1h)
+- [x] Task 5-1: Config ユニットテスト実装 (1h)
   - `canAgentInstallPackages()` のテストスイート追加（約10件）
   - Given/When/Then パターンでテストケースを実装
   - 環境変数パターン網羅テスト
