@@ -167,6 +167,19 @@ export interface IConfig {
    * @returns true: CI環境、false: ローカル環境
    */
   isCI(): boolean;
+
+  // ========== パッケージインストール設定（Issue #177） ==========
+
+  /**
+   * エージェントがパッケージをインストール可能かどうかを返す
+   *
+   * 環境変数 AGENT_CAN_INSTALL_PACKAGES の値を解析:
+   * - "true" または "1" の場合: true を返す
+   * - "false"、"0"、未設定、空文字列の場合: false を返す
+   *
+   * @returns パッケージインストールが許可されている場合 true、それ以外は false
+   */
+  canAgentInstallPackages(): boolean;
 }
 
 /**
@@ -347,6 +360,13 @@ export class Config implements IConfig {
     return ci === 'true' || ci === '1' || !!jenkinsHome;
   }
 
+  // ========== パッケージインストール設定（Issue #177） ==========
+
+  public canAgentInstallPackages(): boolean {
+    const value = this.getEnv('AGENT_CAN_INSTALL_PACKAGES', false);
+    return this.parseBoolean(value, false);
+  }
+
   // ========== プライベートヘルパーメソッド ==========
 
   /**
@@ -392,6 +412,23 @@ export class Config implements IConfig {
     }
     const value = Number(raw);
     return Number.isFinite(value) ? value : null;
+  }
+
+  /**
+   * 文字列を boolean に変換する内部ヘルパーメソッド（Issue #177）
+   *
+   * @param value - 変換する文字列値
+   * @param defaultValue - 値が未設定または空文字列の場合のデフォルト値
+   * @returns 変換後の boolean 値
+   * @private
+   */
+  private parseBoolean(value: string | null, defaultValue: boolean): boolean {
+    if (value === null || value === '') {
+      return defaultValue;
+    }
+
+    const normalized = value.toLowerCase().trim();
+    return normalized === 'true' || normalized === '1';
   }
 }
 

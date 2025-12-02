@@ -7,6 +7,7 @@ import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { GitHubClient } from '../core/github-client.js';
 import { ContentParser } from '../core/content-parser.js';
+import { config } from '../core/config.js';
 import {
   PhaseExecutionResult,
   PhaseName,
@@ -197,6 +198,14 @@ export abstract class BasePhase {
 
     let prompt = fs.readFileSync(promptPath, 'utf-8');
 
+    // Issue #177: 環境情報の注入（execute ステップのみ、パッケージインストール可能時）
+    if (promptType === 'execute' && config.canAgentInstallPackages()) {
+      const environmentInfo = this.buildEnvironmentInfoSection();
+      prompt = environmentInfo + '\n\n' + prompt;
+
+      logger.info(`Environment info injected into execute prompt for phase ${this.phaseName}`);
+    }
+
     // Issue #90: 差し戻しコンテキストがある場合、プロンプトの先頭に追加
     // revise ステップのみに差し戻し情報を注入
     if (promptType === 'revise') {
@@ -210,6 +219,25 @@ export abstract class BasePhase {
     }
 
     return prompt;
+  }
+
+  /**
+   * Issue #177: 環境情報セクションのMarkdownを生成
+   * @returns 環境情報セクションのMarkdown文字列
+   * @private
+   */
+  private buildEnvironmentInfoSection(): string {
+    return `## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: \`apt-get update && apt-get install -y python3 python3-pip\`
+- **Go**: \`apt-get update && apt-get install -y golang-go\`
+- **Java**: \`apt-get update && apt-get install -y default-jdk\`
+- **Rust**: \`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\`
+- **Ruby**: \`apt-get update && apt-get install -y ruby ruby-dev\`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。`;
   }
 
   /**

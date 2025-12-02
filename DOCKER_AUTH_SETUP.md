@@ -61,4 +61,32 @@ docker run --rm \
   node dist/index.js execute --issue 1 --phase all --agent auto
 ```
 
+## Docker環境での多言語サポート（Issue #177）
+
+Docker環境では、エージェントが必要に応じて多言語環境を自動インストールできます。
+
+### ベースイメージ変更
+
+Dockerfile のベースイメージが `node:20-slim` から `ubuntu:22.04` に変更されました：
+
+- **Node.js 20.x**: NodeSource 公式リポジトリからインストール
+- **ビルドツール**: `build-essential`（gcc、g++、make等）、`sudo`
+- **環境変数**: `AGENT_CAN_INSTALL_PACKAGES=true`（Docker内部で自動設定）
+
+### インストール可能な言語
+
+エージェントは、以下の言語環境を必要に応じて自動インストールします：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+### セキュリティ
+
+- **デフォルトで無効**: Docker外部（ローカル開発環境）では `AGENT_CAN_INSTALL_PACKAGES` がデフォルトで `false`
+- **Docker内部のみ有効**: Dockerfile で明示的に `true` を設定
+- **隔離環境**: Docker コンテナ内部での実行のため、ホストシステムへの影響なし
+
 > **メモ:** コンテナ内に `auth.json` や平文の OAuth トークンを持ち込まないでください。TypeScript CLI は Codex CLI の旧形式ではなく API キーを前提としています。AWS SSM / GitHub Actions Secrets / Jenkins Credentials Store などを活用し、実行時に安全に注入してください。
