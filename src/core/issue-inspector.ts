@@ -182,7 +182,7 @@ export class IssueInspector {
 
     // 最近更新除外（7日以内）
     const daysSinceUpdate = this.calculateDaysSince(issue.updated_at);
-    if (daysSinceUpdate < 7) {
+    if (daysSinceUpdate <= 7) {
       logger.debug(
         `Issue #${issue.number} updated recently (${daysSinceUpdate} days ago), skipping`,
       );
@@ -210,8 +210,9 @@ export class IssueInspector {
       return false;
     }
 
-    // confidence閾値チェック
-    if (result.confidence < options.confidenceThreshold) {
+    // confidence閾値チェック（浮動小数点数の比較を安全に行う）
+    const epsilon = 0.0001;
+    if (result.confidence + epsilon < options.confidenceThreshold) {
       return false;
     }
 
