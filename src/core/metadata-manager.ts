@@ -11,6 +11,23 @@ import {
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
+/**
+ * フェーズの順序を定義
+ * Object.keys() の順序は保証されないため、明示的な配列で順序を管理
+ */
+const PHASE_ORDER: PhaseName[] = [
+  'planning',
+  'requirements',
+  'design',
+  'test_scenario',
+  'implementation',
+  'test_implementation',
+  'testing',
+  'documentation',
+  'report',
+  'evaluation',
+];
+
 export class MetadataManager {
   public readonly metadataPath: string;
   public readonly workflowDir: string;
@@ -306,15 +323,25 @@ export class MetadataManager {
     phaseData.completed_at = null;
     phaseData.retry_count = 0; // リトライカウンタをリセット（P1: PR #95レビューコメント対応）
 
-    // completed_steps は維持（execute, review は完了済みとして保持）
-    // toStep が 'execute' の場合は completed_steps をクリア
+    // completed_steps から toStep 以降のステップを削除
+    // これにより、差し戻し先のステップが再実行される
     if (toStep === 'execute') {
       phaseData.completed_steps = [];
+    } else if (toStep === 'review') {
+      // execute は完了済みとして保持、review と revise を削除
+      phaseData.completed_steps = (phaseData.completed_steps ?? []).filter(
+        (step) => step === 'execute',
+      );
+    } else if (toStep === 'revise') {
+      // execute と review は完了済みとして保持、revise を削除
+      phaseData.completed_steps = (phaseData.completed_steps ?? []).filter(
+        (step) => step === 'execute' || step === 'review',
+      );
     }
 
     this.save();
 
-    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}`);
+    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}, completed_steps=${JSON.stringify(phaseData.completed_steps)}`);
   }
 
   /**
@@ -323,16 +350,16 @@ export class MetadataManager {
    * @returns リセットされたフェーズ名の配列
    */
   public resetSubsequentPhases(fromPhase: PhaseName): PhaseName[] {
-    const phases = Object.keys(this.state.data.phases) as PhaseName[];
-    const startIndex = phases.indexOf(fromPhase);
+    // PHASE_ORDER を使用して順序を保証（Object.keys の順序は保証されない）
+    const startIndex = PHASE_ORDER.indexOf(fromPhase);
 
     if (startIndex === -1) {
-      logger.warn(`Phase ${fromPhase} not found in metadata`);
+      logger.warn(`Phase ${fromPhase} not found in PHASE_ORDER`);
       return [];
     }
 
     // 指定フェーズより後のフェーズをリセット
-    const subsequentPhases = phases.slice(startIndex + 1);
+    const subsequentPhases = PHASE_ORDER.slice(startIndex + 1);
 
     for (const phase of subsequentPhases) {
       const phaseData = this.state.data.phases[phase];
