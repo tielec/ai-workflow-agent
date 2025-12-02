@@ -43,6 +43,10 @@ COPY . .
 # Build the TypeScript sources (output placed in dist/)
 RUN npm run build
 
+# Environment hint for agents
+# When true, agents can install additional packages as needed
+ENV AGENT_CAN_INSTALL_PACKAGES=true
+
 # Default command opens a shell for interactive usage inside the container.
 # The CLI can be executed via `npm start -- <args>` or `node dist/index.js ...`
 CMD ["/bin/bash"]

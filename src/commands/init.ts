@@ -307,7 +307,8 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   }
 
   try {
-    const githubClient = new GitHubClient(githubToken, repositoryName);
+    // Note: Agent clients not available in init context, passing null
+    const githubClient = new GitHubClient(githubToken, repositoryName, null, null);
     const existingPr = await githubClient.checkExistingPr(branchName);
     if (existingPr) {
       logger.warn(`PR already exists: ${existingPr.pr_url}`);

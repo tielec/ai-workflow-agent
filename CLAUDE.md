@@ -464,6 +464,12 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 - `LOG_LEVEL`: ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - `LOG_NO_COLOR`: カラーリング無効化（CI環境用、`true` | `1` で有効化）
 
+### Docker環境設定（Issue #177で追加）
+- `AGENT_CAN_INSTALL_PACKAGES`: エージェントがパッケージをインストール可能かどうか（`true` | `1` で有効化、デフォルト: `false`）
+  - Docker環境では Dockerfile で明示的に `true` を設定
+  - エージェントが必要に応じて多言語環境（Python、Go、Java、Rust、Ruby）をインストール可能
+  - セキュリティ: デフォルトは無効、Docker内部のみで有効化を推奨
+
 ### Git 設定
 - `GIT_COMMIT_USER_NAME`: Git コミット作成者名（デフォルト: git config から）
 - `GIT_COMMIT_USER_EMAIL`: Git コミット作成者メール（デフォルト: git config から）

@@ -96,6 +96,11 @@ export class IssueAIGenerator {
       return false;
     }
 
+    // Issue #174: 'agent' provider is handled by IssueAgentGenerator, not this class
+    if (options.provider === 'agent') {
+      return false;
+    }
+
     if (options.provider === 'auto') {
       return (
         this.providers.openai.hasCredentials() || this.providers.claude.hasCredentials()
@@ -139,6 +144,13 @@ export class IssueAIGenerator {
   }
 
   private pickProvider(options: IssueGenerationOptions): LlmProviderAdapter {
+    // Issue #174: 'agent' provider should never reach this method
+    if (options.provider === 'agent') {
+      throw new IssueAIUnavailableError(
+        'Agent provider is not supported by IssueAIGenerator. Use IssueAgentGenerator instead.',
+      );
+    }
+
     if (options.provider === 'auto') {
       if (this.providers.openai.hasCredentials()) {
         return this.providers.openai;

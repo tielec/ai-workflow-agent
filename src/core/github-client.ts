@@ -16,6 +16,9 @@ import {
   OpenAIAdapter,
   AnthropicAdapter,
 } from './github/issue-ai-generator.js';
+import { IssueAgentGenerator } from './github/issue-agent-generator.js';
+import type { CodexAgentClient } from './codex-agent-client.js';
+import type { ClaudeAgentClient } from './claude-agent-client.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -71,7 +74,12 @@ export class GitHubClient {
   private readonly commentClient: CommentClient;
   private readonly reviewClient: ReviewClient;
 
-  constructor(token?: string | null, repository?: string | null) {
+  constructor(
+    token?: string | null,
+    repository?: string | null,
+    codexClient?: CodexAgentClient | null,
+    claudeClient?: ClaudeAgentClient | null,
+  ) {
     // フォールバック: 引数が指定されていない場合はConfigクラスから取得
     if (token === undefined || token === null) {
       this.token = config.getGitHubToken();
@@ -115,7 +123,19 @@ export class GitHubClient {
       claude: anthropicAdapter,
     });
 
-    this.issueClient = new IssueClient(this.octokit, this.owner, this.repo, issueAIGenerator);
+    // Issue #174: Initialize IssueAgentGenerator for agent-based FOLLOW-UP Issue generation
+    const issueAgentGenerator = new IssueAgentGenerator(
+      codexClient ?? null,
+      claudeClient ?? null,
+    );
+
+    this.issueClient = new IssueClient(
+      this.octokit,
+      this.owner,
+      this.repo,
+      issueAIGenerator,
+      issueAgentGenerator,
+    );
     this.pullRequestClient = new PullRequestClient(
       this.octokit,
       this.owner,

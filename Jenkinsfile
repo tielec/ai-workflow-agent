@@ -405,6 +405,7 @@ pipeline {
                                     --phase all \
                                     --issue ${env.ISSUE_NUMBER} \
                                     --agent ${params.AGENT_MODE} \
+                                    --followup-llm-mode agent \
                                     ${forceResetFlag} \
                                     ${cleanupFlags}
                             """
@@ -441,6 +442,7 @@ pipeline {
                                     --preset ${params.PRESET} \
                                     --agent ${params.AGENT_MODE} \
                                     --issue ${env.ISSUE_NUMBER} \
+                                    --followup-llm-mode agent \
                                     ${cleanupFlags}
                             """
                         }
@@ -476,6 +478,7 @@ pipeline {
                                     --phase ${params.START_PHASE} \
                                     --agent ${params.AGENT_MODE} \
                                     --issue ${env.ISSUE_NUMBER} \
+                                    --followup-llm-mode agent \
                                     ${cleanupFlags}
                             """
                         }

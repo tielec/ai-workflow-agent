@@ -195,8 +195,9 @@ export interface ExecuteCommandOptions {
    * - 'auto': 利用可能なプロバイダを自動選択
    * - 'openai': OpenAI を強制使用
    * - 'claude': Claude を強制使用
+   * - 'agent': エージェントベース生成（Codex/Claude Agent）
    */
-  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'off';
+  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'agent' | 'off';
 
   /**
    * フォローアップ Issue 生成で利用する LLM モデル名

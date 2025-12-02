@@ -13,6 +13,11 @@ import {
   IssueAIUnavailableError,
   IssueAIValidationError,
 } from './issue-ai-generator.js';
+import {
+  IssueAgentGenerator,
+  type FollowUpContext,
+  type GeneratedIssue,
+} from './issue-agent-generator.js';
 
 export interface IssueInfo {
   number: number;
@@ -70,17 +75,20 @@ export class IssueClient {
   private readonly owner: string;
   private readonly repo: string;
   private readonly issueAIGenerator: IssueAIGenerator | null;
+  private readonly issueAgentGenerator: IssueAgentGenerator | null;
 
   constructor(
     octokit: Octokit,
     owner: string,
     repo: string,
     issueAIGenerator: IssueAIGenerator | null = null,
+    issueAgentGenerator: IssueAgentGenerator | null = null,
   ) {
     this.octokit = octokit;
     this.owner = owner;
     this.repo = repo;
     this.issueAIGenerator = issueAIGenerator;
+    this.issueAgentGenerator = issueAgentGenerator;
   }
 
   /**
@@ -343,6 +351,47 @@ export class IssueClient {
       );
 
       const generationOptions = this.resolveIssueGenerationOptions(options);
+
+      // ===== 新規: エージェントモード分岐 =====
+      if (generationOptions.provider === 'agent') {
+        const agentResult = await this.tryGenerateWithAgent(
+          issueNumber,
+          remainingTasks,
+          evaluationReportPath,
+          issueContext,
+        );
+
+        if (agentResult.success) {
+          const title = agentResult.title;
+          const body = agentResult.body;
+
+          const { data } = await this.octokit.issues.create({
+            owner: this.owner,
+            repo: this.repo,
+            title,
+            body,
+            labels: ['enhancement', 'ai-workflow-follow-up'],
+          });
+
+          logger.info(`Follow-up issue created: #${data.number} - ${title}`);
+
+          return {
+            success: true,
+            issue_url: data.html_url ?? null,
+            issue_number: data.number ?? null,
+            error: null,
+          };
+        } else {
+          // エージェント失敗時のフォールバック: 既存のLLM生成へ
+          logger.warn(
+            `Agent generation failed: ${agentResult.error}. Falling back to LLM generation.`,
+          );
+          // providerを'auto'に変更してLLM APIへフォールバック
+          generationOptions.provider = 'auto';
+        }
+      }
+      // ===== 既存: LLMモード =====
+
       const aiResult = await this.tryGenerateWithLLM(
         issueNumber,
         remainingTasks,
@@ -559,6 +608,65 @@ export class IssueClient {
     ];
 
     return lines.join('\n');
+  }
+
+  /**
+   * エージェントベースFOLLOW-UP Issue生成を試行
+   *
+   * @param issueNumber - 元Issue番号
+   * @param tasks - 残タスクのリスト
+   * @param evaluationReportPath - Evaluation Reportのパス
+   * @param issueContext - Issueコンテキスト
+   * @returns 生成されたIssue
+   */
+  private async tryGenerateWithAgent(
+    issueNumber: number,
+    tasks: RemainingTask[],
+    evaluationReportPath: string,
+    issueContext: IssueContext | undefined,
+  ): Promise<GeneratedIssue> {
+    if (!this.issueAgentGenerator) {
+      logger.warn('IssueAgentGenerator is not configured. Skipping agent generation.');
+      return {
+        success: false,
+        title: '',
+        body: '',
+        error: 'IssueAgentGenerator not configured',
+      };
+    }
+
+    const context: FollowUpContext = {
+      remainingTasks: tasks,
+      issueContext: issueContext ?? {
+        summary: `この Issue は、Issue #${issueNumber} の Evaluation フェーズで特定された残タスクをまとめたものです。`,
+        blockerStatus: 'すべてのブロッカーは解決済み',
+        deferredReason: 'タスク優先度の判断により後回し',
+      },
+      issueNumber,
+      evaluationReportPath,
+    };
+
+    try {
+      const agent = 'auto'; // デフォルトはauto（Codex優先）
+      const result = await this.issueAgentGenerator.generate(context, agent);
+
+      if (result.success) {
+        logger.info('Agent-based follow-up issue generation succeeded.');
+        return result;
+      } else {
+        logger.warn(`Agent generation failed: ${result.error}`);
+        return result;
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Agent generation error: ${message}`);
+      return {
+        success: false,
+        title: '',
+        body: '',
+        error: message,
+      };
+    }
   }
 
   /**

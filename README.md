@@ -39,6 +39,7 @@ ai-workflow-agent/
 - （任意）環境変数 `REPOS_ROOT` … マルチリポジトリ環境でリポジトリの親ディレクトリを指定
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
+- （任意）環境変数 `AGENT_CAN_INSTALL_PACKAGES` … エージェントがパッケージをインストール可能かどうか（Docker環境では `true`、デフォルト: `false`）
 - （任意）Docker 24 以上（コンテナ内で実行する場合）
 
 ## クイックスタート（ローカル）
@@ -56,6 +57,7 @@ export GITHUB_REPOSITORY="tielec/ai-workflow-agent"
 export REPOS_ROOT="$HOME/projects"       # （任意）リポジトリの親ディレクトリ
 export LOG_LEVEL="info"                  # （任意）ログレベル（debug|info|warn|error）
 export LOG_NO_COLOR="false"              # （任意）カラーリング無効化（CI環境では "true"）
+export AGENT_CAN_INSTALL_PACKAGES="false"  # （任意）パッケージインストール許可（Docker内部では "true"）
 
 # Issue URL からワークフローを初期化
 node dist/index.js init \
@@ -925,6 +927,16 @@ docker run --rm \
   ai-workflow-agent \
   node dist/index.js execute --phase all --issue 1 --agent auto
 ```
+
+### Docker環境での多言語サポート（Issue #177）
+
+Docker環境では、エージェントが必要に応じて多言語環境（Python、Go、Java、Rust、Ruby）を自由にインストールできます：
+
+- **ベースイメージ**: `ubuntu:22.04`（Node.js 20.x を公式リポジトリからインストール）
+- **ビルドツール**: `build-essential`（gcc、g++、make等）、`sudo`
+- **環境変数**: `AGENT_CAN_INSTALL_PACKAGES=true`（Docker内部で自動設定）
+
+エージェントは、プロンプトに注入される環境情報セクションを参照し、必要な言語環境を自動的にインストールします。Docker外部（ローカル開発環境）では、セキュリティ上の理由からデフォルトで無効化されています。
 
 ## 開発フロー
 
