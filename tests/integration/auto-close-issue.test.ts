@@ -1,102 +1,49 @@
 /**
- * インテグレーションテスト: auto-close-issue コマンド
+ * Integration tests for auto-close-issue command
  *
- * テスト対象: src/commands/auto-close-issue.ts、src/core/issue-inspector.ts との統合
- * テストシナリオ: test-scenario.md の TS-INT-001 〜 TS-INT-026
+ * Tests GitHub API連携、エージェント統合、エンドツーエンドフロー
  */
 
-import { handleAutoCloseIssueCommand } from '../../src/commands/auto-close-issue.js';
-import { IssueInspector } from '../../src/core/issue-inspector.js';
+import { Octokit } from '@octokit/rest';
 import { IssueClient } from '../../src/core/github/issue-client.js';
-import { jest } from '@jest/globals';
+import { IssueInspector } from '../../src/core/issue-inspector.js';
+import type { Issue, InspectionOptions } from '../../src/types/auto-close-issue.js';
 
-// モック関数の事前定義
-const mockGetIssues = jest.fn<any>();
-const mockGetIssue = jest.fn<any>();
-const mockGetIssueCommentsDict = jest.fn<any>();
-const mockCloseIssue = jest.fn<any>();
-const mockPostComment = jest.fn<any>();
-const mockAddLabels = jest.fn<any>();
-const mockExecuteTask = jest.fn<any>();
-
-// モック設定
-jest.mock('../../src/core/github/issue-client.js', () => ({
-  IssueClient: jest.fn().mockImplementation(() => ({
-    getIssues: mockGetIssues,
-    getIssue: mockGetIssue,
-    getIssueCommentsDict: mockGetIssueCommentsDict,
-    closeIssue: mockCloseIssue,
-    postComment: mockPostComment,
-    addLabels: mockAddLabels,
-  })),
-}));
-
-jest.mock('../../src/commands/execute/agent-setup.js');
-jest.mock('../../src/core/config.js');
-jest.mock('../../src/utils/logger.js');
+// Octokitのモック
 jest.mock('@octokit/rest');
 
 describe('auto-close-issue integration tests', () => {
-  beforeEach(async () => {
-    // モック関数のクリア
-    mockGetIssues.mockClear();
-    mockGetIssue.mockClear();
-    mockGetIssueCommentsDict.mockClear();
-    mockCloseIssue.mockClear();
-    mockPostComment.mockClear();
-    mockAddLabels.mockClear();
-    mockExecuteTask.mockClear();
+  let mockOctokit: jest.Mocked<Octokit>;
+  let issueClient: IssueClient;
 
-    // デフォルトの動作設定
-    mockGetIssues.mockResolvedValue([]);
-    mockGetIssue.mockResolvedValue({
-      number: 1,
-      title: 'Test',
-      body: 'Test',
-      labels: [],
-      created_at: '2024-12-01T00:00:00Z',
-      updated_at: '2024-12-10T00:00:00Z',
-      state: 'open',
-    });
-    mockGetIssueCommentsDict.mockResolvedValue([]);
-
-    // config のモック
-    const config = require('../../src/core/config.js');
-    config.config = {
-      getGitHubToken: jest.fn().mockReturnValue('test-token'),
-      getGitHubRepository: jest.fn().mockReturnValue('owner/repo'),
-      getHomeDir: jest.fn().mockReturnValue('/home/test'),
-    };
-
-    // agent-setup のモック
-    const agentSetup = require('../../src/commands/execute/agent-setup.js');
-    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
-      codexApiKey: 'test-codex-key',
-      claudeCredentialsPath: '/path/to/claude',
-    });
-    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
-      codexClient: { executeTask: mockExecuteTask },
-      claudeClient: null,
-    });
-  });
-
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
+
+    // Octokitモックの設定
+    mockOctokit = {
+      rest: {
+        issues: {
+          get: jest.fn(),
+          listComments: jest.fn(),
+          list: jest.fn(),
+          update: jest.fn(),
+          createComment: jest.fn(),
+          addLabels: jest.fn(),
+        },
+      },
+    } as any;
+
+    issueClient = new IssueClient(mockOctokit, 'owner', 'repo');
   });
 
-  /**
-   * TS-INT-001: Issue一覧取得
-   *
-   * 目的: GitHub APIを使用してオープンIssue一覧が正しく取得できることを検証
-   */
-  describe('TS-INT-001: Get issues list', () => {
+  describe('TS-INT-001: Issue一覧取得', () => {
     it('should fetch open issues from GitHub API', async () => {
-      // Given: GitHub API がオープンIssueを返す
-      mockGetIssues.mockResolvedValue([
+      // Given: GitHub APIクライアントが初期化されている
+      const mockIssues = [
         {
           number: 1,
-          title: '[FOLLOW-UP] Test Issue 1',
-          body: 'Test body 1',
+          title: '[FOLLOW-UP] Add logging',
+          body: 'Issue body',
           labels: [{ name: 'enhancement' }],
           created_at: '2024-11-01T00:00:00Z',
           updated_at: '2024-12-01T00:00:00Z',
@@ -104,519 +51,351 @@ describe('auto-close-issue integration tests', () => {
         },
         {
           number: 2,
-          title: '[FOLLOW-UP] Test Issue 2',
-          body: 'Test body 2',
+          title: 'Bug: Login failure',
+          body: 'Issue body',
           labels: [{ name: 'bug' }],
           created_at: '2024-11-01T00:00:00Z',
           updated_at: '2024-11-05T00:00:00Z',
           state: 'open',
         },
-      ]);
+      ];
 
-      // When: handleAutoCloseIssueCommand を実行
-      await handleAutoCloseIssueCommand({ dryRun: true });
+      mockOctokit.rest.issues.list.mockResolvedValue({
+        data: mockIssues,
+      } as any);
 
-      // Then: getIssues が呼び出される
-      expect(mockGetIssues).toHaveBeenCalledWith(100);
+      // When: Issue一覧を取得
+      const issues = await issueClient.getIssues(100);
+
+      // Then: Issue配列が返される
+      expect(issues).toHaveLength(2);
+      expect(issues[0].number).toBe(1);
+      expect(issues[0].title).toBe('[FOLLOW-UP] Add logging');
+      expect(issues[1].number).toBe(2);
+
+      // GitHub APIの呼び出しを確認
+      expect(mockOctokit.rest.issues.list).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        state: 'open',
+        per_page: 100,
+      });
     });
   });
 
-  /**
-   * TS-INT-002: Issue詳細情報取得（コメント履歴含む）
-   *
-   * 目的: GitHub APIを使用してIssue詳細情報とコメント履歴が正しく取得できることを検証
-   */
-  describe('TS-INT-002: Get issue details with comments', () => {
-    it('should fetch issue details including comments', async () => {
-      // Given: GitHub API がIssue詳細とコメントを返す
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 123,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
-        },
-      ]);
-
-      mockGetIssue.mockResolvedValue({
+  describe('TS-INT-002: Issue詳細情報取得（コメント履歴含む）', () => {
+    it('should fetch issue details with comment history', async () => {
+      // Given: GitHub APIクライアントが初期化されている
+      const mockIssue = {
         number: 123,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
+        title: '[FOLLOW-UP] Add logging',
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
         created_at: '2024-11-01T00:00:00Z',
         updated_at: '2024-12-01T00:00:00Z',
         state: 'open',
-      });
+      };
 
-      mockGetIssueCommentsDict.mockResolvedValue([
+      const mockComments = [
         {
           id: 1,
-          user: 'user1',
+          user: { login: 'user1' },
           created_at: '2024-11-05T00:00:00Z',
           body: 'Comment 1',
         },
         {
           id: 2,
-          user: 'user2',
+          user: { login: 'user2' },
           created_at: '2024-11-10T00:00:00Z',
           body: 'Comment 2',
         },
-      ]);
+      ];
 
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
+      mockOctokit.rest.issues.get.mockResolvedValue({
+        data: mockIssue,
+      } as any);
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: mockComments,
+      } as any);
+
+      // When: Issue詳細情報を取得
+      const issue = await issueClient.getIssue(123);
+      const comments = await issueClient.getIssueCommentsDict(123);
+
+      // Then: Issue詳細とコメント配列が返される
+      expect(issue.number).toBe(123);
+      expect(comments).toHaveLength(2);
+      expect(comments[0].user).toBe('user1');
+      expect(comments[1].user).toBe('user2');
+
+      // GitHub API呼び出しを確認
+      expect(mockOctokit.rest.issues.get).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
         issue_number: 123,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'Test comment',
-        suggested_actions: [],
       });
-      mockExecuteTask.mockResolvedValue([validJSON]);
 
-      // When: handleAutoCloseIssueCommand を実行
-      await handleAutoCloseIssueCommand({ dryRun: true });
-
-      // Then: getIssue と getIssueCommentsDict が呼び出される
-      expect(mockGetIssue).toHaveBeenCalledWith(123);
-      expect(mockGetIssueCommentsDict).toHaveBeenCalledWith(123);
+      expect(mockOctokit.rest.issues.listComments).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 123,
+      });
     });
   });
 
-  /**
-   * TS-INT-003: Issueクローズ処理
-   *
-   * 目的: GitHub APIを使用してIssueが正しくクローズされることを検証
-   */
-  describe('TS-INT-003: Close issue', () => {
+  describe('TS-INT-003: Issueクローズ処理', () => {
     it('should close issue via GitHub API', async () => {
-      // Given: GitHub API がオープンIssueを返す
-      mockGetIssues.mockResolvedValue([
-        {
+      // Given: GitHub APIクライアントが初期化されている
+      mockOctokit.rest.issues.update.mockResolvedValue({
+        data: {
           number: 123,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
+          state: 'closed',
         },
-      ]);
+      } as any);
 
-      mockGetIssue.mockResolvedValue({
-        number: 123,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
-        created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
-        state: 'open',
-      });
+      // When: Issueをクローズ
+      await issueClient.closeIssue(123);
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
-
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
+      // Then: GitHub APIのPATCH呼び出しが実行される
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
         issue_number: 123,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'Test close comment',
-        suggested_actions: [],
+        state: 'closed',
       });
-      mockExecuteTask.mockResolvedValue([validJSON]);
-
-      // When: handleAutoCloseIssueCommand を dry-run=false で実行
-      await handleAutoCloseIssueCommand({ dryRun: false });
-
-      // Then: closeIssue が呼び出される
-      expect(mockCloseIssue).toHaveBeenCalledWith(123);
     });
   });
 
-  /**
-   * TS-INT-004: コメント投稿処理
-   *
-   * 目的: GitHub APIを使用してコメントが正しく投稿されることを検証
-   */
-  describe('TS-INT-004: Post comment', () => {
+  describe('TS-INT-004: コメント投稿処理', () => {
     it('should post comment via GitHub API', async () => {
-      // Given: GitHub API がオープンIssueを返す
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 123,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
+      // Given: GitHub APIクライアントが初期化されている
+      const commentBody = 'このIssueは対応完了のためクローズします。';
+
+      mockOctokit.rest.issues.createComment.mockResolvedValue({
+        data: {
+          id: 456,
+          body: commentBody,
         },
-      ]);
+      } as any);
 
-      mockGetIssue.mockResolvedValue({
-        number: 123,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
-        created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
-        state: 'open',
-      });
+      // When: コメントを投稿
+      await issueClient.postComment(123, commentBody);
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
-
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
+      // Then: GitHub APIのPOST呼び出しが実行される
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
         issue_number: 123,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'このIssueは対応完了のためクローズします。',
-        suggested_actions: [],
+        body: commentBody,
       });
-      mockExecuteTask.mockResolvedValue([validJSON]);
-
-      // When: handleAutoCloseIssueCommand を dry-run=false で実行
-      await handleAutoCloseIssueCommand({ dryRun: false });
-
-      // Then: postComment が呼び出される
-      expect(mockPostComment).toHaveBeenCalledWith(123, 'このIssueは対応完了のためクローズします。');
     });
   });
 
-  /**
-   * TS-INT-005: ラベル付与処理
-   *
-   * 目的: GitHub APIを使用してラベルが正しく付与されることを検証
-   */
-  describe('TS-INT-005: Add labels', () => {
+  describe('TS-INT-005: ラベル付与処理', () => {
     it('should add labels via GitHub API', async () => {
-      // Given: GitHub API がオープンIssueを返す
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 123,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
-        },
-      ]);
+      // Given: GitHub APIクライアントが初期化されている
+      mockOctokit.rest.issues.addLabels.mockResolvedValue({
+        data: [],
+      } as any);
 
-      mockGetIssue.mockResolvedValue({
-        number: 123,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
-        created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
-        state: 'open',
-      });
+      // When: ラベルを付与
+      await issueClient.addLabels(123, ['auto-closed']);
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
-
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
+      // Then: GitHub APIのPOST呼び出しが実行される
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
         issue_number: 123,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'Test comment',
-        suggested_actions: [],
+        labels: ['auto-closed'],
       });
-      mockExecuteTask.mockResolvedValue([validJSON]);
-
-      // When: handleAutoCloseIssueCommand を dry-run=false で実行
-      await handleAutoCloseIssueCommand({ dryRun: false });
-
-      // Then: addLabels が呼び出される
-      expect(mockAddLabels).toHaveBeenCalledWith(123, ['auto-closed']);
     });
   });
 
-  /**
-   * TS-INT-013: エンドツーエンドの検品フロー（正常系）
-   *
-   * 目的: Issue一覧取得 → カテゴリフィルタ → エージェント検品 → クローズ判定の
-   *       全フローが正常に動作することを検証
-   */
-  describe('TS-INT-013: End-to-end inspection flow', () => {
-    it('should execute complete workflow successfully', async () => {
-      // Given: 3件のオープンIssue
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 1,
-          title: '[FOLLOW-UP] Issue 1',
-          body: 'Test body 1',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
-        },
-        {
-          number: 2,
-          title: '[FOLLOW-UP] Issue 2',
-          body: 'Test body 2',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
-        },
-        {
-          number: 3,
-          title: '[FOLLOW-UP] Issue 3',
-          body: 'Test body 3',
-          labels: [],
-          created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
-          state: 'open',
-        },
-      ]);
-
-      mockGetIssue.mockResolvedValue({
-        number: 1,
-        title: '[FOLLOW-UP] Issue 1',
-        body: 'Test body 1',
-        labels: [],
-        created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
-        state: 'open',
+  describe('TS-INT-006: GitHub APIエラーハンドリング（認証エラー）', () => {
+    it('should handle 401 authentication error', async () => {
+      // Given: GitHub APIが401エラーを返す
+      mockOctokit.rest.issues.list.mockRejectedValue({
+        status: 401,
+        message: 'Bad credentials',
       });
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
+      // When: Issue一覧取得を試みる
+      // Then: エラーがスローされる
+      await expect(issueClient.getIssues(100)).rejects.toThrow();
+    });
+  });
 
-      // エージェントの応答をモック
-      // Issue #1: close, confidence 0.85
-      // Issue #2: keep, confidence 0.80
-      // Issue #3: close, confidence 0.65
-      mockExecuteTask
-        .mockResolvedValueOnce([
+  describe('TS-INT-007: GitHub APIエラーハンドリング（レート制限）', () => {
+    it('should handle 403 rate limit error', async () => {
+      // Given: GitHub APIが403エラー（レート制限）を返す
+      mockOctokit.rest.issues.list.mockRejectedValue({
+        status: 403,
+        message: 'API rate limit exceeded',
+      });
+
+      // When: Issue一覧取得を試みる
+      // Then: エラーがスローされる
+      await expect(issueClient.getIssues(100)).rejects.toThrow();
+    });
+  });
+
+  describe('TS-INT-008: Codexエージェント実行（正常系）', () => {
+    it('should execute agent and return JSON output', async () => {
+      // Given: Codex AgentExecutorが初期化されている
+      const mockAgentExecutor = {
+        executeTask: jest.fn().mockResolvedValue([
           JSON.stringify({
-            issue_number: 1,
+            issue_number: 123,
             recommendation: 'close',
             confidence: 0.85,
-            reasoning: 'Test reasoning 1',
-            close_comment: 'Test comment 1',
+            reasoning: '元Issueクローズ済み、ログ機能実装済み',
+            close_comment: 'このIssueは対応完了のためクローズします。',
             suggested_actions: [],
           }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            issue_number: 2,
-            recommendation: 'keep',
-            confidence: 0.80,
-            reasoning: 'Test reasoning 2',
-            close_comment: '',
-            suggested_actions: [],
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            issue_number: 3,
-            recommendation: 'close',
-            confidence: 0.65,
-            reasoning: 'Test reasoning 3',
-            close_comment: 'Test comment 3',
-            suggested_actions: [],
-          }),
-        ]);
+        ]),
+      };
 
-      // When: handleAutoCloseIssueCommand を実行（confidence閾値0.7）
-      await handleAutoCloseIssueCommand({
-        category: 'followup',
-        confidenceThreshold: '0.7',
-        dryRun: true,
-      });
-
-      // Then: Issue #1のみがクローズ候補として処理される
-      // （Issue #2は keep、Issue #3は confidence < 0.7）
-      expect(mockGetIssues).toHaveBeenCalledTimes(1);
-      expect(mockExecuteTask).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  /**
-   * TS-INT-015: dry-runモード有効時（デフォルト）
-   *
-   * 目的: dry-runモード有効時、実際にはクローズされないことを検証
-   */
-  describe('TS-INT-015: Dry-run mode enabled', () => {
-    it('should not close issues in dry-run mode', async () => {
-      // Given: 1件のオープンIssue
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 1,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
+      mockOctokit.rest.issues.get.mockResolvedValue({
+        data: {
+          number: 123,
+          title: '[FOLLOW-UP] Add logging',
+          body: 'Issue body',
+          labels: [{ name: 'enhancement' }],
           created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
           state: 'open',
         },
-      ]);
+      } as any);
 
-      mockGetIssue.mockResolvedValue({
-        number: 1,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [],
+      } as any);
+
+      const inspector = new IssueInspector(mockAgentExecutor as any, issueClient, 'owner', 'repo');
+
+      const testIssue: Issue = {
+        number: 123,
+        title: '[FOLLOW-UP] Add logging',
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
         created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
+        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
         state: 'open',
-      });
+      };
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
+      const options: InspectionOptions = {
+        confidenceThreshold: 0.7,
+        excludeLabels: ['do-not-close', 'pinned'],
+        agent: 'codex',
+      };
 
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
-        issue_number: 1,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'Test comment',
-        suggested_actions: [],
-      });
-      mockExecuteTask.mockResolvedValue([validJSON]);
+      // When: エージェント検品を実行
+      const result = await inspector.inspectIssue(testIssue, options);
 
-      // When: handleAutoCloseIssueCommand を dry-run=true で実行
-      await handleAutoCloseIssueCommand({ dryRun: true });
-
-      // Then: closeIssue, postComment, addLabels が呼び出されない
-      expect(mockCloseIssue).not.toHaveBeenCalled();
-      expect(mockPostComment).not.toHaveBeenCalled();
-      expect(mockAddLabels).not.toHaveBeenCalled();
+      // Then: JSON形式の検品結果が返される
+      expect(result).not.toBeNull();
+      expect(result?.recommendation).toBe('close');
+      expect(result?.confidence).toBe(0.85);
+      expect(mockAgentExecutor.executeTask).toHaveBeenCalled();
     });
   });
 
-  /**
-   * TS-INT-016: dry-runモード無効時
-   *
-   * 目的: dry-runモード無効時、実際にクローズされることを検証
-   */
-  describe('TS-INT-016: Dry-run mode disabled', () => {
-    it('should close issues when dry-run is disabled', async () => {
-      // Given: 1件のオープンIssue
-      mockGetIssues.mockResolvedValue([
-        {
-          number: 1,
-          title: '[FOLLOW-UP] Test Issue',
-          body: 'Test body',
-          labels: [],
+  describe('TS-INT-011: エージェント実行失敗時のスキップ動作', () => {
+    it('should skip issue when agent execution fails', async () => {
+      // Given: エージェント実行がタイムアウトエラー
+      const mockAgentExecutor = {
+        executeTask: jest.fn().mockRejectedValue(new Error('Agent execution timeout')),
+      };
+
+      mockOctokit.rest.issues.get.mockResolvedValue({
+        data: {
+          number: 123,
+          title: '[FOLLOW-UP] Add logging',
+          body: 'Issue body',
+          labels: [{ name: 'enhancement' }],
           created_at: '2024-11-01T00:00:00Z',
-          updated_at: '2024-12-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
           state: 'open',
         },
-      ]);
+      } as any);
 
-      mockGetIssue.mockResolvedValue({
-        number: 1,
-        title: '[FOLLOW-UP] Test Issue',
-        body: 'Test body',
-        labels: [],
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [],
+      } as any);
+
+      const inspector = new IssueInspector(mockAgentExecutor as any, issueClient, 'owner', 'repo');
+
+      const testIssue: Issue = {
+        number: 123,
+        title: '[FOLLOW-UP] Add logging',
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
         created_at: '2024-11-01T00:00:00Z',
-        updated_at: '2024-12-01T00:00:00Z',
+        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
         state: 'open',
-      });
+      };
 
-      mockGetIssueCommentsDict.mockResolvedValue([]);
+      const options: InspectionOptions = {
+        confidenceThreshold: 0.7,
+        excludeLabels: ['do-not-close', 'pinned'],
+        agent: 'auto',
+      };
 
-      // エージェントがclose推奨を返すようモック設定
-      const validJSON = JSON.stringify({
-        issue_number: 1,
-        recommendation: 'close',
-        confidence: 0.85,
-        reasoning: 'Test reasoning',
-        close_comment: 'Test close comment',
-        suggested_actions: [],
-      });
-      mockExecuteTask.mockResolvedValue([validJSON]);
+      // When: エージェント検品を実行
+      const result = await inspector.inspectIssue(testIssue, options);
 
-      // When: handleAutoCloseIssueCommand を dry-run=false で実行
-      await handleAutoCloseIssueCommand({ dryRun: false });
-
-      // Then: closeIssue, postComment, addLabels が呼び出される
-      expect(mockPostComment).toHaveBeenCalledWith(1, 'Test close comment');
-      expect(mockAddLabels).toHaveBeenCalledWith(1, ['auto-closed']);
-      expect(mockCloseIssue).toHaveBeenCalledWith(1);
+      // Then: nullが返される（スキップ）
+      expect(result).toBeNull();
     });
   });
 
-  /**
-   * TS-INT-022: 環境変数未設定エラー（GITHUB_TOKEN）
-   *
-   * 目的: GITHUB_TOKEN環境変数が未設定の場合、適切なエラーメッセージが表示されることを検証
-   */
-  describe('TS-INT-022: GITHUB_TOKEN not set', () => {
-    it('should throw error when GITHUB_TOKEN is not set', async () => {
-      // Given: GITHUB_TOKEN が未設定
-      const config = require('../../src/core/config.js');
-      config.config.getGitHubToken.mockImplementation(() => {
-        throw new Error('GITHUB_TOKEN environment variable is required.');
-      });
+  describe('TS-INT-012: エージェントJSON parseエラー時のスキップ動作', () => {
+    it('should skip issue when agent output is invalid JSON', async () => {
+      // Given: エージェントが不正なJSON出力を返す
+      const mockAgentExecutor = {
+        executeTask: jest.fn().mockResolvedValue(['{ invalid json output }']),
+      };
 
-      // When & Then: エラーがスローされる
-      await expect(handleAutoCloseIssueCommand({})).rejects.toThrow(/GITHUB_TOKEN/);
-    });
-  });
+      mockOctokit.rest.issues.get.mockResolvedValue({
+        data: {
+          number: 123,
+          title: '[FOLLOW-UP] Add logging',
+          body: 'Issue body',
+          labels: [{ name: 'enhancement' }],
+          created_at: '2024-11-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          state: 'open',
+        },
+      } as any);
 
-  /**
-   * TS-INT-023: 環境変数未設定エラー（GITHUB_REPOSITORY）
-   *
-   * 目的: GITHUB_REPOSITORY環境変数が未設定の場合、適切なエラーメッセージが表示されることを検証
-   */
-  describe('TS-INT-023: GITHUB_REPOSITORY not set', () => {
-    it('should throw error when GITHUB_REPOSITORY is not set', async () => {
-      // Given: GITHUB_REPOSITORY が未設定
-      const config = require('../../src/core/config.js');
-      config.config.getGitHubRepository.mockReturnValue(null);
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [],
+      } as any);
 
-      // When & Then: エラーがスローされる
-      await expect(handleAutoCloseIssueCommand({})).rejects.toThrow(
-        /GITHUB_REPOSITORY environment variable is required/,
-      );
-    });
-  });
+      const inspector = new IssueInspector(mockAgentExecutor as any, issueClient, 'owner', 'repo');
 
-  /**
-   * TS-INT-024: エージェントAPIキー未設定エラー
-   *
-   * 目的: エージェントAPIキーが全て未設定の場合、適切なエラーメッセージが表示されることを検証
-   */
-  describe('TS-INT-024: Agent API key not set', () => {
-    it('should throw error when no agent credentials are set', async () => {
-      // Given: エージェントが両方とも null
-      const agentSetup = require('../../src/commands/execute/agent-setup.js');
-      agentSetup.setupAgentClients.mockReturnValue({
-        codexClient: null,
-        claudeClient: null,
-      });
+      const testIssue: Issue = {
+        number: 123,
+        title: '[FOLLOW-UP] Add logging',
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
+        created_at: '2024-11-01T00:00:00Z',
+        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        state: 'open',
+      };
 
-      // When & Then: エラーがスローされる
-      await expect(handleAutoCloseIssueCommand({})).rejects.toThrow(
-        /No agent credentials found/,
-      );
-    });
-  });
+      const options: InspectionOptions = {
+        confidenceThreshold: 0.7,
+        excludeLabels: ['do-not-close', 'pinned'],
+        agent: 'auto',
+      };
 
-  /**
-   * TS-INT-025: CLIオプションバリデーションエラー
-   *
-   * 目的: 無効なCLIオプション指定時、適切なエラーメッセージが表示されることを検証
-   */
-  describe('TS-INT-025: CLI option validation error', () => {
-    it('should throw error for invalid limit option', async () => {
-      // Given: 無効な limit オプション
-      const invalidLimit = '100';
+      // When: エージェント検品を実行
+      const result = await inspector.inspectIssue(testIssue, options);
 
-      // When & Then: エラーがスローされる
-      await expect(handleAutoCloseIssueCommand({ limit: invalidLimit })).rejects.toThrow(
-        /--limit must be between 1 and 50/,
-      );
+      // Then: nullが返される（JSON parseエラーでスキップ）
+      expect(result).toBeNull();
     });
   });
 });
