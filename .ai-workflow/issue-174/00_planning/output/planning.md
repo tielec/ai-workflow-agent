@@ -243,15 +243,15 @@
 
 ### Phase 7: ドキュメント (見積もり: 1h)
 
-- [ ] Task 7-1: README.md 更新 (0.5h)
+- [x] Task 7-1: README.md 更新 (0.5h)
   - `--followup-llm-mode agent` オプションの使用例を追加
   - エージェントベース生成の説明を追加
 
-- [ ] Task 7-2: CLAUDE.md 更新 (0.25h)
+- [x] Task 7-2: CLAUDE.md 更新 (0.25h)
   - フォローアップIssue生成オプションセクションに `agent` モードを追加
   - プロンプトテンプレート情報を追加
 
-- [ ] Task 7-3: ARCHITECTURE.md 更新 (0.25h)
+- [x] Task 7-3: ARCHITECTURE.md 更新 (0.25h)
   - `IssueAgentGenerator` クラスの説明を追加
   - エージェントベース生成フローの説明を追加
 
@@ -381,9 +381,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] README.md が更新されている（`--followup-llm-mode agent` オプション）
-- [ ] CLAUDE.md が更新されている（プロンプトテンプレート情報）
-- [ ] ARCHITECTURE.md が更新されている（`IssueAgentGenerator` クラス）
+- [x] README.md が更新されている（`--followup-llm-mode agent` オプション）
+- [x] CLAUDE.md が更新されている（プロンプトテンプレート情報）
+- [x] ARCHITECTURE.md が更新されている（`IssueAgentGenerator` クラス）
 
 ### Phase 8: レポート
 
