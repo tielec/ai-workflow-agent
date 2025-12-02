@@ -47,7 +47,7 @@ jest.mock('../../../src/utils/logger.js');
 jest.mock('@octokit/rest');
 
 describe('auto-close-issue command handler', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     // モック関数のクリア
     mockInspectIssue.mockClear();
     mockGetIssues.mockClear();
@@ -59,19 +59,19 @@ describe('auto-close-issue command handler', () => {
     mockGetIssues.mockResolvedValue([]);
     mockInspectIssue.mockResolvedValue(null);
 
-    // config のモック（動的インポート使用）
-    const { config } = await import('../../../src/core/config.js');
-    (config as any).getGitHubToken = jest.fn().mockReturnValue('test-token');
-    (config as any).getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-    (config as any).getHomeDir = jest.fn().mockReturnValue('/home/test');
+    // config のモック（require使用）
+    const config = require('../../../src/core/config.js');
+    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
+    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
+    config.getHomeDir = jest.fn().mockReturnValue('/home/test');
 
-    // agent-setup のモック（動的インポート使用）
-    const agentSetup = await import('../../../src/commands/execute/agent-setup.js');
-    (agentSetup as any).resolveAgentCredentials = jest.fn().mockReturnValue({
+    // agent-setup のモック（require使用）
+    const agentSetup = require('../../../src/commands/execute/agent-setup.js');
+    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    (agentSetup as any).setupAgentClients = jest.fn().mockReturnValue({
+    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
       codexClient: {},
       claudeClient: {},
     });

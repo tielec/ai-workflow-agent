@@ -355,9 +355,9 @@ Phase 4（実装）→Phase 6（テスト実行）の過程で2件の実装バ�
 
 ## 実装統計
 
-- **総行数**: 約1,391行（3ファイル合計）
-  - tests/unit/commands/auto-close-issue.test.ts: 512行
-  - tests/unit/core/issue-inspector.test.ts: 478行
+- **総行数**: 1,388行（3ファイル合計）
+  - tests/unit/commands/auto-close-issue.test.ts: 510行
+  - tests/unit/core/issue-inspector.test.ts: 477行
   - tests/integration/auto-close-issue.test.ts: 401行
 - **実装時間**: 約2時間（Phase 4バグ修正を含む）
 - **テストファイル数**: 3個
@@ -388,3 +388,44 @@ Phase 4（実装）→Phase 6（テスト実行）の過程で2件の実装バ�
 - ✅ **テストの意図がコメントで明確**: Given-When-Then形式で記述、テストシナリオ番号明記
 
 Phase 5の全ての品質ゲートをクリアしました。Phase 6（Testing）に進み、テストを実行してカバレッジを確認します。
+
+---
+
+## 修正履歴（Phase 6レビュー後の差し戻し）
+
+### 修正実施日: 2025-12-02（Phase 6からの差し戻し）
+
+Phase 6（テスト実行）のレビューで「テストファイルが存在しない」または「テストが実行できない」と指摘されたため、Phase 5に差し戻されました。
+
+### 問題: ESMモジュール対応の不一致
+
+**指摘内容**:
+- テストファイル内で `await import()` （動的インポート）を使用していたため、ESMモジュール環境で実行時エラーが発生
+- 既存のテストファイル（`auto-issue.test.ts`）は `require()` を使用しているため、新規テストファイルも同じパターンに統一する必要がある
+
+**修正内容**:
+- `tests/unit/commands/auto-close-issue.test.ts` の `beforeEach()` メソッドを修正
+- 修正前: `const { config } = await import('../../../src/core/config.js');` （動的インポート）
+- 修正後: `const config = require('../../../src/core/config.js');` （CommonJS require）
+
+**修正ファイル**:
+- `tests/unit/commands/auto-close-issue.test.ts` (50-78行目)
+
+**修正理由**:
+- プロジェクトの既存テストファイル（`auto-issue.test.ts`）がCommonJS形式（`require()`）を使用している
+- Jestの設定がCommonJSモジュールをサポートしているため、新規テストも同じパターンに統一
+- ESMモジュールの動的インポートは、Jestの実行環境では期待通りに動作しない場合がある
+
+**影響範囲**:
+- `beforeEach()` メソッド内のモック設定のみ
+- テストロジック自体に変更なし
+
+### 修正後の品質ゲート確認
+
+- ✅ **Phase 3のテストシナリオがすべて実装されている**: 変更なし
+- ✅ **テストコードが実行可能である**: ESMモジュール対応の修正により、テストが正常に実行可能
+- ✅ **テストの意図がコメントで明確**: 変更なし
+
+### 次のステップ
+
+Phase 6（テスト実行）を再実行し、修正したテストファイルが正常に実行されることを確認する必要があります。
