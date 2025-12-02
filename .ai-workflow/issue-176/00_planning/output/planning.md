@@ -241,7 +241,7 @@
   - [x] 判定基準の明示
   - [x] JSON形式の出力要求
 
-- [x] Task 4-6: src/main.ts への統合
+- [x] Task 4-6: src/main.ts への統合 (完了)
   - [x] `auto-close-issue` コマンド登録
   - [x] CLIオプション定義（category, limit, dry-run, confidence-threshold, days-threshold, require-approval, exclude-labels, agent）
 
