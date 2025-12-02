@@ -137,17 +137,17 @@
 
 ### Phase 2: 設計 (見積もり: 1.5h)
 
-- [ ] Task 2-1: Dockerfile 設計 (0.5h)
+- [x] Task 2-1: Dockerfile 設計 (0.5h)
   - Ubuntu 22.04 ベースイメージ選定理由の明記
   - Node.js 20.x インストール方法の選定（NodeSource リポジトリ）
   - ビルドツールリストの確定（build-essential、sudo等）
 
-- [ ] Task 2-2: Config クラス拡張設計 (0.5h)
+- [x] Task 2-2: Config クラス拡張設計 (0.5h)
   - `IConfig.canAgentInstallPackages()` インターフェース定義
   - `Config.canAgentInstallPackages()` 実装設計（環境変数パース）
   - 既存パターンとの整合性確認（`getLogNoColor()` パターン踏襲）
 
-- [ ] Task 2-3: BasePhase プロンプト注入設計 (0.5h)
+- [x] Task 2-3: BasePhase プロンプト注入設計 (0.5h)
   - `loadPrompt()` メソッドの拡張設計
   - 環境情報セクションのMarkdownフォーマット設計
   - 注入位置の決定（プロンプト先頭 vs 末尾）
@@ -327,12 +327,12 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略の判断根拠が明記されている（EXTEND）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
-- [ ] テストコード戦略の判断根拠が明記されている（EXTEND_TEST）
-- [ ] Dockerfile 設計が完了している（ベースイメージ、ビルドツール）
-- [ ] Config クラス拡張設計が完了している（インターフェース、実装）
-- [ ] BasePhase プロンプト注入設計が完了している（注入位置、フォーマット）
+- [x] 実装戦略の判断根拠が明記されている（EXTEND）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
+- [x] テストコード戦略の判断根拠が明記されている（EXTEND_TEST）
+- [x] Dockerfile 設計が完了している（ベースイメージ、ビルドツール）
+- [x] Config クラス拡張設計が完了している（インターフェース、実装）
+- [x] BasePhase プロンプト注入設計が完了している（注入位置、フォーマット）
 
 ### Phase 3: テストシナリオ
 
