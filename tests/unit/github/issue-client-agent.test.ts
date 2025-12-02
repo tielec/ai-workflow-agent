@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { Octokit } from '@octokit/rest';
 import { IssueClient, IssueCreationResult } from '../../../src/core/github/issue-client.js';
 import { IssueAgentGenerator, type GeneratedIssue, type FollowUpContext } from '../../../src/core/github/issue-agent-generator.js';
@@ -15,7 +16,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       targetFiles: ['src/core/github/issue-agent-generator.ts'],
       steps: ['テストファイル作成', 'モック作成', 'アサーション追加'],
       priority: 'high',
-      estimatedHours: 2,
+      estimatedHours: '2',
       acceptanceCriteria: ['すべてのテストが成功する'],
     },
   ];
@@ -28,15 +29,16 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
 
   beforeEach(() => {
     // Create mock Octokit instance
+    const createFn = jest.fn() as jest.MockedFunction<any>;
     mockOctokit = {
       issues: {
-        create: jest.fn(),
+        create: createFn,
       },
     } as unknown as jest.Mocked<Octokit>;
 
     // Create mock IssueAgentGenerator
     mockAgentGenerator = {
-      generate: jest.fn<(context: FollowUpContext, agent: 'auto' | 'codex' | 'claude') => Promise<GeneratedIssue>>(),
+      generate: jest.fn(),
     } as unknown as jest.Mocked<IssueAgentGenerator>;
 
     // Create IssueClient with agent generator
@@ -69,7 +71,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         html_url: 'https://github.com/owner/repo/issues/456',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
 
       const options: IssueGenerationOptions = {
         enabled: true,
@@ -126,7 +129,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         html_url: 'https://github.com/owner/repo/issues/456',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
 
       const options: IssueGenerationOptions = {
         enabled: true,
@@ -159,7 +163,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         html_url: 'https://github.com/owner/repo/issues/456',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
 
       const options: IssueGenerationOptions = {
         enabled: true,
@@ -203,7 +208,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         provider: 'agent',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({
         data: { number: 456, html_url: 'https://github.com/owner/repo/issues/456' },
       } as any);
 
@@ -238,7 +244,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         provider: 'agent',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({
         data: { number: 456, html_url: 'https://github.com/owner/repo/issues/456' },
       } as any);
 
@@ -276,7 +283,8 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         provider: 'agent',
       };
 
-      mockOctokit.issues.create.mockResolvedValue({
+      // @ts-expect-error - Mock setup requires any type
+      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({
         data: { number: 456, html_url: 'https://github.com/owner/repo/issues/456' },
       } as any);
 

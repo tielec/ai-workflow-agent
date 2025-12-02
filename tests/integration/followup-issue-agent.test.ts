@@ -21,13 +21,13 @@ type ClaudeMock = jest.Mocked<ClaudeAgentClient>;
 
 function createCodexMock(): CodexMock {
   return {
-    executeTask: jest.fn<(options: { prompt: string }) => Promise<void>>(),
+    executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
   } as unknown as CodexMock;
 }
 
 function createClaudeMock(): ClaudeMock {
   return {
-    executeTask: jest.fn<(options: { prompt: string }) => Promise<void>>(),
+    executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
   } as unknown as ClaudeMock;
 }
 
@@ -39,7 +39,7 @@ const NORMAL_REMAINING_TASKS: RemainingTask[] = [
     targetFiles: ['src/core/github/issue-agent-generator.ts'],
     steps: ['テストファイル作成', 'モック作成', 'アサーション追加'],
     priority: 'high',
-    estimatedHours: 2,
+    estimatedHours: '2',
     acceptanceCriteria: ['すべてのテストが成功する'],
   },
   {
@@ -48,7 +48,7 @@ const NORMAL_REMAINING_TASKS: RemainingTask[] = [
     targetFiles: ['README.md', 'CLAUDE.md'],
     steps: ['README更新', 'CLAUDE.md更新'],
     priority: 'medium',
-    estimatedHours: 1,
+    estimatedHours: '1',
     acceptanceCriteria: ['ドキュメントが更新されている'],
   },
 ];
@@ -146,6 +146,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
           tempFilePath = match[1];
           fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
         }
+        return [];
       });
 
       const mockIssue = {
@@ -202,7 +203,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
   describe('E2E: Agent failure → Fallback success', () => {
     it('E2E_エージェント失敗_フォールバック成功', async () => {
       // Given: Codex agent fails (doesn't create file)
-      codexClient.executeTask.mockResolvedValue(undefined);
+      codexClient.executeTask.mockResolvedValue([]);
 
       const mockIssue = {
         number: 456,
@@ -255,6 +256,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
           tempFilePath = match[1];
           fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
         }
+        return [];
       });
 
       const mockIssue = {
@@ -301,6 +303,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
           tempFilePath = createdFilePath;
           fs.writeFileSync(createdFilePath, VALID_ISSUE_BODY);
         }
+        return [];
       });
 
       mockOctokit.issues.create.mockResolvedValue({
@@ -344,6 +347,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
           tempFilePath = match[1];
           fs.writeFileSync(tempFilePath, invalidBody);
         }
+        return [];
       });
 
       mockOctokit.issues.create.mockResolvedValue({

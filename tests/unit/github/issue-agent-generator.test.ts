@@ -17,13 +17,13 @@ type ClaudeMock = jest.Mocked<ClaudeAgentClient>;
 
 function createCodexMock(): CodexMock {
   return {
-    executeTask: jest.fn<(options: { prompt: string }) => Promise<void>>(),
+    executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
   } as unknown as CodexMock;
 }
 
 function createClaudeMock(): ClaudeMock {
   return {
-    executeTask: jest.fn<(options: { prompt: string }) => Promise<void>>(),
+    executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
   } as unknown as ClaudeMock;
 }
 
@@ -44,7 +44,7 @@ const NORMAL_REMAINING_TASKS: RemainingTask[] = [
       'エラーハンドリングテスト追加',
     ],
     priority: 'high',
-    estimatedHours: 2,
+    estimatedHours: '2',
     acceptanceCriteria: ['すべてのユニットテストが成功する', 'テストカバレッジが80%以上である'],
   },
   {
@@ -53,7 +53,7 @@ const NORMAL_REMAINING_TASKS: RemainingTask[] = [
     targetFiles: ['tests/integration/followup-issue-agent.test.ts'],
     steps: ['エンドツーエンドテスト作成', 'フォールバック機構テスト追加', 'GitHub APIモック設定'],
     priority: 'medium',
-    estimatedHours: 1.5,
+    estimatedHours: '1.5',
     acceptanceCriteria: [
       'エンドツーエンドフローが成功する',
       'フォールバック時もIssue作成が成功する',
@@ -149,6 +149,7 @@ describe('IssueAgentGenerator.generate - Codex success', () => {
         tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
+      return [];
     });
 
     // When: generate() is called with 'codex' agent
@@ -199,11 +200,13 @@ describe('IssueAgentGenerator.generate - Claude success', () => {
     };
 
     claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
+      // Extract output file path from prompt
       const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
       if (match) {
         tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
+      return [];
     });
 
     // When: generate() is called with 'claude' agent
@@ -257,6 +260,7 @@ describe('IssueAgentGenerator.generate - auto mode with Codex priority', () => {
         tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
+      return [];
     });
 
     // When: generate() is called with 'auto' agent
@@ -291,11 +295,13 @@ describe('IssueAgentGenerator.generate - error handling', () => {
 
     codexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
     claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
+      // Extract output file path from prompt
       const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
       if (match) {
         const tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
+      return [];
     });
 
     // When: generate() is called with 'auto' agent
@@ -337,7 +343,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
     };
 
-    codexClient.executeTask.mockResolvedValue(undefined);
+    codexClient.executeTask.mockResolvedValue([]);
 
     // When: generate() is called
     const result: GeneratedIssue = await generator.generate(context, 'codex');
@@ -368,6 +374,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
         tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, ''); // Empty file
       }
+      return [];
     });
 
     // When: generate() is called
@@ -401,6 +408,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
         tempFilePath = match[1];
         fs.writeFileSync(tempFilePath, invalidBody);
       }
+      return [];
     });
 
     // When: generate() is called
@@ -427,9 +435,9 @@ describe('IssueAgentGenerator.generateTitle', () => {
   it('IssueAgentGenerator_generateTitle_正常系_キーワード抽出', () => {
     // Given: Remaining tasks with keywords
     const tasks: RemainingTask[] = [
-      { task: 'ユニットテスト追加（issue-agent-generator）' },
-      { task: 'インテグレーションテスト追加（エンドツーエンド）' },
-      { task: 'ドキュメント更新（README）' },
+      { task: 'ユニットテスト追加（issue-agent-generator）', phase: 'testing', priority: 'high' },
+      { task: 'インテグレーションテスト追加（エンドツーエンド）', phase: 'testing', priority: 'medium' },
+      { task: 'ドキュメント更新（README）', phase: 'documentation', priority: 'low' },
     ];
 
     // When: generateTitle() is called
@@ -445,8 +453,8 @@ describe('IssueAgentGenerator.generateTitle', () => {
   it('IssueAgentGenerator_generateTitle_正常系_長さ制限', () => {
     // Given: Tasks with very long names
     const tasks: RemainingTask[] = [
-      { task: '非常に長いタスク名で80文字を超える可能性がある場合のテスト（詳細説明部分）' },
-      { task: '別の長いタスク名（追加説明）' },
+      { task: '非常に長いタスク名で80文字を超える可能性がある場合のテスト（詳細説明部分）', phase: 'implementation', priority: 'high' },
+      { task: '別の長いタスク名（追加説明）', phase: 'implementation', priority: 'medium' },
     ];
 
     // When: generateTitle() is called
@@ -461,7 +469,10 @@ describe('IssueAgentGenerator.generateTitle', () => {
 
   it('IssueAgentGenerator_generateTitle_異常系_キーワードなし', () => {
     // Given: Tasks with empty or null task names
-    const tasks: RemainingTask[] = [{ task: '' }, { task: null as any }];
+    const tasks: RemainingTask[] = [
+      { task: '', phase: 'implementation', priority: 'low' },
+      { task: null as any, phase: 'implementation', priority: 'low' }
+    ];
 
     // When: generateTitle() is called
     const title = (generator as any).generateTitle(123, tasks);
