@@ -208,36 +208,37 @@
 ### Phase 4: 実装 (見積もり: 3~4h)
 
 - [x] Task 4-1: CLIコマンドハンドラの実装 (0.5~1h)
-  - `src/commands/auto-close-issue.ts` の新規作成
-  - `handleAutoCloseIssueCommand` 関数の実装
-  - CLIオプションパース（`parseOptions`）
-  - 既存の `auto-issue.ts` のパターンを参考に実装
+  - [x] `src/commands/auto-close-issue.ts` の新規作成
+  - [x] `handleAutoCloseIssueCommand` 関数の実装
+  - [x] CLIオプションパース（`parseOptions`）
+  - [x] 既存の `auto-issue.ts` のパターンを参考に実装
 
 - [x] Task 4-2: Issue検品ロジックの実装 (1~1.5h)
-  - `src/core/issue-inspector.ts` の新規作成
-  - `IssueInspector` クラスの実装
-  - エージェント実行ロジック（プロンプトテンプレート読み込み、変数置換、実行）
-  - 構造化出力のJSONパース
-  - `confidence` 閾値によるフィルタリング
+  - [x] `src/core/issue-inspector.ts` の新規作成
+  - [x] `IssueInspector` クラスの実装
+  - [x] エージェント実行ロジック（プロンプトテンプレート読み込み、変数置換、実行）
+  - [x] 構造化出力のJSONパース
+  - [x] `confidence` 閾値によるフィルタリング
 
 - [x] Task 4-3: カテゴリフィルタリングロジックの実装 (0.5~0.5h)
-  - `IssueFilterService` クラスの実装（または `IssueInspector` 内に統合）
-  - `followup` フィルタ（タイトルが `[FOLLOW-UP]` で始まる）
-  - `stale` フィルタ（最終更新から90日以上）
-  - `old` フィルタ（作成から180日以上）
-  - `all` フィルタ（制限なし）
+  - [x] カテゴリフィルタリング関数の実装（`auto-close-issue.ts` 内に統合）
+  - [x] `followup` フィルタ（タイトルが `[FOLLOW-UP]` で始まる）
+  - [x] `stale` フィルタ（最終更新から90日以上）
+  - [x] `old` フィルタ（作成から180日以上）
+  - [x] `all` フィルタ（制限なし）
 
 - [x] Task 4-4: GitHub API連携の実装 (0.5~0.5h)
-  - `src/core/github/issue-client.ts` の拡張
-  - Issue詳細情報取得メソッド（コメント履歴を含む）
-  - 関連PR情報取得メソッド
-  - クローズコメント投稿メソッド（既存の `postComment` を活用）
+  - [x] `src/core/github/issue-client.ts` の拡張
+  - [x] Issue一覧取得メソッド（getIssues）の追加
+  - [x] Issueクローズメソッド（closeIssue）の追加
+  - [x] ラベル付与メソッド（addLabels）の追加
+  - [x] クローズコメント投稿（既存の `postComment` を活用）
 
 - [x] Task 4-5: プロンプトテンプレートの実装 (0.5~0.5h)
-  - `src/prompts/auto-close/inspect-issue.txt` の作成
-  - 変数プレースホルダー（`{issue_info}`, `{related_info}`, `{codebase_info}`）
-  - 判定基準の明示
-  - JSON形式の出力要求
+  - [x] `src/prompts/auto-close/inspect-issue.txt` の作成
+  - [x] 変数プレースホルダー（`{issue_info}`, `{related_info}`, `{codebase_info}`）
+  - [x] 判定基準の明示
+  - [x] JSON形式の出力要求
 
 ### Phase 5: テストコード実装 (見積もり: 1~1.5h)
 
@@ -402,12 +403,12 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] すべてのタスクが完了している
-- [ ] コードが既存のコーディング規約に従っている
-- [ ] ESLintエラーがない
-- [ ] TypeScriptコンパイルエラーがない
-- [ ] プロンプトテンプレートが作成されている
-- [ ] CLIオプションが正しく動作する
+- [x] すべてのタスクが完了している
+- [x] コードが既存のコーディング規約に従っている
+- [x] ESLintエラーがない
+- [x] TypeScriptコンパイルエラーがない
+- [x] プロンプトテンプレートが作成されている
+- [x] CLIオプションが正しく動作する
 
 ### Phase 5: テストコード実装
 
