@@ -230,6 +230,7 @@
 - [x] Task 4-4: GitHub API連携の実装 (0.5~0.5h)
   - [x] `src/core/github/issue-client.ts` の拡張
   - [x] Issue一覧取得メソッド（getIssues）の追加
+  - [x] Issue詳細情報取得メソッド（getIssueDetails）の追加
   - [x] Issueクローズメソッド（closeIssue）の追加
   - [x] ラベル付与メソッド（addLabels）の追加
   - [x] クローズコメント投稿（既存の `postComment` を活用）
@@ -239,6 +240,10 @@
   - [x] 変数プレースホルダー（`{issue_info}`, `{related_info}`, `{codebase_info}`）
   - [x] 判定基準の明示
   - [x] JSON形式の出力要求
+
+- [x] Task 4-6: src/main.ts への統合
+  - [x] `auto-close-issue` コマンド登録
+  - [x] CLIオプション定義（category, limit, dry-run, confidence-threshold, days-threshold, require-approval, exclude-labels, agent）
 
 ### Phase 5: テストコード実装 (見積もり: 1~1.5h)
 
@@ -406,9 +411,11 @@ graph TD
 - [x] すべてのタスクが完了している
 - [x] コードが既存のコーディング規約に従っている
 - [x] ESLintエラーがない
-- [x] TypeScriptコンパイルエラーがない
+- [x] TypeScriptコンパイルエラーがない（実装ログに記載あり）
 - [x] プロンプトテンプレートが作成されている
 - [x] CLIオプションが正しく動作する
+- [x] Phase 2の設計に沿った実装である
+- [x] 基本的なエラーハンドリングがある
 
 ### Phase 5: テストコード実装
 
