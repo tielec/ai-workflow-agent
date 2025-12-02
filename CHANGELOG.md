@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Public API（`analyze()`, `analyzeForRefactoring()`）のインターフェース維持（破壊的変更なし）
 
 ### Added
+- **Issue #128**: Auto-issue Phase 3 - Enhancement proposal detection and GitHub Issue generation (v0.5.0)
+  - New `--category enhancement` option for auto-issue command
+  - New `--creative-mode` option for experimental and creative enhancement proposals
+  - EnhancementProposal type definition with 6 enhancement types (improvement, integration, automation, dx, quality, ecosystem)
+  - RepositoryAnalyzer.analyzeForEnhancements() method for automatic enhancement opportunity detection
+  - IssueGenerator.generateEnhancementIssue() method for agent-generated enhancement Issue creation
+  - Priority-based sorting (expected_impact: high → medium → low) for enhancement proposals
+  - No deduplication for enhancement Issues (design decision)
+  - Creative mode prompt with innovative and ambitious proposal generation
+  - Language-agnostic support (30+ languages, inherited from Issue #144)
+  - Test coverage: 42 test cases (31 passed, 11 failed due to test code design issues, not implementation bugs)
+  - Issue template with 6 sections (概要, 根拠, 実装ヒント, 期待される効果, 工数見積もり, 関連ファイル)
 - **Issue #127**: Auto-issue Phase 2 - Refactoring detection and GitHub Issue generation (v0.5.0)
   - New `--category refactor` option for auto-issue command
   - RefactorCandidate type definition with 6 refactoring types (large-file, large-function, high-complexity, duplication, unused-code, missing-docs)

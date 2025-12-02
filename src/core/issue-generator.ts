@@ -16,7 +16,12 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate, RefactorCandidate, IssueCreationResult } from '../types/auto-issue.js';
+import type {
+  BugCandidate,
+  RefactorCandidate,
+  EnhancementProposal,
+  IssueCreationResult,
+} from '../types/auto-issue.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -567,6 +572,337 @@ ${candidate.suggestion}
 - [ ] コード変更を実施する
 - [ ] テストを実施する
 - [ ] コードレビューを受ける
+
+---
+*このIssueは自動生成されました*`;
+  }
+
+  /**
+   * 機能拡張Issueを生成
+   *
+   * @param proposal - 機能拡張提案
+   * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param dryRun - dry-runモード（true: Issue作成をスキップ）
+   * @returns Issue作成結果
+   */
+  public async generateEnhancementIssue(
+    proposal: EnhancementProposal,
+    agent: 'auto' | 'codex' | 'claude',
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    logger.info(
+      `Generating enhancement issue for: "${proposal.type}" - "${proposal.title}"`,
+    );
+
+    // 1. プロンプトテンプレートを読み込み
+    const promptPath = path.resolve(
+      __dirname,
+      '../prompts/auto-issue/generate-enhancement-issue-body.txt',
+    );
+    if (!fs.existsSync(promptPath)) {
+      logger.warn(`Prompt template not found: ${promptPath}. Using fallback template.`);
+      return this.generateEnhancementIssueWithFallback(proposal, dryRun);
+    }
+
+    const template = fs.readFileSync(promptPath, 'utf-8');
+
+    // 2. 出力ファイルパスを生成
+    const outputFilePath = generateOutputFilePath();
+    logger.debug(`Output file path: ${outputFilePath}`);
+
+    // 3. プロンプト変数を置換
+    const prompt = template
+      .replace('{enhancement_proposal_json}', JSON.stringify(proposal, null, 2))
+      .replace(/{output_file_path}/g, outputFilePath);
+
+    // 4. エージェントを選択
+    let selectedAgent = agent;
+
+    if (agent === 'codex' || agent === 'auto') {
+      if (!this.codexClient) {
+        if (agent === 'codex') {
+          return {
+            success: false,
+            error: 'Codex agent is not available.',
+          };
+        }
+        logger.warn('Codex not available, falling back to Claude.');
+        selectedAgent = 'claude';
+      } else {
+        try {
+          logger.info('Using Codex agent for enhancement issue body generation.');
+          await this.codexClient.executeTask({ prompt });
+        } catch (error) {
+          if (agent === 'codex') {
+            return {
+              success: false,
+              error: `Codex failed: ${getErrorMessage(error)}`,
+            };
+          }
+          logger.warn(`Codex failed, falling back to Claude.`);
+          selectedAgent = 'claude';
+        }
+      }
+    }
+
+    if (selectedAgent === 'claude') {
+      if (!this.claudeClient) {
+        return {
+          success: false,
+          error: 'Claude agent is not available.',
+        };
+      }
+      logger.info('Using Claude agent for enhancement issue body generation.');
+      await this.claudeClient.executeTask({ prompt });
+    }
+
+    // 5. 出力ファイルからIssue本文を読み込み
+    const issueBody = this.readEnhancementOutputFile(outputFilePath, proposal);
+
+    // 6. 一時ファイルをクリーンアップ
+    this.cleanupOutputFile(outputFilePath);
+
+    // 7. タイトルとラベルを生成
+    const title = this.generateEnhancementTitle(proposal);
+    const labels = this.generateEnhancementLabels(proposal);
+
+    // 8. dry-runモードの場合はスキップ
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping enhancement issue creation.');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    // 9. GitHub APIでIssueを作成
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+
+      logger.info(`Enhancement issue created: #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * フォールバック用の機能拡張Issue生成
+   *
+   * @param proposal - 機能拡張提案
+   * @param dryRun - dry-runモード
+   * @returns Issue作成結果
+   */
+  private async generateEnhancementIssueWithFallback(
+    proposal: EnhancementProposal,
+    dryRun: boolean,
+  ): Promise<IssueCreationResult> {
+    const title = this.generateEnhancementTitle(proposal);
+    const labels = this.generateEnhancementLabels(proposal);
+    const issueBody = this.createEnhancementFallbackBody(proposal);
+
+    if (dryRun) {
+      logger.info('[DRY RUN] Skipping enhancement issue creation (fallback).');
+      logger.info(`Title: ${title}`);
+      logger.info(`Labels: ${labels.join(', ')}`);
+      logger.info(`Body:\n${issueBody}`);
+      return {
+        success: true,
+        skippedReason: 'dry-run mode',
+      };
+    }
+
+    try {
+      const result = await this.createIssueOnGitHub(title, issueBody, labels);
+      logger.info(`Enhancement issue created (fallback): #${result.number} (${result.url})`);
+      return {
+        success: true,
+        issueUrl: result.url,
+        issueNumber: result.number,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `GitHub API failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
+   * 出力ファイルから機能拡張Issue本文を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @param proposal - 機能拡張提案（フォールバック用）
+   * @returns Markdown形式のIssue本文
+   */
+  private readEnhancementOutputFile(filePath: string, proposal: EnhancementProposal): string {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Using fallback template.`);
+      return this.createEnhancementFallbackBody(proposal);
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      if (!content) {
+        logger.warn('Output file is empty. Using fallback template.');
+        return this.createEnhancementFallbackBody(proposal);
+      }
+
+      if (!content.includes('##')) {
+        logger.warn(
+          'Output file does not contain valid Markdown sections. Using fallback template.',
+        );
+        return this.createEnhancementFallbackBody(proposal);
+      }
+
+      logger.info('Successfully read enhancement issue body from output file.');
+      return content;
+    } catch (error) {
+      logger.error(`Failed to read output file: ${getErrorMessage(error)}`);
+      return this.createEnhancementFallbackBody(proposal);
+    }
+  }
+
+  /**
+   * 機能拡張Issueのタイトルを生成
+   *
+   * @param proposal - 機能拡張提案
+   * @returns Issueタイトル
+   */
+  private generateEnhancementTitle(proposal: EnhancementProposal): string {
+    const typeEmoji: Record<EnhancementProposal['type'], string> = {
+      improvement: '⚡',
+      integration: '🔗',
+      automation: '🤖',
+      dx: '✨',
+      quality: '🛡️',
+      ecosystem: '🌐',
+    };
+
+    const emoji = typeEmoji[proposal.type];
+    return `[Enhancement] ${emoji} ${proposal.title}`;
+  }
+
+  /**
+   * 機能拡張Issueのラベルを生成
+   *
+   * @param proposal - 機能拡張提案
+   * @returns ラベルのリスト
+   */
+  private generateEnhancementLabels(proposal: EnhancementProposal): string[] {
+    const labels = ['auto-generated', 'enhancement'];
+
+    // タイプに応じたラベルを追加
+    const typeLabels: Record<EnhancementProposal['type'], string> = {
+      improvement: 'improvement',
+      integration: 'integration',
+      automation: 'automation',
+      dx: 'developer-experience',
+      quality: 'quality',
+      ecosystem: 'ecosystem',
+    };
+    labels.push(typeLabels[proposal.type]);
+
+    // 期待される効果に応じたラベルを追加
+    const impactLabels: Record<EnhancementProposal['expected_impact'], string> = {
+      high: 'impact:high',
+      medium: 'impact:medium',
+      low: 'impact:low',
+    };
+    labels.push(impactLabels[proposal.expected_impact]);
+
+    // 実装の難易度に応じたラベルを追加
+    const effortLabels: Record<EnhancementProposal['effort_estimate'], string> = {
+      large: 'effort:large',
+      medium: 'effort:medium',
+      small: 'effort:small',
+    };
+    labels.push(effortLabels[proposal.effort_estimate]);
+
+    return labels;
+  }
+
+  /**
+   * フォールバック用の機能拡張Issue本文を生成
+   *
+   * @param proposal - 機能拡張提案
+   * @returns Markdown形式のIssue本文
+   */
+  private createEnhancementFallbackBody(proposal: EnhancementProposal): string {
+    const impactEmoji: Record<EnhancementProposal['expected_impact'], string> = {
+      high: '🔥',
+      medium: '⚡',
+      low: '💡',
+    };
+
+    const effortEmoji: Record<EnhancementProposal['effort_estimate'], string> = {
+      large: '🏗️',
+      medium: '🔧',
+      small: '🔨',
+    };
+
+    const impactText: Record<EnhancementProposal['expected_impact'], string> = {
+      high: '高 - 大きな価値を提供',
+      medium: '中 - 中程度の価値を提供',
+      low: '低 - 限定的な価値を提供',
+    };
+
+    const effortText: Record<EnhancementProposal['effort_estimate'], string> = {
+      large: '大 - 長期的な取り組みが必要',
+      medium: '中 - 中程度の工数が必要',
+      small: '小 - 短期間で実装可能',
+    };
+
+    // 実装ヒントをマークダウンリストに変換
+    const implementationHintsList = proposal.implementation_hints
+      .map((hint) => `- ${hint}`)
+      .join('\n');
+
+    // 関連ファイルをマークダウンリストに変換
+    const relatedFilesList = proposal.related_files.map((file) => `- \`${file}\``).join('\n');
+
+    return `## 概要
+
+${proposal.description}
+
+## 提案理由
+
+${proposal.rationale}
+
+## 詳細
+
+**提案タイプ**: ${proposal.type}
+**期待される効果**: ${impactEmoji[proposal.expected_impact]} ${impactText[proposal.expected_impact]}
+**実装の難易度**: ${effortEmoji[proposal.effort_estimate]} ${effortText[proposal.effort_estimate]}
+
+## 実装のヒント
+
+${implementationHintsList}
+
+## 関連ファイル
+
+${relatedFilesList}
+
+## アクションアイテム
+
+- [ ] 要件を詳細化する
+- [ ] 技術的な実現可能性を検証する
+- [ ] 実装計画を作成する
+- [ ] 実装を開始する
+- [ ] テストを実施する
+- [ ] ドキュメントを更新する
 
 ---
 *このIssueは自動生成されました*`;
