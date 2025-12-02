@@ -217,6 +217,16 @@ export interface PullRequest {
    * ステータス
    */
   state: 'open' | 'closed' | 'merged';
+
+  /**
+   * 作成日時
+   */
+  created_at: string;
+
+  /**
+   * マージ日時
+   */
+  merged_at: string | null;
 }
 
 /**

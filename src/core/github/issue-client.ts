@@ -139,6 +139,41 @@ export class IssueClient {
   }
 
   /**
+   * Retrieves issue details including comment history.
+   *
+   * @param issueNumber - Issue number
+   * @returns Issue details with comments
+   */
+  public async getIssueDetails(issueNumber: number) {
+    // 1. Issue基本情報取得
+    const issue = await this.getIssue(issueNumber);
+
+    // 2. コメント履歴取得
+    const comments = await this.getIssueComments(issueNumber);
+
+    // 3. IssueDetails オブジェクト構築
+    return {
+      issue: {
+        number: issue.number,
+        title: issue.title ?? '',
+        body: issue.body ?? null,
+        labels: (issue.labels ?? []).map((label) =>
+          typeof label === 'string' ? { name: label } : { name: label.name ?? '' },
+        ),
+        created_at: issue.created_at ?? '',
+        updated_at: issue.updated_at ?? '',
+        state: (issue.state ?? 'open') as 'open' | 'closed',
+      },
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        author: comment.user?.login ?? 'unknown',
+        created_at: comment.created_at ?? '',
+        body: comment.body ?? '',
+      })),
+    };
+  }
+
+  /**
    * Closes an issue.
    *
    * @param issueNumber - Issue number to close

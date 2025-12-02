@@ -383,28 +383,8 @@ export class IssueInspector {
    * @returns Issue詳細（コメント履歴含む）
    */
   private async getIssueDetails(issueNumber: number): Promise<IssueDetails> {
-    const issue = await this.issueClient.getIssue(issueNumber);
-    const comments = await this.issueClient.getIssueCommentsDict(issueNumber);
-
-    return {
-      issue: {
-        number: issue.number,
-        title: issue.title ?? '',
-        body: issue.body ?? '',
-        labels: (issue.labels ?? []).map((label) => ({
-          name: typeof label === 'string' ? label : label.name ?? '',
-        })),
-        created_at: issue.created_at ?? new Date().toISOString(),
-        updated_at: issue.updated_at ?? new Date().toISOString(),
-        state: (issue.state as 'open' | 'closed') ?? 'open',
-      },
-      comments: comments.map((c) => ({
-        id: c.id,
-        author: c.user,
-        created_at: c.created_at,
-        body: c.body,
-      })),
-    };
+    // IssueClientのgetIssueDetailsメソッドを使用
+    return await this.issueClient.getIssueDetails(issueNumber);
   }
 
   /**
