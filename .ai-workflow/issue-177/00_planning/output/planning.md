@@ -125,12 +125,12 @@
 
 ### Phase 1: 要件定義 (見積もり: 1h)
 
-- [ ] Task 1-1: Issue情報の整理と要件の明確化 (0.5h)
+- [x] Task 1-1: Issue情報の整理と要件の明確化 (0.5h)
   - Issue #177 の本文を分析
   - 実装内容の3つの柱を確認（Dockerfile、Config、BasePhase）
   - 非機能要件の洗い出し（セキュリティ、パフォーマンス）
 
-- [ ] Task 1-2: 機能要件の定義 (0.5h)
+- [x] Task 1-2: 機能要件の定義 (0.5h)
   - `canAgentInstallPackages()` メソッドの仕様定義
   - プロンプト注入の仕様定義（注入位置、フォーマット）
   - 環境変数 `AGENT_CAN_INSTALL_PACKAGES` の仕様定義
