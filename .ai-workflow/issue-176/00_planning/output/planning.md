@@ -247,18 +247,18 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1~1.5h)
 
-- [x] Task 5-1: ユニットテストの実装 (0.5~1h)
-  - `tests/unit/commands/auto-close-issue.test.ts` の作成
-  - CLIオプションパースのテスト（`parseOptions`）
-  - カテゴリフィルタリングのテスト
-  - エージェント出力パースのテスト
-  - `tests/unit/core/issue-inspector.test.ts` の作成
+- [x] Task 5-1: ユニットテストの実装 (0.5~1h) ✅ 完了
+  - [x] `tests/unit/commands/auto-close-issue.test.ts` の作成
+  - [x] CLIオプションパースのテスト（`parseOptions`）
+  - [x] カテゴリフィルタリングのテスト
+  - [x] エージェント出力パースのテスト
+  - [x] `tests/unit/core/issue-inspector.test.ts` の作成
 
-- [x] Task 5-2: インテグレーションテストの実装 (0.5~0.5h)
-  - `tests/integration/auto-close-issue.test.ts` の作成
-  - GitHub API連携のテスト（モック使用）
-  - エージェント実行のテスト（モック使用）
-  - エンドツーエンドのコマンド実行テスト
+- [x] Task 5-2: インテグレーションテストの実装 (0.5~0.5h) ✅ 完了
+  - [x] `tests/integration/auto-close-issue.test.ts` の作成
+  - [x] GitHub API連携のテスト（モック使用）
+  - [x] エージェント実行のテスト（モック使用）
+  - [x] エンドツーエンドのコマンド実行テスト
 
 ### Phase 6: テスト実行 (見積もり: 0.5~1h)
 
@@ -419,9 +419,9 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [x] ユニットテストが実装されている
-- [x] インテグレーションテストが実装されている
-- [x] テストが既存のテストパターンに従っている（Jest、モック使用）
+- [x] ユニットテストが実装されている ✅
+- [x] インテグレーションテストが実装されている ✅
+- [x] テストが既存のテストパターンに従っている（Jest、モック使用） ✅
 
 ### Phase 6: テスト実行
 
