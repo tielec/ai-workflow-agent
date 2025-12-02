@@ -323,15 +323,25 @@ export class MetadataManager {
     phaseData.completed_at = null;
     phaseData.retry_count = 0; // リトライカウンタをリセット（P1: PR #95レビューコメント対応）
 
-    // completed_steps は維持（execute, review は完了済みとして保持）
-    // toStep が 'execute' の場合は completed_steps をクリア
+    // completed_steps から toStep 以降のステップを削除
+    // これにより、差し戻し先のステップが再実行される
     if (toStep === 'execute') {
       phaseData.completed_steps = [];
+    } else if (toStep === 'review') {
+      // execute は完了済みとして保持、review と revise を削除
+      phaseData.completed_steps = (phaseData.completed_steps ?? []).filter(
+        (step) => step === 'execute',
+      );
+    } else if (toStep === 'revise') {
+      // execute と review は完了済みとして保持、revise を削除
+      phaseData.completed_steps = (phaseData.completed_steps ?? []).filter(
+        (step) => step === 'execute' || step === 'review',
+      );
     }
 
     this.save();
 
-    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}`);
+    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}, completed_steps=${JSON.stringify(phaseData.completed_steps)}`);
   }
 
   /**
