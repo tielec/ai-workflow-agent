@@ -1,0 +1,297 @@
+## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+# 要件定義フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細な要件定義書を作成してください。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-176/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### GitHub Issue情報
+
+## Issue概要
+
+- **Issue番号**: #176
+- **タイトル**: auto-close-issue: Issue検品と自動クローズ機能の実装
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/176
+- **ラベル**: enhancement
+
+### 本文
+
+## 概要
+
+auto-issue機能（Issue #121〜#128）と対になる機能として、既存Issueの検品（レビュー）と自動クローズを行う `auto-close-issue` コマンドを実装する。
+
+## 背景
+
+現在、以下の問題がある：
+
+1. **FOLLOW-UP Issueの放置**: 元Issueがクローズされた後もFOLLOW-UP Issueが残り続ける
+2. **古いIssueの蓄積**: 対応済みや関連性が低下したIssueが溜まっていく
+3. **手動クローズの負担**: Issueの状況確認とクローズ判断を手動で行う必要がある
+
+## 提案する機能
+
+### 1. CLIコマンド
+
+```bash
+# 古いIssueを検品してクローズ候補を表示
+node dist/index.js auto-close-issue --category followup --dry-run
+
+# 実際にクローズを実行
+node dist/index.js auto-close-issue --category followup --limit 10
+
+# 全カテゴリで検品
+node dist/index.js auto-close-issue --category all --dry-run
+```
+
+### 2. 検品カテゴリ（フィルタリング用）
+
+| カテゴリ | 説明 | フィルタ条件 |
+|----------|------|-------------|
+| `followup` | FOLLOW-UP Issue | タイトルが `[FOLLOW-UP]` で始まる |
+| `stale` | 長期間更新がないIssue | 最終更新から90日以上経過 |
+| `old` | 古いIssue | 作成から180日以上経過 |
+| `all` | 全てのオープンIssue | 制限なし |
+
+**重要**: カテゴリはあくまでフィルタリング条件であり、**クローズ判定は全てエージェントが行う**。
+
+### 3. エージェントベース検品（コア機能）
+
+全ての検品カテゴリにおいて、エージェント（Codex/Claude）がIssueを分析し、クローズの可否を判定する。
+
+#### エージェントに提供する情報
+
+1. **Issue情報**
+   - タイトル、本文、ラベル
+   - 作成日、最終更新日
+   - コメント履歴
+
+2. **関連情報**
+   - 元Issue（FOLLOW-UPの場合）のステータスと内容
+   - 関連するPRのステータス
+   - 関連ファイルの現在の状態
+
+3. **コードベース情報**
+   - Issueで言及されているファイルの存在確認
+   - 残タスクに関連するコードの現状
+
+#### エージェントの判定基準
+
+エージェントは以下の観点から総合的に判断する：
+
+1. **対応状況**
+   - 残タスクはコードベースで対応済みか？
+   - 元Issueの目的は達成されているか？
+
+2. **重要度・緊急度**
+   - 長期間放置されていても重要なIssueか？
+   - セキュリティやパフォーマンスに関わるか？
+
+3. **関連性**
+   - 現在の開発方針と整合しているか？
+   - 他のIssueと重複していないか？
+
+4. **クローズのリスク**
+   - クローズすることで失われる情報はあるか？
+   - 将来的に再度必要になる可能性はあるか？
+
+#### エージェントの出力
+
+```json
+{
+  "issue_number": 123,
+  "recommendation": "close" | "keep" | "needs_discussion",
+  "confidence": 0.0-1.0,
+  "reasoning": "判定理由の詳細説明",
+  "close_comment": "クローズ時に投稿するコメント（推奨の場合）",
+  "suggested_actions": ["代替アクションの提案（あれば）"]
+}
+```
+
+### 4. クローズ時の動作
+
+- エージェントが生成したクローズ理由をコメントとして投稿
+- 適切なラベルを付与（`auto-closed`, `resolved` 等）
+- クローズ履歴をログに記録
+
+### 5. 安全機能
+
+- `--dry-run` モード（デフォルト）でプレビュー
+- エージェントの `confidence` が閾値未満の場合はスキップ（デフォルト: 0.7）
+- `recommendation: "needs_discussion"` の場合はクローズせず報告のみ
+- 特定ラベル（`do-not-close`, `pinned`）を持つIssueは除外
+- 最近更新されたIssue（7日以内）は除外
+- `--require-approval` で対話的確認を要求
+
+## 実装タスク
+
+### Phase 1: MVP
+- [ ] `src/commands/auto-close-issue.ts` 新規作成
+- [ ] `src/core/issue-inspector.ts` 新規作成（Issue検品ロジック）
+- [ ] `src/prompts/auto-close/inspect-issue.txt` プロンプト作成
+- [ ] エージェントによるIssue分析機能
+- [ ] クローズ判定結果の構造化出力パース
+- [ ] CLI引数パース（--category, --limit, --dry-run, --confidence-threshold）
+- [ ] GitHub API連携（Issue情報取得、クローズ、コメント投稿）
+- [ ] ユニットテスト追加
+
+### Phase 2: 精度向上
+- [ ] コードベース分析の強化（関連ファイルの差分確認）
+- [ ] 関連PR情報の取得と分析
+- [ ] コメント履歴の分析
+- [ ] 重複Issue検出との統合
+
+### Phase 3: 運用機能
+- [ ] 定期実行スケジューラ（GitHub Actions連携）
+- [ ] レポート生成機能
+- [ ] Slack/Teams通知連携
+
+## CLI オプション
+
+```
+Options:
+  --category <type>           フィルタカテゴリ (followup|stale|old|all) [default: followup]
+  --limit <number>            処理するIssue上限 (1-50) [default: 10]
+  --dry-run                   実際にはクローズせず候補のみ表示 [default: true]
+  --confidence-threshold <n>  クローズ判定の信頼度閾値 (0.0-1.0) [default: 0.7]
+  --days-threshold <n>        stale/old判定の日数閾値 [default: 90]
+  --require-approval          対話的確認を要求
+  --exclude-labels <labels>   除外するラベル（カンマ区切り）
+  --agent <type>              使用エージェント (auto|codex|claude) [default: auto]
+```
+
+## プロンプト設計方針
+
+エージェントへのプロンプトには以下を含める：
+
+1. **コンテキスト**: Issue情報、関連情報、コードベース状態
+2. **判定基準**: 上記の4つの観点を明示
+3. **出力形式**: JSON形式で構造化出力を要求
+4. **制約事項**: 
+   - 重要なIssueは `keep` を推奨
+   - 判断が難しい場合は `needs_discussion` を選択
+   - `close` 推奨時は必ず詳細な理由を提供
+
+## 関連ファイル
+
+- `src/commands/auto-issue.ts`（参考実装）
+- `src/core/repository-analyzer.ts`（参考実装）
+- `src/core/issue-generator.ts`（参考実装）
+- `src/core/github/issue-client.ts`
+
+## 関連Issue
+
+- Issue #121: auto-issue コマンド基盤
+- Issue #174: FOLLOW-UP Issue生成をエージェントベースに拡張
+
+## 要件定義書の構成
+
+以下のセクションを含む要件定義書を作成してください：
+
+### 0. Planning Documentの確認（Planning Phaseが実行されている場合）
+- 開発計画の全体像を把握
+- スコープ、技術選定、リスク、スケジュールを確認
+- Planning Documentで策定された戦略を踏まえて要件定義を実施
+
+### 1. 概要
+- Issue本文の「## 概要」セクションを要約
+- 背景と目的を明確に記述
+- ビジネス価値・技術的価値を説明
+
+### 2. 機能要件
+- Issue本文の「## TODO」セクションから機能要件を抽出
+- 各要件を明確かつ検証可能な形で記述
+- 優先度（高/中/低）を付与
+
+### 3. 非機能要件
+- パフォーマンス要件
+- セキュリティ要件
+- 可用性・信頼性要件
+- 保守性・拡張性要件
+
+### 4. 制約事項
+- 技術的制約（使用技術、既存システムとの整合性）
+- リソース制約（時間、人員、予算）
+- ポリシー制約（セキュリティポリシー、コーディング規約）
+
+### 5. 前提条件
+- システム環境
+- 依存コンポーネント
+- 外部システム連携
+
+### 6. 受け入れ基準
+- 各機能要件の受け入れ基準（Given-When-Then形式推奨）
+- テスト可能な形で記述
+
+### 7. スコープ外
+- 明確にスコープ外とする事項
+- 将来的な拡張候補
+
+## 出力形式
+
+Markdown形式で要件定義書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-176/01_requirements/output/requirements.md
+```
+
+## 品質ゲート（Phase 1）
+
+作成する要件定義書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **機能要件が明確に記載されている**
+- [ ] **受け入れ基準が定義されている**
+- [ ] **スコープが明確である**
+- [ ] **論理的な矛盾がない**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な要件を記述
+   - NG例: "適切に処理する"、"必要に応じて対応"
+   - OK例: "3秒以内にレスポンスを返す"、"エラー発生時は管理者に通知"
+
+2. **整合性**: 各セクション間で矛盾がないか確認
+   - 機能要件と受け入れ基準が対応しているか
+   - 非機能要件と制約事項が矛盾していないか
+
+3. **完全性**: Issue本文の情報を漏れなく反映
+   - TODOセクションの項目をすべて機能要件に反映
+   - 概要セクションの背景・目的を明確に記述
+
+4. **検証可能性**: 各要件が検証可能（テスト可能）な形で記述
+   - 受け入れ基準は Given-When-Then 形式で記述
+   - 成功条件・失敗条件が明確に識別可能
+
+5. **レビューされることを意識**: 作成した要件定義書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント
