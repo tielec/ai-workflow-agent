@@ -211,17 +211,17 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5h)
 
-- [ ] Task 7-1: CLAUDE.md の更新 (0.2h)
+- [x] Task 7-1: CLAUDE.md の更新 (0.2h)
   - 環境変数 `AGENT_CAN_INSTALL_PACKAGES` の説明を追加
   - Config クラスのメソッド一覧に `canAgentInstallPackages()` を追加
   - プロンプト注入機能の説明を追加
 
-- [ ] Task 7-2: README.md の更新 (0.2h)
+- [x] Task 7-2: README.md の更新 (0.2h)
   - Docker 環境でのパッケージインストール手順を追加
   - 使用例の追加（Python、Go、Java等のインストール例）
   - 環境変数の説明を追加
 
-- [ ] Task 7-3: Dockerfile コメントの更新 (0.1h)
+- [x] Task 7-3: Dockerfile コメントの更新 (0.1h)
   - ベースイメージ変更の理由をコメントで明記
   - ビルドツールインストールの目的を説明
 
@@ -363,9 +363,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] CLAUDE.md が更新されている（環境変数、Config メソッド、プロンプト注入）
-- [ ] README.md が更新されている（使用例、環境変数）
-- [ ] Dockerfile コメントが更新されている（ベースイメージ変更理由）
+- [x] CLAUDE.md が更新されている（環境変数、Config メソッド、プロンプト注入）
+- [x] README.md が更新されている（使用例、環境変数）
+- [x] Dockerfile コメントが更新されている（ベースイメージ変更理由）
 
 ### Phase 8: レポート
 
