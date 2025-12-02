@@ -972,14 +972,14 @@ export class RepositoryAnalyzer {
       return false;
     }
 
-    // title 検証（50〜100文字）
+    // title 検証（10〜200文字）
     if (!proposal.title || typeof proposal.title !== 'string') {
       logger.debug('Invalid enhancement proposal: missing or invalid title');
       return false;
     }
-    if (proposal.title.length < 50 || proposal.title.length > 100) {
+    if (proposal.title.length < 10 || proposal.title.length > 200) {
       logger.debug(
-        `Invalid enhancement proposal: title length ${proposal.title.length} is out of range (50-100)`,
+        `Invalid enhancement proposal: title length ${proposal.title.length} is out of range (10-200)`,
       );
       return false;
     }
