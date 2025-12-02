@@ -217,16 +217,16 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: `IssueAgentGenerator` ユニットテスト作成 (1~1.5h)
-  - `tests/unit/core/github/issue-agent-generator.test.ts` 作成
+- [x] Task 5-1: `IssueAgentGenerator` ユニットテスト作成 (1~1.5h)
+  - `tests/unit/github/issue-agent-generator.test.ts` 作成
   - プロンプト生成テスト
   - ファイル読み込みテスト（正常系・異常系）
   - エージェント呼び出しテスト（モック使用）
 
-- [ ] Task 5-2: `IssueClient` ユニットテスト拡張 (0.5h)
-  - `tests/unit/core/github/issue-client.test.ts` に `generateFollowUpWithAgent()` テストを追加
+- [x] Task 5-2: `IssueClient` ユニットテスト拡張 (0.5h)
+  - `tests/unit/github/issue-client-agent.test.ts` に `tryGenerateWithAgent()` テストを追加
 
-- [ ] Task 5-3: インテグレーションテスト作成 (1h)
+- [x] Task 5-3: インテグレーションテスト作成 (1h)
   - `tests/integration/followup-issue-agent.test.ts` 作成
   - エージェント実行 → Issue作成のエンドツーエンドテスト
   - フォールバック機構のテスト
@@ -369,8 +369,8 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] ユニットテストが作成されている（`IssueAgentGenerator`、`IssueClient`）
-- [ ] インテグレーションテストが作成されている（エンドツーエンド、フォールバック）
+- [x] ユニットテストが作成されている（`IssueAgentGenerator`、`IssueClient`）
+- [x] インテグレーションテストが作成されている（エンドツーエンド、フォールバック）
 - [ ] テストカバレッジが80%以上である
 
 ### Phase 6: テスト実行
