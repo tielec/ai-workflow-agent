@@ -13,33 +13,20 @@
  */
 
 import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import type * as FsExtra from 'fs-extra';
+import { BasePhase } from '../../../src/phases/base-phase.js';
+import type { PhaseExecutionResult } from '../../../src/types.js';
+import * as fs from 'fs-extra';
 
-// jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
-// 重要: このモックは BasePhase インポート**より前**に定義する必要がある
-const mockFs: DeepMockProxy<typeof FsExtra> = mockDeep<typeof FsExtra>();
-jest.unstable_mockModule('fs-extra', () => mockFs);
-
-// モジュールを動的インポート（モック後）
-const { BasePhase } = await import('../../../src/phases/base-phase.js');
-const path = await import('node:path');
-
-// BasePhaseConstructorParams型定義（動的インポートのため再定義）
-type BasePhaseConstructorParams = {
-  phaseName: string;
-  workingDir: string;
-  metadataManager: any;
-  githubClient: any;
-  skipDependencyCheck?: boolean;
-};
+// fs-extra をモック
+jest.mock('fs-extra');
+const mockFs = fs as jest.Mocked<typeof fs>;
 
 /**
  * テスト用の BasePhase サブクラス
  * loadPrompt() を public にアクセス可能にする
  */
 class TestPhase extends BasePhase {
-  constructor(params: BasePhaseConstructorParams) {
+  constructor(params: any) {
     super(params);
   }
 
@@ -54,11 +41,11 @@ class TestPhase extends BasePhase {
   }
 
   // 抽象メソッドの実装（ダミー）
-  protected async execute() {
+  protected async execute(): Promise<PhaseExecutionResult> {
     return { success: true };
   }
 
-  protected async review() {
+  protected async review(): Promise<PhaseExecutionResult> {
     return { success: true };
   }
 }
@@ -97,7 +84,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       createOrUpdateProgressComment: jest.fn(),
     };
 
-    // fs-extra のモック設定（Jest v30.x 互換 - jest-mock-extended を使用）
+    // fs-extra のモック設定
     mockFs.existsSync.mockReturnValue(true);
     mockFs.ensureDirSync.mockReturnValue(undefined);
     mockFs.readFileSync.mockReturnValue('Execute planning phase...\n\n{issue_info}');
