@@ -191,7 +191,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     throw new Error('GITHUB_REPOSITORY environment variable is required.');
   }
 
-  const githubClient = new GitHubClient(githubToken, repoName);
+  // Issue #174: Pass agent clients to GitHubClient for agent-based FOLLOW-UP Issue generation
+  const githubClient = new GitHubClient(githubToken, repoName, codexClient, claudeClient);
 
   const gitManager = new GitManager(repoRoot, metadataManager);
 
@@ -359,7 +360,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
 }
 
 type FollowupCliOverrides = {
-  cliMode?: 'auto' | 'openai' | 'claude' | 'off';
+  cliMode?: 'auto' | 'openai' | 'claude' | 'agent' | 'off';
   cliModel?: string;
   cliTimeout?: number;
   cliMaxRetries?: number;
@@ -369,7 +370,7 @@ type FollowupCliOverrides = {
 function resolveIssueGenerationOptions(overrides: FollowupCliOverrides): IssueGenerationOptions {
   const options: IssueGenerationOptions = { ...DEFAULT_FOLLOWUP_LLM_OPTIONS };
 
-  const applyMode = (mode?: 'auto' | 'openai' | 'claude' | 'off') => {
+  const applyMode = (mode?: 'auto' | 'openai' | 'claude' | 'agent' | 'off') => {
     if (!mode) {
       return;
     }
