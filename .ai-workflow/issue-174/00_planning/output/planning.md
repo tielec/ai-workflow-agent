@@ -138,13 +138,13 @@
 
 ### Phase 1: 要件定義 (見積もり: 2h)
 
-- [ ] Task 1-1: 既存実装の調査 (1~1.5h)
+- [x] Task 1-1: 既存実装の調査 (1~1.5h)
   - `auto-issue` 機能の `IssueGenerator` クラスを調査（Issue #121〜#128）
   - `IssueAIGenerator` クラスの実装パターンを調査（Issue #119）
   - エージェント実行パターン（ファイルベース出力方式）を理解
   - 既存プロンプトテンプレート（`generate-issue-body.txt`、`generate-refactor-issue-body.txt`）を参照
 
-- [ ] Task 1-2: 機能要件の明確化 (0.5~1h)
+- [x] Task 1-2: 機能要件の明確化 (0.5~1h)
   - FOLLOW-UP Issue に必要なコンテキスト情報を定義（残タスク、元Issue情報、Evaluation Report等）
   - 生成するIssue本文の必須セクションを定義（背景、目的、実行内容、受け入れ基準、参考情報）
   - エージェント選択ロジックを設計（`--followup-llm-mode agent` 時の動作）
