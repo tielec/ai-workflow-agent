@@ -7,65 +7,31 @@
 
 import { jest } from '@jest/globals';
 
-// モック関数の事前定義（ファイルのトップで定義）
-let mockInspectIssue: any;
-let mockGetIssues: any;
-let mockCloseIssue: any;
-let mockPostComment: any;
-let mockAddLabels: any;
-let mockGetGitHubToken: any;
-let mockGetGitHubRepository: any;
-let mockGetHomeDir: any;
-let mockResolveAgentCredentials: any;
-let mockSetupAgentClients: any;
+// モック関数の事前定義（グローバルスコープで定義）
+const mockInspectIssue = jest.fn<any>();
+const mockGetIssues = jest.fn<any>();
+const mockCloseIssue = jest.fn<any>();
+const mockPostComment = jest.fn<any>();
+const mockAddLabels = jest.fn<any>();
 
-// モック設定（ファクトリ関数内で新しいjest.fn()を作成）
-jest.mock('../../../src/core/issue-inspector.js', () => {
-  mockInspectIssue = jest.fn();
-  return {
-    IssueInspector: jest.fn().mockImplementation(() => ({
-      inspectIssue: mockInspectIssue,
-    })),
-  };
-});
+// モック設定
+jest.mock('../../../src/core/issue-inspector.js', () => ({
+  IssueInspector: jest.fn().mockImplementation(() => ({
+    inspectIssue: mockInspectIssue,
+  })),
+}));
 
-jest.mock('../../../src/core/github/issue-client.js', () => {
-  mockGetIssues = jest.fn();
-  mockCloseIssue = jest.fn();
-  mockPostComment = jest.fn();
-  mockAddLabels = jest.fn();
-  return {
-    IssueClient: jest.fn().mockImplementation(() => ({
-      getIssues: mockGetIssues,
-      closeIssue: mockCloseIssue,
-      postComment: mockPostComment,
-      addLabels: mockAddLabels,
-    })),
-  };
-});
+jest.mock('../../../src/core/github/issue-client.js', () => ({
+  IssueClient: jest.fn().mockImplementation(() => ({
+    getIssues: mockGetIssues,
+    closeIssue: mockCloseIssue,
+    postComment: mockPostComment,
+    addLabels: mockAddLabels,
+  })),
+}));
 
-jest.mock('../../../src/commands/execute/agent-setup.js', () => {
-  mockResolveAgentCredentials = jest.fn();
-  mockSetupAgentClients = jest.fn();
-  return {
-    resolveAgentCredentials: mockResolveAgentCredentials,
-    setupAgentClients: mockSetupAgentClients,
-  };
-});
-
-jest.mock('../../../src/core/config.js', () => {
-  mockGetGitHubToken = jest.fn();
-  mockGetGitHubRepository = jest.fn();
-  mockGetHomeDir = jest.fn();
-  return {
-    config: {
-      getGitHubToken: mockGetGitHubToken,
-      getGitHubRepository: mockGetGitHubRepository,
-      getHomeDir: mockGetHomeDir,
-    },
-  };
-});
-
+jest.mock('../../../src/commands/execute/agent-setup.js');
+jest.mock('../../../src/core/config.js');
 jest.mock('../../../src/utils/logger.js');
 jest.mock('@octokit/rest');
 
@@ -79,8 +45,8 @@ import type {
   Issue,
   IssueCategory,
 } from '../../../src/types/auto-close-issue.js';
-import { IssueInspector } from '../../../src/core/issue-inspector.js';
-import { IssueClient } from '../../../src/core/github/issue-client.js';
+import { config } from '../../../src/core/config.js';
+import * as agentSetup from '../../../src/commands/execute/agent-setup.js';
 
 describe('auto-close-issue command handler', () => {
   beforeEach(() => {
@@ -90,34 +56,30 @@ describe('auto-close-issue command handler', () => {
     mockCloseIssue.mockClear();
     mockPostComment.mockClear();
     mockAddLabels.mockClear();
-    mockGetGitHubToken.mockClear();
-    mockGetGitHubRepository.mockClear();
-    mockGetHomeDir.mockClear();
-    mockResolveAgentCredentials.mockClear();
-    mockSetupAgentClients.mockClear();
 
     // デフォルトの動作設定
     mockGetIssues.mockResolvedValue([]);
     mockInspectIssue.mockResolvedValue(null);
 
     // config のモック設定
-    mockGetGitHubToken.mockReturnValue('test-token');
-    mockGetGitHubRepository.mockReturnValue('owner/repo');
-    mockGetHomeDir.mockReturnValue('/home/test');
+    jest.spyOn(config, 'getGitHubToken').mockReturnValue('test-token');
+    jest.spyOn(config, 'getGitHubRepository').mockReturnValue('owner/repo');
+    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/test');
 
     // agent-setup のモック設定
-    mockResolveAgentCredentials.mockReturnValue({
+    jest.spyOn(agentSetup, 'resolveAgentCredentials').mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    mockSetupAgentClients.mockReturnValue({
-      codexClient: { executeTask: jest.fn() },
+    jest.spyOn(agentSetup, 'setupAgentClients').mockReturnValue({
+      codexClient: { executeTask: jest.fn() } as any,
       claudeClient: null,
     });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   /**
@@ -355,7 +317,7 @@ describe('auto-close-issue command handler', () => {
     it('should filter issues not updated for 90+ days', () => {
       // Given: 複数のIssue（現在日時を2025-01-30と仮定）
       const now = new Date('2025-01-30T00:00:00Z');
-      jest.spyOn(global, 'Date').mockImplementation((() => now) as any);
+      jest.spyOn(global.Date, 'now').mockReturnValue(now.getTime());
 
       const issues: Issue[] = [
         {
@@ -394,9 +356,6 @@ describe('auto-close-issue command handler', () => {
       expect(filtered).toHaveLength(2);
       expect(filtered[0].number).toBe(1);
       expect(filtered[1].number).toBe(3);
-
-      // モックをリストア
-      jest.restoreAllMocks();
     });
   });
 
@@ -409,7 +368,7 @@ describe('auto-close-issue command handler', () => {
     it('should include issues updated exactly 90 days ago', () => {
       // Given: 現在日時を2025-01-30と仮定
       const now = new Date('2025-01-30T00:00:00Z');
-      jest.spyOn(global, 'Date').mockImplementation((() => now) as any);
+      jest.spyOn(global.Date, 'now').mockReturnValue(now.getTime());
 
       const issues: Issue[] = [
         {
@@ -438,9 +397,6 @@ describe('auto-close-issue command handler', () => {
       // Then: 90日以上経過した Issue のみが返される
       expect(filtered).toHaveLength(1);
       expect(filtered[0].number).toBe(1);
-
-      // モックをリストア
-      jest.restoreAllMocks();
     });
   });
 
@@ -453,7 +409,7 @@ describe('auto-close-issue command handler', () => {
     it('should filter issues created 180+ days ago', () => {
       // Given: 複数のIssue（現在日時を2025-01-30と仮定）
       const now = new Date('2025-01-30T00:00:00Z');
-      jest.spyOn(global, 'Date').mockImplementation((() => now) as any);
+      jest.spyOn(global.Date, 'now').mockReturnValue(now.getTime());
 
       const issues: Issue[] = [
         {
@@ -492,9 +448,6 @@ describe('auto-close-issue command handler', () => {
       expect(filtered).toHaveLength(2);
       expect(filtered[0].number).toBe(1);
       expect(filtered[1].number).toBe(3);
-
-      // モックをリストア
-      jest.restoreAllMocks();
     });
   });
 
