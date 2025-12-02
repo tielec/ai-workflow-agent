@@ -11,6 +11,23 @@ import {
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
+/**
+ * フェーズの順序を定義
+ * Object.keys() の順序は保証されないため、明示的な配列で順序を管理
+ */
+const PHASE_ORDER: PhaseName[] = [
+  'planning',
+  'requirements',
+  'design',
+  'test_scenario',
+  'implementation',
+  'test_implementation',
+  'testing',
+  'documentation',
+  'report',
+  'evaluation',
+];
+
 export class MetadataManager {
   public readonly metadataPath: string;
   public readonly workflowDir: string;
@@ -323,16 +340,16 @@ export class MetadataManager {
    * @returns リセットされたフェーズ名の配列
    */
   public resetSubsequentPhases(fromPhase: PhaseName): PhaseName[] {
-    const phases = Object.keys(this.state.data.phases) as PhaseName[];
-    const startIndex = phases.indexOf(fromPhase);
+    // PHASE_ORDER を使用して順序を保証（Object.keys の順序は保証されない）
+    const startIndex = PHASE_ORDER.indexOf(fromPhase);
 
     if (startIndex === -1) {
-      logger.warn(`Phase ${fromPhase} not found in metadata`);
+      logger.warn(`Phase ${fromPhase} not found in PHASE_ORDER`);
       return [];
     }
 
     // 指定フェーズより後のフェーズをリセット
-    const subsequentPhases = phases.slice(startIndex + 1);
+    const subsequentPhases = PHASE_ORDER.slice(startIndex + 1);
 
     for (const phase of subsequentPhases) {
       const phaseData = this.state.data.phases[phase];
