@@ -207,33 +207,33 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: CLIコマンドハンドラの実装 (0.5~1h)
+- [x] Task 4-1: CLIコマンドハンドラの実装 (0.5~1h)
   - `src/commands/auto-close-issue.ts` の新規作成
   - `handleAutoCloseIssueCommand` 関数の実装
   - CLIオプションパース（`parseOptions`）
   - 既存の `auto-issue.ts` のパターンを参考に実装
 
-- [ ] Task 4-2: Issue検品ロジックの実装 (1~1.5h)
+- [x] Task 4-2: Issue検品ロジックの実装 (1~1.5h)
   - `src/core/issue-inspector.ts` の新規作成
   - `IssueInspector` クラスの実装
   - エージェント実行ロジック（プロンプトテンプレート読み込み、変数置換、実行）
   - 構造化出力のJSONパース
   - `confidence` 閾値によるフィルタリング
 
-- [ ] Task 4-3: カテゴリフィルタリングロジックの実装 (0.5~0.5h)
+- [x] Task 4-3: カテゴリフィルタリングロジックの実装 (0.5~0.5h)
   - `IssueFilterService` クラスの実装（または `IssueInspector` 内に統合）
   - `followup` フィルタ（タイトルが `[FOLLOW-UP]` で始まる）
   - `stale` フィルタ（最終更新から90日以上）
   - `old` フィルタ（作成から180日以上）
   - `all` フィルタ（制限なし）
 
-- [ ] Task 4-4: GitHub API連携の実装 (0.5~0.5h)
+- [x] Task 4-4: GitHub API連携の実装 (0.5~0.5h)
   - `src/core/github/issue-client.ts` の拡張
   - Issue詳細情報取得メソッド（コメント履歴を含む）
   - 関連PR情報取得メソッド
   - クローズコメント投稿メソッド（既存の `postComment` を活用）
 
-- [ ] Task 4-5: プロンプトテンプレートの実装 (0.5~0.5h)
+- [x] Task 4-5: プロンプトテンプレートの実装 (0.5~0.5h)
   - `src/prompts/auto-close/inspect-issue.txt` の作成
   - 変数プレースホルダー（`{issue_info}`, `{related_info}`, `{codebase_info}`）
   - 判定基準の明示
