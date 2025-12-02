@@ -29,6 +29,7 @@ interface RawAutoIssueOptions {
   dryRun?: boolean;
   similarityThreshold?: string;
   agent?: 'auto' | 'codex' | 'claude';
+  creativeMode?: boolean;
 }
 
 /**
@@ -141,10 +142,35 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
         claudeClient,
         options,
       );
+    } else if (options.category === 'enhancement') {
+      logger.info('Analyzing repository for enhancement proposals...');
+      logger.info(`Analyzing repository: ${repoPath}`);
+      logger.info(`Creative mode: ${options.creativeMode ?? false}`);
+      const enhancementProposals = await analyzer.analyzeForEnhancements(
+        repoPath,
+        options.agent,
+        { creativeMode: options.creativeMode },
+      );
+      logger.info(`Found ${enhancementProposals.length} enhancement proposals.`);
+
+      if (enhancementProposals.length === 0) {
+        logger.info('No enhancement proposals found. Exiting.');
+        return;
+      }
+
+      // 機能拡張提案の処理を継続
+      await processEnhancementCandidates(
+        enhancementProposals,
+        octokit,
+        githubRepository,
+        codexClient,
+        claudeClient,
+        options,
+      );
     } else {
-      // 'enhancement' と 'all' は Phase 3 以降で実装予定
+      // 'all' は Phase 4 以降で実装予定
       throw new Error(
-        `Category "${options.category}" is not yet supported. Please use "bug" or "refactor".`,
+        `Category "${options.category}" is not yet supported. Please use "bug", "refactor", or "enhancement".`,
       );
     }
 
@@ -273,6 +299,52 @@ async function processRefactorCandidates(
 }
 
 /**
+ * 機能拡張提案を処理してIssueを作成
+ *
+ * @param proposals - 機能拡張提案のリスト
+ * @param octokit - GitHub API クライアント
+ * @param repoName - リポジトリ名（owner/repo 形式）
+ * @param codexClient - Codex エージェントクライアント
+ * @param claudeClient - Claude エージェントクライアント
+ * @param options - auto-issue オプション
+ */
+async function processEnhancementCandidates(
+  proposals: import('../types/auto-issue.js').EnhancementProposal[],
+  octokit: Octokit,
+  repoName: string,
+  codexClient: CodexAgentClient | null,
+  claudeClient: ClaudeAgentClient | null,
+  options: AutoIssueOptions,
+): Promise<void> {
+  // 期待される効果でソート（high → medium → low）
+  const sortedProposals = proposals.sort((a, b) => {
+    const impactOrder = { high: 3, medium: 2, low: 1 };
+    return impactOrder[b.expected_impact] - impactOrder[a.expected_impact];
+  });
+
+  // limitオプションで制限
+  const limitedProposals = sortedProposals.slice(0, options.limit);
+  logger.info(`Limiting to ${limitedProposals.length} proposals (limit: ${options.limit}).`);
+
+  // Issue生成
+  const generator = new IssueGenerator(codexClient, claudeClient, octokit, repoName);
+  const results: IssueCreationResult[] = [];
+
+  for (const proposal of limitedProposals) {
+    logger.info(`Generating enhancement issue for: "${proposal.type}" - "${proposal.title}"`);
+    const result = await generator.generateEnhancementIssue(
+      proposal,
+      options.agent,
+      options.dryRun,
+    );
+    results.push(result);
+  }
+
+  // 結果サマリーを表示
+  reportResults(results, options.dryRun);
+}
+
+/**
  * バグ候補を処理してIssueを作成（旧バージョン - 削除予定）
  *
  * この関数は既存のコードとの互換性のために残していますが、
@@ -388,12 +460,16 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     throw new Error(`Invalid agent: "${agent}". Allowed values: auto, codex, claude`);
   }
 
+  // creativeMode（デフォルト: false）
+  const creativeMode = rawOptions.creativeMode ?? false;
+
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
     dryRun,
     similarityThreshold,
     agent: agent as 'auto' | 'codex' | 'claude',
+    creativeMode,
   };
 }
 

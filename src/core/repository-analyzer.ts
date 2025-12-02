@@ -15,7 +15,7 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate, RefactorCandidate } from '../types/auto-issue.js';
+import type { BugCandidate, RefactorCandidate, EnhancementProposal } from '../types/auto-issue.js';
 import { parseCodexEvent } from './helpers/agent-event-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -191,10 +191,10 @@ function isExcludedFile(filePath: string): boolean {
 /**
  * 出力ファイルパスを生成
  *
- * @param prefix - ファイル名のプレフィックス（'bugs' | 'refactor'）
+ * @param prefix - ファイル名のプレフィックス（'bugs' | 'refactor' | 'enhancements'）
  * @returns 一時ディレクトリ内のユニークなファイルパス
  */
-function generateOutputFilePath(prefix: 'bugs' | 'refactor' = 'bugs'): string {
+function generateOutputFilePath(prefix: 'bugs' | 'refactor' | 'enhancements' = 'bugs'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
   return path.join(os.tmpdir(), `auto-issue-${prefix}-${timestamp}-${random}.json`);
@@ -296,6 +296,55 @@ export class RepositoryAnalyzer {
   }
 
   /**
+   * リポジトリを解析して機能拡張提案を生成
+   *
+   * @param repoPath - リポジトリパス
+   * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param options - オプション設定
+   * @param options.creativeMode - 創造的モードを有効化（より実験的な提案を含める）
+   * @returns 機能拡張提案のリスト
+   * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
+   */
+  public async analyzeForEnhancements(
+    repoPath: string,
+    agent: 'auto' | 'codex' | 'claude',
+    options?: { creativeMode?: boolean },
+  ): Promise<EnhancementProposal[]> {
+    logger.info(`Analyzing repository for enhancement proposals: ${repoPath}`);
+
+    // 1. プロンプトパスと出力ファイルパスを準備
+    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-enhancements.txt');
+    const outputFilePath = generateOutputFilePath('enhancements');
+    logger.debug(`Output file path: ${outputFilePath}`);
+
+    try {
+      // 2. 共通エージェント実行メソッド呼び出し（creative_mode変数を追加）
+      await this.executeAgentWithFallback(
+        promptPath,
+        outputFilePath,
+        repoPath,
+        agent,
+        options?.creativeMode,
+      );
+
+      // 3. 出力ファイルからJSONを読み込み
+      const proposals = this.readEnhancementOutputFile(outputFilePath);
+
+      // 4. バリデーション
+      const validProposals = proposals.filter((p) => this.validateEnhancementProposal(p));
+
+      logger.info(
+        `Parsed ${proposals.length} enhancement proposals, ${validProposals.length} valid after validation.`,
+      );
+
+      return validProposals;
+    } finally {
+      // 5. 一時ファイルをクリーンアップ（成功・失敗に関わらず）
+      this.cleanupOutputFile(outputFilePath);
+    }
+  }
+
+  /**
    * エージェント実行とフォールバックの共通処理
    *
    * プロンプトテンプレートの読み込み、変数置換、エージェント選択・実行を行います。
@@ -305,6 +354,7 @@ export class RepositoryAnalyzer {
    * @param outputFilePath - エージェントが結果を書き込むファイルのパス
    * @param repoPath - 解析対象のリポジトリパス
    * @param agent - 使用するエージェント（'auto' | 'codex' | 'claude'）
+   * @param creativeMode - 創造的モードフラグ（enhancement用）
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   private async executeAgentWithFallback(
@@ -312,6 +362,7 @@ export class RepositoryAnalyzer {
     outputFilePath: string,
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
+    creativeMode?: boolean,
   ): Promise<void> {
     // 1. プロンプトテンプレート読み込み
     if (!fs.existsSync(promptPath)) {
@@ -320,9 +371,15 @@ export class RepositoryAnalyzer {
     const template = fs.readFileSync(promptPath, 'utf-8');
 
     // 2. 変数置換
-    const prompt = template
+    let prompt = template
       .replace('{repository_path}', repoPath)
       .replace(/{output_file_path}/g, outputFilePath);
+
+    // creative_mode変数の置換（enhancement用）
+    if (creativeMode !== undefined) {
+      const creativeModeValue = creativeMode ? 'enabled' : 'disabled';
+      prompt = prompt.replace(/{creative_mode}/g, creativeModeValue);
+    }
 
     // 3. エージェント選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
@@ -851,6 +908,134 @@ export class RepositoryAnalyzer {
     // priority 検証
     if (!['low', 'medium', 'high'].includes(candidate.priority)) {
       logger.debug(`Invalid refactor candidate: invalid priority "${candidate.priority}"`);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 出力ファイルから機能拡張提案を読み込み
+   *
+   * @param filePath - 出力ファイルパス
+   * @returns 機能拡張提案のリスト
+   */
+  private readEnhancementOutputFile(filePath: string): EnhancementProposal[] {
+    if (!fs.existsSync(filePath)) {
+      logger.warn(`Output file not found: ${filePath}. Agent may have failed to write the file.`);
+      return [];
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+
+      const parsed = JSON.parse(content);
+
+      // [...] 配列形式
+      if (Array.isArray(parsed)) {
+        logger.info(`Read ${parsed.length} enhancement proposals from output file.`);
+        return parsed as EnhancementProposal[];
+      }
+
+      // 単一オブジェクト形式
+      if (parsed.type && parsed.title) {
+        logger.info('Read 1 enhancement proposal from output file.');
+        return [parsed as EnhancementProposal];
+      }
+
+      logger.warn('Output file does not contain valid enhancement proposals structure.');
+      return [];
+    } catch (error) {
+      logger.error(`Failed to read/parse enhancement output file: ${getErrorMessage(error)}`);
+      return [];
+    }
+  }
+
+  /**
+   * 機能拡張提案のバリデーション
+   *
+   * @param proposal - 機能拡張提案
+   * @returns バリデーション結果（true: 有効、false: 無効）
+   */
+  private validateEnhancementProposal(proposal: EnhancementProposal): boolean {
+    // 必須フィールドの存在確認
+    if (!proposal || typeof proposal !== 'object') {
+      logger.debug('Invalid enhancement proposal: not an object');
+      return false;
+    }
+
+    // type 検証
+    const validTypes = ['improvement', 'integration', 'automation', 'dx', 'quality', 'ecosystem'];
+    if (!validTypes.includes(proposal.type)) {
+      logger.debug(`Invalid enhancement proposal: invalid type "${proposal.type}"`);
+      return false;
+    }
+
+    // title 検証（50〜100文字）
+    if (!proposal.title || typeof proposal.title !== 'string') {
+      logger.debug('Invalid enhancement proposal: missing or invalid title');
+      return false;
+    }
+    if (proposal.title.length < 50 || proposal.title.length > 100) {
+      logger.debug(
+        `Invalid enhancement proposal: title length ${proposal.title.length} is out of range (50-100)`,
+      );
+      return false;
+    }
+
+    // description 検証（最小100文字）
+    if (!proposal.description || typeof proposal.description !== 'string') {
+      logger.debug('Invalid enhancement proposal: missing or invalid description');
+      return false;
+    }
+    if (proposal.description.length < 100) {
+      logger.debug(
+        `Invalid enhancement proposal: description length ${proposal.description.length} is too short (min 100)`,
+      );
+      return false;
+    }
+
+    // rationale 検証（最小50文字）
+    if (!proposal.rationale || typeof proposal.rationale !== 'string') {
+      logger.debug('Invalid enhancement proposal: missing or invalid rationale');
+      return false;
+    }
+    if (proposal.rationale.length < 50) {
+      logger.debug(
+        `Invalid enhancement proposal: rationale length ${proposal.rationale.length} is too short (min 50)`,
+      );
+      return false;
+    }
+
+    // implementation_hints 検証（最低1つ）
+    if (
+      !Array.isArray(proposal.implementation_hints) ||
+      proposal.implementation_hints.length === 0
+    ) {
+      logger.debug('Invalid enhancement proposal: no implementation hints provided');
+      return false;
+    }
+
+    // expected_impact 検証
+    if (!['low', 'medium', 'high'].includes(proposal.expected_impact)) {
+      logger.debug(
+        `Invalid enhancement proposal: invalid expected_impact "${proposal.expected_impact}"`,
+      );
+      return false;
+    }
+
+    // effort_estimate 検証
+    if (!['small', 'medium', 'large'].includes(proposal.effort_estimate)) {
+      logger.debug(
+        `Invalid enhancement proposal: invalid effort_estimate "${proposal.effort_estimate}"`,
+      );
+      return false;
+    }
+
+    // related_files 検証（最低1つ）
+    if (!Array.isArray(proposal.related_files) || proposal.related_files.length === 0) {
+      logger.debug('Invalid enhancement proposal: no related files provided');
       return false;
     }
 
