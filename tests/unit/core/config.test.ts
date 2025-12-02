@@ -878,3 +878,160 @@ describe('Config - Singletonインスタンス', () => {
     expect(typeof config.isCI).toBe('function');
   });
 });
+
+/**
+ * ユニットテスト: Config.canAgentInstallPackages() (Issue #177)
+ *
+ * テスト対象:
+ * - Config.canAgentInstallPackages() メソッド
+ * - 環境変数 AGENT_CAN_INSTALL_PACKAGES の解析ロジック
+ *
+ * テスト戦略: UNIT_ONLY
+ * - 環境変数パターンの網羅的検証
+ * - 正常系・境界値・異常系のテスト
+ */
+describe('Config - パッケージインストール設定（Issue #177）', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    // 環境変数のバックアップ
+    originalEnv = { ...process.env };
+  });
+
+  afterEach(() => {
+    // 環境変数の復元
+    process.env = originalEnv;
+  });
+
+  describe('canAgentInstallPackages()', () => {
+    // TC-001: 正常系 - "true" の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="true", When canAgentInstallPackages() is called, Then true is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(true);
+    });
+
+    // TC-002: 正常系 - "1" の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="1", When canAgentInstallPackages() is called, Then true is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = '1';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(true);
+    });
+
+    // TC-003: 正常系 - "false" の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="false", When canAgentInstallPackages() is called, Then false is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = 'false';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+
+    // TC-004: 正常系 - "0" の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="0", When canAgentInstallPackages() is called, Then false is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = '0';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+
+    // TC-005: 正常系（デフォルト動作） - 未設定の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES is not set, When canAgentInstallPackages() is called, Then false is returned (default)', () => {
+      // Given
+      delete process.env.AGENT_CAN_INSTALL_PACKAGES;
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+
+    // TC-006: 境界値テスト - 空文字列の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="", When canAgentInstallPackages() is called, Then false is returned (default)', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = '';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+
+    // TC-007: 境界値テスト - 大文字の場合
+    test('Given AGENT_CAN_INSTALL_PACKAGES="TRUE" (uppercase), When canAgentInstallPackages() is called, Then true is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = 'TRUE';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(true);
+    });
+
+    // TC-008: 境界値テスト - 前後に空白
+    test('Given AGENT_CAN_INSTALL_PACKAGES=" true " (with whitespace), When canAgentInstallPackages() is called, Then true is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = ' true ';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(true);
+    });
+
+    // TC-009: 異常系 - "yes" の場合（許可されていない値）
+    test('Given AGENT_CAN_INSTALL_PACKAGES="yes" (invalid value), When canAgentInstallPackages() is called, Then false is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = 'yes';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+
+    // TC-010: 異常系 - "2" の場合（許可されていない数値）
+    test('Given AGENT_CAN_INSTALL_PACKAGES="2" (invalid value), When canAgentInstallPackages() is called, Then false is returned', () => {
+      // Given
+      process.env.AGENT_CAN_INSTALL_PACKAGES = '2';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.canAgentInstallPackages();
+
+      // Then
+      expect(result).toBe(false);
+    });
+  });
+});
