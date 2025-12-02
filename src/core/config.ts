@@ -123,7 +123,7 @@ export interface IConfig {
   /**
    * フォローアップ Issue 生成に使用する LLM モードを取得
    */
-  getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'off' | null;
+  getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'agent' | 'off' | null;
 
   /**
    * フォローアップ Issue 生成に使用する LLM モデル名を取得
@@ -290,14 +290,14 @@ export class Config implements IConfig {
 
   // ========== Follow-up LLM 設定 ==========
 
-  public getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'off' | null {
+  public getFollowupLlmMode(): 'auto' | 'openai' | 'claude' | 'agent' | 'off' | null {
     const value = this.getEnv('FOLLOWUP_LLM_MODE', false);
     if (!value) {
       return null;
     }
     const normalized = value.toLowerCase();
-    return ['auto', 'openai', 'claude', 'off'].includes(normalized)
-      ? (normalized as 'auto' | 'openai' | 'claude' | 'off')
+    return ['auto', 'openai', 'claude', 'agent', 'off'].includes(normalized)
+      ? (normalized as 'auto' | 'openai' | 'claude' | 'agent' | 'off')
       : null;
   }
 

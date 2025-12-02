@@ -75,7 +75,7 @@ export async function runCli(): Promise<void> {
     .option('--test-scenario-doc <path>', 'External test scenario document path')
     .option(
       '--followup-llm-mode <mode>',
-      'Follow-up issue LLM mode (off|auto|openai|claude)',
+      'Follow-up issue LLM mode (off|auto|openai|claude|agent)',
     )
     .option(
       '--followup-llm-model <name>',

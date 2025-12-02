@@ -54,7 +54,7 @@ export interface ParsedExecuteOptions {
   /**
    * フォローアップ Issue 生成時の LLM モード
    */
-  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'off';
+  followupLlmMode?: 'auto' | 'openai' | 'claude' | 'agent' | 'off';
 
   /**
    * フォローアップ Issue 生成時のモデル名
@@ -119,8 +119,8 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
   const followupLlmModeRaw =
     typeof options.followupLlmMode === 'string' ? options.followupLlmMode.toLowerCase() : undefined;
   const followupLlmMode =
-    followupLlmModeRaw && ['auto', 'openai', 'claude', 'off'].includes(followupLlmModeRaw)
-      ? (followupLlmModeRaw as 'auto' | 'openai' | 'claude' | 'off')
+    followupLlmModeRaw && ['auto', 'openai', 'claude', 'agent', 'off'].includes(followupLlmModeRaw)
+      ? (followupLlmModeRaw as 'auto' | 'openai' | 'claude' | 'agent' | 'off')
       : undefined;
 
   const followupLlmModel =
@@ -205,10 +205,10 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
 
   if (options.followupLlmMode) {
     const mode = String(options.followupLlmMode).toLowerCase();
-    const allowed = ['auto', 'openai', 'claude', 'off'];
+    const allowed = ['auto', 'openai', 'claude', 'agent', 'off'];
     if (!allowed.includes(mode)) {
       errors.push(
-        "Option '--followup-llm-mode' must be one of: auto, openai, claude, off.",
+        "Option '--followup-llm-mode' must be one of: auto, openai, claude, agent, off.",
       );
     }
   }
