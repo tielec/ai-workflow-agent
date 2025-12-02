@@ -169,23 +169,23 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: クラス設計 (0.5~1h)
+- [x] Task 2-1: クラス設計 (0.5~1h)
   - `IssueInspector` クラスの設計（エージェントベース検品）
   - `IssueFilterService` クラスの設計（カテゴリフィルタリング）
   - `auto-issue.ts` のパターンを参考に、既存クラス（`AgentExecutor`, `GitHubClient`）との連携方針
 
-- [ ] Task 2-2: プロンプト設計 (0.5~1h)
+- [x] Task 2-2: プロンプト設計 (0.5~1h)
   - `inspect-issue.txt` プロンプトテンプレート設計
   - エージェントへ提供する情報（Issue情報、関連情報、コードベース情報）の形式
   - 構造化出力（JSON）の要求形式
   - 判定基準の明示的な記載
 
-- [ ] Task 2-3: CLIインターフェース設計 (0.5~0.5h)
+- [x] Task 2-3: CLIインターフェース設計 (0.5~0.5h)
   - コマンド引数仕様（`--category`, `--limit`, `--dry-run`, `--confidence-threshold`, `--days-threshold`, `--require-approval`, `--exclude-labels`, `--agent`）
   - デフォルト値の決定（category: `followup`, limit: `10`, dryRun: `true`, confidence: `0.7`, days: `90`, agent: `auto`）
   - ヘルプメッセージとエラーメッセージ
 
-- [ ] Task 2-4: データフロー設計 (0.5~0.5h)
+- [x] Task 2-4: データフロー設計 (0.5~0.5h)
   - GitHub Issue取得 → カテゴリフィルタ → エージェント検品 → クローズ判定 → 実行/dry-run
   - エラーハンドリングフロー（エージェント失敗、GitHub APIエラー、JSON parse エラー）
   - ログ出力設計（進捗状況、判定結果、エラー情報）
