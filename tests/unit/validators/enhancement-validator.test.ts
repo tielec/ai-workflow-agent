@@ -57,14 +57,14 @@ describe('EnhancementProposal Validation', () => {
   /**
    * テストケース 2.1.2: validateEnhancementProposal_異常系_title不足
    *
-   * 目的: title が 50文字未満の場合、バリデーションが失敗することを検証
+   * 目的: title が 10文字未満の場合、バリデーションが失敗することを検証
    */
   describe('TC-2.1.2: validateEnhancementProposal - title too short', () => {
-    it('should reject proposal with title less than 50 characters', () => {
-      // Given: titleが50文字未満の提案
+    it('should reject proposal with title less than 10 characters', () => {
+      // Given: titleが10文字未満の提案
       const invalidProposal: EnhancementProposal = {
         type: 'integration',
-        title: 'Slack 通知', // 50文字未満
+        title: 'Slack', // 10文字未満
         description:
           'AI Workflow Agent のワークフロー完了時（Phase 9: Evaluation 完了）に、Slack チャンネルへ自動通知を送信する機能。Issue タイトル、PR リンク、実行時間、コスト情報をリッチメッセージで表示する。',
         rationale:
@@ -86,15 +86,15 @@ describe('EnhancementProposal Validation', () => {
   /**
    * テストケース 2.1.3: validateEnhancementProposal_異常系_title超過
    *
-   * 目的: title が 100文字を超える場合、バリデーションが失敗することを検証
+   * 目的: title が 200文字を超える場合、バリデーションが失敗することを検証
    */
   describe('TC-2.1.3: validateEnhancementProposal - title too long', () => {
-    it('should reject proposal with title exceeding 100 characters', () => {
-      // Given: titleが100文字を超える提案
+    it('should reject proposal with title exceeding 200 characters', () => {
+      // Given: titleが200文字を超える提案
       const invalidProposal: EnhancementProposal = {
         type: 'integration',
         title:
-          'Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能で、この機能はチームメンバー全員に対してリアルタイムで通知を送信する高度な機能です', // 100文字超過
+          'Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能で、この機能はチームメンバー全員に対してリアルタイムで通知を送信する高度な機能です。さらにこの機能は複数のチャネルへの同時通知、メンション機能、カスタマイズ可能なメッセージテンプレート、そしてエラー発生時の即座のアラート機能も含まれています。', // 200文字超過
         description:
           'AI Workflow Agent のワークフロー完了時（Phase 9: Evaluation 完了）に、Slack チャンネルへ自動通知を送信する機能。',
         rationale: 'チームメンバーがワークフロー完了をリアルタイムで把握できる。',
