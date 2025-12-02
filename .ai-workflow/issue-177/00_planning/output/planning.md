@@ -166,20 +166,20 @@
 
 ### Phase 4: 実装 (見積もり: 3〜4h)
 
-- [ ] Task 4-1: Dockerfile の変更 (1〜1.5h)
+- [x] Task 4-1: Dockerfile の変更 (1〜1.5h)
   - ベースイメージを `ubuntu:22.04` に変更
   - Node.js 20.x インストール処理を追加
   - `build-essential`、`sudo` 等のビルドツールをインストール
   - 環境変数 `AGENT_CAN_INSTALL_PACKAGES=true` を設定
   - Docker イメージビルドの動作確認
 
-- [ ] Task 4-2: Config クラスの拡張 (1h)
+- [x] Task 4-2: Config クラスの拡張 (1h)
   - `IConfig` インターフェースに `canAgentInstallPackages(): boolean` を追加
   - `Config` クラスに実装を追加
   - 内部ヘルパーメソッド `parseBoolean()` を追加（オプション、既存パターン踏襲）
   - 型定義の更新
 
-- [ ] Task 4-3: BasePhase プロンプト注入実装 (1〜1.5h)
+- [x] Task 4-3: BasePhase プロンプト注入実装 (1〜1.5h)
   - `loadPrompt()` メソッドに環境情報注入ロジックを追加
   - `buildEnvironmentInfoSection()` プライベートメソッドを追加
   - インストール可能な言語リストのMarkdown生成
