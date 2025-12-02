@@ -18,9 +18,9 @@
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 52825,
-    "total_output_tokens": 179896,
-    "total_cost_usd": 16.444581799999998
+    "total_input_tokens": 52832,
+    "total_output_tokens": 183266,
+    "total_cost_usd": 16.95823135
   },
   "phases": {
     "planning": {
@@ -125,7 +125,10 @@
       "started_at": "2025-12-02T04:27:54.350Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "evaluation": {
       "status": "pending",
@@ -141,7 +144,7 @@
     }
   },
   "created_at": "2025-12-02T03:14:02.869Z",
-  "updated_at": "2025-12-02T04:31:34.751Z",
+  "updated_at": "2025-12-02T04:32:49.771Z",
   "branch_name": "ai-workflow/issue-174",
   "pr_number": 175,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/175",
