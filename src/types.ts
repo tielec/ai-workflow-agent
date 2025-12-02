@@ -108,7 +108,7 @@ export interface RemainingTask {
 
 export interface IssueGenerationOptions {
   enabled: boolean;
-  provider: 'auto' | 'openai' | 'claude';
+  provider: 'auto' | 'openai' | 'claude' | 'agent';
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
