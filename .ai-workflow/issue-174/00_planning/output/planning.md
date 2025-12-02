@@ -187,33 +187,33 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: プロンプトテンプレート作成 (0.5h)
+- [x] Task 4-1: プロンプトテンプレート作成 (0.5h)
   - `src/prompts/followup/generate-followup-issue.txt` の実装
   - 5つの必須セクション（背景、目的、実行内容、受け入れ基準、参考情報）を含む
   - ファイルベース出力指示（`{output_file_path}` プレースホルダー）を含む
 
-- [ ] Task 4-2: `IssueAgentGenerator` クラス実装 (2~3h)
+- [x] Task 4-2: `IssueAgentGenerator` クラス実装 (2~3h)
   - コンストラクタ（エージェントクライアント注入）
   - `generate()` メソッド（プロンプト構築 → エージェント実行 → ファイル読み込み）
   - `buildPrompt()` メソッド（テンプレート変数置換）
   - `readOutputFile()` メソッド（ファイル検証、フォールバック処理）
   - エラーハンドリング（`getErrorMessage()` 使用）
 
-- [ ] Task 4-3: `IssueClient` 拡張 (1h)
-  - `generateFollowUpWithAgent()` メソッド追加
+- [x] Task 4-3: `IssueClient` 拡張 (1h)
+  - `tryGenerateWithAgent()` メソッド追加（設計書では`generateFollowUpWithAgent()`だったが、より適切な名前に変更）
   - `createIssueFromEvaluation()` にエージェントモード分岐を追加
   - `IssueAgentGenerator` のインスタンス管理（コンストラクタ注入）
 
-- [ ] Task 4-4: CLI オプション拡張 (0.5h)
+- [x] Task 4-4: CLI オプション拡張 (0.5h)
   - `src/commands/execute.ts` に `--followup-llm-mode agent` パース処理を追加
   - `IssueGenerationOptions` 型に `mode: 'agent'` を追加
 
-- [ ] Task 4-5: `EvaluationPhase` 統合 (0.5h)
-  - `handlePassWithIssues()` からエージェント生成を呼び出し
-  - フォールバック機構の統合
+- [x] Task 4-5: `EvaluationPhase` 統合 (0.5h)
+  - IssueClient経由でエージェント生成が呼び出される（IssueClientの実装で対応）
+  - フォールバック機構の統合（IssueClientで実装済み）
 
-- [ ] Task 4-6: ビルドスクリプト更新 (0.5h)
-  - `scripts/copy-static-assets.mjs` に `src/prompts/followup/*.txt` のコピー処理を追加（既存の `src/prompts/**/*.txt` で対応済みの可能性あり、要確認）
+- [x] Task 4-6: ビルドスクリプト更新 (0.5h)
+  - `scripts/copy-static-assets.mjs`の既存パターン`src/prompts/**/*.txt`で対応済みを確認
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
