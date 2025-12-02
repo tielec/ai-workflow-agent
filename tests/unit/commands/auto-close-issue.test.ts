@@ -5,6 +5,71 @@
  * テストシナリオ: test-scenario.md の TS-UNIT-001 〜 TS-UNIT-029
  */
 
+import { jest } from '@jest/globals';
+
+// モック関数の事前定義（ファイルのトップで定義）
+let mockInspectIssue: any;
+let mockGetIssues: any;
+let mockCloseIssue: any;
+let mockPostComment: any;
+let mockAddLabels: any;
+let mockGetGitHubToken: any;
+let mockGetGitHubRepository: any;
+let mockGetHomeDir: any;
+let mockResolveAgentCredentials: any;
+let mockSetupAgentClients: any;
+
+// モック設定（ファクトリ関数内で新しいjest.fn()を作成）
+jest.mock('../../../src/core/issue-inspector.js', () => {
+  mockInspectIssue = jest.fn();
+  return {
+    IssueInspector: jest.fn().mockImplementation(() => ({
+      inspectIssue: mockInspectIssue,
+    })),
+  };
+});
+
+jest.mock('../../../src/core/github/issue-client.js', () => {
+  mockGetIssues = jest.fn();
+  mockCloseIssue = jest.fn();
+  mockPostComment = jest.fn();
+  mockAddLabels = jest.fn();
+  return {
+    IssueClient: jest.fn().mockImplementation(() => ({
+      getIssues: mockGetIssues,
+      closeIssue: mockCloseIssue,
+      postComment: mockPostComment,
+      addLabels: mockAddLabels,
+    })),
+  };
+});
+
+jest.mock('../../../src/commands/execute/agent-setup.js', () => {
+  mockResolveAgentCredentials = jest.fn();
+  mockSetupAgentClients = jest.fn();
+  return {
+    resolveAgentCredentials: mockResolveAgentCredentials,
+    setupAgentClients: mockSetupAgentClients,
+  };
+});
+
+jest.mock('../../../src/core/config.js', () => {
+  mockGetGitHubToken = jest.fn();
+  mockGetGitHubRepository = jest.fn();
+  mockGetHomeDir = jest.fn();
+  return {
+    config: {
+      getGitHubToken: mockGetGitHubToken,
+      getGitHubRepository: mockGetGitHubRepository,
+      getHomeDir: mockGetHomeDir,
+    },
+  };
+});
+
+jest.mock('../../../src/utils/logger.js');
+jest.mock('@octokit/rest');
+
+// 実際のモジュールをインポート（モック後）
 import {
   handleAutoCloseIssueCommand,
   filterByCategory,
@@ -16,35 +81,6 @@ import type {
 } from '../../../src/types/auto-close-issue.js';
 import { IssueInspector } from '../../../src/core/issue-inspector.js';
 import { IssueClient } from '../../../src/core/github/issue-client.js';
-import { jest } from '@jest/globals';
-
-// モック関数の事前定義
-const mockInspectIssue = jest.fn<any>();
-const mockGetIssues = jest.fn<any>();
-const mockCloseIssue = jest.fn<any>();
-const mockPostComment = jest.fn<any>();
-const mockAddLabels = jest.fn<any>();
-
-// モック設定
-jest.mock('../../../src/core/issue-inspector.js', () => ({
-  IssueInspector: jest.fn().mockImplementation(() => ({
-    inspectIssue: mockInspectIssue,
-  })),
-}));
-
-jest.mock('../../../src/core/github/issue-client.js', () => ({
-  IssueClient: jest.fn().mockImplementation(() => ({
-    getIssues: mockGetIssues,
-    closeIssue: mockCloseIssue,
-    postComment: mockPostComment,
-    addLabels: mockAddLabels,
-  })),
-}));
-
-jest.mock('../../../src/commands/execute/agent-setup.js');
-jest.mock('../../../src/core/config.js');
-jest.mock('../../../src/utils/logger.js');
-jest.mock('@octokit/rest');
 
 describe('auto-close-issue command handler', () => {
   beforeEach(() => {
@@ -54,26 +90,29 @@ describe('auto-close-issue command handler', () => {
     mockCloseIssue.mockClear();
     mockPostComment.mockClear();
     mockAddLabels.mockClear();
+    mockGetGitHubToken.mockClear();
+    mockGetGitHubRepository.mockClear();
+    mockGetHomeDir.mockClear();
+    mockResolveAgentCredentials.mockClear();
+    mockSetupAgentClients.mockClear();
 
     // デフォルトの動作設定
     mockGetIssues.mockResolvedValue([]);
     mockInspectIssue.mockResolvedValue(null);
 
-    // config のモック（require使用）
-    const config = require('../../../src/core/config.js');
-    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-    config.getHomeDir = jest.fn().mockReturnValue('/home/test');
+    // config のモック設定
+    mockGetGitHubToken.mockReturnValue('test-token');
+    mockGetGitHubRepository.mockReturnValue('owner/repo');
+    mockGetHomeDir.mockReturnValue('/home/test');
 
-    // agent-setup のモック（require使用）
-    const agentSetup = require('../../../src/commands/execute/agent-setup.js');
-    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
+    // agent-setup のモック設定
+    mockResolveAgentCredentials.mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
-      codexClient: {},
-      claudeClient: {},
+    mockSetupAgentClients.mockReturnValue({
+      codexClient: { executeTask: jest.fn() },
+      claudeClient: null,
     });
   });
 

@@ -1,326 +1,162 @@
-# テスト実行結果
+# テスト実行結果（修正試行後）
 
 ## 実行サマリー
 
-- **実行日時**: 2025-12-02 12:22:00 (UTC)
+- **実行日時**: 2025-12-02 12:30:00 (UTC)
 - **テストフレームワーク**: Jest 30.2.0（TypeScript, ESM）
 - **Issue番号**: #176
 - **テスト戦略**: UNIT_INTEGRATION（Planning Phaseで決定）
+- **修正試行**: Phase 6内でテストコードの修正を試みました
 
-### テスト実行結果概要
+### テスト実行結果概要（修正試行後）
 
 | カテゴリ | 総テスト数 | 成功 | 失敗 | 実行結果 |
-|---------|----------|------|------|---------|
-| **新規追加テスト（Issue #176）** | 14個 | 0個 | 14個 | ❌ **全て失敗** |
-| **既存テスト（全体）** | 1,027個 | 831個 | 196個 | ⚠️ 既存の問題あり |
+|---------|----------|------|------|------------|
+| **新規追加テスト（Issue #176）** | 14個 | 0個 | 14個 | ❌ **全て失敗**（ESMモジュールモック問題） |
+| **既存テスト（全体）** | 1,027個 | 831個 | 196個 | ⚠️ 既存の問題あり（Issue #176とは無関係） |
 
-### 判定
+###判定
 
 - [ ] **すべてのテストが成功**
-- [x] **テスト実行自体が失敗**（新規追加テスト全滅）
+- [x] **テスト実行自体が失敗**（ESMモジュールモック問題）
 - [ ] **一部のテストが失敗**
 
-## 問題の詳細
+## 修正試行の詳細
 
-### 問題1: 新規追加テスト（Issue #176）の全失敗
+### Phase 6での修正試行
 
-**影響範囲**: Issue #176で追加された3つのテストファイル全てが実行不可
+Phase 6（テスト実行）内で、ESMモジュールのモック問題を修正しようと試みました。
 
-#### 失敗したテストファイル
+#### 試行1: `require()`の削除とトップレベルモック定義
 
-1. **`tests/unit/commands/auto-close-issue.test.ts`** - 14個のテストケース全て失敗
-2. **`tests/unit/core/issue-inspector.test.ts`** - 実装されているが未実行（前提条件エラー）
-3. **`tests/integration/auto-close-issue.test.ts`** - 実装されているが未実行（前提条件エラー）
+**実施内容**:
+- `beforeEach()`内の`require()`呼び出しを削除
+- トップレベルで`jest.mock()`を使用してモック定義
+- `jest.fn()`をファクトリ関数内で作成
 
-#### エラー内容
+**結果**: ✅ 部分的成功（`require is not defined`エラーは解消）
 
-```
-ReferenceError: require is not defined
+しかし、新しい問題が発生：
+- `mockGetGitHubRepository()`が`undefined`を返し、環境変数チェックで失敗
+- モック関数がJestのホイスティング機構と衝突
 
-  62 |     // config のモック（require使用）
-> 63 |     const config = require('../../../src/core/config.js');
-     |                    ^
-  64 |     config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-  65 |     config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-  66 |     config.getHomeDir = jest.fn().mockReturnValue('/home/test');
-```
+#### 試行2: `jest.spyOn()`の使用
 
-#### 原因分析
+**実施内容**:
+- モジュールをインポートしてから`jest.spyOn()`で直接プロパティを設定
 
-**根本原因**: ESMモジュール環境で `require()` を使用している
+**結果**: ❌ 失敗
+- `Cannot assign to read only property`エラー
+- ESMモジュールではエクスポートされたプロパティが読み取り専用
 
-プロジェクトは `package.json` で `"type": "module"` が設定されており、ESMモジュールとして動作します。しかし、テストファイルの `beforeEach()` メソッド内で以下のようにCommonJS形式の `require()` を使用しています：
+#### 試行3: ファクトリ関数内でのモック関数作成
 
-```typescript
-// tests/unit/commands/auto-close-issue.test.ts (63-77行目)
-beforeEach(() => {
-  // ...
+**実施内容**:
+- `jest.mock()`のファクトリ関数内で直接`jest.fn()`を作成
+- 変数に割り当ててテストスコープで参照
 
-  // config のモック（require使用）
-  const config = require('../../../src/core/config.js');  // ← ESM環境でエラー
-  config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-  config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-  config.getHomeDir = jest.fn().mockReturnValue('/home/test');
+**結果**: ❌ 失敗
+- `TypeError: Cannot read properties of undefined (reading 'mockClear')`
+- Jestのホイスティング機構により、ファクトリ関数が実行される前に変数が参照される
 
-  // agent-setup のモック（require使用）
-  const agentSetup = require('../../../src/commands/execute/agent-setup.js');  // ← ESM環境でエラー
-  agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
-    codexApiKey: 'test-codex-key',
-    claudeCredentialsPath: '/path/to/claude',
-  });
-  agentSetup.setupAgentClients = jest.fn().mockReturnValue({
-    codexClient: {},
-    claudeClient: {},
-  });
-});
-```
+### 根本的な問題: JestのESMモジュールサポートの制限
 
-**ESMモジュール環境の制約**:
-- ESMモジュールでは `require()` が利用できない
-- Jestの設定（`NODE_OPTIONS=--experimental-vm-modules`）でESMモジュール実行環境が有効化されている
-- 動的インポート（`await import()`）を使用する必要があるが、`beforeEach()` が非同期対応していない
+Issue #176のテストコードは、以下の問題により実行できません：
 
-#### Phase 5での対応状況
+1. **ESMモジュール環境での`require()`禁止**
+   - `package.json`の`"type": "module"`設定により、ESMモジュール環境が強制される
+   - `require()`はCommonJS専用のため使用不可
 
-Phase 5のテスト実装ログ（`test-implementation.md`）には以下の記載があります：
+2. **Jestのモックホイスティング機構とESMの衝突**
+   - `jest.mock()`はファイルのトップにホイストされる
+   - モック関数を事前に定義しても、ファクトリ関数内では参照できない（スコープの問題）
 
-**「修正履歴（Phase 6レビュー後の差し戻し）」** (394-431行目):
-> ### 修正実施日: 2025-12-02（Phase 6からの差し戻し）
->
-> Phase 6（テスト実行）のレビューで「テストファイルが存在しない」または「テストが実行できない」と指摘されたため、Phase 5に差し戻されました。
->
-> ### 問題: ESMモジュール対応の不一致
->
-> **修正内容**:
-> - `tests/unit/commands/auto-close-issue.test.ts` の `beforeEach()` メソッドを修正
-> - 修正前: `const { config } = await import('../../../src/core/config.js');` （動的インポート）
-> - 修正後: `const config = require('../../../src/core/config.js');` （CommonJS require）
+3. **ESMモジュールの読み取り専用プロパティ**
+   - インポートされたモジュールのプロパティに直接代入不可
+   - `jest.spyOn()`も同様の制限を受ける
 
-しかし、実際のテストファイルを確認すると、**修正は反映されておらず、`require()` が使用されたまま**です。つまり、Phase 5で修正されたと記録されていますが、実際にはファイルが更新されていません。
+4. **既存テストとの矛盾**
+   - 既存の`auto-issue.test.ts`も`beforeEach()`内で`require()`を使用
+   - しかし、既存テストは動作している（実行環境やモジュール解決の違い？）
 
-#### 既存テストとの比較
+### 推奨される解決策
 
-既存のテストファイル（`tests/unit/commands/auto-issue.test.ts`）は、トップレベルで `jest.mock()` を使用しており、`beforeEach()` で動的なモックを行っていません：
+この問題は**Phase 6（テスト実行）の範囲を超えています**。テストコードの実装に根本的な問題があるため、**Phase 5（テストコード実装）に差し戻し**が必要です。
+
+#### Phase 5での修正方針
+
+**オプション1: 既存テストパターンの厳密な踏襲**（推奨）
+
+既存の`auto-issue.test.ts`が実際に動作している理由を調査し、同じパターンを厳密に踏襲する：
 
 ```typescript
-// 既存テスト（動作している）
-jest.mock('../../../src/core/config.js');
-jest.mock('../../../src/commands/execute/agent-setup.js');
-
-// モック定義はトップレベルで実行
-```
-
-新規追加されたテストは、`beforeEach()` でモックのプロパティを動的に設定しようとしていますが、この方法がESMモジュール環境では機能しません。
-
-### 修正方針
-
-**推奨される修正方法**（Phase 5への差し戻し後に実施）：
-
-#### オプション1: 既存テストパターンに統一（推奨）
-
-既存の `auto-issue.test.ts` と同じパターンに統一し、トップレベルでモックを定義する：
-
-```typescript
-// tests/unit/commands/auto-close-issue.test.ts
+// 既存の動作パターン（auto-issue.test.ts）
 import { jest } from '@jest/globals';
 
-// トップレベルでモックを定義
-jest.mock('../../../src/core/config.js', () => ({
-  config: {
-    getGitHubToken: jest.fn(() => 'test-token'),
-    getGitHubRepository: jest.fn(() => 'owner/repo'),
-    getHomeDir: jest.fn(() => '/home/test'),
-  }
-}));
+// モック関数の事前定義（グローバルスコープ）
+const mockAnalyze = jest.fn<any>();
 
-jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
-  resolveAgentCredentials: jest.fn(() => ({
-    codexApiKey: 'test-codex-key',
-    claudeCredentialsPath: '/path/to/claude',
-  })),
-  setupAgentClients: jest.fn(() => ({
-    codexClient: {},
-    claudeClient: {},
+// モック設定（トップレベル）
+jest.mock('../../../src/core/repository-analyzer.js', () => ({
+  RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
+    analyze: mockAnalyze,
   })),
 }));
-```
 
-#### オプション2: jest.unstable_mockModule を使用
+jest.mock('../../../src/commands/execute/agent-setup.js');
+jest.mock('../../../src/core/config.js');
 
-Jestの実験的機能（`jest.unstable_mockModule()`）を使用してESMモジュールをモック：
-
-```typescript
-beforeAll(async () => {
-  const { jest } = await import('@jest/globals');
-
-  jest.unstable_mockModule('../../../src/core/config.js', () => ({
-    config: {
-      getGitHubToken: jest.fn(() => 'test-token'),
-      getGitHubRepository: jest.fn(() => 'owner/repo'),
-      getHomeDir: jest.fn(() => '/home/test'),
-    }
-  }));
+describe('auto-issue command handler', () => {
+  beforeEach(async () => {
+    // beforeEach内でrequire()を使用
+    const config = require('../../../src/core/config.js');
+    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
+    // ...
+  });
 });
 ```
 
-**注意**: オプション2は実験的機能のため、オプション1（既存パターンに統一）を推奨します。
+**重要**: 既存テストが`require()`を使用しているのに動作している理由を理解する必要があります。可能性：
+- TypeScript/ts-jestの設定により、一部のテストがCommonJS形式にトランスパイルされている
+- モジュール解決の順序やキャッシュの違い
 
-### 問題2: 既存テストの失敗（Issue #176以外）
+**オプション2: CommonJSテストファイルへの変換**
 
-**影響範囲**: プロジェクト全体の既存テスト（Issue #176とは無関係）
+テストファイルを`.cjs`拡張子に変更し、CommonJS形式で記述する：
 
-#### 失敗統計
-
-- 総テストスイート数: 73個
-- 失敗したテストスイート: 37個
-- 成功したテストスイート: 36個
-- 総テスト数: 1,027個
-- 成功: 831個
-- 失敗: 196個
-
-#### 主なエラーカテゴリ
-
-1. **TypeScriptコンパイルエラー** (多数)
-   - `TS18046: 'callback' is of type 'unknown'.`
-   - `TS2345: Argument of type 'string' is not assignable to parameter of type 'never'.`
-   - `TS2322: Type 'string' is not assignable to type 'never'.`
-
-2. **ESMモジュールエラー** (複数ファイル)
-   - `TypeError: Cannot add property existsSync, object is not extensible`
-   - モックオブジェクトのプロパティ追加が失敗
-
-3. **リポジトリパス解決エラー** (インテグレーションテスト)
-   - `Repository 'repo' not found.`
-   - 環境変数 `REPOS_ROOT` が未設定
-
-#### これらの問題について
-
-**重要**: これらの既存テストの失敗は **Issue #176とは無関係** です。Issue #176の実装によって既存テストが破壊されたわけではなく、もともと存在していた問題です。
-
-**理由**:
-- Phase 4（実装）では、既存ファイルへの変更は最小限（`src/core/github/issue-client.ts` に3メソッド追加、`src/main.ts` に新規コマンド追加のみ）
-- 既存テストファイルには一切変更を加えていない
-- 既存テストの失敗は、プロジェクト全体のテスト環境設定、TypeScript設定、モック設定の問題
-
-## テスト実行コマンド
-
-### 実行したコマンド
-
-```bash
-# ユニットテスト実行
-npm run test:unit
-
-# インテグレーションテスト実行
-npm run test:integration
-
-# 新規追加テストのみ実行（Issue #176）
-NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/commands/auto-close-issue.test.ts
-NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/core/issue-inspector.test.ts
-NODE_OPTIONS=--experimental-vm-modules npx jest tests/integration/auto-close-issue.test.ts
+```javascript
+// tests/unit/commands/auto-close-issue.test.cjs
+const { handleAutoCloseIssueCommand } = require('../../../src/commands/auto-close-issue.js');
+// ...
 ```
 
-### 実行環境
+**利点**: `require()`が使用可能
+**欠点**: プロジェクト全体がESMモジュールの中でCommonJSテストが混在
 
-- **Node.js**: 20.x
-- **npm**: 10.x
-- **Jest**: 30.2.0
-- **TypeScript**: 5.6.3
-- **OS**: Ubuntu 22.04 (Docker環境)
+**オプション3: テストファイルの完全な再実装**
 
-## 新規追加テストの詳細（Issue #176）
+ESMモジュールに完全対応した形でテストを再実装：
+- モックの依存関係を減らす
+- 実際のモジュールをインポートし、`jest.spyOn()`でメソッドのみモック
+- 統合テストの比重を増やし、ユニットテストを減らす
 
-### ファイル1: tests/unit/commands/auto-close-issue.test.ts
-
-**テスト対象**: `src/commands/auto-close-issue.ts` （CLIコマンドハンドラ）
-
-**テストケース一覧**（全14個）:
-
-| No | テストID | テストケース名 | 結果 | エラー |
-|----|----------|---------------|------|--------|
-| 1 | TS-UNIT-001 | Default values application | ❌ | `require is not defined` |
-| 2 | TS-UNIT-002 | All options specified | ❌ | `require is not defined` |
-| 3 | TS-UNIT-003 | Category option validation (valid) | ❌ | `require is not defined` |
-| 4 | TS-UNIT-003 | Category option validation (invalid) | ❌ | `require is not defined` |
-| 5 | TS-UNIT-004 | Limit out of range check | ❌ | `require is not defined` |
-| 6 | TS-UNIT-005 | Limit boundary values | ❌ | `require is not defined` |
-| 7 | TS-UNIT-006 | ConfidenceThreshold out of range | ❌ | `require is not defined` |
-| 8 | TS-UNIT-007 | ConfidenceThreshold boundary values | ❌ | `require is not defined` |
-| 9 | TS-UNIT-008 | DaysThreshold negative value check | ❌ | `require is not defined` |
-| 10 | TS-UNIT-009 | Followup category filter | ❌ | `require is not defined` |
-| 11 | TS-UNIT-010 | Stale category filter | ❌ | `require is not defined` |
-| 12 | TS-UNIT-011 | Stale category filter boundary value | ❌ | `require is not defined` |
-| 13 | TS-UNIT-012 | Old category filter | ❌ | `require is not defined` |
-| 14 | TS-UNIT-013 | All category filter | ❌ | `require is not defined` |
-
-**成功率**: 0/14（0%）
-
-### ファイル2: tests/unit/core/issue-inspector.test.ts
-
-**テスト対象**: `src/core/issue-inspector.ts` （Issue検品ロジック）
-
-**ステータス**: ファイルは存在するが、前提条件エラー（`auto-close-issue.test.ts` の失敗）により未実行
-
-### ファイル3: tests/integration/auto-close-issue.test.ts
-
-**テスト対象**: GitHub API連携、エージェント統合、エンドツーエンドフロー
-
-**ステータス**: ファイルは存在するが、前提条件エラーにより未実行
-
-## テスト実行ログ（抜粋）
-
-### ユニットテスト実行ログ
-
-```
-> ai-workflow-agent@0.2.0 test:unit
-> NODE_OPTIONS=--experimental-vm-modules jest tests/unit
-
-ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated.
-(node:1459) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-
-FAIL tests/unit/commands/auto-close-issue.test.ts (5.629 s)
-  ● auto-close-issue command handler › TS-UNIT-001: Default values application › should apply default values when options are not specified
-
-    ReferenceError: require is not defined
-
-    [0m [90m 61 |[39m
-     [90m 62 |[39m     [90m// config のモック（require使用）[39m
-    [31m[1m>[22m[39m[90m 63 |[39m     [36mconst[39m config [33m=[39m require([32m'../../../src/core/config.js'[39m)[33m;[39m
-     [90m    |[39m                    [31m[1m^[22m[39m
-     [90m 64 |[39m     config[33m.[39mgetGitHubToken [33m=[39m jest[33m.[39mfn()[33m.[39mmockReturnValue([32m'test-token'[39m)[33m;[39m
-     [90m 65 |[39m     config[33m.[39mgetGitHubRepository [33m=[39m jest[33m.[39mfn()[33m.[39mmockReturnValue([32m'owner/repo'[39m)[33m;[39m
-     [90m 66 |[39m     config[33m.[39mgetHomeDir [33m=[39m jest[33m.[39mfn()[33m.[39mmockReturnValue([32m'/home/test'[39m)[33m;[39m[0m
-
-      at Object.<anonymous> (tests/unit/commands/auto-close-issue.test.ts:63:20)
-
-（以下、同様のエラーが13個続く）
-```
-
-### 全体のテスト結果サマリー
-
-```
-Test Suites: 37 failed, 36 passed, 73 total
-Tests:       196 failed, 831 passed, 1027 total
-Snapshots:   0 total
-Time:        68.591 s
-Ran all test suites matching tests/unit.
-```
-
-## 品質ゲート確認
+## 品質ゲート確認（修正試行後）
 
 Phase 6の品質ゲート（3つの必須要件）に対する評価：
 
-- [ ] **テストが実行されている** - ❌ **不合格**
-  - 新規追加テスト（Issue #176）は全て実行失敗
-  - ESMモジュール環境での `require()` 使用エラー
+- [ ] **テストが実行されている**: ❌ **不合格**
+  - 修正試行により`require is not defined`エラーは解消
+  - しかし、新しいモックエラー（`undefined`参照）が発生
+  - 根本的な解決には至らず
 
-- [ ] **主要なテストケースが成功している** - ❌ **不合格**
+- [ ] **主要なテストケースが成功している**: ❌ **不合格**
   - 新規追加テスト14個が全て失敗（成功率: 0%）
   - テストロジックの検証が不可能
 
-- [ ] **失敗したテストは分析されている** - ✅ **合格**
-  - 失敗の根本原因を特定（ESM環境での `require()` 使用）
-  - 修正方針を明確化（既存パターンに統一）
-  - Phase 5への差し戻しが必要
+- [x] **失敗したテストは分析されている**: ✅ **合格**
+  - 失敗の根本原因を特定（JestのESMモジュールサポートの制限）
+  - 3つの修正試行を実施し、それぞれの問題点を記録
+  - Phase 5への差し戻しと修正方針を明確化
 
 **総合判定**: ❌ **Phase 6は不合格**
 
@@ -329,107 +165,110 @@ Phase 6の品質ゲート（3つの必須要件）に対する評価：
 ### 推奨アクション: Phase 5（Test Implementation）への差し戻し
 
 **理由**:
-1. 新規追加されたテストコード（Issue #176）が実行できない
-2. Phase 5のテスト実装ログには修正済みと記載されているが、実際には反映されていない
-3. テストコードの実装品質に問題があるため、Phase 5で修正が必要
+1. テストコードがESMモジュール環境で実行できない（根本的な実装問題）
+2. Phase 6での修正試行により、問題の複雑さが明確になった
+3. 正しい解決には、テストコード実装の根本的な見直しが必要
 
-### 差し戻し後の修正内容（Phase 5で実施）
+### Phase 5での作業内容
 
-#### 修正1: auto-close-issue.test.ts のモック方法変更
+1. **既存テストパターンの詳細調査**
+   - `auto-issue.test.ts`が`require()`を使用しているのに動作する理由を解明
+   - TypeScript/Jest/ts-jestの設定を確認
 
-**ファイル**: `tests/unit/commands/auto-close-issue.test.ts`
+2. **テストコードの修正**（オプション1を推奨）
+   - 既存パターンを厳密に踏襲
+   - `beforeEach()`内の`require()`使用方法を既存と完全に統一
 
-**修正箇所**: 62-78行目（`beforeEach()` メソッド）
+3. **テスト実行確認**
+   - 修正後、Phase 6でテストが実行できることを確認
 
-**修正前**:
-```typescript
-beforeEach(() => {
-  // ...
+### 参考情報
 
-  // config のモック（require使用）← ESM環境でエラー
-  const config = require('../../../src/core/config.js');
-  config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-  config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-  config.getHomeDir = jest.fn().mockReturnValue('/home/test');
+#### 既存テストとの比較
 
-  // agent-setup のモック（require使用）← ESM環境でエラー
-  const agentSetup = require('../../../src/commands/execute/agent-setup.js');
-  agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
-    codexApiKey: 'test-codex-key',
-    claudeCredentialsPath: '/path/to/claude',
-  });
-  agentSetup.setupAgentClients = jest.fn().mockReturnValue({
-    codexClient: {},
-    claudeClient: {},
-  });
-});
+| 項目 | 既存テスト (`auto-issue.test.ts`) | 新規テスト (`auto-close-issue.test.ts`) |
+|------|-----------------------------------|------------------------------------------|
+| `beforeEach()`での`require()`使用 | ✅ 使用 | ✅ 使用（Phase 6で削除試行） |
+| トップレベルのモック定義 | ✅ あり | ✅ あり |
+| テスト実行結果 | ✅ 成功 | ❌ 失敗 |
+
+#### 既存テストが動作する理由（仮説）
+
+1. **モジュール解決の違い**
+   - 既存テストは先にロードされ、モジュールキャッシュに格納される
+   - 新規テストは後からロードされ、異なる解決パスを取る
+
+2. **TypeScript設定の影響**
+   - `ts-jest`の設定により、一部のファイルがCommonJS形式にトランスパイルされている可能性
+
+3. **Jestの内部処理の違い**
+   - `jest.mock()`の処理順序やモジュールローダーの実装詳細による違い
+
+## テスト実行ログ（修正試行後）
+
+### 試行1の実行ログ（部分的成功）
+
+```
+FAIL tests/unit/commands/auto-close-issue.test.ts (5.837 s)
+      ✕ should apply default values when options are not specified (83 ms)
+      ✕ should parse all options correctly (9 ms)
+      ✕ should accept valid category values (7 ms)
+      ✓ should throw error for invalid category (10 ms)
+      ✓ should throw error when limit is out of range (22 ms)
+      ✕ should accept boundary values for limit (6 ms)
+      ✓ should throw error when confidenceThreshold is out of range (8 ms)
+      ✕ should accept boundary values for confidenceThreshold (5 ms)
+      ✓ should throw error when daysThreshold is negative (5 ms)
+      ✓ should filter issues starting with [FOLLOW-UP] (2 ms)
+      ✕ should filter issues not updated for 90+ days (3 ms)
+      ✕ should include issues updated exactly 90 days ago (4 ms)
+      ✕ should filter issues created 180+ days ago (1 ms)
+      ✓ should return all issues without filtering (1 ms)
+Tests:       8 failed, 6 passed, 14 total
 ```
 
-**修正後** （既存の `auto-issue.test.ts` パターンに統一）:
-```typescript
-// トップレベルでモックを定義（既存パターンに統一）
-jest.mock('../../../src/core/config.js', () => ({
-  config: {
-    getGitHubToken: jest.fn(() => 'test-token'),
-    getGitHubRepository: jest.fn(() => 'owner/repo'),
-    getHomeDir: jest.fn(() => '/home/test'),
-  }
-}));
+**分析**:
+- `require is not defined`エラーは解消されました ✅
+- 6個のテストが成功しました（異常系テスト）
+- 正常系テストが失敗（モック関数の戻り値が`undefined`）
 
-jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
-  resolveAgentCredentials: jest.fn(() => ({
-    codexApiKey: 'test-codex-key',
-    claudeCredentialsPath: '/path/to/claude',
-  })),
-  setupAgentClients: jest.fn(() => ({
-    codexClient: {},
-    claudeClient: {},
-  })),
-}));
+**エラー例**:
+```
+● auto-close-issue command handler › TS-UNIT-001: Default values application › should apply default values when options are not specified
 
-// beforeEach() からは削除
-beforeEach(() => {
-  // モック関数のクリア
-  mockInspectIssue.mockClear();
-  mockGetIssues.mockClear();
-  mockCloseIssue.mockClear();
-  mockPostComment.mockClear();
-  mockAddLabels.mockClear();
+GITHUB_REPOSITORY environment variable is required.
 
-  // デフォルトの動作設定
-  mockGetIssues.mockResolvedValue([]);
-  mockInspectIssue.mockResolvedValue(null);
-
-  // config と agent-setup のモックは削除（トップレベルで定義済み）
-});
+at handleAutoCloseIssueCommand (src/commands/auto-close-issue.ts:67:13)
 ```
 
-#### 修正2: issue-inspector.test.ts のモック方法変更
+### 試行3の実行ログ（最終）
 
-**ファイル**: `tests/unit/core/issue-inspector.test.ts`
-
-同様の問題がある場合、同じパターンで修正してください。
-
-#### 修正3: テスト実行確認
-
-Phase 5での修正後、以下のコマンドで動作確認を実施してください：
-
-```bash
-# 新規追加テストのみ実行（Issue #176）
-NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/commands/auto-close-issue.test.ts --verbose
-
-# 全テストが成功することを確認
-npm run test:unit
-npm run test:integration
+```
+FAIL tests/unit/commands/auto-close-issue.test.ts (5.753 s)
+      ✕ should apply default values when options are not specified (2 ms)
+      ✕ should parse all options correctly (1 ms)
+      ✕ should accept valid category values (1 ms)
+      ✕ should throw error for invalid category (1 ms)
+      ✕ should throw error when limit is out of range (4 ms)
+      ✕ should accept boundary values for limit (5 ms)
+      ✕ should throw error when confidenceThreshold is out of range (3 ms)
+      ✕ should accept boundary values for confidenceThreshold (1 ms)
+      ✕ should throw error when daysThreshold is negative
+      ✕ should filter issues starting with [FOLLOW-UP] (1 ms)
+      ✕ should filter issues not updated for 90+ days
+      ✕ should include issues updated exactly 90 days ago
+      ✕ should filter issues created 180+ days ago (1 ms)
+      ✕ should return all issues without filtering (10 ms)
+Tests:       14 failed, 14 total
 ```
 
-### 差し戻し後のPhase 6再実行
+**分析**:
+- モック関数が`undefined`になり、全テスト失敗
+- `TypeError: Cannot read properties of undefined (reading 'mockClear')`
 
-Phase 5で修正完了後、Phase 6（Testing）を再実行してください。その際、以下を確認します：
-
-1. **新規追加テスト14個が全て成功すること**
-2. **既存テストへの影響がないこと**（既存の失敗は許容）
-3. **テストカバレッジが80%以上であること**（Phase 5の目標）
+**エラー原因**:
+- `jest.mock()`のホイスティングとスコープの問題
+- ファクトリ関数内で作成されたモック関数が外部から参照できない
 
 ## 既存テストの失敗について（補足）
 
@@ -451,36 +290,20 @@ Phase 5で修正完了後、Phase 6（Testing）を再実行してください�
    - Issue #176とは別のIssueとして管理すべき
    - プロジェクト全体のテスト環境改善が必要
 
-### 既存テスト失敗の例（参考）
-
-```
-FAIL tests/unit/codex-agent-client.test.ts
-  ● CodexAgentClient › executeTask › 正常系: コマンドが成功する
-
-    error TS18046: 'callback' is of type 'unknown'.
-
-FAIL tests/unit/metadata-manager.test.ts
-  ● MetadataManager › updatePhaseStatus › 正常系: フェーズステータスが更新される
-
-    TypeError: Cannot add property existsSync, object is not extensible
-```
-
-これらの問題はIssue #176の実装とは無関係であり、プロジェクト全体のテスト環境改善として別途対応が必要です。
-
 ## まとめ
 
 ### Phase 6（Testing）の結果
 
 - **判定**: ❌ **不合格** - Phase 5への差し戻しが必要
 - **新規追加テスト**: 0/14（0%）成功 - 全て実行失敗
-- **主な問題**: ESMモジュール環境で `require()` を使用している
-- **修正方針**: 既存テストパターン（`auto-issue.test.ts`）に統一
+- **主な問題**: JestのESMモジュールサポートの制限
+- **修正試行**: 3回の修正を試みたが、根本的な解決には至らず
 
 ### Phase 5への差し戻し理由
 
-1. テストコードが実行できない状態である
-2. Phase 5のログには「修正済み」と記載されているが、実際には未反映
-3. テストコード実装の品質に問題があり、Phase 5で修正が必要
+1. テストコードがESMモジュール環境で実行できない（根本的な実装問題）
+2. Phase 6での修正試行により、問題の複雑さが明確になった
+3. 正しい解決には、既存テストパターンの詳細調査とテストコード実装の見直しが必要
 
 ### 次回Phase 6実行時の確認ポイント
 
@@ -493,4 +316,48 @@ FAIL tests/unit/metadata-manager.test.ts
 **実行完了日**: 2025-12-02
 **Phase**: 6 (Testing)
 **ステータス**: ❌ Phase 5への差し戻しが必要
-**次のアクション**: Phase 5でテストコードを修正後、Phase 6を再実行
+**次のアクション**: Phase 5でテストコードを既存パターンに統一し、Phase 6を再実行
+
+---
+
+## 技術的な学び
+
+このPhase 6での修正試行により、以下の技術的な知見が得られました：
+
+### JestとESMモジュールの相互作用
+
+1. **ホイスティングの制限**
+   - `jest.mock()`はファイルのトップにホイストされる
+   - ファクトリ関数内で作成された変数は外部スコープから参照できない
+
+2. **読み取り専用プロパティ**
+   - ESMモジュールのエクスポートは読み取り専用
+   - `jest.spyOn()`でも直接代入は不可
+
+3. **既存コードとの互換性**
+   - 同じプロジェクト内でも、モジュール解決やキャッシュの違いによりテストの挙動が異なる
+   - 既存パターンの厳密な踏襲が重要
+
+### 推奨されるテスト実装パターン（ESMモジュール環境）
+
+将来のテスト実装では、以下のパターンを推奨します：
+
+1. **トップレベルでのモック定義**
+   ```typescript
+   const mockFn = jest.fn();
+   jest.mock('../module.js', () => ({
+     default: mockFn,
+   }));
+   ```
+
+2. **`beforeEach()`での戻り値設定のみ**
+   ```typescript
+   beforeEach(() => {
+     mockFn.mockClear();
+     mockFn.mockReturnValue('test-value');
+   });
+   ```
+
+3. **既存テストパターンの厳密な踏襲**
+   - 新しいパターンを試す前に、既存テストが動作する理由を理解する
+   - 既存パターンを厳密にコピーする
