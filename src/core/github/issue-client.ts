@@ -123,6 +123,53 @@ export class IssueClient {
   }
 
   /**
+   * Retrieves all open issues for the repository.
+   *
+   * @param perPage - Number of issues per page (max 100)
+   * @returns List of open issues
+   */
+  public async getIssues(perPage: number = 100) {
+    const { data } = await this.octokit.issues.listForRepo({
+      owner: this.owner,
+      repo: this.repo,
+      state: 'open',
+      per_page: Math.min(perPage, 100),
+    });
+    return data;
+  }
+
+  /**
+   * Closes an issue.
+   *
+   * @param issueNumber - Issue number to close
+   */
+  public async closeIssue(issueNumber: number) {
+    await this.octokit.issues.update({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+      state: 'closed',
+    });
+    logger.info(`Closed issue #${issueNumber}`);
+  }
+
+  /**
+   * Adds labels to an issue.
+   *
+   * @param issueNumber - Issue number
+   * @param labels - Labels to add
+   */
+  public async addLabels(issueNumber: number, labels: string[]) {
+    await this.octokit.issues.addLabels({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+      labels,
+    });
+    logger.info(`Added labels to issue #${issueNumber}: ${labels.join(', ')}`);
+  }
+
+  /**
    * Retrieves all comments for an issue.
    */
   public async getIssueComments(issueNumber: number) {

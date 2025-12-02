@@ -9,6 +9,7 @@ import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand } from './commands/rollback.js';
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
+import { handleAutoCloseIssueCommand } from './commands/auto-close-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -182,6 +183,30 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleAutoIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // auto-close-issue コマンド (Issue #176)
+  program
+    .command('auto-close-issue')
+    .description('Inspect issues using AI agents and safely close them')
+    .option('--category <type>', 'Filter category (followup|stale|old|all)', 'followup')
+    .option('--limit <number>', 'Maximum number of issues to process (1-50)', '10')
+    .option('--dry-run', 'Preview mode (do not close issues)', true)
+    .option('--confidence-threshold <number>', 'Close threshold (0.0-1.0)', '0.7')
+    .option('--days-threshold <number>', 'Stale/old threshold in days', '90')
+    .option('--require-approval', 'Require interactive confirmation', false)
+    .option('--exclude-labels <labels>', 'Comma-separated labels to exclude', 'do-not-close,pinned')
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .action(async (options) => {
+      try {
+        await handleAutoCloseIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
