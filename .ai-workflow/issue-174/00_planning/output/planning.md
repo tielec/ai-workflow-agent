@@ -152,18 +152,18 @@
 
 ### Phase 2: 設計 (見積もり: 2.5h)
 
-- [ ] Task 2-1: クラス設計 (1~1.5h)
+- [x] Task 2-1: クラス設計 (1~1.5h)
   - `IssueAgentGenerator` クラスのインターフェース設計
   - `IssueClient.generateFollowUpWithAgent()` メソッドのシグネチャ設計
   - エージェントクライアント（Codex/Claude）の依存性注入設計
   - フォールバック機構の設計（`IssueAgentGenerator` → `IssueAIGenerator`）
 
-- [ ] Task 2-2: プロンプトテンプレート設計 (1h)
+- [x] Task 2-2: プロンプトテンプレート設計 (1h)
   - `src/prompts/followup/generate-followup-issue.txt` のセクション構成設計
   - プロンプト変数の定義（`{remaining_tasks_json}`、`{issue_context_json}`、`{evaluation_report_path}`、`{output_file_path}`）
   - 品質要件の定義（背景・目的・実行内容・受け入れ基準・参考情報の5セクション必須）
 
-- [ ] Task 2-3: エラーハンドリング設計 (0.5h)
+- [x] Task 2-3: エラーハンドリング設計 (0.5h)
   - エージェント実行失敗時のフォールバックフロー設計
   - 出力ファイル不在時のフォールバックフロー設計
   - ログ記録方針の設計（`logger.warn()` でフォールバック理由を記録）
@@ -345,12 +345,12 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略の判断根拠が明記されている（EXTEND）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
-- [ ] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
-- [ ] クラス設計が完了している（`IssueAgentGenerator`、`IssueClient` 拡張）
-- [ ] プロンプトテンプレート設計が完了している（5セクション、ファイルベース出力）
-- [ ] エラーハンドリング設計が完了している（フォールバックフロー）
+- [x] 実装戦略の判断根拠が明記されている（EXTEND）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
+- [x] テストコード戦略の判断根拠が明記されている（BOTH_TEST）
+- [x] クラス設計が完了している（`IssueAgentGenerator`、`IssueClient` 拡張）
+- [x] プロンプトテンプレート設計が完了している（5セクション、ファイルベース出力）
+- [x] エラーハンドリング設計が完了している（フォールバックフロー）
 
 ### Phase 3: テストシナリオ
 
