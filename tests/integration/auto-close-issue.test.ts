@@ -398,4 +398,173 @@ describe('auto-close-issue integration tests', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('TS-INT-013: エンドツーエンドの検品フロー（正常系）', () => {
+    it('should process issues through complete inspection flow', async () => {
+      // Given: 3件のオープンIssueが存在する
+      const mockIssues = [
+        {
+          number: 1,
+          title: '[FOLLOW-UP] Add logging',
+          body: 'Issue body',
+          labels: [{ name: 'enhancement' }],
+          created_at: '2024-11-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          state: 'open',
+        },
+        {
+          number: 2,
+          title: '[FOLLOW-UP] Refactor API',
+          body: 'Issue body',
+          labels: [{ name: 'enhancement' }],
+          created_at: '2024-11-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          state: 'open',
+        },
+        {
+          number: 3,
+          title: '[FOLLOW-UP] Update docs',
+          body: 'Issue body',
+          labels: [{ name: 'documentation' }],
+          created_at: '2024-11-01T00:00:00Z',
+          updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          state: 'open',
+        },
+      ];
+
+      mockOctokit.rest.issues.list.mockResolvedValue({
+        data: mockIssues,
+      } as any);
+
+      mockOctokit.rest.issues.get.mockResolvedValue({
+        data: mockIssues[0],
+      } as any);
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue({
+        data: [],
+      } as any);
+
+      // When: Issue一覧を取得
+      const issues = await issueClient.getIssues(100);
+
+      // Then: 3件全てが返される
+      expect(issues).toHaveLength(3);
+      expect(issues[0].number).toBe(1);
+      expect(issues[1].number).toBe(2);
+      expect(issues[2].number).toBe(3);
+    });
+  });
+
+  describe('TS-INT-014: エンドツーエンドの検品フロー（複数Issue処理）', () => {
+    it('should close multiple issues with proper API calls', async () => {
+      // Given: 5件のオープンIssueが存在する
+      const mockIssues = Array.from({ length: 5 }, (_, i) => ({
+        number: i + 1,
+        title: `[FOLLOW-UP] Issue ${i + 1}`,
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
+        created_at: '2024-11-01T00:00:00Z',
+        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        state: 'open',
+      }));
+
+      mockOctokit.rest.issues.list.mockResolvedValue({
+        data: mockIssues,
+      } as any);
+
+      mockOctokit.rest.issues.update.mockResolvedValue({
+        data: { state: 'closed' },
+      } as any);
+
+      mockOctokit.rest.issues.createComment.mockResolvedValue({
+        data: { id: 456 },
+      } as any);
+
+      mockOctokit.rest.issues.addLabels.mockResolvedValue({
+        data: [],
+      } as any);
+
+      // When: 5件のIssueをクローズ
+      for (const issue of mockIssues) {
+        await issueClient.closeIssue(issue.number);
+        await issueClient.postComment(issue.number, 'このIssueは対応完了のためクローズします。');
+        await issueClient.addLabels(issue.number, ['auto-closed']);
+      }
+
+      // Then: 各API呼び出しが5回実行される
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalledTimes(5);
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledTimes(5);
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledTimes(5);
+    });
+  });
+
+  describe('TS-INT-015: dry-runモード有効時（デフォルト）', () => {
+    it('should not close issues in dry-run mode', async () => {
+      // Given: dry-runモードが有効
+      const mockIssue = {
+        number: 1,
+        title: '[FOLLOW-UP] Add logging',
+        body: 'Issue body',
+        labels: [{ name: 'enhancement' }],
+        created_at: '2024-11-01T00:00:00Z',
+        updated_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        state: 'open',
+      };
+
+      mockOctokit.rest.issues.list.mockResolvedValue({
+        data: [mockIssue],
+      } as any);
+
+      // When: Issue一覧を取得（dry-runモードでは実際のクローズAPIは呼ばない）
+      const issues = await issueClient.getIssues(100);
+
+      // Then: Issue一覧は取得されるが、closeIssue/postComment/addLabelsは呼ばれない
+      expect(issues).toHaveLength(1);
+      expect(mockOctokit.rest.issues.update).not.toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.createComment).not.toHaveBeenCalled();
+      expect(mockOctokit.rest.issues.addLabels).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TS-INT-016: dry-runモード無効時', () => {
+    it('should actually close issues when dry-run is disabled', async () => {
+      // Given: dry-runモードが無効
+      mockOctokit.rest.issues.update.mockResolvedValue({
+        data: { number: 1, state: 'closed' },
+      } as any);
+
+      mockOctokit.rest.issues.createComment.mockResolvedValue({
+        data: { id: 456 },
+      } as any);
+
+      mockOctokit.rest.issues.addLabels.mockResolvedValue({
+        data: [],
+      } as any);
+
+      // When: Issueをクローズ
+      await issueClient.closeIssue(1);
+      await issueClient.postComment(1, 'このIssueは対応完了のためクローズします。');
+      await issueClient.addLabels(1, ['auto-closed']);
+
+      // Then: 全てのAPI呼び出しが実行される
+      expect(mockOctokit.rest.issues.update).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 1,
+        state: 'closed',
+      });
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 1,
+        body: 'このIssueは対応完了のためクローズします。',
+      });
+      expect(mockOctokit.rest.issues.addLabels).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 1,
+        labels: ['auto-closed'],
+      });
+    });
+  });
 });

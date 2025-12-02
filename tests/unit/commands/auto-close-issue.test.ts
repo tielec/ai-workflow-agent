@@ -14,7 +14,7 @@ const mockCloseIssue = jest.fn<any>();
 const mockPostComment = jest.fn<any>();
 const mockAddLabels = jest.fn<any>();
 
-// モック設定
+// モック設定（トップレベルで定義）
 jest.mock('../../../src/core/issue-inspector.js', () => ({
   IssueInspector: jest.fn().mockImplementation(() => ({
     inspectIssue: mockInspectIssue,
@@ -41,12 +41,8 @@ import {
   filterByCategory,
 } from '../../../src/commands/auto-close-issue.js';
 import type {
-  AutoCloseIssueOptions,
   Issue,
-  IssueCategory,
 } from '../../../src/types/auto-close-issue.js';
-import { config } from '../../../src/core/config.js';
-import * as agentSetup from '../../../src/commands/execute/agent-setup.js';
 
 describe('auto-close-issue command handler', () => {
   beforeEach(() => {
@@ -61,17 +57,21 @@ describe('auto-close-issue command handler', () => {
     mockGetIssues.mockResolvedValue([]);
     mockInspectIssue.mockResolvedValue(null);
 
-    // config のモック設定
-    jest.spyOn(config, 'getGitHubToken').mockReturnValue('test-token');
-    jest.spyOn(config, 'getGitHubRepository').mockReturnValue('owner/repo');
-    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/test');
+    // config のモック設定（require()を使用）
+    const config = require('../../../src/core/config.js');
+    config.config = {
+      getGitHubToken: jest.fn().mockReturnValue('test-token'),
+      getGitHubRepository: jest.fn().mockReturnValue('owner/repo'),
+      getHomeDir: jest.fn().mockReturnValue('/home/test'),
+    };
 
-    // agent-setup のモック設定
-    jest.spyOn(agentSetup, 'resolveAgentCredentials').mockReturnValue({
+    // agent-setup のモック設定（require()を使用）
+    const agentSetup = require('../../../src/commands/execute/agent-setup.js');
+    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    jest.spyOn(agentSetup, 'setupAgentClients').mockReturnValue({
+    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
       codexClient: { executeTask: jest.fn() } as any,
       claudeClient: null,
     });
@@ -79,7 +79,6 @@ describe('auto-close-issue command handler', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    jest.restoreAllMocks();
   });
 
   /**

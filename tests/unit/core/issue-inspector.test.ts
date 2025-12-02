@@ -4,8 +4,9 @@
  * Tests Issue検品ロジック、エージェント出力パース、安全フィルタ機能
  */
 
+import { jest } from '@jest/globals';
 import { IssueInspector } from '../../../src/core/issue-inspector.js';
-import type { Issue, InspectionOptions, InspectionResult } from '../../../src/types/auto-close-issue.js';
+import type { Issue, InspectionOptions } from '../../../src/types/auto-close-issue.js';
 import type { IssueClient } from '../../../src/core/github/issue-client.js';
 
 describe('IssueInspector', () => {
