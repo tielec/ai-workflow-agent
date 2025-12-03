@@ -138,7 +138,7 @@
   - Jenkins実行時のパラメータ設定方法を記載
   - `OPENAI_API_KEY` と `GITHUB_TOKEN` がパラメータから渡されることを明記
   
-- [ ] Task 7-2: CLAUDE.mdまたはARCHITECTURE.mdの更新（必要に応じて） (0.2h)
+- [x] Task 7-2: CLAUDE.mdまたはARCHITECTURE.mdの更新（必要に応じて） (0.2h)
   - Jenkinsfile の認証情報管理方針を記載
   - credentials から params への移行履歴を記載
 
@@ -400,7 +400,7 @@ graph TD
   - Jenkins実行時のパラメータ設定方法を記載
   - `OPENAI_API_KEY` と `GITHUB_TOKEN` がパラメータから渡されることを明記
   
-- [ ] Task 7-2: CLAUDE.mdまたはARCHITECTURE.mdの更新（必要に応じて） (0.2h)
+- [x] Task 7-2: CLAUDE.mdまたはARCHITECTURE.mdの更新（必要に応じて） (0.2h)
   - Jenkinsfile の認証情報管理方針を記載
   - credentials から params への移行履歴を記載
 
