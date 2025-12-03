@@ -8,6 +8,7 @@ import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../type
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { ClaudeAgentClient } from './claude-agent-client.js';
+import { CodexAgentClient } from './codex-agent-client.js';
 
 interface ReviewParseResult {
   result: string;
@@ -19,15 +20,24 @@ interface ReviewParseResult {
  * 実行モードの定義
  * - 'openai': OpenAI API を使用（OPENAI_API_KEY が必要）
  * - 'claude': Anthropic API を使用（ANTHROPIC_API_KEY が必要）
- * - 'agent': Claude Agent SDK を使用（CLAUDE_CODE_OAUTH_TOKEN または CLAUDE_CODE_API_KEY が必要）
- * - 'auto': 利用可能な API を自動選択（agent → openai → claude の優先順）
+ * - 'agent': エージェント SDK を使用（Claude または Codex）
+ *   - CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_API_KEY → Claude Agent
+ *   - CODEX_API_KEY → Codex Agent
+ * - 'auto': 利用可能な API を自動選択
+ *   優先順: claude-agent → codex-agent → openai-api → anthropic-api
  */
 export type ContentParserMode = 'openai' | 'claude' | 'agent' | 'auto';
+
+/**
+ * 内部で使用する実効モード
+ */
+type EffectiveMode = 'openai' | 'claude' | 'claude-agent' | 'codex-agent';
 
 export class ContentParser {
   private readonly openaiClient: OpenAI | null;
   private readonly anthropicClient: Anthropic | null;
-  private readonly agentClient: ClaudeAgentClient | null;
+  private readonly claudeAgentClient: ClaudeAgentClient | null;
+  private readonly codexAgentClient: CodexAgentClient | null;
   private readonly mode: ContentParserMode;
   private readonly openaiModel: string;
   private readonly anthropicModel: string;
@@ -58,12 +68,24 @@ export class ContentParser {
     const claudeToken = config.getClaudeCodeToken();
     if (claudeToken) {
       try {
-        this.agentClient = new ClaudeAgentClient();
+        this.claudeAgentClient = new ClaudeAgentClient();
       } catch {
-        this.agentClient = null;
+        this.claudeAgentClient = null;
       }
     } else {
-      this.agentClient = null;
+      this.claudeAgentClient = null;
+    }
+
+    // Codex Agent クライアントの初期化
+    const codexApiKey = config.getCodexApiKey();
+    if (codexApiKey) {
+      try {
+        this.codexAgentClient = new CodexAgentClient({ model: 'gpt-4o' });
+      } catch {
+        this.codexAgentClient = null;
+      }
+    } else {
+      this.codexAgentClient = null;
     }
 
     // モードに応じた検証
@@ -87,24 +109,26 @@ export class ContentParser {
       );
     }
 
-    if (this.mode === 'agent' && !this.agentClient) {
+    if (this.mode === 'agent' && !this.claudeAgentClient && !this.codexAgentClient) {
       throw new Error(
         [
-          'Claude Code credentials are required for agent mode.',
-          'Set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY environment variable.',
-          'Run "claude login" to authenticate with Claude Code.',
+          'Agent credentials are required for agent mode.',
+          'Set one of the following environment variables:',
+          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
+          '- CODEX_API_KEY (for Codex Agent)',
         ].join('\n'),
       );
     }
 
-    if (this.mode === 'auto' && !this.agentClient && !this.openaiClient && !this.anthropicClient) {
+    if (this.mode === 'auto' && !this.claudeAgentClient && !this.codexAgentClient && !this.openaiClient && !this.anthropicClient) {
       throw new Error(
         [
           'No API key configured for ContentParser.',
           'Set one of the following environment variables:',
-          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for agent mode)',
-          '- OPENAI_API_KEY (for openai mode)',
-          '- ANTHROPIC_API_KEY (for claude mode)',
+          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
+          '- CODEX_API_KEY (for Codex Agent)',
+          '- OPENAI_API_KEY (for OpenAI API)',
+          '- ANTHROPIC_API_KEY (for Anthropic API)',
         ].join('\n'),
       );
     }
@@ -119,8 +143,9 @@ export class ContentParser {
 
   /**
    * 実際に使用されるモードを取得
+   * 優先順: claude-agent → codex-agent → openai → claude
    */
-  private getEffectiveMode(): 'openai' | 'claude' | 'agent' {
+  private getEffectiveMode(): EffectiveMode {
     if (this.mode === 'openai') {
       return 'openai';
     }
@@ -128,11 +153,18 @@ export class ContentParser {
       return 'claude';
     }
     if (this.mode === 'agent') {
-      return 'agent';
+      // agent モード: Claude Agent を優先、なければ Codex Agent
+      if (this.claudeAgentClient) {
+        return 'claude-agent';
+      }
+      return 'codex-agent';
     }
-    // auto モード: agent → openai → claude の優先順
-    if (this.agentClient) {
-      return 'agent';
+    // auto モード: claude-agent → codex-agent → openai → claude の優先順
+    if (this.claudeAgentClient) {
+      return 'claude-agent';
+    }
+    if (this.codexAgentClient) {
+      return 'codex-agent';
     }
     if (this.openaiClient) {
       return 'openai';
@@ -146,8 +178,12 @@ export class ContentParser {
   private async callLlm(prompt: string, maxTokens: number): Promise<string> {
     const effectiveMode = this.getEffectiveMode();
 
-    if (effectiveMode === 'agent' && this.agentClient) {
-      return this.callAgentLlm(prompt);
+    if (effectiveMode === 'claude-agent' && this.claudeAgentClient) {
+      return this.callClaudeAgentLlm(prompt);
+    }
+
+    if (effectiveMode === 'codex-agent' && this.codexAgentClient) {
+      return this.callCodexAgentLlm(prompt);
     }
 
     if (effectiveMode === 'openai' && this.openaiClient) {
@@ -178,12 +214,12 @@ export class ContentParser {
    * Claude Agent SDK を使用して LLM を呼び出す
    * テキスト解析専用のため、maxTurns=1 で単一応答を取得
    */
-  private async callAgentLlm(prompt: string): Promise<string> {
-    if (!this.agentClient) {
-      throw new Error('Agent client is not initialized');
+  private async callClaudeAgentLlm(prompt: string): Promise<string> {
+    if (!this.claudeAgentClient) {
+      throw new Error('Claude Agent client is not initialized');
     }
 
-    const messages = await this.agentClient.executeTask({
+    const messages = await this.claudeAgentClient.executeTask({
       prompt,
       maxTurns: 1,
       verbose: false,
@@ -194,7 +230,26 @@ export class ContentParser {
   }
 
   /**
-   * エージェントメッセージからテキストを抽出
+   * Codex Agent を使用して LLM を呼び出す
+   * テキスト解析専用のため、maxTurns=1 で単一応答を取得
+   */
+  private async callCodexAgentLlm(prompt: string): Promise<string> {
+    if (!this.codexAgentClient) {
+      throw new Error('Codex Agent client is not initialized');
+    }
+
+    const messages = await this.codexAgentClient.executeTask({
+      prompt,
+      maxTurns: 1,
+      verbose: false,
+    });
+
+    // エージェントの応答からテキストを抽出
+    return this.extractTextFromCodexMessages(messages);
+  }
+
+  /**
+   * Claude Agent メッセージからテキストを抽出
    */
   private extractTextFromAgentMessages(messages: string[]): string {
     const textBlocks: string[] = [];
@@ -213,6 +268,49 @@ export class ContentParser {
           for (const block of message.message.content) {
             if (block.type === 'text' && block.text) {
               textBlocks.push(block.text);
+            }
+          }
+        }
+      } catch {
+        // JSON パースエラーは無視
+      }
+    }
+
+    const result = textBlocks.join('\n').trim();
+    return result || '{}';
+  }
+
+  /**
+   * Codex Agent メッセージからテキストを抽出
+   */
+  private extractTextFromCodexMessages(messages: string[]): string {
+    const textBlocks: string[] = [];
+
+    for (const rawMessage of messages) {
+      try {
+        const message = JSON.parse(rawMessage);
+
+        // agent_message からテキストを抽出
+        if (message.type === 'item.completed' && message.item) {
+          const item = message.item as Record<string, unknown>;
+          const itemType = typeof item.type === 'string' ? item.type : '';
+          if (itemType === 'agent_message') {
+            const text = typeof item.text === 'string' ? item.text : '';
+            if (text.trim()) {
+              textBlocks.push(text);
+            }
+          }
+        }
+
+        // response.completed からテキストを抽出
+        if (message.type === 'response.completed' && message.response?.output) {
+          const output = message.response.output as unknown[];
+          for (const item of output) {
+            if (typeof item === 'object' && item !== null) {
+              const obj = item as Record<string, unknown>;
+              if (obj.type === 'message' && typeof obj.content === 'string') {
+                textBlocks.push(obj.content);
+              }
             }
           }
         }
