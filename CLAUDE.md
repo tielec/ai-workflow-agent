@@ -505,8 +505,10 @@ if (config.isCI()) {
 
 ルートの Jenkinsfile が Docker コンテナ内でワークフローを実行:
 - **エージェントモード**: `AGENT_MODE` パラメータで制御（auto/codex/claude）
-- **実行モード**: `all_phases`、`preset`、`single_phase`
-- **認証情報**: `claude-code-oauth-token`、`openai-api-key`、`github-token`（Jenkins シークレット）
+- **実行モード**: `all_phases`、`preset`、`single_phase`、`rollback`、`auto_issue`
+- **認証情報**:
+  - `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）: Job DSLパラメータから取得
+  - `claude-code-oauth-token`: Jenkins Credentialsから取得
 - **マルチリポジトリ**: REPOS_ROOT を `/tmp/ai-workflow-repos-${BUILD_ID}` に設定し、対象リポジトリをクローン
 
 ## テスト関連の注意事項
