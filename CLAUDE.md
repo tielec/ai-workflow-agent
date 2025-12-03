@@ -445,12 +445,26 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 - `GITHUB_TOKEN`: GitHub パーソナルアクセストークン（repo、workflow、read:org スコープ）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式（メタデータからフォールバック）
 
-### エージェント設定
-- `CODEX_API_KEY` または `OPENAI_API_KEY`: Codex エージェント用
-- `CLAUDE_CODE_CREDENTIALS_PATH`: Claude credentials.json へのパス（または `CLAUDE_CODE_OAUTH_TOKEN`）
+### エージェント設定（Issue #188で整理）
+
+認証情報は用途別に分離されています：
+
+#### OpenAI 系
+| 環境変数 | 用途 | 備考 |
+|---------|------|------|
+| `CODEX_API_KEY` | Codex エージェント専用 | フェーズ実行（execute/review/revise）に使用 |
+| `OPENAI_API_KEY` | OpenAI API 専用 | テキスト生成（Follow-up Issue 生成、レビュー解析等）に使用 |
+
+#### Claude 系
+| 環境変数 | 用途 | 優先順位 |
+|---------|------|---------|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code エージェント | **優先** |
+| `CLAUDE_CODE_API_KEY` | Claude Code エージェント | フォールバック（OAuth トークンがない場合） |
+| `ANTHROPIC_API_KEY` | Anthropic API 呼び出し | テキスト生成（Follow-up Issue 生成等）に使用 |
+| `CLAUDE_CODE_CREDENTIALS_PATH` | credentials.json パス | **非推奨**、レガシーサポート |
 
 ### フォローアップIssue生成設定（v0.5.0、Issue #119で追加）
-- `FOLLOWUP_LLM_MODE`: LLMプロバイダ（`auto` | `openai` | `claude` | `off`、デフォルト: `off`）
+- `FOLLOWUP_LLM_MODE`: LLMプロバイダ（`auto` | `openai` | `claude` | `agent` | `off`、デフォルト: `off`）
 - `FOLLOWUP_LLM_MODEL`: 使用モデル（`gpt-4o-mini` | `claude-3-sonnet-20240229` 等）
 - `OPENAI_API_KEY`: OpenAI APIキー（`--followup-llm-mode openai` 使用時）
 - `ANTHROPIC_API_KEY`: Anthropic APIキー（`--followup-llm-mode claude` 使用時）
@@ -488,7 +502,14 @@ const homeDir = config.getHomeDir();
 
 // オプション環境変数（未設定時は null を返す）
 const reposRoot = config.getReposRoot();
-const apiKey = config.getCodexApiKey();  // CODEX_API_KEY || OPENAI_API_KEY
+
+// エージェント用（用途別に分離、Issue #188）
+const codexKey = config.getCodexApiKey();      // CODEX_API_KEY のみ
+const claudeToken = config.getClaudeCodeToken(); // OAUTH_TOKEN → API_KEY のフォールバック
+
+// API用（テキスト生成）
+const openAiKey = config.getOpenAiApiKey();    // OPENAI_API_KEY のみ
+const anthropicKey = config.getAnthropicApiKey(); // ANTHROPIC_API_KEY のみ
 
 // CI環境判定
 if (config.isCI()) {
@@ -498,7 +519,8 @@ if (config.isCI()) {
 
 **主な利点**:
 - 型安全な環境変数アクセス（必須: `string`、オプション: `string | null`）
-- フォールバックロジックの統一（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）
+- 用途別の API キー分離（エージェント用 vs API 呼び出し用）
+- Claude Code 認証のフォールバック（`OAUTH_TOKEN` → `API_KEY`）
 - テスト容易性の向上（Config モックにより環境変数を簡単にモック可能）
 
 ## Jenkins 統合

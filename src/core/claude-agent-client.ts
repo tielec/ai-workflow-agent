@@ -115,24 +115,38 @@ export class ClaudeAgentClient {
   }
 
   private ensureAuthToken(credentialsPath?: string): void {
-    const resolvedPath = credentialsPath ?? config.getClaudeCredentialsPath() ?? null;
+    // 1. CLAUDE_CODE_OAUTH_TOKEN が設定されていればそれを使用（最優先）
+    const oauthToken = config.getClaudeOAuthToken();
+    if (oauthToken && oauthToken.trim()) {
+      logger.info('Using CLAUDE_CODE_OAUTH_TOKEN for Claude Code authentication.');
+      return;
+    }
 
+    // 2. CLAUDE_CODE_API_KEY が設定されていればそれを使用（フォールバック）
+    const apiKey = config.getClaudeCodeApiKey();
+    if (apiKey && apiKey.trim()) {
+      logger.info('Using CLAUDE_CODE_API_KEY for Claude Code authentication (fallback).');
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = apiKey;
+      return;
+    }
+
+    // 3. credentials.json ファイルから読み込み（レガシー、非推奨）
+    const resolvedPath = credentialsPath ?? config.getClaudeCredentialsPath() ?? null;
     if (resolvedPath) {
       const token = this.readTokenFromCredentials(resolvedPath);
-      logger.info(`Loaded Claude Code credentials from ${resolvedPath} (token length=${token.length})`);
+      logger.info(`Loaded Claude Code credentials from ${resolvedPath} (token length=${token.length}) [DEPRECATED]`);
       process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
       return;
     }
 
-    const token = config.getClaudeOAuthToken();
-    if (!token || !token.trim()) {
-      throw new Error(
-        [
-          'Claude Code credentials are not configured.',
-          'Provide a valid credentials file via CLAUDE_CODE_CREDENTIALS_PATH or set CLAUDE_CODE_OAUTH_TOKEN.',
-        ].join('\n'),
-      );
-    }
+    // 認証情報が見つからない
+    throw new Error(
+      [
+        'Claude Code credentials are not configured.',
+        'Set CLAUDE_CODE_OAUTH_TOKEN (preferred) or CLAUDE_CODE_API_KEY environment variable.',
+        'CLAUDE_CODE_CREDENTIALS_PATH is deprecated and will be removed in a future version.',
+      ].join('\n'),
+    );
   }
 
   private readTokenFromCredentials(credentialsPath: string): string {
