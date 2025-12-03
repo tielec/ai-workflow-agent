@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
@@ -13,28 +14,125 @@ interface ReviewParseResult {
   suggestions: string[];
 }
 
+/**
+ * 実行モードの定義
+ * - 'openai': OpenAI API を使用（デフォルト、OPENAI_API_KEY が必要）
+ * - 'claude': Anthropic API を使用（ANTHROPIC_API_KEY が必要）
+ * - 'auto': 利用可能な API を自動選択（OpenAI を優先）
+ */
+export type ContentParserMode = 'openai' | 'claude' | 'auto';
+
 export class ContentParser {
-  private readonly client: OpenAI;
-  private readonly model: string;
+  private readonly openaiClient: OpenAI | null;
+  private readonly anthropicClient: Anthropic | null;
+  private readonly mode: ContentParserMode;
+  private readonly openaiModel: string;
+  private readonly anthropicModel: string;
   private readonly promptDir: string;
 
-  constructor(options: { apiKey?: string; model?: string } = {}) {
-    const apiKey = options.apiKey ?? config.getCodexApiKey();
-    if (!apiKey) {
+  constructor(options: { apiKey?: string; anthropicApiKey?: string; model?: string; anthropicModel?: string; mode?: ContentParserMode } = {}) {
+    this.mode = options.mode ?? 'auto';
+
+    // OpenAI クライアントの初期化
+    const openaiApiKey = options.apiKey ?? config.getOpenAiApiKey();
+    if (openaiApiKey) {
+      this.openaiClient = new OpenAI({ apiKey: openaiApiKey });
+    } else {
+      this.openaiClient = null;
+    }
+    this.openaiModel = options.model ?? 'gpt-4o-mini';
+
+    // Anthropic クライアントの初期化
+    const anthropicApiKey = options.anthropicApiKey ?? config.getAnthropicApiKey();
+    if (anthropicApiKey) {
+      this.anthropicClient = new Anthropic({ apiKey: anthropicApiKey });
+    } else {
+      this.anthropicClient = null;
+    }
+    this.anthropicModel = options.anthropicModel ?? 'claude-3-5-sonnet-20241022';
+
+    // モードに応じた検証
+    if (this.mode === 'openai' && !this.openaiClient) {
       throw new Error(
         [
-          'OpenAI API key is required.',
+          'OpenAI API key is required for openai mode.',
           'Set the OPENAI_API_KEY environment variable or pass apiKey via constructor.',
           'You can create an API key from https://platform.openai.com/api-keys',
         ].join('\n'),
       );
     }
 
-    this.client = new OpenAI({ apiKey });
-    this.model = options.model ?? 'gpt-4o-mini';
+    if (this.mode === 'claude' && !this.anthropicClient) {
+      throw new Error(
+        [
+          'Anthropic API key is required for claude mode.',
+          'Set the ANTHROPIC_API_KEY environment variable or pass anthropicApiKey via constructor.',
+          'You can create an API key from https://console.anthropic.com/',
+        ].join('\n'),
+      );
+    }
+
+    if (this.mode === 'auto' && !this.openaiClient && !this.anthropicClient) {
+      throw new Error(
+        [
+          'No API key configured for ContentParser.',
+          'Set either OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable.',
+          'OpenAI: https://platform.openai.com/api-keys',
+          'Anthropic: https://console.anthropic.com/',
+        ].join('\n'),
+      );
+    }
 
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     this.promptDir = path.resolve(moduleDir, '..', 'prompts', 'content_parser');
+
+    // 使用するモードをログ出力
+    const effectiveMode = this.getEffectiveMode();
+    logger.debug(`ContentParser initialized with mode: ${effectiveMode}`);
+  }
+
+  /**
+   * 実際に使用されるモードを取得
+   */
+  private getEffectiveMode(): 'openai' | 'claude' {
+    if (this.mode === 'openai') {
+      return 'openai';
+    }
+    if (this.mode === 'claude') {
+      return 'claude';
+    }
+    // auto モード: OpenAI を優先
+    return this.openaiClient ? 'openai' : 'claude';
+  }
+
+  /**
+   * LLM API を呼び出す共通メソッド
+   */
+  private async callLlm(prompt: string, maxTokens: number): Promise<string> {
+    const effectiveMode = this.getEffectiveMode();
+
+    if (effectiveMode === 'openai' && this.openaiClient) {
+      const response = await this.openaiClient.chat.completions.create({
+        model: this.openaiModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 0,
+      });
+      return response.choices?.[0]?.message?.content ?? '{}';
+    }
+
+    if (effectiveMode === 'claude' && this.anthropicClient) {
+      const response = await this.anthropicClient.messages.create({
+        model: this.anthropicModel,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      // TextBlock からテキストを抽出
+      const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === 'text');
+      return textBlock ? textBlock.text : '{}';
+    }
+
+    throw new Error('No LLM client available');
   }
 
   private loadPrompt(promptName: string): string {
@@ -50,14 +148,7 @@ export class ContentParser {
     const prompt = template.replace('{document_content}', documentContent);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1024,
-        temperature: 0,
-      });
-
-      const content = response.choices?.[0]?.message?.content ?? '{}';
+      const content = await this.callLlm(prompt, 1024);
       const parsed = JSON.parse(content) as Record<string, string | null | undefined>;
       const result: Record<string, string> = {};
       for (const [key, value] of Object.entries(parsed)) {
@@ -147,14 +238,7 @@ export class ContentParser {
     const prompt = template.replace('{full_text}', fullText);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 256,
-        temperature: 0,
-      });
-
-      const content = response.choices?.[0]?.message?.content ?? '{}';
+      const content = await this.callLlm(prompt, 256);
       const parsed = JSON.parse(content) as { result?: string };
       const result = (parsed.result ?? 'FAIL').toUpperCase();
 
@@ -165,7 +249,7 @@ export class ContentParser {
       };
     } catch (error) {
       const message = getErrorMessage(error);
-      logger.warn(`Failed to parse review result via OpenAI: ${message}`);
+      logger.warn(`Failed to parse review result via LLM: ${message}`);
 
       const upper = fullText.toUpperCase();
       let inferred = 'FAIL';
@@ -228,14 +312,7 @@ export class ContentParser {
     const prompt = template.replace('{evaluation_content}', content);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
-        temperature: 0,
-      });
-
-      const responseContent = response.choices?.[0]?.message?.content ?? '{}';
+      const responseContent = await this.callLlm(prompt, 2048);
       const parsed = JSON.parse(responseContent) as {
         decision?: string;
         failedPhase?: string | null;
