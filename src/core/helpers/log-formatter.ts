@@ -80,7 +80,7 @@ export function formatClaudeLog(message: SDKMessage): string {
 
   switch (message.type) {
     case 'assistant': {
-      const assistantMessage = message as { message?: { content?: Array<Record<string, unknown>> } };
+      const assistantMessage = message as unknown as { message?: { content?: Array<Record<string, unknown>> } };
       const contents = assistantMessage.message?.content ?? [];
       for (const block of contents) {
         if (block.type === 'text') {
