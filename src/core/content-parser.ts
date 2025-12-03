@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { ClaudeAgentClient } from './claude-agent-client.js';
 
 interface ReviewParseResult {
   result: string;
@@ -16,15 +17,17 @@ interface ReviewParseResult {
 
 /**
  * 実行モードの定義
- * - 'openai': OpenAI API を使用（デフォルト、OPENAI_API_KEY が必要）
+ * - 'openai': OpenAI API を使用（OPENAI_API_KEY が必要）
  * - 'claude': Anthropic API を使用（ANTHROPIC_API_KEY が必要）
- * - 'auto': 利用可能な API を自動選択（OpenAI を優先）
+ * - 'agent': Claude Agent SDK を使用（CLAUDE_CODE_OAUTH_TOKEN または CLAUDE_CODE_API_KEY が必要）
+ * - 'auto': 利用可能な API を自動選択（agent → openai → claude の優先順）
  */
-export type ContentParserMode = 'openai' | 'claude' | 'auto';
+export type ContentParserMode = 'openai' | 'claude' | 'agent' | 'auto';
 
 export class ContentParser {
   private readonly openaiClient: OpenAI | null;
   private readonly anthropicClient: Anthropic | null;
+  private readonly agentClient: ClaudeAgentClient | null;
   private readonly mode: ContentParserMode;
   private readonly openaiModel: string;
   private readonly anthropicModel: string;
@@ -51,6 +54,18 @@ export class ContentParser {
     }
     this.anthropicModel = options.anthropicModel ?? 'claude-3-5-sonnet-20241022';
 
+    // Claude Agent クライアントの初期化
+    const claudeToken = config.getClaudeCodeToken();
+    if (claudeToken) {
+      try {
+        this.agentClient = new ClaudeAgentClient();
+      } catch {
+        this.agentClient = null;
+      }
+    } else {
+      this.agentClient = null;
+    }
+
     // モードに応じた検証
     if (this.mode === 'openai' && !this.openaiClient) {
       throw new Error(
@@ -72,13 +87,24 @@ export class ContentParser {
       );
     }
 
-    if (this.mode === 'auto' && !this.openaiClient && !this.anthropicClient) {
+    if (this.mode === 'agent' && !this.agentClient) {
+      throw new Error(
+        [
+          'Claude Code credentials are required for agent mode.',
+          'Set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY environment variable.',
+          'Run "claude login" to authenticate with Claude Code.',
+        ].join('\n'),
+      );
+    }
+
+    if (this.mode === 'auto' && !this.agentClient && !this.openaiClient && !this.anthropicClient) {
       throw new Error(
         [
           'No API key configured for ContentParser.',
-          'Set either OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable.',
-          'OpenAI: https://platform.openai.com/api-keys',
-          'Anthropic: https://console.anthropic.com/',
+          'Set one of the following environment variables:',
+          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for agent mode)',
+          '- OPENAI_API_KEY (for openai mode)',
+          '- ANTHROPIC_API_KEY (for claude mode)',
         ].join('\n'),
       );
     }
@@ -94,15 +120,24 @@ export class ContentParser {
   /**
    * 実際に使用されるモードを取得
    */
-  private getEffectiveMode(): 'openai' | 'claude' {
+  private getEffectiveMode(): 'openai' | 'claude' | 'agent' {
     if (this.mode === 'openai') {
       return 'openai';
     }
     if (this.mode === 'claude') {
       return 'claude';
     }
-    // auto モード: OpenAI を優先
-    return this.openaiClient ? 'openai' : 'claude';
+    if (this.mode === 'agent') {
+      return 'agent';
+    }
+    // auto モード: agent → openai → claude の優先順
+    if (this.agentClient) {
+      return 'agent';
+    }
+    if (this.openaiClient) {
+      return 'openai';
+    }
+    return 'claude';
   }
 
   /**
@@ -110,6 +145,10 @@ export class ContentParser {
    */
   private async callLlm(prompt: string, maxTokens: number): Promise<string> {
     const effectiveMode = this.getEffectiveMode();
+
+    if (effectiveMode === 'agent' && this.agentClient) {
+      return this.callAgentLlm(prompt);
+    }
 
     if (effectiveMode === 'openai' && this.openaiClient) {
       const response = await this.openaiClient.chat.completions.create({
@@ -133,6 +172,57 @@ export class ContentParser {
     }
 
     throw new Error('No LLM client available');
+  }
+
+  /**
+   * Claude Agent SDK を使用して LLM を呼び出す
+   * テキスト解析専用のため、maxTurns=1 で単一応答を取得
+   */
+  private async callAgentLlm(prompt: string): Promise<string> {
+    if (!this.agentClient) {
+      throw new Error('Agent client is not initialized');
+    }
+
+    const messages = await this.agentClient.executeTask({
+      prompt,
+      maxTurns: 1,
+      verbose: false,
+    });
+
+    // エージェントの応答からテキストを抽出
+    return this.extractTextFromAgentMessages(messages);
+  }
+
+  /**
+   * エージェントメッセージからテキストを抽出
+   */
+  private extractTextFromAgentMessages(messages: string[]): string {
+    const textBlocks: string[] = [];
+
+    for (const rawMessage of messages) {
+      try {
+        const message = JSON.parse(rawMessage);
+
+        // result メッセージからテキストを抽出
+        if (message.type === 'result' && message.result) {
+          textBlocks.push(message.result);
+        }
+
+        // assistant メッセージからテキストを抽出
+        if (message.type === 'assistant' && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              textBlocks.push(block.text);
+            }
+          }
+        }
+      } catch {
+        // JSON パースエラーは無視
+      }
+    }
+
+    const result = textBlocks.join('\n').trim();
+    return result || '{}';
   }
 
   private loadPrompt(promptName: string): string {
