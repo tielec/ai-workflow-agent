@@ -445,7 +445,15 @@ GitManager は548行から181行へリファクタリングされ（約67%削減
 
 ## Jenkins での利用
 
-`jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy` で `AGENT_MODE` パラメータを定義し、パイプライン（`jenkins/jobs/pipeline/ai-workflow/ai-workflow-orchestrator/Jenkinsfile`）が CLI に渡します。TypeScript プロジェクトの `Dockerfile` からビルドしたイメージ上で CLI を実行し、必要に応じて Claude 認証情報をコピーします。
+`jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy` で Job DSL パラメータ（`AGENT_MODE`、`OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報等）を定義し、パイプライン（`jenkins/jobs/pipeline/ai-workflow/ai-workflow-orchestrator/Jenkinsfile`）が CLI に渡します。TypeScript プロジェクトの `Dockerfile` からビルドしたイメージ上で CLI を実行し、必要に応じて Claude 認証情報をコピーします。
+
+**認証情報の管理**:
+- **Job DSLパラメータ経由**: `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）
+  - Jenkinsfile の `environment` セクションで `params` から環境変数に設定
+  - 例: `OPENAI_API_KEY = "${params.OPENAI_API_KEY}"`
+- **Jenkins Credentials経由**: `claude-code-oauth-token`
+  - Jenkinsfile の `Prepare Agent Credentials` ステージで処理
+  - Base64エンコードされたファイルとして保存・デコード
 
 ## ビルドパイプライン
 
