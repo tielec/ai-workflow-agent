@@ -20,11 +20,11 @@ interface ReviewParseResult {
  * 実行モードの定義
  * - 'openai': OpenAI API を使用（OPENAI_API_KEY が必要）
  * - 'claude': Anthropic API を使用（ANTHROPIC_API_KEY が必要）
- * - 'agent': エージェント SDK を使用（Claude または Codex）
- *   - CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_API_KEY → Claude Agent
+ * - 'agent': エージェント SDK を使用（Codex または Claude）
  *   - CODEX_API_KEY → Codex Agent
+ *   - CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_API_KEY → Claude Agent
  * - 'auto': 利用可能な API を自動選択
- *   優先順: claude-agent → codex-agent → openai-api → anthropic-api
+ *   優先順: codex-agent → claude-agent → openai-api → anthropic-api
  */
 export type ContentParserMode = 'openai' | 'claude' | 'agent' | 'auto';
 
@@ -143,7 +143,8 @@ export class ContentParser {
 
   /**
    * 実際に使用されるモードを取得
-   * 優先順: claude-agent → codex-agent → openai → claude
+   * 優先順: codex-agent → claude-agent → openai → claude
+   * （フェーズ実行の auto モードと同じ優先順）
    */
   private getEffectiveMode(): EffectiveMode {
     if (this.mode === 'openai') {
@@ -153,18 +154,18 @@ export class ContentParser {
       return 'claude';
     }
     if (this.mode === 'agent') {
-      // agent モード: Claude Agent を優先、なければ Codex Agent
-      if (this.claudeAgentClient) {
-        return 'claude-agent';
+      // agent モード: Codex Agent を優先、なければ Claude Agent
+      if (this.codexAgentClient) {
+        return 'codex-agent';
       }
-      return 'codex-agent';
-    }
-    // auto モード: claude-agent → codex-agent → openai → claude の優先順
-    if (this.claudeAgentClient) {
       return 'claude-agent';
     }
+    // auto モード: codex-agent → claude-agent → openai → claude の優先順
     if (this.codexAgentClient) {
       return 'codex-agent';
+    }
+    if (this.claudeAgentClient) {
+      return 'claude-agent';
     }
     if (this.openaiClient) {
       return 'openai';
