@@ -14,8 +14,8 @@ TypeScript CLI を Docker / Jenkins 上で実行する際に必要な認証情�
 ### Codex API キー
 
 1. Codex（`gpt-5-codex`）のヘッドレス利用用 API キーを取得します。
-2. Jenkins などのシークレットストアに保存（例: `codex-api-key`）。
-3. 実行時に `CODEX_API_KEY` をエクスポートします。CLI 側で `OPENAI_API_KEY` にもコピーされます。
+2. Jenkins では Job DSL パラメータとして定義します（`password` 型でマスキング表示）。
+3. 実行時に `OPENAI_API_KEY` 環境変数として設定されます。CLI 側で `CODEX_API_KEY` としても利用可能です。
 
 ### Claude 認証情報
 
@@ -29,14 +29,22 @@ TypeScript CLI を Docker / Jenkins 上で実行する際に必要な認証情�
 ### GitHub PAT
 
 - `repo`, `workflow`, `read:org` スコープ付き PAT を発行。
-- Jenkins では `github-token` などの名前で Secret Text に登録します。
+- Jenkins では Job DSL パラメータとして定義します（`password` 型でマスキング表示）。
 
 ## Jenkins での環境変数例
 
+Issue #184 で認証情報の取得方法を統一しました：
+
 ```groovy
 environment {
-    OPENAI_API_KEY = credentials('codex-api-key')    // CODEX_API_KEY として再利用
-    GITHUB_TOKEN   = credentials('github-token')
+    // Job DSLパラメータから環境変数に設定
+    OPENAI_API_KEY = "${params.OPENAI_API_KEY}"
+    GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+    AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+    AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+    AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+    // Claude認証情報（Jenkins Credentialsで管理）
     CLAUDE_CODE_CREDENTIALS_PATH = "/home/node/.claude-code/credentials.json"
 }
 ```

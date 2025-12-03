@@ -38,10 +38,11 @@
  * - AWS_SESSION_TOKEN: AWS セッショントークン（任意、一時的な認証情報を使用する場合）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false、Issue #2）
  *
- * 認証情報（Jenkins Credentialsで設定）:
- * - claude-code-oauth-token: Claude Agent SDK用OAuthトークン（必須）
- * - openai-api-key: ContentParser用OpenAI APIキー（必須）
- * - github-token: GitHub API用トークン（必須）
+ * 認証情報:
+ * - OPENAI_API_KEY: OpenAI API Key（Job DSLパラメータから取得）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（Job DSLパラメータから取得）
+ * - AWS認証情報: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN（Job DSLパラメータから取得）
+ * - claude-code-oauth-token: Claude Agent SDK用OAuthトークン（Jenkins Credentialsで設定）
  *
  * 重要: パラメータ定義はこのファイルでは行いません（Job DSLで定義済み）
  *
@@ -109,9 +110,9 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
         AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
 
-        // 認証情報（Jenkinsクレデンシャルから取得）
-        OPENAI_API_KEY = credentials('openai-api-key')
-        GITHUB_TOKEN = credentials('github-token')
+        // 認証情報（Job DSLパラメータから環境変数に設定）
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY}"
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
     }
 
     stages {
