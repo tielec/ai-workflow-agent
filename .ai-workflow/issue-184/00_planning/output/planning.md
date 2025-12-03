@@ -81,11 +81,11 @@
 
 ### Phase 2: 設計 (見積もり: 0.5h)
 
-- [ ] Task 2-1: Jenkinsfileの変更設計 (0.3h)
+- [x] Task 2-1: Jenkinsfileの変更設計 (0.3h)
   - `parameters` セクションの追加内容を設計
   - `environment` セクションの変更内容を設計
-  
-- [ ] Task 2-2: 互換性検証設計 (0.2h)
+
+- [x] Task 2-2: 互換性検証設計 (0.2h)
   - 既存のJenkins Job実行への影響を分析
   - パラメータ未設定時のフォールバック動作を検討（必要に応じて）
 
@@ -343,11 +343,11 @@ graph TD
 
 ### Phase 2: 設計 (見積もり: 0.5h)
 
-- [ ] Task 2-1: Jenkinsfileの変更設計 (0.3h)
+- [x] Task 2-1: Jenkinsfileの変更設計 (0.3h)
   - `parameters` セクションの追加内容を設計
   - `environment` セクションの変更内容を設計
-  
-- [ ] Task 2-2: 互換性検証設計 (0.2h)
+
+- [x] Task 2-2: 互換性検証設計 (0.2h)
   - 既存のJenkins Job実行への影響を分析
   - パラメータ未設定時のフォールバック動作を検討（必要に応じて）
 
