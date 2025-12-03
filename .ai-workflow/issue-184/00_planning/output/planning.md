@@ -98,16 +98,16 @@
 
 ### Phase 4: 実装 (見積もり: 0.5~1h)
 
-- [ ] Task 4-1: Jenkinsfileのparametersセクション修正 (0.2~0.3h)
+- [x] Task 4-1: Jenkinsfileのparametersセクション修正 (0.2~0.3h)
   - `password` 型パラメータ `OPENAI_API_KEY` を追加
   - `password` 型パラメータ `GITHUB_TOKEN` を追加
-  
-- [ ] Task 4-2: Jenkinsfileのenvironmentセクション修正 (0.2~0.3h)
+
+- [x] Task 4-2: Jenkinsfileのenvironmentセクション修正 (0.2~0.3h)
   - `OPENAI_API_KEY = "${params.OPENAI_API_KEY}"` に変更
   - `GITHUB_TOKEN = "${params.GITHUB_TOKEN}"` に変更
   - 既存の `credentials()` 参照を削除
-  
-- [ ] Task 4-3: コードレビュー実施 (0.1~0.4h)
+
+- [x] Task 4-3: コードレビュー実施 (0.1~0.4h)
   - AWS認証情報のパターンとの一貫性を確認
   - 誤字脱字やGroovy構文エラーがないか確認
 
@@ -221,10 +221,10 @@ graph TD
 - [x] 環境変数設定の検証手順が明確である
 
 ### Phase 4: 実装
-- [ ] `parameters` セクションにパラメータが追加されている
-- [ ] `environment` セクションで `params` から参照している
-- [ ] `credentials()` の参照が完全に削除されている
-- [ ] AWS認証情報のパターンと一貫性がある
+- [x] `parameters` セクションにパラメータが追加されている
+- [x] `environment` セクションで `params` から参照している
+- [x] `credentials()` の参照が完全に削除されている
+- [x] AWS認証情報のパターンと一貫性がある
 
 ### Phase 5: テストコード実装
 - [ ] 統合テスト手順書が作成されている（自動テストコードは不要）
@@ -360,16 +360,16 @@ graph TD
 
 ### Phase 4: 実装 (見積もり: 0.5~1h)
 
-- [ ] Task 4-1: Jenkinsfileのparametersセクション修正 (0.2~0.3h)
+- [x] Task 4-1: Jenkinsfileのparametersセクション修正 (0.2~0.3h)
   - `password` 型パラメータ `OPENAI_API_KEY` を追加
   - `password` 型パラメータ `GITHUB_TOKEN` を追加
-  
-- [ ] Task 4-2: Jenkinsfileのenvironmentセクション修正 (0.2~0.3h)
+
+- [x] Task 4-2: Jenkinsfileのenvironmentセクション修正 (0.2~0.3h)
   - `OPENAI_API_KEY = "${params.OPENAI_API_KEY}"` に変更
   - `GITHUB_TOKEN = "${params.GITHUB_TOKEN}"` に変更
   - 既存の `credentials()` 参照を削除
-  
-- [ ] Task 4-3: コードレビュー実施 (0.1~0.4h)
+
+- [x] Task 4-3: コードレビュー実施 (0.1~0.4h)
   - AWS認証情報のパターンとの一貫性を確認
   - 誤字脱字やGroovy構文エラーがないか確認
 
@@ -483,10 +483,10 @@ graph TD
 - [x] 環境変数設定の検証手順が明確である
 
 ### Phase 4: 実装
-- [ ] `parameters` セクションにパラメータが追加されている
-- [ ] `environment` セクションで `params` から参照している
-- [ ] `credentials()` の参照が完全に削除されている
-- [ ] AWS認証情報のパターンと一貫性がある
+- [x] `parameters` セクションにパラメータが追加されている
+- [x] `environment` セクションで `params` から参照している
+- [x] `credentials()` の参照が完全に削除されている
+- [x] AWS認証情報のパターンと一貫性がある
 
 ### Phase 5: テストコード実装
 - [ ] 統合テスト手順書が作成されている（自動テストコードは不要）
