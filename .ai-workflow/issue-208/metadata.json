@@ -18,9 +18,9 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 34,
-    "total_output_tokens": 20305,
-    "total_cost_usd": 1.17378605
+    "total_input_tokens": 36,
+    "total_output_tokens": 23228,
+    "total_cost_usd": 1.3017891499999998
   },
   "phases": {
     "planning": {
@@ -41,7 +41,10 @@
       "started_at": "2025-12-04T12:59:51.275Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "design": {
       "status": "pending",
@@ -106,7 +109,7 @@
     }
   },
   "created_at": "2025-12-04T12:55:34.257Z",
-  "updated_at": "2025-12-04T13:02:15.770Z",
+  "updated_at": "2025-12-04T13:03:17.087Z",
   "branch_name": "ai-workflow/issue-208",
   "base_commit": "17ceea370cf2f69430d7577a15a67292a38f2bb5",
   "pr_number": 210,
