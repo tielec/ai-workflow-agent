@@ -84,12 +84,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const credentials = resolveAgentCredentials(homeDir, repoPath);
 
     // 7. エージェントクライアントを初期化（既存の setupAgentClients を活用）
-    const { codexClient, claudeClient } = setupAgentClients(
-      options.agent,
-      repoPath,
-      credentials.codexApiKey,
-      credentials.claudeCredentialsPath,
-    );
+    const { codexClient, claudeClient } = setupAgentClients(options.agent, repoPath, credentials);
 
     if (!codexClient && !claudeClient) {
       throw new Error('Agent mode requires a valid agent configuration.');

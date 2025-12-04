@@ -3,9 +3,12 @@ import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { ClaudeAgentClient } from './claude-agent-client.js';
+import { CodexAgentClient } from './codex-agent-client.js';
 
 interface ReviewParseResult {
   result: string;
@@ -13,28 +16,312 @@ interface ReviewParseResult {
   suggestions: string[];
 }
 
+/**
+ * 実行モードの定義
+ * - 'openai': OpenAI API を使用（OPENAI_API_KEY が必要）
+ * - 'claude': Anthropic API を使用（ANTHROPIC_API_KEY が必要）
+ * - 'agent': エージェント SDK を使用（Codex または Claude）
+ *   - CODEX_API_KEY → Codex Agent
+ *   - CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_API_KEY → Claude Agent
+ * - 'auto': 利用可能な API を自動選択
+ *   優先順: codex-agent → claude-agent → openai-api → anthropic-api
+ */
+export type ContentParserMode = 'openai' | 'claude' | 'agent' | 'auto';
+
+/**
+ * 内部で使用する実効モード
+ */
+type EffectiveMode = 'openai' | 'claude' | 'claude-agent' | 'codex-agent';
+
 export class ContentParser {
-  private readonly client: OpenAI;
-  private readonly model: string;
+  private readonly openaiClient: OpenAI | null;
+  private readonly anthropicClient: Anthropic | null;
+  private readonly claudeAgentClient: ClaudeAgentClient | null;
+  private readonly codexAgentClient: CodexAgentClient | null;
+  private readonly mode: ContentParserMode;
+  private readonly openaiModel: string;
+  private readonly anthropicModel: string;
   private readonly promptDir: string;
 
-  constructor(options: { apiKey?: string; model?: string } = {}) {
-    const apiKey = options.apiKey ?? config.getCodexApiKey();
-    if (!apiKey) {
+  constructor(options: { apiKey?: string; anthropicApiKey?: string; model?: string; anthropicModel?: string; mode?: ContentParserMode } = {}) {
+    this.mode = options.mode ?? 'auto';
+
+    // OpenAI クライアントの初期化
+    const openaiApiKey = options.apiKey ?? config.getOpenAiApiKey();
+    if (openaiApiKey) {
+      this.openaiClient = new OpenAI({ apiKey: openaiApiKey });
+    } else {
+      this.openaiClient = null;
+    }
+    this.openaiModel = options.model ?? 'gpt-4o-mini';
+
+    // Anthropic クライアントの初期化
+    const anthropicApiKey = options.anthropicApiKey ?? config.getAnthropicApiKey();
+    if (anthropicApiKey) {
+      this.anthropicClient = new Anthropic({ apiKey: anthropicApiKey });
+    } else {
+      this.anthropicClient = null;
+    }
+    this.anthropicModel = options.anthropicModel ?? 'claude-3-5-sonnet-20241022';
+
+    // Claude Agent クライアントの初期化
+    const claudeToken = config.getClaudeCodeToken();
+    if (claudeToken) {
+      try {
+        this.claudeAgentClient = new ClaudeAgentClient();
+      } catch {
+        this.claudeAgentClient = null;
+      }
+    } else {
+      this.claudeAgentClient = null;
+    }
+
+    // Codex Agent クライアントの初期化
+    const codexApiKey = config.getCodexApiKey();
+    if (codexApiKey) {
+      try {
+        this.codexAgentClient = new CodexAgentClient({ model: 'gpt-4o' });
+      } catch {
+        this.codexAgentClient = null;
+      }
+    } else {
+      this.codexAgentClient = null;
+    }
+
+    // モードに応じた検証
+    if (this.mode === 'openai' && !this.openaiClient) {
       throw new Error(
         [
-          'OpenAI API key is required.',
+          'OpenAI API key is required for openai mode.',
           'Set the OPENAI_API_KEY environment variable or pass apiKey via constructor.',
           'You can create an API key from https://platform.openai.com/api-keys',
         ].join('\n'),
       );
     }
 
-    this.client = new OpenAI({ apiKey });
-    this.model = options.model ?? 'gpt-4o-mini';
+    if (this.mode === 'claude' && !this.anthropicClient) {
+      throw new Error(
+        [
+          'Anthropic API key is required for claude mode.',
+          'Set the ANTHROPIC_API_KEY environment variable or pass anthropicApiKey via constructor.',
+          'You can create an API key from https://console.anthropic.com/',
+        ].join('\n'),
+      );
+    }
+
+    if (this.mode === 'agent' && !this.claudeAgentClient && !this.codexAgentClient) {
+      throw new Error(
+        [
+          'Agent credentials are required for agent mode.',
+          'Set one of the following environment variables:',
+          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
+          '- CODEX_API_KEY (for Codex Agent)',
+        ].join('\n'),
+      );
+    }
+
+    if (this.mode === 'auto' && !this.claudeAgentClient && !this.codexAgentClient && !this.openaiClient && !this.anthropicClient) {
+      throw new Error(
+        [
+          'No API key configured for ContentParser.',
+          'Set one of the following environment variables:',
+          '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
+          '- CODEX_API_KEY (for Codex Agent)',
+          '- OPENAI_API_KEY (for OpenAI API)',
+          '- ANTHROPIC_API_KEY (for Anthropic API)',
+        ].join('\n'),
+      );
+    }
 
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     this.promptDir = path.resolve(moduleDir, '..', 'prompts', 'content_parser');
+
+    // 使用するモードをログ出力
+    const effectiveMode = this.getEffectiveMode();
+    logger.debug(`ContentParser initialized with mode: ${effectiveMode}`);
+  }
+
+  /**
+   * 実際に使用されるモードを取得
+   * 優先順: codex-agent → claude-agent → openai → claude
+   * （フェーズ実行の auto モードと同じ優先順）
+   */
+  private getEffectiveMode(): EffectiveMode {
+    if (this.mode === 'openai') {
+      return 'openai';
+    }
+    if (this.mode === 'claude') {
+      return 'claude';
+    }
+    if (this.mode === 'agent') {
+      // agent モード: Codex Agent を優先、なければ Claude Agent
+      if (this.codexAgentClient) {
+        return 'codex-agent';
+      }
+      return 'claude-agent';
+    }
+    // auto モード: codex-agent → claude-agent → openai → claude の優先順
+    if (this.codexAgentClient) {
+      return 'codex-agent';
+    }
+    if (this.claudeAgentClient) {
+      return 'claude-agent';
+    }
+    if (this.openaiClient) {
+      return 'openai';
+    }
+    return 'claude';
+  }
+
+  /**
+   * LLM API を呼び出す共通メソッド
+   */
+  private async callLlm(prompt: string, maxTokens: number): Promise<string> {
+    const effectiveMode = this.getEffectiveMode();
+
+    if (effectiveMode === 'claude-agent' && this.claudeAgentClient) {
+      return this.callClaudeAgentLlm(prompt);
+    }
+
+    if (effectiveMode === 'codex-agent' && this.codexAgentClient) {
+      return this.callCodexAgentLlm(prompt);
+    }
+
+    if (effectiveMode === 'openai' && this.openaiClient) {
+      const response = await this.openaiClient.chat.completions.create({
+        model: this.openaiModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 0,
+      });
+      return response.choices?.[0]?.message?.content ?? '{}';
+    }
+
+    if (effectiveMode === 'claude' && this.anthropicClient) {
+      const response = await this.anthropicClient.messages.create({
+        model: this.anthropicModel,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      // TextBlock からテキストを抽出
+      const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === 'text');
+      return textBlock ? textBlock.text : '{}';
+    }
+
+    throw new Error('No LLM client available');
+  }
+
+  /**
+   * Claude Agent SDK を使用して LLM を呼び出す
+   * テキスト解析専用のため、maxTurns=1 で単一応答を取得
+   */
+  private async callClaudeAgentLlm(prompt: string): Promise<string> {
+    if (!this.claudeAgentClient) {
+      throw new Error('Claude Agent client is not initialized');
+    }
+
+    const messages = await this.claudeAgentClient.executeTask({
+      prompt,
+      maxTurns: 1,
+      verbose: false,
+    });
+
+    // エージェントの応答からテキストを抽出
+    return this.extractTextFromAgentMessages(messages);
+  }
+
+  /**
+   * Codex Agent を使用して LLM を呼び出す
+   * テキスト解析専用のため、maxTurns=1 で単一応答を取得
+   */
+  private async callCodexAgentLlm(prompt: string): Promise<string> {
+    if (!this.codexAgentClient) {
+      throw new Error('Codex Agent client is not initialized');
+    }
+
+    const messages = await this.codexAgentClient.executeTask({
+      prompt,
+      maxTurns: 1,
+      verbose: false,
+    });
+
+    // エージェントの応答からテキストを抽出
+    return this.extractTextFromCodexMessages(messages);
+  }
+
+  /**
+   * Claude Agent メッセージからテキストを抽出
+   */
+  private extractTextFromAgentMessages(messages: string[]): string {
+    const textBlocks: string[] = [];
+
+    for (const rawMessage of messages) {
+      try {
+        const message = JSON.parse(rawMessage);
+
+        // result メッセージからテキストを抽出
+        if (message.type === 'result' && message.result) {
+          textBlocks.push(message.result);
+        }
+
+        // assistant メッセージからテキストを抽出
+        if (message.type === 'assistant' && message.message?.content) {
+          for (const block of message.message.content) {
+            if (block.type === 'text' && block.text) {
+              textBlocks.push(block.text);
+            }
+          }
+        }
+      } catch {
+        // JSON パースエラーは無視
+      }
+    }
+
+    const result = textBlocks.join('\n').trim();
+    return result || '{}';
+  }
+
+  /**
+   * Codex Agent メッセージからテキストを抽出
+   */
+  private extractTextFromCodexMessages(messages: string[]): string {
+    const textBlocks: string[] = [];
+
+    for (const rawMessage of messages) {
+      try {
+        const message = JSON.parse(rawMessage);
+
+        // agent_message からテキストを抽出
+        if (message.type === 'item.completed' && message.item) {
+          const item = message.item as Record<string, unknown>;
+          const itemType = typeof item.type === 'string' ? item.type : '';
+          if (itemType === 'agent_message') {
+            const text = typeof item.text === 'string' ? item.text : '';
+            if (text.trim()) {
+              textBlocks.push(text);
+            }
+          }
+        }
+
+        // response.completed からテキストを抽出
+        if (message.type === 'response.completed' && message.response?.output) {
+          const output = message.response.output as unknown[];
+          for (const item of output) {
+            if (typeof item === 'object' && item !== null) {
+              const obj = item as Record<string, unknown>;
+              if (obj.type === 'message' && typeof obj.content === 'string') {
+                textBlocks.push(obj.content);
+              }
+            }
+          }
+        }
+      } catch {
+        // JSON パースエラーは無視
+      }
+    }
+
+    const result = textBlocks.join('\n').trim();
+    return result || '{}';
   }
 
   private loadPrompt(promptName: string): string {
@@ -50,14 +337,7 @@ export class ContentParser {
     const prompt = template.replace('{document_content}', documentContent);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1024,
-        temperature: 0,
-      });
-
-      const content = response.choices?.[0]?.message?.content ?? '{}';
+      const content = await this.callLlm(prompt, 1024);
       const parsed = JSON.parse(content) as Record<string, string | null | undefined>;
       const result: Record<string, string> = {};
       for (const [key, value] of Object.entries(parsed)) {
@@ -147,14 +427,7 @@ export class ContentParser {
     const prompt = template.replace('{full_text}', fullText);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 256,
-        temperature: 0,
-      });
-
-      const content = response.choices?.[0]?.message?.content ?? '{}';
+      const content = await this.callLlm(prompt, 256);
       const parsed = JSON.parse(content) as { result?: string };
       const result = (parsed.result ?? 'FAIL').toUpperCase();
 
@@ -165,7 +438,7 @@ export class ContentParser {
       };
     } catch (error) {
       const message = getErrorMessage(error);
-      logger.warn(`Failed to parse review result via OpenAI: ${message}`);
+      logger.warn(`Failed to parse review result via LLM: ${message}`);
 
       const upper = fullText.toUpperCase();
       let inferred = 'FAIL';
@@ -228,14 +501,7 @@ export class ContentParser {
     const prompt = template.replace('{evaluation_content}', content);
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2048,
-        temperature: 0,
-      });
-
-      const responseContent = response.choices?.[0]?.message?.content ?? '{}';
+      const responseContent = await this.callLlm(prompt, 2048);
       const parsed = JSON.parse(responseContent) as {
         decision?: string;
         failedPhase?: string | null;

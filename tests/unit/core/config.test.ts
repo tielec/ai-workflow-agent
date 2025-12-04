@@ -178,6 +178,7 @@ describe('Config - エージェント関連メソッド', () => {
 
     test('2.2.2: getCodexApiKey_正常系_CODEX_API_KEY未設定でOPENAI_API_KEYが設定されている場合', () => {
       // Given: CODEX_API_KEY が未設定、OPENAI_API_KEY が設定されている
+      // Issue #188: CODEX_API_KEY と OPENAI_API_KEY は分離されたため、フォールバックなし
       delete process.env.CODEX_API_KEY;
       process.env.OPENAI_API_KEY = 'openai_key_456';
       const testConfig = new Config();
@@ -185,8 +186,8 @@ describe('Config - エージェント関連メソッド', () => {
       // When: getCodexApiKey()を呼び出す
       const result = testConfig.getCodexApiKey();
 
-      // Then: OPENAI_API_KEYの値が返される（フォールバック）
-      expect(result).toBe('openai_key_456');
+      // Then: nullが返される（CODEX_API_KEY のみを使用、OPENAI_API_KEY へのフォールバックなし）
+      expect(result).toBeNull();
     });
 
     test('2.2.3: getCodexApiKey_正常系_両方が設定されている場合はCODEX_API_KEYが優先される', () => {
@@ -262,6 +263,88 @@ describe('Config - エージェント関連メソッド', () => {
 
       // When: getClaudeOAuthToken()を呼び出す
       const result = testConfig.getClaudeOAuthToken();
+
+      // Then: nullが返される
+      expect(result).toBeNull();
+    });
+  });
+
+  // Issue #188: 新規追加メソッド
+  describe('getClaudeCodeApiKey()', () => {
+    test('getClaudeCodeApiKey_正常系_APIキーが設定されている場合', () => {
+      // Given: CLAUDE_CODE_API_KEY が設定されている
+      process.env.CLAUDE_CODE_API_KEY = 'api_key_123';
+      const testConfig = new Config();
+
+      // When: getClaudeCodeApiKey()を呼び出す
+      const result = testConfig.getClaudeCodeApiKey();
+
+      // Then: APIキーが返される
+      expect(result).toBe('api_key_123');
+    });
+
+    test('getClaudeCodeApiKey_正常系_APIキーが未設定の場合', () => {
+      // Given: CLAUDE_CODE_API_KEY が未設定
+      delete process.env.CLAUDE_CODE_API_KEY;
+      const testConfig = new Config();
+
+      // When: getClaudeCodeApiKey()を呼び出す
+      const result = testConfig.getClaudeCodeApiKey();
+
+      // Then: nullが返される
+      expect(result).toBeNull();
+    });
+  });
+
+  // Issue #188: 新規追加メソッド（フォールバック付き）
+  describe('getClaudeCodeToken()', () => {
+    test('getClaudeCodeToken_正常系_OAuthトークンが設定されている場合', () => {
+      // Given: CLAUDE_CODE_OAUTH_TOKEN が設定されている
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth_token_456';
+      delete process.env.CLAUDE_CODE_API_KEY;
+      const testConfig = new Config();
+
+      // When: getClaudeCodeToken()を呼び出す
+      const result = testConfig.getClaudeCodeToken();
+
+      // Then: OAuthトークンが返される（優先）
+      expect(result).toBe('oauth_token_456');
+    });
+
+    test('getClaudeCodeToken_正常系_OAuthトークン未設定でAPIキーが設定されている場合', () => {
+      // Given: CLAUDE_CODE_OAUTH_TOKEN が未設定、CLAUDE_CODE_API_KEY が設定されている
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      process.env.CLAUDE_CODE_API_KEY = 'api_key_789';
+      const testConfig = new Config();
+
+      // When: getClaudeCodeToken()を呼び出す
+      const result = testConfig.getClaudeCodeToken();
+
+      // Then: APIキーが返される（フォールバック）
+      expect(result).toBe('api_key_789');
+    });
+
+    test('getClaudeCodeToken_正常系_両方が設定されている場合はOAuthトークンが優先される', () => {
+      // Given: 両方の環境変数が設定されている
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth_token_456';
+      process.env.CLAUDE_CODE_API_KEY = 'api_key_789';
+      const testConfig = new Config();
+
+      // When: getClaudeCodeToken()を呼び出す
+      const result = testConfig.getClaudeCodeToken();
+
+      // Then: OAuthトークンが優先される
+      expect(result).toBe('oauth_token_456');
+    });
+
+    test('getClaudeCodeToken_正常系_両方が未設定の場合', () => {
+      // Given: 両方の環境変数が未設定
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      delete process.env.CLAUDE_CODE_API_KEY;
+      const testConfig = new Config();
+
+      // When: getClaudeCodeToken()を呼び出す
+      const result = testConfig.getClaudeCodeToken();
 
       // Then: nullが返される
       expect(result).toBeNull();

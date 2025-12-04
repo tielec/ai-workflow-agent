@@ -50,8 +50,8 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
     await fs.remove(TEST_DIR);
   });
 
-  test('UC-AC-01: cleanupWorkflowLogs() - phases 00-08 の execute/review/revise が削除され、metadata.json と output/*.md が保持される', async () => {
-    // Given: phases 00-08 のディレクトリが存在する
+  test('UC-AC-01: cleanupWorkflowLogs() - phases 00-09 の execute/review/revise が削除され、metadata.json と output/*.md が保持される', async () => {
+    // Given: phases 00-09 のディレクトリが存在する
     const phaseDirs = [
       '00_planning',
       '01_requirements',
@@ -62,6 +62,7 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
       '06_testing',
       '07_documentation',
       '08_report',
+      '09_evaluation',
     ];
 
     for (const phaseDir of phaseDirs) {
