@@ -176,8 +176,9 @@ export class SquashManager {
     const prompt = await this.fillPromptVariables(template, context);
 
     // 3. エージェント実行
-    const agent = this.codexAgent ?? this.claudeAgent;
-    if (!agent) {
+    const codexAgent = this.codexAgent;
+    const claudeAgent = this.claudeAgent;
+    if (!codexAgent && !claudeAgent) {
       throw new Error('No agent available for commit message generation.');
     }
 
@@ -186,12 +187,20 @@ export class SquashManager {
     await fs.mkdir(tempDir, { recursive: true });
 
     try {
-      // エージェント実行
-      await agent.execute(prompt, {
-        workingDir: this.workingDir,
-        logDir: tempDir,
-        maxTurns: 5,
-      });
+      // エージェント実行（Codex優先、Claudeにフォールバック）
+      if (codexAgent) {
+        await codexAgent.executeTask({
+          prompt,
+          workingDirectory: this.workingDir,
+          maxTurns: 5,
+        });
+      } else if (claudeAgent) {
+        await claudeAgent.executeTask({
+          prompt,
+          workingDirectory: this.workingDir,
+          maxTurns: 5,
+        });
+      }
 
       // イベントから生成されたメッセージを抽出
       const outputFile = join(tempDir, 'commit-message.txt');

@@ -7,26 +7,30 @@ import type { RemoteManager } from '../../src/core/git/remote-manager.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { PhaseContext } from '../../src/types/commands.js';
-import { promises as fs } from 'node:fs';
 
-// Mock dependencies
+// Mock fs module before importing
+const mockMkdir = jest.fn<() => Promise<void>>();
+const mockReadFile = jest.fn<() => Promise<string>>();
+const mockRm = jest.fn<() => Promise<void>>();
+const mockAccess = jest.fn<() => Promise<void>>();
+
 jest.mock('node:fs', () => ({
   promises: {
-    mkdir: jest.fn(),
-    readFile: jest.fn(),
-    rm: jest.fn(),
-    access: jest.fn(),
+    mkdir: mockMkdir,
+    readFile: mockReadFile,
+    rm: mockRm,
+    access: mockAccess,
   },
 }));
 
 describe('SquashManager', () => {
   let squashManager: SquashManager;
-  let mockGit: jest.Mocked<SimpleGit>;
-  let mockMetadataManager: jest.Mocked<MetadataManager>;
-  let mockCommitManager: jest.Mocked<CommitManager>;
-  let mockRemoteManager: jest.Mocked<RemoteManager>;
-  let mockCodexAgent: jest.Mocked<CodexAgentClient>;
-  let mockClaudeAgent: jest.Mocked<ClaudeAgentClient>;
+  let mockGit: any;
+  let mockMetadataManager: any;
+  let mockCommitManager: any;
+  let mockRemoteManager: any;
+  let mockCodexAgent: any;
+  let mockClaudeAgent: any;
   const testWorkingDir = '/test/working-dir';
 
   beforeEach(() => {
@@ -54,12 +58,12 @@ describe('SquashManager', () => {
     } as any;
 
     mockCodexAgent = {
-      execute: jest.fn(),
-    } as any;
+      executeTask: jest.fn<any>().mockResolvedValue(undefined),
+    };
 
     mockClaudeAgent = {
-      execute: jest.fn(),
-    } as any;
+      executeTask: jest.fn<any>().mockResolvedValue(undefined),
+    };
 
     squashManager = new SquashManager(
       mockGit,
@@ -389,10 +393,10 @@ Fixes #194`;
       mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
       mockGit.revparse.mockResolvedValue('feature/test\n');
       mockGit.diff.mockResolvedValue('test diff');
-      mockCodexAgent.execute.mockRejectedValue(new Error('Agent failed'));
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.access as jest.Mock).mockRejectedValue(new Error('File not found'));
-      (fs.rm as jest.Mock).mockResolvedValue(undefined);
+      mockCodexAgent.executeTask.mockRejectedValue(new Error('Agent failed'));
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockRejectedValue(new Error('File not found'));
+      mockRm.mockResolvedValue(undefined);
 
       // When: squashCommits を呼び出す
       await squashManager.squashCommits(context);

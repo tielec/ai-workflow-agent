@@ -1,35 +1,31 @@
 import { SquashManager } from '../../src/core/git/squash-manager.js';
-import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { jest } from '@jest/globals';
-import type { SimpleGit } from 'simple-git';
-import type { CommitManager } from '../../src/core/git/commit-manager.js';
-import type { RemoteManager } from '../../src/core/git/remote-manager.js';
-import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
-import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { PhaseContext } from '../../src/types/commands.js';
-import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
 
-// Mock dependencies
+// Mock fs module before importing
+const mockMkdir = jest.fn<() => Promise<void>>();
+const mockReadFile = jest.fn<() => Promise<string>>();
+const mockRm = jest.fn<() => Promise<void>>();
+const mockAccess = jest.fn<() => Promise<void>>();
+
 jest.mock('node:fs', () => ({
   promises: {
-    mkdir: jest.fn(),
-    readFile: jest.fn(),
-    rm: jest.fn(),
-    access: jest.fn(),
+    mkdir: mockMkdir,
+    readFile: mockReadFile,
+    rm: mockRm,
+    access: mockAccess,
   },
 }));
 
 describe('スカッシュワークフロー統合テスト', () => {
   let squashManager: SquashManager;
-  let metadataManager: MetadataManager;
-  let mockGit: jest.Mocked<SimpleGit>;
-  let mockCommitManager: jest.Mocked<CommitManager>;
-  let mockRemoteManager: jest.Mocked<RemoteManager>;
-  let mockCodexAgent: jest.Mocked<CodexAgentClient>;
-  let mockClaudeAgent: jest.Mocked<ClaudeAgentClient>;
+  let mockMetadataManager: any;
+  let mockGit: any;
+  let mockCommitManager: any;
+  let mockRemoteManager: any;
+  let mockCodexAgent: any;
+  let mockClaudeAgent: any;
   const testWorkingDir = '/test/working-dir';
-  const testMetadataPath = path.join(testWorkingDir, '.ai-workflow', 'issue-194', 'metadata.json');
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -50,19 +46,25 @@ describe('スカッシュワークフロー統合テスト', () => {
     } as any;
 
     mockCodexAgent = {
-      execute: jest.fn(),
+      executeTask: jest.fn(),
     } as any;
 
     mockClaudeAgent = {
-      execute: jest.fn(),
+      executeTask: jest.fn(),
     } as any;
 
-    // Create real MetadataManager for integration testing
-    metadataManager = new MetadataManager(testMetadataPath);
+    // Create mock MetadataManager
+    mockMetadataManager = {
+      getBaseCommit: jest.fn(),
+      setPreSquashCommits: jest.fn(),
+      setSquashedAt: jest.fn(),
+      getPreSquashCommits: jest.fn().mockReturnValue([]),
+      getSquashedAt: jest.fn().mockReturnValue(null),
+    };
 
     squashManager = new SquashManager(
       mockGit,
-      metadataManager,
+      mockMetadataManager,
       mockCommitManager,
       mockRemoteManager,
       mockCodexAgent,
@@ -96,11 +98,11 @@ describe('スカッシュワークフロー統合テスト', () => {
           assignees: [],
         },
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       // Step 1: base_commitを記録（initコマンドに相当）
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       // Step 2: Git操作のモック設定
       mockGit.log.mockResolvedValue({ all: commits } as any);
@@ -111,24 +113,24 @@ describe('スカッシュワークフロー統合テスト', () => {
       mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
 
       // Step 3: エージェント実行のモック設定
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.access as jest.Mock).mockResolvedValue(undefined);
-      (fs.readFile as jest.Mock).mockResolvedValue(
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockResolvedValue(undefined);
+      mockReadFile.mockResolvedValue(
         `feat(squash): add commit squashing feature
 
 This feature allows squashing workflow commits into one.
 
 Fixes #194`,
       );
-      (fs.rm as jest.Mock).mockResolvedValue(undefined);
-      mockCodexAgent.execute.mockResolvedValue([] as any);
+      mockRm.mockResolvedValue(undefined);
+      mockCodexAgent.executeTask.mockResolvedValue(undefined);
 
       // When: スカッシュ処理を実行
       await squashManager.squashCommits(context);
 
       // Then: 期待される結果を検証
       // 1. base_commitが取得された
-      expect(metadataManager.getBaseCommit()).toBe(baseCommit);
+      expect(mockMetadataManager.getBaseCommit).toHaveBeenCalled();
 
       // 2. コミット範囲が特定された
       expect(mockGit.log).toHaveBeenCalledWith({
@@ -141,7 +143,8 @@ Fixes #194`,
       expect(mockGit.revparse).toHaveBeenCalledWith(['--abbrev-ref', 'HEAD']);
 
       // 4. pre_squash_commitsが記録された
-      const preSquashCommits = metadataManager.getPreSquashCommits();
+      expect(mockMetadataManager.setPreSquashCommits).toHaveBeenCalled();
+      const preSquashCommits = mockMetadataManager.setPreSquashCommits.mock.calls[0][0];
       expect(preSquashCommits).toHaveLength(5);
 
       // 5. スカッシュが実行された
@@ -150,8 +153,7 @@ Fixes #194`,
       expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
 
       // 6. squashed_atタイムスタンプが記録された
-      const squashedAt = metadataManager.getSquashedAt();
-      expect(squashedAt).toBeTruthy();
+      expect(mockMetadataManager.setSquashedAt).toHaveBeenCalled();
     });
   });
 
@@ -159,14 +161,14 @@ Fixes #194`,
     it('should skip squash when --no-squash-on-complete is specified', async () => {
       // Given: スカッシュ無効化フラグ
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       // When: squashOnCompleteがfalseの場合（このテストでは呼び出さない）
       // スカッシュ処理を呼び出さないことで動作をシミュレート
 
       // Then: スカッシュが実行されない
       expect(mockGit.reset).not.toHaveBeenCalled();
-      expect(metadataManager.getSquashedAt()).toBeNull();
+      expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
     });
   });
 
@@ -179,7 +181,7 @@ Fixes #194`,
         issueNumber: 194,
         issueInfo: null,
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       // When: スカッシュ処理を実行
@@ -188,7 +190,7 @@ Fixes #194`,
       // Then: スカッシュがスキップされる
       expect(mockGit.log).not.toHaveBeenCalled();
       expect(mockGit.reset).not.toHaveBeenCalled();
-      expect(metadataManager.getSquashedAt()).toBeNull();
+      expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
     });
   });
 
@@ -196,7 +198,7 @@ Fixes #194`,
     it('should execute git operations in correct order', async () => {
       // Given: スカッシュに必要な条件が整っている
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       const context: PhaseContext = {
         issueNumber: 194,
@@ -212,7 +214,7 @@ Fixes #194`,
           assignees: [],
         },
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       mockGit.log.mockResolvedValue({
@@ -224,9 +226,9 @@ Fixes #194`,
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
       mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
 
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.access as jest.Mock).mockRejectedValue(new Error('File not found'));
-      (fs.rm as jest.Mock).mockResolvedValue(undefined);
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockRejectedValue(new Error('File not found'));
+      mockRm.mockResolvedValue(undefined);
 
       // When: スカッシュ処理を実行
       await squashManager.squashCommits(context);
@@ -255,7 +257,7 @@ Fixes #194`,
     it('should use fallback message when agent execution fails', async () => {
       // Given: エージェントが失敗する設定
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       const context: PhaseContext = {
         issueNumber: 194,
@@ -271,7 +273,7 @@ Fixes #194`,
           assignees: [],
         },
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       mockGit.log.mockResolvedValue({
@@ -284,10 +286,10 @@ Fixes #194`,
       mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
 
       // エージェントが失敗
-      mockCodexAgent.execute.mockRejectedValue(new Error('Agent failed'));
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.access as jest.Mock).mockRejectedValue(new Error('File not found'));
-      (fs.rm as jest.Mock).mockResolvedValue(undefined);
+      mockCodexAgent.executeTask.mockRejectedValue(new Error('Agent failed'));
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockRejectedValue(new Error('File not found'));
+      mockRm.mockResolvedValue(undefined);
 
       // When: スカッシュ処理を実行
       await squashManager.squashCommits(context);
@@ -305,7 +307,7 @@ Fixes #194`,
     it('should use fallback message when generated message is invalid', async () => {
       // Given: エージェントが無効なメッセージを生成
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       const context: PhaseContext = {
         issueNumber: 194,
@@ -321,7 +323,7 @@ Fixes #194`,
           assignees: [],
         },
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       mockGit.log.mockResolvedValue({
@@ -334,11 +336,11 @@ Fixes #194`,
       mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
 
       // エージェントが無効なメッセージを生成
-      (fs.mkdir as jest.Mock).mockResolvedValue(undefined);
-      (fs.access as jest.Mock).mockResolvedValue(undefined);
-      (fs.readFile as jest.Mock).mockResolvedValue('Invalid commit message without proper format');
-      (fs.rm as jest.Mock).mockResolvedValue(undefined);
-      mockCodexAgent.execute.mockResolvedValue([] as any);
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockResolvedValue(undefined);
+      mockReadFile.mockResolvedValue('Invalid commit message without proper format');
+      mockRm.mockResolvedValue(undefined);
+      mockCodexAgent.executeTask.mockResolvedValue(undefined);
 
       // When: スカッシュ処理を実行
       await squashManager.squashCommits(context);
@@ -355,13 +357,13 @@ Fixes #194`,
     it('should throw error but allow workflow to continue when on protected branch', async () => {
       // Given: mainブランチでスカッシュを試行
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       const context: PhaseContext = {
         issueNumber: 194,
         issueInfo: null,
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       mockGit.log.mockResolvedValue({
@@ -384,13 +386,13 @@ Fixes #194`,
     it('should skip squash when only one or zero commits exist', async () => {
       // Given: コミット数が1つのみ
       const baseCommit = 'abc123';
-      metadataManager.setBaseCommit(baseCommit);
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
 
       const context: PhaseContext = {
         issueNumber: 194,
         issueInfo: null,
         workingDir: testWorkingDir,
-        metadataManager,
+        metadataManager: mockMetadataManager,
       } as any;
 
       mockGit.log.mockResolvedValue({
@@ -403,7 +405,7 @@ Fixes #194`,
       // Then: スカッシュがスキップされる
       expect(mockGit.revparse).not.toHaveBeenCalled();
       expect(mockGit.reset).not.toHaveBeenCalled();
-      expect(metadataManager.getSquashedAt()).toBeNull();
+      expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
     });
   });
 });
