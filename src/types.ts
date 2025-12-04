@@ -217,6 +217,10 @@ export interface WorkflowMetadata {
   updated_at: string;
   // Issue #90: 差し戻し履歴（オプショナル）
   rollback_history?: import('./types/commands.js').RollbackHistoryEntry[];
+  // Issue #194: スカッシュ機能関連のメタデータ（オプショナル）
+  base_commit?: string | null;                 // ワークフロー開始時のコミットハッシュ（init時に記録）
+  pre_squash_commits?: string[] | null;        // スカッシュ前のコミットハッシュリスト（ロールバック用）
+  squashed_at?: string | null;                 // スカッシュ完了時のタイムスタンプ（ISO 8601形式）
 }
 
 export interface PhaseExecutionResult {

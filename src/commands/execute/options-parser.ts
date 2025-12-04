@@ -75,6 +75,11 @@ export interface ParsedExecuteOptions {
    * Issue 本文にメタデータを追記するかどうか
    */
   followupLlmAppendMetadata?: boolean;
+
+  /**
+   * ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
+   */
+  squashOnComplete: boolean;
 }
 
 /**
@@ -145,6 +150,8 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
       ? String(options.followupLlmAppendMetadata).toLowerCase() === 'true'
       : undefined;
 
+  const squashOnComplete = Boolean(options.squashOnComplete);
+
   return {
     issueNumber,
     phaseOption,
@@ -160,6 +167,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     followupLlmTimeout: Number.isFinite(followupLlmTimeout ?? NaN) ? followupLlmTimeout : undefined,
     followupLlmMaxRetries: Number.isFinite(followupLlmMaxRetries ?? NaN) ? followupLlmMaxRetries : undefined,
     followupLlmAppendMetadata,
+    squashOnComplete,
   };
 }
 

@@ -6,6 +6,10 @@ import { SecretMasker } from './secret-masker.js';
 import { CommitManager } from './git/commit-manager.js';
 import { BranchManager } from './git/branch-manager.js';
 import { RemoteManager } from './git/remote-manager.js';
+import { SquashManager } from './git/squash-manager.js';
+import type { PhaseContext } from '../types/commands.js';
+import type { CodexAgentClient } from './codex-agent-client.js';
+import type { ClaudeAgentClient } from './claude-agent-client.js';
 
 interface CommitResult {
   success: boolean;
@@ -40,6 +44,7 @@ interface StatusSummary {
  * - CommitManager: Commit operations and message generation
  * - BranchManager: Branch lifecycle management
  * - RemoteManager: Remote synchronization and network operations
+ * - SquashManager: Commit squashing operations (Issue #194)
  */
 export class GitManager {
   private readonly repoPath: string;
@@ -49,11 +54,14 @@ export class GitManager {
   private readonly commitManager: CommitManager;
   private readonly branchManager: BranchManager;
   private readonly remoteManager: RemoteManager;
+  private readonly squashManager: SquashManager;
 
   constructor(
     repoPath: string,
     metadataManager: MetadataManager,
     config: Record<string, unknown> = {},
+    codexAgent: CodexAgentClient | null = null,
+    claudeAgent: ClaudeAgentClient | null = null,
   ) {
     this.repoPath = repoPath;
     this.metadata = metadataManager;
@@ -72,6 +80,17 @@ export class GitManager {
     );
     this.branchManager = new BranchManager(this.git);
     this.remoteManager = new RemoteManager(this.git, metadataManager);
+
+    // Issue #194: Initialize SquashManager with agent clients
+    this.squashManager = new SquashManager(
+      this.git,
+      metadataManager,
+      this.commitManager,
+      this.remoteManager,
+      codexAgent,
+      claudeAgent,
+      repoPath,
+    );
   }
 
   // Commit operations delegation
@@ -188,6 +207,11 @@ export class GitManager {
     branchName?: string,
   ): Promise<{ success: boolean; error?: string | null }> {
     return this.remoteManager.pullLatest(branchName);
+  }
+
+  // Squash operations delegation (Issue #194)
+  public async squashCommits(context: PhaseContext): Promise<void> {
+    return this.squashManager.squashCommits(context);
   }
 
 }
