@@ -252,6 +252,8 @@ ai-workflow execute --issue 385 --phase all --no-squash-on-complete
 **安全機能**:
 - ブランチ保護（main/master への強制プッシュを防止）
 - `--force-with-lease` による安全な強制プッシュ（他の変更を上書きしない）
+  - リモートブランチが先に進んでいる場合は push が自動的に拒否される
+  - non-fast-forwardエラー時にpullを実行しない（スカッシュ後の履歴を保持）
 - `pre_squash_commits` メタデータによるロールバック可能性
 - スカッシュ失敗時もワークフロー全体は成功として扱う（警告ログのみ）
 

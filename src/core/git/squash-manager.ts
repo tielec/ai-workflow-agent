@@ -1,5 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { SimpleGit } from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -9,6 +11,10 @@ import type { RemoteManager } from './remote-manager.js';
 import type { CodexAgentClient } from '../codex-agent-client.js';
 import type { ClaudeAgentClient } from '../claude-agent-client.js';
 import type { PhaseContext } from '../../types/commands.js';
+
+// ESM-compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * SquashManager - スカッシュ処理の専門マネージャー（Issue #194）
@@ -244,7 +250,7 @@ export class SquashManager {
 
       // 3. git push --force-with-lease
       logger.info('Force pushing to remote...');
-      await this.remoteManager.pushToRemote(3, 2000);
+      await this.remoteManager.forcePushToRemote();
 
       logger.info('Squash and push completed successfully.');
     } catch (error) {
