@@ -34,10 +34,16 @@ export interface IConfig {
   // ========== エージェント関連 ==========
 
   /**
-   * Codex API キーを取得（CODEX_API_KEY → OPENAI_API_KEY のフォールバック）
+   * Codex API キーを取得（CODEX_API_KEY のみ、フォールバックなし）
    * @returns API キー、または未設定の場合は null
    */
   getCodexApiKey(): string | null;
+
+  /**
+   * Claude Code トークンを取得（CLAUDE_CODE_OAUTH_TOKEN → CLAUDE_CODE_API_KEY のフォールバック）
+   * @returns トークン、または未設定の場合は null
+   */
+  getClaudeCodeToken(): string | null;
 
   /**
    * Claude Code 認証ファイルパスを取得
@@ -216,8 +222,13 @@ export class Config implements IConfig {
   // ========== エージェント関連 ==========
 
   public getCodexApiKey(): string | null {
-    // CODEX_API_KEY → OPENAI_API_KEY のフォールバック
-    return this.getEnvWithFallback('CODEX_API_KEY', 'OPENAI_API_KEY');
+    // CODEX_API_KEY のみ（フォールバックなし、Issue #188）
+    return this.getEnv('CODEX_API_KEY', false);
+  }
+
+  public getClaudeCodeToken(): string | null {
+    // CLAUDE_CODE_OAUTH_TOKEN → CLAUDE_CODE_API_KEY のフォールバック（Issue #188）
+    return this.getEnvWithFallback('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_API_KEY');
   }
 
   public getClaudeCredentialsPath(): string | null {
@@ -233,7 +244,8 @@ export class Config implements IConfig {
   }
 
   public getOpenAiApiKey(): string | null {
-    return this.getEnv('OPENAI_API_KEY', false) ?? this.getEnv('CODEX_API_KEY', false);
+    // OPENAI_API_KEY のみ（フォールバックなし、Issue #188）
+    return this.getEnv('OPENAI_API_KEY', false);
   }
 
   public getAnthropicApiKey(): string | null {

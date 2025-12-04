@@ -39,10 +39,13 @@
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false、Issue #2）
  *
  * 認証情報:
+ * - CODEX_API_KEY: Codex エージェント用 API Key（Job DSLパラメータから取得）
  * - OPENAI_API_KEY: OpenAI API Key（Job DSLパラメータから取得）
  * - GITHUB_TOKEN: GitHub Personal Access Token（Job DSLパラメータから取得）
+ * - CLAUDE_CODE_OAUTH_TOKEN: Claude Code OAuth Token（Job DSLパラメータから取得、優先）
+ * - CLAUDE_CODE_API_KEY: Claude Code API Key（Job DSLパラメータから取得、フォールバック）
+ * - ANTHROPIC_API_KEY: Anthropic API Key（Job DSLパラメータから取得）
  * - AWS認証情報: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN（Job DSLパラメータから取得）
- * - claude-code-oauth-token: Claude Agent SDK用OAuthトークン（Jenkins Credentialsで設定）
  *
  * 重要: パラメータ定義はこのファイルでは行いません（Job DSLで定義済み）
  *
@@ -75,7 +78,7 @@ pipeline {
             label 'ec2-fleet'
             dir '.'
             filename 'Dockerfile'
-            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e OPENAI_API_KEY=${OPENAI_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e CLAUDE_CODE_CREDENTIALS_PATH=/home/node/.claude-code/credentials.json -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
+            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e CODEX_API_KEY=${CODEX_API_KEY} -e OPENAI_API_KEY=${OPENAI_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN} -e CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY} -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
         }
     }
 
@@ -90,7 +93,6 @@ pipeline {
     environment {
         // Claude Agent SDK設定（Bashコマンド承認スキップ）
         CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
-        CLAUDE_CODE_CREDENTIALS_PATH = "/home/node/.claude-code/credentials.json"
 
         // AI Workflow設定
         WORKFLOW_DIR = '.'
@@ -111,8 +113,12 @@ pipeline {
         AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
 
         // 認証情報（Job DSLパラメータから環境変数に設定）
-        OPENAI_API_KEY = "${params.OPENAI_API_KEY}"
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
         GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
     }
 
     stages {

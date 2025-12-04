@@ -88,7 +88,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       options.agent,
       repoPath,
       credentials.codexApiKey,
-      credentials.claudeCredentialsPath,
+      credentials.claudeCodeToken,
     );
 
     if (!codexClient && !claudeClient) {
