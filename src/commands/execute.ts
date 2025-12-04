@@ -86,6 +86,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     followupLlmTimeout,
     followupLlmMaxRetries,
     followupLlmAppendMetadata,
+    squashOnComplete,
   } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
@@ -189,7 +190,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   // Issue #174: Pass agent clients to GitHubClient for agent-based FOLLOW-UP Issue generation
   const githubClient = new GitHubClient(githubToken, repoName, codexClient, claudeClient);
 
-  const gitManager = new GitManager(repoRoot, metadataManager);
+  // Issue #194: Pass agent clients to GitManager for squash commit message generation
+  const gitManager = new GitManager(repoRoot, metadataManager, {}, codexClient, claudeClient);
 
   const branchExists = await gitManager.branchExists(branchName);
   if (!branchExists) {
@@ -232,6 +234,25 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   });
 
   // 6. PhaseContext 構築
+  // Issue #194: Issue情報をGitHubから取得（squashコミットメッセージ生成用）
+  let issueInfo = null;
+  try {
+    issueInfo = await githubClient.getIssueInfo(Number(issueNumber));
+  } catch (error) {
+    logger.warn(`Failed to fetch issue info: ${error}`);
+    // フォールバック: メタデータからタイトルのみ使用
+    issueInfo = {
+      number: Number(issueNumber),
+      title: metadataManager.data.issue_title,
+      body: '',
+      state: 'open' as const,
+      labels: [],
+      url: metadataManager.data.issue_url,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
+
   const context: PhaseContext = {
     workingDir,
     metadataManager,
@@ -241,6 +262,9 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     skipDependencyCheck,
     ignoreDependencies,
     issueGenerationOptions,
+    squashOnComplete,
+    issueNumber: Number(issueNumber),
+    issueInfo,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）

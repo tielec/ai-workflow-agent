@@ -103,6 +103,11 @@ export async function runCli(): Promise<void> {
       'Skip confirmation prompt before cleanup (for CI environments)',
       false,
     )
+    .option(
+      '--squash-on-complete',
+      'Squash all commits into one after workflow completion (Issue #194)',
+      false,
+    )
     .action(async (options) => {
       try {
         await handleExecuteCommand(options);
