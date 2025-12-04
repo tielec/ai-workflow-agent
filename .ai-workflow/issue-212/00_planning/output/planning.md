@@ -134,15 +134,15 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: CLI引数設計 (1~1.5h)
+- [x] Task 2-1: CLI引数設計 (1~1.5h)
   - `--issue <NUM>`: 必須引数、Issue番号のバリデーション
   - `--dry-run`: オプション、削除せず対象ファイルのみ表示
   - `--phases <range>`: オプション、範囲指定（例: `0-4`, `planning,requirements`）
   - `--all`: オプション、Evaluation Phase完了チェック
 
-- [ ] Task 2-2: クリーンアップロジックの抽出設計 (1~1.5h)
+- [x] Task 2-2: クリーンアップロジックの抽出設計 (1~1.5h)
   - `BasePhase.cleanupWorkflowLogs()`からの移行方針
-  - 共通モジュール（`src/core/cleanup-manager.ts`）の設計
+  - 既存の`ArtifactCleaner`クラス（`src/phases/cleanup/artifact-cleaner.ts`）を活用
   - Report Phaseからの呼び出し方法（後方互換性維持）
 
 ---
