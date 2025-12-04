@@ -144,19 +144,19 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: `squash-manager.ts` の `__dirname` エラー修正 (1~1.5h)
+- [x] Task 4-1: `squash-manager.ts` の `__dirname` エラー修正 (1~1.5h)
   - `import { fileURLToPath } from 'node:url';` と `import path from 'node:path';` を追加
   - `const __filename = fileURLToPath(import.meta.url);` を追加
   - `const __dirname = path.dirname(__filename);` を追加
   - `loadPromptTemplate()` メソッドの `__dirname` 参照を確認
-- [ ] Task 4-2: `remote-manager.ts` に force push メソッド追加 (1.5~2h)
+- [x] Task 4-2: `remote-manager.ts` に force push メソッド追加 (1.5~2h)
   - `forcePushToRemote()` メソッドを実装
   - `git.raw(['push', '--force-with-lease', 'origin', branchName])` を使用
   - エラーハンドリング（認証エラー、ネットワークエラー等）
-- [ ] Task 4-3: `squash-manager.ts` の `executeSquash()` メソッド修正 (0.5~1h)
+- [x] Task 4-3: `squash-manager.ts` の `executeSquash()` メソッド修正 (0.5~1h)
   - `remoteManager.pushToRemote()` を `remoteManager.forcePushToRemote()` に変更
   - コメント更新（`// 3. git push --force-with-lease`）
-- [ ] Task 4-4: `remote-manager.ts` の `pushToRemote()` メソッド修正 (1~1.5h)
+- [x] Task 4-4: `remote-manager.ts` の `pushToRemote()` メソッド修正 (1~1.5h)
   - Non-fast-forward エラー時の pull ロジックを条件付きに変更
   - スカッシュ後の push では pull を実行しない（新しいフラグまたは別メソッド使用）
 
@@ -281,11 +281,11 @@ graph TD
 - [x] **テストケースが検証可能である**（明確な入力と期待される出力が定義されている）
 
 ### Phase 4: 実装
-- [ ] **`squash-manager.ts` の `__dirname` エラーが修正されている**
-- [ ] **`remote-manager.ts` に `forcePushToRemote()` メソッドが追加されている**
-- [ ] **`--force-with-lease` が正しく使用されている**
-- [ ] **スカッシュ後の push 失敗時に pull を実行しない**
-- [ ] **既存の通常プッシュ機能に影響がない**
+- [x] **`squash-manager.ts` の `__dirname` エラーが修正されている**
+- [x] **`remote-manager.ts` に `forcePushToRemote()` メソッドが追加されている**
+- [x] **`--force-with-lease` が正しく使用されている**
+- [x] **スカッシュ後の push 失敗時に pull を実行しない**
+- [x] **既存の通常プッシュ機能に影響がない**
 
 ### Phase 5: テストコード実装
 - [ ] **ユニットテストが実装されている**
