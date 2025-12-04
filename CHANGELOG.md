@@ -73,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+- **Issue #208**: Metadata inconsistency causing rollback failures
+  - Fixed rollback command failure when `status: "pending"` but `completed_steps` is not empty (inconsistent metadata state)
+  - Improved `validateRollbackOptions()` to consider `completed_steps` when determining if a phase has started
+  - Fixed `rollbackToPhase()` to properly reset `completed_steps` and `current_step` fields when rolling back phases
+  - Added `validatePhaseConsistency()` method to MetadataManager for detecting 3 types of metadata inconsistencies
+  - Added warning logs for inconsistent metadata states (defensive programming approach)
+  - Test coverage: 12 test cases (6 unit tests for rollback validation, 6 unit tests for metadata consistency)
 - **Issue #153**: auto-issue: Jenkins環境で対象リポジトリではなくワークスペースを解析してしまう
   - `auto-issue` コマンドで `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
   - `resolveLocalRepoPath()` を使用してリポジトリパスを正しく解決（Jenkins環境では `REPOS_ROOT` を優先使用）
