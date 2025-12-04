@@ -183,13 +183,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1.5h)
+- [x] Task 5-1: ユニットテストの実装 (1~1.5h)
   - `tests/unit/commands/cleanup.test.ts`の作成
   - CLI引数解析テスト
   - バリデーションテスト
   - ドライランモードテスト
 
-- [ ] Task 5-2: インテグレーションテストの実装 (1~1.5h)
+- [x] Task 5-2: インテグレーションテストの実装 (1~1.5h)
   - `tests/integration/cleanup-command.test.ts`の作成
   - エンドツーエンド実行テスト
   - ファイルシステム操作の検証
@@ -325,8 +325,8 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] `tests/unit/commands/cleanup.test.ts`が実装されている
-- [ ] `tests/integration/cleanup-command.test.ts`が実装されている
+- [x] `tests/unit/commands/cleanup.test.ts`が実装されている
+- [x] `tests/integration/cleanup-command.test.ts`が実装されている
 - [ ] テストカバレッジが90%以上
 
 ### Phase 6: テスト実行
@@ -613,13 +613,13 @@ graph TD
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: ユニットテストの実装 (1~1.5h)
+- [x] Task 5-1: ユニットテストの実装 (1~1.5h)
   - `tests/unit/commands/cleanup.test.ts`の作成
   - CLI引数解析テスト
   - バリデーションテスト
   - ドライランモードテスト
 
-- [ ] Task 5-2: インテグレーションテストの実装 (1~1.5h)
+- [x] Task 5-2: インテグレーションテストの実装 (1~1.5h)
   - `tests/integration/cleanup-command.test.ts`の作成
   - エンドツーエンド実行テスト
   - ファイルシステム操作の検証
@@ -755,8 +755,8 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] `tests/unit/commands/cleanup.test.ts`が実装されている
-- [ ] `tests/integration/cleanup-command.test.ts`が実装されている
+- [x] `tests/unit/commands/cleanup.test.ts`が実装されている
+- [x] `tests/integration/cleanup-command.test.ts`が実装されている
 - [ ] テストカバレッジが90%以上
 
 ### Phase 6: テスト実行
