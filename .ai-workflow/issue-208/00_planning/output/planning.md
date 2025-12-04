@@ -145,12 +145,12 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: Rollbackバリデーションロジックの設計 (1~1.5h)
+- [x] Task 2-1: Rollbackバリデーションロジックの設計 (1~1.5h)
   - `validateRollbackOptions()` の改善案設計
   - `completed_steps` を考慮したフェーズ判定ロジック
   - エラーメッセージの改善（ユーザーに原因を明示）
 
-- [ ] Task 2-2: MetadataManager整合性チェックの設計 (1~1.5h)
+- [x] Task 2-2: MetadataManager整合性チェックの設計 (1~1.5h)
   - `validatePhaseConsistency()` メソッドのシグネチャ設計
   - 不整合パターンの定義（status vs completed_steps）
   - 警告レベル vs エラーレベルの判定基準
