@@ -164,20 +164,20 @@
 
 ### Phase 4: 実装 (見積もり: 3~5h)
 
-- [ ] Task 4-1: 共通モジュールの実装 (1~2h)
-  - `src/core/cleanup-manager.ts`の作成
-  - `cleanupWorkflowLogs()`のロジック抽出
-  - `cleanupWorkflowArtifacts()`のロジック統合
+- [x] Task 4-1: 共通モジュールの実装 (1~2h)
+  - `src/core/cleanup-manager.ts`の作成 → 設計変更: `ArtifactCleaner`の拡張で実装
+  - `cleanupWorkflowLogs()`のロジック抽出 → `ArtifactCleaner.cleanupWorkflowLogs(phaseRange)`として実装
+  - `cleanupWorkflowArtifacts()`のロジック統合 → 既存メソッド活用
 
-- [ ] Task 4-2: `src/commands/cleanup.ts`の実装 (1.5~2h)
-  - CLI引数解析（commander.js）
-  - バリデーション関数（`validateCleanupOptions()`）
-  - クリーンアップ実行ロジック（`handleCleanupCommand()`）
-  - ドライランモード実装
+- [x] Task 4-2: `src/commands/cleanup.ts`の実装 (1.5~2h)
+  - CLI引数解析（commander.js） → 実装完了
+  - バリデーション関数（`validateCleanupOptions()`） → 実装完了
+  - クリーンアップ実行ロジック（`handleCleanupCommand()`） → 実装完了
+  - ドライランモード実装 → 実装完了
 
-- [ ] Task 4-3: `src/main.ts`への統合 (0.5~1h)
-  - `cleanup`コマンドの登録
-  - エラーハンドリングの追加
+- [x] Task 4-3: `src/main.ts`への統合 (0.5~1h)
+  - `cleanup`コマンドの登録 → 実装完了（行196-210）
+  - エラーハンドリングの追加 → 実装完了
 
 ---
 
