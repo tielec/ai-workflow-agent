@@ -259,6 +259,31 @@ node dist/index.js auto-issue \
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）
 - `--agent claude`: Claude を強制使用（`CLAUDE_CODE_CREDENTIALS_PATH` が必要）
 
+### コミットスカッシュ（Issue #194で追加）
+```bash
+# ワークフロー完了後にコミットをスカッシュ
+node dist/index.js execute --issue 123 --phase all --squash-on-complete
+
+# 環境変数でデフォルト動作を設定
+export AI_WORKFLOW_SQUASH_ON_COMPLETE=true
+node dist/index.js execute --issue 123 --phase all
+
+# 明示的に無効化
+node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
+```
+
+**動作要件**:
+- `evaluation` フェーズが含まれる場合のみ実行
+- `init`コマンド実行時に `base_commit` が記録されている
+- main/master ブランチでは実行不可（ブランチ保護）
+
+**主な機能**:
+- **コミット範囲の取得**: `base_commit` から `HEAD` までのコミット範囲を自動取得
+- **エージェント生成**: Codex / Claude がコミット履歴とdiff統計を分析し、Conventional Commits形式のメッセージを生成
+- **スカッシュ実行**: `git reset --soft base_commit` でコミットをスカッシュし、生成されたメッセージで新しいコミットを作成
+- **安全な強制プッシュ**: `git push --force-with-lease` で他の変更を上書きしない
+- **ロールバック可能性**: `pre_squash_commits` メタデータで元のコミット履歴を保存
+
 ### 依存関係管理
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）
 - `--ignore-dependencies`: 警告を表示するが実行を継続
@@ -324,6 +349,7 @@ node dist/index.js auto-issue \
 - **`src/core/git/commit-message-builder.ts`**: コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **`src/core/git/branch-manager.ts`**: ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。
 - **`src/core/git/remote-manager.ts`**: リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。
+- **`src/core/git/squash-manager.ts`**: スカッシュ操作の専門マネージャー（約350行、Issue #194で追加）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease`による安全な強制プッシュを担当。
 - **`src/core/github-client.ts`**: Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。
 - **`src/core/github/issue-client.ts`**: Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能を担当。
 - **`src/core/github/pull-request-client.ts`**: PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。
@@ -477,6 +503,9 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 ### ロギング設定（Issue #61で追加）
 - `LOG_LEVEL`: ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - `LOG_NO_COLOR`: カラーリング無効化（CI環境用、`true` | `1` で有効化）
+
+### コミットスカッシュ設定（Issue #194で追加）
+- `AI_WORKFLOW_SQUASH_ON_COMPLETE`: スカッシュ機能のデフォルト動作（`true` | `false`、デフォルト: `false`）
 
 ### Docker環境設定（Issue #177で追加）
 - `AGENT_CAN_INSTALL_PACKAGES`: エージェントがパッケージをインストール可能かどうか（`true` | `1` で有効化、デフォルト: `false`）

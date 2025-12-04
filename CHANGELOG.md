@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Issue #194**: Squash commits after workflow completion with agent-generated commit message
+  - New CLI options: `--squash-on-complete` / `--no-squash-on-complete` for automatic commit squashing after workflow completion
+  - New environment variable: `AI_WORKFLOW_SQUASH_ON_COMPLETE` for default squash behavior control
+  - New SquashManager module (`src/core/git/squash-manager.ts`, ~350 lines) for commit squashing operations
+  - Agent-generated commit messages using Codex / Claude in Conventional Commits format
+  - Branch protection: prevents squashing on main/master branches
+  - Safe force push with `--force-with-lease` to avoid overwriting other changes
+  - Rollback capability with `pre_squash_commits` metadata
+  - New metadata fields: `base_commit` (recorded on init), `pre_squash_commits`, `squashed_at`
+  - 6 new methods in MetadataManager for squash-related metadata management
+  - Prompt template: `src/prompts/squash/generate-message.txt` for commit message generation
+  - Execution requirement: only runs when `evaluation` phase is included
+  - Squash failures logged as warnings but do not fail the workflow
+
 ### Changed
 - **Issue #155**: [Refactor] コード重複の削減: repository-analyzer.ts
   - Extract Method パターン適用により `repository-analyzer.ts` の重複コードを削減（~150行 → ~50行、67%削減）
