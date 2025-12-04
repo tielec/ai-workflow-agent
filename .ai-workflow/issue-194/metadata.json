@@ -18,9 +18,9 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 13517,
-    "total_output_tokens": 207345,
-    "total_cost_usd": 16.466519350000002
+    "total_input_tokens": 13532,
+    "total_output_tokens": 211534,
+    "total_cost_usd": 16.88855875
   },
   "phases": {
     "planning": {
@@ -89,10 +89,11 @@
       "started_at": "2025-12-04T07:40:21.000Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "revise",
+      "current_step": null,
       "completed_steps": [
         "execute",
-        "review"
+        "review",
+        "revise"
       ],
       "rollback_context": {
         "triggered_at": "2025-12-04T11:32:43.543Z",
@@ -150,7 +151,7 @@
     }
   },
   "created_at": "2025-12-04T05:13:38.227Z",
-  "updated_at": "2025-12-04T11:42:45.518Z",
+  "updated_at": "2025-12-04T11:44:25.627Z",
   "branch_name": "ai-workflow/issue-194",
   "github_integration": {
     "progress_comment_id": 3610616582,
