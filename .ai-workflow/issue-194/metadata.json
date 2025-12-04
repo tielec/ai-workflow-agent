@@ -4,14 +4,14 @@
   "issue_title": "Issue #194",
   "repository": "tielec/ai-workflow-agent",
   "target_repository": {
-    "path": "/tmp/jenkins-8ab51e38/workspace/AI_Workflow/develop-generic/all_phases",
+    "path": "/tmp/jenkins-109ca83f/workspace/AI_Workflow/develop-generic/rollback",
     "github_name": "tielec/ai-workflow-agent",
     "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
     "owner": "tielec",
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "evaluation",
+  "current_phase": "test_implementation",
   "design_decisions": {
     "implementation_strategy": null,
     "test_strategy": null,
@@ -84,58 +84,60 @@
       ]
     },
     "test_implementation": {
-      "status": "completed",
+      "status": "in_progress",
       "retry_count": 0,
       "started_at": "2025-12-04T07:40:21.000Z",
-      "completed_at": "2025-12-04T07:50:00.000Z",
+      "completed_at": null,
       "review_result": null,
-      "current_step": null,
+      "current_step": "revise",
       "completed_steps": [
         "execute",
         "review"
-      ]
+      ],
+      "rollback_context": {
+        "triggered_at": "2025-12-04T11:32:43.543Z",
+        "from_phase": null,
+        "from_step": null,
+        "reason": ".ai-workflow/issue-194/09_evaluation/output/evaluation_report.md\n\nで報告されていた問題を\n\n4874d8d388cf2b0d64ebcfbcd9f4ab577ac9be98\n\nのコミットで修正したため、再度テスト実装フェーズから再開する必要がある。",
+        "review_result": null,
+        "details": null
+      }
     },
     "testing": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T07:50:01.000Z",
-      "completed_at": "2025-12-04T08:00:00.000Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "documentation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T08:00:01.000Z",
-      "completed_at": "2025-12-04T08:30:00.000Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "report": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T08:30:01.000Z",
-      "completed_at": "2025-12-04T09:00:00.000Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "evaluation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T09:00:01.000Z",
-      "completed_at": "2025-12-04T09:17:08.038Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "decision": "FAIL_PHASE_TEST_IMPLEMENTATION",
       "failed_phase": "test_implementation",
@@ -143,17 +145,27 @@
       "created_issue_url": null,
       "abort_reason": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     }
   },
   "created_at": "2025-12-04T05:13:38.227Z",
-  "updated_at": "2025-12-04T09:17:08.782Z",
+  "updated_at": "2025-12-04T11:32:43.546Z",
   "branch_name": "ai-workflow/issue-194",
   "github_integration": {
     "progress_comment_id": 3610616582,
     "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/194#issuecomment-3610616582"
-  }
+  },
+  "rollback_history": [
+    {
+      "timestamp": "2025-12-04T11:32:43.543Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "test_implementation",
+      "to_step": "revise",
+      "reason": ".ai-workflow/issue-194/09_evaluation/output/evaluation_report.md\n\nで報告されていた問題を\n\n4874d8d388cf2b0d64ebcfbcd9f4ab577ac9be98\n\nのコミットで修正したため、再度テスト実装フェーズから再開する必要がある。",
+      "triggered_by": "manual",
+      "review_result_path": null
+    }
+  ]
 }
