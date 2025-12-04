@@ -256,31 +256,31 @@ if (!baseCommit) {
 
 ### Phase 4: 実装 (見積もり: 5~7h)
 
-- [ ] Task 4-1: SquashManagerクラスの実装 (2~3h)
+- [x] Task 4-1: SquashManagerクラスの実装 (2~3h)
   - `getCommitsToSquash()`: コミット範囲特定
   - `validateBranchProtection()`: ブランチ保護チェック
   - `generateCommitMessage()`: エージェント連携（コミットメッセージ生成）
   - `squashCommits()`: スカッシュ実行（reset + commit + push）
 
-- [ ] Task 4-2: プロンプトテンプレートの実装 (0.5~1h)
+- [x] Task 4-2: プロンプトテンプレートの実装 (0.5~1h)
   - `src/prompts/squash/generate-message.txt`の作成
   - Conventional Commits形式の強制
   - Issue情報と差分統計の注入
 
-- [ ] Task 4-3: メタデータ管理の拡張 (0.5~1h)
+- [x] Task 4-3: メタデータ管理の拡張 (0.5~1h)
   - `MetadataManager.setBaseCommit()`
   - `MetadataManager.getBaseCommit()`
   - `MetadataManager.setPreSquashCommits()`
 
-- [ ] Task 4-4: InitCommandの拡張 (0.5~1h)
+- [x] Task 4-4: InitCommandの拡張 (0.5~1h)
   - `base_commit`記録処理の追加
   - Git操作エラーのハンドリング
 
-- [ ] Task 4-5: ExecuteCommandの拡張 (0.5~1h)
+- [x] Task 4-5: ExecuteCommandの拡張 (0.5~1h)
   - `--squash-on-complete`オプションの追加
   - 環境変数`AI_WORKFLOW_SQUASH_ON_COMPLETE`の読み込み
 
-- [ ] Task 4-6: EvaluationPhaseの拡張 (1~1h)
+- [x] Task 4-6: EvaluationPhaseの拡張 (1~1h)
   - スカッシュ処理の呼び出し（クリーンアップ後）
   - エラーハンドリング（スカッシュ失敗時もワークフロー継続）
   - GitManager統合
@@ -458,14 +458,14 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] SquashManagerクラスが実装され、すべてのメソッドが動作する
-- [ ] プロンプトテンプレート（`generate-message.txt`）が作成されている
-- [ ] MetadataManagerに新規フィールド（`base_commit`, `pre_squash_commits`）が追加されている
-- [ ] InitCommandに`base_commit`記録処理が追加されている
-- [ ] ExecuteCommandに`--squash-on-complete`オプションが追加されている
-- [ ] EvaluationPhaseにスカッシュ処理呼び出しが追加されている
-- [ ] エラーハンドリングが適切に実装されている（スカッシュ失敗時もワークフロー継続）
-- [ ] コードが既存のコーディング規約に準拠している
+- [x] SquashManagerクラスが実装され、すべてのメソッドが動作する
+- [x] プロンプトテンプレート（`generate-message.txt`）が作成されている
+- [x] MetadataManagerに新規フィールド（`base_commit`, `pre_squash_commits`）が追加されている
+- [x] InitCommandに`base_commit`記録処理が追加されている
+- [x] ExecuteCommandに`--squash-on-complete`オプションが追加されている
+- [x] EvaluationPhaseにスカッシュ処理呼び出しが追加されている
+- [x] エラーハンドリングが適切に実装されている（スカッシュ失敗時もワークフロー継続）
+- [x] コードが既存のコーディング規約に準拠している
 
 ### Phase 5: テストコード実装
 
