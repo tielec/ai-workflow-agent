@@ -287,17 +287,17 @@ if (!baseCommit) {
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: SquashManagerユニットテストの実装 (1~1.5h)
+- [x] Task 5-1: SquashManagerユニットテストの実装 (1~1.5h)
   - `tests/unit/squash-manager.test.ts`の作成
   - コミット範囲特定のテスト
   - ブランチ保護チェックのテスト
   - エラーハンドリングのテスト
 
-- [ ] Task 5-2: MetadataManager拡張テストの実装 (0.5~0.5h)
+- [x] Task 5-2: MetadataManager拡張テストの実装 (0.5~0.5h)
   - `tests/unit/metadata-manager.test.ts`への追加
   - `base_commit`フィールドのCRUDテスト
 
-- [ ] Task 5-3: スカッシュワークフロー統合テストの実装 (0.5~1h)
+- [x] Task 5-3: スカッシュワークフロー統合テストの実装 (0.5~1h)
   - `tests/integration/squash-workflow.test.ts`の作成
   - エンドツーエンドシナリオ（init → execute → squash）
   - エージェント統合テスト（コミットメッセージ生成）
@@ -469,10 +469,10 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] SquashManagerユニットテストが実装されている（`squash-manager.test.ts`）
-- [ ] MetadataManager拡張テストが実装されている（既存テストファイルへの追加）
-- [ ] スカッシュワークフロー統合テストが実装されている（`squash-workflow.test.ts`）
-- [ ] すべてのテストシナリオがカバーされている（正常系、異常系）
+- [x] SquashManagerユニットテストが実装されている（`squash-manager.test.ts`）
+- [x] MetadataManager拡張テストが実装されている（既存テストファイルへの追加）
+- [x] スカッシュワークフロー統合テストが実装されている（`squash-workflow.test.ts`）
+- [x] すべてのテストシナリオがカバーされている（正常系、異常系）
 
 ### Phase 6: テスト実行
 
