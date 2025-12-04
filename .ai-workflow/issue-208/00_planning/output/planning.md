@@ -183,15 +183,15 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: Rollbackコマンドのユニットテスト追加 (1~1.5h)
+- [x] Task 5-1: Rollbackコマンドのユニットテスト追加 (1~1.5h)
   - `tests/unit/commands/rollback.test.ts` に不整合状態のテストケース追加
   - `completed_steps` がある `pending` フェーズでのrollback成功確認
 
-- [ ] Task 5-2: MetadataManagerのユニットテスト追加 (0.5~1h)
+- [x] Task 5-2: MetadataManagerのユニットテスト追加 (0.5~1h)
   - `tests/unit/core/metadata-manager.test.ts` に整合性チェックのテスト追加
   - 不整合パターンの検出確認
 
-- [ ] Task 5-3: インテグレーションテスト作成 (1~1.5h)
+- [x] Task 5-3: インテグレーションテスト作成 (1~1.5h)
   - `tests/integration/rollback-inconsistent-metadata.test.ts` 作成
   - 不整合メタデータでのrollback成功シナリオ
   - 既存ワークフローへの影響なし確認
@@ -319,9 +319,9 @@ graph TD
 
 ### Phase 5: テストコード実装
 
-- [ ] ユニットテストが実装されている（rollback + MetadataManager）
-- [ ] インテグレーションテストが実装されている（不整合状態のrollback）
-- [ ] テストコードの品質が高い（可読性、保守性）
+- [x] ユニットテストが実装されている（rollback + MetadataManager）
+- [x] インテグレーションテストが実装されている（不整合状態のrollback）
+- [x] テストコードの品質が高い（可読性、保守性）
 
 ### Phase 6: テスト実行
 
