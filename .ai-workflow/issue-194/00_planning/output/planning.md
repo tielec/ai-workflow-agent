@@ -314,12 +314,12 @@ if (!baseCommit) {
 
 ### Phase 7: ドキュメント (見積もり: 0.5~1h)
 
-- [ ] Task 7-1: CLAUDE.mdの更新 (0.25~0.5h)
+- [x] Task 7-1: CLAUDE.mdの更新 (0.25~0.5h)
   - CLIオプション（`--squash-on-complete`）の追加
   - 環境変数（`AI_WORKFLOW_SQUASH_ON_COMPLETE`）の追加
   - スカッシュ機能の説明追加
 
-- [ ] Task 7-2: ARCHITECTURE.mdの更新 (0.25~0.5h)
+- [x] Task 7-2: ARCHITECTURE.mdの更新 (0.25~0.5h)
   - SquashManagerの追加
   - GitManager統合の説明
   - スカッシュフローの図示
@@ -483,10 +483,10 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] CLAUDE.mdに新機能（CLIオプション、環境変数）が追加されている
-- [ ] ARCHITECTURE.mdにSquashManagerが追加されている
-- [ ] スカッシュフローが図示されている
-- [ ] 使用例が明記されている
+- [x] CLAUDE.mdに新機能（CLIオプション、環境変数）が追加されている
+- [x] ARCHITECTURE.mdにSquashManagerが追加されている
+- [x] スカッシュフローが図示されている
+- [x] 使用例が明記されている
 
 ### Phase 8: レポート
 
