@@ -149,20 +149,68 @@ Total documents surveyed: **9 core documentation files**
 
 ---
 
-## Documents Not Requiring Updates
-
 ### 5. TROUBLESHOOTING.md
 
-**Reason for Not Updating**: No squash-specific troubleshooting issues have been identified during implementation and testing.
+**Reason for Update**: Squash feature requires comprehensive troubleshooting documentation for common user scenarios.
 
-**Justification**:
-- Phase 6 (Testing) failed due to mock configuration issues unrelated to squash functionality
-- Squash failures are logged as warnings and do not block workflow execution (non-critical design)
-- Branch protection errors are explicit and self-explanatory (`"Cannot squash commits on protected branch"`)
-- Force push safety is handled by `--force-with-lease` (standard Git feature with well-known behavior)
-- Future consideration: If production usage reveals common issues (e.g., merge conflicts after squash, rollback procedures), a new troubleshooting section can be added
+**Changes Made**:
 
-**Recommendation**: Monitor production usage for 1-2 months to identify common issues before adding documentation.
+1. **New Section: "14. コミットスカッシュ関連（v0.5.0、Issue #194）"** (Lines 718-965):
+   - Added comprehensive troubleshooting section with 6 subsections
+   - Total: 248 lines added
+
+2. **Subsection 1: スカッシュが実行されない** (Lines 720-754):
+   - Symptoms: Evaluation Phase complete but no squash execution
+   - Causes: CLI option not specified, Evaluation Phase not included, environment variable not set
+   - Solutions: 3 methods (CLI flag, environment variable, explicit disable)
+   - Verification: metadata field check, environment variable confirmation
+
+3. **Subsection 2: main/master ブランチでスカッシュできない** (Lines 756-775):
+   - Symptoms: Branch protection warning message
+   - Cause: Branch protection mechanism
+   - Solution: Switch to feature branch
+   - Note: Emphasizes this is intentional safety feature
+
+4. **Subsection 3: force push が失敗する** (Lines 777-830):
+   - Symptoms: git push --force-with-lease failure
+   - Causes: Remote branch updates, missing remote branch, permission issues, network problems
+   - Solutions: 4 detailed approaches (remote update check, remote branch creation, permission verification, rollback procedures)
+   - Includes complete rollback commands (git reset, git revert)
+
+5. **Subsection 4: AI 生成コミットメッセージが不適切** (Lines 832-885):
+   - Symptoms: Non-Conventional Commits format, inappropriate abstraction level, language mixing
+   - Causes: Agent parsing failures, prompt template issues
+   - Solutions: 4 methods (fallback detection, manual amendment, prompt customization, agent switching)
+   - Includes git commit --amend and rebase -i examples
+
+6. **Subsection 5: スカッシュメタデータが記録されない** (Lines 887-931):
+   - Symptoms: Missing metadata fields (base_commit, pre_squash_commits, squashed_at)
+   - Causes: Permission issues, disk space, metadata corruption
+   - Solutions: 3 approaches (permission check, manual repair with jq, metadata regeneration)
+   - Includes complete jq script for manual metadata repair
+
+7. **Subsection 6: スカッシュ失敗がワークフローを中断する** (Lines 933-965):
+   - Symptoms: Workflow failure attributed to squash
+   - Clarification: Squash failures are warnings, not blocking errors
+   - Solution: Manual squash procedure with complete Conventional Commits example
+   - Note: Emphasizes squash is optional feature
+
+8. **Section Renumbering** (Lines 967-981):
+   - Old section "14. デバッグのヒント" renumbered to "15. デバッグのヒント"
+   - Added new debugging hint: "**コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。"
+
+**Justification for Update**:
+- While Phase 6 tests failed due to mock issues (not implementation bugs), the squash feature introduces new Git operations that users may not be familiar with
+- Force push operations are inherently risky and require detailed troubleshooting documentation
+- AI-generated commit messages may not always meet user expectations, requiring manual intervention guidance
+- Branch protection and rollback procedures are critical safety features that need clear documentation
+- Proactive documentation reduces support burden and improves user experience
+
+**Location**: Added as Section 14, immediately before "デバッグのヒント" (now Section 15), maintaining logical flow of troubleshooting topics.
+
+---
+
+## Documents Not Requiring Updates
 
 ---
 
@@ -246,9 +294,9 @@ Total documents surveyed: **9 core documentation files**
 | Category | Count |
 |----------|-------|
 | Total Documents Surveyed | 9 |
-| Documents Updated | 4 |
-| Documents Not Updated | 5 |
-| Update Coverage | 44.4% |
+| Documents Updated | 5 |
+| Documents Not Updated | 4 |
+| Update Coverage | 55.6% |
 
 ### Documents Updated
 
@@ -256,10 +304,10 @@ Total documents surveyed: **9 core documentation files**
 2. ✅ CLAUDE.md - 3 changes (environment variable, CLI usage section, architecture module entry)
 3. ✅ ARCHITECTURE.md - 2 changes (module list table entry, detailed architecture section)
 4. ✅ CHANGELOG.md - 1 change (Unreleased section with 13 bullet points)
+5. ✅ TROUBLESHOOTING.md - 1 change (new section with 6 subsections, 248 lines added)
 
 ### Documents Not Updated (with Justification)
 
-5. ⏭️ TROUBLESHOOTING.md - No squash-specific troubleshooting issues identified; monitor production usage
 6. ⏭️ ROADMAP.md - Completed features belong in CHANGELOG.md, not ROADMAP.md
 7. ⏭️ PROGRESS.md - Sub-component (SquashManager) adequately represented under existing GitManager entry
 8. ⏭️ DOCKER_AUTH_SETUP.md - No new authentication or Docker-specific configuration required
@@ -273,7 +321,8 @@ Total documents surveyed: **9 core documentation files**
 | CLAUDE.md | 25 | 2 | 2 ("コミットスカッシュ設定", "コミットスカッシュ") |
 | ARCHITECTURE.md | 3 | 2 | 0 (entries added to existing sections) |
 | CHANGELOG.md | 14 | 0 | 1 ("### Added" under Unreleased) |
-| **Total** | **75** | **6** | **4** |
+| TROUBLESHOOTING.md | 248 | 1 | 1 ("14. コミットスカッシュ関連") |
+| **Total** | **323** | **7** | **5** |
 
 ---
 
@@ -330,8 +379,9 @@ Total documents surveyed: **9 core documentation files**
 
 1. **Monitor Production Usage** (1-2 months):
    - Collect user feedback on squash feature
-   - Identify common troubleshooting scenarios
+   - Identify additional troubleshooting scenarios beyond the 6 documented cases
    - Update TROUBLESHOOTING.md if recurring issues are found
+   - Note: Comprehensive troubleshooting documentation has been proactively added (6 subsections, 248 lines) to cover common scenarios
 
 2. **Version Release Update**:
    - When Issue #194 is included in a versioned release (e.g., v0.4.0), move CHANGELOG.md entry from `[Unreleased]` to the appropriate version section
@@ -386,13 +436,22 @@ Total documents surveyed: **9 core documentation files**
 
 **Documentation Status**: ✅ **COMPLETE**
 
-All affected documentation has been successfully updated to reflect the squash commits feature implemented in Issue #194. The updates maintain consistency with existing documentation styles and provide comprehensive coverage for both users (README.md) and developers (CLAUDE.md, ARCHITECTURE.md). Release tracking is properly maintained in CHANGELOG.md.
+All affected documentation has been successfully updated to reflect the squash commits feature implemented in Issue #194. The updates maintain consistency with existing documentation styles and provide comprehensive coverage for users (README.md, TROUBLESHOOTING.md), developers (CLAUDE.md, ARCHITECTURE.md), and release tracking (CHANGELOG.md).
+
+**Updated Documents Summary**:
+1. **README.md** - User-facing CLI options and usage examples (33 lines added)
+2. **CLAUDE.md** - Developer-facing CLI usage and architecture details (25 lines added)
+3. **ARCHITECTURE.md** - Module documentation and architecture descriptions (3 lines added)
+4. **CHANGELOG.md** - Release tracking for Issue #194 (14 lines added)
+5. **TROUBLESHOOTING.md** - Comprehensive troubleshooting guide with 6 subsections (248 lines added)
+
+**Total Impact**: 323 lines added, 7 lines modified, 5 new sections created across 5 documents
 
 **Quality Assurance**: All consistency checks passed, terminology is uniform across documents, and cross-references are validated.
 
 **Next Steps**:
-1. Commit documentation changes
-2. Monitor production usage for potential TROUBLESHOOTING.md updates
+1. Commit documentation changes (TROUBLESHOOTING.md and documentation-update-log.md)
+2. Monitor production usage for additional troubleshooting scenarios beyond the 6 documented cases
 3. Move CHANGELOG.md entry to versioned section upon release
 
 ---
