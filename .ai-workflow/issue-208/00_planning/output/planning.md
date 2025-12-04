@@ -167,17 +167,17 @@
 
 ### Phase 4: 実装 (見積もり: 2~3h)
 
-- [ ] Task 4-1: Rollbackバリデーションロジック改善 (1~1.5h)
+- [x] Task 4-1: Rollbackバリデーションロジック改善 (1~1.5h)
   - `src/commands/rollback.ts` の `validateRollbackOptions()` 修正
   - `completed_steps` を参照して「開始済み」判定
   - エラーメッセージの改善
 
-- [ ] Task 4-2: MetadataManager整合性チェック追加 (1~1.5h)
+- [x] Task 4-2: MetadataManager整合性チェック追加 (1~1.5h)
   - `src/core/metadata-manager.ts` に `validatePhaseConsistency()` 追加
   - `resetSubsequentPhases()` に整合性チェック統合
   - `updatePhaseForRollback()` に整合性チェック統合
 
-- [ ] Task 4-3: Evaluation Phaseの修正（必要に応じて） (0~1h)
+- [x] Task 4-3: Evaluation Phaseの修正（必要に応じて） (0~1h)
   - `rollbackToPhase()` メソッドで `completed_steps` を確実にリセット
   - Phase 1 の調査結果に基づいて実施
 
