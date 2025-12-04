@@ -101,7 +101,7 @@ export class ArtifactCleaner {
   /**
    * ワークフローログをクリーンアップ（Issue #2）
    *
-   * Report Phase 完了後に実行され、phases 00-08 の execute/review/revise ディレクトリを削除します。
+   * Report Phase 完了後に実行され、phases 00-09 の execute/review/revise ディレクトリを削除します。
    * metadata.json と output/*.md は保持されます。
    *
    * @example
@@ -116,7 +116,7 @@ export class ArtifactCleaner {
     logger.info('Cleaning up workflow execution logs...');
 
     try {
-      // phases 00-08 のディレクトリをループ
+      // phases 00-09 のディレクトリをループ
       const phaseDirs = [
         '00_planning',
         '01_requirements',
@@ -127,6 +127,7 @@ export class ArtifactCleaner {
         '06_testing',
         '07_documentation',
         '08_report',
+        '09_evaluation',
       ];
 
       for (const phaseDir of phaseDirs) {
