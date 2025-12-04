@@ -111,6 +111,74 @@ node dist/index.js rollback \
 - `--force`: 確認プロンプトをスキップ
 - `--dry-run`: 実際には差し戻さず、変更内容のみを表示
 
+### ワークフローログの手動クリーンアップ（v0.4.0、Issue #212で追加）
+```bash
+# 基本的な使用方法（Phase 0-8のログをクリーンアップ）
+node dist/index.js cleanup --issue <NUM>
+
+# プレビューモード（削除対象のみ表示、実際には削除しない）
+node dist/index.js cleanup --issue <NUM> --dry-run
+
+# 特定のフェーズ範囲をクリーンアップ（数値範囲）
+node dist/index.js cleanup --issue <NUM> --phases 0-4
+
+# 特定のフェーズ範囲をクリーンアップ（フェーズ名リスト）
+node dist/index.js cleanup --issue <NUM> --phases planning,requirements,design
+
+# 完全クリーンアップ（Phase 0-9すべて、Evaluation Phase完了後のみ）
+node dist/index.js cleanup --issue <NUM> --all
+```
+
+**主な機能**:
+- **通常クリーンアップ**: Phase 0-8のワークフローログを削除（`execute/`, `review/`, `revise/` ディレクトリ）
+- **部分クリーンアップ**: `--phases` オプションで指定したフェーズ範囲のみを削除
+- **完全クリーンアップ**: `--all` オプションでPhase 0-9すべてのログを削除（Evaluation Phase完了後のみ可能）
+- **プレビューモード**: `--dry-run` で削除対象を確認してから実行可能
+- **Git 自動コミット**: クリーンアップ後に変更を自動コミット＆プッシュ（コミットメッセージ: `[ai-workflow] Manual cleanup of workflow logs (Phase 0-8)`）
+- **セキュリティ**: パス検証とシンボリックリンクチェックにより、安全な削除を保証
+
+**削除対象と保持対象**:
+- **削除**: 各フェーズディレクトリ内の `execute/`, `review/`, `revise/` ディレクトリとそのすべてのファイル
+- **保持**: `metadata.json`（ワークフロー状態）、`output/*.md`（成果物ドキュメント）
+
+**オプション**:
+- `--issue <number>`: 対象のIssue番号（必須）
+- `--dry-run`: プレビューモード（削除対象のみ表示、実際には削除しない）
+- `--phases <range>`: クリーンアップするフェーズ範囲
+  - 数値範囲: `0-4`、`5-7`
+  - フェーズ名リスト（カンマ区切り）: `planning,requirements,design`
+- `--all`: 完全クリーンアップ（Phase 0-9すべて）
+  - Evaluation Phase（Phase 9）が `completed` 状態の場合のみ実行可能
+
+**クリーンアップモード**:
+- **通常**（デフォルト）: Phase 0-8のログを削除、約75%のリポジトリサイズ削減
+- **部分**（`--phases`）: 指定範囲のみを削除、範囲に応じて削減効果が変動
+- **完全**（`--all`）: Phase 0-9すべてのログを削除、Evaluation完了後のみ実行可能
+
+**使用例**:
+```bash
+# プレビューモードで削除対象を確認
+node dist/index.js cleanup --issue 212 --dry-run
+
+# Phase 0-8 のログをクリーンアップ（約75%削減）
+node dist/index.js cleanup --issue 212
+
+# Planning と Requirements のみクリーンアップ
+node dist/index.js cleanup --issue 212 --phases planning,requirements
+
+# Phase 0-4 のログをクリーンアップ
+node dist/index.js cleanup --issue 212 --phases 0-4
+
+# Evaluation Phase 完了後に完全クリーンアップ
+node dist/index.js cleanup --issue 212 --all
+```
+
+**Report Phase自動クリーンアップとの関係**:
+- Report Phase（Phase 8）完了時に自動クリーンアップが実行される（Phase 0-8のログを削除）
+- `cleanup` コマンドは自動クリーンアップとは独立して任意のタイミングで実行可能
+- 自動クリーンアップ後に再度 `cleanup` コマンドを実行しても、削除対象がなければスキップされる
+- `--phases` オプションで特定のフェーズのみをクリーンアップする場合は、自動クリーンアップとは独立して動作
+
 ### フォローアップIssue生成オプション（v0.5.0、Issue #119で追加）
 ```bash
 # OpenAIを使用してフォローアップIssueのタイトル/本文を生成
@@ -322,6 +390,7 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **`src/commands/review.ts`**: フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。
 - **`src/commands/list-presets.ts`**: プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。
 - **`src/commands/rollback.ts`**: フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。
+- **`src/commands/cleanup.ts`**: ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。
 - **`src/core/repository-utils.ts`**: リポジトリ関連ユーティリティ（約170行）。Issue URL解析、リポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。
 - **`src/core/phase-factory.ts`**: フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。
 - **`src/types/commands.ts`**: コマンド関連の型定義（約240行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry等の型を提供。コマンドハンドラの型安全性を確保。
@@ -331,7 +400,7 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **`src/phases/lifecycle/step-executor.ts`**: ステップ実行ロジック（約233行、v0.3.1で追加、Issue #49）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。
 - **`src/phases/lifecycle/phase-runner.ts`**: フェーズライフサイクル管理（約244行、v0.3.1で追加、Issue #49）。フェーズ全体の実行、依存関係検証、エラーハンドリング、GitHub進捗投稿を担当。
 - **`src/phases/context/context-builder.ts`**: コンテキスト構築（約223行、v0.3.1で追加、Issue #49）。オプショナルコンテキスト構築、ファイル参照生成（@filepath形式）、Planning Document参照を担当。
-- **`src/phases/cleanup/artifact-cleaner.ts`**: クリーンアップロジック（約228行、v0.3.1で追加、Issue #49）。ワークフロークリーンアップ、パス検証（セキュリティ対策）、シンボリックリンクチェック、CI環境判定を担当。
+- **`src/phases/cleanup/artifact-cleaner.ts`**: クリーンアップロジック（約228行、v0.3.1で追加、Issue #49、v0.4.0でphaseRange追加、Issue #212）。ワークフロークリーンアップ、パス検証（セキュリティ対策）、シンボリックリンクチェック、CI環境判定を担当。`cleanupWorkflowLogs()` メソッドに `phaseRange?: PhaseName[]` パラメータを追加し、クリーンアップ対象フェーズの範囲指定をサポート。
 - **`src/phases/formatters/progress-formatter.ts`**: 進捗表示フォーマット（約150行、v0.3.1で追加、Issue #23）。GitHub Issue コメント用の進捗状況フォーマットを生成。
 - **`src/phases/formatters/log-formatter.ts`**: ログフォーマット（約400行、v0.3.1で追加、Issue #23）。Codex/Claude エージェントの生ログを Markdown 形式に変換。
 - **`src/core/codex-agent-client.ts`**: JSON イベントストリーミングを備えた Codex CLI ラッパー（約200行、Issue #26で25.4%削減）
@@ -445,6 +514,10 @@ Report Phase（Phase 8）完了後、`cleanupWorkflowLogs()` が自動的にデ�
 - **保持対象**: `metadata.json`、`output/*.md`（Planning Phaseの `output/planning.md` も保持）
 - **効果**: リポジトリサイズを約 75% 削減、PR をクリーンに
 - **Git コミット**: 削除後、`[ai-workflow] Clean up workflow execution logs` メッセージで自動コミット＆プッシュ（Phase 8: report）
+
+**手動クリーンアップ**（v0.4.0、Issue #212で追加）:
+- `cleanup` コマンドを使用すると、自動クリーンアップとは独立して任意のタイミングでログをクリーンアップ可能
+- 詳細は [ワークフローログの手動クリーンアップ](#ワークフローログの手動クリーンアップv040issue-212で追加) セクションを参照
 
 ### ワークフローディレクトリの完全削除（v0.3.0）
 
