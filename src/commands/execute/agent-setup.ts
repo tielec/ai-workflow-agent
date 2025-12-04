@@ -8,6 +8,30 @@ import { CodexAgentClient } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 
 /**
+ * API キーの最小文字数
+ * OpenAI/Codex API キーは通常 40 文字以上
+ */
+const MIN_API_KEY_LENGTH = 20;
+
+/**
+ * API キーが有効かどうかを判定
+ *
+ * 以下の条件をすべて満たす場合に有効と判定:
+ * - null または undefined でない
+ * - トリム後の長さが MIN_API_KEY_LENGTH 以上
+ *
+ * @param apiKey - 検証する API キー
+ * @returns 有効な場合は true
+ */
+function isValidApiKey(apiKey: string | null | undefined): apiKey is string {
+  if (!apiKey) {
+    return false;
+  }
+  const trimmed = apiKey.trim();
+  return trimmed.length >= MIN_API_KEY_LENGTH;
+}
+
+/**
  * エージェント初期化結果
  */
 export interface AgentSetupResult {
@@ -67,6 +91,18 @@ export interface CredentialsResult {
 export function resolveAgentCredentials(homeDir: string, repoRoot: string): CredentialsResult {
   // Codex API キーの解決
   const codexApiKey = config.getCodexApiKey();
+
+  // デバッグログ: API キーの長さを出力（値自体は出力しない）
+  if (codexApiKey !== null) {
+    const trimmedLength = codexApiKey.trim().length;
+    logger.debug(`CODEX_API_KEY detected (length=${trimmedLength}, valid=${isValidApiKey(codexApiKey)})`);
+    if (!isValidApiKey(codexApiKey)) {
+      logger.warn(
+        `CODEX_API_KEY is set but appears invalid (length=${trimmedLength}, expected>=${MIN_API_KEY_LENGTH}). ` +
+          'It will be ignored.',
+      );
+    }
+  }
 
   // Claude Code トークンの解決（OAUTH_TOKEN → API_KEY）
   const claudeCodeToken = config.getClaudeCodeToken();
@@ -139,9 +175,10 @@ export function setupAgentClients(
   switch (agentMode) {
     case 'codex': {
       // Codex 強制モード: codexApiKey 必須
-      if (!codexApiKey || !codexApiKey.trim()) {
+      if (!isValidApiKey(codexApiKey)) {
         throw new Error(
-          'Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key.',
+          `Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key ` +
+            `(minimum ${MIN_API_KEY_LENGTH} characters).`,
         );
       }
       const trimmed = codexApiKey.trim();
@@ -175,7 +212,7 @@ export function setupAgentClients(
     case 'auto':
     default: {
       // Auto モード: Codex 優先、Claude にフォールバック
-      if (codexApiKey && codexApiKey.trim().length > 0) {
+      if (isValidApiKey(codexApiKey)) {
         const trimmed = codexApiKey.trim();
         process.env.CODEX_API_KEY = trimmed;
         if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {

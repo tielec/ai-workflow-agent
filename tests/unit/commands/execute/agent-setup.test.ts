@@ -165,6 +165,28 @@ describe('resolveAgentCredentials - 異常系', () => {
     expect(result.codexApiKey).toBeNull();
     expect(result.claudeCredentialsPath).toBeNull();
   });
+
+  test('短すぎる CODEX_API_KEY が検出された場合、警告ログが出力される', () => {
+    // Given: 短すぎる CODEX_API_KEY が設定されている
+    const homeDir = '/home/user';
+    const repoRoot = '/workspace/repo';
+    const shortApiKey = 'short-key'; // 20文字未満
+    (config.getCodexApiKey as jest.Mock).mockReturnValue(shortApiKey);
+    (config.getClaudeCredentialsPath as jest.Mock).mockReturnValue(null);
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+
+    // モックした logger をインポート
+    const { logger } = require('../../../../src/utils/logger.js');
+
+    // When: 認証情報を解決
+    const result: CredentialsResult = resolveAgentCredentials(homeDir, repoRoot);
+
+    // Then: codexApiKey は返されるが、警告ログが出力される
+    expect(result.codexApiKey).toBe(shortApiKey);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('CODEX_API_KEY is set but appears invalid'),
+    );
+  });
 });
 
 // =============================================================================
@@ -173,55 +195,71 @@ describe('resolveAgentCredentials - 異常系', () => {
 
 describe('setupAgentClients - codex モード', () => {
   test('codex モード時、CodexAgentClient のみ初期化される', () => {
-    // Given: codex モード、Codex API キーが存在
+    // Given: codex モード、有効な Codex API キーが存在（20文字以上）
     const agentMode = 'codex';
     const workingDir = '/workspace/repo';
-    const codexApiKey = 'test-codex-key';
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345', // 20文字以上
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: CodexAgentClient のみ初期化される
     expect(CodexAgentClient).toHaveBeenCalledWith({ workingDir, model: 'gpt-5-codex' });
     expect(result.codexClient).toBeDefined();
     expect(result.claudeClient).toBeNull();
-    expect(process.env.CODEX_API_KEY).toBe(codexApiKey);
+    expect(process.env.CODEX_API_KEY).toBe(credentials.codexApiKey);
   });
 
   test('codex モード時、Codex API キーが存在しない場合エラーをスロー', () => {
     // Given: codex モード、Codex API キーが存在しない
     const agentMode = 'codex';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When & Then: エラーがスローされる
     expect(() => {
-      setupAgentClients(agentMode, workingDir, codexApiKey, claudeCredentialsPath);
-    }).toThrow(
-      'Agent mode "codex" requires CODEX_API_KEY or OPENAI_API_KEY to be set with a valid Codex API key.',
-    );
+      setupAgentClients(agentMode, workingDir, credentials);
+    }).toThrow('Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key');
   });
 
   test('codex モード時、空文字の Codex API キーでエラーをスロー', () => {
     // Given: codex モード、Codex API キーが空文字
     const agentMode = 'codex';
     const workingDir = '/workspace/repo';
-    const codexApiKey = '   '; // 空白のみ
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: '   ', // 空白のみ
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When & Then: エラーがスローされる
     expect(() => {
-      setupAgentClients(agentMode, workingDir, codexApiKey, claudeCredentialsPath);
-    }).toThrow(
-      'Agent mode "codex" requires CODEX_API_KEY or OPENAI_API_KEY to be set with a valid Codex API key.',
-    );
+      setupAgentClients(agentMode, workingDir, credentials);
+    }).toThrow('Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key');
+  });
+
+  test('codex モード時、短すぎる Codex API キーでエラーをスロー', () => {
+    // Given: codex モード、Codex API キーが短すぎる（20文字未満）
+    const agentMode = 'codex';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'short-key', // 20文字未満
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
+
+    // When & Then: エラーがスローされる
+    expect(() => {
+      setupAgentClients(agentMode, workingDir, credentials);
+    }).toThrow('Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key');
   });
 });
 
@@ -230,39 +268,61 @@ describe('setupAgentClients - codex モード', () => {
 // =============================================================================
 
 describe('setupAgentClients - claude モード', () => {
-  test('claude モード時、ClaudeAgentClient のみ初期化される', () => {
-    // Given: claude モード、Claude 認証情報が存在
+  test('claude モード時、ClaudeAgentClient のみ初期化される（claudeCodeToken）', () => {
+    // Given: claude モード、Claude Code トークンが存在
     const agentMode = 'claude';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = '/home/user/.claude-code/credentials.json';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: ClaudeAgentClient のみ初期化される
-    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: claudeCredentialsPath });
+    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: undefined });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
-    expect(process.env.CLAUDE_CODE_CREDENTIALS_PATH).toBe(claudeCredentialsPath);
+  });
+
+  test('claude モード時、ClaudeAgentClient のみ初期化される（credentialsPath）', () => {
+    // Given: claude モード、Claude 認証情報パスが存在
+    const agentMode = 'claude';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: '/home/user/.claude-code/credentials.json',
+    };
+
+    // When: エージェントを初期化
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
+
+    // Then: ClaudeAgentClient のみ初期化される
+    expect(ClaudeAgentClient).toHaveBeenCalledWith({
+      workingDir,
+      credentialsPath: '/home/user/.claude-code/credentials.json',
+    });
+    expect(result.codexClient).toBeNull();
+    expect(result.claudeClient).toBeDefined();
   });
 
   test('claude モード時、Claude 認証情報が存在しない場合エラーをスロー', () => {
     // Given: claude モード、Claude 認証情報が存在しない
     const agentMode = 'claude';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When & Then: エラーがスローされる
     expect(() => {
-      setupAgentClients(agentMode, workingDir, codexApiKey, claudeCredentialsPath);
-    }).toThrow('Agent mode "claude" requires Claude Code credentials.json to be available.');
+      setupAgentClients(agentMode, workingDir, credentials);
+    }).toThrow('Agent mode "claude" requires Claude Code credentials.');
   });
 });
 
@@ -271,48 +331,63 @@ describe('setupAgentClients - claude モード', () => {
 // =============================================================================
 
 describe('setupAgentClients - auto モード', () => {
-  test('auto モード時、Codex API キー優先で両方初期化される', () => {
-    // Given: auto モード、両方の認証情報が存在
+  test('auto モード時、有効な Codex API キー優先で両方初期化される', () => {
+    // Given: auto モード、両方の認証情報が存在（Codex キーは20文字以上）
     const agentMode = 'auto';
     const workingDir = '/workspace/repo';
-    const codexApiKey = 'test-codex-key';
-    const claudeCredentialsPath = '/home/user/.claude-code/credentials.json';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345', // 20文字以上
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: 両方初期化される
     expect(CodexAgentClient).toHaveBeenCalledWith({ workingDir, model: 'gpt-5-codex' });
-    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: claudeCredentialsPath });
+    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: undefined });
     expect(result.codexClient).toBeDefined();
     expect(result.claudeClient).toBeDefined();
-    expect(process.env.CODEX_API_KEY).toBe(codexApiKey);
-    expect(process.env.CLAUDE_CODE_CREDENTIALS_PATH).toBe(claudeCredentialsPath);
+    expect(process.env.CODEX_API_KEY).toBe(credentials.codexApiKey);
   });
 
   test('auto モード時、Codex API キーが存在しない場合 Claude にフォールバック', () => {
     // Given: auto モード、Codex API キーが存在しない、Claude 認証情報が存在
     const agentMode = 'auto';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = '/home/user/.claude-code/credentials.json';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: Claude のみ初期化される
     expect(CodexAgentClient).not.toHaveBeenCalled();
-    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: claudeCredentialsPath });
+    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: undefined });
+    expect(result.codexClient).toBeNull();
+    expect(result.claudeClient).toBeDefined();
+  });
+
+  test('auto モード時、短すぎる Codex API キーの場合 Claude にフォールバック', () => {
+    // Given: auto モード、Codex API キーが短すぎる（20文字未満）
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'short-key', // 20文字未満
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
+
+    // When: エージェントを初期化
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
+
+    // Then: Claude のみ初期化される（Codex キーは無効として無視）
+    expect(CodexAgentClient).not.toHaveBeenCalled();
+    expect(ClaudeAgentClient).toHaveBeenCalledWith({ workingDir, credentialsPath: undefined });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
   });
@@ -321,36 +396,32 @@ describe('setupAgentClients - auto モード', () => {
     // Given: auto モード、両方の認証情報が存在しない
     const agentMode = 'auto';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: 両方 null（エラーなし）
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeNull();
   });
 
-  test('auto モード時、Codex API キーのみ存在する場合、Codex のみ初期化', () => {
-    // Given: auto モード、Codex API キーのみ存在
+  test('auto モード時、有効な Codex API キーのみ存在する場合、Codex のみ初期化', () => {
+    // Given: auto モード、有効な Codex API キーのみ存在（20文字以上）
     const agentMode = 'auto';
     const workingDir = '/workspace/repo';
-    const codexApiKey = 'test-codex-key';
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345', // 20文字以上
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    const result: AgentSetupResult = setupAgentClients(
-      agentMode,
-      workingDir,
-      codexApiKey,
-      claudeCredentialsPath,
-    );
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: Codex のみ初期化される
     expect(CodexAgentClient).toHaveBeenCalledWith({ workingDir, model: 'gpt-5-codex' });
@@ -366,32 +437,37 @@ describe('setupAgentClients - auto モード', () => {
 
 describe('環境変数設定の検証', () => {
   test('codex モード時、CODEX_API_KEY と OPENAI_API_KEY が設定される', () => {
-    // Given: codex モード
+    // Given: codex モード、有効な API キー（20文字以上）
     const agentMode = 'codex';
     const workingDir = '/workspace/repo';
-    const codexApiKey = 'test-codex-key';
-    const claudeCredentialsPath = null;
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345', // 20文字以上
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    setupAgentClients(agentMode, workingDir, codexApiKey, claudeCredentialsPath);
+    setupAgentClients(agentMode, workingDir, credentials);
 
     // Then: 環境変数が設定される
-    expect(process.env.CODEX_API_KEY).toBe(codexApiKey);
-    expect(process.env.OPENAI_API_KEY).toBe(codexApiKey);
-    expect(process.env.CLAUDE_CODE_CREDENTIALS_PATH).toBeUndefined();
+    expect(process.env.CODEX_API_KEY).toBe(credentials.codexApiKey);
+    expect(process.env.OPENAI_API_KEY).toBe(credentials.codexApiKey);
   });
 
-  test('claude モード時、CLAUDE_CODE_CREDENTIALS_PATH が設定される', () => {
+  test('claude モード時、環境変数は ClaudeAgentClient 内部で処理される', () => {
     // Given: claude モード
     const agentMode = 'claude';
     const workingDir = '/workspace/repo';
-    const codexApiKey = null;
-    const claudeCredentialsPath = '/home/user/.claude-code/credentials.json';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
 
     // When: エージェントを初期化
-    setupAgentClients(agentMode, workingDir, codexApiKey, claudeCredentialsPath);
+    setupAgentClients(agentMode, workingDir, credentials);
 
-    // Then: 環境変数が設定される
-    expect(process.env.CLAUDE_CODE_CREDENTIALS_PATH).toBe(claudeCredentialsPath);
+    // Then: ClaudeAgentClient が初期化される（環境変数は ClaudeAgentClient 内部で処理）
+    expect(ClaudeAgentClient).toHaveBeenCalled();
   });
 });
