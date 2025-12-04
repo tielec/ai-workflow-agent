@@ -212,12 +212,12 @@
 
 ### Phase 7: ドキュメント (見積もり: 1~2h)
 
-- [ ] Task 7-1: CLAUDE.mdの更新 (0.5~1h)
+- [x] Task 7-1: CLAUDE.mdの更新 (0.5~1h)
   - `cleanup`コマンドの使用方法追加
   - CLI引数の説明追加
   - 使用例の追加
 
-- [ ] Task 7-2: README.mdの更新 (0.5~1h)
+- [x] Task 7-2: README.mdの更新 (0.5~1h)
   - `cleanup`コマンドのクイックスタートセクション追加
   - CLI引数の説明追加
 
