@@ -332,13 +332,12 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
       };
 
       // When: generateRollbackReasonMarkdown()を呼び出す
-      const markdown = generateRollbackReasonMarkdown(options, reason, details);
+      const markdown = generateRollbackReasonMarkdown(options, reason);
 
       // Then: Markdown形式のドキュメントが返される
       expect(markdown).toContain('# Phase 04 (implementation) への差し戻し理由');
       expect(markdown).toContain('**差し戻し元**: Phase testing');
       expect(markdown).toContain('Type definition missing...');
-      expect(markdown).toContain('ブロッカー数: 2');
       expect(markdown).toContain('@.ai-workflow/issue-49/06_testing/review/result.md');
     });
   });
@@ -357,7 +356,7 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
       const details = null;
 
       // When: generateRollbackReasonMarkdown()を呼び出す
-      const markdown = generateRollbackReasonMarkdown(options, reason, details);
+      const markdown = generateRollbackReasonMarkdown(options, reason);
 
       // Then: Markdown形式のドキュメントが返される
       expect(markdown).toContain('# Phase 04 (implementation) への差し戻し理由');
