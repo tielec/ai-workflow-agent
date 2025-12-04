@@ -38,14 +38,14 @@
  * - AWS_SESSION_TOKEN: AWS セッショントークン（任意、一時的な認証情報を使用する場合）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false、Issue #2）
  *
- * 認証情報:
- * - CODEX_API_KEY: Codex エージェント用 API Key（Job DSLパラメータから取得）
- * - OPENAI_API_KEY: OpenAI API Key（Job DSLパラメータから取得）
- * - GITHUB_TOKEN: GitHub Personal Access Token（Job DSLパラメータから取得）
- * - CLAUDE_CODE_OAUTH_TOKEN: Claude Code OAuth Token（Job DSLパラメータから取得、優先）
- * - CLAUDE_CODE_API_KEY: Claude Code API Key（Job DSLパラメータから取得、フォールバック）
- * - ANTHROPIC_API_KEY: Anthropic API Key（Job DSLパラメータから取得）
- * - AWS認証情報: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN（Job DSLパラメータから取得）
+ * 認証情報（すべてJob DSLパラメータから取得）:
+ * - GITHUB_TOKEN: GitHub Personal Access Token
+ * - CODEX_API_KEY: Codexエージェント用APIキー
+ * - OPENAI_API_KEY: OpenAI API用キー（Follow-up Issue生成、レビュー解析等）
+ * - CLAUDE_CODE_OAUTH_TOKEN: Claude Codeエージェント用OAuthトークン（優先）
+ * - CLAUDE_CODE_API_KEY: Claude Codeエージェント用APIキー（フォールバック）
+ * - ANTHROPIC_API_KEY: Anthropic API用キー（Follow-up Issue生成）
+ * - AWS認証情報: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
  *
  * 重要: パラメータ定義はこのファイルでは行いません（Job DSLで定義済み）
  *
@@ -78,7 +78,7 @@ pipeline {
             label 'ec2-fleet'
             dir '.'
             filename 'Dockerfile'
-            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e CODEX_API_KEY=${CODEX_API_KEY} -e OPENAI_API_KEY=${OPENAI_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN} -e CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY} -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
+            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e CODEX_API_KEY=${CODEX_API_KEY} -e OPENAI_API_KEY=${OPENAI_API_KEY} -e CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN} -e CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY} -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
         }
     }
 
@@ -112,10 +112,19 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
         AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
 
-        // 認証情報（Job DSLパラメータから環境変数に設定）
+        // GitHub認証情報（Job DSLパラメータから環境変数に設定）
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+
+        // OpenAI系認証情報（Job DSLパラメータから環境変数に設定）
+        // CODEX_API_KEY: Codexエージェント用
+        // OPENAI_API_KEY: OpenAI API用（Follow-up Issue生成、レビュー解析等）
         CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
         OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
-        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+
+        // Claude系認証情報（Job DSLパラメータから環境変数に設定）
+        // CLAUDE_CODE_OAUTH_TOKEN: Claude Codeエージェント用（優先）
+        // CLAUDE_CODE_API_KEY: Claude Codeエージェント用（フォールバック）
+        // ANTHROPIC_API_KEY: Anthropic API用（Follow-up Issue生成）
         CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
         CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
         ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
@@ -129,49 +138,53 @@ pipeline {
                     echo "Stage: Prepare Agent Credentials"
                     echo "========================================="
 
-                    def homeDir = env.HOME ?: '/home/node'
                     def agentMode = (params.AGENT_MODE ?: 'auto').toLowerCase()
-                    def claudeTarget = "${homeDir}/.claude-code/credentials.json"
 
-                    if (agentMode == 'codex') {
-                        echo '[INFO] Agent mode "codex" selected. Skipping Claude credential setup.'
-                    } else if (agentMode == 'claude') {
-                        if (!fileExists(claudeTarget)) {
-                            def uploadParams = input(
-                                message: 'Upload Claude Code credentials file (Base64 encoded). This is required for agent mode "claude".',
-                                ok: 'Upload',
-                                parameters: [
-                                    base64File(name: 'claudeCredsB64', description: 'Claude Code credentials file (credentials.json)')
-                                ]
-                            )
+                    // 認証情報の確認（パラメータベース）
+                    echo "Agent Mode: ${agentMode}"
 
-                            def claudeValue = ''
-                            if (uploadParams instanceof Map) {
-                                claudeValue = (uploadParams['claudeCredsB64'] ?: '').toString().trim()
-                            } else if (uploadParams) {
-                                claudeValue = uploadParams.toString().trim()
-                            }
-
-                            if (!claudeValue) {
-                                error("Agent mode 'claude' requires Claude Code credentials.")
-                            }
-
-                            withEnv(["CLAUDE_FILE_B64=${claudeValue}"]) {
-                                sh '''
-                                    mkdir -p ~/.claude-code
-                                    printf "%s" "$CLAUDE_FILE_B64" | base64 -d > ~/.claude-code/credentials.json
-                                    chmod 600 ~/.claude-code/credentials.json
-                                '''
-                            }
-                        } else {
-                            echo '[INFO] Reusing previously uploaded Claude Code credentials.'
-                        }
+                    // OpenAI系
+                    if (env.CODEX_API_KEY?.trim()) {
+                        echo '[INFO] CODEX_API_KEY is configured (for Codex agent).'
                     } else {
-                        if (fileExists(claudeTarget)) {
-                            echo '[INFO] Claude credentials found. Auto mode will use them for fallback.'
-                        } else {
-                            echo '[INFO] Claude credentials not found. Auto mode will run without Claude fallback.'
+                        echo '[WARN] CODEX_API_KEY is not configured. Codex agent will not be available.'
+                    }
+
+                    if (env.OPENAI_API_KEY?.trim()) {
+                        echo '[INFO] OPENAI_API_KEY is configured (for OpenAI API).'
+                    } else {
+                        echo '[WARN] OPENAI_API_KEY is not configured. OpenAI API features will not be available.'
+                    }
+
+                    // Claude系
+                    if (env.CLAUDE_CODE_OAUTH_TOKEN?.trim()) {
+                        echo '[INFO] CLAUDE_CODE_OAUTH_TOKEN is configured (for Claude Code agent, priority).'
+                    } else if (env.CLAUDE_CODE_API_KEY?.trim()) {
+                        echo '[INFO] CLAUDE_CODE_API_KEY is configured (for Claude Code agent, fallback).'
+                    } else {
+                        echo '[WARN] Neither CLAUDE_CODE_OAUTH_TOKEN nor CLAUDE_CODE_API_KEY is configured. Claude Code agent will not be available.'
+                    }
+
+                    if (env.ANTHROPIC_API_KEY?.trim()) {
+                        echo '[INFO] ANTHROPIC_API_KEY is configured (for Anthropic API).'
+                    } else {
+                        echo '[WARN] ANTHROPIC_API_KEY is not configured. Anthropic API features will not be available.'
+                    }
+
+                    // エージェントモードに応じた検証
+                    if (agentMode == 'codex') {
+                        if (!env.CODEX_API_KEY?.trim()) {
+                            error("Agent mode 'codex' requires CODEX_API_KEY parameter.")
                         }
+                        echo '[INFO] Agent mode "codex" selected. Using CODEX_API_KEY.'
+                    } else if (agentMode == 'claude') {
+                        if (!env.CLAUDE_CODE_OAUTH_TOKEN?.trim() && !env.CLAUDE_CODE_API_KEY?.trim()) {
+                            error("Agent mode 'claude' requires CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY parameter.")
+                        }
+                        echo '[INFO] Agent mode "claude" selected. Using Claude Code credentials.'
+                    } else {
+                        // auto mode
+                        echo '[INFO] Agent mode "auto" selected. Will use available credentials.'
                     }
                 }
             }

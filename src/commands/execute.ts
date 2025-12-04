@@ -162,16 +162,11 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   const credentials = resolveAgentCredentials(homeDir, repoRoot);
 
   // 5. エージェント初期化（agent-setup に委譲）
-  const { codexClient, claudeClient } = setupAgentClients(
-    agentMode,
-    workingDir,
-    credentials.codexApiKey,
-    credentials.claudeCodeToken,
-  );
+  const { codexClient, claudeClient } = setupAgentClients(agentMode, workingDir, credentials);
 
   if (!codexClient && !claudeClient) {
     logger.error(
-      `Agent mode "${agentMode}" requires a valid agent configuration, but neither CODEX_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN/CLAUDE_CODE_API_KEY are available.`,
+      `Agent mode "${agentMode}" requires a valid agent configuration, but neither Codex API key nor Claude Code credentials are available.`,
     );
     process.exit(1);
   }

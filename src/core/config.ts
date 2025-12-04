@@ -34,20 +34,15 @@ export interface IConfig {
   // ========== エージェント関連 ==========
 
   /**
-   * Codex API キーを取得（CODEX_API_KEY のみ、フォールバックなし）
+   * Codex API キーを取得（Codex エージェント専用）
    * @returns API キー、または未設定の場合は null
    */
   getCodexApiKey(): string | null;
 
   /**
-   * Claude Code トークンを取得（CLAUDE_CODE_OAUTH_TOKEN → CLAUDE_CODE_API_KEY のフォールバック）
-   * @returns トークン、または未設定の場合は null
-   */
-  getClaudeCodeToken(): string | null;
-
-  /**
-   * Claude Code 認証ファイルパスを取得
+   * Claude Code 認証ファイルパスを取得（レガシー、非推奨）
    * @returns 認証ファイルパス、または未設定の場合は null
+   * @deprecated CLAUDE_CODE_OAUTH_TOKEN または CLAUDE_CODE_API_KEY を使用してください
    */
   getClaudeCredentialsPath(): string | null;
 
@@ -58,19 +53,31 @@ export interface IConfig {
   getClaudeOAuthToken(): string | null;
 
   /**
+   * Claude Code API キーを取得（OAuth トークンがない場合のフォールバック）
+   * @returns API キー、または未設定の場合は null
+   */
+  getClaudeCodeApiKey(): string | null;
+
+  /**
+   * Claude Code 認証トークンを取得（OAUTH_TOKEN → API_KEY のフォールバック）
+   * @returns 認証トークン、または未設定の場合は null
+   */
+  getClaudeCodeToken(): string | null;
+
+  /**
    * Claude の権限スキップフラグを取得
    * @returns true: スキップする、false: スキップしない
    */
   getClaudeDangerouslySkipPermissions(): boolean;
 
   /**
-   * OpenAI APIキーを取得
+   * OpenAI APIキーを取得（OpenAI API 専用、テキスト生成用）
    * @returns OpenAI APIキー、または未設定の場合は null
    */
   getOpenAiApiKey(): string | null;
 
   /**
-   * Anthropic APIキーを取得
+   * Anthropic APIキーを取得（Anthropic API 専用、テキスト生成用）
    * @returns Anthropic APIキー、または未設定の場合は null
    */
   getAnthropicApiKey(): string | null;
@@ -222,16 +229,12 @@ export class Config implements IConfig {
   // ========== エージェント関連 ==========
 
   public getCodexApiKey(): string | null {
-    // CODEX_API_KEY のみ（フォールバックなし、Issue #188）
+    // CODEX_API_KEY のみを使用（OPENAI_API_KEY へのフォールバックなし）
     return this.getEnv('CODEX_API_KEY', false);
   }
 
-  public getClaudeCodeToken(): string | null {
-    // CLAUDE_CODE_OAUTH_TOKEN → CLAUDE_CODE_API_KEY のフォールバック（Issue #188）
-    return this.getEnvWithFallback('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_API_KEY');
-  }
-
   public getClaudeCredentialsPath(): string | null {
+    // レガシー: credentials.json ファイルパス（非推奨）
     return this.getEnv('CLAUDE_CODE_CREDENTIALS_PATH', false);
   }
 
@@ -239,16 +242,26 @@ export class Config implements IConfig {
     return this.getEnv('CLAUDE_CODE_OAUTH_TOKEN', false);
   }
 
+  public getClaudeCodeApiKey(): string | null {
+    return this.getEnv('CLAUDE_CODE_API_KEY', false);
+  }
+
+  public getClaudeCodeToken(): string | null {
+    // CLAUDE_CODE_OAUTH_TOKEN を優先、なければ CLAUDE_CODE_API_KEY
+    return this.getEnvWithFallback('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_API_KEY');
+  }
+
   public getClaudeDangerouslySkipPermissions(): boolean {
     return this.getEnv('CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS', false) === '1';
   }
 
   public getOpenAiApiKey(): string | null {
-    // OPENAI_API_KEY のみ（フォールバックなし、Issue #188）
+    // OPENAI_API_KEY のみを使用（テキスト生成用）
     return this.getEnv('OPENAI_API_KEY', false);
   }
 
   public getAnthropicApiKey(): string | null {
+    // ANTHROPIC_API_KEY のみを使用（テキスト生成用）
     return this.getEnv('ANTHROPIC_API_KEY', false);
   }
 
