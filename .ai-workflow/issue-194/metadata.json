@@ -124,14 +124,15 @@
       "rollback_context": null
     },
     "report": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-12-04T11:56:33.446Z",
-      "completed_at": null,
+      "completed_at": "2025-12-04T12:03:02.706Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ],
       "rollback_context": null
     },
@@ -152,7 +153,7 @@
     }
   },
   "created_at": "2025-12-04T05:13:38.227Z",
-  "updated_at": "2025-12-04T12:02:56.300Z",
+  "updated_at": "2025-12-04T12:03:03.406Z",
   "branch_name": "ai-workflow/issue-194",
   "github_integration": {
     "progress_comment_id": 3610616582,
