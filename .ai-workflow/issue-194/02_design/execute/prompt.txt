@@ -1,0 +1,304 @@
+## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+# 詳細設計フェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書とGitHub Issueの内容から、詳細な設計書を作成してください。このフェーズでは、**実装戦略・テスト戦略・テストコード戦略の判断**も行います。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-194/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-194/01_requirements/output/requirements.md
+
+### GitHub Issue情報
+## Issue概要
+
+- **Issue番号**: #194
+- **タイトル**: feat: Squash commits after workflow completion with agent-generated commit message
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/194
+- **ラベル**: enhancement
+
+### 本文
+
+## 概要
+
+Evaluation Phase 完了後のクリーンアップが終わった時点で、ワークフロー中に作成された一連のコミットをスカッシュして1つにまとめ、フォースプッシュする機能を追加する。コミットメッセージはエージェント（Codex/Claude）に生成させる。
+
+## 背景・動機
+
+現在、ai-workflow の実行中は各フェーズ（initialize → planning → ... → evaluation → cleanup）ごとにコミットが作成される。これにより：
+
+1. **PRのコミット履歴が冗長**: 10+ のコミットが含まれ、レビューが煩雑
+2. **意味のある単位でない**: 各フェーズのコミットは中間状態であり、最終的な変更のみが重要
+3. **コミットメッセージが機械的**: `[ai-workflow] Phase X completed` のような定型メッセージ
+
+スカッシュすることで、PRには1つの意味のあるコミットのみが含まれ、コミット履歴がクリーンになる。
+
+## 機能要件
+
+### 1. スカッシュ対象のコミット特定
+- ワークフロー開始時点（`init` コマンド実行時）からのコミットを特定
+- `metadata.json` にワークフロー開始時のコミットハッシュ（`base_commit`）を記録
+
+### 2. コミットメッセージ生成
+- エージェント（Codex/Claude）を使用してコミットメッセージを生成
+- 入力情報:
+  - Issue のタイトルと本文
+  - 変更されたファイルの一覧（`git diff --stat`）
+  - 変更の概要（差分の要約）
+- 出力形式:
+  ```
+  <type>(<scope>): <subject>
+
+  <body>
+
+  Fixes #<issue_number>
+  ```
+
+### 3. スカッシュ＆フォースプッシュ
+- `git reset --soft <base_commit>` でスカッシュ
+- エージェント生成のコミットメッセージでコミット
+- `git push --force-with-lease` でプッシュ（安全なフォースプッシュ）
+
+### 4. CLI オプション
+```bash
+# スカッシュを有効化（デフォルト: 無効）
+node dist/index.js execute --issue <NUM> --phase all --squash-on-complete
+
+# スカッシュを無効化（明示的に）
+node dist/index.js execute --issue <NUM> --phase all --no-squash-on-complete
+```
+
+### 5. 環境変数
+- `AI_WORKFLOW_SQUASH_ON_COMPLETE`: `true` | `false`（デフォルト: `false`）
+
+## 実装方針
+
+### Phase 1: メタデータ拡張
+- `init` コマンドで `base_commit` を `metadata.json` に記録
+- 既存ワークフローへの後方互換性を確保（`base_commit` がない場合はスカッシュをスキップ）
+
+### Phase 2: コミットメッセージ生成
+- 新規プロンプトテンプレート `src/prompts/squash/generate-message.txt` を作成
+- `SquashManager` クラスを `src/core/git/squash-manager.ts` に追加
+
+### Phase 3: スカッシュ実行
+- `EvaluationPhase.run()` の最後（クリーンアップ後）にスカッシュを実行
+- エラーハンドリング: スカッシュ失敗時はワークフローを継続（WARNING ログのみ）
+
+## 注意事項
+
+1. **フォースプッシュの安全性**: `--force-with-lease` を使用し、他の変更を上書きしないようにする
+2. **ブランチ保護**: main/master へのフォースプッシュは禁止（ブランチ名をチェック）
+3. **ロールバック対応**: スカッシュ前のコミットハッシュを `metadata.json` に記録（`pre_squash_commits`）
+
+## 影響範囲
+
+- `src/commands/init.ts`: `base_commit` の記録
+- `src/commands/execute.ts`: `--squash-on-complete` オプション追加
+- `src/core/git/squash-manager.ts`: 新規作成
+- `src/phases/evaluation.ts`: スカッシュ処理の呼び出し
+- `src/core/metadata-manager.ts`: `base_commit`, `pre_squash_commits` フィールド追加
+- `src/prompts/squash/generate-message.txt`: 新規作成
+
+## 関連ファイル
+
+- `src/core/git/commit-manager.ts`
+- `src/core/git/remote-manager.ts`
+- `src/phases/cleanup/artifact-cleaner.ts`
+
+### 既存コードベースの理解
+
+このリポジトリのプロジェクト構造、アーキテクチャ、コーディング規約を理解するため、以下のドキュメントを参照してください：
+
+- プロジェクト全体のガイドライン: @CLAUDE.md（存在する場合）
+- アーキテクチャ設計: @ARCHITECTURE.md（存在する場合）
+- プロジェクトREADME: @README.md
+- その他、関連するREADME、CONTRIBUTION.md等のドキュメント
+
+上記ドキュメントから以下を把握してください：
+- プロジェクトの目的とアーキテクチャ
+- ディレクトリ構造とコンポーネント構成
+- 既存のコーディング規約やパターン
+- 開発ワークフロー
+
+## 設計書作成手順
+
+### 1. 既存コードベース分析
+
+要件定義書とIssue内容から、以下を分析してください：
+
+1. **影響範囲の特定**
+   - どのコンポーネント（Ansible/Pulumi/Jenkins/Scripts）が影響を受けるか
+   - 既存ファイルの修正が必要か、新規ファイルの作成が必要か
+   - 依存関係のあるコンポーネントは何か
+
+2. **既存パターンの調査**
+   - 類似の機能実装がないか調査
+   - 既存のコーディング規約やパターンを確認
+   - 再利用可能なコンポーネントの特定
+
+### 2. 実装戦略の判断（必須）
+
+以下の3つから選択し、**判断根拠を明記**してください：
+
+- **CREATE（新規作成）**: 既存コードとの依存関係がなく、完全に新しい機能
+- **EXTEND（拡張）**: 既存コードを拡張・修正する必要がある
+- **REFACTOR（リファクタリング）**: 既存コードの構造改善が主目的
+
+**判断基準**：
+- 既存ファイルへの影響範囲
+- 新規ファイルの作成数
+- 既存機能との統合度
+
+**出力形式**：
+```markdown
+### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 3. テスト戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **UNIT_ONLY**: Unitテストのみ
+- **INTEGRATION_ONLY**: Integrationテストのみ
+- **BDD_ONLY**: BDDテストのみ
+- **UNIT_INTEGRATION**: Unit + Integration
+- **UNIT_BDD**: Unit + BDD
+- **INTEGRATION_BDD**: Integration + BDD
+- **ALL**: すべて
+
+**判断基準**：
+- 機能の複雑度
+- ユーザーストーリーの有無
+- 既存テストとの整合性
+
+**出力形式**：
+```markdown
+### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 4. テストコード戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **EXTEND_TEST（既存テストの拡張）**: 既存テストファイルに追加
+- **CREATE_TEST（新規テスト作成）**: 新しいテストファイルを作成
+- **BOTH_TEST（両方）**: 既存テストの拡張と新規テストの作成
+
+**判断基準**：
+- 既存テストファイルの有無
+- 既存テストとの関連性
+
+**出力形式**：
+```markdown
+### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 5. 設計書の構成
+
+以下のセクションを含む設計書を作成してください：
+
+#### 必須セクション：
+
+1. **アーキテクチャ設計**
+   - システム全体図
+   - コンポーネント間の関係
+   - データフロー
+
+2. **実装戦略判断**（セクション2で記載）
+
+3. **テスト戦略判断**（セクション3で記載）
+
+4. **テストコード戦略判断**（セクション4で記載）
+
+5. **影響範囲分析**
+   - 既存コードへの影響
+   - 依存関係の変更
+   - マイグレーション要否
+
+6. **変更・追加ファイルリスト**
+   - 新規作成ファイル（相対パス）
+   - 修正が必要な既存ファイル（相対パス）
+   - 削除が必要なファイル（相対パス）
+
+7. **詳細設計**
+   - クラス設計（必要な場合）
+   - 関数設計（主要な関数のみ）
+   - データ構造設計
+   - インターフェース設計
+
+8. **セキュリティ考慮事項**
+   - 認証・認可
+   - データ保護
+   - セキュリティリスクと対策
+
+9. **非機能要件への対応**
+   - パフォーマンス
+   - スケーラビリティ
+   - 保守性
+
+10. **実装の順序**
+    - 実装順序の推奨
+    - 依存関係の考慮
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **既存プロジェクト構造を尊重**: 既存のディレクトリ構造やコーディング規約に従ってください
+2. **トレーサビリティ**: 要件定義書の各要件に対応する設計を明示してください
+3. **実装可能性**: 実装できない設計や曖昧な設計は避けてください
+4. **判断の明示**: 3つの戦略判断（実装・テスト・テストコード）は必ず明記してください
+5. **レビューされることを意識**: 設計書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（5つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 判断根拠は具体的かつ論理的に記載すること
+
+## 出力形式
+
+設計書は `.ai-workflow/issue-194/02_design/output/design.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。図表が必要な場合はMarkdownのコードブロックやテーブルを活用してください。
+
+## 実装開始
+
+上記を踏まえ、詳細設計書を作成してください。
