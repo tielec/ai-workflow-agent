@@ -99,25 +99,33 @@ export class ArtifactCleaner {
   }
 
   /**
-   * ワークフローログをクリーンアップ（Issue #2）
+   * ワークフローログをクリーンアップ（Issue #2、Issue #212で拡張）
    *
    * Report Phase 完了後に実行され、phases 00-09 の execute/review/revise ディレクトリを削除します。
    * metadata.json と output/*.md は保持されます。
    *
+   * @param phaseRange - 削除対象のフェーズ範囲（オプション）
+   *   - 未指定時: phases 00-09 を削除（既存動作）
+   *   - 指定時: 指定されたフェーズのみ削除
+   *
    * @example
    * ```typescript
-   * // Report Phase 完了後に実行
+   * // Report Phase 完了後に実行（全フェーズ削除）
    * await artifactCleaner.cleanupWorkflowLogs();
+   *
+   * // Issue #212: 特定フェーズのみ削除
+   * const phaseRange: PhaseName[] = ['planning', 'requirements', 'design'];
+   * await artifactCleaner.cleanupWorkflowLogs(phaseRange);
    * ```
    */
-  async cleanupWorkflowLogs(): Promise<void> {
+  async cleanupWorkflowLogs(phaseRange?: import('../../types.js').PhaseName[]): Promise<void> {
     const workflowDir = this.metadata.workflowDir; // .ai-workflow/issue-<NUM>
 
     logger.info('Cleaning up workflow execution logs...');
 
     try {
-      // phases 00-09 のディレクトリをループ
-      const phaseDirs = [
+      // Issue #212: phaseRange が指定されている場合は、そのフェーズのみを対象にする
+      const allPhaseDirs = [
         '00_planning',
         '01_requirements',
         '02_design',
@@ -129,6 +137,32 @@ export class ArtifactCleaner {
         '08_report',
         '09_evaluation',
       ];
+
+      // Issue #212: PhaseName → ディレクトリ名のマッピング
+      const phaseNameToDir: Record<string, string> = {
+        'planning': '00_planning',
+        'requirements': '01_requirements',
+        'design': '02_design',
+        'test_scenario': '03_test_scenario',
+        'implementation': '04_implementation',
+        'test_implementation': '05_test_implementation',
+        'testing': '06_testing',
+        'documentation': '07_documentation',
+        'report': '08_report',
+        'evaluation': '09_evaluation',
+      };
+
+      // Issue #212: 削除対象フェーズの決定
+      let phaseDirs: string[];
+      if (phaseRange && phaseRange.length > 0) {
+        // 指定されたフェーズのみ
+        phaseDirs = phaseRange.map(phase => phaseNameToDir[phase]).filter(dir => dir !== undefined);
+        logger.info(`Cleanup target phases (${phaseRange.length}): ${phaseRange.join(', ')}`);
+      } else {
+        // 全フェーズ（既存動作）
+        phaseDirs = allPhaseDirs;
+        logger.info('Cleanup target: all phases (00-09)');
+      }
 
       for (const phaseDir of phaseDirs) {
         const phasePath = path.join(workflowDir, phaseDir);
