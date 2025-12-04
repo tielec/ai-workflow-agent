@@ -656,10 +656,11 @@ pipeline {
 
                 // 成果物をアーカイブ（成功・失敗問わず）
                 // auto_issue モードでは .ai-workflow ディレクトリは使用しない
+                // 対象リポジトリは REPOS_ROOT にクローンされるため、そこからアーティファクトを取得
                 if (params.EXECUTION_MODE != 'auto_issue') {
-                    dir('.ai-workflow') {
-                        archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
-                    }
+                    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${env.ISSUE_NUMBER}/**/*"
+                    echo "Archiving artifacts from: ${artifactPath}"
+                    archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
                 }
             }
         }
