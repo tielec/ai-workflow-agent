@@ -58,6 +58,7 @@ export REPOS_ROOT="$HOME/projects"       # （任意）リポジトリの親デ�
 export LOG_LEVEL="info"                  # （任意）ログレベル（debug|info|warn|error）
 export LOG_NO_COLOR="false"              # （任意）カラーリング無効化（CI環境では "true"）
 export AGENT_CAN_INSTALL_PACKAGES="false"  # （任意）パッケージインストール許可（Docker内部では "true"）
+export AI_WORKFLOW_SQUASH_ON_COMPLETE="false"  # （任意）スカッシュ機能のデフォルト動作
 
 # Issue URL からワークフローを初期化
 node dist/index.js init \
@@ -91,6 +92,8 @@ ai-workflow execute \
   [--skip-dependency-check|--ignore-dependencies] \
   [--cleanup-on-complete] \
   [--cleanup-on-complete-force] \
+  [--squash-on-complete] \
+  [--no-squash-on-complete] \
   [--requirements-doc <path>] [...] \
   [--git-user <name>] [--git-email <email>] \
   [--followup-llm-mode auto|openai|claude|off] \
@@ -210,6 +213,41 @@ ai-workflow execute --issue 2 --preset review-requirements
 - `design-phase` → `review-design`
 - `implementation-phase` → `implementation`
 - `full-workflow` → `--phase all`
+
+### コミットスカッシュ
+
+ワークフロー完了後、すべてのコミットを1つにまとめてAI生成のコミットメッセージを付与できます（Issue #194で追加）：
+
+```bash
+# 全フェーズ実行後に自動スカッシュ
+ai-workflow execute --issue 385 --phase all --squash-on-complete
+
+# 環境変数でデフォルト動作を設定
+export AI_WORKFLOW_SQUASH_ON_COMPLETE=true
+ai-workflow execute --issue 385 --phase all
+
+# 明示的に無効化
+ai-workflow execute --issue 385 --phase all --no-squash-on-complete
+```
+
+**動作要件**:
+- `evaluation` フェーズが含まれる場合のみ実行
+- ワークフロー開始時（`init`コマンド実行時）に `base_commit` が記録されている
+- main/master ブランチでは実行不可（ブランチ保護）
+
+**スカッシュの流れ**:
+1. ワークフロー完了後、`base_commit` から `HEAD` までのコミット範囲を取得
+2. エージェント（Codex / Claude）がコミット履歴とdiff統計を分析
+3. Conventional Commits形式のコミットメッセージを自動生成
+4. `git reset --soft base_commit` でコミットをスカッシュ
+5. 生成されたメッセージで新しいコミットを作成
+6. `git push --force-with-lease` で安全に強制プッシュ
+
+**安全機能**:
+- ブランチ保護（main/master への強制プッシュを防止）
+- `--force-with-lease` による安全な強制プッシュ（他の変更を上書きしない）
+- `pre_squash_commits` メタデータによるロールバック可能性
+- スカッシュ失敗時もワークフロー全体は成功として扱う（警告ログのみ）
 
 ### フォローアップIssue生成オプション（v0.4.0、Issue #119で追加）
 

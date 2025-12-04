@@ -99,4 +99,90 @@ describe('MetadataManager', () => {
       expect(fs.writeFileSync).toHaveBeenCalled();
     });
   });
+
+  // Issue #194: Squash関連フィールドのテスト
+  describe('base_commit', () => {
+    // テストケース 2.5.1: setBaseCommit_getBaseCommit_正常系
+    it('should set and get base_commit correctly', () => {
+      // Given: base_commitの値
+      const commit = 'abc123def456789012345678901234567890abcd';
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+
+      // When: setBaseCommit を呼び出す
+      metadataManager.setBaseCommit(commit);
+
+      // Then: getBaseCommit で同じ値が返される
+      expect(metadataManager.getBaseCommit()).toBe(commit);
+    });
+
+    // テストケース 2.5.2: getBaseCommit_正常系_base_commit未記録
+    it('should return null when base_commit is not recorded', () => {
+      // Given: base_commitが未記録
+
+      // When: getBaseCommit を呼び出す
+      const result = metadataManager.getBaseCommit();
+
+      // Then: null が返される
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('pre_squash_commits', () => {
+    // テストケース 2.6.1: setPreSquashCommits_getPreSquashCommits_正常系
+    it('should set and get pre_squash_commits correctly', () => {
+      // Given: コミットハッシュの配列
+      const commits = [
+        'commit1hash000000000000000000000000000',
+        'commit2hash000000000000000000000000000',
+        'commit3hash000000000000000000000000000',
+      ];
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+
+      // When: setPreSquashCommits を呼び出す
+      metadataManager.setPreSquashCommits(commits);
+
+      // Then: getPreSquashCommits で同じ配列が返される
+      expect(metadataManager.getPreSquashCommits()).toEqual(commits);
+    });
+
+    // テストケース 2.6.2: getPreSquashCommits_正常系_未記録
+    it('should return null when pre_squash_commits is not recorded', () => {
+      // Given: pre_squash_commitsが未記録
+
+      // When: getPreSquashCommits を呼び出す
+      const result = metadataManager.getPreSquashCommits();
+
+      // Then: null が返される
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('squashed_at', () => {
+    // テストケース 2.7.1: setSquashedAt_getSquashedAt_正常系
+    it('should set and get squashed_at correctly', () => {
+      // Given: ISO 8601形式のタイムスタンプ
+      const timestamp = '2025-01-30T12:34:56.789Z';
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+
+      // When: setSquashedAt を呼び出す
+      metadataManager.setSquashedAt(timestamp);
+
+      // Then: getSquashedAt で同じ値が返される
+      expect(metadataManager.getSquashedAt()).toBe(timestamp);
+    });
+
+    // テストケース 2.7.2: getSquashedAt_正常系_未記録
+    it('should return null when squashed_at is not recorded', () => {
+      // Given: squashed_atが未記録
+
+      // When: getSquashedAt を呼び出す
+      const result = metadataManager.getSquashedAt();
+
+      // Then: null が返される
+      expect(result).toBeNull();
+    });
+  });
 });

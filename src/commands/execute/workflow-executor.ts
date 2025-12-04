@@ -2,6 +2,7 @@ import type { PhaseName } from '../../types.js';
 import type { PhaseContext, ExecutionSummary, PhaseResultMap } from '../../types/commands.js';
 import type { GitManager } from '../../core/git-manager.js';
 
+import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { createPhaseInstance } from '../../core/phase-factory.js';
 
@@ -79,6 +80,20 @@ export async function executePhasesSequential(
   }
 
   // 全フェーズ成功
+  // Issue #194: squashOnComplete が有効で、evaluation フェーズが含まれる場合、スカッシュを実行
+  if (context.squashOnComplete && phases.includes('evaluation')) {
+    try {
+      logger.info('Starting commit squash process (--squash-on-complete)...');
+      await gitManager.squashCommits(context);
+      logger.info('✅ Commit squash completed successfully.');
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      logger.error(`❌ Commit squash failed: ${errorMessage}`);
+      // スカッシュ失敗はワークフロー全体の失敗とは見なさない（警告のみ）
+      logger.warn('Workflow completed successfully, but commit squash failed.');
+    }
+  }
+
   return { success: true, results };
 }
 

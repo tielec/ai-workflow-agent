@@ -124,6 +124,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/git/commit-message-builder.ts` | コミットメッセージ構築の専門モジュール（約151行、Issue #52で追加）。フェーズ完了、ステップ完了、初期化、クリーンアップのメッセージ生成を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
 | `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
+| `src/core/git/squash-manager.ts` | スカッシュ操作の専門マネージャー（約350行、Issue #194で追加）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease` による安全な強制プッシュを提供。`squashCommits()`, `getCommitsToSquash()`, `validateBranchProtection()`, `generateCommitMessage()`, `executeSquash()`, `generateFallbackMessage()` を含む6つの主要メソッドを提供。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約347行、Issue #26で9.5%削減、v0.4.0でrollback機能追加、Issue #90）。差し戻し機能用の6つの新規メソッド（`setRollbackContext()`, `getRollbackContext()`, `clearRollbackContext()`, `addRollbackHistory()`, `updatePhaseForRollback()`, `resetSubsequentPhases()`）を提供。 |
 | `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
@@ -436,6 +437,7 @@ GitManager は548行から181行へリファクタリングされ（約67%削減
   - **CommitMessageBuilder** (`src/core/git/commit-message-builder.ts`): コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **BranchManager** (`src/core/git/branch-manager.ts`): ブランチ操作を担当。ブランチ作成、切り替え、存在チェック（ローカル/リモート）、現在のブランチ取得を提供。
 - **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。
+- **SquashManager** (`src/core/git/squash-manager.ts`): スカッシュ操作を担当（Issue #194で追加）。コミットスカッシュ（`squashCommits()`）、コミット範囲取得（`getCommitsToSquash()`）、ブランチ保護（`validateBranchProtection()`）、エージェント生成コミットメッセージ（`generateCommitMessage()`）、スカッシュ実行（`executeSquash()`）、フォールバックメッセージ生成（`generateFallbackMessage()`）を提供。Codex / Claude エージェントがConventional Commits形式のメッセージを生成し、`--force-with-lease` で安全に強制プッシュ。
 
 **ファサードパターンの設計**:
 - GitManager は各専門マネージャーのインスタンスを保持し、既存のpublicメソッドを対応するマネージャーに委譲

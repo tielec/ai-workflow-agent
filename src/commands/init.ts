@@ -291,6 +291,17 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
   }
   logger.info('Push successful.');
 
+  // Issue #194: base_commitの記録（スカッシュ機能用）
+  try {
+    const currentCommit = await git.revparse(['HEAD']);
+    const baseCommit = currentCommit.trim();
+    metadataManager.setBaseCommit(baseCommit);
+    logger.info(`Recorded base_commit for squash: ${baseCommit.slice(0, 7)}`);
+  } catch (error) {
+    // base_commit記録失敗は警告のみ（ワークフロー初期化は継続）
+    logger.warn(`Failed to record base_commit: ${getErrorMessage(error)}`);
+  }
+
   // PR作成
   let githubToken: string;
   try {

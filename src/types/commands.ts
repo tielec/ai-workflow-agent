@@ -17,6 +17,9 @@ export type PhaseContext = {
   ignoreDependencies: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
   issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
+  squashOnComplete?: boolean; // ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
+  issueNumber?: number; // Issue番号（Issue #194: スカッシュ時のメッセージ生成に使用）
+  issueInfo?: { title?: string; body?: string }; // Issue情報（Issue #194: スカッシュ時のメッセージ生成に使用）
 };
 
 /**
@@ -218,6 +221,14 @@ export interface ExecuteCommandOptions {
    * 生成したメタデータを Issue 本文に追記するかどうか
    */
   followupLlmAppendMetadata?: boolean;
+
+  /**
+   * ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
+   *
+   * デフォルト: false
+   * true の場合、Evaluation Phase 完了後にワークフロー開始時点からのコミットを1つにスカッシュ
+   */
+  squashOnComplete?: boolean;
 }
 
 /**

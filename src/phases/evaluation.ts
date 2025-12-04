@@ -181,6 +181,10 @@ export class EvaluationPhase extends BasePhase {
 
       if (decision === 'PASS') {
         this.metadata.setEvaluationDecision({ decision: 'PASS' });
+
+        // Issue #194: PASS判定後にスカッシュを実行（オプション指定時）
+        // Note: スカッシュはrun()メソッドで実行されるため、ここでは何もしない
+
         return {
           success: true,
           output: evaluationFile,

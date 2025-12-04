@@ -715,7 +715,256 @@ error: Unexpected console statement (no-console)
 
 **参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
 
-## 14. デバッグのヒント
+## 14. コミットスカッシュ関連（v0.5.0、Issue #194）
+
+### スカッシュが実行されない
+
+ワークフロー完了後にコミットがスカッシュされない場合：
+
+**症状**:
+- Evaluation Phase 完了後にスカッシュが実行されない
+- メタデータに `squashed_at` フィールドが記録されない
+
+**原因**:
+1. `--squash-on-complete` オプションが指定されていない（デフォルトは無効）
+2. Evaluation Phase が実行されていない（スカッシュはEvaluation Phase完了時のみ実行）
+3. 環境変数 `AI_WORKFLOW_SQUASH_ON_COMPLETE` が設定されていない
+
+**対処法**:
+```bash
+# 方法1: CLIオプションで有効化
+node dist/index.js execute --issue 123 --phase evaluation --squash-on-complete
+
+# 方法2: 環境変数でデフォルト動作を変更
+export AI_WORKFLOW_SQUASH_ON_COMPLETE=true
+node dist/index.js execute --issue 123 --phase evaluation
+
+# 方法3: 明示的に無効化（デフォルト動作の確認）
+node dist/index.js execute --issue 123 --phase evaluation --no-squash-on-complete
+```
+
+**確認方法**:
+```bash
+# メタデータでスカッシュ実行を確認
+cat .ai-workflow/issue-123/metadata.json | jq '.squashed_at'
+# null でない場合、スカッシュが実行済み
+
+# 環境変数の確認
+echo $AI_WORKFLOW_SQUASH_ON_COMPLETE
+```
+
+### main/master ブランチでスカッシュできない
+
+main または master ブランチでスカッシュを試行した場合：
+
+**症状**:
+```
+[WARNING] Skipping squash: current branch is protected (main/master)
+```
+
+**原因**:
+- ブランチ保護機能により、main/master ブランチでのスカッシュは禁止されています
+
+**対処法**:
+- これは意図された動作です。フィーチャーブランチに切り替えてからスカッシュを実行してください:
+  ```bash
+  git checkout -b feature/issue-123
+  node dist/index.js execute --issue 123 --phase evaluation --squash-on-complete
+  ```
+
+**注意**: この保護は誤った force push を防ぐための重要なセーフティ機能です。
+
+### force push が失敗する
+
+スカッシュ後の force push が失敗する場合：
+
+**症状**:
+```
+[ERROR] Failed to push squashed commits: Command failed: git push origin <branch> --force-with-lease
+```
+
+**原因**:
+1. リモートブランチが他の開発者により更新されている（`--force-with-lease` による保護）
+2. リモートブランチが存在しない
+3. push 権限がない
+4. ネットワーク問題
+
+**対処法**:
+
+**1. リモート更新の確認**:
+```bash
+# リモートブランチの最新状態を確認
+git fetch origin
+git log HEAD..origin/ai-workflow/issue-123
+
+# 他の開発者の変更がある場合
+git pull --rebase origin ai-workflow/issue-123
+# その後、スカッシュを再実行
+```
+
+**2. リモートブランチが存在しない場合**:
+```bash
+# 通常のpushでリモートブランチを作成
+git push -u origin ai-workflow/issue-123
+```
+
+**3. 権限問題の確認**:
+```bash
+# GITHUB_TOKEN のスコープを確認
+# repo、workflow スコープが必要
+
+# ローカル環境では SSH キーが正しく設定されているか確認
+ssh -T git@github.com
+```
+
+**4. ロールバック（スカッシュ前に戻す）**:
+```bash
+# メタデータから pre_squash_commits を確認
+cat .ai-workflow/issue-123/metadata.json | jq '.pre_squash_commits'
+
+# ロールバック（reset）
+git reset --hard <pre_squash_commit_sha>
+
+# ロールバック（新しいコミット作成）
+git revert --no-edit <squashed_commit_sha>
+```
+
+### AI 生成コミットメッセージが不適切
+
+AI エージェントが生成したコミットメッセージが期待と異なる場合：
+
+**症状**:
+- コミットメッセージが Conventional Commits 形式になっていない
+- メッセージが抽象的すぎる、または詳細すぎる
+- 日本語/英語の混在
+
+**原因**:
+- エージェントがコミット履歴やdiffから適切な情報を抽出できなかった
+- プロンプトテンプレート（`src/prompts/squash/generate-message.txt`）の改善が必要
+
+**対処法**:
+
+**1. フォールバックメッセージが使用された場合**:
+```bash
+# メタデータでフォールバック使用を確認
+git log -1 --format=%B | head -n 1
+# "Squash commits for issue #123" のような単純なメッセージの場合、フォールバック使用
+
+# 原因: エージェント実行失敗（タイムアウト、API制限等）
+# 対処: 再度スカッシュを実行（git reset後）
+```
+
+**2. メッセージの手動修正**:
+```bash
+# 最新コミットのメッセージを修正
+git commit --amend
+
+# または対話的に編集
+git rebase -i HEAD~1
+
+# 修正後、force push
+git push origin ai-workflow/issue-123 --force-with-lease
+```
+
+**3. プロンプトテンプレートのカスタマイズ**:
+```bash
+# プロンプトを編集
+vi src/prompts/squash/generate-message.txt
+
+# 変更例: より詳細なコンテキスト指示を追加
+# 変更例: 特定のフォーマット要求を追加
+
+# ビルドして再実行
+npm run build
+```
+
+**4. エージェント切り替え**:
+```bash
+# Codex から Claude に切り替え（またはその逆）
+node dist/index.js execute --issue 123 --phase evaluation --squash-on-complete --agent claude
+```
+
+### スカッシュメタデータが記録されない
+
+スカッシュ実行後、メタデータが正しく記録されない場合：
+
+**症状**:
+- `metadata.json` に `base_commit`, `pre_squash_commits`, `squashed_at` フィールドが存在しない
+- スカッシュは成功したがメタデータ更新に失敗したログが出力される
+
+**原因**:
+1. ファイル書き込み権限の問題
+2. ディスク容量不足
+3. メタデータファイルの破損
+
+**対処法**:
+
+**1. 権限とディスク容量の確認**:
+```bash
+# 権限確認
+ls -la .ai-workflow/issue-123/metadata.json
+
+# ディスク容量確認
+df -h .
+
+# 書き込みテスト
+touch .ai-workflow/issue-123/test-write && rm .ai-workflow/issue-123/test-write
+```
+
+**2. メタデータの手動修復**:
+```bash
+# 現在のコミットを確認
+CURRENT_COMMIT=$(git rev-parse HEAD)
+SQUASHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# メタデータを手動で更新（jq使用）
+jq --arg commit "$CURRENT_COMMIT" --arg time "$SQUASHED_AT" \
+  '.squashed_at = $time | .pre_squash_commits = ["記録なし"] | .base_commit = $commit' \
+  .ai-workflow/issue-123/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-123/metadata.json
+```
+
+**3. メタデータ再生成**:
+```bash
+# 最終手段: ワークフローを再初期化（既存の成果物は保持される）
+node dist/index.js init --issue-url <URL> --force
+```
+
+### スカッシュ失敗がワークフローを中断する
+
+スカッシュ失敗時にワークフロー全体が失敗する場合：
+
+**症状**:
+```
+[WARNING] Failed to squash commits: <error message>
+[INFO] Workflow continues despite squash failure
+```
+
+**原因**:
+- スカッシュ失敗は警告として扱われ、ワークフローは継続されます（これは意図された動作）
+- ワークフロー全体が失敗している場合、スカッシュ以外の原因です
+
+**対処法**:
+1. スカッシュ失敗は無視してワークフローを継続できます
+2. スカッシュ失敗の原因を調査（上記のトラブルシューティングを参照）
+3. ワークフロー完了後、手動でスカッシュを実行:
+   ```bash
+   # 手動スカッシュ（例: 10個のコミットを1つにまとめる）
+   git reset --soft HEAD~10
+   git commit -m "feat: implement issue #123
+
+   詳細な説明をここに記載
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+
+   git push origin ai-workflow/issue-123 --force-with-lease
+   ```
+
+**注意**: スカッシュはオプショナル機能であり、失敗してもワークフローの成功には影響しません。
+
+## 15. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。
@@ -727,5 +976,6 @@ error: Unexpected console statement (no-console)
 - **フォールバック機構関連**: `agent_log.md` の存在、ヘッダーパターン、セクション数、キーワードを確認してください。ログに `[INFO] Output file not found, attempting fallback recovery...` が表示されている場合、フォールバック機構が動作しています。
 - **カラーリングテスト関連**: `chalk.level` の強制設定と `LOG_NO_COLOR` 環境変数を確認してください。
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
+- **コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。
 
 対処できない場合は、実行したコマンド、環境変数（機微情報をマスク）、`agent_log_raw.txt` の該当箇所を添えて Issue もしくはチームチャンネルで共有してください。

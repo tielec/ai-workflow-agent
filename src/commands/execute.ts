@@ -86,6 +86,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     followupLlmTimeout,
     followupLlmMaxRetries,
     followupLlmAppendMetadata,
+    squashOnComplete,
   } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
@@ -189,7 +190,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   // Issue #174: Pass agent clients to GitHubClient for agent-based FOLLOW-UP Issue generation
   const githubClient = new GitHubClient(githubToken, repoName, codexClient, claudeClient);
 
-  const gitManager = new GitManager(repoRoot, metadataManager);
+  // Issue #194: Pass agent clients to GitManager for squash commit message generation
+  const gitManager = new GitManager(repoRoot, metadataManager, {}, codexClient, claudeClient);
 
   const branchExists = await gitManager.branchExists(branchName);
   if (!branchExists) {
@@ -241,6 +243,12 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     skipDependencyCheck,
     ignoreDependencies,
     issueGenerationOptions,
+    squashOnComplete,
+    issueNumber: Number(issueNumber),
+    issueInfo: {
+      title: metadataManager.data.issue_title,
+      body: metadataManager.data.issue_body,
+    },
   };
 
   // 7. プリセット実行（workflow-executor に委譲）

@@ -377,4 +377,58 @@ export class MetadataManager {
     logger.info(`Reset subsequent phases: ${subsequentPhases.join(', ')}`);
     return subsequentPhases;
   }
+
+  /**
+   * Issue #194: ワークフロー開始時のコミットハッシュを記録
+   * @param commit - コミットハッシュ（40文字の16進数）
+   */
+  public setBaseCommit(commit: string): void {
+    this.state.data.base_commit = commit;
+    this.save();
+    logger.debug(`Base commit set: ${commit}`);
+  }
+
+  /**
+   * Issue #194: ワークフロー開始時のコミットハッシュを取得
+   * @returns コミットハッシュ、未記録の場合null
+   */
+  public getBaseCommit(): string | null {
+    return this.state.data.base_commit ?? null;
+  }
+
+  /**
+   * Issue #194: スカッシュ前のコミットハッシュリストを記録
+   * @param commits - コミットハッシュの配列
+   */
+  public setPreSquashCommits(commits: string[]): void {
+    this.state.data.pre_squash_commits = commits;
+    this.save();
+    logger.debug(`Pre-squash commits set: ${commits.length} commits`);
+  }
+
+  /**
+   * Issue #194: スカッシュ前のコミットハッシュリストを取得
+   * @returns コミットハッシュの配列、未記録の場合null
+   */
+  public getPreSquashCommits(): string[] | null {
+    return this.state.data.pre_squash_commits ?? null;
+  }
+
+  /**
+   * Issue #194: スカッシュ完了時のタイムスタンプを記録
+   * @param timestamp - ISO 8601形式のタイムスタンプ
+   */
+  public setSquashedAt(timestamp: string): void {
+    this.state.data.squashed_at = timestamp;
+    this.save();
+    logger.debug(`Squashed at set: ${timestamp}`);
+  }
+
+  /**
+   * Issue #194: スカッシュ完了時のタイムスタンプを取得
+   * @returns タイムスタンプ、未記録の場合null
+   */
+  public getSquashedAt(): string | null {
+    return this.state.data.squashed_at ?? null;
+  }
 }
