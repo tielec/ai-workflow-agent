@@ -108,11 +108,11 @@
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: 問題の詳細分析とエラーログ収集 (0.5~1h)
+- [x] Task 1-1: 問題の詳細分析とエラーログ収集 (0.5~1h)
   - `__dirname is not defined` エラーの発生条件を確認
   - Force push が rejected される条件を確認
   - Pull後のpushで「no changes were pushed」となる条件を確認
-- [ ] Task 1-2: 既存の ESM 互換パターンの調査 (0.5~1h)
+- [x] Task 1-2: 既存の ESM 互換パターンの調査 (0.5~1h)
   - `src/core/github/issue-agent-generator.ts` の実装パターンを参考にする
   - `src/core/repository-analyzer.ts` の実装パターンを参考にする
   - プロジェクト全体で統一されている `import.meta.url` + `fileURLToPath` パターンを確認
@@ -260,9 +260,9 @@ graph TD
 ## 品質ゲート
 
 ### Phase 1: 要件定義
-- [ ] **3つのエラーの発生条件が明確に記載されている**
-- [ ] **既存の ESM 互換パターンが調査されている**
-- [ ] **受け入れ基準が定義されている**:
+- [x] **3つのエラーの発生条件が明確に記載されている**
+- [x] **既存の ESM 互換パターンが調査されている**
+- [x] **受け入れ基準が定義されている**:
   - `__dirname is not defined` エラーが発生しない
   - Force push が正常に実行される
   - Pull後のpushでスカッシュが無効化されない
