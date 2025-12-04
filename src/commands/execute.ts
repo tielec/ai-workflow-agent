@@ -234,6 +234,25 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   });
 
   // 6. PhaseContext 構築
+  // Issue #194: Issue情報をGitHubから取得（squashコミットメッセージ生成用）
+  let issueInfo = null;
+  try {
+    issueInfo = await githubClient.getIssueInfo(Number(issueNumber));
+  } catch (error) {
+    logger.warn(`Failed to fetch issue info: ${error}`);
+    // フォールバック: メタデータからタイトルのみ使用
+    issueInfo = {
+      number: Number(issueNumber),
+      title: metadataManager.data.issue_title,
+      body: '',
+      state: 'open' as const,
+      labels: [],
+      url: metadataManager.data.issue_url,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
+
   const context: PhaseContext = {
     workingDir,
     metadataManager,
@@ -245,10 +264,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     issueGenerationOptions,
     squashOnComplete,
     issueNumber: Number(issueNumber),
-    issueInfo: {
-      title: metadataManager.data.issue_title,
-      body: metadataManager.data.issue_body,
-    },
+    issueInfo,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）
