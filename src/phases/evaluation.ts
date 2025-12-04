@@ -221,22 +221,40 @@ export class EvaluationPhase extends BasePhase {
 
       if (decision.startsWith('FAIL_PHASE_')) {
         const failedPhase = decisionResult.failedPhase;
-        if (!failedPhase) {
+
+        // FAIL_PHASE_UNKNOWN: フェーズ名が特定できない場合
+        if (!failedPhase || decision === 'FAIL_PHASE_UNKNOWN') {
+          logger.warn('FAIL_PHASE detected but specific phase could not be identified.');
+          logger.warn('Evaluation Phase will complete successfully, but manual rollback may be required.');
+
+          this.metadata.setEvaluationDecision({
+            decision: 'FAIL_PHASE_UNKNOWN',
+            failedPhase: null,
+          });
+
+          // フェーズ自体は成功として終了（後続のクリーンアップ等が実行される）
           return {
-            success: false,
+            success: true,
             output: evaluationFile,
-            decision,
-            error: '失敗フェーズの特定に失敗しました',
+            decision: 'FAIL_PHASE_UNKNOWN',
           };
         }
 
         const failResult = this.metadata.rollbackToPhase(failedPhase);
         if (!failResult.success) {
+          logger.warn(`Failed to rollback to phase ${failedPhase}: ${failResult.error}`);
+          logger.warn('Evaluation Phase will complete successfully, but metadata rollback failed.');
+
+          this.metadata.setEvaluationDecision({
+            decision,
+            failedPhase,
+          });
+
+          // ロールバック失敗でもフェーズ自体は成功として終了
           return {
-            success: false,
+            success: true,
             output: evaluationFile,
             decision,
-            error: failResult.error ?? 'メタデータの巻き戻しに失敗しました',
           };
         }
 
