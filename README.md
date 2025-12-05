@@ -131,6 +131,12 @@ ai-workflow rollback \
   [--from-phase <phase>] \
   [--force] \
   [--dry-run]
+
+ai-workflow cleanup \
+  --issue <number> \
+  [--dry-run] \
+  [--phases <range>] \
+  [--all]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -246,6 +252,8 @@ ai-workflow execute --issue 385 --phase all --no-squash-on-complete
 **安全機能**:
 - ブランチ保護（main/master への強制プッシュを防止）
 - `--force-with-lease` による安全な強制プッシュ（他の変更を上書きしない）
+  - リモートブランチが先に進んでいる場合は push が自動的に拒否される
+  - non-fast-forwardエラー時にpullを実行しない（スカッシュ後の履歴を保持）
 - `pre_squash_commits` メタデータによるロールバック可能性
 - スカッシュ失敗時もワークフロー全体は成功として扱う（警告ログのみ）
 
@@ -411,6 +419,108 @@ ai-workflow rollback \
 - 差し戻しを実行すると、後続フェーズのステータスはすべて `pending` にリセットされます
 - 差し戻し理由は `ROLLBACK_REASON.md` として `.ai-workflow/issue-<NUM>/<PHASE>/` ディレクトリに保存されます
 - 差し戻し後、次回の `execute` コマンドで差し戻し先フェーズの指定ステップから自動的に再開されます
+
+### Cleanupコマンド（ワークフローログの手動クリーンアップ）
+
+`cleanup` コマンドは、ワークフローログ（`execute/`、`review/`、`revise/` ディレクトリ）を手動でクリーンアップし、リポジトリサイズを削減する機能です（v0.4.0、Issue #212で追加）。Report Phase（Phase 8）で自動実行されるクリーンアップを手動で制御したい場合や、特定のフェーズのみをクリーンアップしたい場合に使用します。
+
+```bash
+# 基本的な使用方法（Phase 0-8のログをクリーンアップ）
+ai-workflow cleanup --issue 123
+
+# プレビューモード（削除対象のみ表示、実際には削除しない）
+ai-workflow cleanup --issue 123 --dry-run
+
+# 特定のフェーズ範囲をクリーンアップ（数値範囲）
+ai-workflow cleanup --issue 123 --phases 0-4
+
+# 特定のフェーズ範囲をクリーンアップ（フェーズ名リスト）
+ai-workflow cleanup --issue 123 --phases planning,requirements,design
+
+# 完全クリーンアップ（Phase 0-9すべて、Evaluation Phase完了後のみ）
+ai-workflow cleanup --issue 123 --all
+```
+
+**主な機能**:
+
+- **通常クリーンアップ**（デフォルト）: Phase 0-8のワークフローログを削除
+- **部分クリーンアップ**（`--phases`）: 指定したフェーズ範囲のみを削除
+- **完全クリーンアップ**（`--all`）: Phase 0-9すべてのログを削除（Evaluation Phase完了後のみ可能）
+- **プレビューモード**（`--dry-run`）: 削除対象を確認してから実行可能
+- **Git 自動コミット**: クリーンアップ後に変更を自動コミット＆プッシュ
+
+**削除対象**:
+- 各フェーズディレクトリ内の `execute/`、`review/`、`revise/` ディレクトリ
+- これらのディレクトリに含まれるすべてのファイル（プロンプトファイル、エージェント出力等）
+
+**保持対象**:
+- `metadata.json`（ワークフロー状態の管理ファイル）
+- `output/*.md`（Planning Phase の `planning.md`、各フェーズの成果物ドキュメント）
+
+**オプション**:
+
+- `--issue <number>`: 対象のIssue番号（必須）
+- `--dry-run`: プレビューモード（削除対象のみ表示、実際には削除しない）
+- `--phases <range>`: クリーンアップするフェーズ範囲
+  - 数値範囲: `0-4`、`5-7`
+  - フェーズ名リスト（カンマ区切り）: `planning,requirements,design`
+  - 有効なフェーズ名: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
+- `--all`: 完全クリーンアップ（Phase 0-9すべて）
+  - Evaluation Phase（Phase 9）が `completed` 状態の場合のみ実行可能
+  - 他のフェーズと組み合わせ不可
+
+**使用例**:
+
+```bash
+# ケース1: 実行前に削除対象を確認（プレビューモード）
+ai-workflow cleanup --issue 212 --dry-run
+# → Phase 0-8 の execute/, review/, revise/ ディレクトリを表示（削除しない）
+
+# ケース2: Phase 0-8 のログをクリーンアップ
+ai-workflow cleanup --issue 212
+# → 約75%のリポジトリサイズ削減
+# → 自動的にGitコミット＆プッシュ
+
+# ケース3: Planning と Requirements のみクリーンアップ
+ai-workflow cleanup --issue 212 --phases planning,requirements
+# → Phase 0-1 のログのみ削除
+
+# ケース4: Phase 0-4 のログをクリーンアップ
+ai-workflow cleanup --issue 212 --phases 0-4
+# → Planning ～ Implementation のログを削除
+
+# ケース5: Evaluation Phase 完了後に完全クリーンアップ
+ai-workflow cleanup --issue 212 --all
+# → Phase 0-9 すべてのログを削除（--allは Evaluation 完了後のみ可能）
+
+# ケース6: 完全クリーンアップ前にプレビュー
+ai-workflow cleanup --issue 212 --all --dry-run
+# → Phase 0-9 の削除対象をプレビュー表示
+```
+
+**クリーンアップモードの比較**:
+
+| モード | オプション | 削除対象 | 実行可能タイミング | リポジトリサイズ削減効果 |
+|--------|----------|---------|------------------|---------------------|
+| **通常** | なし | Phase 0-8 | いつでも | 約75% |
+| **部分** | `--phases 0-4` | 指定範囲のみ | いつでも | 範囲に応じて |
+| **完全** | `--all` | Phase 0-9 | Evaluation完了後 | 約75%（Phase 9を含む） |
+
+**エラー処理**:
+
+- **Phase範囲が不正**: `Error: Invalid phase range format. Use numeric ranges (0-4) or phase name lists (planning,requirements).`
+- **Evaluation未完了で--all使用**: `Error: Cannot use --all option. Evaluation phase is not completed yet.`
+- **--allと--phasesの併用**: `Error: Cannot specify both --phases and --all options.`
+- **削除対象なし**: `No directories to clean up. All specified phases may already be cleaned.`
+
+**注意事項**:
+
+- クリーンアップは **非破壊的** に動作します（`metadata.json` と `output/*.md` は保持）
+- **成果物ドキュメント**（`planning.md`、`requirements.md` 等）は削除されません
+- クリーンアップ後も **フェーズの再実行は可能** です（メタデータが保持されているため）
+- **PRレビュー前** に実行することで、レビュー対象を成果物に集中できます
+- **`--dry-run`** での事前確認を推奨します
+- Report Phase（Phase 8）では **自動的にクリーンアップが実行** されます（`cleanup` コマンド不要）
 
 ### Rollback機能の運用フロー
 
@@ -925,6 +1035,8 @@ Report Phase (Phase 8) 完了後、リポジトリサイズを削減するため
 - **効果**: リポジトリサイズを約75%削減、PRレビューを成果物に集中
 
 クリーンアップは非破壊的に動作し、失敗してもワークフロー全体は継続します。
+
+**手動クリーンアップ**: `cleanup` コマンドを使用すると、自動クリーンアップとは独立して任意のタイミングでログをクリーンアップできます（v0.4.0、Issue #212で追加）。詳細は [Cleanupコマンド](#cleanupコマンドワークフローログの手動クリーンアップ) セクションを参照してください。
 
 ### ワークフローディレクトリの完全削除（オプション）
 

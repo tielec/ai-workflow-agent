@@ -117,12 +117,23 @@ export function validateRollbackOptions(
     );
   }
 
-  // 3. 対象フェーズの状態チェック
+  // 3. 対象フェーズの状態チェック（Issue #208: completed_steps も考慮）
   const phaseStatus = metadataManager.getPhaseStatus(toPhase);
-  if (phaseStatus === 'pending') {
+  const completedSteps = metadataManager.getCompletedSteps(toPhase);
+
+  // Issue #208: completed_steps が空でない場合は「開始済み」と判定
+  if (phaseStatus === 'pending' && completedSteps.length === 0) {
     throw new Error(
       `Cannot rollback to phase '${options.toPhase}' ` +
       `because it has not been started yet.`
+    );
+  }
+
+  // Issue #208: 警告 - status が 'pending' でも completed_steps がある場合
+  if (phaseStatus === 'pending' && completedSteps.length > 0) {
+    logger.warn(
+      `Phase ${options.toPhase}: status is 'pending' but completed_steps is not empty. ` +
+      `Treating as started phase (completed_steps: ${JSON.stringify(completedSteps)})`
     );
   }
 

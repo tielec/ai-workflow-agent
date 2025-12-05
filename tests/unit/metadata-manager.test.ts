@@ -185,4 +185,114 @@ describe('MetadataManager', () => {
       expect(result).toBeNull();
     });
   });
+
+  // =============================================================================
+  // Issue #208: validatePhaseConsistency() のテスト
+  // =============================================================================
+  describe('validatePhaseConsistency (Issue #208)', () => {
+    beforeEach(() => {
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    });
+
+    // TC-VM-001: 正常系 - status と completed_steps が整合
+    it('TC-VM-001: should return valid=true when status and completed_steps are consistent', () => {
+      // Given: status: 'in_progress', completed_steps: ['execute']
+      metadataManager.data.phases.implementation.status = 'in_progress';
+      metadataManager.data.phases.implementation.completed_steps = ['execute'];
+      metadataManager.data.phases.implementation.started_at = '2025-01-30T10:00:00Z';
+
+      // When: validatePhaseConsistency を呼び出す
+      const result = metadataManager.validatePhaseConsistency('implementation');
+
+      // Then: valid=true, warnings=[]
+      expect(result.valid).toBe(true);
+      expect(result.warnings).toEqual([]);
+    });
+
+    // TC-VM-002: 不整合1 - pending + completed_steps 存在
+    it('TC-VM-002: should detect inconsistency when status is pending but completed_steps is not empty', () => {
+      // Given: status: 'pending', completed_steps: ['execute']
+      metadataManager.data.phases.test_implementation.status = 'pending';
+      metadataManager.data.phases.test_implementation.completed_steps = ['execute'];
+      metadataManager.data.phases.test_implementation.started_at = null;
+
+      // When: validatePhaseConsistency を呼び出す
+      const result = metadataManager.validatePhaseConsistency('test_implementation');
+
+      // Then: valid=false, warning が含まれる
+      expect(result.valid).toBe(false);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain("status is 'pending' but completed_steps is not empty");
+    });
+
+    // TC-VM-003: 不整合2 - completed + completed_steps 空
+    it('TC-VM-003: should detect inconsistency when status is completed but completed_steps is empty', () => {
+      // Given: status: 'completed', completed_steps: []
+      metadataManager.data.phases.testing.status = 'completed';
+      metadataManager.data.phases.testing.completed_steps = [];
+      metadataManager.data.phases.testing.completed_at = '2025-01-30T12:00:00Z';
+
+      // When: validatePhaseConsistency を呼び出す
+      const result = metadataManager.validatePhaseConsistency('testing');
+
+      // Then: valid=false, warning が含まれる
+      expect(result.valid).toBe(false);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain("status is 'completed' but completed_steps is empty");
+    });
+
+    // TC-VM-004: 不整合3 - in_progress + started_at null
+    it('TC-VM-004: should detect inconsistency when status is in_progress but started_at is null', () => {
+      // Given: status: 'in_progress', started_at: null
+      metadataManager.data.phases.documentation.status = 'in_progress';
+      metadataManager.data.phases.documentation.started_at = null;
+      metadataManager.data.phases.documentation.current_step = 'execute';
+
+      // When: validatePhaseConsistency を呼び出す
+      const result = metadataManager.validatePhaseConsistency('documentation');
+
+      // Then: valid=false, warning が含まれる
+      expect(result.valid).toBe(false);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain("status is 'in_progress' but started_at is null");
+    });
+  });
+
+  // =============================================================================
+  // Issue #208: rollbackToPhase() の completed_steps リセットテスト
+  // =============================================================================
+  describe('rollbackToPhase (Issue #208)', () => {
+    beforeEach(() => {
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.copyFileSync as any) = jest.fn().mockImplementation(() => {});
+    });
+
+    // TC-RP-001: 正常系 - completed_steps と current_step が正しくリセットされる
+    it('TC-RP-001: should reset completed_steps and current_step when rolling back phases', () => {
+      // Given: test_implementation と testing が完了している
+      metadataManager.data.phases.test_implementation.status = 'completed';
+      metadataManager.data.phases.test_implementation.completed_steps = ['execute', 'review'];
+      metadataManager.data.phases.test_implementation.started_at = '2025-01-30T10:00:00Z';
+      metadataManager.data.phases.test_implementation.completed_at = '2025-01-30T11:00:00Z';
+
+      metadataManager.data.phases.testing.status = 'completed';
+      metadataManager.data.phases.testing.completed_steps = ['execute', 'review'];
+      metadataManager.data.phases.testing.started_at = '2025-01-30T11:05:00Z';
+      metadataManager.data.phases.testing.completed_at = '2025-01-30T12:00:00Z';
+
+      // When: test_implementation にロールバック
+      const result = metadataManager.rollbackToPhase('test_implementation');
+
+      // Then: 後続フェーズ (testing, documentation, report) が正しくリセットされる
+      expect(result.success).toBe(true);
+      expect(metadataManager.data.phases.testing.status).toBe('pending');
+      expect(metadataManager.data.phases.testing.completed_steps).toEqual([]);
+      expect(metadataManager.data.phases.testing.started_at).toBeNull();
+      expect(metadataManager.data.phases.testing.current_step).toBeNull();
+      expect(metadataManager.data.phases.testing.rollback_context).toBeNull();
+    });
+  });
 });

@@ -138,6 +138,51 @@ describe('Rollback コマンド - バリデーション', () => {
         .toThrow(/Rollback reason is required/);
     });
   });
+
+  // =============================================================================
+  // TC-UR-004 (Issue #208): pending でも completed_steps が存在（不整合状態）
+  // =============================================================================
+  describe('TC-UR-004 (Issue #208): pending でも completed_steps が存在（不整合状態）', () => {
+    test('不整合状態でもrollbackが成功し、警告ログが出力される', () => {
+      // Given: status: 'pending' だが completed_steps が存在する不整合状態
+      metadataManager.data.phases.test_implementation.status = 'pending';
+      metadataManager.data.phases.test_implementation.completed_steps = ['execute', 'review'];
+      metadataManager.data.phases.test_implementation.started_at = null;
+
+      const options: RollbackCommandOptions = {
+        issue: '194',
+        toPhase: 'test_implementation',
+        toStep: 'revise',
+        reason: 'Fix inconsistent state'
+      };
+
+      // When & Then: エラーが発生しない（バリデーション成功）
+      expect(() => validateRollbackOptions(options, metadataManager)).not.toThrow();
+    });
+  });
+
+  // =============================================================================
+  // TC-UR-005 (Issue #208): completed_steps が undefined
+  // =============================================================================
+  describe('TC-UR-005 (Issue #208): completed_steps が undefined', () => {
+    test('completed_steps が undefined の場合はエラーになる', () => {
+      // Given: status: 'pending' かつ completed_steps が undefined
+      metadataManager.data.phases.test_implementation.status = 'pending';
+      metadataManager.data.phases.test_implementation.completed_steps = undefined as any;
+      metadataManager.data.phases.test_implementation.started_at = null;
+
+      const options: RollbackCommandOptions = {
+        issue: '194',
+        toPhase: 'test_implementation',
+        toStep: 'execute',
+        reason: 'Test'
+      };
+
+      // When & Then: エラーが発生する
+      expect(() => validateRollbackOptions(options, metadataManager))
+        .toThrow(/has not been started yet/);
+    });
+  });
 });
 
 describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
@@ -287,13 +332,12 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
       };
 
       // When: generateRollbackReasonMarkdown()を呼び出す
-      const markdown = generateRollbackReasonMarkdown(options, reason, details);
+      const markdown = generateRollbackReasonMarkdown(options, reason);
 
       // Then: Markdown形式のドキュメントが返される
       expect(markdown).toContain('# Phase 04 (implementation) への差し戻し理由');
       expect(markdown).toContain('**差し戻し元**: Phase testing');
       expect(markdown).toContain('Type definition missing...');
-      expect(markdown).toContain('ブロッカー数: 2');
       expect(markdown).toContain('@.ai-workflow/issue-49/06_testing/review/result.md');
     });
   });
@@ -312,7 +356,7 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
       const details = null;
 
       // When: generateRollbackReasonMarkdown()を呼び出す
-      const markdown = generateRollbackReasonMarkdown(options, reason, details);
+      const markdown = generateRollbackReasonMarkdown(options, reason);
 
       // Then: Markdown形式のドキュメントが返される
       expect(markdown).toContain('# Phase 04 (implementation) への差し戻し理由');

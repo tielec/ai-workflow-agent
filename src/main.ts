@@ -9,6 +9,7 @@ import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand } from './commands/rollback.js';
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
+import { handleCleanupCommand } from './commands/cleanup.js';
 
 /**
  * CLIエントリーポイント
@@ -187,6 +188,22 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleAutoIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // cleanup コマンド (Issue #212)
+  program
+    .command('cleanup')
+    .description('Clean up workflow execution logs manually')
+    .requiredOption('--issue <number>', 'Issue number')
+    .option('--dry-run', 'Preview mode (do not delete files)', false)
+    .option('--phases <range>', 'Phase range to clean up (e.g., "0-4" or "planning,requirements")')
+    .option('--all', 'Delete all workflow artifacts (requires Evaluation Phase completion)', false)
+    .action(async (options) => {
+      try {
+        await handleCleanupCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

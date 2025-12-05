@@ -43,6 +43,7 @@ describe('スカッシュワークフロー統合テスト', () => {
 
     mockRemoteManager = {
       pushToRemote: jest.fn(),
+      forcePushToRemote: jest.fn(),
     } as any;
 
     mockCodexAgent = {
@@ -406,6 +407,281 @@ Fixes #194`,
       expect(mockGit.revparse).not.toHaveBeenCalled();
       expect(mockGit.reset).not.toHaveBeenCalled();
       expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
+    });
+  });
+
+  // Issue #216: ESM環境でのスカッシュワークフロー、force push、pull禁止
+  describe('Issue #216: ESM環境とforce push統合テスト', () => {
+    describe('シナリオ 3.1.1: ESM環境でのスカッシュワークフロー全体の成功', () => {
+      it('should complete squash workflow without __dirname error in ESM environment', async () => {
+        // Given: ESM環境でのワークフロー全体の前提条件
+        const baseCommit = 'abc123def456789012345678901234567890abcd';
+        const commits = [
+          { hash: 'commit1hash000000000000000000000000000' },
+          { hash: 'commit2hash000000000000000000000000000' },
+          { hash: 'commit3hash000000000000000000000000000' },
+          { hash: 'commit4hash000000000000000000000000000' },
+          { hash: 'commit5hash000000000000000000000000000' },
+        ];
+        const context: PhaseContext = {
+          issueNumber: 216,
+          issueInfo: {
+            title: 'bug: --squash-on-complete が正常に動作しない(複数の問題)',
+            body: 'Test body',
+            number: 216,
+            html_url: 'https://github.com/test/repo/issues/216',
+            state: 'open',
+            created_at: '2025-01-30',
+            updated_at: '2025-01-30',
+            labels: [],
+            assignees: [],
+          },
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        // Step 1: base_commitを記録
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        // Step 2: Git操作のモック設定
+        mockGit.log.mockResolvedValue({ all: commits } as any);
+        mockGit.revparse.mockResolvedValue('ai-workflow/issue-216\n');
+        mockGit.diff.mockResolvedValue('5 files changed, 100 insertions(+), 10 deletions(-)');
+        mockGit.reset.mockResolvedValue(undefined as any);
+        mockGit.commit.mockResolvedValue({ commit: 'squashed-commit' } as any);
+        mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
+
+        // Step 3: プロンプトテンプレート読み込みのモック設定（ESM互換）
+        mockMkdir.mockResolvedValue(undefined);
+        mockAccess.mockResolvedValue(undefined);
+        mockReadFile.mockResolvedValue(
+          `fix(squash): resolve --squash-on-complete issues
+
+This fixes multiple issues with squash feature.
+
+Fixes #216`,
+        );
+        mockRm.mockResolvedValue(undefined);
+        mockCodexAgent.executeTask.mockResolvedValue(undefined);
+
+        // When: スカッシュ処理を実行
+        await squashManager.squashCommits(context);
+
+        // Then: 期待される結果を検証
+        // 1. __dirname エラーが発生しない（プロンプトテンプレートが読み込まれる）
+        expect(mockReadFile).toHaveBeenCalled();
+
+        // 2. テンプレートファイルが読み込まれている
+        expect(mockCodexAgent.executeTask).toHaveBeenCalled();
+
+        // 3. git log でコミット数が1つになっている（スカッシュされた）
+        expect(mockGit.reset).toHaveBeenCalledWith(['--soft', baseCommit]);
+        expect(mockGit.commit).toHaveBeenCalled();
+
+        // 4. リモートブランチが更新されている（forcePushToRemote使用）
+        expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
+
+        // 5. pre_squash_commits に元のコミットハッシュが記録されている
+        expect(mockMetadataManager.setPreSquashCommits).toHaveBeenCalled();
+        const preSquashCommits = mockMetadataManager.setPreSquashCommits.mock.calls[0][0];
+        expect(preSquashCommits).toHaveLength(5);
+      });
+    });
+
+    describe('シナリオ 3.1.2: --force-with-lease による安全な強制プッシュ', () => {
+      it('should reject push when remote branch has diverged with --force-with-lease', async () => {
+        // Given: スカッシュコミット作成後、別の開発者がリモートブランチに変更をプッシュ済み
+        const baseCommit = 'abc123';
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        const context: PhaseContext = {
+          issueNumber: 216,
+          issueInfo: {
+            title: 'bug: --squash-on-complete が正常に動作しない(複数の問題)',
+            body: 'Test body',
+            number: 216,
+            html_url: 'https://github.com/test/repo/issues/216',
+            state: 'open',
+            created_at: '2025-01-30',
+            updated_at: '2025-01-30',
+            labels: [],
+            assignees: [],
+          },
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        mockGit.log.mockResolvedValue({
+          all: [{ hash: 'c1' }, { hash: 'c2' }, { hash: 'c3' }],
+        } as any);
+        mockGit.revparse.mockResolvedValue('ai-workflow/issue-216\n');
+        mockGit.diff.mockResolvedValue('test diff');
+        mockGit.reset.mockResolvedValue(undefined as any);
+        mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
+
+        // forcePushToRemote が rejected される（リモートブランチが先に進んでいる）
+        mockRemoteManager.forcePushToRemote.mockResolvedValue({
+          success: false,
+          retries: 0,
+          error: 'Remote branch has diverged. Manual intervention required.',
+        });
+
+        mockMkdir.mockResolvedValue(undefined);
+        mockAccess.mockRejectedValue(new Error('File not found'));
+        mockRm.mockResolvedValue(undefined);
+
+        // When: スカッシュ処理を実行
+        // Then: push が失敗する（エラーメッセージに "diverged" が含まれる）
+        await expect(squashManager.squashCommits(context)).rejects.toThrow();
+
+        // forcePushToRemote が呼び出される
+        expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
+
+        // リモートブランチの他の変更が保護される（push が失敗）
+        const result = mockRemoteManager.forcePushToRemote.mock.results[0].value;
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('diverged');
+      });
+    });
+
+    describe('シナリオ 3.1.3: スカッシュ後のpush失敗時にpullを実行しない', () => {
+      it('should not pull when force push fails after squash', async () => {
+        // Given: スカッシュコミット作成後、リモートブランチが先に進んでいる
+        const baseCommit = 'abc123';
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        const context: PhaseContext = {
+          issueNumber: 216,
+          issueInfo: {
+            title: 'bug: --squash-on-complete が正常に動作しない(複数の問題)',
+            body: 'Test body',
+            number: 216,
+            html_url: 'https://github.com/test/repo/issues/216',
+            state: 'open',
+            created_at: '2025-01-30',
+            updated_at: '2025-01-30',
+            labels: [],
+            assignees: [],
+          },
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        mockGit.log.mockResolvedValue({
+          all: [{ hash: 'c1' }, { hash: 'c2' }],
+        } as any);
+        mockGit.revparse.mockResolvedValue('ai-workflow/issue-216\n');
+        mockGit.diff.mockResolvedValue('test diff');
+        mockGit.reset.mockResolvedValue(undefined as any);
+        mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
+
+        // push が失敗する
+        mockRemoteManager.forcePushToRemote.mockResolvedValue({
+          success: false,
+          retries: 0,
+          error: 'Remote branch has diverged.',
+        });
+
+        mockMkdir.mockResolvedValue(undefined);
+        mockAccess.mockRejectedValue(new Error('File not found'));
+        mockRm.mockResolvedValue(undefined);
+
+        // When: スカッシュ処理を実行
+        await expect(squashManager.squashCommits(context)).rejects.toThrow();
+
+        // Then: pull が実行されない
+        expect(mockGit.raw).not.toHaveBeenCalledWith(
+          expect.arrayContaining(['pull'])
+        );
+
+        // git log でスカッシュコミットが残っている
+        expect(mockGit.reset).toHaveBeenCalledWith(['--soft', baseCommit]);
+        expect(mockGit.commit).toHaveBeenCalled();
+
+        // pre_squash_commits に元のコミットが記録されている
+        expect(mockMetadataManager.setPreSquashCommits).toHaveBeenCalled();
+      });
+    });
+
+    describe('シナリオ 3.3.1: ブランチ保護チェックでmain/masterへのforce push禁止', () => {
+      it('should throw error when trying to squash on main branch', async () => {
+        // Given: 現在のブランチが main
+        const baseCommit = 'abc123';
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        const context: PhaseContext = {
+          issueNumber: 216,
+          issueInfo: null,
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        mockGit.log.mockResolvedValue({
+          all: [{ hash: 'c1' }, { hash: 'c2' }],
+        } as any);
+        mockGit.revparse.mockResolvedValue('main\n');
+
+        // When/Then: エラーがスローされる
+        await expect(squashManager.squashCommits(context)).rejects.toThrow(
+          'Cannot squash commits on protected branch: main',
+        );
+
+        // スカッシュ処理が実行されない
+        expect(mockGit.reset).not.toHaveBeenCalled();
+
+        // リモートへのpushが行われない
+        expect(mockRemoteManager.forcePushToRemote).not.toHaveBeenCalled();
+        expect(mockRemoteManager.pushToRemote).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('シナリオ 3.3.2: Force push失敗時のロールバック可能性', () => {
+      it('should preserve pre_squash_commits for rollback when push fails', async () => {
+        // Given: スカッシュコミット作成後、push が失敗
+        const baseCommit = 'abc123';
+        const originalCommits = ['c1hash', 'c2hash', 'c3hash'];
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        const context: PhaseContext = {
+          issueNumber: 216,
+          issueInfo: null,
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        mockGit.log.mockResolvedValue({
+          all: [
+            { hash: originalCommits[0] },
+            { hash: originalCommits[1] },
+            { hash: originalCommits[2] },
+          ],
+        } as any);
+        mockGit.revparse.mockResolvedValue('ai-workflow/issue-216\n');
+        mockGit.diff.mockResolvedValue('test diff');
+        mockGit.reset.mockResolvedValue(undefined as any);
+        mockGit.commit.mockResolvedValue({ commit: 'squashed-commit' } as any);
+        mockRemoteManager.forcePushToRemote.mockResolvedValue({
+          success: false,
+          retries: 0,
+          error: 'Remote branch has diverged.',
+        });
+
+        mockMkdir.mockResolvedValue(undefined);
+        mockAccess.mockRejectedValue(new Error('File not found'));
+        mockRm.mockResolvedValue(undefined);
+
+        // When: スカッシュ処理を実行
+        await expect(squashManager.squashCommits(context)).rejects.toThrow();
+
+        // Then: pre_squash_commits に元のコミットが記録されている
+        expect(mockMetadataManager.setPreSquashCommits).toHaveBeenCalled();
+        const savedCommits = mockMetadataManager.setPreSquashCommits.mock.calls[0][0];
+        expect(savedCommits).toEqual(originalCommits);
+
+        // 元の履歴が復元可能（reset により元の状態に戻せる）
+        // git reset --hard <最後のpre_squash_commit> で復元可能
+        expect(savedCommits[savedCommits.length - 1]).toBe(originalCommits[originalCommits.length - 1]);
+      });
     });
   });
 });

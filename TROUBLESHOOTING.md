@@ -437,7 +437,130 @@ CI環境（Jenkins等）でワークスペースリセット後、完了済み�
   git show origin/ai-workflow/issue-123:.ai-workflow/issue-123/metadata.json | jq '.phases'
   ```
 
-## 11. プロンプト設計のベストプラクティス（v0.3.0）
+## 11. メタデータ整合性関連（v0.5.0、Issue #208）
+
+### ロールバック失敗: `phase has not been started yet`
+
+**症状**:
+```
+[ERROR] Cannot rollback to phase 'test_implementation' because it has not been started yet.
+```
+
+しかし、実際には該当フェーズは開始済み（`completed_steps` にステップが記録されている）。
+
+**原因**:
+- メタデータの不整合: `status: "pending"` だが `completed_steps` が空でない状態
+- Evaluation Phase での FAIL 判定後のフェーズリセット時に `status` のみが `"pending"` にリセットされ、`completed_steps` がリセットされなかった（v0.5.0 より前のバージョン）
+
+**対処法（v0.5.0 以降）**:
+
+v0.5.0 以降では、Issue #208 の修正により、この問題は自動的に解決されます：
+
+```bash
+# 不整合状態でもロールバックが成功します（警告が表示されますが動作します）
+node dist/index.js rollback --to-phase test_implementation --to-step revise --reason "Fix issue"
+```
+
+警告メッセージの例:
+```
+[WARNING] Phase test_implementation: status is 'pending' but completed_steps is not empty.
+Treating as started phase (completed_steps: ["execute","review"])
+```
+
+**対処法（v0.4.x 以前）**:
+
+手動でメタデータを修正してください:
+
+```bash
+# メタデータの不整合を確認
+cat .ai-workflow/issue-*/metadata.json | jq '.phases.test_implementation'
+
+# 方法1: completed_steps を空配列にリセット（推奨）
+jq '.phases.test_implementation.completed_steps = []' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+
+# 方法2: status を 'in_progress' に変更
+jq '.phases.test_implementation.status = "in_progress"' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+
+# 修正後、ロールバックを再実行
+node dist/index.js rollback --to-phase test_implementation --to-step revise --reason "Fix issue"
+```
+
+### メタデータ整合性の警告メッセージ
+
+v0.5.0 以降では、メタデータの不整合を検出すると警告が表示されます:
+
+**パターン1: pending だが completed_steps が存在**
+```
+[WARNING] Phase <phase_name>: status is 'pending' but completed_steps is not empty
+(["execute", "review"])
+```
+
+**パターン2: completed だが completed_steps が空**
+```
+[WARNING] Phase <phase_name>: status is 'completed' but completed_steps is empty
+```
+
+**パターン3: in_progress だが started_at が null**
+```
+[WARNING] Phase <phase_name>: status is 'in_progress' but started_at is null
+```
+
+**対処法**:
+
+これらの警告は防御的プログラミングのために表示されますが、ワークフローは継続します。
+
+**警告を解消する場合**:
+
+```bash
+# パターン1の解消: completed_steps をリセット
+jq '.phases.<phase_name>.completed_steps = []' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+
+# パターン2の解消: status を 'pending' に戻す
+jq '.phases.<phase_name>.status = "pending"' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+
+# パターン3の解消: started_at を現在時刻で設定
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+jq --arg time "$NOW" '.phases.<phase_name>.started_at = $time' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+```
+
+**注意**: 手動でメタデータを編集する場合、JSON フォーマットが壊れないよう注意してください。編集後は必ず `jq .` で検証してください:
+
+```bash
+# JSON検証
+cat .ai-workflow/issue-*/metadata.json | jq . > /dev/null
+# エラーが表示されなければOK
+```
+
+### 整合性チェックの実行
+
+メタデータの整合性を手動でチェックすることはできませんが、ロールバックコマンド実行時に自動的にチェックされます。
+
+**確認方法**:
+```bash
+# ロールバック実行時に警告が表示されるか確認
+node dist/index.js rollback --to-phase requirements --to-step revise --reason "Test" 2>&1 | grep WARNING
+
+# 警告が表示されない場合、メタデータは整合している
+```
+
+**予防策**:
+- メタデータファイルを手動で編集しないでください
+- ロールバックは必ず `rollback` コマンドを使用してください（直接 `metadata.json` を編集しない）
+- Evaluation Phase での FAIL 判定後は、v0.5.0 以降を使用することで自動的に整合性が保たれます
+
+**関連Issue**: Issue #208 - メタデータ不整合によるロールバック失敗の修正
+
+## 12. プロンプト設計のベストプラクティス（v0.3.0）
 
 ### エージェントがファイル保存を実行しない場合
 
@@ -485,7 +608,7 @@ Evaluation Phase（Issue #5）で修正された問題と同様、エージェ�
 3. ファイルが作成されることを確認
 4. 複数回実行して再現性を検証（推奨: 3回連続実行で100%成功率）
 
-## 12. フォールバック機構関連（Issue #113、v0.4.0）
+## 13. フォールバック機構関連（Issue #113、v0.4.0）
 
 ### エージェントが成果物ファイルを生成しないがフォールバックも失敗する
 
@@ -622,7 +745,7 @@ node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
 
 **注意**: `previous_log_snippet` は `agent_log.md` の先頭2000文字のみが注入されます。完全なログが必要な場合は、エージェントに Read ツールで直接読み込ませてください。
 
-## 13. ロギング・テスト関連
+## 14. ロギング・テスト関連
 
 ### カラーリングテストの失敗
 
@@ -715,7 +838,7 @@ error: Unexpected console statement (no-console)
 
 **参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
 
-## 14. コミットスカッシュ関連（v0.5.0、Issue #194）
+## 15. コミットスカッシュ関連（v0.5.0、Issue #194）
 
 ### スカッシュが実行されない
 
@@ -828,6 +951,37 @@ git reset --hard <pre_squash_commit_sha>
 # ロールバック（新しいコミット作成）
 git revert --no-edit <squashed_commit_sha>
 ```
+
+### `__dirname is not defined` エラー（Issue #216で修正）
+
+ESM環境でスカッシュコミット機能を使用する際に発生する場合：
+
+**症状**:
+```
+[ERROR] Failed to load prompt template: ReferenceError: __dirname is not defined
+```
+
+**原因**:
+- Node.js の ESM（ES Modules）環境では `__dirname` がグローバル変数として利用できない
+- `squash-manager.ts` のプロンプトテンプレート読み込み時に `__dirname` を使用していた（v0.5.0より前）
+
+**対処法**:
+- **v0.5.0以降**: この問題は修正済みです。`import.meta.url` + `fileURLToPath` を使用したESM互換のパス解決に変更されています
+- **v0.4.x以前**: プロジェクトを最新バージョンにアップグレードしてください
+
+**確認方法**:
+```bash
+# バージョン確認
+node dist/index.js --version
+
+# プロンプトテンプレートが存在するか確認
+ls -la src/prompts/squash/generate-message.txt
+
+# ESM互換コードが含まれているか確認（v0.5.0以降）
+grep -n "fileURLToPath" src/core/git/squash-manager.ts
+```
+
+**関連Issue**: Issue #216 - `--squash-on-complete` が正常に動作しない（複数の問題）
 
 ### AI 生成コミットメッセージが不適切
 
@@ -964,7 +1118,7 @@ node dist/index.js init --issue-url <URL> --force
 
 **注意**: スカッシュはオプショナル機能であり、失敗してもワークフローの成功には影響しません。
 
-## 15. デバッグのヒント
+## 16. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。

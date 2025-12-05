@@ -271,6 +271,19 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     owner: owner,
     repo: repo,
   };
+
+  // Issue #194: base_commitの記録（スカッシュ機能用）
+  // コミット前に現在のHEADを記録することで、initコミットもスカッシュ対象に含める
+  try {
+    const currentCommit = await git.revparse(['HEAD']);
+    const baseCommit = currentCommit.trim();
+    metadataManager.setBaseCommit(baseCommit);
+    logger.info(`Recorded base_commit for squash: ${baseCommit.slice(0, 7)}`);
+  } catch (error) {
+    // base_commit記録失敗は警告のみ（ワークフロー初期化は継続）
+    logger.warn(`Failed to record base_commit: ${getErrorMessage(error)}`);
+  }
+
   metadataManager.save();
 
   // コミット & プッシュ (Issue #16: commitWorkflowInit を使用)
@@ -290,17 +303,6 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
   }
   logger.info('Push successful.');
-
-  // Issue #194: base_commitの記録（スカッシュ機能用）
-  try {
-    const currentCommit = await git.revparse(['HEAD']);
-    const baseCommit = currentCommit.trim();
-    metadataManager.setBaseCommit(baseCommit);
-    logger.info(`Recorded base_commit for squash: ${baseCommit.slice(0, 7)}`);
-  } catch (error) {
-    // base_commit記録失敗は警告のみ（ワークフロー初期化は継続）
-    logger.warn(`Failed to record base_commit: ${getErrorMessage(error)}`);
-  }
 
   // PR作成
   let githubToken: string;

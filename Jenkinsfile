@@ -37,6 +37,7 @@
  * - AWS_SECRET_ACCESS_KEY: AWS シークレットアクセスキー（任意、Infrastructure as Code実行時に必要）
  * - AWS_SESSION_TOKEN: AWS セッショントークン（任意、一時的な認証情報を使用する場合）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false、Issue #2）
+ * - SQUASH_ON_COMPLETE: ワークフロー完了時にコミットをスカッシュ（デフォルト: false、Issue #194）
  *
  * 認証情報（すべてJob DSLパラメータから取得）:
  * - GITHUB_TOKEN: GitHub Personal Access Token
@@ -421,6 +422,7 @@ pipeline {
                             // resume機能により、失敗したフェーズから自動再開
                             def forceResetFlag = params.FORCE_RESET ? '--force-reset' : ''
                             def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+                            def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -429,7 +431,8 @@ pipeline {
                                     --agent ${params.AGENT_MODE} \
                                     --followup-llm-mode agent \
                                     ${forceResetFlag} \
-                                    ${cleanupFlags}
+                                    ${cleanupFlags} \
+                                    ${squashFlag}
                             """
                         }
                     }
@@ -458,6 +461,7 @@ pipeline {
                         } else {
                             // プリセットパターンを実行
                             def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+                            def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -465,7 +469,8 @@ pipeline {
                                     --agent ${params.AGENT_MODE} \
                                     --issue ${env.ISSUE_NUMBER} \
                                     --followup-llm-mode agent \
-                                    ${cleanupFlags}
+                                    ${cleanupFlags} \
+                                    ${squashFlag}
                             """
                         }
                     }
@@ -494,6 +499,7 @@ pipeline {
                         } else {
                             // 指定されたフェーズのみ実行
                             def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+                            def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -501,7 +507,8 @@ pipeline {
                                     --agent ${params.AGENT_MODE} \
                                     --issue ${env.ISSUE_NUMBER} \
                                     --followup-llm-mode agent \
-                                    ${cleanupFlags}
+                                    ${cleanupFlags} \
+                                    ${squashFlag}
                             """
                         }
                     }
@@ -649,10 +656,11 @@ pipeline {
 
                 // 成果物をアーカイブ（成功・失敗問わず）
                 // auto_issue モードでは .ai-workflow ディレクトリは使用しない
+                // 対象リポジトリは REPOS_ROOT にクローンされるため、そこからアーティファクトを取得
                 if (params.EXECUTION_MODE != 'auto_issue') {
-                    dir('.ai-workflow') {
-                        archiveArtifacts artifacts: "issue-${env.ISSUE_NUMBER}/**/*", allowEmptyArchive: true
-                    }
+                    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${env.ISSUE_NUMBER}/**/*"
+                    echo "Archiving artifacts from: ${artifactPath}"
+                    archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
                 }
             }
         }
