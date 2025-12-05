@@ -8,22 +8,35 @@
 
 ```
 jenkins/
-└── jobs/
-    ├── pipeline/
-    │   └── _seed/
-    │       └── ai-workflow-job-creator/
-    │           ├── Jenkinsfile          # シードジョブ定義
-    │           ├── folder-config.yaml   # フォルダ構成定義
-    │           └── job-config.yaml      # ジョブ設定
-    └── dsl/
-        ├── folders.groovy               # フォルダ作成DSL
-        └── ai-workflow/
-            ├── ai_workflow_all_phases_job.groovy
-            ├── ai_workflow_preset_job.groovy
-            ├── ai_workflow_single_phase_job.groovy
-            ├── ai_workflow_rollback_job.groovy
-            ├── ai_workflow_auto_issue_job.groovy
-            └── TEST_PLAN.md
+├── jobs/
+│   ├── pipeline/
+│   │   ├── _seed/
+│   │   │   └── ai-workflow-job-creator/
+│   │   │       ├── Jenkinsfile
+│   │   │       ├── folder-config.yaml
+│   │   │       └── job-config.yaml
+│   │   └── ai-workflow/
+│   │       ├── all-phases/
+│   │       │   └── Jenkinsfile
+│   │       ├── preset/
+│   │       │   └── Jenkinsfile
+│   │       ├── single-phase/
+│   │       │   └── Jenkinsfile
+│   │       ├── rollback/
+│   │       │   └── Jenkinsfile
+│   │       └── auto-issue/
+│   │           └── Jenkinsfile
+│   └── dsl/
+│       ├── folders.groovy
+│       └── ai-workflow/
+│           ├── ai_workflow_all_phases_job.groovy
+│           ├── ai_workflow_preset_job.groovy
+│           ├── ai_workflow_single_phase_job.groovy
+│           ├── ai_workflow_rollback_job.groovy
+│           ├── ai_workflow_auto_issue_job.groovy
+│           └── TEST_PLAN.md
+└── shared/
+    └── common.groovy
 ```
 
 ## 利用可能なジョブ
