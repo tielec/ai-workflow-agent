@@ -154,7 +154,27 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   }
 
   // workingDirは対象リポジトリのパスを使用
-  const workingDir = targetRepo?.path ?? repoRoot;
+  // Issue #234: REPOS_ROOTが設定されている場合は、そのパスを優先使用
+  // （metadata.jsonに保存されたパスはビルド番号の変更で古くなる可能性があるため）
+  let workingDir: string;
+  const reposRoot = config.getReposRoot();
+  if (reposRoot && targetRepo?.repo) {
+    // Jenkins環境: REPOS_ROOT/repo-name を使用
+    const reposRootPath = path.join(reposRoot, targetRepo.repo);
+    if (fs.existsSync(reposRootPath)) {
+      workingDir = reposRootPath;
+      logger.info(`Using REPOS_ROOT path: ${workingDir}`);
+    } else {
+      // REPOS_ROOTにリポジトリが存在しない場合は警告してフォールバック
+      logger.warn(
+        `Repository not found in REPOS_ROOT (${reposRootPath}). Falling back to metadata path.`,
+      );
+      workingDir = targetRepo?.path ?? repoRoot;
+    }
+  } else {
+    // ローカル開発環境: metadata.jsonのパスを使用
+    workingDir = targetRepo?.path ?? repoRoot;
+  }
   const homeDir = config.getHomeDir();
 
   logger.info(`Agent mode: ${agentMode}`);

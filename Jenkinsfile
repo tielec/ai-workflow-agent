@@ -293,7 +293,9 @@ pipeline {
                     // REPOS_ROOT の準備と対象リポジトリのチェックアウト
                     // Issue #234: ai-workflow-agent自体のIssueでもREPOS_ROOTにクローンして作業
                     // これにより、WORKSPACEのCLI（dist/）と作業対象リポジトリを分離
-                    def reposRoot = "/tmp/ai-workflow-repos-${env.BUILD_ID}"
+                    // ランダムサフィックスを追加して衝突を回避
+                    def randomSuffix = UUID.randomUUID().toString().take(8)
+                    def reposRoot = "/tmp/ai-workflow-repos-${env.BUILD_ID}-${randomSuffix}"
                     echo "Setting up REPOS_ROOT: ${reposRoot}"
 
                     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${env.ISSUE_NUMBER}"
