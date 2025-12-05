@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
@@ -96,7 +97,17 @@ export class CommitManager {
       };
     }
 
-    const filesToCommit = Array.from(targetFiles);
+    // Issue #234: Filter out non-existent files before git add
+    const filesToCommit = this.filterExistingFiles(Array.from(targetFiles));
+
+    if (filesToCommit.length === 0) {
+      logger.warn('No existing files to commit after filtering.');
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
 
     // 2. Secret masking
     const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
@@ -165,10 +176,22 @@ export class CommitManager {
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();
-    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+    const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+
+    if (filteredFiles.length === 0) {
+      logger.warn(`No files to commit for step: ${step}`);
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
+
+    // Issue #234: Filter out non-existent files before git add
+    const targetFiles = this.filterExistingFiles(filteredFiles);
 
     if (targetFiles.length === 0) {
-      logger.warn(`No files to commit for step: ${step}`);
+      logger.warn(`No existing files to commit for step: ${step}`);
       return {
         success: true,
         commit_hash: null,
@@ -240,11 +263,23 @@ export class CommitManager {
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();
-    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+    const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     // 2. No files to commit
-    if (targetFiles.length === 0) {
+    if (filteredFiles.length === 0) {
       logger.warn('No files to commit for initialization');
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
+
+    // Issue #234: Filter out non-existent files before git add
+    const targetFiles = this.filterExistingFiles(filteredFiles);
+
+    if (targetFiles.length === 0) {
+      logger.warn('No existing files to commit for initialization');
       return {
         success: true,
         commit_hash: null,
@@ -312,11 +347,23 @@ export class CommitManager {
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();
-    const targetFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+    const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
     // 2. No files to commit
-    if (targetFiles.length === 0) {
+    if (filteredFiles.length === 0) {
       logger.warn('No files to commit for cleanup');
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
+
+    // Issue #234: Filter out non-existent files before git add
+    const targetFiles = this.filterExistingFiles(filteredFiles);
+
+    if (targetFiles.length === 0) {
+      logger.warn('No existing files to commit for cleanup');
       return {
         success: true,
         commit_hash: null,
@@ -365,6 +412,35 @@ export class CommitManager {
     reviewResult?: string,
   ): string {
     return this.messageBuilder.createCommitMessage(phaseName, status, reviewResult);
+  }
+
+  /**
+   * Filter files that actually exist on the filesystem
+   * This prevents "fatal: pathspec 'file' did not match any files" errors
+   * when git status reports files that have been deleted or moved.
+   *
+   * Issue #234: Fix git add error for non-existent files
+   */
+  private filterExistingFiles(files: string[]): string[] {
+    const existingFiles: string[] = [];
+    const missingFiles: string[] = [];
+
+    for (const file of files) {
+      const fullPath = join(this.repoPath, file);
+      if (existsSync(fullPath)) {
+        existingFiles.push(file);
+      } else {
+        missingFiles.push(file);
+      }
+    }
+
+    if (missingFiles.length > 0) {
+      logger.warn(
+        `Skipping ${missingFiles.length} non-existent file(s): ${missingFiles.slice(0, 3).join(', ')}${missingFiles.length > 3 ? '...' : ''}`,
+      );
+    }
+
+    return existingFiles;
   }
 
   /**
@@ -425,6 +501,18 @@ export class CommitManager {
       };
     }
 
+    // Issue #234: Filter out non-existent files before git add
+    const existingFiles = this.filterExistingFiles(files);
+
+    if (existingFiles.length === 0) {
+      logger.warn('No existing files to commit for rollback.');
+      return {
+        success: true,
+        commit_hash: null,
+        files_committed: [],
+      };
+    }
+
     await this.ensureGitConfig();
 
     // コミットメッセージ生成
@@ -434,8 +522,8 @@ export class CommitManager {
 ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
 
     try {
-      await this.git.add(files);
-      const commitResponse = await this.git.commit(commitMessage, files, {
+      await this.git.add(existingFiles);
+      const commitResponse = await this.git.commit(commitMessage, existingFiles, {
         '--no-verify': null,
       });
 
@@ -444,14 +532,14 @@ ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
       return {
         success: true,
         commit_hash: commitResponse.commit ?? null,
-        files_committed: files,
+        files_committed: existingFiles,
       };
     } catch (error) {
       logger.error(`Git commit failed for rollback: ${getErrorMessage(error)}`);
       return {
         success: false,
         commit_hash: null,
-        files_committed: files,
+        files_committed: existingFiles,
         error: getErrorMessage(error),
       };
     }
