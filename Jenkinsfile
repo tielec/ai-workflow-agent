@@ -1,6 +1,20 @@
 /**
  * AI Workflow Orchestrator - Jenkinsfile
  *
+ * ⚠️ **非推奨（DEPRECATED）**
+ * このファイルは将来削除される予定です。
+ * Issue #211のリファクタリングにより、各実行モード専用のJenkinsfileに分割されました。
+ * 移行先:
+ * - jenkins/Jenkinsfile.all-phases（全フェーズ実行）
+ * - jenkins/Jenkinsfile.preset（プリセット実行）
+ * - jenkins/Jenkinsfile.single-phase（単一フェーズ実行）
+ * - jenkins/Jenkinsfile.rollback（差し戻し実行）
+ * - jenkins/Jenkinsfile.auto-issue（自動Issue生成）
+ *
+ * 削除予定日: 2025年3月以降（並行運用期間終了後）
+ *
+ * ---
+ *
  * GitHub IssueからPR作成まで、Claude AIによる自動開発を実行
  *
  * パラメータ（Job DSLで定義）:
@@ -277,9 +291,14 @@ pipeline {
                     echo "========================================="
 
                     // REPOS_ROOT の準備と対象リポジトリのチェックアウト
-                    // マルチリポジトリサポート: Issue URLから取得したリポジトリをクローン
-                    def reposRoot = "/tmp/ai-workflow-repos-${env.BUILD_ID}"
+                    // Issue #234: ai-workflow-agent自体のIssueでもREPOS_ROOTにクローンして作業
+                    // これにより、WORKSPACEのCLI（dist/）と作業対象リポジトリを分離
+                    // ランダムサフィックスを追加して衝突を回避
+                    def randomSuffix = UUID.randomUUID().toString().take(8)
+                    def reposRoot = "/tmp/ai-workflow-repos-${env.BUILD_ID}-${randomSuffix}"
                     echo "Setting up REPOS_ROOT: ${reposRoot}"
+
+                    def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${env.ISSUE_NUMBER}"
 
                     sh """
                         # REPOS_ROOT ディレクトリ作成
@@ -290,15 +309,15 @@ pipeline {
                             echo "Auto-issue mode detected. Cloning target repository..."
 
                             # 対象リポジトリ情報を取得
-                            REPO_NAME=\$(echo ${params.GITHUB_REPOSITORY} | cut -d'/' -f2)
-                            TARGET_REPO_PATH="${reposRoot}/\${REPO_NAME}"
+                            REPO_NAME_FROM_ENV=\$(echo ${params.GITHUB_REPOSITORY} | cut -d'/' -f2)
+                            TARGET_REPO_PATH="${reposRoot}/\${REPO_NAME_FROM_ENV}"
 
                             if [ ! -d "\${TARGET_REPO_PATH}" ]; then
                                 echo "Cloning repository ${params.GITHUB_REPOSITORY}..."
                                 cd ${reposRoot}
                                 git clone --depth 1 https://\${GITHUB_TOKEN}@github.com/${params.GITHUB_REPOSITORY}.git
                             else
-                                echo "Repository \${REPO_NAME} already exists. Pulling latest changes..."
+                                echo "Repository \${REPO_NAME_FROM_ENV} already exists. Pulling latest changes..."
                                 cd "\${TARGET_REPO_PATH}"
                                 git pull
                             fi
@@ -307,16 +326,31 @@ pipeline {
                         fi
 
                         # 通常モード（init/execute）の場合、Issue URLから対象リポジトリをクローン
-                        if [ "${params.EXECUTION_MODE}" != "auto_issue" ] && [ "${env.REPO_NAME}" != "ai-workflow-agent" ]; then
-                            if [ ! -d ${reposRoot}/${env.REPO_NAME} ]; then
+                        # ai-workflow-agent自体も含めて、すべてのリポジトリをREPOS_ROOTにクローン
+                        if [ "${params.EXECUTION_MODE}" != "auto_issue" ]; then
+                            TARGET_REPO_PATH="${reposRoot}/${env.REPO_NAME}"
+
+                            if [ ! -d "\${TARGET_REPO_PATH}" ]; then
                                 echo "Cloning repository ${env.REPO_OWNER}/${env.REPO_NAME}..."
                                 cd ${reposRoot}
                                 git clone https://\${GITHUB_TOKEN}@github.com/${env.REPO_OWNER}/${env.REPO_NAME}.git
-                            else
-                                echo "Repository ${env.REPO_NAME} already exists. Pulling latest changes..."
-                                cd ${reposRoot}/${env.REPO_NAME}
-                                git pull
                             fi
+
+                            # ワークフローブランチにチェックアウト
+                            cd "\${TARGET_REPO_PATH}"
+                            echo "Fetching remote branches..."
+                            git fetch origin
+
+                            if git rev-parse --verify origin/${targetBranch} >/dev/null 2>&1; then
+                                echo "Branch ${targetBranch} exists on remote. Checking out..."
+                                git checkout -B ${targetBranch} origin/${targetBranch}
+                            else
+                                echo "Branch ${targetBranch} does not exist on remote. Creating from develop..."
+                                git checkout -B ${targetBranch} origin/develop || git checkout -B ${targetBranch}
+                            fi
+
+                            echo "Target repository: \${TARGET_REPO_PATH}"
+                            echo "Current branch: \$(git rev-parse --abbrev-ref HEAD)"
                         fi
 
                         echo "REPOS_ROOT contents:"
@@ -327,19 +361,7 @@ pipeline {
                     env.REPOS_ROOT = reposRoot
                     echo "REPOS_ROOT set to: ${env.REPOS_ROOT}"
                     echo "WORKSPACE: ${env.WORKSPACE}"
-
-                    // Git checkout: Detached HEADを回避するため、ブランチに明示的にcheckout
-                    sh """
-                        # 現在のブランチを確認
-                        BRANCH_NAME=\$(git rev-parse --abbrev-ref HEAD)
-                        echo "Current branch: \$BRANCH_NAME"
-
-                        # Detached HEADの場合、feature/ai-workflow-mvpにcheckout
-                        if [ "\$BRANCH_NAME" = "HEAD" ]; then
-                            echo "Detached HEAD detected. Checking out feature/ai-workflow-mvp..."
-                            git checkout -B feature/ai-workflow-mvp
-                        fi
-                    """
+                    echo "Target repository path: ${reposRoot}/${env.REPO_NAME}"
 
                     // Node.js環境確認（コンテナ内の実行環境を確認）
                     dir(env.WORKFLOW_DIR) {

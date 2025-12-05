@@ -1,0 +1,238 @@
+/**
+ * AI Workflow - Single Phase Mode
+ *
+ * 指定されたフェーズのみを実行するJenkinsfile。
+ * デバッグ用途、または特定フェーズのみを再実行する際に使用。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - ISSUE_URL: GitHub Issue URL（必須）
+ * - START_PHASE: 実行するフェーズ名（必須、選択肢: planning, requirements, design, test-scenario, implementation, test-implementation, testing, documentation, report, evaluation）
+ * - AGENT_MODE: エージェントモード（デフォルト: auto）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        EXECUTION_MODE = 'single_phase'
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
+
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Single Phase (${params.START_PHASE ?: 'planning'})"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.ISSUE_URL) {
+                        error("ISSUE_URL parameter is required")
+                    }
+
+                    if (!params.ISSUE_URL.startsWith('https://github.com/')) {
+                        error("ISSUE_URL must be a GitHub Issue URL: ${params.ISSUE_URL}")
+                    }
+
+                    if (!params.ISSUE_URL.contains('/issues/')) {
+                        error("ISSUE_URL must be a GitHub Issue URL (/issues/): ${params.ISSUE_URL}")
+                    }
+
+                    // Issue番号とリポジトリ情報抽出
+                    def urlParts = params.ISSUE_URL.split('/')
+                    env.ISSUE_NUMBER = urlParts[-1]
+                    env.REPO_OWNER = urlParts[-4]
+                    env.REPO_NAME = urlParts[-3]
+
+                    // ビルドディスクリプションを設定
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Single Phase: ${params.START_PHASE ?: 'planning'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "Issue URL: ${params.ISSUE_URL}"
+                    echo "Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Start Phase: ${params.START_PHASE ?: 'planning'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Cleanup On Complete Force: ${params.CLEANUP_ON_COMPLETE_FORCE ?: false}"
+                    echo "Squash On Complete: ${params.SQUASH_ON_COMPLETE ?: false}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Initialize Workflow') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Initialize Workflow"
+                    echo "========================================="
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            echo "[DRY RUN] Workflow initialization skipped"
+                        } else {
+                            def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+
+                            sh """
+                                node dist/index.js init \
+                                    --issue-url ${params.ISSUE_URL} \
+                                    ${branchOption}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Execute Single Phase') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Single Phase - ${params.START_PHASE ?: 'planning'}"
+                    echo "========================================="
+
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Executing Phase: ${params.START_PHASE ?: 'planning'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            echo "[DRY RUN] Phase ${params.START_PHASE ?: 'planning'} execution skipped"
+                        } else {
+                            def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
+                            def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
+
+                            sh """
+                                node dist/index.js execute \
+                                    --phase ${params.START_PHASE ?: 'planning'} \
+                                    --agent ${params.AGENT_MODE ?: 'auto'} \
+                                    --issue ${env.ISSUE_NUMBER} \
+                                    --followup-llm-mode agent \
+                                    ${cleanupFlags} \
+                                    ${squashFlag}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Single Phase: ${params.START_PHASE ?: 'planning'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
+                    common.archiveArtifacts(env.ISSUE_NUMBER)
+                }
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - Single Phase Success"
+                echo "========================================="
+                echo "Issue: ${params.ISSUE_URL}"
+                echo "Phase: ${params.START_PHASE ?: 'planning'}"
+                echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - Single Phase Failure"
+                echo "========================================="
+                echo "Issue: ${params.ISSUE_URL}"
+                echo "Phase: ${params.START_PHASE ?: 'planning'}"
+                echo "Please check the logs"
+            }
+        }
+    }
+}
