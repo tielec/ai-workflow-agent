@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Issue #221**: Jenkinsfile artifact path resolution for ai-workflow-agent self-execution
+  - Fixed artifact archive path in Jenkinsfile `post.always` stage to correctly handle ai-workflow-agent repository
+  - Added conditional logic to use workspace-relative path for ai-workflow-agent (`.ai-workflow/issue-${ISSUE_NUMBER}/**/*`)
+  - Maintained REPOS_ROOT-based path for external repositories (`${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${ISSUE_NUMBER}/**/*`)
+  - Aligned with Setup Environment stage logic (Line 310) where ai-workflow-agent is not cloned to REPOS_ROOT
+
 ### Added
 - **Issue #212**: Manual cleanup command for workflow logs (v0.4.0)
   - New `cleanup` CLI command with 4 options (--issue, --dry-run, --phases, --all)
