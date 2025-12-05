@@ -1,6 +1,20 @@
 /**
  * AI Workflow Orchestrator - Jenkinsfile
  *
+ * ⚠️ **非推奨（DEPRECATED）**
+ * このファイルは将来削除される予定です。
+ * Issue #211のリファクタリングにより、各実行モード専用のJenkinsfileに分割されました。
+ * 移行先:
+ * - jenkins/Jenkinsfile.all-phases（全フェーズ実行）
+ * - jenkins/Jenkinsfile.preset（プリセット実行）
+ * - jenkins/Jenkinsfile.single-phase（単一フェーズ実行）
+ * - jenkins/Jenkinsfile.rollback（差し戻し実行）
+ * - jenkins/Jenkinsfile.auto-issue（自動Issue生成）
+ *
+ * 削除予定日: 2025年3月以降（並行運用期間終了後）
+ *
+ * ---
+ *
  * GitHub IssueからPR作成まで、Claude AIによる自動開発を実行
  *
  * パラメータ（Job DSLで定義）:

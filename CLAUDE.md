@@ -666,9 +666,29 @@ if (config.isCI()) {
 
 ## Jenkins 統合
 
-ルートの Jenkinsfile が Docker コンテナ内でワークフローを実行:
+### 実行モード別Jenkinsfile（v0.4.0、Issue #211で追加）
+
+実行モード別に分割されたJenkinsfileがDocker コンテナ内でワークフローを実行します：
+
+**実行モード専用Jenkinsfile**:
+- `jenkins/Jenkinsfile.all-phases` … 全フェーズ実行（Phase 0-9）
+- `jenkins/Jenkinsfile.preset` … プリセットワークフロー実行
+  - 7種類のプリセット: `review-requirements`, `review-design`, `review-test-scenario`, `quick-fix`, `implementation`, `testing`, `finalize`
+- `jenkins/Jenkinsfile.single-phase` … 単一フェーズ実行
+  - 10種類のフェーズ: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
+- `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
+- `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+
+**共通処理モジュール**:
+- `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
+
+**非推奨ファイル**:
+- `Jenkinsfile`（ルートディレクトリ） … 非推奨（削除予定: 2025年3月以降、並行運用期間終了後）
+
+### 実行設定
+
 - **エージェントモード**: `AGENT_MODE` パラメータで制御（auto/codex/claude）
-- **実行モード**: `all_phases`、`preset`、`single_phase`、`rollback`、`auto_issue`
+- **実行モード**: 各Jenkinsfileが対応する実行モードを担当
 - **認証情報**:
   - `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）: Job DSLパラメータから取得
   - `claude-code-oauth-token`: Jenkins Credentialsから取得

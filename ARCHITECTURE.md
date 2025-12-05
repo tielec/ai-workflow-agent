@@ -457,7 +457,28 @@ GitManager は548行から181行へリファクタリングされ（約67%削減
 
 ## Jenkins での利用
 
-`jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy` で Job DSL パラメータ（`AGENT_MODE`、`OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報等）を定義し、パイプライン（`jenkins/jobs/pipeline/ai-workflow/ai-workflow-orchestrator/Jenkinsfile`）が CLI に渡します。TypeScript プロジェクトの `Dockerfile` からビルドしたイメージ上で CLI を実行し、必要に応じて Claude 認証情報をコピーします。
+### 実行モード別Jenkinsfile（v0.4.0、Issue #211で追加）
+
+Jenkinsfileは実行モード別に分割され、保守性と可読性が大幅に向上しました：
+
+**実行モード専用Jenkinsfile**:
+- `jenkins/Jenkinsfile.all-phases` … 全フェーズ実行（Phase 0-9）
+- `jenkins/Jenkinsfile.preset` … プリセットワークフロー実行（7種類のプリセットに対応）
+- `jenkins/Jenkinsfile.single-phase` … 単一フェーズ実行（Phase 0-9の任意のフェーズ）
+- `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
+- `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+
+**共通処理モジュール**:
+- `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
+
+各Jenkinsfileは `load 'jenkins/shared/common.groovy'` で共通処理を再利用し、重複コードを約90%削減しました。
+
+**非推奨ファイル**:
+- `Jenkinsfile`（ルートディレクトリ） … 非推奨（削除予定: 2025年3月以降、並行運用期間終了後）
+
+### Job DSL設定
+
+`jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy` で Job DSL パラメータ（`AGENT_MODE`、`OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報等）を定義し、各実行モード専用のJenkinsfileが CLI に渡します。TypeScript プロジェクトの `Dockerfile` からビルドしたイメージ上で CLI を実行し、必要に応じて Claude 認証情報をコピーします。
 
 **認証情報の管理**:
 - **Job DSLパラメータ経由**: `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）

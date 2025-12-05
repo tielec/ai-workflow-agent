@@ -1,0 +1,248 @@
+/**
+ * AI Workflow - Rollback Mode
+ *
+ * ワークフローを前のフェーズに差し戻すJenkinsfile（v0.4.0、Issue #90で追加）。
+ * 差し戻し理由を記録し、メタデータを更新、reviseプロンプトに自動注入。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - ISSUE_URL: GitHub Issue URL（必須）
+ * - ROLLBACK_TO_PHASE: 差し戻し先フェーズ名（必須、選択肢: planning, requirements, design, test-scenario, implementation, test-implementation, testing, documentation, report, evaluation）
+ * - ROLLBACK_TO_STEP: 差し戻し先ステップ（オプション、デフォルト: revise、選択肢: execute, review, revise）
+ * - ROLLBACK_REASON: 差し戻し理由（オプション、テキスト形式）
+ * - ROLLBACK_REASON_FILE: 差し戻し理由ファイルパス（オプション）
+ * - AGENT_MODE: エージェントモード（デフォルト: auto）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
+ *
+ * 注意:
+ * - ROLLBACK_REASON、ROLLBACK_REASON_FILE、インタラクティブモードのいずれかで差し戻し理由を提供する必要がある
+ * - CI環境では --force フラグを自動付与し、確認プロンプトをスキップ
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        EXECUTION_MODE = 'rollback'
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
+
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Rollback (to ${params.ROLLBACK_TO_PHASE ?: 'implementation'})"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.ISSUE_URL) {
+                        error("ISSUE_URL parameter is required")
+                    }
+
+                    if (!params.ISSUE_URL.startsWith('https://github.com/')) {
+                        error("ISSUE_URL must be a GitHub Issue URL: ${params.ISSUE_URL}")
+                    }
+
+                    if (!params.ISSUE_URL.contains('/issues/')) {
+                        error("ISSUE_URL must be a GitHub Issue URL (/issues/): ${params.ISSUE_URL}")
+                    }
+
+                    // Issue番号とリポジトリ情報抽出
+                    def urlParts = params.ISSUE_URL.split('/')
+                    env.ISSUE_NUMBER = urlParts[-1]
+                    env.REPO_OWNER = urlParts[-4]
+                    env.REPO_NAME = urlParts[-3]
+
+                    // ビルドディスクリプションを設定
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Rollback to: ${params.ROLLBACK_TO_PHASE ?: 'implementation'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "Issue URL: ${params.ISSUE_URL}"
+                    echo "Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Rollback To Phase: ${params.ROLLBACK_TO_PHASE ?: 'implementation'}"
+                    echo "Rollback To Step: ${params.ROLLBACK_TO_STEP ?: 'revise (default)'}"
+                    echo "Rollback Reason: ${params.ROLLBACK_REASON ?: '(not provided)'}"
+                    echo "Rollback Reason File: ${params.ROLLBACK_REASON_FILE ?: '(not provided)'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Initialize Workflow') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Initialize Workflow"
+                    echo "========================================="
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            echo "[DRY RUN] Workflow initialization skipped"
+                        } else {
+                            def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+
+                            sh """
+                                node dist/index.js init \
+                                    --issue-url ${params.ISSUE_URL} \
+                                    ${branchOption}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Execute Rollback') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Rollback - ${params.ROLLBACK_TO_PHASE ?: 'implementation'}"
+                    echo "========================================="
+
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Executing Rollback to: ${params.ROLLBACK_TO_PHASE ?: 'implementation'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            echo "[DRY RUN] Rollback to ${params.ROLLBACK_TO_PHASE ?: 'implementation'} skipped"
+                        } else {
+                            // 差し戻し実行
+                            // CI環境では --force フラグを自動付与（確認プロンプトをスキップ）
+                            def toStepFlag = params.ROLLBACK_TO_STEP ? "--to-step ${params.ROLLBACK_TO_STEP}" : ''
+                            def reasonFlag = params.ROLLBACK_REASON ? "--reason \"${params.ROLLBACK_REASON}\"" : ''
+                            def reasonFileFlag = params.ROLLBACK_REASON_FILE ? "--reason-file ${params.ROLLBACK_REASON_FILE}" : ''
+
+                            sh """
+                                node dist/index.js rollback \
+                                    --issue ${env.ISSUE_NUMBER} \
+                                    --to-phase ${params.ROLLBACK_TO_PHASE ?: 'implementation'} \
+                                    ${toStepFlag} \
+                                    ${reasonFlag} \
+                                    ${reasonFileFlag} \
+                                    --force
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Rollback to: ${params.ROLLBACK_TO_PHASE ?: 'implementation'} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
+                    common.archiveArtifacts(env.ISSUE_NUMBER)
+                }
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - Rollback Success"
+                echo "========================================="
+                echo "Issue: ${params.ISSUE_URL}"
+                echo "Rollback To Phase: ${params.ROLLBACK_TO_PHASE ?: 'implementation'}"
+                echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - Rollback Failure"
+                echo "========================================="
+                echo "Issue: ${params.ISSUE_URL}"
+                echo "Rollback To Phase: ${params.ROLLBACK_TO_PHASE ?: 'implementation'}"
+                echo "Please check the logs"
+            }
+        }
+    }
+}
