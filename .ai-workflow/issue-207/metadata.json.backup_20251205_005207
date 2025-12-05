@@ -1,0 +1,138 @@
+{
+  "issue_number": "207",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/207",
+  "issue_title": "Issue #207",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/jenkins-a580105b/workspace/AI_Workflow/develop/all_phases",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "test_implementation",
+  "design_decisions": {
+    "implementation_strategy": null,
+    "test_strategy": null,
+    "test_code_strategy": null
+  },
+  "cost_tracking": {
+    "total_input_tokens": 1759,
+    "total_output_tokens": 97232,
+    "total_cost_usd": 6.1707127999999996
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:16:41.891Z",
+      "completed_at": "2025-12-05T00:19:54.553Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:19:55.327Z",
+      "completed_at": "2025-12-05T00:23:45.269Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:23:45.934Z",
+      "completed_at": "2025-12-05T00:30:01.315Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:30:01.884Z",
+      "completed_at": "2025-12-05T00:34:43.439Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:34:44.052Z",
+      "completed_at": "2025-12-05T00:41:38.225Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_implementation": {
+      "status": "in_progress",
+      "retry_count": 0,
+      "started_at": "2025-12-05T00:41:38.808Z",
+      "completed_at": null,
+      "review_result": null,
+      "current_step": "execute"
+    },
+    "testing": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "documentation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "report": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
+    },
+    "evaluation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "decision": null,
+      "failed_phase": null,
+      "remaining_tasks": [],
+      "created_issue_url": null,
+      "abort_reason": null
+    }
+  },
+  "created_at": "2025-12-05T00:16:35.170Z",
+  "updated_at": "2025-12-05T00:48:05.950Z",
+  "branch_name": "ai-workflow/issue-207",
+  "base_commit": "4e118f2c9b7f1c85d2e2f83d0dcb1c7a9dcee91f",
+  "pr_number": 219,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/219",
+  "github_integration": {
+    "progress_comment_id": 3614822242,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/207#issuecomment-3614822242"
+  }
+}
