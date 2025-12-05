@@ -684,4 +684,147 @@ Fixes #216`,
       });
     });
   });
+
+  // Issue #225: initコミットがスカッシュ対象に含まれる検証
+  describe('Issue #225: initコミットを含むスカッシュ', () => {
+    describe('IT-1.1: init → execute --squash-on-complete → initコミットを含むスカッシュ成功', () => {
+      it('should include init commit in squash range when base_commit is recorded before init', async () => {
+        // Given: base_commitがinitコミット前のHEADハッシュとして記録されている
+        const baseCommit = 'abc123def456789012345678901234567890abcd';
+        const commits = [
+          { hash: 'init-commit-hash00000000000000000000000' }, // initコミット
+          { hash: 'phase0-commit-hash000000000000000000000' }, // Phase 0
+          { hash: 'phase1-commit-hash000000000000000000000' }, // Phase 1
+          { hash: 'phase2-commit-hash000000000000000000000' }, // Phase 2
+        ];
+
+        const context: PhaseContext = {
+          issueNumber: 225,
+          issueInfo: {
+            title: 'fix: --squash-on-complete オプション実行時の不具合修正',
+            body: 'Test body',
+            number: 225,
+            html_url: 'https://github.com/test/repo/issues/225',
+            state: 'open',
+            created_at: '2025-01-30',
+            updated_at: '2025-01-30',
+            labels: [],
+            assignees: [],
+          },
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        // Step 1: base_commitがinitコミット前のHEADとして記録されている
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+
+        // Step 2: Git操作のモック設定
+        mockGit.log.mockResolvedValue({ all: commits } as any);
+        mockGit.revparse.mockResolvedValue('ai-workflow/issue-225\n');
+        mockGit.diff.mockResolvedValue('4 files changed, 50 insertions(+), 5 deletions(-)');
+        mockGit.reset.mockResolvedValue(undefined as any);
+        mockGit.commit.mockResolvedValue({ commit: 'squashed-commit-hash' } as any);
+        mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+
+        // Step 3: エージェント実行のモック設定
+        mockMkdir.mockResolvedValue(undefined);
+        mockAccess.mockResolvedValue(undefined);
+        mockReadFile.mockResolvedValue(
+          `fix(squash): resolve init commit exclusion issue
+
+This fix ensures that the init commit is included in squash range.
+
+Fixes #225`,
+        );
+        mockRm.mockResolvedValue(undefined);
+        mockCodexAgent.executeTask.mockResolvedValue(undefined);
+
+        // When: スカッシュ処理を実行
+        await squashManager.squashCommits(context);
+
+        // Then: 期待される結果を検証
+        // 1. base_commitが取得された
+        expect(mockMetadataManager.getBaseCommit).toHaveBeenCalled();
+
+        // 2. コミット範囲が特定され、initコミットを含む4つのコミットが対象
+        expect(mockGit.log).toHaveBeenCalledWith({
+          from: baseCommit,
+          to: 'HEAD',
+          format: { hash: '%H' },
+        });
+
+        // 3. pre_squash_commitsに4つ全てのコミット（initコミット含む）が記録された
+        expect(mockMetadataManager.setPreSquashCommits).toHaveBeenCalled();
+        const preSquashCommits = mockMetadataManager.setPreSquashCommits.mock.calls[0][0];
+        expect(preSquashCommits).toHaveLength(4);
+        expect(preSquashCommits[0]).toBe('init-commit-hash00000000000000000000000');
+
+        // 4. スカッシュが実行された（base_commitまでreset）
+        expect(mockGit.reset).toHaveBeenCalledWith(['--soft', baseCommit]);
+        expect(mockGit.commit).toHaveBeenCalled();
+        expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
+
+        // 5. squashed_atタイムスタンプが記録された
+        expect(mockMetadataManager.setSquashedAt).toHaveBeenCalled();
+      });
+    });
+
+    describe('IT-1.2: initコミットのみ（Phase未実行）→ スカッシュスキップ', () => {
+      it('should skip squash when only init commit exists (no phase executed)', async () => {
+        // Given: initコミットのみが存在（フェーズ未実行）
+        const baseCommit = 'abc123def456789012345678901234567890abcd';
+        const commits = [
+          { hash: 'init-commit-hash00000000000000000000000' }, // initコミットのみ
+        ];
+
+        const context: PhaseContext = {
+          issueNumber: 225,
+          issueInfo: null,
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+        mockGit.log.mockResolvedValue({ all: commits } as any);
+
+        // When: スカッシュ処理を実行
+        await squashManager.squashCommits(context);
+
+        // Then: コミット数が1つ以下のため、スカッシュがスキップされる
+        expect(mockGit.log).toHaveBeenCalledWith({
+          from: baseCommit,
+          to: 'HEAD',
+          format: { hash: '%H' },
+        });
+
+        // スカッシュ処理は実行されない（コミット数が1以下）
+        expect(mockGit.revparse).not.toHaveBeenCalled();
+        expect(mockGit.reset).not.toHaveBeenCalled();
+        expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('IT-1.3: 既存ワークフロー（base_commit未記録）→ スカッシュスキップ', () => {
+      it('should skip squash and log warning when base_commit is not recorded', async () => {
+        // Given: base_commit未記録の既存ワークフロー
+        mockMetadataManager.getBaseCommit.mockReturnValue(null);
+
+        const context: PhaseContext = {
+          issueNumber: 225,
+          issueInfo: null,
+          workingDir: testWorkingDir,
+          metadataManager: mockMetadataManager,
+        } as any;
+
+        // When: スカッシュ処理を実行
+        await squashManager.squashCommits(context);
+
+        // Then: base_commit未記録のため、スカッシュがスキップされる
+        expect(mockMetadataManager.getBaseCommit).toHaveBeenCalled();
+        expect(mockGit.log).not.toHaveBeenCalled();
+        expect(mockGit.reset).not.toHaveBeenCalled();
+        expect(mockMetadataManager.setSquashedAt).not.toHaveBeenCalled();
+      });
+    });
+  });
 });
