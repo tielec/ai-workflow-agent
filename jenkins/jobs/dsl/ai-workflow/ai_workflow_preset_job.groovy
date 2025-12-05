@@ -214,7 +214,7 @@ Claude実行モードで使用されます
                         branch(gitBranch)
                     }
                 }
-                scriptPath('Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/preset/Jenkinsfile')
             }
         }
 
