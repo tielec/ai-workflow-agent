@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #225**: Fixed init commit exclusion from squash range when using `--squash-on-complete` option
+  - `base_commit` is now correctly recorded before init commit creation (not after)
+  - Ensures all workflow commits, including the init commit, are included in the squash range
+  - Updated comment attribution in `src/commands/init.ts` from Issue #194 to Issue #225
+  - Note: Prompt path resolution issue was already fixed by Issue #216 (ESM compatibility)
+
 ### Added
 - **Issue #212**: Manual cleanup command for workflow logs (v0.4.0)
   - New `cleanup` CLI command with 4 options (--issue, --dry-run, --phases, --all)

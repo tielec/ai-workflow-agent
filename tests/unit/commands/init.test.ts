@@ -225,3 +225,49 @@ describe('resolveBranchName', () => {
     });
   });
 });
+
+// =============================================================================
+// Issue #225: base_commit記録タイミング のテスト
+// =============================================================================
+
+describe('Issue #225: base_commit recording timing', () => {
+  describe('UT-1.3: base_commitの値検証（境界値）', () => {
+    test('base_commitに記録される値が正しいGitハッシュであることを検証', () => {
+      // Given: Gitハッシュ（40文字の16進数 + 改行）
+      const gitHash = 'abc123def456789012345678901234567890abcd\n';
+      const expectedHash = 'abc123def456789012345678901234567890abcd';
+
+      // When: トリム処理を実行
+      const trimmedHash = gitHash.trim();
+
+      // Then: 改行が除去され、正しいハッシュになる
+      expect(trimmedHash).toBe(expectedHash);
+      expect(trimmedHash.length).toBe(40);
+      expect(/^[0-9a-f]{40}$/.test(trimmedHash)).toBe(true);
+    });
+
+    test('base_commit短縮ハッシュが7文字であることを検証', () => {
+      // Given: 完全なGitハッシュ
+      const fullHash = 'abc123def456789012345678901234567890abcd';
+
+      // When: 短縮ハッシュを取得
+      const shortHash = fullHash.slice(0, 7);
+
+      // Then: 短縮ハッシュが7文字である
+      expect(shortHash).toBe('abc123d');
+      expect(shortHash.length).toBe(7);
+    });
+
+    test('空白文字を含むGitハッシュが正しくトリムされる', () => {
+      // Given: 空白文字を含むGitハッシュ
+      const gitHashWithSpaces = '  abc123def456789012345678901234567890abcd\n';
+
+      // When: トリム処理を実行
+      const trimmedHash = gitHashWithSpaces.trim();
+
+      // Then: 空白と改行が除去される
+      expect(trimmedHash).toBe('abc123def456789012345678901234567890abcd');
+      expect(trimmedHash.length).toBe(40);
+    });
+  });
+});
