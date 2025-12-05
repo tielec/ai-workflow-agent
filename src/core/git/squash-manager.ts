@@ -3,6 +3,11 @@ import { join } from 'node:path';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SimpleGit } from 'simple-git';
+
+// ESM compatibility: プロンプトルートパスを解決
+// dist/core/git/squash-manager.js から dist/prompts/ を参照
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const promptsRoot = path.resolve(moduleDir, '..', '..', 'prompts');
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -189,7 +194,7 @@ export class SquashManager {
     }
 
     // 一時ディレクトリ作成
-    const tempDir = join(this.workingDir, '.ai-workflow', 'tmp', 'squash');
+    const tempDir = path.join(this.workingDir, '.ai-workflow', 'tmp', 'squash');
     await fs.mkdir(tempDir, { recursive: true });
 
     try {
@@ -209,7 +214,7 @@ export class SquashManager {
       }
 
       // イベントから生成されたメッセージを抽出
-      const outputFile = join(tempDir, 'commit-message.txt');
+      const outputFile = path.join(tempDir, 'commit-message.txt');
       const fileExists = await fs
         .access(outputFile)
         .then(() => true)
@@ -265,7 +270,7 @@ export class SquashManager {
    * @throws Error - ファイル読み込み失敗時
    */
   private async loadPromptTemplate(): Promise<string> {
-    const templatePath = join(__dirname, '../../../prompts/squash/generate-message.txt');
+    const templatePath = path.join(promptsRoot, 'squash', 'generate-message.txt');
     try {
       return await fs.readFile(templatePath, 'utf-8');
     } catch (error) {
