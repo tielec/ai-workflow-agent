@@ -19,7 +19,7 @@ GitHubのIssue情報から詳細な要件定義書を作成してください。
 ## 入力情報
 
 ### Planning Phase成果物
-- Planning Document: Planning Phaseは実行されていません
+- Planning Document: @.ai-workflow/issue-243/00_planning/output/planning.md
 
 **注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
 
