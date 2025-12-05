@@ -657,8 +657,16 @@ pipeline {
                 // 成果物をアーカイブ（成功・失敗問わず）
                 // auto_issue モードでは .ai-workflow ディレクトリは使用しない
                 // 対象リポジトリは REPOS_ROOT にクローンされるため、そこからアーティファクトを取得
+                // ai-workflow-agent 自身の場合は WORKSPACE からアーティファクトを取得
                 if (params.EXECUTION_MODE != 'auto_issue') {
-                    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${env.ISSUE_NUMBER}/**/*"
+                    def artifactPath
+                    if (env.REPO_NAME == 'ai-workflow-agent') {
+                        // ai-workflow-agent 自身の場合は WORKSPACE から取得
+                        artifactPath = ".ai-workflow/issue-${env.ISSUE_NUMBER}/**/*"
+                    } else {
+                        // 外部リポジトリの場合は REPOS_ROOT から取得
+                        artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${env.ISSUE_NUMBER}/**/*"
+                    }
                     echo "Archiving artifacts from: ${artifactPath}"
                     archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
                 }
