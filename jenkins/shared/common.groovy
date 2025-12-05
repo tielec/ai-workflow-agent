@@ -111,6 +111,14 @@ def setupEnvironment() {
     def reposRoot = "/tmp/ai-workflow-repos-${env.BUILD_ID}"
     echo "Setting up REPOS_ROOT: ${reposRoot}"
 
+    // Issue #234: ai-workflow-agent自体のIssueでもREPOS_ROOTにクローンして作業
+    // これにより、WORKSPACEのCLI（dist/）と作業対象リポジトリを分離
+    def executionMode = env.EXECUTION_MODE ?: params.EXECUTION_MODE ?: ''
+    def repoOwner = env.REPO_OWNER ?: ''
+    def repoName = env.REPO_NAME ?: ''
+    def issueNumber = env.ISSUE_NUMBER ?: ''
+    def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
+
     sh """
         # REPOS_ROOT ディレクトリ作成
         mkdir -p ${reposRoot}
@@ -120,15 +128,15 @@ def setupEnvironment() {
             echo "Auto-issue mode detected. Cloning target repository..."
 
             # 対象リポジトリ情報を取得
-            REPO_NAME=\$(echo \${GITHUB_REPOSITORY} | cut -d'/' -f2)
-            TARGET_REPO_PATH="${reposRoot}/\${REPO_NAME}"
+            REPO_NAME_FROM_ENV=\$(echo \${GITHUB_REPOSITORY} | cut -d'/' -f2)
+            TARGET_REPO_PATH="${reposRoot}/\${REPO_NAME_FROM_ENV}"
 
             if [ ! -d "\${TARGET_REPO_PATH}" ]; then
                 echo "Cloning repository \${GITHUB_REPOSITORY}..."
                 cd ${reposRoot}
                 git clone --depth 1 https://\${GITHUB_TOKEN}@github.com/\${GITHUB_REPOSITORY}.git
             else
-                echo "Repository \${REPO_NAME} already exists. Pulling latest changes..."
+                echo "Repository \${REPO_NAME_FROM_ENV} already exists. Pulling latest changes..."
                 cd "\${TARGET_REPO_PATH}"
                 git pull
             fi
@@ -137,16 +145,31 @@ def setupEnvironment() {
         fi
 
         # 通常モード（init/execute）の場合、Issue URLから対象リポジトリをクローン
-        if [ "\${EXECUTION_MODE:-}" != "auto_issue" ] && [ "\${REPO_NAME:-}" != "ai-workflow-agent" ]; then
-            if [ ! -d ${reposRoot}/\${REPO_NAME} ]; then
-                echo "Cloning repository \${REPO_OWNER}/\${REPO_NAME}..."
+        # ai-workflow-agent自体も含めて、すべてのリポジトリをREPOS_ROOTにクローン
+        if [ "\${EXECUTION_MODE:-}" != "auto_issue" ]; then
+            TARGET_REPO_PATH="${reposRoot}/${repoName}"
+
+            if [ ! -d "\${TARGET_REPO_PATH}" ]; then
+                echo "Cloning repository ${repoOwner}/${repoName}..."
                 cd ${reposRoot}
-                git clone https://\${GITHUB_TOKEN}@github.com/\${REPO_OWNER}/\${REPO_NAME}.git
-            else
-                echo "Repository \${REPO_NAME} already exists. Pulling latest changes..."
-                cd ${reposRoot}/\${REPO_NAME}
-                git pull
+                git clone https://\${GITHUB_TOKEN}@github.com/${repoOwner}/${repoName}.git
             fi
+
+            # ワークフローブランチにチェックアウト
+            cd "\${TARGET_REPO_PATH}"
+            echo "Fetching remote branches..."
+            git fetch origin
+
+            if git rev-parse --verify origin/${targetBranch} >/dev/null 2>&1; then
+                echo "Branch ${targetBranch} exists on remote. Checking out..."
+                git checkout -B ${targetBranch} origin/${targetBranch}
+            else
+                echo "Branch ${targetBranch} does not exist on remote. Creating from develop..."
+                git checkout -B ${targetBranch} origin/develop || git checkout -B ${targetBranch}
+            fi
+
+            echo "Target repository: \${TARGET_REPO_PATH}"
+            echo "Current branch: \$(git rev-parse --abbrev-ref HEAD)"
         fi
 
         echo "REPOS_ROOT contents:"
@@ -157,19 +180,7 @@ def setupEnvironment() {
     env.REPOS_ROOT = reposRoot
     echo "REPOS_ROOT set to: ${env.REPOS_ROOT}"
     echo "WORKSPACE: ${env.WORKSPACE}"
-
-    // Git checkout: Detached HEADを回避するため、ブランチに明示的にcheckout
-    sh """
-        # 現在のブランチを確認
-        BRANCH_NAME=\$(git rev-parse --abbrev-ref HEAD)
-        echo "Current branch: \$BRANCH_NAME"
-
-        # Detached HEADの場合、feature/ai-workflow-mvpにcheckout
-        if [ "\$BRANCH_NAME" = "HEAD" ]; then
-            echo "Detached HEAD detected. Checking out feature/ai-workflow-mvp..."
-            git checkout -B feature/ai-workflow-mvp
-        fi
-    """
+    echo "Target repository path: ${reposRoot}/${repoName}"
 }
 
 /**
