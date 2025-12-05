@@ -90,14 +90,15 @@
       ]
     },
     "report": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-12-05T02:01:20.838Z",
-      "completed_at": null,
+      "completed_at": "2025-12-05T02:02:57.297Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     },
     "evaluation": {
@@ -114,7 +115,7 @@
     }
   },
   "created_at": "2025-12-05T01:52:02.923Z",
-  "updated_at": "2025-12-05T02:02:50.872Z",
+  "updated_at": "2025-12-05T02:02:58.324Z",
   "branch_name": "ai-workflow/issue-221",
   "base_commit": "7431e1200a1c6d226c098b088be071cf52e32374",
   "pr_number": 224,
