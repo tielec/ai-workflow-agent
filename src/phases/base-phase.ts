@@ -94,6 +94,18 @@ export abstract class BasePhase {
   }
 
   protected getAgentWorkingDirectory(): string {
+    // Issue #245: REPOS_ROOT が設定されている場合は動的にパスを解決
+    // PR #235 の execute.ts と同様のロジックで、WORKSPACE と REPOS_ROOT の分離に対応
+    const reposRoot = config.getReposRoot();
+    if (reposRoot && this.metadata.data.target_repository?.repo) {
+      const repoName = this.metadata.data.target_repository.repo;
+      const reposRootPath = path.join(reposRoot, repoName);
+      if (fs.existsSync(reposRootPath)) {
+        logger.debug(`Using REPOS_ROOT path for agent working directory: ${reposRootPath}`);
+        return reposRootPath;
+      }
+    }
+
     try {
       return this.getActiveAgent().getWorkingDirectory();
     } catch {
