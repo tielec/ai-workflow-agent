@@ -130,6 +130,10 @@ export class MetadataManager {
       phaseData.completed_at = null;
       phaseData.review_result = null;
       phaseData.retry_count = 0;
+      // Issue #208: completed_steps と current_step のリセット追加
+      phaseData.current_step = null;
+      phaseData.completed_steps = [];
+      phaseData.rollback_context = null; // Issue #208: consistency確保
     }
 
     this.state.save();
@@ -311,11 +315,78 @@ export class MetadataManager {
   }
 
   /**
+   * Issue #208: フェーズの整合性チェック
+   * @param phaseName - 対象フェーズ名
+   * @returns 検証結果（valid: boolean, warnings: string[]）
+   *
+   * @description
+   * - status と completed_steps の整合性をチェック
+   * - 不整合検出時は警告ログを出力（エラーで停止しない）
+   * - 検証パターン:
+   *   1. status === 'pending' かつ completed_steps が存在
+   *   2. status === 'completed' かつ completed_steps が空
+   *   3. status === 'in_progress' かつ started_at === null
+   */
+  public validatePhaseConsistency(
+    phaseName: PhaseName
+  ): {
+    valid: boolean;
+    warnings: string[];
+  } {
+    const phaseData = this.state.data.phases[phaseName];
+    const warnings: string[] = [];
+
+    // パターン1: status === 'pending' かつ completed_steps が存在
+    if (
+      phaseData.status === 'pending' &&
+      (phaseData.completed_steps ?? []).length > 0
+    ) {
+      warnings.push(
+        `Phase ${phaseName}: status is 'pending' but completed_steps is not empty ` +
+        `(${JSON.stringify(phaseData.completed_steps)})`
+      );
+    }
+
+    // パターン2: status === 'completed' かつ completed_steps が空
+    if (
+      phaseData.status === 'completed' &&
+      (phaseData.completed_steps ?? []).length === 0
+    ) {
+      warnings.push(
+        `Phase ${phaseName}: status is 'completed' but completed_steps is empty`
+      );
+    }
+
+    // パターン3: status === 'in_progress' かつ started_at === null
+    if (
+      phaseData.status === 'in_progress' &&
+      phaseData.started_at === null
+    ) {
+      warnings.push(
+        `Phase ${phaseName}: status is 'in_progress' but started_at is null`
+      );
+    }
+
+    // 警告ログ出力（エラーで停止しない）
+    for (const warning of warnings) {
+      logger.warn(warning);
+    }
+
+    return {
+      valid: warnings.length === 0,
+      warnings,
+    };
+  }
+
+  /**
    * Issue #90: フェーズを差し戻し用に更新（status, current_step, completed_at, retry_count を変更）
    * @param phaseName - 対象フェーズ名
    * @param toStep - 差し戻し先ステップ（'execute' | 'review' | 'revise'）
    */
   public updatePhaseForRollback(phaseName: PhaseName, toStep: StepName): void {
+    // Issue #208: 整合性チェック（警告のみ、処理継続）
+    this.validatePhaseConsistency(phaseName);
+
     const phaseData = this.state.data.phases[phaseName];
 
     phaseData.status = 'in_progress';
@@ -370,6 +441,9 @@ export class MetadataManager {
       phaseData.completed_steps = [];
       phaseData.retry_count = 0;
       phaseData.rollback_context = null; // 既存の差し戻しコンテキストもクリア
+
+      // Issue #208: 整合性チェック（警告のみ、処理継続）
+      this.validatePhaseConsistency(phase);
     }
 
     this.save();

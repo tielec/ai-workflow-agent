@@ -55,6 +55,7 @@ describe('SquashManager', () => {
 
     mockRemoteManager = {
       pushToRemote: jest.fn(),
+      forcePushToRemote: jest.fn(),
     } as any;
 
     mockCodexAgent = {
@@ -405,6 +406,108 @@ Fixes #194`;
       expect(mockGit.commit).toHaveBeenCalled();
       const commitMessage = (mockGit.commit as jest.Mock).mock.calls[0][0];
       expect(commitMessage).toContain('feat: Complete workflow for Issue #194');
+    });
+  });
+
+  // Issue #216: ESM互換のパス解決とforcePushToRemote呼び出しのテスト
+  describe('Issue #216: ESM compatibility and forcePushToRemote', () => {
+    let context: PhaseContext;
+
+    beforeEach(() => {
+      context = {
+        issueNumber: 216,
+        issueInfo: {
+          title: 'bug: --squash-on-complete が正常に動作しない(複数の問題)',
+          body: 'Test body',
+          number: 216,
+          html_url: 'https://github.com/test/repo/issues/216',
+          state: 'open',
+          created_at: '2025-01-30',
+          updated_at: '2025-01-30',
+          labels: [],
+          assignees: [],
+        },
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadataManager,
+      } as any;
+    });
+
+    // テストケース 2.1.1: ESM互換のパス解決_正常系
+    it('should load prompt template without __dirname error in ESM environment', async () => {
+      // Given: スカッシュに必要な条件が整っている
+      const baseCommit = 'abc123';
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
+      mockGit.revparse.mockResolvedValue('feature/issue-216\n');
+      mockGit.diff.mockResolvedValue('test diff');
+      mockGit.reset.mockResolvedValue(undefined as any);
+      mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
+
+      // プロンプトテンプレートの読み込みをモック
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockResolvedValue(undefined);
+      mockReadFile.mockResolvedValue(
+        `feat(squash): fix squash issues\n\nFixes #216`,
+      );
+      mockRm.mockResolvedValue(undefined);
+      mockCodexAgent.executeTask.mockResolvedValue(undefined);
+
+      // When: スカッシュ処理を実行
+      await squashManager.squashCommits(context);
+
+      // Then: プロンプトテンプレートが正常に読み込まれる（__dirname エラーが発生しない）
+      expect(mockReadFile).toHaveBeenCalled();
+      expect(mockGit.commit).toHaveBeenCalled();
+    });
+
+    // テストケース 2.3.1: forcePushToRemote呼び出し確認_正常系
+    it('should call forcePushToRemote instead of pushToRemote after squash', async () => {
+      // Given: スカッシュコミット作成後の状態
+      const baseCommit = 'abc123';
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
+      mockGit.revparse.mockResolvedValue('feature/issue-216\n');
+      mockGit.diff.mockResolvedValue('test diff');
+      mockGit.reset.mockResolvedValue(undefined as any);
+      mockGit.commit.mockResolvedValue({ commit: 'squashed-commit' } as any);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
+
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockRejectedValue(new Error('File not found'));
+      mockRm.mockResolvedValue(undefined);
+
+      // When: スカッシュ処理を実行
+      await squashManager.squashCommits(context);
+
+      // Then: forcePushToRemote が呼び出される
+      expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
+
+      // Then: pushToRemote は呼び出されない
+      expect(mockRemoteManager.pushToRemote).not.toHaveBeenCalled();
+    });
+
+    // テストケース: Git reset失敗時のエラー伝播_異常系
+    it('should throw error when git reset fails', async () => {
+      // Given: git reset がエラーを返す
+      const baseCommit = 'abc123';
+      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
+      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
+      mockGit.revparse.mockResolvedValue('feature/issue-216\n');
+      mockGit.diff.mockResolvedValue('test diff');
+      mockGit.reset.mockRejectedValue(new Error('fatal: ambiguous argument'));
+
+      mockMkdir.mockResolvedValue(undefined);
+      mockAccess.mockRejectedValue(new Error('File not found'));
+      mockRm.mockResolvedValue(undefined);
+
+      // When/Then: エラーがスローされる
+      await expect(squashManager.squashCommits(context)).rejects.toThrow(
+        'Failed to execute squash',
+      );
+
+      // forcePushToRemote は呼び出されない
+      expect(mockRemoteManager.forcePushToRemote).not.toHaveBeenCalled();
     });
   });
 });

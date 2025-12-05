@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Issue #212**: Manual cleanup command for workflow logs (v0.4.0)
+  - New `cleanup` CLI command with 4 options (--issue, --dry-run, --phases, --all)
+  - Three cleanup modes: normal (Phase 0-8), partial (specific phases), complete (Phase 0-9 after Evaluation)
+  - Phase range parsing supports numeric ranges (0-4) and phase name lists (planning,requirements,design)
+  - Preview mode (--dry-run) to display deletion targets without actual deletion
+  - Git auto-commit & push after cleanup with message: `[ai-workflow] Manual cleanup of workflow logs (Phase 0-8)`
+  - Extension of `ArtifactCleaner.cleanupWorkflowLogs()` method with `phaseRange?: PhaseName[]` parameter
+  - New command handler module (`src/commands/cleanup.ts`, ~480 lines) with 5 main functions
+  - Security measures: path validation, symlink checks, and safe deletion logic
+  - Repository size reduction: ~75% (same effect as automatic cleanup)
+  - Independent operation from Report Phase (Phase 8) automatic cleanup
+  - Test coverage: 19 unit tests (100% passed), 16 integration tests (implemented)
+  - Error handling: 4 validation errors (invalid phase range, Evaluation not completed, conflicting options, no deletion targets)
 - **Issue #194**: Squash commits after workflow completion with agent-generated commit message
   - New CLI options: `--squash-on-complete` / `--no-squash-on-complete` for automatic commit squashing after workflow completion
   - New environment variable: `AI_WORKFLOW_SQUASH_ON_COMPLETE` for default squash behavior control
@@ -73,6 +86,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+- **Issue #208**: Metadata inconsistency causing rollback failures
+  - Fixed rollback command failure when `status: "pending"` but `completed_steps` is not empty (inconsistent metadata state)
+  - Improved `validateRollbackOptions()` to consider `completed_steps` when determining if a phase has started
+  - Fixed `rollbackToPhase()` to properly reset `completed_steps` and `current_step` fields when rolling back phases
+  - Added `validatePhaseConsistency()` method to MetadataManager for detecting 3 types of metadata inconsistencies
+  - Added warning logs for inconsistent metadata states (defensive programming approach)
+  - Test coverage: 12 test cases (6 unit tests for rollback validation, 6 unit tests for metadata consistency)
 - **Issue #153**: auto-issue: Jenkins環境で対象リポジトリではなくワークスペースを解析してしまう
   - `auto-issue` コマンドで `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
   - `resolveLocalRepoPath()` を使用してリポジトリパスを正しく解決（Jenkins環境では `REPOS_ROOT` を優先使用）

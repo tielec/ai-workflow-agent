@@ -79,7 +79,9 @@ pipeline {
             label 'ec2-fleet'
             dir '.'
             filename 'Dockerfile'
-            args '-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 -e CODEX_API_KEY=${CODEX_API_KEY} -e OPENAI_API_KEY=${OPENAI_API_KEY} -e CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN} -e CLAUDE_CODE_API_KEY=${CLAUDE_CODE_API_KEY} -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} -e GITHUB_TOKEN=${GITHUB_TOKEN} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}'
+            // 注意: シングルクォートではGroovy変数が展開されないため、ダブルクォートを使用
+            // 環境変数は environment ブロックで params から設定済み
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 

@@ -570,6 +570,47 @@ export class ContentParser {
     logger.warn('Using fallback pattern matching for evaluation decision.');
 
     try {
+      // Step 1: FAIL_PHASE_ の場合は専用パターンで抽出
+      const failPhasePatterns = [
+        // DECISION: FAIL_PHASE_4 または FAIL_PHASE_implementation
+        /DECISION:\s*FAIL_PHASE_(\d+)/i,
+        /DECISION:\s*FAIL_PHASE_([a-z_]+)/i,
+        // FAILED_PHASE: implementation (別の行で指定されている場合)
+        /FAILED_PHASE:\s*([a-z_]+)/i,
+        // Rework Phase 5 / Re-run Phase 6 のような表現
+        /(?:Rework|Re-?run|Fix)\s+Phase\s*(\d+)/i,
+        // Phase 5 (test_implementation) needs rework
+        /Phase\s*(\d+)\s*\([^)]+\)\s*(?:needs?|requires?)\s+(?:rework|fix)/i,
+      ];
+
+      // まず FAIL_PHASE_ パターンをチェック
+      const decisionMatch = content.match(/DECISION:\s*FAIL_PHASE/i);
+      if (decisionMatch) {
+        let failedPhase: string | null = null;
+
+        for (const pattern of failPhasePatterns) {
+          const match = content.match(pattern);
+          if (match) {
+            failedPhase = match[1].trim();
+            break;
+          }
+        }
+
+        if (failedPhase) {
+          const mappedPhase = this.mapPhaseKey(failedPhase);
+          if (mappedPhase) {
+            const decision = `FAIL_PHASE_${mappedPhase.toUpperCase()}`;
+            logger.info(`Fallback extracted decision: ${decision}, failedPhase: ${mappedPhase}`);
+            return { success: true, decision, failedPhase: mappedPhase };
+          }
+        }
+
+        // フェーズ名が特定できない場合でも FAIL_PHASE_ として返す（後続で処理）
+        logger.warn('FAIL_PHASE_ detected but phase name could not be extracted.');
+        return { success: true, decision: 'FAIL_PHASE_UNKNOWN' };
+      }
+
+      // Step 2: 通常の判定パターン
       const patterns = [
         /DECISION:\s*([A-Z_]+)/i,
         /\*\*総合評価\*\*.*?\*\*([A-Z_]+)\*\*/i,
