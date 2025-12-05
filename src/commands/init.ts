@@ -272,7 +272,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     repo: repo,
   };
 
-  // Issue #194: base_commitの記録（スカッシュ機能用）
+  // Issue #225: base_commitの記録（スカッシュ機能用）
   // コミット前に現在のHEADを記録することで、initコミットもスカッシュ対象に含める
   try {
     const currentCommit = await git.revparse(['HEAD']);
