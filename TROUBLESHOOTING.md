@@ -952,6 +952,37 @@ git reset --hard <pre_squash_commit_sha>
 git revert --no-edit <squashed_commit_sha>
 ```
 
+### `__dirname is not defined` エラー（Issue #216で修正）
+
+ESM環境でスカッシュコミット機能を使用する際に発生する場合：
+
+**症状**:
+```
+[ERROR] Failed to load prompt template: ReferenceError: __dirname is not defined
+```
+
+**原因**:
+- Node.js の ESM（ES Modules）環境では `__dirname` がグローバル変数として利用できない
+- `squash-manager.ts` のプロンプトテンプレート読み込み時に `__dirname` を使用していた（v0.5.0より前）
+
+**対処法**:
+- **v0.5.0以降**: この問題は修正済みです。`import.meta.url` + `fileURLToPath` を使用したESM互換のパス解決に変更されています
+- **v0.4.x以前**: プロジェクトを最新バージョンにアップグレードしてください
+
+**確認方法**:
+```bash
+# バージョン確認
+node dist/index.js --version
+
+# プロンプトテンプレートが存在するか確認
+ls -la src/prompts/squash/generate-message.txt
+
+# ESM互換コードが含まれているか確認（v0.5.0以降）
+grep -n "fileURLToPath" src/core/git/squash-manager.ts
+```
+
+**関連Issue**: Issue #216 - `--squash-on-complete` が正常に動作しない（複数の問題）
+
 ### AI 生成コミットメッセージが不適切
 
 AI エージェントが生成したコミットメッセージが期待と異なる場合：

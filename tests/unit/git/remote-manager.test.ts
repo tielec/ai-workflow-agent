@@ -487,3 +487,194 @@ describe('RemoteManager - Retry Logic', () => {
     });
   });
 });
+
+// Issue #216: forcePushToRemote メソッドのテスト
+describe('RemoteManager - Force Push Operations (Issue #216)', () => {
+  let remoteManager: RemoteManager;
+  let mockGit: jest.Mocked<SimpleGit>;
+  let mockMetadata: jest.Mocked<MetadataManager>;
+
+  beforeEach(() => {
+    mockGit = {
+      status: jest.fn(),
+      push: jest.fn(),
+      raw: jest.fn(),
+      remote: jest.fn(),
+      pull: jest.fn(),
+    } as any;
+
+    mockMetadata = {
+      data: {
+        issue_number: '216',
+        branch_name: 'ai-workflow/issue-216',
+      },
+      getData: jest.fn().mockReturnValue({
+        issue_number: '216',
+        branch_name: 'ai-workflow/issue-216',
+      }),
+      getIssueNumber: jest.fn().mockReturnValue('216'),
+    } as any;
+
+    jest.spyOn(RemoteManager.prototype as any, 'setupGithubCredentials').mockResolvedValue(undefined);
+
+    remoteManager = new RemoteManager(mockGit, mockMetadata);
+  });
+
+  describe('forcePushToRemote', () => {
+    // テストケース 2.2.1: Force push成功_正常系
+    test('forcePushToRemote_正常系_--force-with-lease使用', async () => {
+      // Given: ブランチ名が取得可能
+      mockGit.status.mockResolvedValue({
+        current: 'ai-workflow/issue-216',
+        tracking: 'origin/ai-workflow/issue-216',
+        ahead: 1,
+        behind: 0,
+        files: [],
+      } as any);
+
+      // git raw で force-with-lease push を実行
+      mockGit.raw.mockResolvedValue('success');
+
+      // When: forcePushToRemote を呼び出す
+      const result = await remoteManager.forcePushToRemote();
+
+      // Then: --force-with-lease が使用される
+      expect(result.success).toBe(true);
+      expect(result.retries).toBe(0);
+      expect(mockGit.raw).toHaveBeenCalledWith([
+        'push',
+        '--force-with-lease',
+        'origin',
+        'ai-workflow/issue-216',
+      ]);
+    });
+
+    // テストケース 2.2.2: Non-fast-forward エラー時のpull禁止_異常系
+    test('forcePushToRemote_異常系_rejected時にpullを実行しない', async () => {
+      // Given: リモートブランチが先に進んでいる状態
+      mockGit.status.mockResolvedValue({
+        current: 'ai-workflow/issue-216',
+        tracking: 'origin/ai-workflow/issue-216',
+        ahead: 1,
+        behind: 0,
+        files: [],
+      } as any);
+
+      // Force push が rejected される
+      mockGit.raw.mockRejectedValue(new Error('rejected - non-fast-forward'));
+
+      // When: forcePushToRemote を呼び出す
+      const result = await remoteManager.forcePushToRemote();
+
+      // Then: pull を実行しない
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Remote branch has diverged');
+
+      // pull は呼び出されない（raw の呼び出しは push のみ）
+      expect(mockGit.raw).toHaveBeenCalledTimes(1);
+      expect(mockGit.raw).toHaveBeenCalledWith([
+        'push',
+        '--force-with-lease',
+        'origin',
+        'ai-workflow/issue-216',
+      ]);
+    });
+
+    // テストケース 2.2.3: ブランチ名取得失敗_異常系
+    test('forcePushToRemote_異常系_ブランチ名取得失敗', async () => {
+      // Given: ブランチ名が取得できない
+      mockGit.status.mockResolvedValue({
+        current: null,
+        tracking: null,
+        ahead: 0,
+        behind: 0,
+        files: [],
+      } as any);
+
+      mockMetadata.data.branch_name = null as any;
+
+      // When/Then: エラーがスローされる
+      await expect(remoteManager.forcePushToRemote()).rejects.toThrow(
+        'Unable to determine current branch name',
+      );
+    });
+
+    // テストケース 2.2.4: リトライ可能エラーのリトライロジック_境界値
+    test('forcePushToRemote_リトライ_ネットワークエラー時', async () => {
+      // Given: 初回pushでネットワークエラー、2回目で成功
+      mockGit.status.mockResolvedValue({
+        current: 'ai-workflow/issue-216',
+        tracking: 'origin/ai-workflow/issue-216',
+        ahead: 1,
+        behind: 0,
+        files: [],
+      } as any);
+
+      // 1回目: timeout エラー、2回目: 成功
+      mockGit.raw
+        .mockRejectedValueOnce(new Error('timeout exceeded'))
+        .mockResolvedValueOnce('success');
+
+      // When: forcePushToRemote を呼び出す
+      const result = await remoteManager.forcePushToRemote(3, 100);
+
+      // Then: 1回リトライされる
+      expect(result.success).toBe(true);
+      expect(result.retries).toBe(1);
+      expect(mockGit.raw).toHaveBeenCalledTimes(2);
+    });
+
+    // テストケース 2.2.5: 認証エラー時のリトライ禁止_異常系
+    test('forcePushToRemote_異常系_認証エラー時即座に失敗', async () => {
+      // Given: 認証エラーが発生
+      mockGit.status.mockResolvedValue({
+        current: 'ai-workflow/issue-216',
+        tracking: 'origin/ai-workflow/issue-216',
+        ahead: 1,
+        behind: 0,
+        files: [],
+      } as any);
+
+      mockGit.raw.mockRejectedValue(new Error('authentication failed'));
+
+      // When: forcePushToRemote を呼び出す
+      const result = await remoteManager.forcePushToRemote(3, 100);
+
+      // Then: リトライせずに即座に失敗
+      expect(result.success).toBe(false);
+      expect(result.retries).toBe(0);
+      expect(result.error).toContain('authentication failed');
+      expect(mockGit.raw).toHaveBeenCalledTimes(1);
+    });
+
+    // テストケース 2.4.1: 既存の通常push機能が影響を受けていない_正常系
+    test('pushToRemote_正常系_forcePushToRemote追加後も動作', async () => {
+      // Given: 通常のpush環境
+      mockGit.status.mockResolvedValue({
+        current: 'ai-workflow/issue-216',
+        tracking: 'origin/ai-workflow/issue-216',
+        ahead: 1,
+        behind: 0,
+        files: [],
+      } as any);
+
+      mockGit.push.mockResolvedValue({
+        pushed: [{ local: 'ai-workflow/issue-216', remote: 'ai-workflow/issue-216' }],
+        remoteMessages: { all: [] },
+      } as any);
+
+      // When: pushToRemote を呼び出す（通常push）
+      const result = await remoteManager.pushToRemote();
+
+      // Then: 通常pushが正常に動作する
+      expect(result.success).toBe(true);
+      expect(result.retries).toBe(0);
+      expect(mockGit.push).toHaveBeenCalledWith('origin', 'ai-workflow/issue-216');
+
+      // --force-with-lease は使用されない
+      expect(mockGit.raw).not.toHaveBeenCalledWith(
+        expect.arrayContaining(['push', '--force-with-lease'])
+      );
+    });
+  });
+});

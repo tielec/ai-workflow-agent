@@ -126,6 +126,86 @@ export class RemoteManager {
   }
 
   /**
+   * Force push to remote with --force-with-lease
+   *
+   * スカッシュ後の強制プッシュ専用メソッド。
+   * non-fast-forward エラー時も pull を実行せず、明確なエラーメッセージを返す。
+   *
+   * @param maxRetries - 最大リトライ回数（デフォルト: 3）
+   * @param retryDelay - リトライ間隔（ミリ秒、デフォルト: 2000）
+   * @returns PushSummary
+   * @throws Error - push失敗時
+   */
+  public async forcePushToRemote(
+    maxRetries = 3,
+    retryDelay = 2000,
+  ): Promise<PushSummary> {
+    let retries = 0;
+    const status = await this.git.status();
+    const branchName =
+      status.current ?? this.metadata.data.branch_name ?? null;
+
+    logger.debug(`Force push to remote: branch=${branchName}, ahead=${status.ahead}, behind=${status.behind}`);
+
+    if (!branchName) {
+      throw new Error('Unable to determine current branch name');
+    }
+
+    while (retries <= maxRetries) {
+      try {
+        logger.debug(`Force pushing to origin/${branchName}...`);
+
+        // --force-with-lease を使用
+        const pushResult = await this.git.raw([
+          'push',
+          '--force-with-lease',
+          'origin',
+          branchName,
+        ]);
+
+        logger.debug(`Force push result: ${pushResult}`);
+        logger.info('Force push completed successfully.');
+
+        return { success: true, retries };
+      } catch (error) {
+        const errorMessage = getErrorMessage(error).toLowerCase();
+
+        // non-fast-forward エラーの場合はエラー終了（pullしない）
+        if (errorMessage.includes('rejected') || errorMessage.includes('non-fast-forward')) {
+          logger.error(
+            'Force push rejected. Remote branch has diverged. ' +
+            'Please manually resolve the conflict:\n' +
+            `  1. git fetch origin\n` +
+            `  2. git rebase origin/${branchName}\n` +
+            `  3. git push --force-with-lease`,
+          );
+          return {
+            success: false,
+            retries,
+            error: 'Remote branch has diverged. Manual intervention required.',
+          };
+        }
+
+        // リトライ可能エラーの場合
+        if (!this.isRetriableError(error) || retries === maxRetries) {
+          logger.error(`Force push failed permanently: ${getErrorMessage(error)}`);
+          return {
+            success: false,
+            retries,
+            error: getErrorMessage(error),
+          };
+        }
+
+        logger.warn(`Retriable error, retrying (${retries + 1}/${maxRetries})...`);
+        retries += 1;
+        await delay(retryDelay);
+      }
+    }
+
+    return { success: false, retries: maxRetries, error: 'Unknown force push failure' };
+  }
+
+  /**
    * Pull latest changes from remote
    */
   public async pullLatest(

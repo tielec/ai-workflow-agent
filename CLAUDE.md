@@ -417,8 +417,8 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **`src/core/git/file-selector.ts`**: ファイル選択・フィルタリング専門モジュール（約160行、Issue #52で追加）。getChangedFiles（変更ファイル検出）、filterPhaseFiles（Issue番号フィルタリング）、getPhaseSpecificFiles（フェーズ固有パターンマッチング）、scanDirectories、scanByPatterns、@tmp除外ロジックを担当。
 - **`src/core/git/commit-message-builder.ts`**: コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **`src/core/git/branch-manager.ts`**: ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。
-- **`src/core/git/remote-manager.ts`**: リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。
-- **`src/core/git/squash-manager.ts`**: スカッシュ操作の専門マネージャー（約350行、Issue #194で追加）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease`による安全な強制プッシュを担当。
+- **`src/core/git/remote-manager.ts`**: リモート操作の専門マネージャー（約210行、Issue #25で追加、Issue #216で拡張）。push、pull、リトライロジック、GitHub認証設定を担当。`forcePushToRemote()` メソッド（Issue #216で追加）は `--force-with-lease` で安全に強制プッシュを実行し、non-fast-forwardエラー時にpullを実行しない（スカッシュ後の履歴保持のため）。
+- **`src/core/git/squash-manager.ts`**: スカッシュ操作の専門マネージャー（約350行、Issue #194で追加、Issue #216でESM互換性修正）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease`による安全な強制プッシュを担当。ESM環境では `import.meta.url` と `fileURLToPath` を使用してパス解決を実行（`__dirname` はESMではグローバル変数として利用できないため）。
 - **`src/core/github-client.ts`**: Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。
 - **`src/core/github/issue-client.ts`**: Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能を担当。
 - **`src/core/github/pull-request-client.ts`**: PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。
