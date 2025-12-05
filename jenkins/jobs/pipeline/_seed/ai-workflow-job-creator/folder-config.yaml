@@ -1,0 +1,197 @@
+# Jenkins フォルダ構造設定ファイル - AI Workflow専用
+
+# フォルダ定義（フラット構造）
+folders:
+  # AI駆動開発フォルダ（親フォルダ）
+  - path: "AI_Workflow"
+    displayName: "50. [AI] AI駆動開発"
+    description: |
+      このフォルダーには、AI駆動開発自動化ワークフローのジョブが含まれています。
+
+      ### 概要
+      GitHub IssueからPR作成まで、Claude AIが自動的に開発プロセスを実行します。
+      実行モードごとにジョブが分割され、リポジトリ別に整理されています。
+
+      ### ジョブ構成
+      各リポジトリ配下に以下のジョブが配置されます：
+      * **all_phases** - 全フェーズ一括実行（planning → evaluation）
+      * **preset** - プリセット実行（quick-fix, implementation等）
+      * **single_phase** - 単一フェーズ実行
+      * **rollback** - フェーズ差し戻し実行
+      * **auto_issue** - AIによる自動Issue作成
+
+      ### パラメータ削減効果
+      実行モードごとの分割により、パラメータ数を24個 → 8〜15個に削減しました。
+
+      ### 主な機能
+      * **自動要件定義** - GitHub Issueから要件定義書を生成
+      * **自動設計** - 詳細設計書とアーキテクチャドキュメントを生成
+      * **自動テストシナリオ** - BDD形式のテストシナリオを生成
+      * **自動実装** - コードの自動生成と既存コードの拡張
+      * **自動テスト** - テストの実行と結果検証
+      * **自動ドキュメント** - README、APIドキュメントを生成
+
+      ### 必要な認証情報
+      * **claude-api-key**: Claude API キー（Jenkinsクレデンシャル）
+      * **github-token**: GitHub Token（Jenkinsクレデンシャル）
+
+  # Issue #470: AI Workflow用フォルダをリポジトリ非依存の汎用フォルダのみに変更
+  # 更新日: 2025-01-17
+  # URL: https://github.com/tielec/infrastructure-as-code/issues/470
+  #
+  # 構成:
+  # - Develop: 1フォルダ（最新機能のテスト用）
+  # - Stable: 9フォルダ（安定バージョン、並行実行可能）
+
+  # AI Workflow - Develop用フォルダ
+  - path: "AI_Workflow/develop"
+    displayName: "AI Workflow Executor - Develop"
+    description: |
+      developブランチ用のワークフロー実行環境
+
+      ### 用途
+      - ai-workflow-agentの**最新バージョン**（developブランチ）を使用
+      - 新機能のテスト、実験的な利用
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **develop**
+
+      ### 注意事項
+      - 開発中の機能のため、動作が不安定な場合があります
+      - 安定した動作が必要な場合はStableフォルダを使用してください
+
+  # AI Workflow - Stable用フォルダ（1〜9）
+  - path: "AI_Workflow/stable-1"
+    displayName: "AI Workflow Executor - Stable 1"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 1）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-2"
+    displayName: "AI Workflow Executor - Stable 2"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 2）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-3"
+    displayName: "AI Workflow Executor - Stable 3"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 3）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-4"
+    displayName: "AI Workflow Executor - Stable 4"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 4）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-5"
+    displayName: "AI Workflow Executor - Stable 5"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 5）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-6"
+    displayName: "AI Workflow Executor - Stable 6"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 6）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-7"
+    displayName: "AI Workflow Executor - Stable 7"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 7）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-8"
+    displayName: "AI Workflow Executor - Stable 8"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 8）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です
+
+  - path: "AI_Workflow/stable-9"
+    displayName: "AI Workflow Executor - Stable 9"
+    description: |
+      mainブランチ用のワークフロー実行環境（Stable 9）
+
+      ### 用途
+      - ai-workflow-agentの**安定バージョン**（mainブランチ）を使用
+      - 本番環境での利用、安定した動作が求められる場合
+
+      ### 対象ブランチ
+      - ai-workflow-agent: **main**
+
+      ### 並行利用について
+      - Stableフォルダは9つあり、複数のワークフローを同時実行可能です

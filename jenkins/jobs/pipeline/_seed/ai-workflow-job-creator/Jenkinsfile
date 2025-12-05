@@ -1,0 +1,141 @@
+pipeline {
+    agent {
+        label 'built-in'
+    }
+
+    environment {
+        JOB_CONFIG_PATH = 'jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml'
+        FOLDER_CONFIG_PATH = 'jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/folder-config.yaml'
+        FOLDERS_DSL_PATH = 'jenkins/jobs/dsl/folders.groovy'
+    }
+
+    stages {
+        stage('Validate Configuration') {
+            steps {
+                script {
+                    echo "=== Starting configuration validation ==="
+
+                    // 設定ファイルの存在チェック
+                    if (!fileExists(env.JOB_CONFIG_PATH)) {
+                        error("Job configuration file not found: ${env.JOB_CONFIG_PATH}")
+                    }
+                    echo "✓ Job configuration file found: ${env.JOB_CONFIG_PATH}"
+
+                    if (!fileExists(env.FOLDER_CONFIG_PATH)) {
+                        error("Folder configuration file not found: ${env.FOLDER_CONFIG_PATH}")
+                    }
+                    echo "✓ Folder configuration file found: ${env.FOLDER_CONFIG_PATH}"
+
+                    if (!fileExists(env.FOLDERS_DSL_PATH)) {
+                        error("Folders DSL file not found: ${env.FOLDERS_DSL_PATH}")
+                    }
+                    echo "✓ Folders DSL file found: ${env.FOLDERS_DSL_PATH}"
+
+                    // ジョブ設定の検証（AI Workflow関連のみ）
+                    def jobConfig = readYaml file: env.JOB_CONFIG_PATH
+                    def aiWorkflowJobs = jobConfig['jenkins-jobs'].findAll { jobKey, jobDef ->
+                        jobKey.startsWith('ai_workflow_')
+                    }
+
+                    echo "\n=== Validating ${aiWorkflowJobs.size()} AI Workflow job configurations ==="
+
+                    def validationErrors = []
+                    aiWorkflowJobs.each { jobKey, jobDef ->
+                        // dslfileの存在チェック
+                        if (jobDef.dslfile && !fileExists(jobDef.dslfile)) {
+                            validationErrors.add("Job '${jobKey}': DSL file not found - ${jobDef.dslfile}")
+                        }
+
+                        // jenkinsfileの存在チェック（skipJenkinsfileValidation: true の場合はスキップ）
+                        if (jobDef.jenkinsfile && !jobDef.skipJenkinsfileValidation && !fileExists(jobDef.jenkinsfile)) {
+                            validationErrors.add("Job '${jobKey}': Jenkinsfile not found - ${jobDef.jenkinsfile}")
+                        }
+                    }
+
+                    if (validationErrors.size() > 0) {
+                        echo "\n=== Validation Errors ==="
+                        validationErrors.each { error ->
+                            echo "  ✗ ${error}"
+                        }
+                        error("Configuration validation failed with ${validationErrors.size()} errors")
+                    }
+
+                    echo "\n✅ All validations passed successfully!"
+                }
+            }
+        }
+
+        stage('Create Folder Structure and Jobs') {
+            steps {
+                script {
+                    // 設定ファイルを読み込む
+                    def jobConfig = readYaml file: env.JOB_CONFIG_PATH
+                    def folderConfig = readYaml file: env.FOLDER_CONFIG_PATH
+
+                    // AI Workflow関連ジョブのみを抽出
+                    def aiWorkflowJobs = jobConfig['jenkins-jobs'].findAll { jobKey, jobDef ->
+                        jobKey.startsWith('ai_workflow_')
+                    }
+
+                    def dslFiles = []
+
+                    // folders.groovyを最初に実行（フォルダ構造を作成）
+                    dslFiles.add(env.FOLDERS_DSL_PATH)
+
+                    // AI Workflow関連ジョブのDSLファイルを追加
+                    aiWorkflowJobs.each { jobKey, jobDef ->
+                        if (jobDef.dslfile) {
+                            dslFiles.add(jobDef.dslfile)
+                        }
+                    }
+
+                    echo "=== Job DSL Execution Plan ==="
+                    echo "Total DSL files: ${dslFiles.size()}"
+                    echo "AI Workflow jobs to create: ${aiWorkflowJobs.size()}"
+                    echo "AI Workflow folders: ${folderConfig.folders?.findAll { it.path.startsWith('AI_Workflow') }?.size() ?: 0}"
+
+                    // 追加のパラメータを準備
+                    def additionalParams = [
+                        // ジョブ設定（AI Workflow関連のみ）
+                        jenkinsJobsConfig: aiWorkflowJobs,
+                        // フォルダ設定（全体）
+                        jenkinsFoldersConfig: folderConfig
+                    ]
+
+                    // 共通設定が存在する場合は追加
+                    if (jobConfig['common-settings']) {
+                        additionalParams['commonSettings'] = jobConfig['common-settings']
+                    }
+
+                    echo "\n=== Executing Job DSL ==="
+                    echo "⚠️ Note: Jobs, views, and config files no longer defined in DSL will be automatically deleted."
+
+                    // Job DSLを実行
+                    jobDsl(
+                        targets: dslFiles.join('\n'),
+                        lookupStrategy: 'SEED_JOB',
+                        additionalParameters: additionalParams,
+                        removedJobAction: 'DELETE',
+                        removedViewAction: 'DELETE',
+                        removedConfigFilesAction: 'DELETE'
+                    )
+
+                    echo "\n✅ Job DSL execution completed!"
+                    echo "Note: AI Workflow items no longer defined in DSL have been automatically removed."
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "✅ AI Workflow seed job completed successfully!"
+        }
+        failure {
+            echo "❌ AI Workflow seed job failed. Please check the logs for details."
+        }
+    }
+}
