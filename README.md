@@ -1088,6 +1088,71 @@ Docker環境では、エージェントが必要に応じて多言語環境（Py
 
 エージェントは、プロンプトに注入される環境情報セクションを参照し、必要な言語環境を自動的にインストールします。Docker外部（ローカル開発環境）では、セキュリティ上の理由からデフォルトで無効化されています。
 
+## Jenkins での利用
+
+### 実行モード別Jenkinsfile（v0.4.0、Issue #211で追加）
+
+Jenkinsfileは実行モード別に分割され、保守性と可読性が大幅に向上しました。各実行モードに最適化されたパラメータ定義と処理フローを持ちます。
+
+**実行モード専用Jenkinsfile**:
+- `jenkins/Jenkinsfile.all-phases` … 全フェーズ実行（Phase 0-9）
+- `jenkins/Jenkinsfile.preset` … プリセットワークフロー実行
+  - 7種類のプリセット: `review-requirements`, `review-design`, `review-test-scenario`, `quick-fix`, `implementation`, `testing`, `finalize`
+- `jenkins/Jenkinsfile.single-phase` … 単一フェーズ実行
+  - 10種類のフェーズ: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
+- `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
+- `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+
+**共通処理モジュール**:
+- `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブの共通処理を提供
+
+各Jenkinsfileは `load 'jenkins/shared/common.groovy'` で共通処理を再利用し、重複コードを約90%削減しました。
+
+**非推奨ファイル**:
+- `Jenkinsfile`（ルートディレクトリ） … 非推奨（削除予定: 2025年3月以降、並行運用期間終了後）
+
+### パラメータ設定例
+
+各実行モードに応じて、Jenkins Job DSL でパラメータを設定します：
+
+```groovy
+// All Phases モード
+ISSUE_URL: "https://github.com/owner/repo/issues/123"
+AGENT_MODE: "auto"  // auto | codex | claude
+FORCE_RESET: false
+CLEANUP_ON_COMPLETE_FORCE: false
+SQUASH_ON_COMPLETE: false
+
+// Preset モード
+ISSUE_URL: "https://github.com/owner/repo/issues/123"
+PRESET: "quick-fix"  // 7種類のプリセットから選択
+AGENT_MODE: "auto"
+
+// Single Phase モード
+ISSUE_URL: "https://github.com/owner/repo/issues/123"
+START_PHASE: "implementation"  // 10種類のフェーズから選択
+AGENT_MODE: "auto"
+
+// Rollback モード
+ISSUE_URL: "https://github.com/owner/repo/issues/123"
+ROLLBACK_TO_PHASE: "implementation"
+ROLLBACK_TO_STEP: "revise"  // execute | review | revise
+ROLLBACK_REASON: "Testing Phaseで失敗。モック実装が不完全"
+
+// Auto Issue モード
+GITHUB_REPOSITORY: "owner/repo"
+AUTO_ISSUE_CATEGORY: "bug"  // bug | refactor | enhancement | all
+AUTO_ISSUE_LIMIT: 5
+AUTO_ISSUE_SIMILARITY_THRESHOLD: 0.75
+DRY_RUN: false
+```
+
+**認証情報の管理**:
+- **Job DSLパラメータ経由**: `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）
+- **Jenkins Credentials経由**: `claude-code-oauth-token`
+
+詳細な設定方法とJob DSL定義については、[ARCHITECTURE.md](ARCHITECTURE.md) の「Jenkins での利用」セクションを参照してください。
+
 ## 開発フロー
 
 ```bash
