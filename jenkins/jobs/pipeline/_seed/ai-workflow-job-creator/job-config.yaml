@@ -47,3 +47,10 @@ jenkins-jobs:
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_auto_issue_job.groovy
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
+
+  ai_workflow_finalize_job:
+    name: 'finalize'
+    displayName: 'AI Workflow - Finalize'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy
+    jenkinsfile: Jenkinsfile
+    skipJenkinsfileValidation: true

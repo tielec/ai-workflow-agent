@@ -1,0 +1,307 @@
+## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+# 要件定義フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細な要件定義書を作成してください。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-259/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### GitHub Issue情報
+
+## Issue概要
+
+- **Issue番号**: #259
+- **タイトル**: feat(jenkins): Add cleanup/finalize pipeline for workflow completion
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/259
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+
+AI Workflow の最終処理を行うための Jenkins パイプラインと Job DSL を追加する。
+
+このパイプラインは将来的にワークフロー完了時の全ての後処理をまとめるものとして拡張予定。
+
+## 背景
+
+現在、ワークフロー完了後の後処理（クリーンアップ、コミットスカッシュ、PR更新など）は個別に実行する必要がある。これらを統合したパイプラインを作成することで、ワークフロー完了時の作業を自動化・簡素化できる。
+
+## 実装内容
+
+### Phase 1（今回実装）
+
+**1. Jenkinsfile の作成**
+- `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile`
+- 以下の4ステージ構成で作成:
+  1. **Cleanup Stage** - `node dist/index.js cleanup` を実行（実装する）
+  2. **Squash Commits Stage** - コミット履歴のスカッシュ（TODO コメントのみ）
+  3. **Update PR Stage** - PRの最終更新（TODO コメントのみ）
+  4. **Promote PR Stage** - ドラフトからReady for Review状態へ変更（TODO コメントのみ）
+
+**2. Job DSL の作成**
+- `jenkins/jobs/dsl/ai-workflow-finalize.groovy`
+- パラメータ:
+  - `GITHUB_REPOSITORY`: owner/repo形式（必須）
+  - `ISSUE_NUMBER`: Issue番号（必須）
+  - `CLEANUP_PHASES`: クリーンアップ対象フェーズ範囲（オプション、デフォルト: 0-8）
+  - `DRY_RUN`: ドライランモード（デフォルト: false）
+  - その他認証情報パラメータ
+
+**3. シードジョブ対応**
+- `jenkins/jobs/dsl/seed-job.groovy` への追加
+- 既存のシードジョブから `ai-workflow-finalize.groovy` を呼び出せるようにする
+
+### Phase 2（将来拡張）
+
+以下は今回TODOコメントとして枠組みだけ作成し、将来実装予定：
+
+1. **Squash Commits Stage**
+   - Issue #194 で実装された squash 機能を呼び出し
+   - `base_commit` から `HEAD` までのコミットをスカッシュ
+   - Conventional Commits 形式のメッセージを生成
+
+2. **Update PR Stage**
+   - PR本文の最終更新
+   - 完了ステータスの記載
+   - 変更サマリーの更新
+
+3. **Promote PR Stage**
+   - `gh pr ready` コマンドでドラフト状態を解除
+   - 必要に応じてレビュアーをアサイン
+
+## Jenkinsfile 構造（案）
+
+```groovy
+pipeline {
+    agent { ... }
+
+    stages {
+        stage('Load Common Library') { ... }
+        
+        stage('Prepare Agent Credentials') { ... }
+        
+        stage('Validate Parameters') { ... }
+        
+        stage('Setup Environment') { ... }
+        
+        stage('Cleanup Workflow') {
+            steps {
+                script {
+                    // 実装: node dist/index.js cleanup --issue ${ISSUE_NUMBER} --phases ${CLEANUP_PHASES}
+                }
+            }
+        }
+        
+        stage('Squash Commits') {
+            steps {
+                script {
+                    // TODO: Issue #194 の squash 機能を呼び出し
+                    // node dist/index.js squash --issue ${ISSUE_NUMBER}
+                    echo "Squash Commits: Not implemented yet (future expansion)"
+                }
+            }
+        }
+        
+        stage('Update PR') {
+            steps {
+                script {
+                    // TODO: PR本文の最終更新
+                    // gh pr edit でPR本文を更新
+                    echo "Update PR: Not implemented yet (future expansion)"
+                }
+            }
+        }
+        
+        stage('Promote PR') {
+            steps {
+                script {
+                    // TODO: ドラフト状態を解除
+                    // gh pr ready ${PR_NUMBER}
+                    echo "Promote PR: Not implemented yet (future expansion)"
+                }
+            }
+        }
+    }
+}
+```
+
+## Job DSL 構造（案）
+
+```groovy
+pipelineJob('AI_Workflow/finalize') {
+    description('AI Workflow の最終処理パイプライン')
+    
+    parameters {
+        stringParam('GITHUB_REPOSITORY', 'tielec/ai-workflow-agent', 'GitHub リポジトリ (owner/repo形式)')
+        stringParam('ISSUE_NUMBER', '', 'Issue番号')
+        stringParam('CLEANUP_PHASES', '0-8', 'クリーンアップ対象フェーズ範囲')
+        booleanParam('DRY_RUN', false, 'ドライランモード')
+        // 認証情報パラメータ
+    }
+    
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/tielec/ai-workflow-agent.git')
+                        credentials('github-token')
+                    }
+                    branches('*/develop')
+                }
+            }
+            scriptPath('jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile')
+        }
+    }
+}
+```
+
+## ファイル構成
+
+```
+jenkins/
+├── jobs/
+│   ├── dsl/
+│   │   ├── ai-workflow-finalize.groovy  # 新規作成
+│   │   └── seed-job.groovy              # 更新（finalize.groovy を追加）
+│   └── pipeline/
+│       └── ai-workflow/
+│           └── finalize/
+│               └── Jenkinsfile          # 新規作成
+└── shared/
+    └── common.groovy                    # 既存（共通処理）
+```
+
+## 受け入れ基準
+
+- [ ] `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` が作成されている
+- [ ] `jenkins/jobs/dsl/ai-workflow-finalize.groovy` が作成されている
+- [ ] シードジョブから finalize ジョブが作成できる
+- [ ] Cleanup Stage が正常に動作する（`cleanup` コマンド実行）
+- [ ] Squash/Update PR/Promote PR ステージはTODOコメント付きで枠組みのみ実装
+- [ ] 既存の common.groovy を活用している
+- [ ] パラメータバリデーションが実装されている
+
+## 関連Issue
+
+- Issue #194: コミットスカッシュ機能（将来の Squash Stage で使用）
+- Issue #212: cleanup コマンド（Cleanup Stage で使用）
+
+## ラベル
+
+- `enhancement`
+- `jenkins`
+- `pipeline`
+
+## 要件定義書の構成
+
+以下のセクションを含む要件定義書を作成してください：
+
+### 0. Planning Documentの確認（Planning Phaseが実行されている場合）
+- 開発計画の全体像を把握
+- スコープ、技術選定、リスク、スケジュールを確認
+- Planning Documentで策定された戦略を踏まえて要件定義を実施
+
+### 1. 概要
+- Issue本文の「## 概要」セクションを要約
+- 背景と目的を明確に記述
+- ビジネス価値・技術的価値を説明
+
+### 2. 機能要件
+- Issue本文の「## TODO」セクションから機能要件を抽出
+- 各要件を明確かつ検証可能な形で記述
+- 優先度（高/中/低）を付与
+
+### 3. 非機能要件
+- パフォーマンス要件
+- セキュリティ要件
+- 可用性・信頼性要件
+- 保守性・拡張性要件
+
+### 4. 制約事項
+- 技術的制約（使用技術、既存システムとの整合性）
+- リソース制約（時間、人員、予算）
+- ポリシー制約（セキュリティポリシー、コーディング規約）
+
+### 5. 前提条件
+- システム環境
+- 依存コンポーネント
+- 外部システム連携
+
+### 6. 受け入れ基準
+- 各機能要件の受け入れ基準（Given-When-Then形式推奨）
+- テスト可能な形で記述
+
+### 7. スコープ外
+- 明確にスコープ外とする事項
+- 将来的な拡張候補
+
+## 出力形式
+
+Markdown形式で要件定義書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-259/01_requirements/output/requirements.md
+```
+
+## 品質ゲート（Phase 1）
+
+作成する要件定義書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **機能要件が明確に記載されている**
+- [ ] **受け入れ基準が定義されている**
+- [ ] **スコープが明確である**
+- [ ] **論理的な矛盾がない**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な要件を記述
+   - NG例: "適切に処理する"、"必要に応じて対応"
+   - OK例: "3秒以内にレスポンスを返す"、"エラー発生時は管理者に通知"
+
+2. **整合性**: 各セクション間で矛盾がないか確認
+   - 機能要件と受け入れ基準が対応しているか
+   - 非機能要件と制約事項が矛盾していないか
+
+3. **完全性**: Issue本文の情報を漏れなく反映
+   - TODOセクションの項目をすべて機能要件に反映
+   - 概要セクションの背景・目的を明確に記述
+
+4. **検証可能性**: 各要件が検証可能（テスト可能）な形で記述
+   - 受け入れ基準は Given-When-Then 形式で記述
+   - 成功条件・失敗条件が明確に識別可能
+
+5. **レビューされることを意識**: 作成した要件定義書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント

@@ -22,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Note: Prompt path resolution issue was already fixed by Issue #216 (ESM compatibility)
 
 ### Added
+- **Issue #259**: Jenkins finalize pipeline for workflow completion (v0.4.0)
+  - New `finalize` execution mode for Jenkins with 10-stage pipeline structure
+  - Phase 1 implementation: Cleanup Workflow stage fully functional (dry-run and normal modes)
+  - Phase 2 placeholders: Squash Commits, Update PR, Promote PR stages (TODO)
+  - New Jenkinsfile: `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` with 10 stages
+  - New Job DSL: `jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy` with 20 parameters
+  - Generic folder support: develop + stable-1 through stable-9 (10 folders total)
+  - Cleanup Workflow features: phase range cleanup, complete cleanup, dry-run preview
+  - Integration with common.groovy shared module (4 common functions)
+  - Parameter validation: ISSUE_URL format, CLEANUP_PHASES/CLEANUP_ALL conflict detection
+  - Test coverage: 4 main scenarios passed (job creation, parameter validation, cleanup workflow, end-to-end)
 - **Issue #212**: Manual cleanup command for workflow logs (v0.4.0)
   - New `cleanup` CLI command with 4 options (--issue, --dry-run, --phases, --all)
   - Three cleanup modes: normal (Phase 0-8), partial (specific phases), complete (Phase 0-9 after Evaluation)

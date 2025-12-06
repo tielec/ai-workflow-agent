@@ -504,6 +504,7 @@ Jenkinsfileは実行モード別に分割され、保守性と可読性が大幅
 - `jenkins/Jenkinsfile.single-phase` … 単一フェーズ実行（Phase 0-9の任意のフェーズ）
 - `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
 - `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+- `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` … ワークフロー完了後の最終処理実行（v0.4.0、Issue #259）
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
