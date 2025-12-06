@@ -24,7 +24,9 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── rollback/
 │   │       │   └── Jenkinsfile
-│   │       └── auto-issue/
+│   │       ├── auto-issue/
+│   │       │   └── Jenkinsfile
+│   │       └── finalize/
 │   │           └── Jenkinsfile
 │   └── dsl/
 │       ├── folders.groovy               # フォルダ作成DSL
@@ -34,6 +36,7 @@ jenkins/
 │           ├── ai_workflow_single_phase_job.groovy
 │           ├── ai_workflow_rollback_job.groovy
 │           ├── ai_workflow_auto_issue_job.groovy
+│           ├── ai_workflow_finalize_job.groovy
 │           └── TEST_PLAN.md
 └── shared/
     └── common.groovy                    # 共通処理モジュール
@@ -50,6 +53,7 @@ jenkins/
 | **single_phase** | 単一フェーズ実行（デバッグ用） | 19 |
 | **rollback** | フェーズ差し戻し実行 | 18 |
 | **auto_issue** | 自動Issue作成 | 14 |
+| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 20 |
 
 ### フォルダ構成
 
@@ -62,7 +66,8 @@ AI_Workflow/
 │   ├── preset
 │   ├── single_phase
 │   ├── rollback
-│   └── auto_issue
+│   ├── auto_issue
+│   └── finalize
 ├── stable-1/          # mainブランチ用（安定バージョン）
 │   └── ...
 ├── stable-2/
@@ -91,7 +96,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（5種類 × 10フォルダ = 50ジョブ）
+- 各実行モード用のジョブ（6種類 × 10フォルダ = 60ジョブ）
 
 ## 詳細ドキュメント
 
