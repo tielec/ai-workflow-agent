@@ -426,7 +426,7 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **`src/core/github/review-client.ts`**: レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。
 - **`src/core/phase-dependencies.ts`**: 依存関係検証、プリセット定義（約249行、Issue #26で27.2%削減）
 - **`src/core/helpers/dependency-messages.ts`**: 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）
-- **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）
+- **`src/core/content-parser.ts`**: レビュー結果の解釈（OpenAI API を使用）。Issue #243でレビュー結果パースロジックを改善：JSON抽出前処理（`extractJsonFromResponse()`）とマーカーパターン優先判定（`inferDecisionFromText()`）により、LLMレスポンスの多様な形式に対応し、誤検出（「PASS判定が可能になります」→PASS）を防止
 - **`src/utils/logger.ts`**: 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御、カラーリング、タイムスタンプ、環境変数制御を提供
 - **`src/utils/error-utils.ts`**: エラーハンドリングユーティリティ（約190行、Issue #48で追加）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）
 

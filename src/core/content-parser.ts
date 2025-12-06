@@ -428,7 +428,15 @@ export class ContentParser {
 
     try {
       const content = await this.callLlm(prompt, 256);
-      const parsed = JSON.parse(content) as { result?: string };
+
+      // Step 1: JSON抽出前処理（NEW）
+      const jsonString = this.extractJsonFromResponse(content);
+      if (!jsonString) {
+        throw new Error('No JSON found in response');
+      }
+
+      // Step 2: JSON.parse()
+      const parsed = JSON.parse(jsonString) as { result?: string };
       const result = (parsed.result ?? 'FAIL').toUpperCase();
 
       return {
@@ -440,13 +448,8 @@ export class ContentParser {
       const message = getErrorMessage(error);
       logger.warn(`Failed to parse review result via LLM: ${message}`);
 
-      const upper = fullText.toUpperCase();
-      let inferred = 'FAIL';
-      if (upper.includes('PASS_WITH_SUGGESTIONS')) {
-        inferred = 'PASS_WITH_SUGGESTIONS';
-      } else if (upper.includes('PASS')) {
-        inferred = 'PASS';
-      }
+      // Step 3: フォールバック判定（改善）
+      const inferred = this.inferDecisionFromText(fullText);
 
       return {
         result: inferred,
@@ -454,6 +457,69 @@ export class ContentParser {
         suggestions: [],
       };
     }
+  }
+
+  /**
+   * LLMレスポンスからJSON部分のみを抽出
+   *
+   * @param content - LLMレスポンス全文
+   * @returns JSON文字列（抽出成功時）、null（抽出失敗時）
+   *
+   * @example
+   * // Input: '{"result": "FAIL"} \n理由: タスク分割が不十分...'
+   * // Output: '{"result": "FAIL"}'
+   */
+  private extractJsonFromResponse(content: string): string | null {
+    // 正規表現: 最初の { から最後の } までを抽出（非貪欲マッチ）
+    const jsonMatch = content.match(/\{[\s\S]*?\}/);
+
+    if (!jsonMatch) {
+      logger.debug('No JSON pattern found in response');
+      return null;
+    }
+
+    const jsonString = jsonMatch[0].trim();
+    logger.debug(`Extracted JSON: ${jsonString}`);
+
+    return jsonString;
+  }
+
+  /**
+   * マーカーパターンによるフォールバック判定
+   *
+   * @param text - LLMレスポンス全文
+   * @returns 判定結果（'PASS' | 'FAIL' | 'PASS_WITH_SUGGESTIONS'）
+   *
+   * @example
+   * // Input: '最終判定: FAIL\n理由: タスク分割が不十分...'
+   * // Output: 'FAIL'
+   *
+   * // Input: '再度レビューを実施し、PASS判定が可能になります'
+   * // Output: 'FAIL' (デフォルト)
+   */
+  private inferDecisionFromText(text: string): string {
+    // マーカーパターン（優先順位付き）
+    const patterns = [
+      /最終判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+      /判定結果[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+      /判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+      /\*\*結果[:：]?\*\*\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+      /DECISION[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+    ];
+
+    // パターンを順番にマッチング（最初にマッチしたものを返す）
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const decision = match[1].toUpperCase();
+        logger.info(`Fallback decision inferred: ${decision} (pattern: ${pattern.source})`);
+        return decision;
+      }
+    }
+
+    // いずれもマッチしない場合はデフォルトでFAIL（安全側に倒す）
+    logger.info('No marker pattern matched. Defaulting to FAIL.');
+    return 'FAIL';
   }
 
   private normalizeEscapedText(text: string): string {

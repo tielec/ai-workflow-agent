@@ -85,6 +85,7 @@ export class PhaseRunner {
    */
   async run(options: PhaseRunOptions = {}): Promise<boolean> {
     const gitManager = options.gitManager ?? null;
+    let executionSuccess = false;
 
     // 依存関係検証
     const dependencyResult = this.validateDependencies();
@@ -93,7 +94,7 @@ export class PhaseRunner {
         dependencyResult.error ??
         'Dependency validation failed. Use --skip-dependency-check to bypass.';
       logger.error(`${error}`);
-      await this.handleFailure(error);
+      await this.handlePhaseError(error);
       return false;
     }
 
@@ -122,7 +123,7 @@ export class PhaseRunner {
         logger.info(`Phase ${this.phaseName}: executing 'execute' step`);
         const executeResult = await this.stepExecutor.executeStep(gitManager);
         if (!executeResult.success) {
-          await this.handleFailure(executeResult.error ?? 'Unknown execute error');
+          await this.handlePhaseError(executeResult.error ?? 'Unknown execute error');
           return false;
         }
       } else {
@@ -138,7 +139,7 @@ export class PhaseRunner {
             // Revise Step（if review failed）
             if (!this.reviseFn) {
               logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
-              await this.handleFailure('revise() method not implemented');
+              await this.handlePhaseError('revise() method not implemented');
               return false;
             }
 
@@ -157,7 +158,7 @@ export class PhaseRunner {
           if (currentStep === 'revise') {
             if (!this.reviseFn) {
               logger.error(`Phase ${this.phaseName}: revise() method not implemented.`);
-              await this.handleFailure('revise() method not implemented');
+              await this.handlePhaseError('revise() method not implemented');
               return false;
             }
 
@@ -175,14 +176,18 @@ export class PhaseRunner {
       }
 
       // フェーズ完了
-      this.updatePhaseStatus('completed');
-      await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
+      executionSuccess = true;
+      await this.finalizePhase();
 
       return true;
     } catch (error) {
       const message = getErrorMessage(error);
-      await this.handleFailure(message);
+      logger.error(`Phase ${this.phaseName}: Execution failed: ${message}`);
+      await this.handlePhaseError(message);
       return false;
+    } finally {
+      // Issue #248: finally ブロックでステータス更新を保証
+      await this.ensurePhaseStatusUpdated(executionSuccess);
     }
   }
 
@@ -208,21 +213,99 @@ export class PhaseRunner {
   }
 
   /**
-   * フェーズ失敗時の処理
+   * Issue #248: フェーズ完了処理
    *
-   * @param reason - 失敗理由
+   * フェーズが正常に完了した場合、ステータスを 'completed' に更新し、
+   * 進捗状況を GitHub Issue に投稿する。
+   *
+   * @private
    *
    * @example
    * ```typescript
-   * await phaseRunner.handleFailure('Execute step failed: some error');
+   * await phaseRunner.finalizePhase();
    * ```
    */
-  private async handleFailure(reason: string): Promise<void> {
-    this.updatePhaseStatus('failed');
-    await this.postProgress(
-      'failed',
-      `${this.phaseName} フェーズでエラーが発生しました: ${reason}`
-    );
+  private async finalizePhase(): Promise<void> {
+    try {
+      this.updatePhaseStatus('completed');
+      logger.info(`Phase ${this.phaseName}: Status updated to 'completed'`);
+
+      await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Phase ${this.phaseName}: Failed to finalize phase: ${message}`);
+      // finalizePhase() 自体の例外は握りつぶす（ステータス更新は成功しているはず）
+    }
+  }
+
+  /**
+   * Issue #248: フェーズステータス更新の確実性を保証
+   *
+   * finally ブロックで呼び出され、ステータスが in_progress のままでないかチェックする。
+   * ステータス更新漏れを検出した場合は ERROR ログを出力する。
+   *
+   * @param executionSuccess - 実行が成功したかどうか
+   * @private
+   *
+   * @example
+   * ```typescript
+   * await phaseRunner.ensurePhaseStatusUpdated(true);
+   * ```
+   */
+  private async ensurePhaseStatusUpdated(executionSuccess: boolean): Promise<void> {
+    try {
+      const currentStatus = this.metadata.getPhaseStatus(this.phaseName);
+
+      if (currentStatus === 'in_progress') {
+        logger.error(
+          `Phase ${this.phaseName}: Status is still 'in_progress' after execution. ` +
+          `Expected: ${executionSuccess ? 'completed' : 'failed'}`
+        );
+
+        // ステータス更新漏れを自動修正
+        if (executionSuccess) {
+          this.updatePhaseStatus('completed');
+          logger.warn(`Phase ${this.phaseName}: Auto-corrected status to 'completed'`);
+        } else {
+          this.updatePhaseStatus('failed');
+          logger.warn(`Phase ${this.phaseName}: Auto-corrected status to 'failed'`);
+        }
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Phase ${this.phaseName}: Failed to ensure status updated: ${message}`);
+      // finally ブロック内の例外は握りつぶす
+    }
+  }
+
+  /**
+   * Issue #248: フェーズエラー処理
+   *
+   * フェーズ実行中にエラーが発生した場合、ステータスを 'failed' に更新し、
+   * 進捗状況を GitHub Issue に投稿する。
+   *
+   * @param reason - エラー理由
+   * @private
+   *
+   * @example
+   * ```typescript
+   * await phaseRunner.handlePhaseError('Execute step failed: some error');
+   * ```
+   */
+  private async handlePhaseError(reason: string): Promise<void> {
+    try {
+      this.updatePhaseStatus('failed');
+      logger.info(`Phase ${this.phaseName}: Status updated to 'failed'`);
+
+      await this.postProgress(
+        'failed',
+        `${this.phaseName} フェーズでエラーが発生しました: ${reason}`
+      );
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Phase ${this.phaseName}: Failed to handle phase error: ${message}`);
+      // handlePhaseError() 自体の例外は握りつぶす（ログのみ出力）
+    }
   }
 
   /**

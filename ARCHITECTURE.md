@@ -119,7 +119,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/helpers/log-formatter.ts` | エージェントログのフォーマット処理（181行、Issue #26で追加）。`formatCodexLog()`, `formatClaudeLog()`, `truncateInput()` を提供。 |
 | `src/core/helpers/env-setup.ts` | エージェント実行環境のセットアップ（47行、Issue #26で追加）。`setupCodexEnvironment()`, `setupGitHubEnvironment()` を提供。 |
 | `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
-| `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。 |
+| `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。Issue #243でパースロジックを改善：`extractJsonFromResponse()`（JSON抽出前処理）と`inferDecisionFromText()`（マーカーパターン優先判定）を追加し、LLMレスポンス形式の多様性に対応。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）** を担当。 |
@@ -177,6 +177,43 @@ src/types/commands.ts (コマンド関連の型定義)
    - **Git自動コミット** … revise完了後、変更をコミット＆プッシュ（v0.3.0で追加）
 5. **メタデータ更新** … フェーズ状態、出力ファイル、コスト、Git コミット情報などを更新。
 6. **進捗コメント** … `GitHubClient` を通じて Issue へ進捗コメントを投稿・更新。
+
+### フェーズステータス管理の改善（Issue #248）
+
+preset実行時にフェーズステータスが `in_progress` のまま完了しない問題を解決するため、以下の改善を実装しました：
+
+**MetadataManager の改善** (`src/core/metadata-manager.ts`):
+- **冪等性チェック**: 同じステータスへの重複更新をスキップし、不要なファイル書き込みを削減
+  ```typescript
+  if (currentStatus === status) {
+    logger.info(`Phase ${phaseName}: Status already set to '${status}', skipping update`);
+    return;
+  }
+  ```
+- **ステータス遷移バリデーション**: 不正なステータス遷移を検出して警告ログを出力
+  ```typescript
+  // 許可される遷移パターン
+  // pending → in_progress
+  // in_progress → completed | failed
+  // completed → (遷移不可)
+  // failed → (遷移不可)
+  ```
+
+**PhaseRunner の改善** (`src/phases/lifecycle/phase-runner.ts`):
+- **finalizePhase()**: フェーズ完了時にステータスを `completed` に確実に更新し、進捗を投稿
+- **ensurePhaseStatusUpdated()**: `finally` ブロックでステータス更新漏れを検出し、自動修正
+  - 実行成功時に `in_progress` のままの場合 → `completed` に自動修正
+  - 実行失敗時に `in_progress` のままの場合 → `failed` に自動修正
+- **handlePhaseError()**: エラー発生時にステータスを `failed` に更新し、進捗を投稿
+
+**ReviewCycleManager の改善** (`src/phases/core/review-cycle-manager.ts`):
+- **例外スロー前のステータス更新**: revise失敗時やリトライ超過時に、例外をスローする前にステータスを `failed` に確実に更新
+
+**実装効果**:
+- フェーズステータスの更新漏れを防止
+- finally ブロックによる確実なステータス更新保証
+- 不正なステータス遷移の検出と警告
+- 重複するステータス更新の最適化
 
 ### テンプレートメソッドパターン（Issue #47）
 
