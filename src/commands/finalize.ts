@@ -245,7 +245,8 @@ async function executeStep4And5(
   logger.info(`✅ PR #${prNumber} updated with final content.`);
 
   // Step 4b: マージ先ブランチ変更（--base-branch 指定時のみ）
-  if (options.baseBranch && options.baseBranch !== 'main') {
+  // デフォルトブランチが main とは限らないため、指定がある場合のみ変更
+  if (options.baseBranch) {
     const baseBranchResult = await prClient.updateBaseBranch(prNumber, options.baseBranch);
     if (!baseBranchResult.success) {
       throw new Error(`Failed to update base branch: ${baseBranchResult.error}`);
@@ -371,7 +372,7 @@ async function previewFinalize(
 
   if (!options.skipPrUpdate) {
     logger.info('  4. Update PR body with final content');
-    if (options.baseBranch && options.baseBranch !== 'main') {
+    if (options.baseBranch) {
       logger.info(`  5. Change PR base branch to '${options.baseBranch}'`);
     }
     logger.info('  6. Mark PR as ready for review (convert from draft)');
