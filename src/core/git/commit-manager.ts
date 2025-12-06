@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, isAbsolute, relative } from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -485,6 +485,7 @@ export class CommitManager {
 
   /**
    * Issue #90: ロールバック用のコミットを作成
+   * Issue #269: 絶対パスを相対パスに変換してからfilterExistingFilesを呼び出す
    */
   public async commitRollback(
     files: string[],
@@ -501,8 +502,19 @@ export class CommitManager {
       };
     }
 
+    // Issue #269: 絶対パスを相対パスに変換
+    // rollback.tsから渡されるパスは絶対パスだが、filterExistingFilesは相対パスを期待する
+    const relativeFiles = files.map(file => {
+      if (isAbsolute(file)) {
+        return relative(this.repoPath, file);
+      }
+      return file;
+    });
+
+    logger.debug(`Rollback files (converted to relative): ${relativeFiles.join(', ')}`);
+
     // Issue #234: Filter out non-existent files before git add
-    const existingFiles = this.filterExistingFiles(files);
+    const existingFiles = this.filterExistingFiles(relativeFiles);
 
     if (existingFiles.length === 0) {
       logger.warn('No existing files to commit for rollback.');
