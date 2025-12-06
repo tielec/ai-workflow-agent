@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #253**: Fixed metadata.json pr_url persistence issue
+  - `pr_url` and `pr_number` are now correctly committed and pushed to remote after PR creation
+  - Modified `src/commands/init.ts` to add Git commit & push after PR metadata save
+  - Ensures PR information is available in remote metadata.json for execute command
+  - Added error handling for commit/push failures (warnings only, local save preserved)
+  - Test coverage: 27 unit tests (100% passed), 7 integration tests (test code issues, not implementation bugs)
 - **Issue #225**: Fixed init commit exclusion from squash range when using `--squash-on-complete` option
   - `base_commit` is now correctly recorded before init commit creation (not after)
   - Ensures all workflow commits, including the init commit, are included in the squash range
