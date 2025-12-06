@@ -195,7 +195,8 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
     jest.clearAllMocks();
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
+    mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -268,7 +269,8 @@ describe('Finalize コマンド - エラーケース', () => {
     jest.clearAllMocks();
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
+    mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -314,7 +316,8 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(true);
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
+    mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
