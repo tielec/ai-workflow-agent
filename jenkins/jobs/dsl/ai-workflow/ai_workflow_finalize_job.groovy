@@ -1,9 +1,16 @@
 /**
  * AI Workflow Finalize Job DSL
  *
- * ワークフロー完了後の最終処理用ジョブ（cleanup、squash、PR更新等）
+ * ワークフロー完了後の最終処理用ジョブ（v0.5.0、Issue #261で実装完了）
+ * finalize コマンドを呼び出し、以下の処理を実行：
+ * 1. base_commit 取得
+ * 2. .ai-workflow ディレクトリ削除 + コミット
+ * 3. コミットスカッシュ（--skip-squash でスキップ可能）
+ * 4. PR 本文更新 + マージ先ブランチ変更（--skip-pr-update でスキップ可能）
+ * 5. PR ドラフト解除
+ *
  * EXECUTION_MODE: finalize（固定値、パラメータとして表示しない）
- * パラメータ数: 18個（12個 + APIキー6個）
+ * パラメータ数: 16個（10個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -29,23 +36,31 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |${descriptionHeader}
             |
             |## 概要
-            |ワークフロー完了後の最終処理（cleanup、squash、PR更新等）を実行します。
-            |Phase 1ではCleanup Workflowのみ実装。Phase 2で他のステージを拡張予定。
+            |ワークフロー完了後の最終処理を実行します。
+            |finalize コマンドが以下の5ステップを順次実行：
+            |
+            |1. **base_commit 取得**: metadata.json から開始時点のコミットを取得
+            |2. **クリーンアップ**: .ai-workflow ディレクトリを削除してコミット
+            |3. **スカッシュ**: base_commit から HEAD までのコミットをスカッシュ（--skip-squash でスキップ可）
+            |4. **PR 更新**: PR 本文を最終内容に更新、マージ先ブランチ変更（--skip-pr-update でスキップ可）
+            |5. **ドラフト解除**: PR をレビュー可能状態に変更
             |
             |## パラメータ
             |- ISSUE_URL（必須）: GitHub Issue URL
-            |- CLEANUP_PHASES: クリーンアップ対象フェーズ範囲（デフォルト: 0-8）
-            |- CLEANUP_ALL: 完全クリーンアップ（Phase 0-9すべて、Evaluation完了後のみ）
-            |- CLEANUP_DRY_RUN: クリーンアッププレビューモード（削除対象の表示のみ）
-            |- その他: 実行オプション、Git設定、AWS認証情報等
+            |- SKIP_SQUASH: コミットスカッシュをスキップ
+            |- SKIP_PR_UPDATE: PR更新・ドラフト解除をスキップ
+            |- BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
+            |- DRY_RUN: ドライランモード
+            |- その他: Git設定、AWS認証情報、APIキー等
             |
             |## 注意事項
-            |- EXECUTION_MODEは内部的に'finalize'に固定されます
-            |- Phase 1: Cleanup Workflowのみ実装
-            |- Phase 2: Squash Commits、Update PR、Promote PR（将来拡張予定）
+            |- Evaluation Phase（Phase 9）が完了している必要があります
+            |- base_commit が metadata.json に記録されている必要があります（init コマンド実行時に記録）
+            |- SKIP_SQUASH を true にすると、コミット履歴がそのまま残ります
+            |- SKIP_PR_UPDATE を true にすると、PR は更新されず、ドラフト状態のままです
             """.stripMargin())
 
-        // パラメータ定義（18個）
+        // パラメータ定義（16個）
         parameters {
             // ========================================
             // 実行モード（固定値）
@@ -77,30 +92,27 @@ GitHub Issue URL（必須）
             '''.stripIndent().trim())
 
             // ========================================
-            // Cleanup 設定
+            // Finalize 設定
             // ========================================
-            stringParam('CLEANUP_PHASES', '0-8', '''
-クリーンアップ対象フェーズ範囲
+            booleanParam('SKIP_SQUASH', false, '''
+コミットスカッシュをスキップ
 
-形式:
-- 数値範囲: 0-4、5-7
-- フェーズ名リスト（カンマ区切り）: planning,requirements,design
-
-デフォルト: 0-8（Phase 0-8のログをクリーンアップ）
+true の場合、コミット履歴がそのまま残ります
+デフォルト: false（スカッシュを実行）
             '''.stripIndent().trim())
 
-            booleanParam('CLEANUP_ALL', false, '''
-完全クリーンアップ（Phase 0-9すべてのログを削除）
+            booleanParam('SKIP_PR_UPDATE', false, '''
+PR更新・ドラフト解除をスキップ
 
-注意:
-- Evaluation Phase（Phase 9）が completed 状態の場合のみ実行可能
-- CLEANUP_PHASES と併用不可
+true の場合、PR本文の更新とドラフト解除を行いません
+デフォルト: false（PR更新を実行）
             '''.stripIndent().trim())
 
-            booleanParam('CLEANUP_DRY_RUN', false, '''
-クリーンアッププレビューモード
+            stringParam('BASE_BRANCH', '', '''
+PRのマージ先ブランチ（任意）
 
-true の場合、削除対象のみ表示し、実際には削除しない
+空欄の場合: 現在のマージ先ブランチを変更しません
+変更する場合: 「main」や「develop」を指定
             '''.stripIndent().trim())
 
             // ========================================
@@ -108,10 +120,6 @@ true の場合、削除対象のみ表示し、実際には削除しない
             // ========================================
             booleanParam('DRY_RUN', false, '''
 ドライランモード（API 呼び出しや Git 操作を行わず動作確認のみ実施）
-            '''.stripIndent().trim())
-
-            booleanParam('SKIP_REVIEW', false, '''
-AI レビューをスキップする（検証・デバッグ用）
             '''.stripIndent().trim())
 
             // ========================================
@@ -147,7 +155,7 @@ AWS セッショントークン（任意）
             // APIキー設定（6個）
             // ========================================
             nonStoredPasswordParam('GITHUB_TOKEN', '''
-GitHub Personal Access Token（任意）
+GitHub Personal Access Token（必須）
 GitHub API呼び出しに使用されます
             '''.stripIndent().trim())
 
@@ -202,7 +210,7 @@ Claude実行モードで使用されます
         // 環境変数（EXECUTION_MODEを固定値として設定）
         environmentVariables {
             env('EXECUTION_MODE', 'finalize')
-            env('WORKFLOW_VERSION', '0.2.0')
+            env('WORKFLOW_VERSION', '0.5.0')
         }
 
         // プロパティ
