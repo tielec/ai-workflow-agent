@@ -18,17 +18,18 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 0,
-    "total_output_tokens": 0,
-    "total_cost_usd": 0
+    "total_input_tokens": 29,
+    "total_output_tokens": 9545,
+    "total_cost_usd": 0.7279955499999999
   },
   "phases": {
     "planning": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-12-06T00:50:22.017Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "requirements": {
       "status": "pending",
@@ -100,7 +101,13 @@
     }
   },
   "created_at": "2025-12-06T00:50:16.299Z",
-  "updated_at": "2025-12-06T00:50:16.307Z",
+  "updated_at": "2025-12-06T00:53:19.807Z",
   "branch_name": "ai-workflow/issue-250",
-  "base_commit": "edd5e82277a6e5163813f192662e321cce7694d0"
+  "base_commit": "edd5e82277a6e5163813f192662e321cce7694d0",
+  "pr_number": 251,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/251",
+  "github_integration": {
+    "progress_comment_id": 3619082329,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/250#issuecomment-3619082329"
+  }
 }
