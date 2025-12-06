@@ -186,6 +186,62 @@ ai-workflow migrate --sanitize-tokens --issue 123
   ```
 - Issue メタデータは保持され、フェーズ状態のみ `pending` に戻ります。
 
+### フェーズステータスが `in_progress` のまま完了しない（Issue #248で改善）
+
+preset実行時にフェーズステータスが `in_progress` のまま `completed` にならない場合：
+
+**症状**:
+```
+# metadata.json を確認
+cat .ai-workflow/issue-*/metadata.json | jq '.phases.design.status'
+# 出力: "in_progress"  ← 本来は "completed" であるべき
+```
+
+**原因**:
+- フェーズ完了時のステータス更新漏れ
+- revise ステップ失敗時の例外処理でステータスが更新されていない
+- レビュー最大リトライ超過時にステータスが更新されていない
+
+**対処法（v0.5.0 以降、Issue #248で改善）**:
+
+v0.5.0 以降では、以下の改善により自動的にステータスが更新されます：
+
+1. **finalizePhase() による確実な更新**: フェーズ完了時にステータスを `completed` に更新
+2. **ensurePhaseStatusUpdated() による自動修正**: `finally` ブロックでステータス更新漏れを検出し自動修正
+3. **handlePhaseError() によるエラー時更新**: エラー発生時にステータスを `failed` に更新
+4. **revise失敗時の更新**: 例外スロー前にステータスを `failed` に更新
+
+**手動確認方法**:
+```bash
+# フェーズステータスを確認
+cat .ai-workflow/issue-*/metadata.json | jq '.phases | to_entries | map({phase: .key, status: .value.status})'
+
+# 不正なステータス遷移の警告ログを確認（completed → in_progress 等）
+grep -i "invalid status transition" .ai-workflow/issue-*/0*_*/execute/agent_log.md
+```
+
+**手動修正（緊急時のみ）**:
+```bash
+# ステータスを completed に変更
+jq '.phases.design.status = "completed"' \
+  .ai-workflow/issue-*/metadata.json > metadata_tmp.json && \
+  mv metadata_tmp.json .ai-workflow/issue-*/metadata.json
+
+# 変更をコミット
+git add .ai-workflow/issue-*/metadata.json
+git commit -m "[ai-workflow] Fix phase status manually"
+git push
+```
+
+**予防策**:
+- v0.5.0 以降を使用する（自動修正機能が含まれる）
+- finally ブロックによるステータス更新保証が動作する
+- 冪等性チェックにより重複更新を最適化
+
+**関連改善**:
+- **冪等性チェック**: 同じステータスへの重複更新をスキップ（不要なファイル書き込みを削減）
+- **ステータス遷移バリデーション**: 不正な遷移（completed → in_progress 等）を検出して警告ログを出力
+
 ## 5. Docker / Jenkins
 
 ### Codex ログが空になる
