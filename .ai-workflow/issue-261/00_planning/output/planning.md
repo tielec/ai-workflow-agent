@@ -110,14 +110,14 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: finalize コマンドの制御フロー設計 (1~1.5h)
+- [x] Task 2-1: finalize コマンドの制御フロー設計 (1~1.5h)
   - 5ステップの実行順序とエラーハンドリング設計
   - `--dry-run` モードの挙動設計（各ステップでプレビュー表示）
   - `--skip-squash`、`--skip-pr-update` オプションの条件分岐設計
-- [ ] Task 2-2: SquashManager の PhaseContext 依存解消設計 (0.5~1h)
+- [x] Task 2-2: SquashManager の PhaseContext 依存解消設計 (0.5~1h)
   - finalize 用のシンプルなコンテキスト（`FinalizeContext`）を定義
   - フォールバックメッセージ生成ロジックの設計
-- [ ] Task 2-3: PullRequestClient への新規メソッド追加設計 (0.5~1h)
+- [x] Task 2-3: PullRequestClient への新規メソッド追加設計 (0.5~1h)
   - `markPRReady()`: GraphQL mutation または `gh pr ready` コマンド実行
   - `updateBaseBranch()`: REST API の PATCH リクエスト
 
