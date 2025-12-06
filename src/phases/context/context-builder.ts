@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
+import { config } from '../../core/config.js';
 import { PhaseName } from '../../types.js';
 
 /**
@@ -156,6 +157,7 @@ export class ContextBuilder {
 
   /**
    * 各フェーズの出力ファイルパスを解決
+   * Issue #252: REPOS_ROOT が設定されている場合は動的にパスを解決
    *
    * @param targetPhase - ターゲットフェーズ名
    * @param fileName - ファイル名
@@ -173,12 +175,33 @@ export class ContextBuilder {
     fileName: string,
     issueNumberOverride?: string | number
   ): string | null {
-    const workflowRoot = path.resolve(this.metadata.workflowDir, '..');
     const issueIdentifier =
       issueNumberOverride !== undefined ? String(issueNumberOverride) : this.metadata.data.issue_number;
     const phaseNumber = this.getPhaseNumber(targetPhase);
+
+    // Issue #252: REPOS_ROOT が設定されている場合は、そちらを基準にパスを構築
+    // Jenkins環境ではWORKSPACEとREPOS_ROOTが分離されているため
+    const reposRoot = config.getReposRoot();
+    const repoName = this.metadata.data.target_repository?.repo;
+
+    let basePath: string;
+    if (reposRoot && repoName) {
+      // REPOS_ROOT が設定されている場合は、リポジトリパスを動的に構築
+      const reposRootPath = path.join(reposRoot, repoName);
+      if (fs.existsSync(reposRootPath)) {
+        basePath = path.join(reposRootPath, '.ai-workflow');
+        logger.debug(`Using REPOS_ROOT for phase output file: ${basePath}`);
+      } else {
+        // REPOS_ROOT パスが存在しない場合はフォールバック
+        basePath = path.resolve(this.metadata.workflowDir, '..');
+      }
+    } else {
+      // 従来の動作: metadata.workflowDir から親ディレクトリを取得
+      basePath = path.resolve(this.metadata.workflowDir, '..');
+    }
+
     const filePath = path.join(
-      workflowRoot,
+      basePath,
       `issue-${issueIdentifier}`,
       `${phaseNumber}_${targetPhase}`,
       'output',
