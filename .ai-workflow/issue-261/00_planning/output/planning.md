@@ -293,9 +293,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] README.md に `finalize` コマンドの説明が追加されている
-- [ ] CLAUDE.md に変更内容が記録されている
-- [ ] CLI オプションの説明が明確である
+- [x] README.md に `finalize` コマンドの説明が追加されている
+- [x] CLAUDE.md に変更内容が記録されている
+- [x] CLI オプションの説明が明確である
 
 ---
 
@@ -615,9 +615,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] README.md に `finalize` コマンドの説明が追加されている
-- [ ] CLAUDE.md に変更内容が記録されている
-- [ ] CLI オプションの説明が明確である
+- [x] README.md に `finalize` コマンドの説明が追加されている
+- [x] CLAUDE.md に変更内容が記録されている
+- [x] CLI オプションの説明が明確である
 
 ---
 
