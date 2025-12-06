@@ -532,3 +532,79 @@ describe('ReviewCycleManager - フィードバック伝達', () => {
     expect(reviseFn).toHaveBeenCalledWith('レビューで不合格となりました。');
   });
 });
+
+// =============================================================================
+// Issue #248: 例外スロー前のステータス更新
+// =============================================================================
+describe('ReviewCycleManager - Issue #248: ステータス更新の確実性', () => {
+  // モック MetadataManager を作成（updatePhaseStatus を追加）
+  function createMockMetadataManagerWithStatusUpdate(completedSteps: StepName[] = [], retryCount = 0): any {
+    const baseMock = createMockMetadataManager(completedSteps, retryCount);
+    return {
+      ...baseMock,
+      updatePhaseStatus: jest.fn<any>(),
+    };
+  }
+
+  test('Issue #248-1: revise失敗時、例外スロー前にステータスが failed に更新される', async () => {
+    // Given: revise が失敗する
+    const mockMetadata = createMockMetadataManagerWithStatusUpdate();
+    const manager = new ReviewCycleManager(mockMetadata, 'requirements');
+
+    const initialReviewResult: PhaseExecutionResult = { success: false, error: 'Issues found' };
+    const reviewFn = jest.fn<any>();
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: false, error: 'Revise failed' });
+    const postProgressFn = jest.fn<any>().mockResolvedValue(undefined);
+    const commitAndPushStepFn = jest.fn<any>().mockResolvedValue(undefined);
+
+    // When/Then: 例外がスローされる
+    await expect(
+      manager.performReviseStepWithRetry(
+        null,
+        initialReviewResult,
+        reviewFn,
+        reviseFn,
+        postProgressFn,
+        commitAndPushStepFn,
+      )
+    ).rejects.toThrow('Revise failed');
+
+    // Then: 例外スロー前にステータスが failed に更新される（Phase 4の実装）
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('requirements', 'failed');
+    expect(postProgressFn).toHaveBeenCalledWith(
+      'failed',
+      expect.stringContaining('修正処理')
+    );
+  });
+
+  test('Issue #248-2: 最大リトライ回数超過時、例外スロー前にステータスが failed に更新される', async () => {
+    // Given: すべてのreviewが失敗
+    const mockMetadata = createMockMetadataManagerWithStatusUpdate();
+    const manager = new ReviewCycleManager(mockMetadata, 'requirements');
+
+    const initialReviewResult: PhaseExecutionResult = { success: false, error: 'Issues found' };
+    const reviewFn = jest.fn<any>().mockResolvedValue({ success: false, error: 'Still issues' });
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+    const postProgressFn = jest.fn<any>().mockResolvedValue(undefined);
+    const commitAndPushStepFn = jest.fn<any>().mockResolvedValue(undefined);
+
+    // When/Then: 例外がスローされる
+    await expect(
+      manager.performReviseStepWithRetry(
+        null,
+        initialReviewResult,
+        reviewFn,
+        reviseFn,
+        postProgressFn,
+        commitAndPushStepFn,
+      )
+    ).rejects.toThrow('Review failed after 3 revise attempts');
+
+    // Then: 例外スロー前にステータスが failed に更新される（Phase 4の実装）
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('requirements', 'failed');
+    expect(postProgressFn).toHaveBeenCalledWith(
+      'failed',
+      expect.stringContaining('最大リトライ回数')
+    );
+  });
+});

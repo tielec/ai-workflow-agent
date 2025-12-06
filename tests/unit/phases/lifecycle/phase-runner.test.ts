@@ -486,3 +486,109 @@ describe('PhaseRunner - エラーハンドリング', () => {
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('planning', 'failed', {});
   });
 });
+
+// =============================================================================
+// Issue #248: preset実行時のフェーズステータス更新
+// =============================================================================
+describe('PhaseRunner - Issue #248: フェーズステータス更新の確実性', () => {
+  let testWorkflowDir: string;
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-248');
+    await fs.ensureDir(testWorkflowDir);
+    jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('Issue #248-1: finalizePhase() が正常に呼ばれ、ステータスが completed になる', async () => {
+    // Given: フェーズが正常に実行される
+    mockValidatePhaseDependencies.mockImplementation(() => ({
+      valid: true,
+      violations: [],
+      warnings: []
+    }));
+
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const reviseFn = jest.fn<any>();
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      true, // skipDependencyCheck
+      false,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false });
+
+    // Then: ステータスが completed に更新される
+    expect(result).toBe(true);
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'completed', {});
+    expect(mockGitHub.createOrUpdateProgressComment).toHaveBeenCalled();
+  });
+
+  test('Issue #248-2: handleFailure() が正常に呼ばれ、ステータスが failed になる', async () => {
+    // Given: execute ステップが失敗する
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor(
+      { success: false, error: 'Execute failed' }
+    );
+    const reviseFn = jest.fn<any>();
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      true, // skipDependencyCheck
+      false,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false });
+
+    // Then: ステータスが failed に更新される
+    expect(result).toBe(false);
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'failed', {});
+    expect(mockGitHub.createOrUpdateProgressComment).toHaveBeenCalled();
+  });
+
+  test('Issue #248-3: 進捗投稿失敗時もステータス更新は成功する', async () => {
+    // Given: 進捗投稿が失敗する
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    mockGitHub.createOrUpdateProgressComment.mockRejectedValue(new Error('Network error'));
+    const mockStepExecutor = createMockStepExecutor();
+    const reviseFn = jest.fn<any>();
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      true, // skipDependencyCheck
+      false,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false });
+
+    // Then: 進捗投稿は失敗するが、ステータス更新は成功する
+    expect(result).toBe(true);
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'completed', {});
+  });
+});

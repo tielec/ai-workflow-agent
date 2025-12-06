@@ -55,10 +55,22 @@ export class MetadataManager {
       reviewResult?: string;
     } = {},
   ): void {
+    const phaseData = this.state.data.phases[phaseName];
+    const currentStatus = phaseData.status;
+
+    // Issue #248: 冪等性チェック（同じステータスへの重複更新をスキップ）
+    if (currentStatus === status) {
+      logger.info(`Phase ${phaseName}: Status already set to '${status}', skipping update`);
+      return;
+    }
+
+    // Issue #248: ステータス遷移バリデーション（不正な遷移を検出）
+    this.validateStatusTransition(phaseName, currentStatus, status);
+
+    // 既存のステータス更新処理
     this.state.updatePhaseStatus(phaseName, status);
 
     if (options.outputFile) {
-      const phaseData = this.state.data.phases[phaseName];
       if (!phaseData.output_files) {
         phaseData.output_files = [];
       }
@@ -66,10 +78,56 @@ export class MetadataManager {
     }
 
     if (options.reviewResult) {
-      this.state.data.phases[phaseName].review_result = options.reviewResult;
+      phaseData.review_result = options.reviewResult;
     }
 
     this.state.save();
+
+    logger.debug(`Phase ${phaseName}: Status updated from '${currentStatus}' to '${status}'`);
+  }
+
+  /**
+   * Issue #248: ステータス遷移のバリデーション
+   *
+   * 不正なステータス遷移を検出してログ出力する。
+   * 不正な遷移でもステータス更新は実行される（エラーにはしない）。
+   *
+   * 許可される遷移:
+   * - pending → in_progress
+   * - in_progress → completed
+   * - in_progress → failed
+   *
+   * 不正な遷移の例:
+   * - completed → in_progress
+   * - failed → in_progress
+   * - pending → completed
+   *
+   * @param phaseName - フェーズ名
+   * @param fromStatus - 遷移元のステータス
+   * @param toStatus - 遷移先のステータス
+   * @private
+   */
+  private validateStatusTransition(
+    phaseName: PhaseName,
+    fromStatus: PhaseStatus,
+    toStatus: PhaseStatus
+  ): void {
+    // 許可される遷移パターン
+    const allowedTransitions: Record<PhaseStatus, PhaseStatus[]> = {
+      pending: ['in_progress'],
+      in_progress: ['completed', 'failed'],
+      completed: [],  // completed からの遷移は通常許可されない
+      failed: [],     // failed からの遷移は通常許可されない
+    };
+
+    const allowed = allowedTransitions[fromStatus];
+    if (!allowed || !allowed.includes(toStatus)) {
+      logger.warn(
+        `Phase ${phaseName}: Invalid status transition detected: ` +
+        `${fromStatus} -> ${toStatus}. ` +
+        `Allowed transitions from '${fromStatus}': [${(allowed ?? []).join(', ')}]`
+      );
+    }
   }
 
   public addCost(inputTokens: number, outputTokens: number, costUsd: number): void {

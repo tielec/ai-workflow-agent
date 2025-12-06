@@ -76,6 +76,12 @@ export class ReviewCycleManager {
       const reviseResult = await reviseFn(feedback);
       if (!reviseResult.success) {
         logger.error(`Phase ${this.phaseName}: Revise failed: ${reviseResult.error ?? 'Unknown error'}`);
+
+        // Issue #248: revise失敗時もステータスを更新してから例外をスロー
+        logger.error(`Phase ${this.phaseName}: Updating phase status to 'failed' before throwing exception`);
+        this.metadata.updatePhaseStatus(this.phaseName, 'failed');
+        await postProgressFn('failed', `修正処理（revise）でエラーが発生しました: ${reviseResult.error ?? 'Unknown error'}`);
+
         throw new Error(reviseResult.error ?? 'Revise failed');
       }
 
@@ -120,6 +126,12 @@ export class ReviewCycleManager {
 
     // Max retries reached
     logger.error(`Phase ${this.phaseName}: Max revise retries (${this.maxRetries}) reached`);
+
+    // Issue #248: 最大リトライ回数超過時もステータスを更新してから例外をスロー
+    logger.error(`Phase ${this.phaseName}: Updating phase status to 'failed' before throwing exception`);
+    this.metadata.updatePhaseStatus(this.phaseName, 'failed');
+    await postProgressFn('failed', `最大リトライ回数（${this.maxRetries}回）を超過しました。レビューが合格しませんでした。`);
+
     throw new Error(`Review failed after ${this.maxRetries} revise attempts`);
   }
 }

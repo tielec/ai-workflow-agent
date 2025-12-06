@@ -178,6 +178,43 @@ src/types/commands.ts (コマンド関連の型定義)
 5. **メタデータ更新** … フェーズ状態、出力ファイル、コスト、Git コミット情報などを更新。
 6. **進捗コメント** … `GitHubClient` を通じて Issue へ進捗コメントを投稿・更新。
 
+### フェーズステータス管理の改善（Issue #248）
+
+preset実行時にフェーズステータスが `in_progress` のまま完了しない問題を解決するため、以下の改善を実装しました：
+
+**MetadataManager の改善** (`src/core/metadata-manager.ts`):
+- **冪等性チェック**: 同じステータスへの重複更新をスキップし、不要なファイル書き込みを削減
+  ```typescript
+  if (currentStatus === status) {
+    logger.info(`Phase ${phaseName}: Status already set to '${status}', skipping update`);
+    return;
+  }
+  ```
+- **ステータス遷移バリデーション**: 不正なステータス遷移を検出して警告ログを出力
+  ```typescript
+  // 許可される遷移パターン
+  // pending → in_progress
+  // in_progress → completed | failed
+  // completed → (遷移不可)
+  // failed → (遷移不可)
+  ```
+
+**PhaseRunner の改善** (`src/phases/lifecycle/phase-runner.ts`):
+- **finalizePhase()**: フェーズ完了時にステータスを `completed` に確実に更新し、進捗を投稿
+- **ensurePhaseStatusUpdated()**: `finally` ブロックでステータス更新漏れを検出し、自動修正
+  - 実行成功時に `in_progress` のままの場合 → `completed` に自動修正
+  - 実行失敗時に `in_progress` のままの場合 → `failed` に自動修正
+- **handlePhaseError()**: エラー発生時にステータスを `failed` に更新し、進捗を投稿
+
+**ReviewCycleManager の改善** (`src/phases/core/review-cycle-manager.ts`):
+- **例外スロー前のステータス更新**: revise失敗時やリトライ超過時に、例外をスローする前にステータスを `failed` に確実に更新
+
+**実装効果**:
+- フェーズステータスの更新漏れを防止
+- finally ブロックによる確実なステータス更新保証
+- 不正なステータス遷移の検出と警告
+- 重複するステータス更新の最適化
+
 ### テンプレートメソッドパターン（Issue #47）
 
 全10フェーズの `execute()` メソッドで繰り返されていたプロンプト処理パターン（プロンプト読み込み → 変数置換 → エージェント実行 → 出力確認）を、`BasePhase.executePhaseTemplate()` メソッドに集約しました。

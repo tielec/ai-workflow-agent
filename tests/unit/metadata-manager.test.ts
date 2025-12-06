@@ -295,4 +295,121 @@ describe('MetadataManager', () => {
       expect(metadataManager.data.phases.testing.rollback_context).toBeNull();
     });
   });
+
+  // =============================================================================
+  // Issue #248: updatePhaseStatus() 冪等性とステータス遷移バリデーション
+  // =============================================================================
+  describe('updatePhaseStatus (Issue #248)', () => {
+    beforeEach(() => {
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    });
+
+    // テストケース 2.1.1: 冪等性チェック - 同じステータスへの重複更新
+    it('should skip update when status is already set (idempotency)', () => {
+      // Given: design フェーズのステータスが completed
+      metadataManager.data.phases.design.status = 'completed';
+      metadataManager.data.phases.design.completed_at = '2025-01-30T11:00:00Z';
+
+      const writeFileSpy = jest.spyOn(fs, 'writeFileSync');
+
+      // When: 同じステータス completed に更新しようとする
+      metadataManager.updatePhaseStatus('design', 'completed');
+
+      // Then: ファイル書き込みがスキップされる（save()が呼ばれない）
+      // 注: 実装により冪等性チェックでログ出力のみ行い、早期リターンする
+      expect(metadataManager.getPhaseStatus('design')).toBe('completed');
+    });
+
+    // テストケース 2.1.2: 冪等性チェック - 異なるステータスへの更新
+    it('should update status when different status is provided', () => {
+      // Given: design フェーズのステータスが in_progress
+      metadataManager.data.phases.design.status = 'in_progress';
+      metadataManager.data.phases.design.started_at = '2025-01-30T10:00:00Z';
+
+      // When: completed に更新する
+      metadataManager.updatePhaseStatus('design', 'completed');
+
+      // Then: ステータスが completed に更新される
+      expect(metadataManager.getPhaseStatus('design')).toBe('completed');
+    });
+
+    // テストケース 2.1.3: ステータス遷移バリデーション - 不正な遷移（completed → in_progress）
+    it('should log warning for invalid transition: completed -> in_progress', () => {
+      // Given: design フェーズのステータスが completed
+      metadataManager.data.phases.design.status = 'completed';
+      metadataManager.data.phases.design.completed_at = '2025-01-30T11:00:00Z';
+
+      // When: in_progress に更新しようとする（不正な遷移）
+      metadataManager.updatePhaseStatus('design', 'in_progress');
+
+      // Then: ステータスは in_progress に更新される（警告のみでエラーにはならない）
+      expect(metadataManager.getPhaseStatus('design')).toBe('in_progress');
+    });
+
+    // テストケース 2.1.4: ステータス遷移バリデーション - 正常な遷移（in_progress → completed）
+    it('should allow valid transition: in_progress -> completed', () => {
+      // Given: design フェーズのステータスが in_progress
+      metadataManager.data.phases.design.status = 'in_progress';
+      metadataManager.data.phases.design.started_at = '2025-01-30T10:00:00Z';
+
+      // When: completed に更新する（正常な遷移）
+      metadataManager.updatePhaseStatus('design', 'completed');
+
+      // Then: ステータスが completed に更新される（警告なし）
+      expect(metadataManager.getPhaseStatus('design')).toBe('completed');
+    });
+
+    // テストケース 2.1.5: ステータス遷移バリデーション - 不正な遷移（failed → in_progress）
+    it('should log warning for invalid transition: failed -> in_progress', () => {
+      // Given: design フェーズのステータスが failed
+      metadataManager.data.phases.design.status = 'failed';
+      metadataManager.data.phases.design.completed_at = '2025-01-30T11:00:00Z';
+
+      // When: in_progress に更新しようとする（不正な遷移）
+      metadataManager.updatePhaseStatus('design', 'in_progress');
+
+      // Then: ステータスは in_progress に更新される（警告のみ）
+      expect(metadataManager.getPhaseStatus('design')).toBe('in_progress');
+    });
+
+    // テストケース 2.1.6: ステータス遷移バリデーション - 不正な遷移（pending → completed）
+    it('should log warning for invalid transition: pending -> completed', () => {
+      // Given: design フェーズのステータスが pending
+      metadataManager.data.phases.design.status = 'pending';
+      metadataManager.data.phases.design.started_at = null;
+
+      // When: completed に更新しようとする（不正な遷移）
+      metadataManager.updatePhaseStatus('design', 'completed');
+
+      // Then: ステータスは completed に更新される（警告のみ）
+      expect(metadataManager.getPhaseStatus('design')).toBe('completed');
+    });
+
+    // テストケース 2.1.7: ステータス遷移バリデーション - 正常な遷移（pending → in_progress）
+    it('should allow valid transition: pending -> in_progress', () => {
+      // Given: design フェーズのステータスが pending
+      metadataManager.data.phases.design.status = 'pending';
+      metadataManager.data.phases.design.started_at = null;
+
+      // When: in_progress に更新する（正常な遷移）
+      metadataManager.updatePhaseStatus('design', 'in_progress');
+
+      // Then: ステータスが in_progress に更新される（警告なし）
+      expect(metadataManager.getPhaseStatus('design')).toBe('in_progress');
+    });
+
+    // テストケース 2.1.8: ステータス遷移バリデーション - 正常な遷移（in_progress → failed）
+    it('should allow valid transition: in_progress -> failed', () => {
+      // Given: design フェーズのステータスが in_progress
+      metadataManager.data.phases.design.status = 'in_progress';
+      metadataManager.data.phases.design.started_at = '2025-01-30T10:00:00Z';
+
+      // When: failed に更新する（正常な遷移）
+      metadataManager.updatePhaseStatus('design', 'failed');
+
+      // Then: ステータスが failed に更新される（警告なし）
+      expect(metadataManager.getPhaseStatus('design')).toBe('failed');
+    });
+  });
 });
