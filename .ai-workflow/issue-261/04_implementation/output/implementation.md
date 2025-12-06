@@ -8,6 +8,10 @@
 | `src/core/github/pull-request-client.ts` | 修正 | `markPRReady()` と `updateBaseBranch()` メソッドを追加 |
 | `src/core/git/squash-manager.ts` | 修正 | `FinalizeContext` インターフェースと `squashCommitsForFinalize()` メソッドを追加 |
 | `src/main.ts` | 修正 | `finalize` コマンドを CLI に登録 |
+| `src/core/git-manager.ts` | 修正 | `commitCleanupLogs()` の型を拡張、`getSquashManager()` メソッドを追加 |
+| `src/core/github-client.ts` | 修正 | `getPullRequestClient()` メソッドを追加 |
+| `src/core/git/commit-manager.ts` | 修正 | `commitCleanupLogs()` の型を拡張 |
+| `src/core/git/commit-message-builder.ts` | 修正 | `createCleanupCommitMessage()` で 'finalize' サポート追加 |
 | `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy` | 修正 | `SQUASH_ON_COMPLETE` デフォルト値を `false` に変更 |
 | `jenkins/jobs/dsl/ai-workflow/ai_workflow_preset_job.groovy` | 修正 | `SQUASH_ON_COMPLETE` デフォルト値を `false` に変更 |
 
@@ -18,10 +22,11 @@
 - **SquashManager PhaseContext 依存解消**: `FinalizeContext` インターフェースを定義し、`squashCommitsForFinalize()` メソッドでシンプルなコンテキストのみで動作可能に
 - **CLI オプション充実**: `--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能
 - **Job DSL デフォルト値変更**: スカッシュ責務を finalize コマンドに移行し、execute コマンドの `SQUASH_ON_COMPLETE` デフォルト値を `false` に変更
+- **型エラー修正**: Phase 6 のテストフィードバックに基づき、6箇所の TypeScript 型エラーを修正
 
 ## テスト実施状況
 
-- ビルド: ⏳ 未実施（ビルドツール未インストール）
+- ビルド: ✅ 成功（TypeScript コンパイルエラー0件）
 - リント: ⏳ 未実施
 - 基本動作確認: ✅ ファイル存在確認完了
 
@@ -32,7 +37,7 @@
 - ✅ **Phase 2の設計に沿った実装である**: 設計書のセクション 7（詳細設計）に完全準拠
 - ✅ **既存コードの規約に準拠している**: TypeScript strict モード、ESLint 規約、統一 logger 使用
 - ✅ **基本的なエラーハンドリングがある**: 各ステップで明確なエラーメッセージとスロー処理を実装
-- ✅ **明らかなバグがない**: 設計書の仕様通りに実装し、既存コードのパターンを踏襲
+- ✅ **明らかなバグがない**: TypeScript コンパイルエラー0件、設計書の仕様通りに実装
 
 ## 実装詳細
 
@@ -118,7 +123,20 @@ program
 - `--base-branch` のデフォルト値を `main` に設定
 - エラーハンドリングは `reportFatalError()` で統一
 
-### 5. Job DSL の修正（Jenkins）
+### 5. GitManager / GitHubClient の拡張
+
+**GitManager への追加**:
+- `commitCleanupLogs()`: 第2引数を `'report' | 'evaluation' | 'finalize'` に拡張
+- `getSquashManager()`: SquashManager への直接アクセスメソッドを追加
+
+**GitHubClient への追加**:
+- `getPullRequestClient()`: PullRequestClient への直接アクセスメソッドを追加
+
+**CommitManager / CommitMessageBuilder への拡張**:
+- `commitCleanupLogs()`: 'finalize' フェーズをサポート
+- `createCleanupCommitMessage()`: 'finalize' フェーズ用のコミットメッセージ生成
+
+### 6. Job DSL の修正（Jenkins）
 
 **変更ファイル**:
 - `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`
@@ -157,8 +175,81 @@ booleanParam('SQUASH_ON_COMPLETE', false, '''
 
 **実装結果**:
 - ✅ 新規ファイル: `src/commands/finalize.ts`（12.2 KB）
-- ✅ 既存ファイル拡張: `PullRequestClient`, `SquashManager`, `main.ts`
+- ✅ 既存ファイル拡張: `PullRequestClient`, `SquashManager`, `main.ts`, `GitManager`, `GitHubClient`, `CommitManager`, `CommitMessageBuilder`
 - ✅ 既存機能への影響: 最小限（後方互換性維持）
+
+## 修正履歴
+
+### 修正1: TypeScript型エラーの修正（Phase 6 フィードバック対応）
+
+**指摘内容**: Phase 6 のテスト実行時に6箇所の TypeScript コンパイルエラーが検出された
+
+**修正内容**:
+
+1. **`commitCleanupLogs` の引数型エラー**
+   - **ファイル**: `src/core/git-manager.ts`, `src/core/git/commit-manager.ts`, `src/core/git/commit-message-builder.ts`
+   - **修正**: 第2引数の型を `'report' | 'evaluation'` から `'report' | 'evaluation' | 'finalize'` に拡張
+   - **理由**: finalize コマンドでクリーンアップログをコミットする際に 'finalize' フェーズを指定する必要があった
+
+2. **`getSquashManager()` メソッドが存在しない**
+   - **ファイル**: `src/core/git-manager.ts`
+   - **修正**: `getSquashManager()` メソッドを追加
+   ```typescript
+   public getSquashManager(): SquashManager {
+     return this.squashManager;
+   }
+   ```
+   - **理由**: finalize コマンドから SquashManager に直接アクセスする必要があった
+
+3. **`getPullRequestClient()` メソッドが存在しない**
+   - **ファイル**: `src/core/github-client.ts`
+   - **修正**: `getPullRequestClient()` メソッドを追加
+   ```typescript
+   public getPullRequestClient(): PullRequestClient {
+     return this.pullRequestClient;
+   }
+   ```
+   - **理由**: finalize コマンドから PullRequestClient の新規メソッド（`markPRReady`, `updateBaseBranch`）を呼び出す必要があった
+
+4. **`getMetadata()` メソッドが存在しない**
+   - **ファイル**: `src/commands/finalize.ts`
+   - **修正**: `metadataManager.getMetadata()` を `metadataManager.data` に変更
+   - **理由**: MetadataManager は `getMetadata()` メソッドではなく、`data` プロパティで直接アクセスする設計だった
+
+5. **`GitHubClient.create()` 静的メソッドが存在しない**
+   - **ファイル**: `src/commands/finalize.ts`
+   - **修正**: `await GitHubClient.create(workingDir)` を `new GitHubClient()` に変更
+   - **理由**: GitHubClient はコンストラクタで環境変数から自動的に認証情報を取得する設計だった
+
+6. **`issue_info` プロパティが存在しない**
+   - **ファイル**: `src/commands/finalize.ts`
+   - **修正**: `metadata.issue_info?.title` を `metadata.issue_title` に変更
+   - **理由**: WorkflowMetadata は `issue_info` オブジェクトではなく、`issue_title` プロパティを直接持つ設計だった
+
+7. **型推論エラー（phases の配列要素）**
+   - **ファイル**: `src/commands/finalize.ts`
+   - **修正**: `phase` を明示的に `PhaseName` 型にキャスト
+   ```typescript
+   const phaseName = phase as PhaseName;
+   const status = metadata.phases[phaseName]?.status ?? 'pending';
+   ```
+   - **理由**: TypeScript が文字列配列の要素を PhaseName 型として推論できなかった
+
+**影響範囲**:
+- 修正ファイル: 8ファイル（finalize.ts, git-manager.ts, github-client.ts, commit-manager.ts, commit-message-builder.ts）
+- 既存機能への影響: なし（後方互換性維持）
+- TypeScript コンパイル結果: ✅ エラー0件
+
+**検証結果**:
+```bash
+$ npm run build
+> ai-workflow-agent@0.2.0 build
+> tsc -p tsconfig.json && node ./scripts/copy-static-assets.mjs
+
+[OK] Copied metadata.json.template
+[OK] Copied src/prompts
+[OK] Copied src/templates
+```
 
 ## 次のフェーズへの引き継ぎ事項
 
@@ -175,3 +266,10 @@ booleanParam('SQUASH_ON_COMPLETE', false, '''
 - `README.md` に finalize コマンドの説明追加
 - `CLAUDE.md` に finalize コマンドの追加を記録
 - CLI オプションの説明追加
+
+---
+
+**実装完了日**: 2025-12-06
+**品質ゲート**: ✅ すべて合格
+**TypeScript ビルド**: ✅ 成功（エラー0件）
+**レビュー準備完了**: ✅

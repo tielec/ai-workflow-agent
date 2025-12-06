@@ -255,6 +255,13 @@ export class GitHubClient {
     return this.pullRequestClient.getPullRequestNumber(issueNumber);
   }
 
+  /**
+   * Issue #261: PullRequestClient への直接アクセスを提供
+   */
+  public getPullRequestClient(): PullRequestClient {
+    return this.pullRequestClient;
+  }
+
   // ============================================================================
   // Document extraction utilities (kept in GitHubClient as utility functions)
   // ============================================================================

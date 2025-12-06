@@ -340,10 +340,11 @@ export class CommitManager {
 
   /**
    * Issue #16: Commit log cleanup files
+   * Issue #261: finalize コマンド対応
    */
   public async commitCleanupLogs(
     issueNumber: number,
-    phase: 'report' | 'evaluation',
+    phase: 'report' | 'evaluation' | 'finalize',
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();

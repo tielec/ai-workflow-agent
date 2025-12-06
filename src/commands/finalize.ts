@@ -16,6 +16,7 @@ import { GitHubClient } from '../core/github-client.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { FinalizeContext } from '../core/git/squash-manager.js';
+import type { PhaseName } from '../types.js';
 
 /**
  * FinalizeCommandOptions - CLIオプションの型定義
@@ -266,15 +267,15 @@ async function executeStep4And5(
  * createGitHubClient - GitHub Client の初期化
  */
 async function createGitHubClient(metadataManager: MetadataManager): Promise<GitHubClient> {
-  const metadata = metadataManager.getMetadata();
+  const metadata = metadataManager.data;
   const targetRepo = metadata.target_repository;
 
   if (!targetRepo) {
     throw new Error('target_repository not found in metadata');
   }
 
-  const workingDir = targetRepo.path;
-  const githubClient = await GitHubClient.create(workingDir);
+  // GitHubClient は環境変数から自動的に認証情報を取得する
+  const githubClient = new GitHubClient();
   return githubClient;
 }
 
@@ -286,13 +287,13 @@ async function createGitHubClient(metadataManager: MetadataManager): Promise<Git
  * @returns PR 本文（Markdown形式）
  */
 function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: number): string {
-  const metadata = metadataManager.getMetadata();
+  const metadata = metadataManager.data;
 
   // 変更サマリー
   const summary = `## 変更サマリー
 
 - Issue番号: #${issueNumber}
-- タイトル: ${metadata.issue_info?.title ?? 'Unknown'}
+- タイトル: ${metadata.issue_title ?? 'Unknown'}
 - 完了ステータス: All phases completed
 `;
 
@@ -312,7 +313,8 @@ function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: numb
 
   const phaseList = phases
     .map((phase) => {
-      const status = metadata.phases?.[phase]?.status ?? 'pending';
+      const phaseName = phase as PhaseName;
+      const status = metadata.phases[phaseName]?.status ?? 'pending';
       const emoji = status === 'completed' ? '✅' : '⏳';
       return `- ${emoji} ${phase}: ${status}`;
     })
