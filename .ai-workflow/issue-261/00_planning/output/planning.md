@@ -154,13 +154,13 @@
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
 - [x] Task 5-1: ユニットテストの実装 (1~1.5h)
-  - `tests/unit/commands/finalize.test.ts` の作成
-  - 各ステップのロジックテスト（モックを使用）
-  - オプション（`--dry-run`、`--skip-squash`、`--skip-pr-update`）の挙動確認
+  - [x] `tests/unit/commands/finalize.test.ts` の作成
+  - [x] 各ステップのロジックテスト（モックを使用）
+  - [x] オプション（`--dry-run`、`--skip-squash`、`--skip-pr-update`）の挙動確認
 - [x] Task 5-2: インテグレーションテストの実装 (1~1.5h)
-  - `tests/integration/finalize-command.test.ts` の作成
-  - 5ステップ全体の統合フローテスト
-  - エラーハンドリングのテスト
+  - [x] `tests/integration/finalize-command.test.ts` の作成
+  - [x] 5ステップ全体の統合フローテスト
+  - [x] エラーハンドリングのテスト
 
 ### Phase 6: テスト実行 (見積もり: 1h)
 
@@ -281,6 +281,9 @@ graph TD
 - [x] ユニットテストファイル（`tests/unit/commands/finalize.test.ts`）が作成されている
 - [x] インテグレーションテストファイル（`tests/integration/finalize-command.test.ts`）が作成されている
 - [x] 各テストケースが明確な検証項目を持っている
+- [x] Phase 3のテストシナリオがすべて実装されている
+- [x] テストコードが実行可能である（シンタックスエラーなし）
+- [x] テストの意図がコメントで明確
 
 ### Phase 6: テスト実行
 
@@ -600,6 +603,9 @@ graph TD
 - [x] ユニットテストファイル（`tests/unit/commands/finalize.test.ts`）が作成されている
 - [x] インテグレーションテストファイル（`tests/integration/finalize-command.test.ts`）が作成されている
 - [x] 各テストケースが明確な検証項目を持っている
+- [x] Phase 3のテストシナリオがすべて実装されている
+- [x] テストコードが実行可能である（シンタックスエラーなし）
+- [x] テストの意図がコメントで明確
 
 ### Phase 6: テスト実行
 
