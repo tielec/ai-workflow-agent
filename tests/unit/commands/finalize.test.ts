@@ -109,9 +109,10 @@ describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () =
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    const mockFs = fs as jest.Mocked<typeof fs>;
+    mockFs.existsSync.mockReturnValue(true);
+    mockFs.ensureDirSync.mockImplementation(() => undefined as any);
+    mockFs.writeFileSync.mockImplementation(() => undefined);
 
     metadataManager = new MetadataManager(testMetadataPath);
 
@@ -221,7 +222,7 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
           issue_number: '123',  // string型
           base_commit: 'abc123',
           phases: {},
-        })
+        }) as any
       );
 
       // When: ドライランモードで実行
@@ -252,7 +253,7 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
           issue_number: '123',  // string型
           base_commit: 'abc123',
           phases: {},
-        })
+        }) as any
       );
 
       // When & Then: スキップオプションが反映される
@@ -287,7 +288,7 @@ describe('Finalize コマンド - エラーケース', () => {
           issue_number: '123',  // string型
           // base_commit が存在しない
           phases: {},
-        })
+        }) as any
       );
 
       const options: FinalizeCommandOptions = {

@@ -64,20 +64,18 @@ interface GitHubActionResult {
 }
 
 jest.mock('../../src/core/github-client.js', () => ({
-  GitHubClient: {
-    create: jest.fn().mockResolvedValue({
-      getPullRequestClient: jest.fn().mockReturnValue({
-        getPullRequestNumber: jest.fn()
-          .mockResolvedValue(456),
-        updatePullRequest: jest.fn()
-          .mockResolvedValue({ success: true }),
-        updateBaseBranch: jest.fn()
-          .mockResolvedValue({ success: true }),
-        markPRReady: jest.fn()
-          .mockResolvedValue({ success: true }),
-      }),
+  GitHubClient: jest.fn().mockImplementation(() => ({
+    getPullRequestClient: jest.fn().mockReturnValue({
+      getPullRequestNumber: jest.fn()
+        .mockResolvedValue(456),
+      updatePullRequest: jest.fn()
+        .mockResolvedValue({ success: true }),
+      updateBaseBranch: jest.fn()
+        .mockResolvedValue({ success: true }),
+      markPRReady: jest.fn()
+        .mockResolvedValue({ success: true }),
     }),
-  },
+  })),
 }));
 
 import * as fs from 'fs-extra';
@@ -93,9 +91,9 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    jest.mocked(fs.existsSync).mockReturnValue(true);
+    jest.mocked(fs.ensureDirSync).mockImplementation(() => undefined as any);
+    jest.mocked(fs.writeFileSync).mockImplementation(() => undefined);
 
     // findWorkflowMetadataのモック設定
     const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
@@ -174,10 +172,9 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       });
 
       // Step 4-5: PR更新とドラフト解除が実行される
-      expect(GitHubClient.create).toHaveBeenCalledWith('/test/repo');
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      const githubClient = await mockGitHubClientCreate.mock.results[0]?.value;
-      const prClient = githubClient.getPullRequestClient();
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      const githubClientInstance = mockGitHubClient.mock.results[0]?.value;
+      const prClient = githubClientInstance?.getPullRequestClient();
 
       expect(prClient.getPullRequestNumber).toHaveBeenCalledWith(123);
       expect(prClient.updatePullRequest).toHaveBeenCalledWith(456, expect.stringContaining('Issue番号: #123'));
@@ -200,9 +197,9 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       await handleFinalizeCommand(options);
 
       // Then: updateBaseBranch が develop で呼ばれる
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      const githubClient = await mockGitHubClientCreate.mock.results[0]?.value;
-      const prClient = githubClient.getPullRequestClient();
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      const githubClientInstance = mockGitHubClient.mock.results[0]?.value;
+      const prClient = githubClientInstance?.getPullRequestClient();
 
       expect(prClient.updateBaseBranch).toHaveBeenCalledWith(456, 'develop');
     });
@@ -237,10 +234,10 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       const artifactCleanerInstance = mockArtifactCleaner.mock.results[0]?.value;
       expect(artifactCleanerInstance?.cleanupWorkflowArtifacts).toHaveBeenCalled();
 
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      const githubClient = await mockGitHubClientCreate.mock.results[0]?.value;
-      const prClient = githubClient.getPullRequestClient();
-      expect(prClient.markPRReady).toHaveBeenCalled();
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      const githubClientInstance = mockGitHubClient.mock.results[0]?.value;
+      const prClient = githubClientInstance?.getPullRequestClient();
+      expect(prClient?.markPRReady).toHaveBeenCalled();
     });
   });
 
@@ -259,7 +256,9 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       await handleFinalizeCommand(options);
 
       // Then: PR更新が実行されない
-      expect(GitHubClient.create).not.toHaveBeenCalled();
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      // skipPrUpdateの場合、GitHubClientは初期化されない
+      expect(mockGitHubClient).not.toHaveBeenCalled();
 
       // 他のステップは実行される
       const mockArtifactCleaner = ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>;
@@ -280,7 +279,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    jest.mocked(fs.existsSync).mockReturnValue(true);
   });
 
   // =============================================================================
@@ -334,17 +333,17 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
       };
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify(metadataManager.data)
+        JSON.stringify(metadataManager.data) as any
       );
 
       // GitHubClient のモックで PR が見つからない場合
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      mockGitHubClientCreate.mockResolvedValue({
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      mockGitHubClient.mockImplementation(() => ({
         getPullRequestClient: jest.fn().mockReturnValue({
           getPullRequestNumber: jest.fn()
             .mockResolvedValue(null), // PR が見つからない
         }),
-      });
+      } as any));
 
       const options: FinalizeCommandOptions = {
         issue: '123',
@@ -378,12 +377,12 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
       };
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify(metadataManager.data)
+        JSON.stringify(metadataManager.data) as any
       );
 
       // GitHubClient のモックで権限不足エラー
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      mockGitHubClientCreate.mockResolvedValue({
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      mockGitHubClient.mockImplementation(() => ({
         getPullRequestClient: jest.fn().mockReturnValue({
           getPullRequestNumber: jest.fn()
             .mockResolvedValue(456),
@@ -393,7 +392,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
               error: 'GitHub API error: 403 - Forbidden',
             }),
         }),
-      });
+      } as any));
 
       const options: FinalizeCommandOptions = {
         issue: '123',
@@ -417,7 +416,8 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
     (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
     (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
 
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
+    mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -516,9 +516,9 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
       await handleFinalizeCommand(options);
 
       // Then: PullRequestClient のメソッドが順次呼ばれる
-      const mockGitHubClientCreate = GitHubClient.create as jest.MockedFunction<typeof GitHubClient.create>;
-      const githubClient = await mockGitHubClientCreate.mock.results[0]?.value;
-      const prClient = githubClient.getPullRequestClient();
+      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+      const githubClientInstance = mockGitHubClient.mock.results[0]?.value;
+      const prClient = githubClientInstance?.getPullRequestClient();
 
       expect(prClient.getPullRequestNumber).toHaveBeenCalledWith(123);
       expect(prClient.updatePullRequest).toHaveBeenCalledWith(
@@ -536,7 +536,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    jest.mocked(fs.existsSync).mockReturnValue(true);
 
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
       repoRoot: '/test/repo',
@@ -602,7 +602,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       };
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify(metadataManager.data)
+        JSON.stringify(metadataManager.data) as any
       );
 
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
