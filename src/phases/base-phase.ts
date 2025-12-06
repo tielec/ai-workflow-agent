@@ -675,6 +675,7 @@ export abstract class BasePhase {
 
   /**
    * エージェントログから成果物内容を抽出（Issue #113）
+   * Issue #252: エージェントログ形式の誤検出を防止
    *
    * Evaluation Phaseの extractEvaluationFromLog() を汎用化した実装
    *
@@ -683,6 +684,18 @@ export abstract class BasePhase {
    * @returns 抽出した成果物内容（抽出失敗時は null）
    */
   protected extractContentFromLog(agentLog: string, phaseName: PhaseName): string | null {
+    // Issue #252: エージェントログ形式を検出するパターン
+    // これらのパターンが見つかった場合は、成果物ではなくエージェントログとして扱う
+    const agentLogPatterns = [
+      /^## Turn \d+:/m,                           // Codex/Claude のターン形式
+      /^### (User|Assistant|Tool Result):/m,      // 会話形式
+      /^\*\*Tool:\*\*/m,                          // ツール呼び出し形式
+      /^<tool_call>/m,                            // XMLスタイルのツール呼び出し
+      /^### Agent Execution/m,                    // エージェント実行ヘッダー
+      /^\*\*Codex CLI Output:\*\*/m,              // Codex CLI出力
+      /^\*\*Claude Agent Output:\*\*/m,           // Claude Agent出力
+    ];
+
     // フェーズごとのヘッダーパターン
     const headerPatterns: Record<PhaseName, RegExp> = {
       planning: /^#+ (プロジェクト計画書|Project Planning|計画書|Planning)/im,
@@ -711,13 +724,14 @@ export abstract class BasePhase {
       // ヘッダー以降のコンテンツを抽出
       const content = agentLog.substring(match.index).trim();
 
-      // 最低限の構造チェック：Markdownセクション（##）が含まれているか
-      if (content.includes('##')) {
+      // Issue #252: 抽出内容がエージェントログ形式でないことを確認
+      if (content.includes('##') && !this.isAgentLogFormat(content, agentLogPatterns)) {
         return content;
       }
     }
 
     // パターン2: 大きなMarkdownブロックを探す（ヘッダーが見つからない場合）
+    // Issue #252: エージェントログパターンを除外
     const lines = agentLog.split('\n');
     let startIndex = -1;
     let sectionCount = 0;
@@ -725,8 +739,13 @@ export abstract class BasePhase {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Markdownセクションヘッダーを探す
-      if (/^##+ /.test(line)) {
+      // Issue #252: エージェントログのヘッダーはスキップ
+      if (/^## Turn \d+:/.test(line)) {
+        continue;
+      }
+
+      // Markdownセクションヘッダーを探す（エージェントログ形式を除外）
+      if (/^##+ /.test(line) && !this.isAgentLogLine(line)) {
         if (startIndex === -1) {
           startIndex = i;
         }
@@ -737,14 +756,60 @@ export abstract class BasePhase {
     // 複数のセクションヘッダーがある場合、それ以降を抽出
     if (sectionCount >= 2 && startIndex !== -1) {
       const extracted = lines.slice(startIndex).join('\n').trim();
-      return extracted;
+
+      // Issue #252: 抽出内容がエージェントログ形式でないことを確認
+      if (!this.isAgentLogFormat(extracted, agentLogPatterns)) {
+        return extracted;
+      }
     }
 
     return null;
   }
 
   /**
+   * コンテンツがエージェントログ形式かどうかを判定（Issue #252）
+   *
+   * @param content - 判定対象のコンテンツ
+   * @param patterns - エージェントログのパターン配列
+   * @returns エージェントログ形式の場合は true
+   */
+  private isAgentLogFormat(content: string, patterns: RegExp[]): boolean {
+    // 複数のエージェントログパターンがマッチする場合はエージェントログとみなす
+    let matchCount = 0;
+    for (const pattern of patterns) {
+      if (pattern.test(content)) {
+        matchCount++;
+        if (matchCount >= 2) {
+          logger.debug(`Content detected as agent log format (matched ${matchCount} patterns)`);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 行がエージェントログの一部かどうかを判定（Issue #252）
+   *
+   * @param line - 判定対象の行
+   * @returns エージェントログの一部の場合は true
+   */
+  private isAgentLogLine(line: string): boolean {
+    // エージェントログ特有のヘッダーパターン
+    const agentLogLinePatterns = [
+      /^## Turn \d+:/,
+      /^### User:/,
+      /^### Assistant:/,
+      /^### Tool Result:/,
+      /^### Agent Execution/,
+    ];
+
+    return agentLogLinePatterns.some(pattern => pattern.test(line));
+  }
+
+  /**
    * 抽出した成果物内容が妥当かチェック（Issue #113）
+   * Issue #252: エージェントログ形式の検出を追加
    *
    * Evaluation Phaseの isValidEvaluationContent() を汎用化した実装
    *
@@ -753,6 +818,13 @@ export abstract class BasePhase {
    * @returns 妥当な場合は true、そうでない場合は false
    */
   protected isValidOutputContent(content: string, phaseName: PhaseName): boolean {
+    // Issue #252: エージェントログ形式を検出して除外
+    // エージェントログが成果物として誤って保存されることを防止
+    if (this.containsAgentLogMarkers(content)) {
+      logger.warn(`Phase ${phaseName}: Content contains agent log markers - rejecting as invalid`);
+      return false;
+    }
+
     // 最低限の要件：
     // 1. 100文字以上（極端に短いものは除外）
     // 2. Markdownセクションヘッダー（## または ###）が複数ある
@@ -790,6 +862,42 @@ export abstract class BasePhase {
     }
 
     return true;
+  }
+
+  /**
+   * コンテンツにエージェントログのマーカーが含まれているかチェック（Issue #252）
+   *
+   * @param content - チェック対象のコンテンツ
+   * @returns エージェントログのマーカーが含まれている場合は true
+   */
+  private containsAgentLogMarkers(content: string): boolean {
+    // エージェントログの典型的なマーカー
+    const agentLogMarkers = [
+      /^## Turn \d+:/m,                           // ターン形式
+      /^### (User|Assistant):/m,                  // 会話形式
+      /^\*\*Tool:\*\* /m,                         // ツール呼び出し
+      /^### Tool Result:/m,                       // ツール結果
+      /^\*\*(Codex CLI|Claude Agent) Output:\*\*/m,  // エージェント出力ヘッダー
+    ];
+
+    // 2つ以上のマーカーが見つかった場合はエージェントログとみなす
+    let matchCount = 0;
+    for (const marker of agentLogMarkers) {
+      if (marker.test(content)) {
+        matchCount++;
+        if (matchCount >= 2) {
+          return true;
+        }
+      }
+    }
+
+    // 特に強力なマーカー：Turn形式が3回以上出現する場合は確実にエージェントログ
+    const turnMatches = content.match(/^## Turn \d+:/gm);
+    if (turnMatches && turnMatches.length >= 3) {
+      return true;
+    }
+
+    return false;
   }
 
   private getReviseFunction():
