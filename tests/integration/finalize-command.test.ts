@@ -34,12 +34,17 @@ jest.mock('../../src/core/repository-utils.js', () => ({
 }));
 
 // GitManagerのモック
+import type { GitCommandResult } from '../../src/types.js';
+
 jest.mock('../../src/core/git-manager.js', () => ({
   GitManager: jest.fn().mockImplementation(() => ({
-    commitCleanupLogs: jest.fn().mockResolvedValue({ success: true, commit_hash: 'abc123' }),
-    pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+    commitCleanupLogs: jest.fn<Promise<GitCommandResult>, [number, string]>()
+      .mockResolvedValue({ success: true, commit_hash: 'abc123' }),
+    pushToRemote: jest.fn<Promise<GitCommandResult>, []>()
+      .mockResolvedValue({ success: true }),
     getSquashManager: jest.fn().mockReturnValue({
-      squashCommitsForFinalize: jest.fn().mockResolvedValue(undefined),
+      squashCommitsForFinalize: jest.fn<Promise<void>, [any]>()
+        .mockResolvedValue(undefined),
     }),
   })),
 }));
@@ -47,19 +52,29 @@ jest.mock('../../src/core/git-manager.js', () => ({
 // ArtifactCleanerのモック
 jest.mock('../../src/phases/cleanup/artifact-cleaner.js', () => ({
   ArtifactCleaner: jest.fn().mockImplementation(() => ({
-    cleanupWorkflowArtifacts: jest.fn().mockResolvedValue(undefined),
+    cleanupWorkflowArtifacts: jest.fn<Promise<void>, [boolean]>()
+      .mockResolvedValue(undefined),
   })),
 }));
 
 // GitHubClientのモック
+interface GitHubActionResult {
+  success: boolean;
+  error?: string;
+}
+
 jest.mock('../../src/core/github-client.js', () => ({
   GitHubClient: {
-    create: jest.fn().mockResolvedValue({
+    create: jest.fn<Promise<any>, [string]>().mockResolvedValue({
       getPullRequestClient: jest.fn().mockReturnValue({
-        getPullRequestNumber: jest.fn().mockResolvedValue(456),
-        updatePullRequest: jest.fn().mockResolvedValue({ success: true }),
-        updateBaseBranch: jest.fn().mockResolvedValue({ success: true }),
-        markPRReady: jest.fn().mockResolvedValue({ success: true }),
+        getPullRequestNumber: jest.fn<Promise<number | null>, [number]>()
+          .mockResolvedValue(456),
+        updatePullRequest: jest.fn<Promise<GitHubActionResult>, [number, string]>()
+          .mockResolvedValue({ success: true }),
+        updateBaseBranch: jest.fn<Promise<GitHubActionResult>, [number, string]>()
+          .mockResolvedValue({ success: true }),
+        markPRReady: jest.fn<Promise<GitHubActionResult>, [number]>()
+          .mockResolvedValue({ success: true }),
       }),
     }),
   },
@@ -84,6 +99,7 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 
     // findWorkflowMetadataのモック設定
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
@@ -264,6 +280,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
     test('base_commit 不在時にエラーで終了する', async () => {
       // Given: base_commit が存在しない
       (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+        repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
 
@@ -292,6 +309,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
     test('PR 不在時にエラーで終了する', async () => {
       // Given: PR が存在しない
       (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+        repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
 
@@ -310,9 +328,10 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
       );
 
       // GitHubClient のモックで PR が見つからない場合
-      (GitHubClient.create as jest.Mock).mockResolvedValue({
+      (GitHubClient.create as jest.Mock<Promise<any>, [string]>).mockResolvedValue({
         getPullRequestClient: jest.fn().mockReturnValue({
-          getPullRequestNumber: jest.fn().mockResolvedValue(null), // PR が見つからない
+          getPullRequestNumber: jest.fn<Promise<number | null>, [number]>()
+            .mockResolvedValue(null), // PR が見つからない
         }),
       });
 
@@ -333,6 +352,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
     test('GitHub API 権限不足時にエラーで終了する', async () => {
       // Given: GitHub API が権限不足で失敗する
       (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+        repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
 
@@ -351,13 +371,15 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
       );
 
       // GitHubClient のモックで権限不足エラー
-      (GitHubClient.create as jest.Mock).mockResolvedValue({
+      (GitHubClient.create as jest.Mock<Promise<any>, [string]>).mockResolvedValue({
         getPullRequestClient: jest.fn().mockReturnValue({
-          getPullRequestNumber: jest.fn().mockResolvedValue(456),
-          updatePullRequest: jest.fn().mockResolvedValue({
-            success: false,
-            error: 'GitHub API error: 403 - Forbidden',
-          }),
+          getPullRequestNumber: jest.fn<Promise<number | null>, [number]>()
+            .mockResolvedValue(456),
+          updatePullRequest: jest.fn<Promise<GitHubActionResult>, [number, string]>()
+            .mockResolvedValue({
+              success: false,
+              error: 'GitHub API error: 403 - Forbidden',
+            }),
         }),
       });
 
@@ -384,6 +406,7 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
     (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
 
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
@@ -501,6 +524,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
     (fs.existsSync as jest.Mock).mockReturnValue(true);
 
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
@@ -526,11 +550,12 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
     test('Git コミット失敗時にエラーがスローされる', async () => {
       // Given: Git コミットが失敗する
       (GitManager as jest.Mock).mockImplementation(() => ({
-        commitCleanupLogs: jest.fn().mockResolvedValue({
-          success: false,
-          error: 'Commit failed: Permission denied'
-        }),
-        pushToRemote: jest.fn(),
+        commitCleanupLogs: jest.fn<Promise<GitCommandResult>, [number, string]>()
+          .mockResolvedValue({
+            success: false,
+            error: 'Commit failed: Permission denied'
+          }),
+        pushToRemote: jest.fn<Promise<GitCommandResult>, []>(),
         getSquashManager: jest.fn(),
       }));
 
@@ -565,14 +590,16 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       );
 
       (GitManager as jest.Mock).mockImplementation(() => ({
-        commitCleanupLogs: jest.fn().mockResolvedValue({
-          success: true,
-          commit_hash: 'abc123'
-        }),
-        pushToRemote: jest.fn().mockResolvedValue({
-          success: false,
-          error: 'Push failed: Network error'
-        }),
+        commitCleanupLogs: jest.fn<Promise<GitCommandResult>, [number, string]>()
+          .mockResolvedValue({
+            success: true,
+            commit_hash: 'abc123'
+          }),
+        pushToRemote: jest.fn<Promise<GitCommandResult>, []>()
+          .mockResolvedValue({
+            success: false,
+            error: 'Push failed: Network error'
+          }),
         getSquashManager: jest.fn(),
       }));
 

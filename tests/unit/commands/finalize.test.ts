@@ -262,11 +262,12 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
 });
 
 describe('Finalize コマンド - エラーケース', () => {
+  const testMetadataPath = '/test/.ai-workflow/issue-123/metadata.json';
+
   beforeEach(() => {
     jest.clearAllMocks();
 
     // findWorkflowMetadataのモック設定
-    const testMetadataPath = '/test/.ai-workflow/issue-123/metadata.json';
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
