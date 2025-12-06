@@ -137,6 +137,13 @@ ai-workflow cleanup \
   [--dry-run] \
   [--phases <range>] \
   [--all]
+
+ai-workflow finalize \
+  --issue <number> \
+  [--dry-run] \
+  [--skip-squash] \
+  [--skip-pr-update] \
+  [--base-branch <branch>]
 ```
 
 ### ブランチ名のカスタマイズ
