@@ -126,14 +126,14 @@
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `content-parser.ts` のJSON抽出前処理実装 (1~1.5h)
+- [x] Task 4-1: `content-parser.ts` のJSON抽出前処理実装 (1~1.5h)
   - 正規表現によるJSON抽出ロジック追加
   - エラーハンドリング強化（JSON抽出失敗時のログ出力）
-- [ ] Task 4-2: `content-parser.ts` のフォールバック判定ロジック改善 (1~1.5h)
+- [x] Task 4-2: `content-parser.ts` のフォールバック判定ロジック改善 (1~1.5h)
   - マーカーパターンによる優先判定ロジック追加
   - デフォルトFAIL判定の実装
   - 既存の `includes('PASS')` ロジック削除
-- [ ] Task 4-3: `review-cycle-manager.ts` のリトライ上限処理強化 (0.5~1h)
+- [x] Task 4-3: `review-cycle-manager.ts` のリトライ上限処理強化 (0.5~1h)
   - リトライ回数超過時のフェーズ失敗処理追加
   - メタデータ更新（`phases.*.status = 'failed'`）
 
@@ -450,14 +450,14 @@ graph TD
 
 ### Phase 4: 実装 (見積もり: 3~4h)
 
-- [ ] Task 4-1: `content-parser.ts` のJSON抽出前処理実装 (1~1.5h)
+- [x] Task 4-1: `content-parser.ts` のJSON抽出前処理実装 (1~1.5h)
   - 正規表現によるJSON抽出ロジック追加
   - エラーハンドリング強化（JSON抽出失敗時のログ出力）
-- [ ] Task 4-2: `content-parser.ts` のフォールバック判定ロジック改善 (1~1.5h)
+- [x] Task 4-2: `content-parser.ts` のフォールバック判定ロジック改善 (1~1.5h)
   - マーカーパターンによる優先判定ロジック追加
   - デフォルトFAIL判定の実装
   - 既存の `includes('PASS')` ロジック削除
-- [ ] Task 4-3: `review-cycle-manager.ts` のリトライ上限処理強化 (0.5~1h)
+- [x] Task 4-3: `review-cycle-manager.ts` のリトライ上限処理強化 (0.5~1h)
   - リトライ回数超過時のフェーズ失敗処理追加
   - メタデータ更新（`phases.*.status = 'failed'`）
 
