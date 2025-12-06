@@ -83,6 +83,23 @@ src/commands/cleanup.ts (ワークフローログの手動クリーンアップ�
     └─ ArtifactCleaner.cleanupWorkflowLogs() を利用
         └─ phaseRange パラメータでクリーンアップ対象フェーズを指定
 
+src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド処理、v0.5.0、Issue #261で追加)
+ ├─ handleFinalizeCommand() … finalize コマンドハンドラ（5ステップのオーケストレーション）
+ ├─ validateFinalizeOptions() … finalize オプションのバリデーション（exported for testing）
+ ├─ executeStep1() … Step 1: base_commit 取得・一時保存
+ ├─ executeStep2() … Step 2: .ai-workflow 削除 + コミット＆プッシュ
+ ├─ executeStep3() … Step 3: コミットスカッシュ
+ ├─ executeStep4And5() … Step 4-5: PR 本文更新 + ドラフト解除
+ ├─ generateFinalPrBody() … PR 最終本文生成（Markdown形式）
+ ├─ previewFinalize() … ドライランモードでプレビュー表示
+ └─ 既存モジュールを利用
+     ├─ MetadataManager.getBaseCommit() … base_commit 取得
+     ├─ ArtifactCleaner.cleanupWorkflowArtifacts() … ワークフローディレクトリ削除
+     ├─ SquashManager.squashCommitsForFinalize() … コミットスカッシュ（FinalizeContext 使用）
+     ├─ PullRequestClient.updatePullRequest() … PR 本文更新
+     ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
+     └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
+
 src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
  ├─ parseIssueUrl() … GitHub Issue URLからリポジトリ情報を抽出
  ├─ resolveLocalRepoPath() … リポジトリ名からローカルパスを解決
@@ -111,6 +128,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
+| `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
@@ -125,7 +143,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）** を担当。 |
 | `src/core/github/issue-ai-generator.ts` | フォローアップIssue用LLM生成エンジン（約450行、Issue #119で追加）。プロンプト生成、OpenAI/Anthropicアダプタ、レスポンス検証、リトライ制御、サニタイズ処理を担当。 |
 | `src/core/github/issue-agent-generator.ts` | フォローアップIssue用エージェント生成エンジン（約385行、Issue #174で追加）。エージェント（Codex/Claude）を使用してフォローアップIssueのタイトル・本文を生成。ファイルベース出力方式、2段階フォールバック（Codex→Claude、Agent→LLM API）、5必須セクション検証、テンプレートベースフォールバック生成を提供。 |
-| `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約231行、Issue #24で追加）。PR作成、更新、検索、クローズ、PR番号取得を担当。 |
+| `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約380行、Issue #24で追加、Issue #261で拡張）。PR作成、更新、検索、クローズ、PR番号取得、**ドラフト解除**（`markPRReady()`）、**マージ先ブランチ変更**（`updateBaseBranch()`）を担当。GraphQL mutation + `gh pr ready` フォールバック機構を実装。 |
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
 | `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。 |
@@ -134,7 +152,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/git/commit-message-builder.ts` | コミットメッセージ構築の専門モジュール（約151行、Issue #52で追加）。フェーズ完了、ステップ完了、初期化、クリーンアップのメッセージ生成を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
 | `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
-| `src/core/git/squash-manager.ts` | スカッシュ操作の専門マネージャー（約350行、Issue #194で追加）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease` による安全な強制プッシュを提供。`squashCommits()`, `getCommitsToSquash()`, `validateBranchProtection()`, `generateCommitMessage()`, `executeSquash()`, `generateFallbackMessage()` を含む6つの主要メソッドを提供。 |
+| `src/core/git/squash-manager.ts` | スカッシュ操作の専門マネージャー（約500行、Issue #194で追加、Issue #261で拡張）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease` による安全な強制プッシュを提供。`squashCommits()`, `squashCommitsForFinalize()`, `getCommitsToSquash()`, `validateBranchProtection()`, `generateCommitMessage()`, `executeSquash()`, `generateFallbackMessage()`, `generateFinalizeMessage()` を含む8つの主要メソッドを提供。**PhaseContext依存解消**により、`FinalizeContext` インターフェースで finalize コマンド用のスカッシュ処理が可能。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約347行、Issue #26で9.5%削減、v0.4.0でrollback機能追加、Issue #90）。差し戻し機能用の6つの新規メソッド（`setRollbackContext()`, `getRollbackContext()`, `clearRollbackContext()`, `addRollbackHistory()`, `updatePhaseForRollback()`, `resetSubsequentPhases()`）を提供。 |
 | `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |

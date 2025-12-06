@@ -10,6 +10,7 @@ import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand } from './commands/rollback.js';
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
+import { handleFinalizeCommand } from './commands/finalize.js';
 
 /**
  * CLIエントリーポイント
@@ -204,6 +205,23 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleCleanupCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // finalize コマンド (Issue #261)
+  program
+    .command('finalize')
+    .description('Finalize workflow completion (cleanup, squash, PR update, draft conversion)')
+    .requiredOption('--issue <number>', 'Issue number')
+    .option('--dry-run', 'Preview mode (do not execute)', false)
+    .option('--skip-squash', 'Skip commit squash step', false)
+    .option('--skip-pr-update', 'Skip PR update and draft conversion steps', false)
+    .option('--base-branch <branch>', 'PR base branch (default: main)', 'main')
+    .action(async (options) => {
+      try {
+        await handleFinalizeCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
