@@ -1,0 +1,275 @@
+## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+# 要件定義フェーズ - 実行プロンプト
+
+## タスク概要
+
+GitHubのIssue情報から詳細な要件定義書を作成してください。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-243/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### GitHub Issue情報
+
+## Issue概要
+
+- **Issue番号**: #243
+- **タイトル**: レビュー結果がFAILでもreviseが実行されず後続フェーズに進んでしまうバグ
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/243
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+
+レビュー（review）ステップの結果が「FAIL」であるにもかかわらず、revise（修正）ステップが実行されず、後続のフェーズに進んでしまうバグが発生している。
+
+## 再現手順
+
+1. `node dist/index.js execute --issue 241 --phase all` を実行
+2. Planning Phase の review が FAIL 判定を出力（「最終判定: FAIL」のログ）
+3. しかし、revise が実行されず Requirements Phase に進行
+
+## 期待される動作
+
+1. レビュー結果が FAIL の場合は revise ステップを実行
+2. リトライ回数（最大3回）を超えても FAIL の場合は、その時点の成果物をコミットしてジョブを終了（後続フェーズに進まない）
+
+## 実際の動作
+
+```
+2025-12-05 13:45:44 [INFO ] Phase planning: Review completed successfully
+2025-12-05 13:45:50 [WARN ] Failed to parse review result via LLM: Unexpected non-whitespace character after JSON at position 23
+```
+
+- レビューログには「最終判定: FAIL」と明確に記載
+- しかし `Review completed successfully` と判定され、revise がスキップ
+- Requirements Phase に進行
+
+## 原因分析
+
+### 1. LLMレスポンスのJSONパースエラー
+
+エラーメッセージ:
+```
+Failed to parse review result via LLM: Unexpected non-whitespace character after JSON at position 23
+```
+
+**原因**: LLM（Claude Agent / Codex Agent）がプロンプトの指示に従わず、JSON の後に余計なテキストを付けて返している。
+
+例:
+```
+{"result": "FAIL"} 
+
+理由: タスク分割が不十分...
+```
+
+または:
+```
+{"result": "FAIL"}。
+```
+
+**position 23 の意味**:
+```
+{"result": "FAIL"}
+^                  ^
+0                  19（JSON終了）
+                     ^
+                     23（余計な文字の位置）
+```
+
+JSON 自体は約19文字で終了しているが、その後の空白や余計な文字（説明文、句読点等）により `JSON.parse()` が失敗。
+
+### 2. フォールバック判定ロジックの問題
+
+`JSON.parse()` 失敗後のフォールバック処理:
+
+```typescript
+// src/core/content-parser.ts:443-456
+const upper = fullText.toUpperCase();
+let inferred = 'FAIL';
+if (upper.includes('PASS_WITH_SUGGESTIONS')) {
+  inferred = 'PASS_WITH_SUGGESTIONS';
+} else if (upper.includes('PASS')) {
+  inferred = 'PASS';
+}
+```
+
+**問題**: レビュー結果に「PASS判定が可能になります」「再度レビューを実施し、PASS判定が可能になります」等の文字列が含まれていると、`upper.includes('PASS')` が true になり、FAIL 判定が PASS に誤変換される。
+
+### 3. review メソッドの戻り値と revise 実行条件
+
+`step-executor.ts:153-157` で `reviewResult.success` が true の場合、revise は実行されない。フォールバック処理で誤って PASS と判定されると、`success: true` として返されてしまう。
+
+## 修正方針
+
+### 1. JSONパース前の前処理追加
+
+LLMレスポンスからJSON部分のみを抽出する前処理を追加:
+
+```typescript
+// JSON部分を抽出（最初の { から最後の } まで）
+const jsonMatch = content.match(/\{[\s\S]*?\}/);
+if (jsonMatch) {
+  const parsed = JSON.parse(jsonMatch[0]);
+  // ...
+}
+```
+
+### 2. フォールバック判定ロジックの改善
+
+```typescript
+// より厳格な判定ロジック
+const upper = fullText.toUpperCase();
+let inferred = 'FAIL'; // デフォルトは FAIL
+
+// 「最終判定」「判定結果」などの明確なマーカーを優先
+const decisionPatterns = [
+  /最終判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /\*\*結果[:：]?\*\*\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /DECISION[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+];
+
+for (const pattern of decisionPatterns) {
+  const match = fullText.match(pattern);
+  if (match) {
+    inferred = match[1].toUpperCase();
+    break;
+  }
+}
+
+// パターンマッチしない場合は FAIL を維持（単純な includes は削除）
+```
+
+### 3. FAIL時のリトライ上限後の処理
+
+`review-cycle-manager.ts` または `phase-runner.ts` で、リトライ回数を超えた FAIL の場合にフェーズを `failed` ステータスに更新し、後続フェーズに進まないようにする。
+
+## 影響範囲
+
+- `src/core/content-parser.ts`: `parseReviewResult` メソッド
+- `src/phases/core/review-cycle-manager.ts`: リトライ上限処理
+- `src/phases/lifecycle/phase-runner.ts`: フェーズ失敗時の処理
+
+## 受け入れ条件
+
+- [ ] LLMレスポンスからJSON部分を抽出する前処理が追加されている
+- [ ] レビュー結果に「PASS判定が可能になります」等の文字列が含まれていても、「最終判定: FAIL」が優先される
+- [ ] LLMパース失敗時のフォールバック処理で、明確なマーカー（「最終判定」「判定結果」等）をパターンマッチで優先
+- [ ] FAIL 判定時に revise ステップが確実に実行される
+- [ ] リトライ上限（3回）を超えても FAIL の場合、フェーズが `failed` ステータスになる
+- [ ] フェーズが `failed` の場合、後続フェーズに進まずジョブが終了する
+- [ ] 既存のテストがすべてパスする
+- [ ] 新規テストケース追加: 
+  - JSON後に余計なテキストがある場合のパーステスト
+  - FAIL判定の誤検出防止テスト
+
+## 要件定義書の構成
+
+以下のセクションを含む要件定義書を作成してください：
+
+### 0. Planning Documentの確認（Planning Phaseが実行されている場合）
+- 開発計画の全体像を把握
+- スコープ、技術選定、リスク、スケジュールを確認
+- Planning Documentで策定された戦略を踏まえて要件定義を実施
+
+### 1. 概要
+- Issue本文の「## 概要」セクションを要約
+- 背景と目的を明確に記述
+- ビジネス価値・技術的価値を説明
+
+### 2. 機能要件
+- Issue本文の「## TODO」セクションから機能要件を抽出
+- 各要件を明確かつ検証可能な形で記述
+- 優先度（高/中/低）を付与
+
+### 3. 非機能要件
+- パフォーマンス要件
+- セキュリティ要件
+- 可用性・信頼性要件
+- 保守性・拡張性要件
+
+### 4. 制約事項
+- 技術的制約（使用技術、既存システムとの整合性）
+- リソース制約（時間、人員、予算）
+- ポリシー制約（セキュリティポリシー、コーディング規約）
+
+### 5. 前提条件
+- システム環境
+- 依存コンポーネント
+- 外部システム連携
+
+### 6. 受け入れ基準
+- 各機能要件の受け入れ基準（Given-When-Then形式推奨）
+- テスト可能な形で記述
+
+### 7. スコープ外
+- 明確にスコープ外とする事項
+- 将来的な拡張候補
+
+## 出力形式
+
+Markdown形式で要件定義書を作成し、以下のファイルに保存してください：
+
+```
+.ai-workflow/issue-243/01_requirements/output/requirements.md
+```
+
+## 品質ゲート（Phase 1）
+
+作成する要件定義書は、以下の品質ゲートを満たす必要があります：
+
+- [ ] **機能要件が明確に記載されている**
+- [ ] **受け入れ基準が定義されている**
+- [ ] **スコープが明確である**
+- [ ] **論理的な矛盾がない**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **具体性**: 曖昧な表現を避け、具体的かつ測定可能な要件を記述
+   - NG例: "適切に処理する"、"必要に応じて対応"
+   - OK例: "3秒以内にレスポンスを返す"、"エラー発生時は管理者に通知"
+
+2. **整合性**: 各セクション間で矛盾がないか確認
+   - 機能要件と受け入れ基準が対応しているか
+   - 非機能要件と制約事項が矛盾していないか
+
+3. **完全性**: Issue本文の情報を漏れなく反映
+   - TODOセクションの項目をすべて機能要件に反映
+   - 概要セクションの背景・目的を明確に記述
+
+4. **検証可能性**: 各要件が検証可能（テスト可能）な形で記述
+   - 受け入れ基準は Given-When-Then 形式で記述
+   - 成功条件・失敗条件が明確に識別可能
+
+5. **レビューされることを意識**: 作成した要件定義書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（4つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 改善提案は歓迎されるが、ブロッカーは修正が必須
+
+## 参考情報
+
+必要に応じて以下を参照してください（存在する場合）：
+- @CLAUDE.md - プロジェクトの全体方針とコーディングガイドライン
+- @ARCHITECTURE.md - アーキテクチャ設計思想
+- @CONTRIBUTION.md - 開発ガイドライン
+- @README.md - プロジェクト概要と使用方法
+- その他、プロジェクト固有のドキュメント

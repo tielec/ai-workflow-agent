@@ -1,0 +1,362 @@
+## 🛠️ 開発環境情報
+
+このDocker環境では、以下のプログラミング言語をインストール可能です：
+
+- **Python**: `apt-get update && apt-get install -y python3 python3-pip`
+- **Go**: `apt-get update && apt-get install -y golang-go`
+- **Java**: `apt-get update && apt-get install -y default-jdk`
+- **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- **Ruby**: `apt-get update && apt-get install -y ruby ruby-dev`
+
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+# 詳細設計フェーズ - 実行プロンプト
+
+## タスク概要
+要件定義書とGitHub Issueの内容から、詳細な設計書を作成してください。このフェーズでは、**実装戦略・テスト戦略・テストコード戦略の判断**も行います。
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: @.ai-workflow/issue-243/00_planning/output/planning.md
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### 要件定義書
+@.ai-workflow/issue-243/01_requirements/output/requirements.md
+
+### GitHub Issue情報
+## Issue概要
+
+- **Issue番号**: #243
+- **タイトル**: レビュー結果がFAILでもreviseが実行されず後続フェーズに進んでしまうバグ
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/243
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+
+レビュー（review）ステップの結果が「FAIL」であるにもかかわらず、revise（修正）ステップが実行されず、後続のフェーズに進んでしまうバグが発生している。
+
+## 再現手順
+
+1. `node dist/index.js execute --issue 241 --phase all` を実行
+2. Planning Phase の review が FAIL 判定を出力（「最終判定: FAIL」のログ）
+3. しかし、revise が実行されず Requirements Phase に進行
+
+## 期待される動作
+
+1. レビュー結果が FAIL の場合は revise ステップを実行
+2. リトライ回数（最大3回）を超えても FAIL の場合は、その時点の成果物をコミットしてジョブを終了（後続フェーズに進まない）
+
+## 実際の動作
+
+```
+2025-12-05 13:45:44 [INFO ] Phase planning: Review completed successfully
+2025-12-05 13:45:50 [WARN ] Failed to parse review result via LLM: Unexpected non-whitespace character after JSON at position 23
+```
+
+- レビューログには「最終判定: FAIL」と明確に記載
+- しかし `Review completed successfully` と判定され、revise がスキップ
+- Requirements Phase に進行
+
+## 原因分析
+
+### 1. LLMレスポンスのJSONパースエラー
+
+エラーメッセージ:
+```
+Failed to parse review result via LLM: Unexpected non-whitespace character after JSON at position 23
+```
+
+**原因**: LLM（Claude Agent / Codex Agent）がプロンプトの指示に従わず、JSON の後に余計なテキストを付けて返している。
+
+例:
+```
+{"result": "FAIL"} 
+
+理由: タスク分割が不十分...
+```
+
+または:
+```
+{"result": "FAIL"}。
+```
+
+**position 23 の意味**:
+```
+{"result": "FAIL"}
+^                  ^
+0                  19（JSON終了）
+                     ^
+                     23（余計な文字の位置）
+```
+
+JSON 自体は約19文字で終了しているが、その後の空白や余計な文字（説明文、句読点等）により `JSON.parse()` が失敗。
+
+### 2. フォールバック判定ロジックの問題
+
+`JSON.parse()` 失敗後のフォールバック処理:
+
+```typescript
+// src/core/content-parser.ts:443-456
+const upper = fullText.toUpperCase();
+let inferred = 'FAIL';
+if (upper.includes('PASS_WITH_SUGGESTIONS')) {
+  inferred = 'PASS_WITH_SUGGESTIONS';
+} else if (upper.includes('PASS')) {
+  inferred = 'PASS';
+}
+```
+
+**問題**: レビュー結果に「PASS判定が可能になります」「再度レビューを実施し、PASS判定が可能になります」等の文字列が含まれていると、`upper.includes('PASS')` が true になり、FAIL 判定が PASS に誤変換される。
+
+### 3. review メソッドの戻り値と revise 実行条件
+
+`step-executor.ts:153-157` で `reviewResult.success` が true の場合、revise は実行されない。フォールバック処理で誤って PASS と判定されると、`success: true` として返されてしまう。
+
+## 修正方針
+
+### 1. JSONパース前の前処理追加
+
+LLMレスポンスからJSON部分のみを抽出する前処理を追加:
+
+```typescript
+// JSON部分を抽出（最初の { から最後の } まで）
+const jsonMatch = content.match(/\{[\s\S]*?\}/);
+if (jsonMatch) {
+  const parsed = JSON.parse(jsonMatch[0]);
+  // ...
+}
+```
+
+### 2. フォールバック判定ロジックの改善
+
+```typescript
+// より厳格な判定ロジック
+const upper = fullText.toUpperCase();
+let inferred = 'FAIL'; // デフォルトは FAIL
+
+// 「最終判定」「判定結果」などの明確なマーカーを優先
+const decisionPatterns = [
+  /最終判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /\*\*結果[:：]?\*\*\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+  /DECISION[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
+];
+
+for (const pattern of decisionPatterns) {
+  const match = fullText.match(pattern);
+  if (match) {
+    inferred = match[1].toUpperCase();
+    break;
+  }
+}
+
+// パターンマッチしない場合は FAIL を維持（単純な includes は削除）
+```
+
+### 3. FAIL時のリトライ上限後の処理
+
+`review-cycle-manager.ts` または `phase-runner.ts` で、リトライ回数を超えた FAIL の場合にフェーズを `failed` ステータスに更新し、後続フェーズに進まないようにする。
+
+## 影響範囲
+
+- `src/core/content-parser.ts`: `parseReviewResult` メソッド
+- `src/phases/core/review-cycle-manager.ts`: リトライ上限処理
+- `src/phases/lifecycle/phase-runner.ts`: フェーズ失敗時の処理
+
+## 受け入れ条件
+
+- [ ] LLMレスポンスからJSON部分を抽出する前処理が追加されている
+- [ ] レビュー結果に「PASS判定が可能になります」等の文字列が含まれていても、「最終判定: FAIL」が優先される
+- [ ] LLMパース失敗時のフォールバック処理で、明確なマーカー（「最終判定」「判定結果」等）をパターンマッチで優先
+- [ ] FAIL 判定時に revise ステップが確実に実行される
+- [ ] リトライ上限（3回）を超えても FAIL の場合、フェーズが `failed` ステータスになる
+- [ ] フェーズが `failed` の場合、後続フェーズに進まずジョブが終了する
+- [ ] 既存のテストがすべてパスする
+- [ ] 新規テストケース追加: 
+  - JSON後に余計なテキストがある場合のパーステスト
+  - FAIL判定の誤検出防止テスト
+
+### 既存コードベースの理解
+
+このリポジトリのプロジェクト構造、アーキテクチャ、コーディング規約を理解するため、以下のドキュメントを参照してください：
+
+- プロジェクト全体のガイドライン: @CLAUDE.md（存在する場合）
+- アーキテクチャ設計: @ARCHITECTURE.md（存在する場合）
+- プロジェクトREADME: @README.md
+- その他、関連するREADME、CONTRIBUTION.md等のドキュメント
+
+上記ドキュメントから以下を把握してください：
+- プロジェクトの目的とアーキテクチャ
+- ディレクトリ構造とコンポーネント構成
+- 既存のコーディング規約やパターン
+- 開発ワークフロー
+
+## 設計書作成手順
+
+### 1. 既存コードベース分析
+
+要件定義書とIssue内容から、以下を分析してください：
+
+1. **影響範囲の特定**
+   - どのコンポーネント（Ansible/Pulumi/Jenkins/Scripts）が影響を受けるか
+   - 既存ファイルの修正が必要か、新規ファイルの作成が必要か
+   - 依存関係のあるコンポーネントは何か
+
+2. **既存パターンの調査**
+   - 類似の機能実装がないか調査
+   - 既存のコーディング規約やパターンを確認
+   - 再利用可能なコンポーネントの特定
+
+### 2. 実装戦略の判断（必須）
+
+以下の3つから選択し、**判断根拠を明記**してください：
+
+- **CREATE（新規作成）**: 既存コードとの依存関係がなく、完全に新しい機能
+- **EXTEND（拡張）**: 既存コードを拡張・修正する必要がある
+- **REFACTOR（リファクタリング）**: 既存コードの構造改善が主目的
+
+**判断基準**：
+- 既存ファイルへの影響範囲
+- 新規ファイルの作成数
+- 既存機能との統合度
+
+**出力形式**：
+```markdown
+### 実装戦略: CREATE / EXTEND / REFACTOR
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 3. テスト戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **UNIT_ONLY**: Unitテストのみ
+- **INTEGRATION_ONLY**: Integrationテストのみ
+- **BDD_ONLY**: BDDテストのみ
+- **UNIT_INTEGRATION**: Unit + Integration
+- **UNIT_BDD**: Unit + BDD
+- **INTEGRATION_BDD**: Integration + BDD
+- **ALL**: すべて
+
+**判断基準**：
+- 機能の複雑度
+- ユーザーストーリーの有無
+- 既存テストとの整合性
+
+**出力形式**：
+```markdown
+### テスト戦略: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 4. テストコード戦略の判断（必須）
+
+以下から選択し、**判断根拠を明記**してください：
+
+- **EXTEND_TEST（既存テストの拡張）**: 既存テストファイルに追加
+- **CREATE_TEST（新規テスト作成）**: 新しいテストファイルを作成
+- **BOTH_TEST（両方）**: 既存テストの拡張と新規テストの作成
+
+**判断基準**：
+- 既存テストファイルの有無
+- 既存テストとの関連性
+
+**出力形式**：
+```markdown
+### テストコード戦略: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**判断根拠**:
+- （理由1）
+- （理由2）
+```
+
+### 5. 設計書の構成
+
+以下のセクションを含む設計書を作成してください：
+
+#### 必須セクション：
+
+1. **アーキテクチャ設計**
+   - システム全体図
+   - コンポーネント間の関係
+   - データフロー
+
+2. **実装戦略判断**（セクション2で記載）
+
+3. **テスト戦略判断**（セクション3で記載）
+
+4. **テストコード戦略判断**（セクション4で記載）
+
+5. **影響範囲分析**
+   - 既存コードへの影響
+   - 依存関係の変更
+   - マイグレーション要否
+
+6. **変更・追加ファイルリスト**
+   - 新規作成ファイル（相対パス）
+   - 修正が必要な既存ファイル（相対パス）
+   - 削除が必要なファイル（相対パス）
+
+7. **詳細設計**
+   - クラス設計（必要な場合）
+   - 関数設計（主要な関数のみ）
+   - データ構造設計
+   - インターフェース設計
+
+8. **セキュリティ考慮事項**
+   - 認証・認可
+   - データ保護
+   - セキュリティリスクと対策
+
+9. **非機能要件への対応**
+   - パフォーマンス
+   - スケーラビリティ
+   - 保守性
+
+10. **実装の順序**
+    - 実装順序の推奨
+    - 依存関係の考慮
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートを満たす必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+これらの品質ゲートは**必須要件**です。作成後、クリティカルシンキングレビューが実施され、品質ゲートを満たさない場合は修正が必要になります。
+
+## 注意事項
+
+1. **既存プロジェクト構造を尊重**: 既存のディレクトリ構造やコーディング規約に従ってください
+2. **トレーサビリティ**: 要件定義書の各要件に対応する設計を明示してください
+3. **実装可能性**: 実装できない設計や曖昧な設計は避けてください
+4. **判断の明示**: 3つの戦略判断（実装・テスト・テストコード）は必ず明記してください
+5. **レビューされることを意識**: 設計書はクリティカルシンキングレビューが実施されます
+   - 品質ゲート（5つの必須要件）を最優先で満たすこと
+   - ブロッカー（次フェーズに進めない問題）がないように注意
+   - 判断根拠は具体的かつ論理的に記載すること
+
+## 出力形式
+
+設計書は `.ai-workflow/issue-243/02_design/output/design.md` として保存してください。
+
+Markdown形式で、見出しを適切に使用し、可読性の高いドキュメントを作成してください。図表が必要な場合はMarkdownのコードブロックやテーブルを活用してください。
+
+## 実装開始
+
+上記を踏まえ、詳細設計書を作成してください。
