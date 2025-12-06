@@ -362,6 +362,30 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
       metadataManager.data.pr_number = prResult.pr_number ?? null;
       metadataManager.data.pr_url = prResult.pr_url ?? null;
       metadataManager.save();
+
+      // Issue #253: PR情報をコミット&プッシュ
+      logger.info('Committing PR information to metadata.json...');
+      try {
+        const prCommitResult = await gitManager.commitPhaseOutput(
+          'planning',
+          'completed',
+          undefined,
+        );
+        if (prCommitResult.success) {
+          logger.info(`PR metadata commit created: ${prCommitResult.commit_hash?.slice(0, 7) ?? 'unknown'}`);
+
+          const prPushResult = await gitManager.pushToRemote();
+          if (prPushResult.success) {
+            logger.info('PR metadata pushed to remote successfully.');
+          } else {
+            logger.warn(`Failed to push PR metadata: ${prPushResult.error ?? 'unknown error'}. PR info saved locally.`);
+          }
+        } else {
+          logger.warn(`Failed to commit PR metadata: ${prCommitResult.error ?? 'unknown error'}. PR info saved locally.`);
+        }
+      } catch (error) {
+        logger.warn(`Failed to commit/push PR metadata: ${getErrorMessage(error)}. PR info saved locally.`);
+      }
     } else {
       logger.warn(`PR creation failed: ${prResult.error ?? 'unknown error'}. Please create manually.`);
     }
