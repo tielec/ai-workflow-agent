@@ -134,20 +134,20 @@
 
 ### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: `src/commands/finalize.ts` の作成 (2~3h)
+- [x] Task 4-1: `src/commands/finalize.ts` の作成 (2~3h)
   - `FinalizeCommandOptions` インターフェースの定義
   - `handleFinalizeCommand()` 関数の実装（5ステップの制御フロー）
   - `--dry-run` モードのプレビュー出力
-- [ ] Task 4-2: `SquashManager` の PhaseContext 依存解消 (1~1.5h)
+- [x] Task 4-2: `SquashManager` の PhaseContext 依存解消 (1~1.5h)
   - `FinalizeContext` の作成
   - `squashCommits()` メソッドの修正（PhaseContext → FinalizeContext）
-- [ ] Task 4-3: `PullRequestClient` への新規メソッド追加 (1~1.5h)
+- [x] Task 4-3: `PullRequestClient` への新規メソッド追加 (1~1.5h)
   - `markPRReady()` の実装（GraphQL mutation または `gh pr ready`）
   - `updateBaseBranch()` の実装（REST API の PATCH）
-- [ ] Task 4-4: `src/main.ts` に finalize コマンドを追加 (0.5h)
+- [x] Task 4-4: `src/main.ts` に finalize コマンドを追加 (0.5h)
   - `commander` の設定
   - `handleFinalizeCommand()` の呼び出し
-- [ ] Task 4-5: Job DSL のデフォルト値変更 (0.5h)
+- [x] Task 4-5: Job DSL のデフォルト値変更 (0.5h)
   - `ai_workflow_all_phases_job.groovy` の `SQUASH_ON_COMPLETE` を `false` に変更
   - `ai_workflow_preset_job.groovy` の `SQUASH_ON_COMPLETE` を `false` に変更
 
@@ -264,13 +264,13 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] `src/commands/finalize.ts` が作成されている
-- [ ] `handleFinalizeCommand()` が5ステップを順次実行している
-- [ ] `--dry-run`、`--skip-squash`、`--skip-pr-update` オプションが動作している
-- [ ] `SquashManager` の PhaseContext 依存が解消されている
-- [ ] `PullRequestClient.markPRReady()` が実装されている
-- [ ] `PullRequestClient.updateBaseBranch()` が実装されている
-- [ ] Job DSL のデフォルト値が変更されている（2ファイル）
+- [x] `src/commands/finalize.ts` が作成されている
+- [x] `handleFinalizeCommand()` が5ステップを順次実行している
+- [x] `--dry-run`、`--skip-squash`、`--skip-pr-update` オプションが動作している
+- [x] `SquashManager` の PhaseContext 依存が解消されている
+- [x] `PullRequestClient.markPRReady()` が実装されている
+- [x] `PullRequestClient.updateBaseBranch()` が実装されている
+- [x] Job DSL のデフォルト値が変更されている（2ファイル）
 
 ### Phase 5: テストコード実装
 
@@ -579,13 +579,13 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] `src/commands/finalize.ts` が作成されている
-- [ ] `handleFinalizeCommand()` が5ステップを順次実行している
-- [ ] `--dry-run`、`--skip-squash`、`--skip-pr-update` オプションが動作している
-- [ ] `SquashManager` の PhaseContext 依存が解消されている
-- [ ] `PullRequestClient.markPRReady()` が実装されている
-- [ ] `PullRequestClient.updateBaseBranch()` が実装されている
-- [ ] Job DSL のデフォルト値が変更されている（2ファイル）
+- [x] `src/commands/finalize.ts` が作成されている
+- [x] `handleFinalizeCommand()` が5ステップを順次実行している
+- [x] `--dry-run`、`--skip-squash`、`--skip-pr-update` オプションが動作している
+- [x] `SquashManager` の PhaseContext 依存が解消されている
+- [x] `PullRequestClient.markPRReady()` が実装されている
+- [x] `PullRequestClient.updateBaseBranch()` が実装されている
+- [x] Job DSL のデフォルト値が変更されている（2ファイル）
 
 ### Phase 5: テストコード実装
 
