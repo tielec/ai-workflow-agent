@@ -90,18 +90,16 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
     metadataManager = new MetadataManager(testMetadataPath);
 
     // メタデータの初期化（全フェーズ完了）
-    metadataManager.data.issue_number = 123;
+    metadataManager.data.issue_number = '123';  // string型
     metadataManager.data.base_commit = 'abc123def456';
-    metadataManager.data.issue_info = {
-      number: 123,
-      title: 'feat(cli): Add finalize command',
-      state: 'open',
-      url: 'https://github.com/owner/repo/issues/123',
-    };
+    metadataManager.data.issue_title = 'feat(cli): Add finalize command';
+    metadataManager.data.issue_url = 'https://github.com/owner/repo/issues/123';
     metadataManager.data.target_repository = {
       owner: 'owner',
       repo: 'repo',
       path: '/test/repo',
+      github_name: 'owner/repo',  // 必須フィールド
+      remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
     };
     metadataManager.data.phases.planning.status = 'completed';
     metadataManager.data.phases.requirements.status = 'completed';
@@ -271,7 +269,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify({
-          issue_number: 123,
+          issue_number: '123',  // string型
           // base_commit が存在しない
           phases: {},
         })
@@ -303,6 +301,8 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
         owner: 'owner',
         repo: 'repo',
         path: '/test/repo',
+        github_name: 'owner/repo',  // 必須フィールド
+        remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
       };
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
@@ -342,6 +342,8 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
         owner: 'owner',
         repo: 'repo',
         path: '/test/repo',
+        github_name: 'owner/repo',  // 必須フィールド
+        remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
       };
 
       (fs.readFileSync as jest.Mock).mockReturnValue(
@@ -391,6 +393,8 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
       owner: 'owner',
       repo: 'repo',
       path: '/test/repo',
+      github_name: 'owner/repo',  // 必須フィールド
+      remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
     };
     metadataManager.data.phases.planning.status = 'completed';
 
@@ -506,6 +510,8 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       owner: 'owner',
       repo: 'repo',
       path: '/test/repo',
+      github_name: 'owner/repo',  // 必須フィールド
+      remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
     };
 
     (fs.readFileSync as jest.Mock).mockReturnValue(
@@ -544,6 +550,20 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
   describe('IT-GIT-ERR-02: Git プッシュ失敗時のエラー', () => {
     test('Git プッシュ失敗時にエラーがスローされる', async () => {
       // Given: Git プッシュが失敗する
+      const metadataManager = new MetadataManager(testMetadataPath);
+      metadataManager.data.base_commit = 'abc123';
+      metadataManager.data.target_repository = {
+        owner: 'owner',
+        repo: 'repo',
+        path: '/test/repo',
+        github_name: 'owner/repo',  // 必須フィールド
+        remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
+      };
+
+      (fs.readFileSync as jest.Mock).mockReturnValue(
+        JSON.stringify(metadataManager.data)
+      );
+
       (GitManager as jest.Mock).mockImplementation(() => ({
         commitCleanupLogs: jest.fn().mockResolvedValue({
           success: true,

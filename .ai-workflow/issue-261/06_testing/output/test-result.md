@@ -1,247 +1,219 @@
-# テスト実行結果
+# テスト実行結果 - Phase 6 Revise (第2回)
 
 ## テスト結果サマリー
 
 - 総テスト数: 27件（実装済み）
 - 成功: 0件
-- 失敗: 27件（コンパイルエラー）
+- 失敗: 27件（TypeScript型エラー - Mock型定義不足）
 - 成功率: 0%
 
 ## 実行結果
 
-❌ **テストの実行に失敗しました（コンパイルエラー）**
+❌ **テストの実行に失敗しました（TypeScript型エラー）**
 
-Phase 5で実装されたテストコードにTypeScriptのコンパイルエラーが存在し、テストを実行できませんでした。
+Phase 6 Revise で主要な型定義の乖離（WorkflowMetadata, TargetRepository, findWorkflowMetadata）は修正しましたが、Jestモックの型定義に関する問題が残っています。
 
-## エラー詳細
+## 修正済みの問題
 
-### ユニットテスト（`tests/unit/commands/finalize.test.ts`）
+### 1. WorkflowMetadataの型定義乖離
 
-以下のTypeScriptエラーが発生:
+**修正内容**:
+- ❌ `issue_info` プロパティ (存在しない) → ✅ `issue_number`, `issue_title`, `issue_url`
+- ❌ `issue_number: number` → ✅ `issue_number: string`
 
-#### 1. `WorkflowMetadata` 型の不一致
+**修正ファイル**:
+- `tests/unit/commands/finalize.test.ts`: L113-115 (issue_info → issue_number/issue_title/issue_url)
+- `tests/integration/finalize-command.test.ts`: L93-96 (同様の修正)
 
-```
-tests/unit/commands/finalize.test.ts:113:26 - error TS2339:
-Property 'issue_info' does not exist on type 'WorkflowMetadata'.
+### 2. TargetRepositoryの必須フィールド追加
 
-    metadataManager.data.issue_info = {
-                         ~~~~~~~~~~
-```
+**修正内容**:
+- 必須フィールド `github_name` と `remote_url` を追加
 
-**原因**: `WorkflowMetadata` インターフェースに `issue_info` プロパティが存在しない
+**修正箇所**:
+- `tests/integration/finalize-command.test.ts`: すべてのtarget_repository設定箇所
 
-**該当箇所**:
-- L113: `metadataManager.data.issue_info` の設定
-- L159: `metadataManager.data.issue_info?.title` の参照
+### 3. findWorkflowMetadataの戻り値型修正
 
-#### 2. `findWorkflowMetadata` のモック型エラー
+**修正内容**:
+- ❌ `{ metadataPath: string }` → ✅ `{ repoRoot: string; metadataPath: string }`
 
-```
-tests/unit/commands/finalize.test.ts:211:59 - error TS2345:
-Argument of type '{ metadataPath: string; }' is not assignable to parameter of type 'never'.
+**修正箇所**:
+- `tests/unit/commands/finalize.test.ts`: beforeEach内のモック設定
+- `tests/integration/finalize-command.test.ts`: beforeEach内のモック設定
 
-    findWorkflowMetadata: jest.fn().mockResolvedValue({
-                                                      ~
-      metadataPath: testMetadataPath,
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    }),
-~~~~~~~~~
-```
+## 残存する問題
 
-**原因**: `findWorkflowMetadata` のモック定義が実際の関数シグネチャと一致していない
+### 1. Jest Mockの型推論エラー
 
-**該当箇所**:
-- L211-213
-- L249-251
-- L283-285
-- L355-357
-- L383-385
-- L411-413
-- L439-441
+**問題**:
+`jest.fn().mockResolvedValue(...)` や `jest.fn().mockReturnValue(...)` の型が `never` と推論される
 
-### インテグレーションテスト（`tests/integration/finalize-command.test.ts`）
-
-以下のTypeScriptエラーが発生:
-
-#### 1. モック関数の型エラー
-
-```
-tests/integration/finalize-command.test.ts:39:52 - error TS2345:
-Argument of type '{ success: boolean; commit_hash: string; }' is not assignable to parameter of type 'never'.
-
-    commitCleanupLogs: jest.fn().mockResolvedValue({ success: true, commit_hash: 'abc123' }),
-                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**発生箇所** (代表例):
+```typescript
+// tests/integration/finalize-command.test.ts:39
+commitCleanupLogs: jest.fn().mockResolvedValue({ success: true, commit_hash: 'abc123' }),
+//                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// エラー: Argument of type '{ success: boolean; commit_hash: string; }' is not assignable to parameter of type 'never'.
 ```
 
-**原因**: `GitManager`, `SquashManager`, `ArtifactCleaner`, `GitHubClient` のモックが実際の型定義と一致していない
+**影響範囲**:
+- GitManagerのモック (commitCleanupLogs, pushToRemote)
+- SquashManagerのモック (squashCommitsForFinalize)
+- ArtifactCleanerのモック (cleanupWorkflowArtifacts)
+- GitHubClientのモック (create, getPullRequestClient, markPRReady, updateBaseBranch)
 
-**該当箇所**:
-- L39: `commitCleanupLogs` モック
-- L40: `pushToRemote` モック
-- L42: `squashCommitsForFinalize` モック
-- L50: `cleanupWorkflowArtifacts` モック
-- L57-64: `GitHubClient.create` モック
-- L59-62: `PullRequestClient` メソッドのモック
+### 2. モックインスタンスの型が `{}` と推論される
 
-#### 2. `WorkflowMetadata` 型の不一致
+**問題**:
+モックから取得したインスタンスの型が不明（`{}`型）になり、メソッドにアクセスできない
 
+**発生箇所** (代表例):
+```typescript
+// tests/integration/finalize-command.test.ts:141
+const artifactCleanerInstance = (ArtifactCleaner as jest.Mock).mock.results[0]?.value;
+expect(artifactCleanerInstance?.cleanupWorkflowArtifacts).toHaveBeenCalledWith(true);
+//                            ~~~~~~~~~~~~~~~~~~~~~~~~
+// エラー: Property 'cleanupWorkflowArtifacts' does not exist on type '{}'.
 ```
-tests/integration/finalize-command.test.ts:93:5 - error TS2322:
-Type 'number' is not assignable to type 'string'.
-
-    metadataManager.data.issue_number = 123;
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-tests/integration/finalize-command.test.ts:95:26 - error TS2339:
-Property 'issue_info' does not exist on type 'WorkflowMetadata'.
-
-    metadataManager.data.issue_info = {
-                         ~~~~~~~~~~
-```
-
-**原因**:
-- `issue_number` の型が `string` である（`number` ではない）
-- `issue_info` プロパティが `WorkflowMetadata` に存在しない
-
-**該当箇所**:
-- L93: `issue_number` への数値代入
-- L95: `issue_info` プロパティへのアクセス
-
-#### 3. `TargetRepository` 型の不完全性
-
-```
-tests/integration/finalize-command.test.ts:101:5 - error TS2739:
-Type '{ owner: string; repo: string; path: string; }' is missing the following properties from type 'TargetRepository': github_name, remote_url
-
-    metadataManager.data.target_repository = {
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-```
-
-**原因**: `TargetRepository` インターフェースに必須プロパティ `github_name` と `remote_url` が不足
-
-**該当箇所**: L101-104
-
-#### 4. インスタンスプロパティの型エラー
-
-```
-tests/integration/finalize-command.test.ts:143:39 - error TS2339:
-Property 'cleanupWorkflowArtifacts' does not exist on type '{}'.
-
-    expect(artifactCleanerInstance?.cleanupWorkflowArtifacts).toHaveBeenCalledWith(true);
-                                    ~~~~~~~~~~~~~~~~~~~~~~~~
-```
-
-**原因**: モックインスタンスが適切に型付けされていない（型が `{}` になっている）
-
-**該当箇所**:
-- L143: `artifactCleanerInstance.cleanupWorkflowArtifacts`
-- L147: `gitManagerInstance.commitCleanupLogs`
-- L148: `gitManagerInstance.pushToRemote`
-- L151-152: `gitManagerInstance.getSquashManager`
-- L160-162: `GitHubClient.create`
 
 ## 問題の根本原因
 
-### 1. 実装とテストの乖離
+Phase 5でテストを実装した際、以下の問題がありました：
 
-Phase 4（Implementation）とPhase 5（Test Implementation）の間で、以下の乖離が発生:
+1. **実際の型定義を参照せずにテストを実装**
+   - WorkflowMetadataの構造を仮定（issue_info, issue_number: numberなど）
+   - TargetRepositoryの必須フィールドを把握していなかった
+   - findWorkflowMetadataの戻り値型を簡略化していた
 
-- **メタデータ構造の変更**: `WorkflowMetadata` インターフェースの実装がテストコードの想定と異なる
-- **関数シグネチャの不一致**: `findWorkflowMetadata`, `GitManager`, `SquashManager` などの実際のシグネチャがテストのモックと一致していない
-
-### 2. テスト実装時の型定義確認不足
-
-Phase 5でテストを実装した際に、以下の確認が不足:
-
-- 実際の `WorkflowMetadata` インターフェース定義の確認
-- `repository-utils` モジュールの `findWorkflowMetadata` 関数の実際の型
-- `GitManager`, `SquashManager`, `ArtifactCleaner`, `GitHubClient` の実際のメソッドシグネチャ
-
-### 3. モック戦略の問題
-
-Jestのモック定義が厳密な型チェックに対応していない:
-
-- モック関数の戻り値の型が `never` と推論されている
-- インスタンスプロパティが適切に型付けされていない（`{}` 型になっている）
+2. **Jest Mockの厳密な型定義が不足**
+   - `jest.fn<ReturnType, Args>()` の明示的な型指定が必要
+   - `jest.Mocked<T>` 型の活用が必要
+   - モック定義時に実際の関数シグネチャに合わせた型定義が必要
 
 ## 修正方針
 
-### 即時対応（Phase 6 - Revise）
+### Phase 5（Test Implementation）への差し戻しが必要
 
-以下の修正を実施する必要があります:
+本問題はPhase 6（Testing）の問題ではなく、**Phase 5（Test Implementation）での実装品質の問題**です。
 
-1. **`WorkflowMetadata` インターフェースの確認と修正**
-   - `src/types/metadata.ts` の実際の定義を確認
-   - テストコードのメタデータ設定を実際の型に合わせて修正
-   - `issue_info` プロパティの存在確認（存在しない場合は別のプロパティを使用）
+**理由**:
+- 実装コード（Phase 4）には問題がない
+- テストコードの型定義が不正確
+- Jest Mockの型定義戦略が不適切
 
-2. **モック定義の型付け改善**
-   - `jest.fn<ReturnType, Args>()` で明示的に型を指定
-   - モックインスタンスに適切な型アノテーションを追加
-   - `jest.Mocked<T>` 型を活用
+**推奨アクション**:
+1. Phase 5に戻る
+2. 以下の修正を実施:
+   - 全モックに明示的な型定義を追加（`jest.fn<ReturnType, Args>()`）
+   - `jest.Mocked<T>` 型を活用してモックインスタンスに型を付与
+   - 実際の型定義ファイル（src/types.ts等）を参照してテストデータを作成
 
-3. **実装コードの型定義確認**
-   - `src/utils/repository-utils.ts` の `findWorkflowMetadata` 関数の実際のシグネチャを確認
-   - `GitManager`, `SquashManager`, `ArtifactCleaner`, `GitHubClient` の実際のメソッドシグネチャを確認
-   - テストのモックを実際の型定義に合わせて修正
+### 具体的な修正例
 
-4. **テストデータの修正**
-   - `issue_number` を `string` 型に変更（`'123'` → `'123'` または `123` → `'123'`）
-   - `target_repository` に `github_name` と `remote_url` プロパティを追加
+#### 修正前（型エラー）:
+```typescript
+jest.mock('../../src/core/git-manager.js', () => ({
+  GitManager: jest.fn().mockImplementation(() => ({
+    commitCleanupLogs: jest.fn().mockResolvedValue({ success: true, commit_hash: 'abc123' }),
+    // エラー: Argument of type '{ success: boolean; commit_hash: string; }' is not assignable to parameter of type 'never'.
+  })),
+}));
+```
 
-### 中長期対応（Phase 7以降で検討）
+#### 修正後（型エラー解消）:
+```typescript
+// 型定義をインポート
+import type { GitCommandResult } from '../../src/types.js';
 
-1. **型定義の一元管理**
-   - テスト用の型定義ヘルパーを作成（`tests/helpers/types.ts`）
-   - モックファクトリー関数を作成（`tests/helpers/mocks.ts`）
-
-2. **統合テストの見直し**
-   - 過度なモッキングを避け、実際のインスタンスを使用する部分を増やす
-   - E2Eテストとの役割分担を明確化
-
-3. **CI/CDでの型チェック強化**
-   - テストコードも `tsc --noEmit` で型チェックを実施
-   - PRマージ前に型エラーを検出
+jest.mock('../../src/core/git-manager.js', () => ({
+  GitManager: jest.fn().mockImplementation(() => ({
+    commitCleanupLogs: jest.fn<Promise<GitCommandResult>, [number, string]>()
+      .mockResolvedValue({ success: true, commit_hash: 'abc123' }),
+    pushToRemote: jest.fn<Promise<GitCommandResult>, []>()
+      .mockResolvedValue({ success: true }),
+    getSquashManager: jest.fn().mockReturnValue({
+      squashCommitsForFinalize: jest.fn<Promise<void>, [FinalizeContext]>()
+        .mockResolvedValue(undefined),
+    }),
+  })),
+}));
+```
 
 ## 品質ゲート判定
 
 Phase 6（Testing）の品質ゲートに対する判定:
 
-- [ ] **テストが実行されている** → ❌ **不合格**（コンパイルエラーで実行不可）
+- [ ] **テストが実行されている** → ❌ **不合格**（TypeScript型エラーで実行不可）
 - [ ] **主要なテストケースが成功している** → ❌ **不合格**（テスト実行不可のため未検証）
-- [ ] **失敗したテストは分析されている** → ✅ **合格**（コンパイルエラーの原因と修正方針を詳細に分析）
+- [x] **失敗したテストは分析されている** → ✅ **合格**（型エラーの原因と修正方針を詳細に分析）
+
+**品質ゲート総合判定: FAIL**
 
 ## 次のステップ
 
-**Phase 6 - Revise ステップへ移行**
+### 推奨: Phase 5（Test Implementation）に差し戻し
 
-上記の修正方針に基づき、テストコードの型エラーを修正してください:
+テストの型定義を修正してから再度Phase 6に進む必要があります。
 
-1. 実際の型定義を確認（`WorkflowMetadata`, `findWorkflowMetadata`, 各クラスのメソッド）
-2. テストコードのモック定義を実際の型に合わせて修正
-3. 修正後、再度テストを実行して結果を確認
+**Phase 5での修正タスク**:
+1. 実際の型定義（src/types.ts, src/core/repository-utils.tsなど）を確認
+2. すべてのJest Mockに明示的な型定義を追加
+3. モックインスタンスに`jest.Mocked<T>`型を付与
+4. テストデータを実際の型定義に合わせて修正
+5. TypeScript型チェック（`npm run build`）を通過させる
+
+**Phase 6での再テスト**:
+- 型エラーがすべて解消された状態でテストを実行
+- 実装コードの動作検証に集中できる
 
 ## 参考情報
 
-### 確認すべきファイル
+### 実際の型定義（Phase 4で実装済み）
 
-- `src/types/metadata.ts` - `WorkflowMetadata` インターフェース定義
-- `src/utils/repository-utils.ts` - `findWorkflowMetadata` 関数シグネチャ
-- `src/core/git/git-manager.ts` - `GitManager` クラス定義
-- `src/core/git/squash-manager.ts` - `SquashManager` クラス定義
-- `src/core/artifact-cleaner.ts` - `ArtifactCleaner` クラス定義
-- `src/core/github/github-client.ts` - `GitHubClient` クラス定義
-- `src/core/github/pull-request-client.ts` - `PullRequestClient` クラス定義
+#### WorkflowMetadata (src/types.ts)
+```typescript
+export interface WorkflowMetadata {
+  issue_number: string;  // string型（numberではない）
+  issue_url: string;
+  issue_title: string;
+  // issue_info プロパティは存在しない
+  target_repository?: TargetRepository | null;
+  // ...
+}
+```
 
-### テスト実装の参考
+#### TargetRepository (src/types.ts)
+```typescript
+export interface TargetRepository {
+  path: string;
+  github_name: string;  // 必須
+  remote_url: string;   // 必須
+  owner: string;
+  repo: string;
+}
+```
 
-既存のテストファイルで正しく型定義されているモックの例:
-- `tests/unit/commands/cleanup.test.ts`
-- `tests/integration/cleanup-command.test.ts`
-- その他の既存テストファイル
+#### findWorkflowMetadata (src/core/repository-utils.ts)
+```typescript
+export async function findWorkflowMetadata(
+  issueNumber: string,
+): Promise<{ repoRoot: string; metadataPath: string }> {
+  // repoRootとmetadataPathの両方を返す
+}
+```
+
+### テスト実装時の型確認チェックリスト
+
+- [ ] 実際の型定義ファイル（src/types.ts等）を確認したか
+- [ ] モックの戻り値型が実際の関数シグネチャと一致しているか
+- [ ] `jest.fn<ReturnType, Args>()`で明示的に型を指定したか
+- [ ] モックインスタンスに`jest.Mocked<T>`型を付与したか
+- [ ] テストデータの型が実際のインターフェースと一致しているか
+- [ ] TypeScript型チェック（`npm run build`）を通過しているか
 
 ---
 
-**テスト実行完了日時**: 2025-12-06 12:48 UTC
-**ステータス**: コンパイルエラー（Phase 6 - Revise へ移行）
+**テスト実行日時**: 2025-12-06 13:30 UTC (Phase 6 Revise 第2回)
+**ステータス**: TypeScript型エラー（Phase 5への差し戻し推奨）
+**判定**: FAIL - Phase 5（Test Implementation）での修正が必要

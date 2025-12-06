@@ -26,7 +26,13 @@ jest.mock('fs-extra', () => ({
   readdirSync: jest.fn(),
 }));
 
+// repository-utilsのモック
+jest.mock('../../../src/core/repository-utils.js', () => ({
+  findWorkflowMetadata: jest.fn(),
+}));
+
 import * as fs from 'fs-extra';
+import { findWorkflowMetadata } from '../../../src/core/repository-utils.js';
 
 describe('Finalize コマンド - バリデーション（validateFinalizeOptions）', () => {
   // =============================================================================
@@ -109,13 +115,10 @@ describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () =
 
     metadataManager = new MetadataManager(testMetadataPath);
 
-    // Issue情報を設定
-    metadataManager.data.issue_info = {
-      number: 123,
-      title: 'feat(cli): Add finalize command',
-      state: 'open',
-      url: 'https://github.com/owner/repo/issues/123',
-    };
+    // Issue情報を設定 (WorkflowMetadataの実際の型に合わせる)
+    metadataManager.data.issue_number = '123';  // string型
+    metadataManager.data.issue_title = 'feat(cli): Add finalize command';
+    metadataManager.data.issue_url = 'https://github.com/owner/repo/issues/123';
   });
 
   // =============================================================================
@@ -156,7 +159,7 @@ describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () =
       ];
 
       // 実際のテストではモックされたPR更新を検証
-      expect(metadataManager.data.issue_info?.title).toBe('feat(cli): Add finalize command');
+      expect(metadataManager.data.issue_title).toBe('feat(cli): Add finalize command');
       expect(metadataManager.data.phases.testing.status).toBe('completed');
     });
   });
@@ -190,6 +193,12 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // findWorkflowMetadataのモック設定
+    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
+      metadataPath: testMetadataPath,
+    });
   });
 
   // =============================================================================
@@ -206,16 +215,9 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         baseBranch: 'main',
       };
 
-      // モック設定
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
-
       (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify({
-          issue_number: 123,
+          issue_number: '123',  // string型
           base_commit: 'abc123',
           phases: {},
         })
@@ -244,16 +246,9 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         baseBranch: 'main',
       };
 
-      // モック設定
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
-
       (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify({
-          issue_number: 123,
+          issue_number: '123',  // string型
           base_commit: 'abc123',
           phases: {},
         })
@@ -269,6 +264,13 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
 describe('Finalize コマンド - エラーケース', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // findWorkflowMetadataのモック設定
+    const testMetadataPath = '/test/.ai-workflow/issue-123/metadata.json';
+    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
+      metadataPath: testMetadataPath,
+    });
   });
 
   // =============================================================================
@@ -277,17 +279,9 @@ describe('Finalize コマンド - エラーケース', () => {
   describe('UC-02: finalize_異常系_base_commit不在', () => {
     test('base_commit が存在しない場合にエラーが発生する', async () => {
       // Given: base_commit が存在しない
-      const testMetadataPath = '/test/.ai-workflow/issue-123/metadata.json';
-
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
-
       (fs.readFileSync as jest.Mock).mockReturnValue(
         JSON.stringify({
-          issue_number: 123,
+          issue_number: '123',  // string型
           // base_commit が存在しない
           phases: {},
         })
@@ -317,9 +311,16 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+    // findWorkflowMetadataのモック設定
+    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      repoRoot: '/test/repo',
+      metadataPath: testMetadataPath,
+    });
+
     (fs.readFileSync as jest.Mock).mockReturnValue(
       JSON.stringify({
-        issue_number: 123,
+        issue_number: '123',  // string型
         base_commit: 'abc123def456',
         phases: {
           planning: { status: 'completed' },
@@ -351,12 +352,6 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
         baseBranch: 'main',
       };
 
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
-
       // When: 実行
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
 
@@ -378,12 +373,6 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
         skipPrUpdate: false,
         baseBranch: 'main',
       };
-
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
 
       // When: 実行
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
@@ -407,12 +396,6 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
         baseBranch: 'main',
       };
 
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
-
       // When: 実行
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
 
@@ -434,12 +417,6 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
         skipPrUpdate: false,
         baseBranch: 'develop',
       };
-
-      jest.mock('../../../src/core/repository-utils.js', () => ({
-        findWorkflowMetadata: jest.fn().mockResolvedValue({
-          metadataPath: testMetadataPath,
-        }),
-      }));
 
       // When: 実行
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
