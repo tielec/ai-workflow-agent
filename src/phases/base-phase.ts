@@ -143,6 +143,7 @@ export abstract class BasePhase {
     this.reviewCycleManager = new ReviewCycleManager(this.metadata, this.phaseName);
 
     // AgentExecutor は遅延初期化（codex/claude が設定されている場合のみ）
+    // Issue #264: getAgentWorkingDirectory 関数を渡して REPOS_ROOT 対応
     if (this.codex || this.claude) {
       this.agentExecutor = new AgentExecutor(
         this.codex,
@@ -150,6 +151,7 @@ export abstract class BasePhase {
         this.metadata,
         this.phaseName,
         this.workingDir,
+        () => this.getAgentWorkingDirectory(),
       );
     }
 

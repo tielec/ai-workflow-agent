@@ -30,14 +30,24 @@ export class AgentExecutor {
   private readonly metadata: MetadataManager;
   private readonly phaseName: PhaseName;
   private readonly workingDir: string;
+  private readonly getAgentWorkingDirectoryFn: (() => string) | null;
   private lastExecutionMetrics: UsageMetrics | null = null;
 
+  /**
+   * @param codex - Codex エージェントクライアント
+   * @param claude - Claude エージェントクライアント
+   * @param metadata - メタデータマネージャー
+   * @param phaseName - フェーズ名
+   * @param workingDir - 作業ディレクトリ（フォールバック用）
+   * @param getAgentWorkingDirectoryFn - REPOS_ROOT対応の作業ディレクトリ取得関数（Issue #264）
+   */
   constructor(
     codex: CodexAgentClient | null,
     claude: ClaudeAgentClient | null,
     metadata: MetadataManager,
     phaseName: PhaseName,
     workingDir: string,
+    getAgentWorkingDirectoryFn?: () => string,
   ) {
     this.codex = codex;
     this.claude = claude;
@@ -45,6 +55,7 @@ export class AgentExecutor {
     this.metadata = metadata;
     this.phaseName = phaseName;
     this.workingDir = workingDir;
+    this.getAgentWorkingDirectoryFn = getAgentWorkingDirectoryFn ?? null;
   }
 
   /**
@@ -162,11 +173,16 @@ export class AgentExecutor {
     let messages: string[] = [];
     let error: Error | null = null;
 
+    // Issue #264: REPOS_ROOT対応の作業ディレクトリを使用
+    // getAgentWorkingDirectoryFn が設定されている場合はそちらを優先
+    const agentWorkingDir = this.getAgentWorkingDirectoryFn?.() ?? this.workingDir;
+    logger.debug(`Agent working directory: ${agentWorkingDir}`);
+
     try {
       messages = await agent.executeTask({
         prompt,
         maxTurns: options?.maxTurns ?? 50,
-        workingDirectory: this.workingDir,
+        workingDirectory: agentWorkingDir,
         verbose: options?.verbose,
       });
     } catch (e) {
