@@ -1,0 +1,566 @@
+# 詳細設計フェーズ - レビュープロンプト
+
+## レビュー対象
+設計書をクリティカルシンキングの観点からレビューしてください。
+
+### 設計書
+@.ai-workflow/issue-261/02_design/output/design.md
+
+### 要件定義書（参考）
+@.ai-workflow/issue-261/01_requirements/output/requirements.md
+
+### GitHub Issue情報（参考）
+## Issue概要
+
+- **Issue番号**: #261
+- **タイトル**: feat(cli): Add finalize command for workflow completion
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/261
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+
+ワークフロー完了時の最終処理を行う `finalize` コマンドを新規追加する。
+
+## 背景
+
+現在、ワークフロー完了後の後処理（クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除）は個別に実行する必要がある。これらを統合した `finalize` コマンドを作成することで、ワークフロー完了時の作業を自動化・簡素化できる。
+
+また、`execute` コマンドの `--squash-on-complete` オプションは finalize コマンドに責務を移すため、Job DSL のデフォルト値を `false` に変更する。
+
+## finalize コマンドの処理ステップ
+
+| ステップ | 内容 | 詳細 |
+|---------|------|------|
+| 1 | base_commit 一時保存 | metadata.json の base_commit を取得・メモリ保持 |
+| 2 | .ai-workflow フォルダ削除 + コミット | ワークフローディレクトリ全体を削除してコミット |
+| 3 | コミットスカッシュ | base_commit から HEAD までをスカッシュ |
+| 4 | PR 内容の最終更新 | PR 本文を最終版に更新 |
+| 5 | PR ドラフト解除 | Draft → Ready for Review に変更 |
+
+## 再利用可能な既存実装
+
+### 完全再利用可能
+
+| モジュール | メソッド | 用途 |
+|-----------|---------|------|
+| `MetadataManager` | `getBaseCommit()` | Step 1: base_commit 取得 |
+| `ArtifactCleaner` | `cleanupWorkflowArtifacts()` | Step 2: ディレクトリ削除 |
+| `PullRequestClient` | `updatePullRequest()` | Step 4: PR 本文更新 |
+| `PullRequestClient` | `checkExistingPr()` | PR 番号取得 |
+
+### 修正が必要
+
+| モジュール | 修正内容 |
+|-----------|---------|
+| `SquashManager` | `PhaseContext` 依存を解消、finalize 用のシンプルなコンテキストで動作させる |
+| `ArtifactCleaner` | Step 2 で base_commit 消失前にメモリ保持する流れに対応 |
+
+## 新規開発が必要
+
+### 1. `src/commands/finalize.ts`
+
+```typescript
+export interface FinalizeCommandOptions {
+  issue: string;
+  dryRun?: boolean;
+  skipSquash?: boolean;
+  skipPrUpdate?: boolean;
+  baseBranch?: string;  // NEW: PR のマージ先ブランチ
+}
+
+export async function handleFinalizeCommand(options: FinalizeCommandOptions): Promise<void> {
+  // Step 1: base_commit 取得・一時保存
+  // Step 2: .ai-workflow 削除 + コミット
+  // Step 3: コミットスカッシュ
+  // Step 4: PR 本文更新
+  // Step 5: PR ドラフト解除
+}
+```
+
+### 2. `PullRequestClient.markPRReady()` - PR ドラフト解除
+
+```typescript
+// GitHub GraphQL API または gh コマンドで実装
+public async markPRReady(prNumber: number): Promise<GenericResult>
+```
+
+GitHub GraphQL API の mutation:
+```graphql
+mutation MarkPRReady($pullRequestId: ID!) {
+  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+    pullRequest {
+      isDraft
+    }
+  }
+}
+```
+
+または `gh pr ready <PR_NUMBER>` コマンドを subprocess で実行。
+
+### 3. `PullRequestClient.updateBaseBranch()` - PR マージ先ブランチ変更
+
+```typescript
+// PR のマージ先ブランチを変更
+public async updateBaseBranch(prNumber: number, baseBranch: string): Promise<GenericResult>
+```
+
+GitHub REST API:
+```
+PATCH /repos/{owner}/{repo}/pulls/{pull_number}
+{
+  "base": "develop"
+}
+```
+
+### 4. PR 最終本文生成ロジック
+
+変更サマリー、完了ステータス、テスト結果などを含む PR 本文を生成。
+
+## CLI オプション
+
+```bash
+# 基本的な使用方法
+node dist/index.js finalize --issue 123
+
+# ドライラン（実際には実行しない）
+node dist/index.js finalize --issue 123 --dry-run
+
+# スカッシュをスキップ
+node dist/index.js finalize --issue 123 --skip-squash
+
+# PR 更新をスキップ
+node dist/index.js finalize --issue 123 --skip-pr-update
+
+# マージ先ブランチを指定（デフォルト: main）
+node dist/index.js finalize --issue 123 --base-branch develop
+```
+
+## Job DSL の変更
+
+### 1. `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`
+
+`SQUASH_ON_COMPLETE` パラメータのデフォルト値を `true` → `false` に変更:
+
+```groovy
+// Before
+booleanParam('SQUASH_ON_COMPLETE', true, ...)
+
+// After
+booleanParam('SQUASH_ON_COMPLETE', false, ...)
+```
+
+### 2. `jenkins/jobs/dsl/ai-workflow/ai_workflow_preset_job.groovy`
+
+`SQUASH_ON_COMPLETE` パラメータのデフォルト値を `true` → `false` に変更:
+
+```groovy
+// Before
+booleanParam('SQUASH_ON_COMPLETE', true, ...)
+
+// After
+booleanParam('SQUASH_ON_COMPLETE', false, ...)
+```
+
+**理由**: スカッシュ処理は finalize コマンドの責務に移行するため、execute コマンドでのデフォルト動作は無効化する。
+
+## 実装の流れ
+
+```
+finalize コマンド
+    │
+    ├─► Step 1: base_commit 取得・一時保存
+    │     └─ MetadataManager.getBaseCommit() ← 既存
+    │
+    ├─► Step 2: .ai-workflow 削除 + コミット
+    │     └─ ArtifactCleaner.cleanupWorkflowArtifacts() ← 既存
+    │         └─ GitManager.commitCleanupLogs() ← 既存
+    │
+    ├─► Step 3: コミットスカッシュ
+    │     └─ SquashManager（修正版）
+    │         └─ RemoteManager.forcePushToRemote() ← 既存
+    │
+    ├─► Step 4: PR 本文更新 + マージ先変更
+    │     ├─ PullRequestClient.updatePullRequest() ← 既存
+    │     ├─ PullRequestClient.updateBaseBranch() ← 新規追加
+    │     └─ 新規: PR最終本文生成ロジック
+    │
+    └─► Step 5: PR ドラフト解除
+          └─ PullRequestClient.markPRReady() ← 新規追加
+```
+
+## 課題と対応
+
+| 課題 | 対応案 |
+|-----|-------|
+| SquashManager は PhaseContext を必要とする | finalize 用のシンプルなコンテキストを作成、またはフォールバックメッセージのみ使用 |
+| ドラフト解除は GraphQL API が必要 | `gh pr ready` コマンドを subprocess で実行するか、GraphQL mutation を実装 |
+| Step 2 の削除後に base_commit が消える | Step 1 でメモリに保持し、Step 3 で使用 |
+| PR 番号の取得 | metadata.json の `pr_number` または `PullRequestClient.checkExistingPr()` |
+| マージ先ブランチの変更 | REST API の PATCH で `base` フィールドを更新 |
+
+## ファイル構成
+
+```
+src/
+├── commands/
+│   └── finalize.ts              # 新規作成
+├── core/
+│   ├── git/
+│   │   └── squash-manager.ts    # 修正（PhaseContext依存解消）
+│   └── github/
+│       └── pull-request-client.ts  # 修正（markPRReady, updateBaseBranch追加）
+└── main.ts                      # finalize コマンド追加
+
+jenkins/
+└── jobs/
+    └── dsl/
+        └── ai-workflow/
+            ├── ai_workflow_all_phases_job.groovy  # SQUASH_ON_COMPLETE デフォルト変更
+            └── ai_workflow_preset_job.groovy      # SQUASH_ON_COMPLETE デフォルト変更
+```
+
+## 受け入れ基準
+
+- [ ] `finalize` コマンドが実装されている
+- [ ] 5つのステップが順番に実行される
+- [ ] `--dry-run` オプションでプレビューモードが動作する
+- [ ] `--skip-squash` / `--skip-pr-update` オプションが動作する
+- [ ] `--base-branch` オプションでマージ先ブランチを変更できる
+- [ ] `PullRequestClient.markPRReady()` が実装されている
+- [ ] `PullRequestClient.updateBaseBranch()` が実装されている
+- [ ] PR ドラフト解除が正常に動作する
+- [ ] PR マージ先ブランチ変更が正常に動作する
+- [ ] Job DSL の `SQUASH_ON_COMPLETE` デフォルト値が `false` に変更されている（2ファイル）
+- [ ] 既存の cleanup / execute コマンドに影響がない
+
+## 関連 Issue
+
+- Issue #194: コミットスカッシュ機能
+- Issue #212: cleanup コマンド
+- Issue #259: Jenkins finalize パイプライン
+
+## ラベル
+
+- `enhancement`
+- `cli`
+- `jenkins`
+
+## 品質ゲート（Phase 2）
+
+設計書は以下の品質ゲートをクリアする必要があります：
+
+- [ ] **実装戦略の判断根拠が明記されている**
+- [ ] **テスト戦略の判断根拠が明記されている**
+- [ ] **既存コードへの影響範囲が分析されている**
+- [ ] **変更が必要なファイルがリストアップされている**
+- [ ] **設計が実装可能である**
+
+## ⚠️ 重要: Planning Phaseチェックリストとの照合（必須）
+
+### 1. Planning.mdの読み込み
+
+以下のファイルを読み込んでください：
+- @.ai-workflow/issue-261/00_planning/output/planning.md
+
+### 2. 該当フェーズのチェックリストを抽出
+
+Planning.mdから、現在のフェーズ（"### Phase 2:" または "## Phase 2:"）のセクションを見つけ、タスクチェックリストを抽出してください。
+
+**注意**: チェックリストが見つからない場合は、このチェックをスキップしてください。
+
+### 3. 設計内容との照合
+
+設計書（design.md）と照合し、各タスクが完了しているかチェックしてください。
+
+**完了の判定基準**:
+- Task記載の設計項目が記述されているか
+- Task記載の戦略判断が明記されているか
+- サブタスクがすべて完了しているか
+
+### 4. Planning.mdの更新
+
+照合結果に基づき、planning.mdのチェックボックスを更新してください：
+
+- 完了したタスク: `- [ ]` → `- [x]`
+- 未完了のタスク: `- [ ]` のまま
+
+**Editツールを使用**して、該当フェーズのセクションを更新してください。
+
+### 5. レビュー判定への反映
+
+- **すべてのタスクが完了**（全て `[x]`）: PASS または PASS_WITH_SUGGESTIONS
+- **未完了タスクがある**（`[ ]` が残っている）: FAIL
+  - レビューフィードバックに未完了タスクをリストアップ
+  - 具体的に何が不足しているか説明
+
+**例（FAIL時のフィードバック）**:
+```
+## Planning Phaseチェックリスト照合結果: FAIL
+
+以下のタスクが未完了です：
+
+- [ ] Task 2-2: テスト戦略の決定
+  - 不足: テスト戦略の判断根拠が記載されていません
+- [ ] Task 2-3: 影響範囲分析
+  - 不足: 既存コードへの影響範囲が分析されていません
+
+これらのタスクを完了してから再提出してください。
+```
+
+### ⚠️ 重要: Planning.mdの内容はレビュー結果に含めない
+
+Planning.mdの読み込みと照合作業は必要ですが、**planning.mdの全文やPlanning Phaseのレビュー内容をレビュー結果に含めないでください**。
+
+レビュー結果には以下のみを含めること:
+- 設計書（design.md）に対する評価
+- Planning.mdとの照合で発見した未完了タスク（FAIL時のみ）
+- 設計書固有の改善提案
+
+Planning Phaseのレビュー詳細やplanning.mdの内容全体は出力しないこと。
+
+## レビュー姿勢
+
+このレビューは「**80点で十分**」の原則に基づいて実施してください：
+
+1. **完璧ではなく、十分を目指す**
+   - 設計書が次フェーズ（テストシナリオ作成）に進める状態であれば合格
+   - 細かい表現の改善は改善提案として記載（ブロッカーにしない）
+
+2. **ブロッカーと改善提案を明確に区別**
+   - ブロッカー: 次フェーズ（テストシナリオ）に進めない重大な問題
+   - 改善提案: 次フェーズに進めるが、改善が望ましい事項
+
+3. **実用的でバランスの取れた判断**
+   - プロジェクトを前に進めることを最優先
+   - 実装フェーズで対応可能な問題はブロッカーにしない
+
+4. **建設的なフィードバック**
+   - 「ダメ」ではなく「こうすればより良い」という表現
+   - 具体的な改善案を提示
+
+## レビュー観点
+
+### 1. 戦略判断の妥当性（最重要）
+
+**実装戦略（CREATE/EXTEND/REFACTOR）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 要件定義書の内容と整合しているか
+- 既存コードへの影響が適切に評価されているか
+
+**テスト戦略（UNIT_ONLY/INTEGRATION_ONLY/BDD_ONLY/UNIT_INTEGRATION/UNIT_BDD/INTEGRATION_BDD/ALL）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 機能の複雑度に見合ったテスト戦略か
+- 要件定義の受け入れ基準と整合しているか
+
+**テストコード戦略（EXTEND_TEST/CREATE_TEST/BOTH_TEST）**:
+- 判断根拠が具体的かつ論理的に記載されているか
+- 既存テストとの関係が明確か
+
+### 2. 影響範囲分析の適切性
+
+- 既存コードへの影響が網羅的に分析されているか
+- 依存関係が正しく把握されているか
+- マイグレーションの必要性が評価されているか
+
+### 3. ファイルリストの完全性
+
+- 新規作成ファイルがリストアップされているか
+- 修正が必要な既存ファイルがリストアップされているか
+- パスが具体的で実装可能か
+
+### 4. 設計の実装可能性
+
+- 設計が具体的で実装者が迷わないか
+- 技術的に実装可能な設計か
+- 既存プロジェクトの規約・パターンに準拠しているか
+
+### 5. 要件との対応（トレーサビリティ）
+
+- 要件定義書の各要件に対応する設計があるか
+- 要件の漏れがないか
+
+### 6. セキュリティ考慮
+
+- セキュリティリスクが識別されているか
+- 対策が具体的か
+
+### 7. 非機能要件への対応
+
+- パフォーマンス考慮があるか
+- スケーラビリティ考慮があるか
+- 保守性考慮があるか
+
+## ⚠️ 最重要: 品質ゲートは絶対条件
+
+**品質ゲート（5項目）は必須要件です。1つでも満たされていない場合、判定は自動的にFAILになります。**
+
+- 品質ゲートは「最低限クリアすべき基準」であり、交渉の余地はありません
+- 「80点で十分」の原則は、品質ゲートを満たした上での改善提案に適用されます
+- 品質ゲートを満たさない状態で次フェーズに進むことは許されません
+
+## ブロッカー（BLOCKER）と改善提案（SUGGESTION）の区別
+
+### ブロッカー（BLOCKER）: 次フェーズに進めない重大な問題
+
+**ブロッカーの例**:
+- 3つの戦略判断（実装・テスト・テストコード）のいずれかが欠落
+- 判断根拠が記載されていない、または論理的に破綻している
+- 変更ファイルリストが未記載
+- 設計が実装不可能（技術的制約に違反）
+- 既存システムを破壊する設計
+- 重大なセキュリティリスクが未対策
+- 要件との対応が不明確
+
+### 改善提案（SUGGESTION）: 次フェーズに進めるが、改善が望ましい事項
+
+**改善提案の例**:
+- より良い設計パターンの提案
+- パフォーマンス最適化の余地
+- ドキュメントの充実（例: 図表追加）
+- エッジケースの追加考慮
+- より詳細な影響範囲分析
+- セキュリティ対策の強化
+
+### 判定ルール
+
+#### PASS（合格）
+
+以下の**すべて**を満たす場合のみPASS：
+- ✅ **5つの品質ゲートすべてが満たされている**（1つでも×があればFAIL）
+- ✅ ブロッカーが存在しない
+- ✅ 軽微な改善提案のみ（または改善提案なし）
+
+#### PASS_WITH_SUGGESTIONS（条件付き合格）
+
+以下の**すべて**を満たす場合のみPASS_WITH_SUGGESTIONS：
+- ✅ **5つの品質ゲートすべてが満たされている**（1つでも×があればFAIL）
+- ✅ ブロッカーは存在しない
+- ✅ 次フェーズに進めるが、検討すべき改善点がある
+
+#### FAIL（不合格）
+
+以下の**いずれか1つでも**該当すればFAIL：
+- ❌ **品質ゲート（5項目）のうち1つでも満たされていない**
+- ❌ ブロッカーが1つ以上存在する
+
+**重要: 品質ゲートは絶対条件であり、1つでも満たされていなければ自動的にFAILです。**
+
+## 出力フォーマット
+
+以下の形式で出力してください：
+
+```markdown
+## 品質ゲート評価
+
+**⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
+
+- [x/  ] **実装戦略の判断根拠が明記されている**: **PASS / FAIL** - （判定理由）
+- [x/  ] **テスト戦略の判断根拠が明記されている**: **PASS / FAIL** - （判定理由）
+- [x/  ] **既存コードへの影響範囲が分析されている**: **PASS / FAIL** - （判定理由）
+- [x/  ] **変更が必要なファイルがリストアップされている**: **PASS / FAIL** - （判定理由）
+- [x/  ] **設計が実装可能である**: **PASS / FAIL** - （判定理由）
+
+**品質ゲート総合判定: PASS / FAIL**
+- PASS: 上記5項目すべてがPASS
+- FAIL: 上記5項目のうち1つでもFAIL
+
+**品質ゲート判定がFAILの場合、最終判定は自動的にFAILになります。**
+
+## 詳細レビュー
+
+### 1. 戦略判断の妥当性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 2. 影響範囲分析の適切性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 3. ファイルリストの完全性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 4. 設計の実装可能性
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 5. 要件との対応
+
+**良好な点**:
+- （具体的な良い点）
+
+**懸念点**:
+- （懸念があれば記載）
+
+### 6. セキュリティ考慮
+
+**良好な点**:
+- （具体的な良い点）
+
+**改善の余地**:
+- （改善提案があれば記載）
+
+### 7. 非機能要件への対応
+
+**良好な点**:
+- （具体的な良い点）
+
+**改善の余地**:
+- （改善提案があれば記載）
+
+## ブロッカー（BLOCKER）
+
+**次フェーズに進めない重大な問題**
+
+（ブロッカーがある場合のみ記載）
+1. **（ブロッカー1のタイトル）**
+   - 問題: （具体的な問題）
+   - 影響: （次フェーズにどう影響するか）
+   - 対策: （どう修正すべきか）
+
+## 改善提案（SUGGESTION）
+
+**次フェーズに進めるが、改善が望ましい事項**
+
+（改善提案がある場合のみ記載）
+1. **（提案1のタイトル）**
+   - 現状: （現在の状態）
+   - 提案: （こうすればより良い）
+   - 効果: （改善による効果）
+
+## 総合評価
+
+（設計書全体の総合的な評価）
+
+**主な強み**:
+- （良い点をまとめる）
+
+**主な改善提案**:
+- （改善提案をまとめる）
+
+（総括コメント）
+
+---
+**判定: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**重要**: 最終行に必ず上記フォーマットで判定を明記してください。

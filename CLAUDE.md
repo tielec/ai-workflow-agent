@@ -129,6 +129,42 @@ node dist/index.js cleanup --issue <NUM> --phases planning,requirements,design
 node dist/index.js cleanup --issue <NUM> --all
 ```
 
+### ワークフロー完了後の最終処理（v0.5.0、Issue #261で追加）
+```bash
+# 基本的な使用方法（全5ステップを実行）
+node dist/index.js finalize --issue <NUM>
+
+# ドライラン（プレビューモード）
+node dist/index.js finalize --issue <NUM> --dry-run
+
+# コミットスカッシュをスキップ
+node dist/index.js finalize --issue <NUM> --skip-squash
+
+# PR更新とドラフト解除をスキップ
+node dist/index.js finalize --issue <NUM> --skip-pr-update
+
+# マージ先ブランチを変更（デフォルト: main）
+node dist/index.js finalize --issue <NUM> --base-branch develop
+```
+
+**主な機能**:
+- **5ステップの統合実行**: ワークフロー完了後の最終処理を1コマンドで実行
+  - Step 1: base_commit をメタデータから取得・一時保存
+  - Step 2: .ai-workflow/issue-{NUM}/ ディレクトリ全体を削除 + Git コミット＆プッシュ
+  - Step 3: base_commit から HEAD までのコミットをスカッシュ（AI生成メッセージ付与）
+  - Step 4: PR 本文を最終版に更新、マージ先ブランチを変更（オプション）
+  - Step 5: PR ドラフトを解除し、Ready for Review 状態に変更
+- **責務の明確化**: スカッシュ処理を execute コマンドから分離し、finalize コマンドに集約
+- **PR準備の自動化**: ドラフト解除とマージ先ブランチ変更を自動化
+- **柔軟な実行制御**: `--skip-squash`、`--skip-pr-update` オプションで柔軟なステップスキップが可能
+
+**オプション**:
+- `--issue <number>`: 対象のIssue番号（必須）
+- `--dry-run`: プレビューモード（実際には実行せず、実行内容を表示）
+- `--skip-squash`: Step 3（コミットスカッシュ）をスキップ
+- `--skip-pr-update`: Step 4-5（PR更新・ドラフト解除）をスキップ
+- `--base-branch <branch>`: PRのマージ先ブランチ（デフォルト: `main`）
+
 **主な機能**:
 - **通常クリーンアップ**: Phase 0-8のワークフローログを削除（`execute/`, `review/`, `revise/` ディレクトリ）
 - **部分クリーンアップ**: `--phases` オプションで指定したフェーズ範囲のみを削除
