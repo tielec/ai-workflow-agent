@@ -185,10 +185,12 @@ export abstract class BasePhase {
     }
 
     // 新規モジュールの初期化 (Issue #49)
+    // Issue #274: workflowBaseDir を渡して REPOS_ROOT 対応
     this.contextBuilder = new ContextBuilder(
       this.metadata,
       this.workingDir,
-      () => this.getAgentWorkingDirectory()
+      () => this.getAgentWorkingDirectory(),
+      workflowBaseDir
     );
     this.artifactCleaner = new ArtifactCleaner(this.metadata);
 

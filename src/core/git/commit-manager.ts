@@ -166,6 +166,8 @@ export class CommitManager {
 
   /**
    * Issue #10: Commit step output files
+   * Issue #274: workingDir パラメータは後方互換性のために残すが、
+   *             内部では this.repoPath を使用（REPOS_ROOT 対応）
    */
   public async commitStepOutput(
     phaseName: PhaseName,
@@ -200,7 +202,8 @@ export class CommitManager {
     }
 
     // 2. Secret masking
-    const workflowDir = join(workingDir, '.ai-workflow', `issue-${issueNumber}`);
+    // Issue #274: workingDir の代わりに this.repoPath を使用（REPOS_ROOT 対応）
+    const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
       if (maskingResult.filesProcessed > 0) {
