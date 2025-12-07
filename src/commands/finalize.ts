@@ -48,7 +48,7 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
   validateFinalizeOptions(options);
 
   // 2. メタデータ読み込み
-  const { metadataManager, workflowDir } = await loadWorkflowMetadata(options.issue);
+  const { metadataManager, workflowDir, repoDir } = await loadWorkflowMetadata(options.issue);
 
   // 3. ドライランモード判定
   if (options.dryRun) {
@@ -60,11 +60,11 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
   const baseCommit = await executeStep1(metadataManager);
 
   // 5. Step 2: .ai-workflow 削除 + コミット
-  await executeStep2(metadataManager, workflowDir, options);
+  await executeStep2(metadataManager, repoDir, options);
 
   // 6. Step 3: コミットスカッシュ（--skip-squash でスキップ可能）
   if (!options.skipSquash) {
-    await executeStep3(metadataManager, workflowDir, baseCommit, options);
+    await executeStep3(metadataManager, repoDir, baseCommit, options);
   } else {
     logger.info('Skipping commit squash (--skip-squash option)');
   }
@@ -85,6 +85,7 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
 async function loadWorkflowMetadata(issueNumber: string): Promise<{
   metadataManager: MetadataManager;
   workflowDir: string;
+  repoDir: string;
 }> {
   // メタデータの探索
   const result = await findWorkflowMetadata(issueNumber);
@@ -92,9 +93,11 @@ async function loadWorkflowMetadata(issueNumber: string): Promise<{
 
   const metadataManager = new MetadataManager(metadataPath);
   const workflowDir = metadataManager.workflowDir;
+  // リポジトリルートは .ai-workflow の親ディレクトリ
+  const repoDir = path.dirname(path.dirname(workflowDir));
 
   logger.info(`Loaded workflow metadata: ${metadataPath}`);
-  return { metadataManager, workflowDir };
+  return { metadataManager, workflowDir, repoDir };
 }
 
 /**
@@ -143,12 +146,12 @@ async function executeStep1(metadataManager: MetadataManager): Promise<string> {
  * executeStep2 - .ai-workflow ディレクトリ削除 + コミット
  *
  * @param metadataManager - メタデータマネージャー
- * @param workflowDir - ワークフローディレクトリパス
+ * @param repoDir - リポジトリルートディレクトリパス
  * @param options - CLI オプション
  */
 async function executeStep2(
   metadataManager: MetadataManager,
-  workflowDir: string,
+  repoDir: string,
   options: FinalizeCommandOptions
 ): Promise<void> {
   logger.info('Step 2: Cleaning up workflow artifacts...');
@@ -158,8 +161,8 @@ async function executeStep2(
   // force=true で確認プロンプトをスキップ（CI環境でも動作）
   await artifactCleaner.cleanupWorkflowArtifacts(true);
 
-  // Git コミット＆プッシュ
-  const gitManager = new GitManager(workflowDir, metadataManager);
+  // Git コミット＆プッシュ（リポジトリルートで初期化）
+  const gitManager = new GitManager(repoDir, metadataManager);
   const issueNumber = parseInt(options.issue, 10);
 
   const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'finalize');
@@ -181,19 +184,20 @@ async function executeStep2(
  * executeStep3 - コミットスカッシュ
  *
  * @param metadataManager - メタデータマネージャー
- * @param workflowDir - ワークフローディレクトリパス
+ * @param repoDir - リポジトリルートディレクトリパス
  * @param baseCommit - ワークフロー開始時のコミットハッシュ
  * @param options - CLI オプション
  */
 async function executeStep3(
   metadataManager: MetadataManager,
-  workflowDir: string,
+  repoDir: string,
   baseCommit: string,
   options: FinalizeCommandOptions
 ): Promise<void> {
   logger.info('Step 3: Squashing commits...');
 
-  const gitManager = new GitManager(workflowDir, metadataManager);
+  // リポジトリルートで初期化（.ai-workflow は削除済み）
+  const gitManager = new GitManager(repoDir, metadataManager);
   const squashManager = gitManager.getSquashManager();
 
   // finalize 用のシンプルなコンテキストを作成
