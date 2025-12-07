@@ -43,11 +43,16 @@ def prepareAgentCredentials() {
     // 認証情報の確認（パラメータベース）
     echo "Agent Mode: ${agentMode}"
 
+    def hasCodexApiKey = env.CODEX_API_KEY?.trim()
+    def hasCodexAuthJson = params.CODEX_AUTH_JSON?.trim()
+
     // OpenAI系
-    if (env.CODEX_API_KEY?.trim()) {
+    if (hasCodexApiKey) {
         echo '[INFO] CODEX_API_KEY is configured (for Codex agent).'
+    } else if (hasCodexAuthJson) {
+        echo '[INFO] CODEX_AUTH_JSON is provided. Codex CLI auth file will be used.'
     } else {
-        echo '[WARN] CODEX_API_KEY is not configured. Codex agent will not be available.'
+        echo '[WARN] Neither CODEX_API_KEY nor CODEX_AUTH_JSON is configured. Codex agent will not be available.'
     }
 
     if (env.OPENAI_API_KEY?.trim()) {
@@ -73,10 +78,14 @@ def prepareAgentCredentials() {
 
     // エージェントモードに応じた検証
     if (agentMode == 'codex') {
-        if (!env.CODEX_API_KEY?.trim()) {
-            error("Agent mode 'codex' requires CODEX_API_KEY parameter.")
+        if (!hasCodexApiKey && !hasCodexAuthJson) {
+            error("Agent mode 'codex' requires CODEX_API_KEY or CODEX_AUTH_JSON parameter.")
         }
-        echo '[INFO] Agent mode "codex" selected. Using CODEX_API_KEY.'
+        if (hasCodexApiKey) {
+            echo '[INFO] Agent mode "codex" selected. Using CODEX_API_KEY.'
+        } else {
+            echo '[INFO] Agent mode "codex" selected. Using CODEX_AUTH_JSON workspace credential.'
+        }
     } else if (agentMode == 'claude') {
         if (!env.CLAUDE_CODE_OAUTH_TOKEN?.trim() && !env.CLAUDE_CODE_API_KEY?.trim()) {
             error("Agent mode 'claude' requires CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY parameter.")
