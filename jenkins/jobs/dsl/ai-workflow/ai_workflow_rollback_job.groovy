@@ -81,14 +81,20 @@ GitHub Issue URL（必須）
 - claude: Claude Code のみを使用（credentials.json が必要）
             '''.stripIndent().trim())
 
+            choiceParam('ROLLBACK_MODE', ['auto', 'manual'], '''
+差し戻しモード（デフォルト: auto）
+- auto: エージェントがワークフロー状態を分析し、最適な差し戻しフェーズ / ステップ / 理由を自動判定
+- manual: 従来どおり差し戻し先を手動指定
+            '''.stripIndent().trim())
+
             // ========================================
             // Rollback 設定
             // ========================================
             choiceParam('ROLLBACK_TO_PHASE', ['implementation', 'planning', 'requirements', 'design', 'test_scenario', 'test_implementation', 'testing', 'documentation', 'report'], '''
-差し戻し先フェーズ（必須）
+差し戻し先フェーズ（ROLLBACK_MODE=manual のみ必須）
 
-差し戻したいフェーズを指定します。メタデータが更新され、指定されたフェーズから再実行可能になります。
-注: evaluation フェーズへの差し戻しはできません。
+manual の場合は差し戻し先フェーズを指定してください。auto の場合はエージェントが最適なフェーズを自動判定します。
+※ evaluation フェーズへの差し戻しはサポートしていません。
             '''.stripIndent().trim())
 
             choiceParam('ROLLBACK_TO_STEP', ['revise', 'execute', 'review'], '''
@@ -101,17 +107,17 @@ GitHub Issue URL（必須）
             '''.stripIndent().trim())
 
             textParam('ROLLBACK_REASON', '', '''
-差し戻し理由（任意）
+差し戻し理由（ROLLBACK_MODE=manual のみ必須）
 
-差し戻しの理由を記述します。この内容は revise プロンプトに自動注入されます。
-空欄の場合、CI環境では差し戻しが実行されません（インタラクティブ入力が必要）。
+manual の場合は差し戻し理由を入力してください（または ROLLBACK_REASON_FILE を利用）。auto の場合はエージェントが理由を自動生成します。
             '''.stripIndent().trim())
 
             stringParam('ROLLBACK_REASON_FILE', '', '''
 差し戻し理由ファイルパス（任意）
 
-差し戻し理由を記述したファイルのパスを指定します。
-ROLLBACK_REASON と ROLLBACK_REASON_FILE の両方が指定された場合、ROLLBACK_REASON_FILE が優先されます。
+差し戻し理由をテキストファイルで管理する場合に指定します。
+ROLLBACK_REASON と ROLLBACK_REASON_FILE の両方が指定された場合は ROLLBACK_REASON_FILE を優先します。
+manual モードでは差し戻し理由の提供が必須のため、ファイル入力で代替できます。
             '''.stripIndent().trim())
 
             // ========================================
