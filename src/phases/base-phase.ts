@@ -113,6 +113,33 @@ export abstract class BasePhase {
     }
   }
 
+  /**
+   * Issue #274: ワークフローディレクトリのベースパスを解決
+   *
+   * REPOS_ROOT が設定されている場合は、対象リポジトリの .ai-workflow ディレクトリを使用。
+   * Jenkins環境ではWORKSPACEとREPOS_ROOTが分離されているため、
+   * 成果物ファイルは REPOS_ROOT 配下に保存する必要がある。
+   *
+   * @returns ワークフローのベースディレクトリ（例: /tmp/repos/repo-name/.ai-workflow/issue-123）
+   */
+  private resolveWorkflowBaseDir(): string {
+    const reposRoot = config.getReposRoot();
+    const repoName = this.metadata.data.target_repository?.repo;
+    const issueNumber = this.metadata.data.issue_number;
+
+    if (reposRoot && repoName && issueNumber) {
+      const reposRootPath = path.join(reposRoot, repoName);
+      if (fs.existsSync(reposRootPath)) {
+        const workflowDir = path.join(reposRootPath, '.ai-workflow', `issue-${issueNumber}`);
+        logger.debug(`Using REPOS_ROOT path for workflow directory: ${workflowDir}`);
+        return workflowDir;
+      }
+    }
+
+    // フォールバック: metadata.workflowDir を使用
+    return this.metadata.workflowDir;
+  }
+
   constructor(params: BasePhaseConstructorParams) {
     this.phaseName = params.phaseName;
     this.workingDir = params.workingDir;
@@ -129,7 +156,9 @@ export abstract class BasePhase {
       : { enabled: false, provider: 'auto' };
 
     const phaseNumber = this.getPhaseNumber(this.phaseName);
-    this.phaseDir = path.join(this.metadata.workflowDir, `${phaseNumber}_${this.phaseName}`);
+    // Issue #274: REPOS_ROOT が設定されている場合は動的にパスを解決
+    const workflowBaseDir = this.resolveWorkflowBaseDir();
+    this.phaseDir = path.join(workflowBaseDir, `${phaseNumber}_${this.phaseName}`);
     this.outputDir = path.join(this.phaseDir, 'output');
     this.executeDir = path.join(this.phaseDir, 'execute');
     this.reviewDir = path.join(this.phaseDir, 'review');
@@ -156,10 +185,12 @@ export abstract class BasePhase {
     }
 
     // 新規モジュールの初期化 (Issue #49)
+    // Issue #274: workflowBaseDir を渡して REPOS_ROOT 対応
     this.contextBuilder = new ContextBuilder(
       this.metadata,
       this.workingDir,
-      () => this.getAgentWorkingDirectory()
+      () => this.getAgentWorkingDirectory(),
+      workflowBaseDir
     );
     this.artifactCleaner = new ArtifactCleaner(this.metadata);
 

@@ -166,6 +166,8 @@ export class CommitManager {
 
   /**
    * Issue #10: Commit step output files
+   * Issue #274: workingDir パラメータは後方互換性のために残すが、
+   *             内部では this.repoPath を使用（REPOS_ROOT 対応）
    */
   public async commitStepOutput(
     phaseName: PhaseName,
@@ -200,7 +202,8 @@ export class CommitManager {
     }
 
     // 2. Secret masking
-    const workflowDir = join(workingDir, '.ai-workflow', `issue-${issueNumber}`);
+    // Issue #274: workingDir の代わりに this.repoPath を使用（REPOS_ROOT 対応）
+    const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
     try {
       const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
       if (maskingResult.filesProcessed > 0) {
@@ -340,10 +343,11 @@ export class CommitManager {
 
   /**
    * Issue #16: Commit log cleanup files
+   * Issue #261: finalize コマンド対応
    */
   public async commitCleanupLogs(
     issueNumber: number,
-    phase: 'report' | 'evaluation',
+    phase: 'report' | 'evaluation' | 'finalize',
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();
@@ -445,8 +449,10 @@ export class CommitManager {
 
   /**
    * Ensure git config (user.name and user.email)
+   *
+   * Note: Made public for use by SquashManager during finalize command.
    */
-  private async ensureGitConfig(): Promise<void> {
+  public async ensureGitConfig(): Promise<void> {
     const gitConfig = await this.git.listConfig();
     const userNameFromConfig = gitConfig.all['user.name'] as string | undefined;
     const userEmailFromConfig = gitConfig.all['user.email'] as string | undefined;
@@ -552,6 +558,65 @@ ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
         success: false,
         commit_hash: null,
         files_committed: existingFiles,
+        error: getErrorMessage(error),
+      };
+    }
+  }
+
+  /**
+   * Issue #276: ワークフローディレクトリ削除をコミット
+   *
+   * finalize コマンドで .ai-workflow/issue-* ディレクトリを削除した後、
+   * 削除されたファイルをGitにコミットする。
+   *
+   * 通常の commitCleanupLogs とは異なり、削除されたファイル（存在しないファイル）を
+   * git add -A でステージングしてからコミットする。
+   */
+  public async commitWorkflowDeletion(issueNumber: number): Promise<CommitResult> {
+    try {
+      // 削除されたファイルをステージング
+      const workflowPath = `.ai-workflow/issue-${issueNumber}`;
+
+      // git status で削除されたファイルがあるか確認
+      const status = await this.git.status();
+      const deletedFiles = status.deleted.filter(f => f.startsWith(workflowPath));
+
+      if (deletedFiles.length === 0) {
+        logger.info('No deleted files to commit for workflow cleanup');
+        return {
+          success: true,
+          commit_hash: null,
+          files_committed: [],
+        };
+      }
+
+      logger.info(`Staging ${deletedFiles.length} deleted file(s) for commit`);
+
+      // 削除されたファイルをステージング（git add -A で削除を追跡）
+      await this.git.add(['-A', workflowPath]);
+      await this.ensureGitConfig();
+
+      // コミットメッセージ生成
+      const message = this.messageBuilder.createCleanupCommitMessage(issueNumber, 'finalize');
+
+      // コミット実行
+      const commitResponse = await this.git.commit(message, [], {
+        '--no-verify': null,
+      });
+
+      logger.info(`Workflow deletion committed: ${commitResponse.commit ?? 'unknown'}`);
+
+      return {
+        success: true,
+        commit_hash: commitResponse.commit ?? null,
+        files_committed: deletedFiles,
+      };
+    } catch (error) {
+      logger.error(`Workflow deletion commit failed: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: [],
         error: getErrorMessage(error),
       };
     }

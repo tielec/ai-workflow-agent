@@ -132,11 +132,24 @@ ai-workflow rollback \
   [--force] \
   [--dry-run]
 
+ai-workflow rollback-auto \
+  --issue <number> \
+  [--dry-run] \
+  [--force] \
+  [--agent auto|codex|claude]
+
 ai-workflow cleanup \
   --issue <number> \
   [--dry-run] \
   [--phases <range>] \
   [--all]
+
+ai-workflow finalize \
+  --issue <number> \
+  [--dry-run] \
+  [--skip-squash] \
+  [--skip-pr-update] \
+  [--base-branch <branch>]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -419,6 +432,107 @@ ai-workflow rollback \
 - 差し戻しを実行すると、後続フェーズのステータスはすべて `pending` にリセットされます
 - 差し戻し理由は `ROLLBACK_REASON.md` として `.ai-workflow/issue-<NUM>/<PHASE>/` ディレクトリに保存されます
 - 差し戻し後、次回の `execute` コマンドで差し戻し先フェーズの指定ステップから自動的に再開されます
+
+#### Rollback Auto モード（AI エージェントによる自動差し戻し判定）
+
+`rollback-auto` コマンドは、AI エージェント（Codex/Claude）がワークフロー状態を自動分析し、差し戻しが必要かどうかを判定する機能です（v0.4.0、Issue #271で追加）。テスト失敗やレビュー結果を自動的に分析し、差し戻しが必要な場合は適切なフェーズとステップを提案します。
+
+```bash
+# 基本的な使用方法（auto モード）
+ai-workflow rollback-auto --issue 123
+
+# プレビューモード（差し戻し判定のみ、実際には実行しない）
+ai-workflow rollback-auto --issue 123 --dry-run
+
+# 高信頼度判定時は確認をスキップ
+ai-workflow rollback-auto --issue 123 --force
+
+# 使用するエージェントを指定
+ai-workflow rollback-auto --issue 123 --agent codex
+ai-workflow rollback-auto --issue 123 --agent claude
+```
+
+**主な機能**:
+
+- **自動状態分析**: `metadata.json`、review results、test results を自動収集して分析
+- **AI エージェントによる判定**:
+  - 差し戻しが必要かどうかを判定（`needs_rollback: true/false`）
+  - 差し戻しが必要な場合、適切な差し戻し先フェーズとステップを提案
+  - 判定理由と分析結果を詳細に説明
+  - 判定の信頼度（`high` / `medium` / `low`）を提供
+- **信頼度ベースの確認**:
+  - `confidence: high` かつ `--force` 指定時: 確認プロンプトをスキップして自動実行
+  - `confidence: medium/low`: 常に確認プロンプトを表示（安全性重視）
+- **既存 rollback との統合**: 差し戻し実行時は既存の `executeRollback()` を再利用
+
+**オプション**:
+
+- `--issue <number>`: 対象のIssue番号（必須）
+- `--dry-run`: プレビューモード（差し戻し判定のみ、実際には実行しない）
+- `--force`: 高信頼度判定時は確認をスキップ（`confidence: high` の場合のみ有効）
+- `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`、デフォルト: `auto`）
+  - `auto`: Codex API キーがあれば Codex、なければ Claude にフォールバック
+  - `codex`: Codex のみ使用
+  - `claude`: Claude Code 強制使用
+
+**使用例**:
+
+```bash
+# ケース1: テスト失敗後に自動判定（プレビューモード）
+ai-workflow rollback-auto --issue 271 --dry-run
+# → エージェントが test-result.md を分析
+# → 差し戻しが必要かどうか判定
+# → 必要な場合、差し戻し先フェーズとステップを提案
+# → 実際には差し戻さない（プレビューのみ）
+
+# ケース2: 本番実行（確認あり）
+ai-workflow rollback-auto --issue 271
+# → エージェントが判定
+# → confidence が medium/low の場合、確認プロンプトを表示
+# → Y/N で差し戻しを実行
+
+# ケース3: 高信頼度判定時は自動実行
+ai-workflow rollback-auto --issue 271 --force
+# → エージェントが判定
+# → confidence: high の場合、確認なしで自動実行
+# → confidence: medium/low の場合、確認プロンプトを表示（安全性重視）
+
+# ケース4: Codex で高精度判定
+ai-workflow rollback-auto --issue 271 --agent codex
+# → Codex エージェントで高精度な分析を実施
+```
+
+**エージェント判定の例**:
+
+```json
+{
+  "needs_rollback": true,
+  "to_phase": "implementation",
+  "to_step": "revise",
+  "reason": "Testing Phase で 11 個のテスト失敗。PhaseRunner のモック実装が不完全。",
+  "confidence": "high",
+  "analysis": "test-result.md を分析した結果、validatePhaseDependencies の修正が必要と判断しました。Phase 4 (Implementation) の revise ステップから再開することを推奨します。"
+}
+```
+
+**差し戻しが必要と判定されるケース**:
+
+- **テスト失敗**: 複数のテストが失敗し、前のフェーズの実装に問題がある
+- **レビュー BLOCKER**: レビューで BLOCKER レベルの問題が発見され、設計・実装の修正が必要
+- **アーキテクチャ問題**: 設計の根本的な問題が発見され、前のフェーズに戻る必要がある
+
+**差し戻しが不要と判定されるケース**:
+
+- **軽微なバグ**: 現在のフェーズの revise ステップで修正可能
+- **コード品質の問題**: リファクタリングで対応可能
+- **ドキュメント不足**: ドキュメント追加のみで対応可能
+
+**注意事項**:
+
+- エージェントの判定は参考情報であり、最終的な判断はユーザーが行います
+- `--force` オプションは `confidence: high` の場合のみ確認をスキップします
+- `--dry-run` での事前確認を推奨します
+- 差し戻し実行後は、通常の rollback と同様に `rollback_history` に記録されます（`mode: "auto"` として記録）
 
 ### Cleanupコマンド（ワークフローログの手動クリーンアップ）
 

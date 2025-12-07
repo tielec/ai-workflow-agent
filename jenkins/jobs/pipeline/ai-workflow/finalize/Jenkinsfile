@@ -1,14 +1,19 @@
 /**
  * AI Workflow - Finalize Mode
  *
- * ワークフロー完了後の最終処理を行うJenkinsfile（v0.4.0、Issue #259で追加）。
- * Phase 1ではCleanup Workflowのみ実装。Phase 2で他のステージを拡張予定。
+ * ワークフロー完了後の最終処理を行うJenkinsfile（v0.5.0、Issue #261で実装完了）。
+ * finalize コマンドを呼び出し、5ステップの処理を実行：
+ * 1. base_commit 取得
+ * 2. .ai-workflow ディレクトリ削除 + コミット
+ * 3. コミットスカッシュ（--skip-squash でスキップ可能）
+ * 4. PR 本文更新 + マージ先ブランチ変更（--skip-pr-update でスキップ可能）
+ * 5. PR ドラフト解除
  *
  * パラメータ（Job DSLで定義）:
  * - ISSUE_URL: GitHub Issue URL（必須）
- * - CLEANUP_PHASES: クリーンアップ対象フェーズ範囲（デフォルト: 0-8）
- * - CLEANUP_ALL: 完全クリーンアップ（Phase 0-9すべて、Evaluation完了後のみ）
- * - CLEANUP_DRY_RUN: クリーンアッププレビューモード
+ * - SKIP_SQUASH: コミットスカッシュをスキップ
+ * - SKIP_PR_UPDATE: PR更新・ドラフト解除をスキップ
+ * - BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
@@ -38,7 +43,7 @@ pipeline {
 
         // AI Workflow設定
         WORKFLOW_DIR = '.'
-        WORKFLOW_VERSION = '0.2.0'
+        WORKFLOW_VERSION = '0.5.0'
         EXECUTION_MODE = 'finalize'
 
         // ログ設定（CI環境ではカラーリング無効化）
@@ -109,19 +114,6 @@ pipeline {
                         error("ISSUE_URL must be a GitHub Issue URL (/issues/): ${params.ISSUE_URL}")
                     }
 
-                    // CLEANUP_PHASES と CLEANUP_ALL の排他チェック
-                    if (params.CLEANUP_PHASES && params.CLEANUP_ALL) {
-                        error("Cannot specify both CLEANUP_PHASES and CLEANUP_ALL parameters")
-                    }
-
-                    // CLEANUP_PHASES 形式チェック（数値範囲またはフェーズ名リスト）
-                    if (params.CLEANUP_PHASES && params.CLEANUP_PHASES != '0-8') {
-                        def phasesPattern = /^(\d+-\d+|[a-z-]+(,[a-z-]+)*)$/
-                        if (!params.CLEANUP_PHASES.matches(phasesPattern)) {
-                            error("CLEANUP_PHASES must be numeric range (0-4) or phase name list (planning,requirements)")
-                        }
-                    }
-
                     // Issue番号とリポジトリ情報抽出
                     def urlParts = params.ISSUE_URL.split('/')
                     env.ISSUE_NUMBER = urlParts[-1]
@@ -129,15 +121,16 @@ pipeline {
                     env.REPO_NAME = urlParts[-3]
 
                     // ビルドディスクリプションを設定
-                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     echo "Issue URL: ${params.ISSUE_URL}"
                     echo "Issue Number: ${env.ISSUE_NUMBER}"
                     echo "Repository Owner: ${env.REPO_OWNER}"
                     echo "Repository Name: ${env.REPO_NAME}"
-                    echo "Cleanup Phases: ${params.CLEANUP_PHASES ?: '0-8 (default)'}"
-                    echo "Cleanup All: ${params.CLEANUP_ALL ?: false}"
-                    echo "Cleanup Dry Run: ${params.CLEANUP_DRY_RUN ?: false}"
+                    echo "Skip Squash: ${params.SKIP_SQUASH ?: false}"
+                    echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
+                    echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                 }
             }
@@ -183,85 +176,38 @@ pipeline {
             }
         }
 
-        stage('Cleanup Workflow') {
+        stage('Execute Finalize') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Cleanup Workflow"
+                    echo "Stage: Execute Finalize"
                     echo "========================================="
+                    echo "Issue: #${env.ISSUE_NUMBER}"
+                    echo "Skip Squash: ${params.SKIP_SQUASH ?: false}"
+                    echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
+                    echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
 
-                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Cleanup Workflow | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                    // ビルドディスクリプションを更新
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize Executing${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
-                        if (params.DRY_RUN) {
-                            echo "[DRY RUN] Cleanup workflow skipped"
-                        } else {
-                            // Cleanup 実行
-                            // --phases オプション: デフォルト 0-8（パラメータから取得）
-                            // --dry-run オプション: CLEANUP_DRY_RUNパラメータに応じて設定
-                            // --all オプション: CLEANUP_ALL パラメータに応じて設定
-                            def phasesFlag = params.CLEANUP_PHASES ? "--phases ${params.CLEANUP_PHASES}" : ''
-                            def allFlag = params.CLEANUP_ALL ? '--all' : ''
-                            def dryRunFlag = params.CLEANUP_DRY_RUN ? '--dry-run' : ''
+                        // finalize コマンドのオプション構築
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def skipSquashFlag = params.SKIP_SQUASH ? '--skip-squash' : ''
+                        def skipPrUpdateFlag = params.SKIP_PR_UPDATE ? '--skip-pr-update' : ''
+                        // BASE_BRANCH が指定されている場合のみフラグを渡す（デフォルトブランチは変更しない）
+                        def baseBranchFlag = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ''
 
-                            sh """
-                                node dist/index.js cleanup \
-                                    --issue ${env.ISSUE_NUMBER} \
-                                    ${phasesFlag} \
-                                    ${allFlag} \
-                                    ${dryRunFlag}
-                            """
-                        }
+                        sh """
+                            node dist/index.js finalize \
+                                --issue ${env.ISSUE_NUMBER} \
+                                ${dryRunFlag} \
+                                ${skipSquashFlag} \
+                                ${skipPrUpdateFlag} \
+                                ${baseBranchFlag}
+                        """
                     }
-                }
-            }
-        }
-
-        stage('Squash Commits') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: Squash Commits (Phase 2 - TODO)"
-                    echo "========================================="
-
-                    // TODO: Issue #194 の squash 機能を呼び出し
-                    // node dist/index.js execute --issue ${env.ISSUE_NUMBER} --phase evaluation --squash-on-complete
-                    // または専用コマンド追加の可能性
-                    echo "Squash Commits: Not implemented yet (Phase 2 - future expansion)"
-                    echo "Planned: Squash commits from base_commit to HEAD with AI-generated message"
-                }
-            }
-        }
-
-        stage('Update PR') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: Update PR (Phase 2 - TODO)"
-                    echo "========================================="
-
-                    // TODO: PR本文の最終更新
-                    // gh pr edit コマンドでPR本文を更新
-                    // - 完了ステータスの記載
-                    // - 変更サマリーの更新
-                    echo "Update PR: Not implemented yet (Phase 2 - future expansion)"
-                    echo "Planned: Update PR body with completion status and summary"
-                }
-            }
-        }
-
-        stage('Promote PR') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: Promote PR (Phase 2 - TODO)"
-                    echo "========================================="
-
-                    // TODO: ドラフト状態を解除
-                    // gh pr ready コマンドでドラフト状態を解除
-                    // 必要に応じてレビュアーをアサイン
-                    echo "Promote PR: Not implemented yet (Phase 2 - future expansion)"
-                    echo "Planned: Mark PR as ready for review and assign reviewers"
                 }
             }
         }
@@ -274,11 +220,8 @@ pipeline {
                 echo "Post Processing"
                 echo "========================================="
 
-                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize | ${env.REPO_OWNER}/${env.REPO_NAME}"
-
-                if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
-                    common.archiveArtifacts(env.ISSUE_NUMBER)
-                }
+                def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                 // REPOS_ROOTクリーンアップ
                 if (env.REPOS_ROOT) {
@@ -296,7 +239,24 @@ pipeline {
                 echo "✅ AI Workflow - Finalize Success"
                 echo "========================================="
                 echo "Issue: ${params.ISSUE_URL}"
-                echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
+
+                def summary = "Finalize completed:"
+                if (!params.SKIP_SQUASH) {
+                    summary += "\n  - ✅ Commits squashed"
+                } else {
+                    summary += "\n  - ⏭️ Squash skipped"
+                }
+
+                if (!params.SKIP_PR_UPDATE) {
+                    summary += "\n  - ✅ PR updated and marked as ready"
+                    if (params.BASE_BRANCH && params.BASE_BRANCH != 'main') {
+                        summary += "\n  - ✅ Base branch changed to '${params.BASE_BRANCH}'"
+                    }
+                } else {
+                    summary += "\n  - ⏭️ PR update skipped"
+                }
+
+                echo summary
             }
         }
 

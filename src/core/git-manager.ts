@@ -140,10 +140,11 @@ export class GitManager {
 
   /**
    * Issue #16: ログクリーンアップ用のコミットを作成
+   * Issue #261: finalize コマンド対応
    */
   public async commitCleanupLogs(
     issueNumber: number,
-    phase: 'report' | 'evaluation',
+    phase: 'report' | 'evaluation' | 'finalize',
   ): Promise<CommitResult> {
     return this.commitManager.commitCleanupLogs(issueNumber, phase);
   }
@@ -212,6 +213,23 @@ export class GitManager {
   // Squash operations delegation (Issue #194)
   public async squashCommits(context: PhaseContext): Promise<void> {
     return this.squashManager.squashCommits(context);
+  }
+
+  /**
+   * Issue #261: SquashManager への直接アクセスを提供
+   */
+  public getSquashManager(): SquashManager {
+    return this.squashManager;
+  }
+
+  /**
+   * Issue #276: ワークフローディレクトリ削除をコミット
+   *
+   * finalize コマンドで .ai-workflow/issue-* ディレクトリ削除後に、
+   * 削除されたファイルをGitにコミットする。
+   */
+  public async commitWorkflowDeletion(issueNumber: number): Promise<CommitResult> {
+    return this.commitManager.commitWorkflowDeletion(issueNumber);
   }
 
 }

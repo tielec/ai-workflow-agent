@@ -225,6 +225,118 @@ export class PullRequestClient {
   }
 
   /**
+   * Marks a pull request as ready for review (converts from draft).
+   *
+   * Uses GitHub GraphQL API's markPullRequestReadyForReview mutation.
+   * If GraphQL approach fails, falls back to `gh pr ready` command.
+   *
+   * @param prNumber - Pull request number
+   * @returns GenericResult (success/error)
+   */
+  public async markPRReady(prNumber: number): Promise<GenericResult> {
+    try {
+      // 1. PR の node_id を取得（GraphQL mutation に必要）
+      const { data: prData } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      const nodeId = prData.node_id;
+      if (!nodeId) {
+        return {
+          success: false,
+          error: 'PR node_id not found',
+        };
+      }
+
+      // 2. GraphQL mutation 実行
+      const mutation = `
+        mutation MarkPRReady($pullRequestId: ID!) {
+          markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+            pullRequest {
+              isDraft
+            }
+          }
+        }
+      `;
+
+      const variables = {
+        pullRequestId: nodeId,
+      };
+
+      const response = await this.octokit.graphql<{
+        markPullRequestReadyForReview: {
+          pullRequest: {
+            isDraft: boolean;
+          };
+        };
+      }>(mutation, variables);
+
+      const isDraft = response.markPullRequestReadyForReview.pullRequest.isDraft;
+
+      if (isDraft) {
+        return {
+          success: false,
+          error: 'PR is still in draft state after mutation',
+        };
+      }
+
+      logger.info(`PR #${prNumber} marked as ready for review.`);
+      return { success: true, error: null };
+    } catch (error) {
+      // GraphQL失敗時はフォールバック（gh pr ready コマンド）
+      logger.warn(`GraphQL mutation failed, attempting fallback: ${getErrorMessage(error)}`);
+
+      try {
+        // gh コマンドによるフォールバック
+        const { exec } = await import('node:child_process');
+        const { promisify } = await import('node:util');
+        const execAsync = promisify(exec);
+
+        await execAsync(`gh pr ready ${prNumber}`);
+
+        logger.info(`PR #${prNumber} marked as ready via gh command.`);
+        return { success: true, error: null };
+      } catch (ghError) {
+        const message = getErrorMessage(ghError);
+        logger.error(`Failed to mark PR as ready: ${this.encodeWarning(message)}`);
+        return { success: false, error: message };
+      }
+    }
+  }
+
+  /**
+   * Updates the base branch of a pull request.
+   *
+   * Uses GitHub REST API's PATCH /repos/{owner}/{repo}/pulls/{pull_number} endpoint.
+   *
+   * @param prNumber - Pull request number
+   * @param baseBranch - Target base branch (e.g., "develop", "main")
+   * @returns GenericResult (success/error)
+   */
+  public async updateBaseBranch(prNumber: number, baseBranch: string): Promise<GenericResult> {
+    try {
+      await this.octokit.pulls.update({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+        base: baseBranch,
+      });
+
+      logger.info(`PR #${prNumber} base branch changed to '${baseBranch}'.`);
+      return { success: true, error: null };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to update base branch: ${this.encodeWarning(message)}`);
+      return { success: false, error: message };
+    }
+  }
+
+  /**
    * Helper method to encode warning messages for safe logging.
    */
   private encodeWarning(message: string): string {

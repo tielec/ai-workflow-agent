@@ -22,6 +22,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * FinalizeContext - finalize コマンド用のシンプルなコンテキスト
+ *
+ * PhaseContext の代替として、finalize コマンド専用のコンテキストを定義。
+ */
+export interface FinalizeContext {
+  /** Issue番号 */
+  issueNumber: number;
+
+  /** ワークフロー開始時のコミットハッシュ */
+  baseCommit: string;
+
+  /** マージ先ブランチ（デフォルト: main） */
+  targetBranch: string;
+}
+
+/**
  * SquashManager - スカッシュ処理の専門マネージャー（Issue #194）
  *
  * 責務:
@@ -245,6 +261,9 @@ export class SquashManager {
    */
   private async executeSquash(baseCommit: string, message: string): Promise<void> {
     try {
+      // 0. Git設定を確認（user.name, user.email）
+      await this.commitManager.ensureGitConfig();
+
       // 1. git reset --soft <base_commit>
       logger.info(`Resetting to ${baseCommit}...`);
       await this.git.reset(['--soft', baseCommit]);
@@ -354,6 +373,80 @@ export class SquashManager {
     return `feat: Complete workflow for Issue #${issueNumber}
 
 ${issueInfo?.title || 'AI Workflow completion'}
+
+Fixes #${issueNumber}`;
+  }
+
+  /**
+   * squashCommitsForFinalize - finalize コマンド用のスカッシュ処理
+   *
+   * PhaseContext に依存せず、FinalizeContext を受け取る。
+   * エージェント生成によるコミットメッセージ生成は省略し、テンプレートベースのメッセージを使用。
+   *
+   * 注意: finalize コマンドでは .ai-workflow ディレクトリが既に削除されているため、
+   * メタデータへの記録（setPreSquashCommits, setSquashedAt）はスキップする。
+   *
+   * @param context - FinalizeContext
+   * @throws Error - ブランチ保護違反時、スカッシュ失敗時
+   */
+  public async squashCommitsForFinalize(context: FinalizeContext): Promise<void> {
+    try {
+      logger.info('Starting commit squash for finalize...');
+
+      // 1. base_commitの取得
+      const baseCommit = context.baseCommit;
+      if (!baseCommit) {
+        logger.warn('base_commit not provided. Skipping squash.');
+        return;
+      }
+
+      // 2. コミット範囲の特定
+      const commits = await this.getCommitsToSquash(baseCommit);
+      if (commits.length <= 1) {
+        logger.info(`Only ${commits.length} commit(s) found. Skipping squash.`);
+        return;
+      }
+
+      logger.info(`Found ${commits.length} commits to squash.`);
+
+      // 3. ブランチ保護チェック
+      await this.validateBranchProtection();
+
+      // 4. スカッシュ前のコミットハッシュを記録（スキップ: metadata.json は削除済み）
+      // finalize コマンドでは .ai-workflow ディレクトリが削除されているため、
+      // メタデータへの記録は行わない
+      logger.debug(`Pre-squash commits (not saved to metadata): ${commits.length} commits`);
+
+      // 5. フォールバックメッセージを使用（エージェント生成はスキップ）
+      const message = this.generateFinalizeMessage(context);
+
+      logger.info('Generated commit message (fallback):', message);
+
+      // 6. スカッシュ実行
+      await this.executeSquash(baseCommit, message);
+
+      // 7. スカッシュ完了時刻を記録（スキップ: metadata.json は削除済み）
+      logger.debug('Squash completed at:', new Date().toISOString());
+
+      logger.info('✅ Commit squash completed successfully.');
+    } catch (error) {
+      logger.error(`❌ Commit squash failed: ${getErrorMessage(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * generateFinalizeMessage - finalize 用のフォールバックメッセージ生成
+   *
+   * @param context - FinalizeContext
+   * @returns Conventional Commits形式のコミットメッセージ
+   */
+  private generateFinalizeMessage(context: FinalizeContext): string {
+    const issueNumber = context.issueNumber;
+
+    return `feat: Complete workflow for Issue #${issueNumber}
+
+AI Workflow finalization completed.
 
 Fixes #${issueNumber}`;
   }

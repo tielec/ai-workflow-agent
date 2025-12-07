@@ -424,3 +424,89 @@ export interface RollbackHistoryEntry {
    */
   review_result_path?: string | null;
 }
+
+/**
+ * Rollback Auto コマンドのオプション定義（Issue #271）
+ *
+ * エージェントベースの自動差し戻し検出に使用
+ */
+export interface RollbackAutoOptions {
+  /**
+   * Issue番号（必須）
+   *
+   * 例: 123
+   */
+  issueNumber: number;
+
+  /**
+   * ドライランモード（オプション、デフォルト: false）
+   *
+   * true の場合、実際の差し戻しは行わず、分析結果のみ表示
+   */
+  dryRun?: boolean;
+
+  /**
+   * 確認プロンプトをスキップ（オプション、デフォルト: false）
+   *
+   * true かつ confidence が 'high' の場合、確認なしで差し戻しを実行
+   */
+  force?: boolean;
+
+  /**
+   * エージェントモード（オプション、デフォルト: 'auto'）
+   *
+   * - 'auto': CODEX_API_KEY が設定されていれば Codex を使用、なければ Claude にフォールバック
+   * - 'codex': Codex を強制使用（CODEX_API_KEY または OPENAI_API_KEY が必要）
+   * - 'claude': Claude を強制使用（CLAUDE_CODE_CREDENTIALS_PATH が必要）
+   */
+  agent?: 'auto' | 'codex' | 'claude';
+}
+
+/**
+ * エージェントによる差し戻し判定結果（Issue #271）
+ *
+ * エージェントが出力する JSON 形式の分析結果
+ */
+export interface RollbackDecision {
+  /**
+   * 差し戻しが必要かどうか（必須）
+   */
+  needs_rollback: boolean;
+
+  /**
+   * 差し戻し先フェーズ（needs_rollback が true の場合は必須）
+   *
+   * 例: "requirements", "design", "test_scenario"
+   */
+  to_phase?: import('../types.js').PhaseName;
+
+  /**
+   * 差し戻し先ステップ（オプション、デフォルト: 'revise'）
+   *
+   * 例: "initial", "revise", "approve"
+   */
+  to_step?: import('../types.js').StepName;
+
+  /**
+   * 差し戻し理由（必須、1000文字以内）
+   *
+   * ユーザーおよび次フェーズのエージェントが理解できる形式で記述
+   */
+  reason: string;
+
+  /**
+   * 判定の確信度（必須）
+   *
+   * - 'high': エビデンスが明確で判定に確信がある
+   * - 'medium': エビデンスはあるが解釈の余地がある
+   * - 'low': エビデンスが不十分または曖昧
+   */
+  confidence: 'high' | 'medium' | 'low';
+
+  /**
+   * 分析の詳細（必須）
+   *
+   * エージェントが判定に至った根拠を記述
+   */
+  analysis: string;
+}
