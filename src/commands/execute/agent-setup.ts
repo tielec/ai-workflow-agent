@@ -171,21 +171,27 @@ export function setupAgentClients(
 
   // Claude の認証情報が利用可能かどうか
   const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
+  const codexHome = process.env.CODEX_HOME;
+  const codexAuthFile = codexHome ? path.join(codexHome, 'auth.json') : null;
+  const hasCodexCliAuth = !!(codexAuthFile && fs.existsSync(codexAuthFile));
+  const hasCodexCredentials = isValidApiKey(codexApiKey) || hasCodexCliAuth;
 
   switch (agentMode) {
     case 'codex': {
-      // Codex 強制モード: codexApiKey 必須
-      if (!isValidApiKey(codexApiKey)) {
+      if (!hasCodexCredentials) {
         throw new Error(
-          `Agent mode "codex" requires CODEX_API_KEY to be set with a valid Codex API key ` +
-            `(minimum ${MIN_API_KEY_LENGTH} characters).`,
+          `Agent mode "codex" requires CODEX_API_KEY (>=${MIN_API_KEY_LENGTH} characters) ` +
+            'or CODEX_AUTH_JSON (Codex CLI auth file).',
         );
       }
-      const trimmed = codexApiKey.trim();
-      // 環境変数設定
-      process.env.CODEX_API_KEY = trimmed;
-      if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
-        process.env.OPENAI_API_KEY = trimmed;
+      if (isValidApiKey(codexApiKey)) {
+        const trimmed = codexApiKey.trim();
+        process.env.CODEX_API_KEY = trimmed;
+        if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+          process.env.OPENAI_API_KEY = trimmed;
+        }
+      } else {
+        logger.info('Using Codex auth.json (CODEX_HOME) for codex agent mode.');
       }
 
       codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
@@ -193,7 +199,7 @@ export function setupAgentClients(
       break;
     }
     case 'claude': {
-      // Claude 強制モード: claudeCodeToken または claudeCredentialsPath 必須
+      // Claude 専用モード: claudeCodeToken もしくは claudeCredentialsPath 必須
       if (!hasClaudeCredentials) {
         throw new Error(
           'Agent mode "claude" requires Claude Code credentials. ' +
@@ -201,7 +207,7 @@ export function setupAgentClients(
         );
       }
 
-      // ClaudeAgentClient は内部で認証情報を解決するので、credentialsPath はレガシー用のみ
+      // ClaudeAgentClient には認証パスを渡す（なければ OAuth / API key を使用）
       claudeClient = new ClaudeAgentClient({
         workingDir,
         credentialsPath: claudeCredentialsPath ?? undefined,
@@ -211,15 +217,19 @@ export function setupAgentClients(
     }
     case 'auto':
     default: {
-      // Auto モード: Codex 優先、Claude にフォールバック
-      if (isValidApiKey(codexApiKey)) {
-        const trimmed = codexApiKey.trim();
-        process.env.CODEX_API_KEY = trimmed;
-        if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
-          process.env.OPENAI_API_KEY = trimmed;
+      // Auto モード: Codex を優先、Claude にフォールバック
+      if (hasCodexCredentials) {
+        if (isValidApiKey(codexApiKey)) {
+          const trimmed = codexApiKey.trim();
+          process.env.CODEX_API_KEY = trimmed;
+          if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+            process.env.OPENAI_API_KEY = trimmed;
+          }
+          logger.info('Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
+        } else {
+          logger.info('CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials.');
         }
         codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-        logger.info('Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
       }
 
       if (hasClaudeCredentials) {
