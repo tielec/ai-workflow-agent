@@ -446,8 +446,10 @@ export class CommitManager {
 
   /**
    * Ensure git config (user.name and user.email)
+   *
+   * Note: Made public for use by SquashManager during finalize command.
    */
-  private async ensureGitConfig(): Promise<void> {
+  public async ensureGitConfig(): Promise<void> {
     const gitConfig = await this.git.listConfig();
     const userNameFromConfig = gitConfig.all['user.name'] as string | undefined;
     const userEmailFromConfig = gitConfig.all['user.email'] as string | undefined;
