@@ -111,7 +111,9 @@ def prepareCodexAuthFile() {
         return
     }
 
-    def codexHome = "${env.WORKSPACE}/.codex"
+    def workspaceTmp = env.WORKSPACE_TMP ?: "${env.WORKSPACE}@tmp"
+    def codexSuffix = (env.BUILD_TAG ?: env.BUILD_ID ?: UUID.randomUUID().toString()).replaceAll('[^A-Za-z0-9_-]', '-')
+    def codexHome = "${workspaceTmp}/codex-auth-${codexSuffix}"
     def authFilePath = "${codexHome}/auth.json"
 
     sh """
