@@ -95,18 +95,18 @@ pipeline {
             }
         }
 
-        stage('Prepare Agent Credentials') {
-            steps {
-                script {
-                    common.prepareAgentCredentials()
-                }
-            }
-        }
-
         stage('Prepare Codex auth.json') {
             steps {
                 script {
                     common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
                 }
             }
         }
