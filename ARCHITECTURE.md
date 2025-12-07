@@ -60,17 +60,34 @@ src/commands/review.ts (フェーズレビューコマンド処理)
 src/commands/list-presets.ts (プリセット一覧表示コマンド処理)
  └─ listPresets() … 利用可能なプリセット一覧を表示
 
-src/commands/rollback.ts (フェーズ差し戻しコマンド処理、v0.4.0、Issue #90で追加)
- ├─ handleRollbackCommand() … フェーズ差し戻しコマンドハンドラ
- ├─ validateRollbackOptions() … rollbackオプションのバリデーション（exported for testing）
- ├─ loadRollbackReason() … 差し戻し理由の読み込み（--reason, --reason-file, --interactive）（exported for testing）
- ├─ generateRollbackReasonMarkdown() … ROLLBACK_REASON.mdファイルの生成（exported for testing）
- ├─ getPhaseNumber() … フェーズ名から番号を取得するヘルパー（exported for testing）
- └─ MetadataManager拡張メソッドを利用
+src/commands/rollback.ts (フェーズ差し戻しコマンド処理、v0.4.0、Issue #90/#271で追加)
+ ├─ handleRollbackCommand() … 手動rollbackコマンドハンドラ（Issue #90）
+ │   ├─ validateRollbackOptions() … rollbackオプションのバリデーション（exported for testing）
+ │   ├─ loadRollbackReason() … 差し戻し理由の読み込み（--reason, --reason-file, --interactive）（exported for testing）
+ │   ├─ generateRollbackReasonMarkdown() … ROLLBACK_REASON.mdファイルの生成（exported for testing）
+ │   └─ getPhaseNumber() … フェーズ名から番号を取得するヘルパー（exported for testing）
+ │
+ ├─ handleRollbackAutoCommand() … 自動rollbackコマンドハンドラ（Issue #271）
+ │   ├─ initializeAgentClients() … agentモードに応じたエージェント初期化（Codex/Claude）
+ │   ├─ collectAnalysisContext() … review/test結果の自動探索
+ │   │   ├─ findLatestReviewResult() … review-result.md の最新ファイルを検索
+ │   │   └─ findLatestTestResult() … test-result.md の最新ファイルを検索
+ │   ├─ buildAgentPrompt() … プロンプトテンプレート（src/prompts/rollback/auto-analyze.txt）から分析プロンプトを生成
+ │   ├─ AgentExecutor.executeWithAgent() … エージェントで分析実行（Codex/Claude）
+ │   ├─ parseRollbackDecision() … エージェント応答からRollbackDecisionをJSON抽出（exported for testing）
+ │   │   └─ 3つのフォールバックパターン: Markdown code block → Plain JSON → Bracket search
+ │   ├─ validateRollbackDecision() … RollbackDecision型の厳格な検証（exported for testing）
+ │   │   └─ needs_rollback, to_phase, confidence, reason, analysis フィールドの必須チェック
+ │   ├─ displayAnalysisResult() … 判定結果をユーザーに表示
+ │   ├─ displayDryRunPreview() … dry-runモードでプレビュー表示
+ │   ├─ confirmRollbackAuto() … 信頼度ベースの確認プロンプト（high + --force でスキップ）
+ │   └─ executeRollback() … 既存の手動rollback実行ロジックを再利用
+ │
+ └─ MetadataManager拡張メソッドを利用（Issue #90で追加）
      ├─ setRollbackContext() … 差し戻しコンテキストの設定
      ├─ getRollbackContext() … 差し戻しコンテキストの取得
      ├─ clearRollbackContext() … 差し戻しコンテキストのクリア
-     ├─ addRollbackHistory() … 差し戻し履歴の追加
+     ├─ addRollbackHistory() … 差し戻し履歴の追加（mode: "manual" or "auto"を記録）
      ├─ updatePhaseForRollback() … 差し戻し先フェーズのステータス更新
      └─ resetSubsequentPhases() … 後続フェーズのリセット
 
@@ -126,7 +143,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46）。`executePhasesSequential()`, `executePhasesFrom()` を提供。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
-| `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約459行、v0.4.0、Issue #90で追加）。ワークフローを前のフェーズに差し戻し、修正作業を行うための機能を提供。`handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供。差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。 |
+| `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約930行、v0.4.0、Issue #90/#271で追加）。**手動rollback**（Issue #90）と**自動rollback**（Issue #271）の2つのモードを提供。手動rollbackは `handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供し、差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。自動rollbackは `handleRollbackAutoCommand()` を提供し、AIエージェント（Codex/Claude）による自動差し戻し判定機能を実現。コンテキスト収集（`collectAnalysisContext()`, `findLatestReviewResult()`, `findLatestTestResult()`）、プロンプト構築（`buildAgentPrompt()`）、JSON パース（`parseRollbackDecision()`, 3つのフォールバックパターン）、バリデーション（`validateRollbackDecision()`）、信頼度ベース確認（`confirmRollbackAuto()`）を含む。エージェントは metadata.json, review results, test results を分析し、needs_rollback, to_phase, to_step, confidence, reason, analysis を含む RollbackDecision を返す。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
@@ -162,7 +179,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
-| `src/types/commands.ts` | コマンド関連の型定義（約240行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry等の型を提供。コマンドハンドラの型安全性を確保。 |
+| `src/types/commands.ts` | コマンド関連の型定義（約325行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90/#271）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision等の型を提供。コマンドハンドラの型安全性を確保。Issue #271で追加された型: `RollbackAutoOptions`（rollback-autoコマンドのCLIオプション: issueNumber, dryRun, force, agent）、`RollbackDecision`（エージェント出力の構造: needs_rollback, to_phase, to_step, reason, confidence, analysis、厳格なバリデーションルール付き）。 |
 | `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約476行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。 |
 | `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、Issue #23で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
 | `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、Issue #23で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
