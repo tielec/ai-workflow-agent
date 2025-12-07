@@ -89,6 +89,37 @@ def prepareAgentCredentials() {
 }
 
 /**
+ * CODEX_AUTH_JSONパラメータから一時的なauth.jsonを展開
+ *
+ * Jenkinsのworkspace配下に ~/.codex/auth.json を書き出し、CODEX_HOMEを設定する。
+ * パラメータが空の場合は何もしない。
+ */
+def prepareCodexAuthFile() {
+    def codexAuth = params.CODEX_AUTH_JSON ?: ''
+    if (!codexAuth.trim()) {
+        echo "CODEX_AUTH_JSON is empty; skipping Codex auth setup."
+        env.CODEX_HOME = ''
+        return
+    }
+
+    def codexHome = "${env.WORKSPACE}/.codex"
+    def authFilePath = "${codexHome}/auth.json"
+
+    sh """
+        mkdir -p '${codexHome}'
+    """
+
+    writeFile file: authFilePath, text: codexAuth
+
+    sh """
+        chmod 600 '${authFilePath}'
+    """
+
+    env.CODEX_HOME = codexHome
+    echo "Codex auth.json prepared at ${authFilePath}"
+}
+
+/**
  * REPOS_ROOT準備と対象リポジトリのクローン
  *
  * 処理内容:
@@ -259,3 +290,4 @@ def archiveArtifacts(String issueNumber) {
 
 // Groovyスクリプトとして読み込み可能にするため、return this を末尾に追加
 return this
+
