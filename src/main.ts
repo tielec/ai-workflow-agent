@@ -7,7 +7,7 @@ import { handleExecuteCommand } from './commands/execute.js';
 import { handleReviewCommand } from './commands/review.js';
 import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
-import { handleRollbackCommand } from './commands/rollback.js';
+import { handleRollbackCommand, handleRollbackAutoCommand } from './commands/rollback.js';
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
 import { handleFinalizeCommand } from './commands/finalize.js';
@@ -163,6 +163,31 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleRollbackCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // rollback auto コマンド (Issue #271)
+  program
+    .command('rollback-auto')
+    .description('Automatically detect if rollback is needed using AI agents')
+    .requiredOption('--issue <number>', 'Issue number')
+    .option('--dry-run', 'Preview mode (do not execute rollback)', false)
+    .option('--force', 'Skip confirmation for high-confidence decisions', false)
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .action(async (options) => {
+      try {
+        await handleRollbackAutoCommand({
+          issueNumber: Number.parseInt(options.issue, 10),
+          dryRun: options.dryRun,
+          force: options.force,
+          agent: options.agent,
+        });
       } catch (error) {
         reportFatalError(error);
       }

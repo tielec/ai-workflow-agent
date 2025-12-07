@@ -17,8 +17,12 @@ import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { PhaseName, StepName } from '../types.js';
-import type { RollbackCommandOptions, RollbackContext, RollbackHistoryEntry } from '../types/commands.js';
+import type { RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision } from '../types/commands.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { CodexAgentClient } from '../core/codex-agent-client.js';
+import { ClaudeAgentClient } from '../core/claude-agent-client.js';
+import { AgentExecutor } from '../phases/core/agent-executor.js';
+import { glob } from 'glob';
 
 /**
  * Rollback コマンドのエントリーポイント
@@ -494,4 +498,468 @@ export function getPhaseNumber(phase: PhaseName): string {
     evaluation: '09',
   };
   return mapping[phase];
+}
+
+// ========================================
+// Rollback Auto Mode (Issue #271)
+// ========================================
+
+/**
+ * Rollback Auto コマンドのエントリーポイント（Issue #271）
+ *
+ * エージェントを使用して自動的に差し戻しの必要性と対象を判定する
+ */
+export async function handleRollbackAutoCommand(options: RollbackAutoOptions): Promise<void> {
+  logger.info('Starting rollback auto analysis...');
+
+  // 1. メタデータ読み込み
+  const { metadataManager, workflowDir } = await loadWorkflowMetadata(String(options.issueNumber));
+
+  // 2. エージェントクライアントの初期化
+  const { codexClient, claudeClient } = initializeAgentClients(options.agent);
+
+  if (!codexClient && !claudeClient) {
+    throw new Error(
+      'No agent client available. Please configure CODEX_API_KEY or CLAUDE_CODE_CREDENTIALS_PATH.'
+    );
+  }
+
+  // 3. 分析コンテキストの収集
+  const analysisContext = await collectAnalysisContext(
+    options.issueNumber,
+    metadataManager,
+    workflowDir
+  );
+
+  // 4. プロンプト生成
+  const prompt = buildAgentPrompt(
+    options.issueNumber,
+    analysisContext,
+    metadataManager
+  );
+
+  // 5. エージェント実行
+  logger.info('Running agent analysis...');
+  const agentExecutor = new AgentExecutor(
+    codexClient,
+    claudeClient,
+    metadataManager,
+    'evaluation', // ダミーフェーズ名（メトリクス記録用）
+    workflowDir,
+    () => workflowDir
+  );
+
+  const messages = await agentExecutor.executeWithAgent(prompt, {
+    maxTurns: 10,
+    verbose: false,
+  });
+
+  // 6. レスポンスをパース
+  const decision = parseRollbackDecision(messages);
+
+  // 7. バリデーション
+  validateRollbackDecision(decision);
+
+  // 8. 結果表示
+  displayAnalysisResult(decision, options);
+
+  // 9. 差し戻し不要の場合は終了
+  if (!decision.needs_rollback) {
+    logger.info('Analysis complete: No rollback needed.');
+    return;
+  }
+
+  // 10. ドライランモードの場合はプレビュー表示して終了
+  if (options.dryRun) {
+    displayDryRunPreview(decision);
+    return;
+  }
+
+  // 11. 確認プロンプト（--force かつ high confidence の場合はスキップ）
+  const shouldConfirm = !(options.force && decision.confidence === 'high');
+  if (shouldConfirm) {
+    const confirmed = await confirmRollbackAuto(decision);
+    if (!confirmed) {
+      logger.info('Rollback cancelled.');
+      return;
+    }
+  } else {
+    logger.info('Skipping confirmation (--force with high confidence)');
+  }
+
+  // 12. 差し戻し実行
+  const rollbackOptions: RollbackCommandOptions = {
+    issue: String(options.issueNumber),
+    toPhase: decision.to_phase!,
+    toStep: decision.to_step,
+    reason: decision.reason,
+    force: true, // 既に確認済み
+    dryRun: false,
+  };
+
+  await executeRollback(
+    rollbackOptions,
+    metadataManager,
+    workflowDir,
+    decision.reason
+  );
+
+  logger.info('Rollback auto completed successfully.');
+}
+
+/**
+ * エージェントクライアントの初期化（Issue #271）
+ */
+function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
+  codexClient: CodexAgentClient | null;
+  claudeClient: ClaudeAgentClient | null;
+} {
+  const mode = agentMode ?? 'auto';
+  let codexClient: CodexAgentClient | null = null;
+  let claudeClient: ClaudeAgentClient | null = null;
+
+  if (mode === 'codex') {
+    // Codex 強制
+    codexClient = new CodexAgentClient();
+    logger.info('Using Codex agent (forced)');
+  } else if (mode === 'claude') {
+    // Claude 強制
+    claudeClient = new ClaudeAgentClient();
+    logger.info('Using Claude agent (forced)');
+  } else {
+    // auto モード: CODEX_API_KEY があれば Codex、なければ Claude
+    if (config.getCodexApiKey()) {
+      codexClient = new CodexAgentClient();
+      logger.info('Using Codex agent (auto-selected)');
+    } else if (config.getClaudeCredentialsPath()) {
+      claudeClient = new ClaudeAgentClient();
+      logger.info('Using Claude agent (auto-selected)');
+    }
+  }
+
+  return { codexClient, claudeClient };
+}
+
+/**
+ * 分析コンテキストの収集（Issue #271）
+ */
+async function collectAnalysisContext(
+  issueNumber: number,
+  metadataManager: MetadataManager,
+  workflowDir: string
+): Promise<{
+  latestReviewResultPath: string | null;
+  latestTestResultPath: string | null;
+}> {
+  // 最新のレビュー結果ファイルを検索
+  const latestReviewResultPath = await findLatestReviewResult(workflowDir);
+
+  // 最新のテスト結果ファイルを検索
+  const latestTestResultPath = await findLatestTestResult(workflowDir);
+
+  if (latestReviewResultPath) {
+    logger.info(`Found review result: ${latestReviewResultPath}`);
+  } else {
+    logger.warn('No review result found');
+  }
+
+  if (latestTestResultPath) {
+    logger.info(`Found test result: ${latestTestResultPath}`);
+  } else {
+    logger.warn('No test result found');
+  }
+
+  return {
+    latestReviewResultPath,
+    latestTestResultPath,
+  };
+}
+
+/**
+ * 最新のレビュー結果ファイルを検索（Issue #271）
+ */
+async function findLatestReviewResult(workflowDir: string): Promise<string | null> {
+  const reviewPatterns = [
+    '**/review/review-result.md',
+    '**/review-result.md',
+    '**/REVIEW_RESULT.md',
+  ];
+
+  for (const pattern of reviewPatterns) {
+    const files = await glob(pattern, {
+      cwd: workflowDir,
+      absolute: true,
+      nodir: true,
+    });
+
+    if (files.length > 0) {
+      // 最新のファイルを返す（タイムスタンプでソート）
+      const sorted = files.sort((a: string, b: string) => {
+        const statA = fs.statSync(a);
+        const statB = fs.statSync(b);
+        return statB.mtimeMs - statA.mtimeMs;
+      });
+      return sorted[0];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 最新のテスト結果ファイルを検索（Issue #271）
+ */
+async function findLatestTestResult(workflowDir: string): Promise<string | null> {
+  const testPatterns = [
+    '**/testing/execute/test-result.md',
+    '**/testing/test-result.md',
+    '**/TEST_RESULT.md',
+  ];
+
+  for (const pattern of testPatterns) {
+    const files = await glob(pattern, {
+      cwd: workflowDir,
+      absolute: true,
+      nodir: true,
+    });
+
+    if (files.length > 0) {
+      // 最新のファイルを返す（タイムスタンプでソート）
+      const sorted = files.sort((a: string, b: string) => {
+        const statA = fs.statSync(a);
+        const statB = fs.statSync(b);
+        return statB.mtimeMs - statA.mtimeMs;
+      });
+      return sorted[0];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * エージェント用プロンプトを生成（Issue #271）
+ */
+function buildAgentPrompt(
+  issueNumber: number,
+  analysisContext: {
+    latestReviewResultPath: string | null;
+    latestTestResultPath: string | null;
+  },
+  metadataManager: MetadataManager
+): string {
+  // プロンプトテンプレートを読み込む
+  const templatePath = path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    '../prompts/rollback/auto-analyze.txt'
+  );
+  let template = fs.readFileSync(templatePath, 'utf-8');
+
+  // 変数の置き換え
+  template = template.replace(/{issue_number}/g, String(issueNumber));
+
+  // メタデータJSON
+  const metadataJson = JSON.stringify(metadataManager.data, null, 2);
+  template = template.replace(/{metadata_json}/g, metadataJson);
+
+  // レビュー結果への参照
+  let reviewResultReference = 'No review result available.';
+  if (analysisContext.latestReviewResultPath) {
+    reviewResultReference = `@${analysisContext.latestReviewResultPath}`;
+  }
+  template = template.replace(/{latest_review_result_reference}/g, reviewResultReference);
+
+  // テスト結果への参照
+  let testResultReference = 'No test result available.';
+  if (analysisContext.latestTestResultPath) {
+    testResultReference = `@${analysisContext.latestTestResultPath}`;
+  }
+  template = template.replace(/{test_result_reference}/g, testResultReference);
+
+  return template;
+}
+
+/**
+ * エージェントレスポンスから RollbackDecision をパース（Issue #271）
+ */
+export function parseRollbackDecision(messages: string[]): RollbackDecision {
+  // 全メッセージを結合
+  const fullText = messages.join('\n');
+
+  // パターン1: Markdown コードブロック内の JSON
+  const markdownMatch = fullText.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (markdownMatch) {
+    try {
+      const parsed = JSON.parse(markdownMatch[1]) as RollbackDecision;
+      logger.debug('Parsed RollbackDecision from markdown code block');
+      return parsed;
+    } catch (error) {
+      logger.warn(`Failed to parse JSON from markdown block: ${getErrorMessage(error)}`);
+    }
+  }
+
+  // パターン2: プレーンテキストの JSON オブジェクト
+  const plainMatch = fullText.match(/\{[\s\S]*"needs_rollback"[\s\S]*\}/);
+  if (plainMatch) {
+    try {
+      const parsed = JSON.parse(plainMatch[0]) as RollbackDecision;
+      logger.debug('Parsed RollbackDecision from plain JSON');
+      return parsed;
+    } catch (error) {
+      logger.warn(`Failed to parse plain JSON: ${getErrorMessage(error)}`);
+    }
+  }
+
+  // パターン3: ブラケット検索（最初の { から最後の } まで）
+  const firstBrace = fullText.indexOf('{');
+  const lastBrace = fullText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+    try {
+      const jsonStr = fullText.slice(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(jsonStr) as RollbackDecision;
+      logger.debug('Parsed RollbackDecision using bracket search');
+      return parsed;
+    } catch (error) {
+      logger.warn(`Failed to parse JSON using bracket search: ${getErrorMessage(error)}`);
+    }
+  }
+
+  // パース失敗
+  throw new Error(
+    'Failed to parse RollbackDecision from agent response. ' +
+    'Expected a JSON object with "needs_rollback" field.'
+  );
+}
+
+/**
+ * RollbackDecision をバリデーション（Issue #271）
+ */
+export function validateRollbackDecision(decision: RollbackDecision): void {
+  // needs_rollback チェック
+  if (typeof decision.needs_rollback !== 'boolean') {
+    throw new Error('Invalid RollbackDecision: "needs_rollback" must be a boolean');
+  }
+
+  // reason チェック
+  if (typeof decision.reason !== 'string' || decision.reason.trim().length === 0) {
+    throw new Error('Invalid RollbackDecision: "reason" must be a non-empty string');
+  }
+
+  if (decision.reason.length > 1000) {
+    throw new Error('Invalid RollbackDecision: "reason" must be 1000 characters or less');
+  }
+
+  // confidence チェック
+  const validConfidences = ['high', 'medium', 'low'];
+  if (!validConfidences.includes(decision.confidence)) {
+    throw new Error('Invalid RollbackDecision: "confidence" must be "high", "medium", or "low"');
+  }
+
+  // analysis チェック
+  if (typeof decision.analysis !== 'string' || decision.analysis.trim().length === 0) {
+    throw new Error('Invalid RollbackDecision: "analysis" must be a non-empty string');
+  }
+
+  // needs_rollback が true の場合の追加バリデーション
+  if (decision.needs_rollback) {
+    if (!decision.to_phase) {
+      throw new Error('Invalid RollbackDecision: "to_phase" is required when needs_rollback=true');
+    }
+
+    // to_phase の有効性チェック
+    const validPhases: PhaseName[] = [
+      'planning', 'requirements', 'design', 'test_scenario',
+      'implementation', 'test_implementation', 'testing',
+      'documentation', 'report', 'evaluation'
+    ];
+
+    if (!validPhases.includes(decision.to_phase)) {
+      throw new Error(`Invalid RollbackDecision: "to_phase" must be one of: ${validPhases.join(', ')}`);
+    }
+
+    // to_step の有効性チェック（オプション）
+    if (decision.to_step) {
+      const validSteps: StepName[] = ['execute', 'review', 'revise'];
+      if (!validSteps.includes(decision.to_step)) {
+        throw new Error(`Invalid RollbackDecision: "to_step" must be one of: ${validSteps.join(', ')}`);
+      }
+    }
+  }
+}
+
+/**
+ * 分析結果を表示（Issue #271）
+ */
+function displayAnalysisResult(decision: RollbackDecision, options: RollbackAutoOptions): void {
+  logger.info('');
+  logger.info('=== Rollback Auto Analysis Result ===');
+  logger.info('');
+  logger.info(`Needs Rollback: ${decision.needs_rollback ? 'YES' : 'NO'}`);
+  logger.info(`Confidence: ${decision.confidence.toUpperCase()}`);
+
+  if (decision.needs_rollback) {
+    logger.info(`Target Phase: ${decision.to_phase}`);
+    logger.info(`Target Step: ${decision.to_step ?? 'revise'}`);
+  }
+
+  logger.info('');
+  logger.info('Reason:');
+  logger.info(decision.reason);
+  logger.info('');
+  logger.info('Analysis:');
+  logger.info(decision.analysis);
+  logger.info('');
+  logger.info('======================================');
+  logger.info('');
+}
+
+/**
+ * ドライランプレビューを表示（Issue #271）
+ */
+function displayDryRunPreview(decision: RollbackDecision): void {
+  logger.info('[DRY RUN] Rollback would be executed with the following parameters:');
+  logger.info('');
+  logger.info(`  to_phase: ${decision.to_phase}`);
+  logger.info(`  to_step: ${decision.to_step ?? 'revise'}`);
+  logger.info(`  reason: ${decision.reason.slice(0, 100)}${decision.reason.length > 100 ? '...' : ''}`);
+  logger.info('');
+  logger.info('[DRY RUN] No changes were made. Remove --dry-run to execute.');
+}
+
+/**
+ * 差し戻し実行の確認プロンプト（auto モード用）（Issue #271）
+ */
+async function confirmRollbackAuto(decision: RollbackDecision): Promise<boolean> {
+  // CI環境では自動的にスキップ
+  if (config.isCI()) {
+    logger.info('CI environment detected. Skipping confirmation prompt.');
+    return true;
+  }
+
+  // 警告メッセージを表示
+  logger.warn('');
+  logger.warn('=== Rollback Confirmation ===');
+  logger.warn('');
+  logger.warn(`Agent recommends rolling back to phase '${decision.to_phase}'`);
+  logger.warn(`Confidence: ${decision.confidence.toUpperCase()}`);
+  logger.warn('');
+  logger.warn(`Reason: ${decision.reason.slice(0, 200)}${decision.reason.length > 200 ? '...' : ''}`);
+  logger.warn('');
+  logger.warn('This will reset all progress in the target phase and subsequent phases.');
+  logger.warn('');
+
+  // ユーザーに確認を求める
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise<boolean>((resolve) => {
+    rl.question('Do you want to proceed with the rollback? [y/N]: ', (answer: string) => {
+      rl.close();
+
+      const normalized = answer.trim().toLowerCase();
+      resolve(normalized === 'y' || normalized === 'yes');
+    });
+  });
 }

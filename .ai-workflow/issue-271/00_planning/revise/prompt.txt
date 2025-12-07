@@ -1,0 +1,391 @@
+# プロジェクト計画書修正 - 修正プロンプト
+
+## ⚠️ 最重要：必須アクション
+
+**Write ツールまたは Edit ツールを使用して、プロジェクト計画書を以下のパスに必ず保存してください：**
+
+```
+.ai-workflow/issue-271/00_planning/output/planning.md
+```
+
+**このファイルが存在しない場合、Planning Phase は失敗します。**
+
+---
+
+## タスク概要
+
+レビュー結果のフィードバックに基づいて、プロジェクト計画書を修正してください。
+
+## 元の計画書
+
+/tmp/jenkins-8358505b/workspace/AI_Workflow/develop/all_phases/.ai-workflow/issue-271/00_planning/output/planning.md
+
+## レビューフィードバック
+
+レビューで不合格となりました。
+
+## Issue情報（参考）
+
+## Issue概要
+
+- **Issue番号**: #271
+- **タイトル**: feat(rollback): Add auto mode with agent-based rollback target detection
+- **状態**: open
+- **URL**: https://github.com/tielec/ai-workflow-agent/issues/271
+- **ラベル**: なし
+
+### 本文
+
+## 概要
+
+`rollback auto` サブコマンドを追加し、Codex/Claude エージェントが metadata.json と生成ドキュメントを分析して、差し戻し先フェーズ、ステップ、理由を自動判断する。
+
+## 背景
+
+現在の `rollback` コマンドは `--to-phase`、`--to-step`、`--reason` を手動で指定する必要がある。
+Review 実行後であれば、エージェントが metadata.json と最新の生成ドキュメントを参照することで、差し戻しの必要性と適切な差し戻し先を判断できる。
+
+## CLI 設計
+
+```bash
+# 自動モード（サブコマンド形式）
+node dist/index.js rollback auto --issue <NUM>
+
+# オプション
+node dist/index.js rollback auto --issue <NUM> --dry-run     # プレビューのみ
+node dist/index.js rollback auto --issue <NUM> --force       # 確認スキップ
+node dist/index.js rollback auto --issue <NUM> --agent codex # エージェント指定
+```
+
+## エージェント判断ロジック
+
+### 入力情報
+
+エージェントに以下の情報を提供：
+
+1. **metadata.json**
+   - 各フェーズのステータス（completed, in_progress, failed, pending）
+   - completed_steps 配列
+   - current_phase
+   - retry_count
+   - rollback_history（過去の差し戻し履歴）
+
+2. **最新の生成ドキュメント**
+   - `{phase}/review/review_result.md` - レビュー結果
+   - `{phase}/output/*.md` - フェーズ成果物
+   - `06_testing/output/test-result.md` - テスト結果（Testing Phase の場合）
+
+### プロンプト設計
+
+```typescript
+const prompt = `
+あなたはAI Workflowの差し戻し判断エージェントです。
+以下の情報を分析し、差し戻しが必要かどうか、必要な場合はどのフェーズに戻るべきかを判断してください。
+
+## ワークフロー状態
+@.ai-workflow/issue-{issue_number}/metadata.json
+
+## 最新のレビュー結果（存在する場合）
+{latest_review_result_reference}
+
+## テスト結果（Testing Phase の場合）
+{test_result_reference}
+
+## 判断基準
+
+1. **差し戻し不要のケース**
+   - すべてのフェーズが正常に完了している
+   - 現在のフェーズで対処可能な問題のみ
+
+2. **差し戻しが必要なケース**
+   - レビュー結果に BLOCKER が存在し、前段フェーズの修正が必要
+   - テスト失敗が実装の問題に起因する
+   - 設計や要件の根本的な問題が発覚
+
+3. **差し戻し先の決定**
+   - 問題の根本原因があるフェーズを特定
+   - 最小限の差し戻しで問題を解決できるフェーズを選択
+
+## 出力形式（JSON）
+
+以下の形式で出力してください：
+
+\`\`\`json
+{
+  "needs_rollback": true,
+  "to_phase": "implementation",
+  "to_step": "revise",
+  "reason": "テスト失敗の原因が実装にあるため、Implementation Phase で修正が必要です。\n\n失敗したテスト:\n- test_commitRollback_converts_paths: 絶対パスの変換ロジックが未実装\n- test_filterExistingFiles_handles_absolute_paths: パス結合の問題",
+  "confidence": "high",
+  "analysis": "Testing Phase で 3 件のテストが失敗しています。失敗内容を分析した結果、commit-manager.ts の commitRollback メソッドで絶対パスを相対パスに変換するロジックが欠落していることが原因です。"
+}
+\`\`\`
+
+または差し戻し不要の場合：
+
+\`\`\`json
+{
+  "needs_rollback": false,
+  "reason": "すべてのテストが成功しており、差し戻しは不要です。",
+  "confidence": "high",
+  "analysis": "Testing Phase の結果を確認しましたが、全テストが成功しています。"
+}
+\`\`\`
+
+## 注意事項
+
+- confidence が "low" の場合、ユーザーに確認を求めます
+- reason は差し戻し先フェーズの revise ステップで参照されます
+- 具体的なファイル名や問題箇所を含めてください
+`;
+```
+
+### エージェント出力のパース
+
+```typescript
+interface RollbackDecision {
+  needs_rollback: boolean;
+  to_phase?: PhaseName;
+  to_step?: StepName;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+  analysis: string;
+}
+```
+
+## 実行フロー
+
+```
+1. metadata.json を読み込み、ワークフロー状態を確認
+2. 最新のレビュー結果・テスト結果ファイルを特定
+3. エージェントにプロンプトを送信
+4. エージェントの判断結果をパース
+5. confidence に応じて確認プロンプトを表示
+   - high: --force がなければ確認
+   - medium/low: 必ず確認（--force でもスキップしない）
+6. ユーザー確認後、既存の rollback ロジックを実行
+```
+
+## 出力例
+
+```
+$ node dist/index.js rollback auto --issue 261
+
+[INFO] Analyzing workflow state with agent...
+[INFO] Using Claude Agent for rollback analysis
+
+[INFO] Agent analysis complete:
+  - Needs rollback: Yes
+  - Confidence: high
+  - To Phase: test_implementation
+  - To Step: revise
+
+[INFO] Analysis:
+  Testing Phase で 3 件のユニットテストが失敗しています。
+  失敗内容を分析した結果、test-implementation.ts のテストケースが
+  最新の実装変更に追従していないことが原因です。
+
+[INFO] Reason:
+  テストコードの修正が必要です。
+  - test_commitRollback_converts_paths: 絶対パス変換のアサーションを追加
+  - test_filterExistingFiles_handles_absolute_paths: テストデータを更新
+
+[CONFIRM] Proceed with rollback to test_implementation (step: revise)? [y/N]: y
+
+[INFO] Executing rollback...
+[INFO] ROLLBACK_REASON.md generated
+[INFO] Rollback committed: abc1234
+[INFO] Rollback completed successfully.
+```
+
+## 実装ステップ
+
+### Step 1: サブコマンド構造の追加
+- [ ] `rollback auto` サブコマンドを main.ts に追加
+- [ ] `handleRollbackAutoCommand()` ハンドラを作成
+- [ ] オプション定義（--dry-run, --force, --agent）
+
+### Step 2: コンテキスト収集
+- [ ] metadata.json の読み込みと状態分析
+- [ ] 最新のレビュー結果ファイルの特定
+- [ ] テスト結果ファイルの特定（Testing Phase の場合）
+- [ ] ファイル参照形式（@path）の生成
+
+### Step 3: エージェント統合
+- [ ] 判断用プロンプトテンプレートの作成（`src/prompts/rollback/auto-analyze.txt`）
+- [ ] エージェント呼び出しロジック（Codex/Claude）
+- [ ] JSON 出力のパースとバリデーション
+- [ ] フォールバック処理（パース失敗時）
+
+### Step 4: 確認と実行
+- [ ] confidence に基づく確認プロンプト
+- [ ] 既存の `executeRollback()` への委譲
+- [ ] dry-run モードの対応
+
+## ファイル構成
+
+```
+src/
+├── commands/
+│   └── rollback.ts          # 既存 + auto モード追加
+├── prompts/
+│   └── rollback/
+│       └── auto-analyze.txt  # 新規: エージェント判断プロンプト
+```
+
+## 関連Issue
+
+- Issue #90: Rollback コマンド実装
+- Issue #269: rollback の絶対パス問題修正
+- Issue #267: Testing Phase KillShell 問題
+
+## 前回の実行ログ（参考）
+
+以下は前回の実行ログの一部です。計画書内容がログに含まれている場合は、それを使用してファイルを作成できます：
+
+```
+# Claude Agent 実行ログ
+
+生成日時: 2025/12/6 23:28:14
+
+---
+
+## Turn 1: システム初期化
+
+**セッションID**: `8bb87eeb-2f9d-41a4-81bf-5172765fcfd3`
+**モデル**: claude-sonnet-4-5-20250929
+**権限モード**: bypassPermissions
+**利用可能ツール**: Task, Bash, Glob, Grep, ExitPlanMode, Read, Edit, Write, NotebookEdit, WebFetch, TodoWrite, WebSearch, BashOutput, KillShell, Skill, SlashCommand
+
+## Turn 2: AI応答
+
+プロジェクト計画書を作成します。Issue #271の内容を詳細に分析し、実装戦略、テスト戦略、タスク分割を行います。
+
+## Turn 3: ツール使用
+
+**ツール**: `Read`
+
+**パラメータ**:
+- `file_path`: `/tmp/ai-workflow-repos-18-6fe3493b/ai-workflow-agent/src/commands/rollback.ts`
+
+## Turn 4: ツール使用
+
+**ツール**: `Read`
+
+**パラメータ**:
+- `file_path`: `/tmp/ai-workflow-repos-18-6fe3493b/ai-workflow-agent/src/core/metadata-manager.ts`
+- `offset`: `1`
+- `limit`: `100`
+
+## Turn 5: ツール使用
+
+**ツール**: `Write`
+
+**パラメータ**:
+- `file_path`: `/tmp/ai-workflow-repos-18-6fe3493b/ai-workflow-agent/.ai-workflow/issue-271/00_planning/output/plann...`
+- `content`: `# プロジェクト計画書
+
+**Issue番号**: #271
+**タイトル**: feat(rollback): Add auto mode with agent-based rollback tar...`
+
+## Turn 6: AI応答
+
+プロジェクト計画書を作成しました。以下の主要なポイントをまとめます：
+
+## 📋 計画書のハイライト
+
+### 複雑度と工数
+- **複雑度**: 中程度
+- **見積もり工数**: 12~16時間
+- **リスク評価**: 中
+
+### 実装戦略
+- **実装戦略**: **EXTEND**（既存rollbackコマンドへのサブコマンド追加）
+- **テスト戦略**: **UNIT_INTEGRATION**（ユニットテスト + 統合テスト）
+- **テストコード戦略**: **BOTH_TEST**（既存テスト拡張 + 新規テスト作成）
+
+### 主要な実装内容
+1. **CLIサブコマンド追加**: `rollback auto --issue <NUM>`
+2. **エージェント判断ロジック**: metadata.json、レビュー結果、テスト結果を分析
+3. **JSON出力パース**: エージェントの判断結果（needs_rollback、to_phase、reason等）を解析
+4. **confidence制御**: high/medium/lowレベルに応じた確認プロンプト
+5. **既存rollbackコマンドとの統合**: `executeRollback()`の再利用
+
+### タスク分割（全8フェーズ）
+各フェーズを1~4時間の粒度でタスク分割し、明確な完了条件を設定：
+
+- **Phase 1: 要件定義** (1~2h) - 機能要件、受け入れ基準の明確化
+- **Phase 2: 設計** (2~3h) - プロンプト設計、コンポーネント設計
+- **Phase 3: テストシナリオ** (1.5~2h) - ユニット/統合テストシナリオ作成
+- **Phase 4: 実装** (5~7h) - CLI拡張、プロンプトテンプレート、エージェント統合
+- **Phase 5: テストコード実装** (2~3h) - ユニットテスト、統合テスト実装
+- **Phase 6: テスト実行** (0.5~1h) - テスト実行と修正
+- **Phase 7: ドキュメント** (0.5~1h) - CLI ヘルプ、README更新
+-
+```
+
+## 修正方針
+
+以下の方針で計画書を修正してください：
+
+### ケース A: プロジェクト計画書ファイルが未作成の場合
+
+前回の実行でファイルが作成されなかった場合、以下の手順で対応してください：
+
+1. **前回のログから計画書内容を抽出**（ログに計画書内容が含まれている場合）
+   - 実装戦略、テスト戦略、影響範囲分析などを抽出
+   - 整形して planning.md として保存
+
+2. **新たに計画書を作成**（ログに計画書内容が不十分な場合）
+   - Issue情報と要件に基づいて簡潔に計画書を作成
+   - 必須項目（実装戦略、テスト戦略、タスク分割）を含める
+   - Write ツールで planning.md として保存
+
+### ケース B: レビューフィードバックに基づく修正の場合
+
+1. **ブロッカーの解消（最優先）**
+   - レビューで指摘されたブロッカーをすべて解消してください
+   - ブロッカーとは「このまま次フェーズに進むと確実に問題が発生する事項」です
+   - 戦略未定義、タスク粒度の問題、依存関係の矛盾などが該当します
+
+2. **改善提案の反映（可能な範囲で）**
+   - レビューで提案された改善点を可能な範囲で反映してください
+   - すべての改善提案を反映する必要はありませんが、合理的な提案は積極的に取り入れてください
+
+3. **品質ゲートの確認**
+   - 修正後、すべての品質ゲートを満たしているか確認してください
+   - [ ] **実装戦略が明確に決定されている**（CREATE/EXTEND/REFACTOR）
+   - [ ] **テスト戦略が明確に決定されている**（UNIT_ONLY/.../ALL）
+   - [ ] **テストコード戦略が明確に決定されている**（EXTEND_TEST/CREATE_TEST/BOTH_TEST）
+   - [ ] **影響範囲が分析されている**
+   - [ ] **タスク分割が適切な粒度である**（1タスク = 1~4時間）
+   - [ ] **リスクが洗い出されている**
+
+## 修正の進め方
+
+1. **現状把握**: 元の計画書とレビューフィードバックを読み込み、問題点を把握
+2. **優先順位付け**: ブロッカー → 改善提案の順に対応
+3. **修正実施**: 元の計画書を読み込み、Edit toolで修正
+4. **検証**: 修正後、品質ゲートをすべて満たしているか確認
+
+## 出力形式
+
+修正したプロジェクト計画書を以下のファイルに上書き保存してください：
+
+```
+.ai-workflow/issue-{issue_number}/00_planning/output/planning.md
+```
+
+**重要**: 必ず既存のplanning.mdを読み込んでから、Edit toolで修正してください。Write toolで新規作成しないでください。
+
+## 注意事項
+
+1. **修正の範囲**: 指摘された問題点に焦点を当て、不要な変更は避ける
+2. **構造の維持**: 計画書の基本構造（セクション構成）は維持する
+3. **戦略の明記**: 実装戦略・テスト戦略・テストコード戦略は必ず明記する
+4. **具体性**: 修正内容は具体的かつ測定可能な形で記述する
+5. **整合性**: 修正後も各セクション間で矛盾がないか確認する
+
+## 修正の開始
+
+上記の方針に従って、プロジェクト計画書を修正してください。
