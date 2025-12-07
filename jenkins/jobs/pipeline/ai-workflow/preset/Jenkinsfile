@@ -9,6 +9,7 @@
  * - PRESET: プリセット名（必須、選択肢: review-requirements, review-design, review-test-scenario, quick-fix, implementation, testing, finalize）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
  */
 
@@ -34,6 +35,7 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
         EXECUTION_MODE = 'preset'
+        CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
 
         GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
@@ -76,6 +78,15 @@ pipeline {
                 }
             }
         }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
 
         stage('Validate Parameters') {
             steps {
@@ -209,6 +220,13 @@ pipeline {
                         rm -rf ${env.REPOS_ROOT}
                     """
                     echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
             }
         }
