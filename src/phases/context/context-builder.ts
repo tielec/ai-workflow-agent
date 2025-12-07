@@ -2,7 +2,6 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
-import { config } from '../../core/config.js';
 import { PhaseName } from '../../types.js';
 
 /**
@@ -18,25 +17,31 @@ import { PhaseName } from '../../types.js';
  * - フォールバック処理
  *
  * Issue #49: BasePhase のモジュール分解リファクタリング
+ * Issue #274: REPOS_ROOT 対応（workflowBaseDir を受け取る）
  */
 export class ContextBuilder {
   private readonly metadata: MetadataManager;
   private readonly workingDir: string;
   private readonly getAgentWorkingDirectoryFn: () => string;
+  private readonly workflowBaseDir: string;
 
   /**
    * @param metadata - メタデータマネージャー
    * @param workingDir - 作業ディレクトリ
    * @param getAgentWorkingDirectoryFn - エージェント作業ディレクトリを取得する関数
+   * @param workflowBaseDir - ワークフローベースディレクトリ（REPOS_ROOT 対応済み）
    */
   constructor(
     metadata: MetadataManager,
     workingDir: string,
-    getAgentWorkingDirectoryFn: () => string
+    getAgentWorkingDirectoryFn: () => string,
+    workflowBaseDir?: string
   ) {
     this.metadata = metadata;
     this.workingDir = workingDir;
     this.getAgentWorkingDirectoryFn = getAgentWorkingDirectoryFn;
+    // Issue #274: workflowBaseDir が渡されない場合は従来の動作にフォールバック
+    this.workflowBaseDir = workflowBaseDir ?? metadata.workflowDir;
   }
 
   /**
@@ -179,26 +184,9 @@ export class ContextBuilder {
       issueNumberOverride !== undefined ? String(issueNumberOverride) : this.metadata.data.issue_number;
     const phaseNumber = this.getPhaseNumber(targetPhase);
 
-    // Issue #252: REPOS_ROOT が設定されている場合は、そちらを基準にパスを構築
-    // Jenkins環境ではWORKSPACEとREPOS_ROOTが分離されているため
-    const reposRoot = config.getReposRoot();
-    const repoName = this.metadata.data.target_repository?.repo;
-
-    let basePath: string;
-    if (reposRoot && repoName) {
-      // REPOS_ROOT が設定されている場合は、リポジトリパスを動的に構築
-      const reposRootPath = path.join(reposRoot, repoName);
-      if (fs.existsSync(reposRootPath)) {
-        basePath = path.join(reposRootPath, '.ai-workflow');
-        logger.debug(`Using REPOS_ROOT for phase output file: ${basePath}`);
-      } else {
-        // REPOS_ROOT パスが存在しない場合はフォールバック
-        basePath = path.resolve(this.metadata.workflowDir, '..');
-      }
-    } else {
-      // 従来の動作: metadata.workflowDir から親ディレクトリを取得
-      basePath = path.resolve(this.metadata.workflowDir, '..');
-    }
+    // Issue #274: workflowBaseDir を使用（REPOS_ROOT 対応済み）
+    // workflowBaseDir は .ai-workflow/issue-{NUM} 形式なので、親ディレクトリを取得
+    const basePath = path.resolve(this.workflowBaseDir, '..');
 
     const filePath = path.join(
       basePath,
