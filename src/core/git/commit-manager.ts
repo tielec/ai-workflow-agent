@@ -559,4 +559,63 @@ ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
       };
     }
   }
+
+  /**
+   * Issue #276: ワークフローディレクトリ削除をコミット
+   *
+   * finalize コマンドで .ai-workflow/issue-* ディレクトリを削除した後、
+   * 削除されたファイルをGitにコミットする。
+   *
+   * 通常の commitCleanupLogs とは異なり、削除されたファイル（存在しないファイル）を
+   * git add -A でステージングしてからコミットする。
+   */
+  public async commitWorkflowDeletion(issueNumber: number): Promise<CommitResult> {
+    try {
+      // 削除されたファイルをステージング
+      const workflowPath = `.ai-workflow/issue-${issueNumber}`;
+
+      // git status で削除されたファイルがあるか確認
+      const status = await this.git.status();
+      const deletedFiles = status.deleted.filter(f => f.startsWith(workflowPath));
+
+      if (deletedFiles.length === 0) {
+        logger.info('No deleted files to commit for workflow cleanup');
+        return {
+          success: true,
+          commit_hash: null,
+          files_committed: [],
+        };
+      }
+
+      logger.info(`Staging ${deletedFiles.length} deleted file(s) for commit`);
+
+      // 削除されたファイルをステージング（git add -A で削除を追跡）
+      await this.git.add(['-A', workflowPath]);
+      await this.ensureGitConfig();
+
+      // コミットメッセージ生成
+      const message = this.messageBuilder.createCleanupCommitMessage(issueNumber, 'finalize');
+
+      // コミット実行
+      const commitResponse = await this.git.commit(message, [], {
+        '--no-verify': null,
+      });
+
+      logger.info(`Workflow deletion committed: ${commitResponse.commit ?? 'unknown'}`);
+
+      return {
+        success: true,
+        commit_hash: commitResponse.commit ?? null,
+        files_committed: deletedFiles,
+      };
+    } catch (error) {
+      logger.error(`Workflow deletion commit failed: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: [],
+        error: getErrorMessage(error),
+      };
+    }
+  }
 }

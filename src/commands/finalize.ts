@@ -165,16 +165,21 @@ async function executeStep2(
   const gitManager = new GitManager(repoDir, metadataManager);
   const issueNumber = parseInt(options.issue, 10);
 
-  const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'finalize');
+  // finalize では削除されたファイルをコミットするため、専用メソッドを使用
+  const commitResult = await gitManager.commitWorkflowDeletion(issueNumber);
   if (!commitResult.success) {
     throw new Error(commitResult.error ?? 'Commit failed');
   }
 
-  logger.info(`Cleanup committed: ${commitResult.commit_hash}`);
+  if (commitResult.commit_hash) {
+    logger.info(`Cleanup committed: ${commitResult.commit_hash}`);
 
-  const pushResult = await gitManager.pushToRemote();
-  if (!pushResult.success) {
-    throw new Error(pushResult.error ?? 'Push failed');
+    const pushResult = await gitManager.pushToRemote();
+    if (!pushResult.success) {
+      throw new Error(pushResult.error ?? 'Push failed');
+    }
+  } else {
+    logger.info('No changes to commit (workflow directory already clean)');
   }
 
   logger.info('✅ Step 2 completed: Workflow artifacts cleaned up.');

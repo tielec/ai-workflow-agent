@@ -222,4 +222,14 @@ export class GitManager {
     return this.squashManager;
   }
 
+  /**
+   * Issue #276: ワークフローディレクトリ削除をコミット
+   *
+   * finalize コマンドで .ai-workflow/issue-* ディレクトリ削除後に、
+   * 削除されたファイルをGitにコミットする。
+   */
+  public async commitWorkflowDeletion(issueNumber: number): Promise<CommitResult> {
+    return this.commitManager.commitWorkflowDeletion(issueNumber);
+  }
+
 }
