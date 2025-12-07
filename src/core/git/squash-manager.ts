@@ -380,6 +380,9 @@ Fixes #${issueNumber}`;
    * PhaseContext に依存せず、FinalizeContext を受け取る。
    * エージェント生成によるコミットメッセージ生成は省略し、テンプレートベースのメッセージを使用。
    *
+   * 注意: finalize コマンドでは .ai-workflow ディレクトリが既に削除されているため、
+   * メタデータへの記録（setPreSquashCommits, setSquashedAt）はスキップする。
+   *
    * @param context - FinalizeContext
    * @throws Error - ブランチ保護違反時、スカッシュ失敗時
    */
@@ -406,8 +409,10 @@ Fixes #${issueNumber}`;
       // 3. ブランチ保護チェック
       await this.validateBranchProtection();
 
-      // 4. スカッシュ前のコミットハッシュを記録
-      this.metadataManager.setPreSquashCommits(commits);
+      // 4. スカッシュ前のコミットハッシュを記録（スキップ: metadata.json は削除済み）
+      // finalize コマンドでは .ai-workflow ディレクトリが削除されているため、
+      // メタデータへの記録は行わない
+      logger.debug(`Pre-squash commits (not saved to metadata): ${commits.length} commits`);
 
       // 5. フォールバックメッセージを使用（エージェント生成はスキップ）
       const message = this.generateFinalizeMessage(context);
@@ -417,8 +422,8 @@ Fixes #${issueNumber}`;
       // 6. スカッシュ実行
       await this.executeSquash(baseCommit, message);
 
-      // 7. スカッシュ完了時刻を記録
-      this.metadataManager.setSquashedAt(new Date().toISOString());
+      // 7. スカッシュ完了時刻を記録（スキップ: metadata.json は削除済み）
+      logger.debug('Squash completed at:', new Date().toISOString());
 
       logger.info('✅ Commit squash completed successfully.');
     } catch (error) {
