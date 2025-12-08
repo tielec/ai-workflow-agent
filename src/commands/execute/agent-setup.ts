@@ -5,7 +5,7 @@ import fs from 'fs-extra';
 import { logger } from '../../utils/logger.js';
 import { config } from '../../core/config.js';
 import { CodexAgentClient } from '../../core/codex-agent-client.js';
-import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { ClaudeAgentClient, resolveClaudeModel, DEFAULT_CLAUDE_MODEL } from '../../core/claude-agent-client.js';
 import {
   CODEX_MIN_API_KEY_LENGTH,
   detectCodexCliAuth,
@@ -130,6 +130,17 @@ export function resolveAgentCredentials(homeDir: string, repoRoot: string): Cred
 }
 
 /**
+ * エージェントセットアップオプション（Issue #301）
+ */
+export interface AgentSetupOptions {
+  /**
+   * Claude モデル指定（エイリアスまたはフルモデルID）
+   * 未指定時は環境変数 CLAUDE_MODEL → デフォルト (opus) の順で解決
+   */
+  claudeModel?: string;
+}
+
+/**
  * Codex/Claude クライアントを初期化
  *
  * エージェントモードに基づいて、Codex および Claude エージェントクライアントを初期化します。
@@ -142,6 +153,7 @@ export function resolveAgentCredentials(homeDir: string, repoRoot: string): Cred
  * @param agentMode - エージェントモード ('auto' | 'codex' | 'claude')
  * @param workingDir - 作業ディレクトリ
  * @param credentials - 認証情報（codexApiKey, claudeCodeToken, claudeCredentialsPath）
+ * @param options - エージェントセットアップオプション（Issue #301）
  * @returns エージェント初期化結果
  * @throws {Error} 必須の認証情報が存在しない場合
  */
@@ -149,10 +161,16 @@ export function setupAgentClients(
   agentMode: 'auto' | 'codex' | 'claude',
   workingDir: string,
   credentials: CredentialsResult,
+  options: AgentSetupOptions = {},
 ): AgentSetupResult {
   const { codexApiKey, claudeCodeToken, claudeCredentialsPath } = credentials;
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
+
+  // Claude モデルの解決（CLI > 環境変数 > デフォルト）（Issue #301）
+  const claudeModelInput = options.claudeModel ?? config.getClaudeModel();
+  const resolvedClaudeModel = resolveClaudeModel(claudeModelInput);
+  logger.debug(`Claude model resolved: ${claudeModelInput ?? '(default)'} -> ${resolvedClaudeModel}`);
 
   // Claude の認証情報が利用可能かどうか
   const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
@@ -206,12 +224,13 @@ export function setupAgentClients(
         );
       }
 
-      // ClaudeAgentClient には認証パスを渡す（なければ OAuth / API key を使用）
+      // ClaudeAgentClient には認証パスとモデルを渡す
       claudeClient = new ClaudeAgentClient({
         workingDir,
         credentialsPath: claudeCredentialsPath ?? undefined,
+        model: resolvedClaudeModel,
       });
-      logger.info('Claude Code agent enabled (claude mode).');
+      logger.info(`Claude Code agent enabled (claude mode, model=${resolvedClaudeModel}).`);
       break;
     }
     case 'auto':
@@ -233,13 +252,14 @@ export function setupAgentClients(
 
       if (hasClaudeCredentials) {
         if (!codexClient) {
-          logger.info(`Codex agent unavailable (${codexUnavailableReason}). Using Claude Code.`);
+          logger.info(`Codex agent unavailable (${codexUnavailableReason}). Using Claude Code (model=${resolvedClaudeModel}).`);
         } else {
-          logger.info('Claude Code credentials detected. Fallback available.');
+          logger.info(`Claude Code credentials detected. Fallback available (model=${resolvedClaudeModel}).`);
         }
         claudeClient = new ClaudeAgentClient({
           workingDir,
           credentialsPath: claudeCredentialsPath ?? undefined,
+          model: resolvedClaudeModel,
         });
       } else if (!codexClient) {
         logger.warn(

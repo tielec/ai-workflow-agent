@@ -72,6 +72,10 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .option(
+      '--claude-model <model>',
+      'Claude model (opus|sonnet|haiku or full model ID, default: opus)',
+    )
     .option('--requirements-doc <path>', 'External requirements document path')
     .option('--design-doc <path>', 'External design document path')
     .option('--test-scenario-doc <path>', 'External test scenario document path')
