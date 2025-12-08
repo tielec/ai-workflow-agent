@@ -1,6 +1,7 @@
 import { minimatch } from 'minimatch';
 import type { SimpleGit } from 'simple-git';
 import type { PhaseName } from '../../types.js';
+import { config } from '../config.js';
 
 /**
  * Security-sensitive file patterns that should NEVER be committed.
@@ -34,6 +35,29 @@ export function isSecuritySensitiveFile(filePath: string): boolean {
 }
 
 /**
+ * Check if a file is a raw agent log that should be excluded when LOG_LEVEL is not 'debug'.
+ *
+ * Raw agent logs (agent_log_raw.txt) can be very large (100MB+) and cause GitHub push failures.
+ * These files are only needed for debugging, so we exclude them when LOG_LEVEL is 'info' or higher.
+ *
+ * @param filePath - The file path to check
+ * @returns true if the file should be excluded based on log level
+ */
+export function shouldExcludeRawLog(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const logLevel = config.getLogLevel();
+
+  // Only exclude when LOG_LEVEL is not 'debug'
+  if (logLevel === 'debug') {
+    return false;
+  }
+
+  // Check if file is agent_log_raw.txt
+  return normalizedPath.endsWith('/agent_log_raw.txt') ||
+    normalizedPath === 'agent_log_raw.txt';
+}
+
+/**
  * FileSelector - Specialized module for file selection and filtering
  *
  * Responsibilities:
@@ -56,6 +80,7 @@ export class FileSelector {
    * Excludes:
    * - Files containing '@tmp'
    * - Security-sensitive files (credentials, auth files, .env)
+   * - Raw agent logs (agent_log_raw.txt) when LOG_LEVEL is not 'debug'
    */
   public async getChangedFiles(): Promise<string[]> {
     const status = await this.git.status();
@@ -63,8 +88,8 @@ export class FileSelector {
 
     const collect = (paths: string[] | undefined) => {
       paths?.forEach((file) => {
-        // SECURITY: Exclude @tmp and sensitive credential files
-        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file)) {
+        // SECURITY: Exclude @tmp, sensitive credential files, and raw logs when not in debug mode
+        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file) && !shouldExcludeRawLog(file)) {
           aggregated.add(file);
         }
       });
@@ -78,8 +103,8 @@ export class FileSelector {
     collect(status.staged);
 
     status.files.forEach((file) => {
-      // SECURITY: Exclude sensitive credential files
-      if (!isSecuritySensitiveFile(file.path)) {
+      // SECURITY: Exclude sensitive credential files and raw logs when not in debug mode
+      if (!isSecuritySensitiveFile(file.path) && !shouldExcludeRawLog(file.path)) {
         aggregated.add(file.path);
       }
     });
@@ -96,14 +121,15 @@ export class FileSelector {
    * - Files containing '@tmp'
    * - Files in .ai-workflow/issue-{OTHER_NUMBER}/
    * - Security-sensitive files (credentials, auth files, .env)
+   * - Raw agent logs (agent_log_raw.txt) when LOG_LEVEL is not 'debug'
    */
   public filterPhaseFiles(files: string[], issueNumber: string): string[] {
     const targetPrefix = `.ai-workflow/issue-${issueNumber}/`;
     const result: string[] = [];
 
     for (const file of files) {
-      // SECURITY: Exclude @tmp and sensitive credential files
-      if (file.includes('@tmp') || isSecuritySensitiveFile(file)) {
+      // SECURITY: Exclude @tmp, sensitive credential files, and raw logs when not in debug mode
+      if (file.includes('@tmp') || isSecuritySensitiveFile(file) || shouldExcludeRawLog(file)) {
         continue;
       }
 
