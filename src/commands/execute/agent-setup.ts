@@ -175,6 +175,19 @@ export function setupAgentClients(
   const codexAuthFile = codexHome ? path.join(codexHome, 'auth.json') : null;
   const hasCodexCliAuth = !!(codexAuthFile && fs.existsSync(codexAuthFile));
   const hasCodexCredentials = isValidApiKey(codexApiKey) || hasCodexCliAuth;
+  const codexCredentialHints: string[] = [];
+  if (!isValidApiKey(codexApiKey)) {
+    codexCredentialHints.push('CODEX_API_KEY missing or invalid');
+  }
+  if (!hasCodexCliAuth) {
+    if (codexAuthFile) {
+      codexCredentialHints.push(`Codex auth file not found at ${codexAuthFile}`);
+    } else {
+      codexCredentialHints.push('CODEX_HOME not set or auth.json missing');
+    }
+  }
+  const codexUnavailableReason =
+    codexCredentialHints.join('; ') || 'no Codex credentials detected';
 
   switch (agentMode) {
     case 'codex': {
@@ -234,7 +247,7 @@ export function setupAgentClients(
 
       if (hasClaudeCredentials) {
         if (!codexClient) {
-          logger.info('Codex agent unavailable. Using Claude Code.');
+          logger.info(`Codex agent unavailable (${codexUnavailableReason}). Using Claude Code.`);
         } else {
           logger.info('Claude Code credentials detected. Fallback available.');
         }
@@ -242,6 +255,10 @@ export function setupAgentClients(
           workingDir,
           credentialsPath: claudeCredentialsPath ?? undefined,
         });
+      } else if (!codexClient) {
+        logger.warn(
+          `Codex agent unavailable (${codexUnavailableReason}) and no Claude credentials configured.`,
+        );
       }
       break;
     }
