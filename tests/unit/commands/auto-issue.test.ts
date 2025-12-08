@@ -5,12 +5,17 @@
  * テストシナリオ: test-scenario.md の TC-CLI-001 〜 TC-CLI-010
  */
 
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { handleAutoIssueCommand } from '../../../src/commands/auto-issue.js';
 import type { AutoIssueOptions, IssueCreationResult } from '../../../src/types/auto-issue.js';
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
 import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
+import * as autoIssueOutput from '../../../src/commands/auto-issue-output.js';
 import { jest } from '@jest/globals';
+
+const require = createRequire(import.meta.url);
 
 // モック関数の事前定義（グローバルスコープで定義）
 const mockAnalyze = jest.fn<any>();
@@ -34,6 +39,10 @@ jest.mock('../../../src/core/issue-generator.js', () => ({
   IssueGenerator: jest.fn().mockImplementation(() => ({
     generate: mockGenerate,
   })),
+}));
+jest.mock('../../../src/commands/auto-issue-output.js', () => ({
+  buildAutoIssueJsonPayload: jest.fn(),
+  writeAutoIssueOutputFile: jest.fn(),
 }));
 
 jest.mock('../../../src/commands/execute/agent-setup.js');
@@ -79,6 +88,7 @@ describe('auto-issue command handler', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   /**
@@ -1232,6 +1242,234 @@ describe('auto-issue command handler', () => {
 
         // Then: すべての言語のファイルが処理される
         expect(mockGenerator.generate).toHaveBeenCalledTimes(5);
+      });
+    });
+  });
+
+  /**
+   * Issue #257: --output-file オプションとJSON出力
+   */
+  describe('Issue #257: JSON output option', () => {
+    it('should resolve output file path and invoke JSON writer when option is provided', async () => {
+      const outputRelativePath = './tmp/auto-issue/result.json';
+      const expectedPath = path.resolve(process.cwd(), outputRelativePath);
+
+      const payload = {
+        execution: {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          repository: 'owner/repo',
+          category: 'bug' as AutoIssueOptions['category'],
+          dryRun: true,
+        },
+        summary: { total: 0, success: 0, failed: 0, skipped: 0 },
+        issues: [],
+      };
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      buildSpy.mockReturnValue(payload as any);
+      writeSpy.mockResolvedValue(undefined);
+
+      await handleAutoIssueCommand({
+        outputFile: outputRelativePath,
+        dryRun: true,
+      });
+
+      expect(buildSpy).toHaveBeenCalledWith({
+        execution: expect.objectContaining({
+          repository: 'owner/repo',
+          category: 'bug',
+          dryRun: true,
+        }),
+        results: [],
+      });
+      expect(writeSpy).toHaveBeenCalledWith(expectedPath, payload);
+    });
+
+    it('should throw when output file option is blank', async () => {
+      await expect(
+        handleAutoIssueCommand({
+          outputFile: '   ',
+        }),
+      ).rejects.toThrow('output-file must not be empty.');
+    });
+
+    it('should propagate JSON write errors so the CLI fails loudly', async () => {
+      const payload = {
+        execution: {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          repository: 'owner/repo',
+          category: 'bug' as AutoIssueOptions['category'],
+          dryRun: false,
+        },
+        summary: { total: 0, success: 0, failed: 0, skipped: 0 },
+        issues: [],
+      };
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      buildSpy.mockReturnValue(payload as any);
+      writeSpy.mockRejectedValue(new Error('disk full'));
+
+      await expect(
+        handleAutoIssueCommand({
+          outputFile: './tmp/auto-issue/error.json',
+          dryRun: false,
+        }),
+      ).rejects.toThrow('disk full');
+    });
+
+    /**
+     * TC-CLI-257-004: parseOptions_outputFile_正常系_絶対パス変換
+     *
+     * 目的: 相対パスから絶対パスへの変換が正しく行われることを検証
+     */
+    it('should resolve relative output file path to absolute path', async () => {
+      const outputRelativePath = 'results/auto-issue-report.json';
+      const expectedPath = path.resolve(process.cwd(), outputRelativePath);
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      buildSpy.mockReturnValue({
+        execution: {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          repository: 'owner/repo',
+          category: 'bug' as AutoIssueOptions['category'],
+          dryRun: true,
+        },
+        summary: { total: 0, success: 0, failed: 0, skipped: 0 },
+        issues: [],
+      } as any);
+      writeSpy.mockResolvedValue(undefined);
+
+      await handleAutoIssueCommand({
+        outputFile: outputRelativePath,
+        dryRun: true,
+      });
+
+      // path.resolve が呼ばれ、絶対パスに変換されていることを確認
+      expect(writeSpy).toHaveBeenCalledWith(expectedPath, expect.any(Object));
+      expect(expectedPath.startsWith('/')).toBe(true);
+    });
+
+    /**
+     * TC-CLI-257-005: parseOptions_outputFile_正常系_ログ出力
+     *
+     * 目的: outputFile オプション指定時にログに出力されることを検証
+     */
+    it('should log output file path when option is provided', async () => {
+      const logger = require('../../../src/utils/logger.js');
+      logger.info = jest.fn();
+
+      const outputRelativePath = './tmp/results.json';
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      buildSpy.mockReturnValue({
+        execution: {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          repository: 'owner/repo',
+          category: 'bug' as AutoIssueOptions['category'],
+          dryRun: true,
+        },
+        summary: { total: 0, success: 0, failed: 0, skipped: 0 },
+        issues: [],
+      } as any);
+      writeSpy.mockResolvedValue(undefined);
+
+      await handleAutoIssueCommand({
+        outputFile: outputRelativePath,
+        dryRun: true,
+      });
+
+      // Options ログに outputFile が含まれることを確認
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('outputFile='),
+      );
+    });
+
+    /**
+     * TC-CLI-257-006: handleAutoIssueCommand_正常系_outputFile未指定
+     *
+     * 目的: outputFile 未指定時は JSON 出力を行わないことを検証
+     */
+    it('should skip JSON output when outputFile is not specified', async () => {
+      mockAnalyzer.analyze.mockResolvedValue([]);
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+
+      await handleAutoIssueCommand({
+        dryRun: true,
+      });
+
+      // JSON 出力が行われない
+      expect(buildSpy).not.toHaveBeenCalled();
+      expect(writeSpy).not.toHaveBeenCalled();
+    });
+
+    /**
+     * TC-CLI-257-007: handleAutoIssueCommand_正常系_結果付きJSON出力
+     *
+     * 目的: Issue作成結果がJSON出力に含まれることを検証
+     */
+    it('should include issue results in JSON output', async () => {
+      const candidate = {
+        title: 'Bug fix test with proper title',
+        file: 'test.ts',
+        line: 1,
+        severity: 'high' as const,
+        description: 'Test description with enough characters for validation to pass.',
+        suggestedFix: 'Test fix suggestion',
+        category: 'bug' as const,
+      };
+
+      mockAnalyzer.analyze.mockResolvedValue([candidate]);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates: any) => candidates);
+      mockGenerator.generate.mockResolvedValue({
+        success: true,
+        issueUrl: 'https://github.com/owner/repo/issues/100',
+        issueNumber: 100,
+        title: 'Bug fix test with proper title',
+      });
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      buildSpy.mockReturnValue({
+        execution: {
+          timestamp: '2024-01-01T00:00:00.000Z',
+          repository: 'owner/repo',
+          category: 'bug' as AutoIssueOptions['category'],
+          dryRun: false,
+        },
+        summary: { total: 1, success: 1, failed: 0, skipped: 0 },
+        issues: [{
+          success: true,
+          title: 'Bug fix test with proper title',
+          issueNumber: 100,
+          issueUrl: 'https://github.com/owner/repo/issues/100',
+        }],
+      } as any);
+      writeSpy.mockResolvedValue(undefined);
+
+      await handleAutoIssueCommand({
+        outputFile: './results.json',
+        dryRun: false,
+      });
+
+      expect(buildSpy).toHaveBeenCalledWith({
+        execution: expect.objectContaining({
+          repository: 'owner/repo',
+          category: 'bug',
+          dryRun: false,
+        }),
+        results: [
+          expect.objectContaining({
+            success: true,
+            issueNumber: 100,
+            issueUrl: 'https://github.com/owner/repo/issues/100',
+          }),
+        ],
       });
     });
   });

@@ -8,7 +8,11 @@
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
 import type { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../../src/core/claude-agent-client.js';
-import type { BugCandidate, IssueCreationResult } from '../../../src/types/auto-issue.js';
+import type {
+  BugCandidate,
+  EnhancementProposal,
+  RefactorCandidate,
+} from '../../../src/types/auto-issue.js';
 import { Octokit } from '@octokit/rest';
 import { jest } from '@jest/globals';
 
@@ -277,7 +281,7 @@ Additional text.
         category: 'bug',
       };
 
-      mockCodexClient.executeTask.mockResolvedValue(['Plain text output without markdown block');
+      mockCodexClient.executeTask.mockResolvedValue(['Plain text output without markdown block']);
 
       // When: generate() を dry-run で実行
       const result = await generator.generate(candidate, 'codex', true);
@@ -305,7 +309,7 @@ Additional text.
         category: 'bug',
       };
 
-      mockCodexClient.executeTask.mockResolvedValue(['## 概要\nTest body');
+      mockCodexClient.executeTask.mockResolvedValue(['## 概要\nTest body']);
 
       mockOctokit.issues.create.mockResolvedValue({
         data: {
@@ -657,6 +661,73 @@ Additional text.
 
       // Then: フォールバック本文が使用される（エラーでも成功としてスキップされる）
       expect(result.success).toBe(true);
+    });
+  });
+
+  /**
+   * Issue #257: JSONエクスポート向けのタイトル伝播を保証
+   *
+   * 目的: dry-run やスキップ時でも IssueCreationResult.title が常に埋まることを確認し、
+   *       JSON 出力にタイトルが含まれるようにする。
+   */
+  describe('Issue #257: IssueCreationResult title propagation', () => {
+    it('should keep bug candidate title when dry-run skips creation', async () => {
+      const candidate: BugCandidate = {
+        title: 'Ensure JSON output contains candidate title',
+        file: 'src/commands/auto-issue.ts',
+        line: 120,
+        severity: 'high',
+        description:
+          'Bug description with enough detail to satisfy validation and reproduce the failure scenario.',
+        suggestedFix: 'Add guards before writing files.',
+        category: 'bug',
+      };
+
+      mockCodexClient.executeTask.mockResolvedValue(['```markdown\n## 概要\nTest body\n```']);
+
+      const result = await generator.generate(candidate, 'codex', true);
+
+      expect(result.skippedReason).toBe('dry-run mode');
+      expect(result.title).toBe(candidate.title);
+    });
+
+    it('should populate refactor issue title even when dry-run is enabled', async () => {
+      const candidate: RefactorCandidate = {
+        type: 'large-file',
+        filePath: 'src/services/legacy-worker.ts',
+        description: 'File exceeds 500 lines and is difficult to navigate.',
+        suggestion: 'Split the worker into smaller modules grouped by responsibility.',
+        priority: 'high',
+      };
+
+      mockCodexClient.executeTask.mockResolvedValue(['```markdown\n## 概要\nRefactor body\n```']);
+
+      const result = await generator.generateRefactorIssue(candidate, 'codex', true);
+
+      expect(result.skippedReason).toBe('dry-run mode');
+      expect(result.title).toBe('[Refactor] ファイルサイズの削減: legacy-worker.ts');
+    });
+
+    it('should return enhancement title with emoji while skipping creation', async () => {
+      const proposal: EnhancementProposal = {
+        type: 'improvement',
+        title: 'Expose JSON output path in CLI summary',
+        description:
+          'Add a CLI summary block that explicitly prints the JSON output location so Jenkins users can cross-check artifacts easily.',
+        rationale:
+          'Developers frequently need to inspect artifacts. Including the path prevents confusion and speeds up debugging.',
+        implementation_hints: ['Log resolved path after parsing options'],
+        expected_impact: 'high',
+        effort_estimate: 'small',
+        related_files: ['src/commands/auto-issue.ts'],
+      };
+
+      mockCodexClient.executeTask.mockResolvedValue(['```markdown\n## 概要\nEnhancement body\n```']);
+
+      const result = await generator.generateEnhancementIssue(proposal, 'codex', true);
+
+      expect(result.skippedReason).toBe('dry-run mode');
+      expect(result.title).toBe('[Enhancement] ⚡ Expose JSON output path in CLI summary');
     });
   });
 });

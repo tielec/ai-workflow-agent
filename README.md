@@ -111,7 +111,8 @@ ai-workflow auto-issue \
   [--dry-run] \
   [--similarity-threshold <0.0-1.0>] \
   [--agent auto|codex|claude] \
-  [--creative-mode]
+  [--creative-mode] \
+  [--output-file <path>]
 
 ai-workflow review \
   --phase <name> \
@@ -930,6 +931,12 @@ ai-workflow auto-issue \
   --dry-run \
   --similarity-threshold 0.8 \
   --agent auto
+
+# 実行結果をJSONファイルに出力（Jenkins CI連携用）
+ai-workflow auto-issue \
+  --category bug \
+  --limit 5 \
+  --output-file auto-issue-results.json
 ```
 
 **主な機能**:
@@ -988,6 +995,10 @@ ai-workflow auto-issue \
 - `--creative-mode`: 創造的・実験的な提案を有効化（`enhancement` カテゴリのみ有効）
   - より野心的で革新的な機能拡張アイデアを生成
   - 実験的な統合やエコシステム改善の提案を含む
+- `--output-file <path>`: 実行結果をJSON形式で指定パスに出力（Issue #257で追加）
+  - 指定しない場合はファイル出力なし（後方互換性維持）
+  - CI環境（Jenkins）でのアーティファクト収集に有用
+  - dry-runモードでも出力可能
 
 **環境変数**:
 
@@ -1036,6 +1047,11 @@ ai-workflow auto-issue --category enhancement --dry-run --limit 5
 # ケース8: 創造的な機能拡張提案の生成
 ai-workflow auto-issue --category enhancement --creative-mode --limit 10
 # → より野心的・革新的な機能拡張アイデアを最大10件生成
+
+# ケース9: 実行結果をJSONファイルに出力
+ai-workflow auto-issue --category bug --limit 5 --output-file ./results/auto-issue.json
+# → 検出結果とIssue生成結果をJSONファイルに保存
+# → Jenkins等のCIでアーティファクトとして収集可能
 ```
 
 **出力例（--dry-runモード）**:
@@ -1065,6 +1081,38 @@ ai-workflow auto-issue --category enhancement --creative-mode --limit 10
 
 ℹ️ --dry-run モードのため、Issueは生成されませんでした。
    実際に生成するには --dry-run オプションを外してください。
+```
+
+**JSON出力フォーマット（--output-fileオプション使用時）**:
+
+```json
+{
+  "execution": {
+    "timestamp": "2025-12-08T09:00:00.000Z",
+    "repository": "owner/repo",
+    "category": "bug",
+    "dryRun": false
+  },
+  "summary": {
+    "total": 5,
+    "success": 4,
+    "failed": 0,
+    "skipped": 1
+  },
+  "issues": [
+    {
+      "success": true,
+      "title": "Potential null pointer exception in UserService.getUser()",
+      "issueNumber": 123,
+      "issueUrl": "https://github.com/owner/repo/issues/123"
+    },
+    {
+      "success": true,
+      "title": "Missing error handling in DataProcessor",
+      "skippedReason": "dry-run"
+    }
+  ]
+}
 ```
 
 **サポート対象言語**（v0.5.1、Issue #144で汎用化）:

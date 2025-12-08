@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #257**: auto-issue CLI に `--output-file` オプションを追加
+  - 実行結果を JSON 形式でファイルに出力する機能
+  - `execution`（実行メタデータ）、`summary`（集計）、`issues`（Issue詳細）の3セクション構造
+  - dry-run モードでも整合した summary を出力
+  - Jenkins パイプラインで `archiveArtifacts` としてアーティファクト収集可能
+  - 新規モジュール: `src/commands/auto-issue-output.ts`（JSON 構築・ファイル書き込みヘルパー）
+  - 型定義拡張: `src/types/auto-issue.ts` に `AutoIssueJsonOutput` 等を追加
+  - テストカバレッジ: 12 ユニットテスト（100% 成功）
 - **Issue #261**: finalize コマンド for workflow completion (v0.5.0)
   - 新規 `finalize` CLIコマンドで5ステップを統合実行（クリーンアップ、スカッシュ、PR更新、ドラフト解除）
   - 新規コマンドハンドラモジュール（`src/commands/finalize.ts`, ~385行）

@@ -199,6 +199,7 @@ export async function runCli(): Promise<void> {
     .description('Detect bugs using AI agents and create GitHub Issues')
     .option('--category <type>', 'Detection category (bug|refactor|enhancement|all)', 'bug')
     .option('--limit <number>', 'Maximum number of issues to create', '5')
+    .option('--output-file <path>', 'Write execution summary JSON to the specified path')
     .option('--dry-run', 'Preview mode (do not create issues)', false)
     .option('--similarity-threshold <number>', 'Duplicate detection threshold (0.0-1.0)', '0.8')
     .addOption(

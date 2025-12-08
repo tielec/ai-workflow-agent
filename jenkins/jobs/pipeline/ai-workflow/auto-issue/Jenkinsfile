@@ -171,6 +171,7 @@ pipeline {
                         def limit = params.AUTO_ISSUE_LIMIT ?: 5
                         def similarityThreshold = params.AUTO_ISSUE_SIMILARITY_THRESHOLD ?: 0.8
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def outputFile = 'auto-issue-results.json'
 
                         sh """
                             node dist/index.js auto-issue \
@@ -178,6 +179,7 @@ pipeline {
                                 --limit ${limit} \
                                 --similarity-threshold ${similarityThreshold} \
                                 --agent ${params.AGENT_MODE ?: 'auto'} \
+                                --output-file ${outputFile} \
                                 ${dryRunFlag}
                         """
                     }
@@ -196,8 +198,7 @@ pipeline {
                 def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
                 currentBuild.description = "Auto Issue | ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
-                // Note: auto_issue モードでは .ai-workflow ディレクトリは使用しないため、
-                // アーティファクトのアーカイブはスキップ
+                archiveArtifacts artifacts: 'auto-issue-results.json', allowEmptyArchive: true
 
                 // REPOS_ROOTクリーンアップ
                 if (env.REPOS_ROOT) {
