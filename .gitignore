@@ -18,6 +18,10 @@ sandbox/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Codex CLI credentials (SECURITY: never commit)
+.codex/
+.codex/auth.json
+
 # OS
 .DS_Store
 Thumbs.db

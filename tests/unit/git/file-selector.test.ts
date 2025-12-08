@@ -6,7 +6,7 @@
 // @ts-nocheck
 
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { FileSelector } from '../../../src/core/git/file-selector';
+import { FileSelector, isSecuritySensitiveFile } from '../../../src/core/git/file-selector';
 import { SimpleGit } from 'simple-git';
 
 describe('FileSelector - getChangedFiles', () => {
@@ -536,5 +536,184 @@ describe('FileSelector - scanByPatterns', () => {
     // Then: 重複が除去される
     expect(files).toContain('src/index.test.ts');
     expect(files).toHaveLength(1);
+  });
+});
+
+describe('isSecuritySensitiveFile - Security file filtering', () => {
+  test('isSecuritySensitiveFile_正常系_.codex/auth.jsonを検出', () => {
+    // Given: .codex/auth.json ファイルパス
+    const testCases = [
+      '.codex/auth.json',
+      '.codex/',
+      'some/path/.codex/auth.json',
+      'user/home/.codex/auth.json',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(true);
+    }
+  });
+
+  test('isSecuritySensitiveFile_正常系_credentials.jsonを検出', () => {
+    // Given: credentials.json ファイルパス
+    const testCases = [
+      'credentials.json',
+      '.claude/credentials.json',
+      'some/path/credentials.json',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(true);
+    }
+  });
+
+  test('isSecuritySensitiveFile_正常系_.envファイルを検出', () => {
+    // Given: .env 系ファイルパス
+    const testCases = [
+      '.env',
+      '.env.local',
+      '.env.production',
+      '.env.development',
+      'config/.env',
+      'config/.env.local',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(true);
+    }
+  });
+
+  test('isSecuritySensitiveFile_正常系_auth.jsonを検出', () => {
+    // Given: auth.json ファイルパス
+    const testCases = [
+      'auth.json',
+      'config/auth.json',
+      'some/nested/path/auth.json',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(true);
+    }
+  });
+
+  test('isSecuritySensitiveFile_正常系_Windowsパス区切りを正規化', () => {
+    // Given: Windowsスタイルのパス
+    const testCases = [
+      '.codex\\auth.json',
+      'some\\path\\.codex\\auth.json',
+      '.env',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(true);
+    }
+  });
+
+  test('isSecuritySensitiveFile_正常系_通常ファイルはfalse', () => {
+    // Given: 通常のファイルパス
+    const testCases = [
+      'src/index.ts',
+      'package.json',
+      '.ai-workflow/issue-123/metadata.json',
+      'README.md',
+      'tests/auth.test.ts',
+      '.gitignore',
+      'config/settings.json',
+    ];
+
+    // When/Then: すべて false を返す
+    for (const filePath of testCases) {
+      expect(isSecuritySensitiveFile(filePath)).toBe(false);
+    }
+  });
+});
+
+describe('FileSelector - Security: Exclude sensitive files', () => {
+  let fileSelector: FileSelector;
+  let mockGit: jest.Mocked<SimpleGit>;
+
+  beforeEach(() => {
+    mockGit = {
+      status: jest.fn(),
+    } as any;
+
+    fileSelector = new FileSelector(mockGit);
+  });
+
+  test('getChangedFiles_セキュリティ_.codex/auth.jsonを除外', async () => {
+    // Given: .codex/auth.json が変更されている
+    mockGit.status.mockResolvedValue({
+      modified: ['src/index.ts', '.codex/auth.json'],
+      not_added: ['.env', '.env.local'],
+      created: ['credentials.json'],
+      staged: [],
+      deleted: [],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getChangedFiles を呼び出す
+    const files = await fileSelector.getChangedFiles();
+
+    // Then: セキュリティ機密ファイルが除外される
+    expect(files).toContain('src/index.ts');
+    expect(files).not.toContain('.codex/auth.json');
+    expect(files).not.toContain('.env');
+    expect(files).not.toContain('.env.local');
+    expect(files).not.toContain('credentials.json');
+    expect(files).toHaveLength(1);
+  });
+
+  test('getChangedFiles_セキュリティ_status.filesからも除外', async () => {
+    // Given: status.files に .codex/auth.json が含まれる
+    mockGit.status.mockResolvedValue({
+      modified: [],
+      not_added: [],
+      created: [],
+      staged: [],
+      deleted: [],
+      renamed: [],
+      files: [
+        { path: 'src/index.ts', index: 'M', working_dir: 'M' },
+        { path: '.codex/auth.json', index: 'M', working_dir: 'M' },
+        { path: 'auth.json', index: 'A', working_dir: ' ' },
+      ],
+    } as any);
+
+    // When: getChangedFiles を呼び出す
+    const files = await fileSelector.getChangedFiles();
+
+    // Then: セキュリティ機密ファイルが除外される
+    expect(files).toContain('src/index.ts');
+    expect(files).not.toContain('.codex/auth.json');
+    expect(files).not.toContain('auth.json');
+    expect(files).toHaveLength(1);
+  });
+
+  test('filterPhaseFiles_セキュリティ_機密ファイルを除外', () => {
+    // Given: 機密ファイルを含むファイルリスト
+    const files = [
+      '.ai-workflow/issue-123/metadata.json',
+      'src/index.ts',
+      '.codex/auth.json',
+      '.env',
+      'credentials.json',
+    ];
+
+    // When: filterPhaseFiles を呼び出す
+    const filtered = fileSelector.filterPhaseFiles(files, '123');
+
+    // Then: セキュリティ機密ファイルが除外される
+    expect(filtered).toContain('.ai-workflow/issue-123/metadata.json');
+    expect(filtered).toContain('src/index.ts');
+    expect(filtered).not.toContain('.codex/auth.json');
+    expect(filtered).not.toContain('.env');
+    expect(filtered).not.toContain('credentials.json');
+    expect(filtered).toHaveLength(2);
   });
 });

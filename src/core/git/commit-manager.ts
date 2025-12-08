@@ -3,7 +3,7 @@ import { join, isAbsolute, relative } from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
-import { FileSelector } from './file-selector.js';
+import { FileSelector, isSecuritySensitiveFile } from './file-selector.js';
 import { CommitMessageBuilder } from './commit-message-builder.js';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -578,8 +578,11 @@ ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
       const workflowPath = `.ai-workflow/issue-${issueNumber}`;
 
       // git status で削除されたファイルがあるか確認
+      // SECURITY: Exclude sensitive credential files
       const status = await this.git.status();
-      const deletedFiles = status.deleted.filter(f => f.startsWith(workflowPath));
+      const deletedFiles = status.deleted.filter(f =>
+        f.startsWith(workflowPath) && !isSecuritySensitiveFile(f)
+      );
 
       if (deletedFiles.length === 0) {
         logger.info('No deleted files to commit for workflow cleanup');
