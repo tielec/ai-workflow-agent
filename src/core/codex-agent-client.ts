@@ -38,7 +38,15 @@ export class CodexAgentClient {
 
   public async executeTask(options: ExecuteTaskOptions): Promise<string[]> {
     const cwd = options.workingDirectory ?? this.workingDir;
-    const args: string[] = ['exec', '--json', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox'];
+    // Issue #309: Add --search to enable web search capability
+    // This allows Codex to access current API documentation and technical articles
+    const args: string[] = [
+      'exec',
+      '--json',
+      '--skip-git-repo-check',
+      '--dangerously-bypass-approvals-and-sandbox',
+      '--search',
+    ];
 
     const model = options.model ?? this.defaultModel;
     if (model) {
