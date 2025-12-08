@@ -15,6 +15,43 @@ interface ExecuteTaskOptions {
 
 const DEFAULT_MAX_TURNS = 50;
 
+/**
+ * Default Claude model for agent execution.
+ * Opus 4.5 provides the highest capability for complex tasks.
+ */
+export const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-5-20251101';
+
+/**
+ * Claude model aliases for user-friendly model selection.
+ */
+export const CLAUDE_MODEL_ALIASES: Record<string, string> = {
+  opus: 'claude-opus-4-5-20251101',
+  sonnet: 'claude-sonnet-4-20250514',
+  haiku: 'claude-haiku-3-5-20241022',
+};
+
+/**
+ * Resolve a model alias or ID to the actual model ID.
+ *
+ * @param modelOrAlias - Model alias (opus, sonnet, haiku) or full model ID
+ * @returns Resolved model ID
+ */
+export function resolveClaudeModel(modelOrAlias: string | undefined | null): string {
+  if (!modelOrAlias || !modelOrAlias.trim()) {
+    return DEFAULT_CLAUDE_MODEL;
+  }
+
+  const normalized = modelOrAlias.toLowerCase().trim();
+
+  // Check if it's an alias
+  if (CLAUDE_MODEL_ALIASES[normalized]) {
+    return CLAUDE_MODEL_ALIASES[normalized];
+  }
+
+  // Return as-is (assume it's a full model ID)
+  return modelOrAlias;
+}
+
 export class ClaudeAgentClient {
   private readonly workingDir: string;
   private readonly model?: string;

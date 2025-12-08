@@ -184,7 +184,9 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   const credentials = resolveAgentCredentials(homeDir, repoRoot);
 
   // 5. エージェント初期化（agent-setup に委譲）
-  const { codexClient, claudeClient } = setupAgentClients(agentMode, workingDir, credentials);
+  const { codexClient, claudeClient } = setupAgentClients(agentMode, workingDir, credentials, {
+    claudeModel: parsedOptions.claudeModel,
+  });
 
   if (!codexClient && !claudeClient) {
     logger.error(
