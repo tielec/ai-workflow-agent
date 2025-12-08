@@ -172,18 +172,28 @@ export function setupAgentClients(
   // Claude の認証情報が利用可能かどうか
   const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
   const codexHome = process.env.CODEX_HOME;
-  const codexAuthFile = codexHome ? path.join(codexHome, 'auth.json') : null;
-  const hasCodexCliAuth = !!(codexAuthFile && fs.existsSync(codexAuthFile));
+  const codexAuthCandidates: string[] = [];
+  if (codexHome) {
+    codexAuthCandidates.push(path.join(codexHome, 'auth.json'));
+  }
+  const homeDir = process.env.HOME;
+  if (homeDir) {
+    codexAuthCandidates.push(path.join(homeDir, '.codex', 'auth.json'));
+  }
+  const codexAuthFile = codexAuthCandidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+  const hasCodexCliAuth = codexAuthFile !== null;
   const hasCodexCredentials = isValidApiKey(codexApiKey) || hasCodexCliAuth;
   const codexCredentialHints: string[] = [];
   if (!isValidApiKey(codexApiKey)) {
     codexCredentialHints.push('CODEX_API_KEY missing or invalid');
   }
   if (!hasCodexCliAuth) {
-    if (codexAuthFile) {
-      codexCredentialHints.push(`Codex auth file not found at ${codexAuthFile}`);
+    if (codexAuthCandidates.length > 0) {
+      codexCredentialHints.push(
+        `Codex auth file not found at ${codexAuthCandidates.join(', ')}`,
+      );
     } else {
-      codexCredentialHints.push('CODEX_HOME not set or auth.json missing');
+      codexCredentialHints.push('CODEX_HOME not set and HOME/.codex/auth.json missing');
     }
   }
   const codexUnavailableReason =
