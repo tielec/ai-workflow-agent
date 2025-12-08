@@ -61,8 +61,41 @@ export function formatCodexLog(eventType: string, payload: CodexEvent): string {
       logs.push(`[CODEX SYSTEM] ${subtype}`);
       break;
     }
+    case 'item.started': {
+      const item = payload.item as Record<string, unknown> | undefined;
+      if (item) {
+        const itemType = item.type ?? 'unknown';
+        const command = typeof item.command === 'string' ? item.command : '';
+        if (itemType === 'command_execution' && command) {
+          // コマンドを短縮表示（長すぎる場合は切り詰め）
+          const shortCommand = command.length > 100 ? `${command.slice(0, 100)}...` : command;
+          logs.push(`[CODEX EXEC] Starting: ${shortCommand}`);
+        } else {
+          logs.push(`[CODEX EXEC] Starting ${itemType}`);
+        }
+      }
+      break;
+    }
+    case 'item.completed': {
+      const item = payload.item as Record<string, unknown> | undefined;
+      if (item) {
+        const itemType = item.type ?? 'unknown';
+        const exitCode = item.exit_code;
+        const command = typeof item.command === 'string' ? item.command : '';
+        if (itemType === 'command_execution') {
+          const shortCommand = command.length > 80 ? `${command.slice(0, 80)}...` : command;
+          const status = exitCode === 0 ? '✓' : exitCode !== null ? `✗ (exit=${exitCode})` : '?';
+          logs.push(`[CODEX EXEC] Completed ${status}: ${shortCommand}`);
+        } else {
+          logs.push(`[CODEX EXEC] Completed ${itemType}`);
+        }
+      }
+      break;
+    }
     default: {
-      logs.push(`[CODEX EVENT] ${JSON.stringify(payload)}`);
+      // 未知のイベントタイプは簡潔に表示
+      const eventType = payload.type ?? 'unknown';
+      logs.push(`[CODEX EVENT] type=${eventType}`);
     }
   }
 
