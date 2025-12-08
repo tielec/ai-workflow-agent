@@ -6,7 +6,7 @@
 // @ts-nocheck
 
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { FileSelector, isSecuritySensitiveFile } from '../../../src/core/git/file-selector';
+import { FileSelector, isSecuritySensitiveFile, shouldExcludeDebugFile } from '../../../src/core/git/file-selector';
 import { SimpleGit } from 'simple-git';
 
 describe('FileSelector - getChangedFiles', () => {
@@ -715,5 +715,208 @@ describe('FileSelector - Security: Exclude sensitive files', () => {
     expect(filtered).not.toContain('.env');
     expect(filtered).not.toContain('credentials.json');
     expect(filtered).toHaveLength(2);
+  });
+});
+
+describe('shouldExcludeDebugFile - Debug-only file filtering', () => {
+  // config.getLogLevel() をモック
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    originalEnv = process.env.LOG_LEVEL;
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.LOG_LEVEL;
+    } else {
+      process.env.LOG_LEVEL = originalEnv;
+    }
+  });
+
+  test('shouldExcludeDebugFile_正常系_agent_log_raw.txtを検出', () => {
+    // Given: LOG_LEVEL が info（デフォルト）
+    process.env.LOG_LEVEL = 'info';
+
+    const testCases = [
+      'agent_log_raw.txt',
+      '.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt',
+      'some/path/agent_log_raw.txt',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(shouldExcludeDebugFile(filePath)).toBe(true);
+    }
+  });
+
+  test('shouldExcludeDebugFile_正常系_prompt.txtを検出', () => {
+    // Given: LOG_LEVEL が info
+    process.env.LOG_LEVEL = 'info';
+
+    const testCases = [
+      'prompt.txt',
+      '.ai-workflow/issue-123/00_planning/execute/prompt.txt',
+      '.ai-workflow/issue-456/01_requirements/review/prompt.txt',
+      'some/path/prompt.txt',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(shouldExcludeDebugFile(filePath)).toBe(true);
+    }
+  });
+
+  test('shouldExcludeDebugFile_正常系_debugモードでは除外しない', () => {
+    // Given: LOG_LEVEL が debug
+    process.env.LOG_LEVEL = 'debug';
+
+    const testCases = [
+      'agent_log_raw.txt',
+      'prompt.txt',
+      '.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt',
+      '.ai-workflow/issue-123/00_planning/execute/prompt.txt',
+    ];
+
+    // When/Then: すべて false を返す（debug モードでは除外しない）
+    for (const filePath of testCases) {
+      expect(shouldExcludeDebugFile(filePath)).toBe(false);
+    }
+  });
+
+  test('shouldExcludeDebugFile_正常系_通常ファイルはfalse', () => {
+    // Given: LOG_LEVEL が info
+    process.env.LOG_LEVEL = 'info';
+
+    const testCases = [
+      'src/index.ts',
+      'package.json',
+      '.ai-workflow/issue-123/metadata.json',
+      'agent_log.md',
+      'README.md',
+      '.ai-workflow/issue-123/00_planning/output/planning.md',
+    ];
+
+    // When/Then: すべて false を返す
+    for (const filePath of testCases) {
+      expect(shouldExcludeDebugFile(filePath)).toBe(false);
+    }
+  });
+
+  test('shouldExcludeDebugFile_正常系_Windowsパス区切りを正規化', () => {
+    // Given: LOG_LEVEL が info、Windowsスタイルのパス
+    process.env.LOG_LEVEL = 'info';
+
+    const testCases = [
+      '.ai-workflow\\issue-123\\00_planning\\execute\\agent_log_raw.txt',
+      '.ai-workflow\\issue-123\\00_planning\\execute\\prompt.txt',
+    ];
+
+    // When/Then: すべて true を返す
+    for (const filePath of testCases) {
+      expect(shouldExcludeDebugFile(filePath)).toBe(true);
+    }
+  });
+});
+
+describe('FileSelector - Debug-only file exclusion', () => {
+  let fileSelector: FileSelector;
+  let mockGit: jest.Mocked<SimpleGit>;
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    mockGit = {
+      status: jest.fn(),
+    } as any;
+
+    fileSelector = new FileSelector(mockGit);
+    originalEnv = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = 'info';  // デフォルトはinfo
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.LOG_LEVEL;
+    } else {
+      process.env.LOG_LEVEL = originalEnv;
+    }
+  });
+
+  test('getChangedFiles_デバッグファイル_agent_log_raw.txtとprompt.txtを除外', async () => {
+    // Given: agent_log_raw.txt と prompt.txt が変更されている
+    mockGit.status.mockResolvedValue({
+      modified: [
+        'src/index.ts',
+        '.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt',
+        '.ai-workflow/issue-123/00_planning/execute/prompt.txt',
+        '.ai-workflow/issue-123/00_planning/output/planning.md',
+      ],
+      not_added: [],
+      created: [],
+      staged: [],
+      deleted: [],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getChangedFiles を呼び出す
+    const files = await fileSelector.getChangedFiles();
+
+    // Then: agent_log_raw.txt と prompt.txt が除外される
+    expect(files).toContain('src/index.ts');
+    expect(files).toContain('.ai-workflow/issue-123/00_planning/output/planning.md');
+    expect(files).not.toContain('.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt');
+    expect(files).not.toContain('.ai-workflow/issue-123/00_planning/execute/prompt.txt');
+    expect(files).toHaveLength(2);
+  });
+
+  test('getChangedFiles_デバッグファイル_debugモードでは除外しない', async () => {
+    // Given: LOG_LEVEL が debug
+    process.env.LOG_LEVEL = 'debug';
+
+    mockGit.status.mockResolvedValue({
+      modified: [
+        'src/index.ts',
+        '.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt',
+        '.ai-workflow/issue-123/00_planning/execute/prompt.txt',
+      ],
+      not_added: [],
+      created: [],
+      staged: [],
+      deleted: [],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getChangedFiles を呼び出す
+    const files = await fileSelector.getChangedFiles();
+
+    // Then: debug モードではすべてのファイルが含まれる
+    expect(files).toContain('src/index.ts');
+    expect(files).toContain('.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt');
+    expect(files).toContain('.ai-workflow/issue-123/00_planning/execute/prompt.txt');
+    expect(files).toHaveLength(3);
+  });
+
+  test('filterPhaseFiles_デバッグファイル_prompt.txtを除外', () => {
+    // Given: prompt.txt を含むファイルリスト
+    const files = [
+      '.ai-workflow/issue-123/metadata.json',
+      '.ai-workflow/issue-123/00_planning/execute/prompt.txt',
+      '.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt',
+      '.ai-workflow/issue-123/00_planning/output/planning.md',
+      'src/index.ts',
+    ];
+
+    // When: filterPhaseFiles を呼び出す
+    const filtered = fileSelector.filterPhaseFiles(files, '123');
+
+    // Then: prompt.txt と agent_log_raw.txt が除外される
+    expect(filtered).toContain('.ai-workflow/issue-123/metadata.json');
+    expect(filtered).toContain('.ai-workflow/issue-123/00_planning/output/planning.md');
+    expect(filtered).toContain('src/index.ts');
+    expect(filtered).not.toContain('.ai-workflow/issue-123/00_planning/execute/prompt.txt');
+    expect(filtered).not.toContain('.ai-workflow/issue-123/00_planning/execute/agent_log_raw.txt');
+    expect(filtered).toHaveLength(3);
   });
 });

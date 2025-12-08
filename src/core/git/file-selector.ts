@@ -1,6 +1,7 @@
 import { minimatch } from 'minimatch';
 import type { SimpleGit } from 'simple-git';
 import type { PhaseName } from '../../types.js';
+import { config } from '../config.js';
 
 /**
  * Security-sensitive file patterns that should NEVER be committed.
@@ -34,6 +35,50 @@ export function isSecuritySensitiveFile(filePath: string): boolean {
 }
 
 /**
+ * Debug-only file patterns that should be excluded when LOG_LEVEL is not 'debug'.
+ *
+ * These files are only needed for debugging:
+ * - agent_log_raw.txt: Raw agent logs (can be 100MB+, cause GitHub push failures)
+ * - prompt.txt: Agent prompts (useful for debugging but not needed in production)
+ */
+const DEBUG_ONLY_PATTERNS: string[] = [
+  'agent_log_raw.txt',
+  'prompt.txt',
+];
+
+/**
+ * Check if a file is a debug-only file that should be excluded when LOG_LEVEL is not 'debug'.
+ *
+ * Debug-only files (agent_log_raw.txt, prompt.txt) can be large and are only needed for debugging.
+ * These files are excluded when LOG_LEVEL is 'info' or higher to reduce repository size.
+ *
+ * @param filePath - The file path to check
+ * @returns true if the file should be excluded based on log level
+ */
+export function shouldExcludeDebugFile(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const logLevel = config.getLogLevel();
+
+  // Only exclude when LOG_LEVEL is not 'debug'
+  if (logLevel === 'debug') {
+    return false;
+  }
+
+  // Check if file matches any debug-only pattern
+  return DEBUG_ONLY_PATTERNS.some((pattern) =>
+    normalizedPath.endsWith(`/${pattern}`) || normalizedPath === pattern
+  );
+}
+
+/**
+ * @deprecated Use shouldExcludeDebugFile instead
+ * Kept for backward compatibility
+ */
+export function shouldExcludeRawLog(filePath: string): boolean {
+  return shouldExcludeDebugFile(filePath);
+}
+
+/**
  * FileSelector - Specialized module for file selection and filtering
  *
  * Responsibilities:
@@ -56,6 +101,7 @@ export class FileSelector {
    * Excludes:
    * - Files containing '@tmp'
    * - Security-sensitive files (credentials, auth files, .env)
+   * - Debug-only files (agent_log_raw.txt, prompt.txt) when LOG_LEVEL is not 'debug'
    */
   public async getChangedFiles(): Promise<string[]> {
     const status = await this.git.status();
@@ -63,8 +109,8 @@ export class FileSelector {
 
     const collect = (paths: string[] | undefined) => {
       paths?.forEach((file) => {
-        // SECURITY: Exclude @tmp and sensitive credential files
-        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file)) {
+        // SECURITY: Exclude @tmp, sensitive credential files, and debug-only files when not in debug mode
+        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file) && !shouldExcludeDebugFile(file)) {
           aggregated.add(file);
         }
       });
@@ -78,8 +124,8 @@ export class FileSelector {
     collect(status.staged);
 
     status.files.forEach((file) => {
-      // SECURITY: Exclude sensitive credential files
-      if (!isSecuritySensitiveFile(file.path)) {
+      // SECURITY: Exclude sensitive credential files and debug-only files when not in debug mode
+      if (!isSecuritySensitiveFile(file.path) && !shouldExcludeDebugFile(file.path)) {
         aggregated.add(file.path);
       }
     });
@@ -96,14 +142,15 @@ export class FileSelector {
    * - Files containing '@tmp'
    * - Files in .ai-workflow/issue-{OTHER_NUMBER}/
    * - Security-sensitive files (credentials, auth files, .env)
+   * - Debug-only files (agent_log_raw.txt, prompt.txt) when LOG_LEVEL is not 'debug'
    */
   public filterPhaseFiles(files: string[], issueNumber: string): string[] {
     const targetPrefix = `.ai-workflow/issue-${issueNumber}/`;
     const result: string[] = [];
 
     for (const file of files) {
-      // SECURITY: Exclude @tmp and sensitive credential files
-      if (file.includes('@tmp') || isSecuritySensitiveFile(file)) {
+      // SECURITY: Exclude @tmp, sensitive credential files, and debug-only files when not in debug mode
+      if (file.includes('@tmp') || isSecuritySensitiveFile(file) || shouldExcludeDebugFile(file)) {
         continue;
       }
 
