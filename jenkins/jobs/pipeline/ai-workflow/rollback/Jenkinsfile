@@ -282,6 +282,10 @@ pipeline {
                     """
                     echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
             }
         }
 
