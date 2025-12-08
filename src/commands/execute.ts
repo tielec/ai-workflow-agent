@@ -118,6 +118,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   }
 
   let metadataManager = new MetadataManager(metadataPath);
+  const issueNumberInt = Number.parseInt(issueNumber, 10);
 
   // メタデータから対象リポジトリ情報を取得
   const targetRepo = metadataManager.data.target_repository;
@@ -232,20 +233,38 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   }
 
   // uncommitted changesがある場合はpullをスキップ
-  const status = await gitManager.getStatus();
-    if (status.is_dirty) {
-      logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
-      if (status.untracked_files.length > 0 || status.modified_files.length > 0) {
-        const qualify = (fileList: string[]) =>
-          fileList.length > 0
-            ? fileList.map((f) => path.resolve(repoRoot, f)).join(', ')
-            : '(none)';
+  let status = await gitManager.getStatus();
+  if (status.is_dirty) {
+    logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
+    if (status.untracked_files.length > 0 || status.modified_files.length > 0) {
+      const qualify = (fileList: string[]) =>
+        fileList.length > 0
+          ? fileList.map((f) => path.resolve(repoRoot, f)).join(', ')
+          : '(none)';
 
-        logger.info(
-          `Git status details -> Untracked: ${qualify(status.untracked_files)} | Modified: ${qualify(status.modified_files)}`,
-        );
+      logger.info(
+        `Git status details -> Untracked: ${qualify(status.untracked_files)} | Modified: ${qualify(status.modified_files)}`,
+      );
+    }
+
+    const dirtyFiles = [...status.untracked_files, ...status.modified_files];
+    const metadataPrefix = `.ai-workflow/issue-${issueNumber}/`;
+    const onlyMetadataDirty =
+      dirtyFiles.length > 0 && dirtyFiles.every((file) => file.startsWith(metadataPrefix));
+
+    if (onlyMetadataDirty) {
+      const autoCommitted = await autoCommitMetadataChanges(
+        gitManager,
+        issueNumberInt,
+        branchName,
+      );
+      if (autoCommitted) {
+        status = await gitManager.getStatus();
       }
-    } else {
+    }
+  }
+
+  if (!status.is_dirty) {
     const pullResult = await gitManager.pullLatest(branchName);
     if (!pullResult.success) {
       logger.warn(`Failed to pull latest changes: ${pullResult.error ?? 'unknown error'}`);
@@ -668,4 +687,35 @@ function reportExecutionSummary(summary: import('../types/commands.js').Executio
  */
 function isValidPhaseName(value: string): value is PhaseName {
   return (PHASE_ORDER as string[]).includes(value);
+}
+async function autoCommitMetadataChanges(
+  gitManager: GitManager,
+  issueNumber: number,
+  branchName: string,
+): Promise<boolean> {
+  try {
+    logger.info('Auto committing metadata updates before executing phases...');
+    const commitResult = await gitManager.commitWorkflowInit(issueNumber, branchName);
+    if (!commitResult.success) {
+      logger.warn(`Auto commit failed: ${commitResult.error ?? 'unknown error'}`);
+      return false;
+    }
+
+    if (commitResult.commit_hash) {
+      logger.info(`Metadata commit ${commitResult.commit_hash.slice(0, 7)} created.`);
+      const pushResult = await gitManager.pushToRemote();
+      if (!pushResult.success) {
+        logger.warn(`Failed to push metadata commit: ${pushResult.error ?? 'unknown error'}`);
+        return false;
+      }
+      logger.info('Metadata commit pushed successfully.');
+    } else {
+      logger.info('No metadata files to commit.');
+    }
+
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to auto commit metadata: ${getErrorMessage(error)}`);
+    return false;
+  }
 }
