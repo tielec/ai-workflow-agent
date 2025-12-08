@@ -234,6 +234,10 @@ pipeline {
                 def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
                 currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
+                if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
+                    common.archiveArtifacts(env.ISSUE_NUMBER)
+                }
+
                 // REPOS_ROOTクリーンアップ
                 if (env.REPOS_ROOT) {
                     sh """
@@ -248,6 +252,10 @@ pipeline {
                     """
                     echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
             }
         }
 
