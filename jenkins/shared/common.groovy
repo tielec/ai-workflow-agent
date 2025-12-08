@@ -132,8 +132,23 @@ def prepareCodexAuthFile() {
         chmod 600 '${authFilePath}'
     """
 
+    // Copy to HOME/.codex/auth.json so codex CLI auto-detects credentials
+    def shellHome = sh(script: 'echo $HOME', returnStdout: true)?.trim()
+    if (!shellHome) {
+        shellHome = env.HOME ?: '/root'
+    }
+    def homeCodexDir = "${shellHome}/.codex"
+    def homeAuthPath = "${homeCodexDir}/auth.json"
+
+    sh """
+        mkdir -p '${homeCodexDir}'
+        cp '${authFilePath}' '${homeAuthPath}'
+        chmod 600 '${homeAuthPath}'
+    """
+
     env.CODEX_HOME = codexHome
     echo "Codex auth.json prepared at ${authFilePath}"
+    echo "Codex auth.json copied to ${homeAuthPath}"
 }
 
 /**
