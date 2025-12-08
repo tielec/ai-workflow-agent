@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -9,6 +10,7 @@ import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { ClaudeAgentClient } from './claude-agent-client.js';
 import { CodexAgentClient } from './codex-agent-client.js';
+import { detectCodexCliAuth, isValidCodexApiKey } from './helpers/codex-credentials.js';
 
 interface ReviewParseResult {
   result: string;
@@ -78,7 +80,18 @@ export class ContentParser {
 
     // Codex Agent クライアントの初期化
     const codexApiKey = config.getCodexApiKey();
-    if (codexApiKey) {
+    const { authFilePath: codexAuthFile } = detectCodexCliAuth();
+    const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || codexAuthFile !== null;
+    if (hasCodexCredentials) {
+      if (isValidCodexApiKey(codexApiKey)) {
+        const trimmed = codexApiKey.trim();
+        process.env.CODEX_API_KEY = trimmed;
+        if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+          process.env.OPENAI_API_KEY = trimmed;
+        }
+      } else if (codexAuthFile) {
+        logger.info(`CODEX_AUTH_JSON detected at ${codexAuthFile} for ContentParser.`);
+      }
       try {
         this.codexAgentClient = new CodexAgentClient({ model: 'gpt-4o' });
       } catch {
@@ -115,7 +128,7 @@ export class ContentParser {
           'Agent credentials are required for agent mode.',
           'Set one of the following environment variables:',
           '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
-          '- CODEX_API_KEY (for Codex Agent)',
+          '- CODEX_API_KEY or CODEX_AUTH_JSON (for Codex Agent)',
         ].join('\n'),
       );
     }
@@ -126,7 +139,7 @@ export class ContentParser {
           'No API key configured for ContentParser.',
           'Set one of the following environment variables:',
           '- CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY (for Claude Agent)',
-          '- CODEX_API_KEY (for Codex Agent)',
+          '- CODEX_API_KEY or CODEX_AUTH_JSON (for Codex Agent)',
           '- OPENAI_API_KEY (for OpenAI API)',
           '- ANTHROPIC_API_KEY (for Anthropic API)',
         ].join('\n'),
