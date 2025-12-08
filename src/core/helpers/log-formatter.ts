@@ -64,15 +64,16 @@ export function formatCodexLog(eventType: string, payload: CodexEvent): string {
     case 'item.started': {
       const item = payload.item as Record<string, unknown> | undefined;
       if (item) {
+        const itemId = item.id ?? 'unknown';
         const itemType = item.type ?? 'unknown';
         if (itemType === 'command_execution') {
           const command = typeof item.command === 'string' ? item.command : '';
           const shortCommand = command.length > 100 ? `${command.slice(0, 100)}...` : command;
-          logs.push(`[CODEX EXEC] Starting: ${shortCommand}`);
+          logs.push(`[CODEX EXEC] [${itemId}] Starting: ${shortCommand}`);
         } else if (itemType === 'todo_list') {
           const items = item.items as Array<{ text?: string; completed?: boolean }> | undefined;
           if (items && items.length > 0) {
-            logs.push(`[CODEX TODO] Planning ${items.length} task(s):`);
+            logs.push(`[CODEX TODO] [${itemId}] Planning ${items.length} task(s):`);
             items.slice(0, 5).forEach((task, i) => {
               const text = typeof task.text === 'string' ? task.text : '';
               const shortText = text.length > 80 ? `${text.slice(0, 80)}...` : text;
@@ -83,7 +84,7 @@ export function formatCodexLog(eventType: string, payload: CodexEvent): string {
             }
           }
         } else {
-          logs.push(`[CODEX] Starting ${itemType}`);
+          logs.push(`[CODEX] [${itemId}] Starting ${itemType}`);
         }
       }
       break;
@@ -91,21 +92,22 @@ export function formatCodexLog(eventType: string, payload: CodexEvent): string {
     case 'item.completed': {
       const item = payload.item as Record<string, unknown> | undefined;
       if (item) {
+        const itemId = item.id ?? 'unknown';
         const itemType = item.type ?? 'unknown';
         if (itemType === 'command_execution') {
           const exitCode = item.exit_code;
           const command = typeof item.command === 'string' ? item.command : '';
           const shortCommand = command.length > 80 ? `${command.slice(0, 80)}...` : command;
           const status = exitCode === 0 ? '✓' : exitCode !== null ? `✗ (exit=${exitCode})` : '?';
-          logs.push(`[CODEX EXEC] Completed ${status}: ${shortCommand}`);
+          logs.push(`[CODEX EXEC] [${itemId}] Completed ${status}: ${shortCommand}`);
         } else if (itemType === 'reasoning') {
           const text = typeof item.text === 'string' ? item.text : '';
           const shortText = text.length > 100 ? `${text.slice(0, 100)}...` : text;
-          logs.push(`[CODEX REASONING] ${shortText}`);
+          logs.push(`[CODEX REASONING] [${itemId}] ${shortText}`);
         } else if (itemType === 'todo_list') {
           // todo_list completed は特に出力しない（started で表示済み）
         } else {
-          logs.push(`[CODEX] Completed ${itemType}`);
+          logs.push(`[CODEX] [${itemId}] Completed ${itemType}`);
         }
       }
       break;
