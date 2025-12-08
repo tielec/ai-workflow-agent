@@ -17,6 +17,7 @@
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他: APIキー、AWS認証情報、Git設定
  */
 
@@ -45,6 +46,7 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.5.0'
         EXECUTION_MODE = 'finalize'
+        CODEX_HOME = ''
 
         // ログ設定（CI環境ではカラーリング無効化）
         LOG_NO_COLOR = 'true'
@@ -87,6 +89,14 @@ pipeline {
             }
         }
 
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
         stage('Prepare Agent Credentials') {
             steps {
                 script {
@@ -94,6 +104,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Validate Parameters') {
             steps {
@@ -229,6 +240,13 @@ pipeline {
                         rm -rf ${env.REPOS_ROOT}
                     """
                     echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
             }
         }

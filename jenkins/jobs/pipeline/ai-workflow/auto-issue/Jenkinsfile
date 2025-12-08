@@ -11,6 +11,7 @@
  * - AUTO_ISSUE_SIMILARITY_THRESHOLD: 重複判定の類似度閾値（デフォルト: 0.8）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
  * - DRY_RUN: ドライランモード（デフォルト: false、Issue生成せず検出結果のみ表示）
  *
@@ -41,6 +42,7 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
         EXECUTION_MODE = 'auto_issue'
+        CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
 
         GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
@@ -76,6 +78,14 @@ pipeline {
             }
         }
 
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
         stage('Prepare Agent Credentials') {
             steps {
                 script {
@@ -83,6 +93,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Validate Parameters') {
             steps {
@@ -194,6 +205,13 @@ pipeline {
                         rm -rf ${env.REPOS_ROOT}
                     """
                     echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
             }
         }

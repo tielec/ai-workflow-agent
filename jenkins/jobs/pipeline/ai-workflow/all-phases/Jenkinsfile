@@ -9,6 +9,7 @@
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_API_KEY: Codexエージェント用APIキー（オプション）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - OPENAI_API_KEY: OpenAI API用キー（オプション）
  * - CLAUDE_CODE_OAUTH_TOKEN: Claude Codeエージェント用OAuthトークン（オプション）
  * - CLAUDE_CODE_API_KEY: Claude Codeエージェント用APIキー（オプション）
@@ -51,6 +52,7 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
         EXECUTION_MODE = 'all_phases'
+        CODEX_HOME = ''
 
         // ログ設定（CI環境ではカラーリング無効化）
         LOG_NO_COLOR = 'true'
@@ -93,6 +95,14 @@ pipeline {
             }
         }
 
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
         stage('Prepare Agent Credentials') {
             steps {
                 script {
@@ -100,6 +110,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Validate Parameters') {
             steps {
@@ -236,6 +247,13 @@ pipeline {
                         rm -rf ${env.REPOS_ROOT}
                     """
                     echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
             }
         }

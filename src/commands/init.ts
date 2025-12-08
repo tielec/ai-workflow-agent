@@ -85,6 +85,32 @@ export function resolveBranchName(customBranch: string | undefined, issueNumber:
   return defaultBranch;
 }
 
+async function commitAndPushMetadata(
+  gitManager: GitManager,
+  issueNumber: number,
+  branchName: string,
+): Promise<void> {
+  logger.info('Committing metadata.json...');
+  const commitResult = await gitManager.commitWorkflowInit(issueNumber, branchName);
+  if (!commitResult.success) {
+    throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
+  }
+
+  if (!commitResult.commit_hash) {
+    logger.info('No metadata changes to commit.');
+    return;
+  }
+
+  logger.info(`Commit ${commitResult.commit_hash.slice(0, 7)} created.`);
+
+  logger.info('Pushing to remote...');
+  const pushResult = await gitManager.pushToRemote();
+  if (!pushResult.success) {
+    throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
+  }
+  logger.info('Push successful.');
+}
+
 /**
  * Issue初期化コマンドハンドラ
  * @param issueUrl - GitHub Issue URL
@@ -102,50 +128,62 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
   const { owner, repo, issueNumber, repositoryName } = issueInfo;
 
-  // ローカルリポジトリパスを解決
-  let repoRoot: string;
-  try {
-    // まず現在のディレクトリがGitリポジトリか確認
-    const currentRepoRoot = await getRepoRoot();
+  // ローカルリポジトリパスの決定
+  let repoRoot: string | undefined;
+  const reposRootEnv = config.getReposRoot();
+  if (reposRootEnv) {
+    const candidate = path.join(reposRootEnv, repo);
+    if (fs.existsSync(path.join(candidate, '.git'))) {
+      repoRoot = candidate;
+      logger.info(`Using REPOS_ROOT repository: ${repositoryName}`);
+      logger.info(`Local path: ${repoRoot}`);
+    }
+  }
 
-    // Gitリモート URL（origin）からリポジトリ名を抽出
-    const git = simpleGit(currentRepoRoot);
-    let currentRepoName: string | null = null;
+  if (!repoRoot) {
     try {
-      const remoteUrl = await git.remote(['get-url', 'origin']);
-      const urlString =
-        typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+      // まず現在のディレクトリのGitリポジトリを確認
+      const currentRepoRoot = await getRepoRoot();
 
-      // URLからリポジトリ名を抽出
-      // 例: https://github.com/tielec/infrastructure-as-code.git -> infrastructure-as-code
-      // 例: git@github.com:tielec/infrastructure-as-code.git -> infrastructure-as-code
-      const match = urlString.match(/\/([^\/]+?)(\.git)?$/);
-      if (match) {
-        currentRepoName = match[1];
+      // Gitリモート URL（origin）からリポジトリ名を取得
+      const git = simpleGit(currentRepoRoot);
+      let currentRepoName: string | null = null;
+      try {
+        const remoteUrl = await git.remote(['get-url', 'origin']);
+        const urlString =
+          typeof remoteUrl === 'string' ? remoteUrl.trim() : String(remoteUrl).trim();
+
+        const match = urlString.match(/\/([^\/]+?)(\.git)?$/);
+        if (match) {
+          currentRepoName = match[1];
+        }
+      } catch {
+        currentRepoName = path.basename(currentRepoRoot);
       }
-    } catch {
-      // リモート URL取得失敗時はディレクトリ名をフォールバック
-      currentRepoName = path.basename(currentRepoRoot);
-    }
 
-    // 現在のリポジトリ名が対象と一致する場合はそのまま使用
-    if (currentRepoName === repo) {
-      repoRoot = currentRepoRoot;
-      logger.info(`Using current repository: ${repositoryName}`);
-      logger.info(`Local path: ${repoRoot}`);
-    } else {
-      // 別のリポジトリを探索
-      logger.info(
-        `Current repository (${currentRepoName}) does not match target (${repo}). Searching...`,
-      );
-      repoRoot = resolveLocalRepoPath(repo);
-      logger.info(`Target repository: ${repositoryName}`);
-      logger.info(`Local path: ${repoRoot}`);
+      if (currentRepoName === repo) {
+        repoRoot = currentRepoRoot;
+        logger.info(`Using current repository: ${repositoryName}`);
+        logger.info(`Local path: ${repoRoot}`);
+      } else {
+        logger.info(
+          `Current repository (${currentRepoName}) does not match target (${repo}). Searching...`,
+        );
+        repoRoot = resolveLocalRepoPath(repo);
+        logger.info(`Target repository: ${repositoryName}`);
+        logger.info(`Local path: ${repoRoot}`);
+      }
+    } catch (error) {
+      logger.error(`${getErrorMessage(error)}`);
+      process.exit(1);
     }
-  } catch (error) {
-    logger.error(`${getErrorMessage(error)}`);
+  }
+
+  if (!repoRoot) {
+    logger.error('Failed to resolve repository path.');
     process.exit(1);
   }
+
 
   // ワークフローディレクトリ作成（対象リポジトリ配下）
   const workflowDir = path.join(repoRoot, '.ai-workflow', `issue-${issueNumber}`);
@@ -219,6 +257,8 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
           ? 'Metadata schema updated successfully.'
           : 'Metadata schema already up to date.',
       );
+      const gitManager = new GitManager(repoRoot, metadataManager);
+      await commitAndPushMetadata(gitManager, issueNumber, branchName);
       return;
     }
 
@@ -288,21 +328,7 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
 
   // コミット & プッシュ (Issue #16: commitWorkflowInit を使用)
   const gitManager = new GitManager(repoRoot, metadataManager);
-  logger.info('Committing metadata.json...');
-  const commitResult = await gitManager.commitWorkflowInit(issueNumber, branchName);
-  if (!commitResult.success) {
-    throw new Error(`Git commit failed: ${commitResult.error ?? 'unknown error'}`);
-  }
-  logger.info(
-    `Commit ${commitResult.commit_hash ? commitResult.commit_hash.slice(0, 7) : ''} created.`,
-  );
-
-  logger.info('Pushing to remote...');
-  const pushResult = await gitManager.pushToRemote();
-  if (!pushResult.success) {
-    throw new Error(`Git push failed: ${pushResult.error ?? 'unknown error'}`);
-  }
-  logger.info('Push successful.');
+  await commitAndPushMetadata(gitManager, issueNumber, branchName);
 
   // PR作成
   let githubToken: string;

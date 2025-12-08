@@ -43,11 +43,16 @@ def prepareAgentCredentials() {
     // 認証情報の確認（パラメータベース）
     echo "Agent Mode: ${agentMode}"
 
+    def hasCodexApiKey = env.CODEX_API_KEY?.trim()
+    def hasCodexAuthJson = params.CODEX_AUTH_JSON?.trim()
+
     // OpenAI系
-    if (env.CODEX_API_KEY?.trim()) {
+    if (hasCodexApiKey) {
         echo '[INFO] CODEX_API_KEY is configured (for Codex agent).'
+    } else if (hasCodexAuthJson) {
+        echo '[INFO] CODEX_AUTH_JSON is provided. Codex CLI auth file will be used.'
     } else {
-        echo '[WARN] CODEX_API_KEY is not configured. Codex agent will not be available.'
+        echo '[WARN] Neither CODEX_API_KEY nor CODEX_AUTH_JSON is configured. Codex agent will not be available.'
     }
 
     if (env.OPENAI_API_KEY?.trim()) {
@@ -73,10 +78,14 @@ def prepareAgentCredentials() {
 
     // エージェントモードに応じた検証
     if (agentMode == 'codex') {
-        if (!env.CODEX_API_KEY?.trim()) {
-            error("Agent mode 'codex' requires CODEX_API_KEY parameter.")
+        if (!hasCodexApiKey && !hasCodexAuthJson) {
+            error("Agent mode 'codex' requires CODEX_API_KEY or CODEX_AUTH_JSON parameter.")
         }
-        echo '[INFO] Agent mode "codex" selected. Using CODEX_API_KEY.'
+        if (hasCodexApiKey) {
+            echo '[INFO] Agent mode "codex" selected. Using CODEX_API_KEY.'
+        } else {
+            echo '[INFO] Agent mode "codex" selected. Using CODEX_AUTH_JSON workspace credential.'
+        }
     } else if (agentMode == 'claude') {
         if (!env.CLAUDE_CODE_OAUTH_TOKEN?.trim() && !env.CLAUDE_CODE_API_KEY?.trim()) {
             error("Agent mode 'claude' requires CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY parameter.")
@@ -86,6 +95,60 @@ def prepareAgentCredentials() {
         // auto mode
         echo '[INFO] Agent mode "auto" selected. Will use available credentials.'
     }
+}
+
+/**
+ * CODEX_AUTH_JSONパラメータから一時的なauth.jsonを展開
+ *
+ * Jenkinsのworkspace配下に ~/.codex/auth.json を書き出し、CODEX_HOMEを設定する。
+ * パラメータが空の場合は何もしない。
+ */
+def prepareCodexAuthFile() {
+    def codexAuth = params.CODEX_AUTH_JSON ?: ''
+    if (!codexAuth.trim()) {
+        echo "CODEX_AUTH_JSON is empty; skipping Codex auth setup."
+        env.CODEX_HOME = ''
+        return
+    }
+
+    if (env.WORKSPACE?.trim()) {
+        sh """
+            rm -rf '${env.WORKSPACE}/.codex'
+        """
+    }
+
+    def workspaceTmp = env.WORKSPACE_TMP ?: "${env.WORKSPACE}@tmp"
+    def codexSuffix = (env.BUILD_TAG ?: env.BUILD_ID ?: UUID.randomUUID().toString()).replaceAll('[^A-Za-z0-9_-]', '-')
+    def codexHome = "${workspaceTmp}/codex-auth-${codexSuffix}"
+    def authFilePath = "${codexHome}/auth.json"
+
+    sh """
+        mkdir -p '${codexHome}'
+    """
+
+    writeFile file: authFilePath, text: codexAuth
+
+    sh """
+        chmod 600 '${authFilePath}'
+    """
+
+    // Copy to HOME/.codex/auth.json so codex CLI auto-detects credentials
+    def shellHome = sh(script: 'echo $HOME', returnStdout: true)?.trim()
+    if (!shellHome) {
+        shellHome = env.HOME ?: '/root'
+    }
+    def homeCodexDir = "${shellHome}/.codex"
+    def homeAuthPath = "${homeCodexDir}/auth.json"
+
+    sh """
+        mkdir -p '${homeCodexDir}'
+        cp '${authFilePath}' '${homeAuthPath}'
+        chmod 600 '${homeAuthPath}'
+    """
+
+    env.CODEX_HOME = codexHome
+    echo "Codex auth.json prepared at ${authFilePath}"
+    echo "Codex auth.json copied to ${homeAuthPath}"
 }
 
 /**
@@ -259,3 +322,4 @@ def archiveArtifacts(String issueNumber) {
 
 // Groovyスクリプトとして読み込み可能にするため、return this を末尾に追加
 return this
+

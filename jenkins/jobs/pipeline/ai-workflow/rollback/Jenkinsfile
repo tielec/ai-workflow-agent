@@ -13,6 +13,7 @@
  * - ROLLBACK_MODE: 差し戻しモード（auto: エージェント自動判定 / manual: 従来の手動指定）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
  *
  * 注意:
@@ -42,6 +43,7 @@ pipeline {
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
         EXECUTION_MODE = 'rollback'
+        CODEX_HOME = ''
         ROLLBACK_MODE = "${params.ROLLBACK_MODE ?: 'auto'}"
         LOG_NO_COLOR = 'true'
 
@@ -75,6 +77,14 @@ pipeline {
 
                     common = load 'jenkins/shared/common.groovy'
                     echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
                 }
             }
         }
@@ -264,6 +274,13 @@ pipeline {
                         rm -rf ${env.REPOS_ROOT}
                     """
                     echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
                 }
             }
         }
