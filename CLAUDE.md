@@ -405,6 +405,34 @@ node dist/index.js auto-issue \
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）
 - `--agent claude`: Claude を強制使用（`CLAUDE_CODE_CREDENTIALS_PATH` が必要）
 
+### エージェント優先順位の自動選択（Issue #306で追加）
+
+`--agent auto` モード実行時、フェーズの特性に応じてエージェントの優先順位が自動的に選択されます。
+
+| フェーズ | 優先順位 | 理由 |
+|---------|---------|------|
+| planning | claude-first | 戦略立案、情報整理が得意 |
+| requirements | claude-first | 要件の構造化、分析が得意 |
+| design | claude-first | アーキテクチャ設計、ドキュメント作成が得意 |
+| test_scenario | claude-first | テストシナリオの設計・整理が得意 |
+| implementation | codex-first | 具体的なコード実装が得意 |
+| test_implementation | codex-first | テストコード生成が得意 |
+| testing | codex-first | テスト実行、デバッグが得意 |
+| documentation | claude-first | ドキュメント作成が得意 |
+| report | claude-first | レポート作成、要約が得意 |
+| evaluation | claude-first | 評価、分析が得意 |
+
+**動作**:
+- `claude-first`: Claude Code を優先的に使用、失敗時に Codex へフォールバック
+- `codex-first`: Codex を優先的に使用、失敗時に Claude Code へフォールバック
+
+**後方互換性**: デフォルト動作は従来どおり `codex-first`。`agentPriority` 未指定時やフェーズ外での使用は従来動作を維持。
+
+**技術詳細**:
+- 定数: `PHASE_AGENT_PRIORITY`（`src/commands/execute/agent-setup.ts`）
+- 型: `AgentPriority`（`'codex-first' | 'claude-first'`）
+- `AgentExecutor` コンストラクタに `agentPriority` パラメータを追加（オプショナル）
+
 ### Claude モデル指定（Issue #301で追加）
 
 ```bash

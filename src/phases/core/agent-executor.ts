@@ -16,6 +16,7 @@ import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { LogFormatter } from '../formatters/log-formatter.js';
 import { PhaseName } from '../../types.js';
+import { AgentPriority } from '../../commands/execute/agent-setup.js';
 
 type UsageMetrics = {
   inputTokens: number;
@@ -32,6 +33,8 @@ export class AgentExecutor {
   private readonly workingDir: string;
   private readonly getAgentWorkingDirectoryFn: (() => string) | null;
   private lastExecutionMetrics: UsageMetrics | null = null;
+  // NEW: エージェント優先順位（Issue #306）
+  private readonly agentPriority: AgentPriority;
 
   /**
    * @param codex - Codex エージェントクライアント
@@ -40,6 +43,7 @@ export class AgentExecutor {
    * @param phaseName - フェーズ名
    * @param workingDir - 作業ディレクトリ（フォールバック用）
    * @param getAgentWorkingDirectoryFn - REPOS_ROOT対応の作業ディレクトリ取得関数（Issue #264）
+   * @param agentPriority - エージェント優先順位（Issue #306、オプショナル、デフォルト: 'codex-first'）
    */
   constructor(
     codex: CodexAgentClient | null,
@@ -48,6 +52,7 @@ export class AgentExecutor {
     phaseName: PhaseName,
     workingDir: string,
     getAgentWorkingDirectoryFn?: () => string,
+    agentPriority?: AgentPriority,
   ) {
     this.codex = codex;
     this.claude = claude;
@@ -56,10 +61,16 @@ export class AgentExecutor {
     this.phaseName = phaseName;
     this.workingDir = workingDir;
     this.getAgentWorkingDirectoryFn = getAgentWorkingDirectoryFn ?? null;
+    // NEW: デフォルトは 'codex-first'（従来動作を維持）
+    this.agentPriority = agentPriority ?? 'codex-first';
   }
 
   /**
    * エージェントを使用してタスクを実行
+   *
+   * Issue #306: 優先順位に基づいてプライマリエージェントを選択
+   * - claude-first: Claude → Codex の順でフォールバック
+   * - codex-first: Codex → Claude の順でフォールバック（デフォルト、従来動作）
    *
    * @param prompt - プロンプト文字列
    * @param options - 実行オプション（maxTurns、verbose、logDir）
@@ -69,59 +80,92 @@ export class AgentExecutor {
     prompt: string,
     options?: { maxTurns?: number; verbose?: boolean; logDir?: string },
   ): Promise<string[]> {
-    const primaryAgent = this.codex ?? this.claude;
+    // NEW: 優先順位に基づいてプライマリエージェントを選択（Issue #306）
+    const primaryAgent =
+      this.agentPriority === 'claude-first'
+        ? this.claude ?? this.codex
+        : this.codex ?? this.claude;
+
     if (!primaryAgent) {
       throw new Error('No agent client configured for this phase.');
     }
 
-    const primaryName = this.codex && primaryAgent === this.codex ? 'Codex Agent' : 'Claude Agent';
-    logger.info(`Using ${primaryName} for phase ${this.phaseName}`);
+    // NEW: 選択されたエージェントと優先順位をログ出力
+    const primaryName = primaryAgent === this.codex ? 'Codex Agent' : 'Claude Agent';
+    const fallbackName = primaryAgent === this.codex ? 'Claude Agent' : 'Codex Agent';
+    logger.info(`Using ${primaryName} for phase ${this.phaseName} (${this.agentPriority} priority)`);
+    logger.debug(`Agent priority: ${this.agentPriority} (${primaryName} → ${fallbackName} fallback)`);
 
     let primaryResult: { messages: string[]; authFailed: boolean } | null = null;
 
     try {
       primaryResult = await this.runAgentTask(primaryAgent, primaryName, prompt, options);
     } catch (error) {
-      // Codex 失敗時の Claude へのフォールバック
-      if (primaryAgent === this.codex && this.claude) {
+      // NEW: プライマリ失敗時のフォールバック（優先順位に応じて動的に決定）
+      // フォールバックエージェントはプライマリと異なる場合のみ有効
+      const candidateFallback =
+        this.agentPriority === 'claude-first' ? this.codex : this.claude;
+      const fallbackAgent = candidateFallback !== primaryAgent ? candidateFallback : null;
+
+      if (fallbackAgent) {
         const err = error as NodeJS.ErrnoException & { code?: string };
         const message = err?.message ?? String(error);
-        const binaryPath = this.codex?.getBinaryPath?.();
 
-        if (err?.code === 'CODEX_CLI_NOT_FOUND') {
-          logger.warn(
-            `Codex CLI not found at ${binaryPath ?? 'codex'}: ${message}`,
-          );
+        if (primaryAgent === this.codex) {
+          const binaryPath = this.codex?.getBinaryPath?.();
+          if (err?.code === 'CODEX_CLI_NOT_FOUND') {
+            logger.warn(`Codex CLI not found at ${binaryPath ?? 'codex'}: ${message}`);
+          } else {
+            logger.warn(`Codex agent failed: ${message}`);
+          }
         } else {
-          logger.warn(`Codex agent failed: ${message}`);
+          logger.warn(`Claude agent failed: ${message}`);
         }
 
-        logger.warn('Falling back to Claude Code agent.');
-        this.codex = null;
-        const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
+        logger.warn(`Falling back to ${fallbackName}.`);
+
+        // フォールバックエージェントを使用（元のエージェントを無効化）
+        if (primaryAgent === this.codex) {
+          this.codex = null;
+        } else {
+          this.claude = null;
+        }
+
+        const fallbackResult = await this.runAgentTask(fallbackAgent, fallbackName, prompt, options);
         return fallbackResult.messages;
       }
       throw error;
     }
 
     if (!primaryResult) {
-      throw new Error('Codex agent returned no result.');
+      throw new Error(`${primaryName} returned no result.`);
     }
 
     const finalResult = primaryResult;
 
-    // 認証失敗時のフォールバック
-    if (finalResult.authFailed && primaryAgent === this.codex && this.claude) {
-      logger.warn('Codex authentication failed. Falling back to Claude Code agent.');
-      this.codex = null;
-      const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
+    // 認証失敗時のフォールバック（優先順位に応じて動的に決定）
+    // フォールバックエージェントはプライマリと異なる場合のみ有効
+    const candidateFallbackForAuth =
+      this.agentPriority === 'claude-first' ? this.codex : this.claude;
+    const fallbackAgent = candidateFallbackForAuth !== primaryAgent ? candidateFallbackForAuth : null;
+
+    if (finalResult.authFailed && fallbackAgent) {
+      logger.warn(`${primaryName} authentication failed. Falling back to ${fallbackName}.`);
+
+      if (primaryAgent === this.codex) {
+        this.codex = null;
+      } else {
+        this.claude = null;
+      }
+
+      const fallbackResult = await this.runAgentTask(fallbackAgent, fallbackName, prompt, options);
       return fallbackResult.messages;
     }
 
-    // 空出力時のフォールバック
-    if (finalResult.messages.length === 0 && this.claude && primaryAgent === this.codex) {
-      logger.warn('Codex agent produced no output. Trying Claude Code agent as fallback.');
-      const fallbackResult = await this.runAgentTask(this.claude, 'Claude Agent', prompt, options);
+    // 空出力時のフォールバック（優先順位に応じて動的に決定）
+    if (finalResult.messages.length === 0 && fallbackAgent) {
+      logger.warn(`${primaryName} produced no output. Trying ${fallbackName} as fallback.`);
+      const fallbackResult = await this.runAgentTask(fallbackAgent, fallbackName, prompt, options);
       return fallbackResult.messages;
     }
 

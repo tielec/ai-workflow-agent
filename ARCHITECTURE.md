@@ -139,7 +139,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/init.ts` | Issue初期化コマンド処理（約356行）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。 |
 | `src/commands/execute.ts` | フェーズ実行コマンド処理（約497行、v0.3.1で27%削減、Issue #46）。ファサードパターンにより4つの専門モジュールに分離。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
 | `src/commands/execute/options-parser.ts` | CLIオプション解析とバリデーション（約151行、v0.3.1で追加、Issue #46）。`parseExecuteOptions()`, `validateExecuteOptions()` を提供。 |
-| `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。 |
+| `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46、v0.5.0でエージェント優先順位追加、Issue #306）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。**エージェント優先順位機能**: `AgentPriority` 型（`'codex-first' | 'claude-first'`）と `PHASE_AGENT_PRIORITY` 定数（10フェーズのエージェント優先順位マッピング）を提供。 |
 | `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46）。`executePhasesSequential()`, `executePhasesFrom()` を提供。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
@@ -180,8 +180,8 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約325行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90/#271）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision等の型を提供。コマンドハンドラの型安全性を確保。Issue #271で追加された型: `RollbackAutoOptions`（rollback-autoコマンドのCLIオプション: issueNumber, dryRun, force, agent）、`RollbackDecision`（エージェント出力の構造: needs_rollback, to_phase, to_step, reason, confidence, analysis、厳格なバリデーションルール付き）。 |
-| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約476行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。 |
-| `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、Issue #23で追加）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。 |
+| `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約476行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90、v0.5.0でエージェント優先順位対応、Issue #306）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。**エージェント優先順位**: `PHASE_AGENT_PRIORITY` からフェーズ固有の優先順位を取得し、`AgentExecutor` コンストラクタに渡す。 |
+| `src/phases/core/agent-executor.ts` | エージェント実行ロジック（約270行、Issue #23で追加、v0.5.0でエージェント優先順位対応、Issue #306）。Codex/Claude エージェントの実行、フォールバック処理、利用量メトリクス抽出を担当。**エージェント優先順位**: コンストラクタに `agentPriority` パラメータ（オプショナル、デフォルト `'codex-first'`）を追加。`claude-first` の場合は Claude を優先、`codex-first` の場合は Codex を優先し、プライマリエージェント失敗時にフォールバックエージェントへ切り替え。 |
 | `src/phases/core/review-cycle-manager.ts` | レビューサイクル管理（約130行、Issue #23で追加）。レビュー失敗時の自動修正（revise）とリトライ管理を担当。 |
 | `src/phases/lifecycle/step-executor.ts` | ステップ実行ロジック（約233行、Issue #49で追加）。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュを担当。 |
 | `src/phases/lifecycle/phase-runner.ts` | フェーズライフサイクル管理（約244行、Issue #49で追加）。フェーズ全体の実行、依存関係検証、エラーハンドリング、進捗投稿を担当。 |
@@ -370,6 +370,33 @@ BasePhase クラスは各専門モジュールのインスタンスを保持し�
 - `claude` … Claude 認証情報が必須。Codex は無効化されます。
 
 `CodexAgentClient` は JSON イベントを `agent_log_raw.txt` に蓄積し、Markdown サマリー（失敗時は生 JSON ブロック）を生成します。`ClaudeAgentClient` は従来の Markdown 形式を維持します。
+
+### フェーズごとのエージェント優先順位自動選択（v0.5.0、Issue #306）
+
+`--agent auto` モード実行時、フェーズの特性に応じてエージェントの優先順位が自動的に選択されます。
+
+**PHASE_AGENT_PRIORITY マッピング** (`src/commands/execute/agent-setup.ts`):
+
+| フェーズ | 優先順位 | 理由 |
+|---------|---------|------|
+| planning | claude-first | 戦略立案、情報整理が得意 |
+| requirements | claude-first | 要件の構造化、分析が得意 |
+| design | claude-first | アーキテクチャ設計、ドキュメント作成が得意 |
+| test_scenario | claude-first | テストシナリオの設計・整理が得意 |
+| implementation | codex-first | 具体的なコード実装が得意 |
+| test_implementation | codex-first | テストコード生成が得意 |
+| testing | codex-first | テスト実行、デバッグが得意 |
+| documentation | claude-first | ドキュメント作成が得意 |
+| report | claude-first | レポート作成、要約が得意 |
+| evaluation | claude-first | 評価、分析が得意 |
+
+**動作フロー**:
+1. `BasePhase` が `PHASE_AGENT_PRIORITY[this.phaseName]` でフェーズ固有の優先順位を取得
+2. `AgentExecutor` コンストラクタに `agentPriority` パラメータとして渡す
+3. `AgentExecutor.executeWithAgent()` が優先順位に基づいてプライマリエージェントを選択
+4. プライマリエージェント失敗時（認証エラー、空出力等）にフォールバックエージェントへ切り替え
+
+**後方互換性**: `agentPriority` 未指定時のデフォルト動作は `codex-first`（従来動作を維持）
 
 ## プリセットとフェーズ依存関係
 
