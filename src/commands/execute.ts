@@ -236,9 +236,15 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     if (status.is_dirty) {
       logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
       if (status.untracked_files.length > 0 || status.modified_files.length > 0) {
-        const untracked = status.untracked_files.length > 0 ? status.untracked_files.join(', ') : '(none)';
-        const modified = status.modified_files.length > 0 ? status.modified_files.join(', ') : '(none)';
-        logger.info(`Git status details -> Untracked: ${untracked} | Modified: ${modified}`);
+        const cwd = status.repo_path ?? process.cwd();
+        const qualify = (fileList: string[]) =>
+          fileList.length > 0
+            ? fileList.map((f) => path.resolve(cwd, f)).join(', ')
+            : '(none)';
+
+        logger.info(
+          `Git status details -> Untracked: ${qualify(status.untracked_files)} | Modified: ${qualify(status.modified_files)}`,
+        );
       }
     } else {
     const pullResult = await gitManager.pullLatest(branchName);
