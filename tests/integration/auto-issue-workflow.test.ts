@@ -8,16 +8,25 @@
  * 主要なモックを使用してワークフロー全体を検証します。
  */
 
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
 import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
 import { IssueDeduplicator } from '../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../src/core/issue-generator.js';
+import * as autoIssueOutput from '../../src/commands/auto-issue-output.js';
 import { jest } from '@jest/globals';
 
 // モック設定
-jest.mock('../../src/core/repository-analyzer.js');
-jest.mock('../../src/core/issue-deduplicator.js');
-jest.mock('../../src/core/issue-generator.js');
+jest.mock('../../src/core/repository-analyzer.js', () => ({
+  RepositoryAnalyzer: jest.fn(),
+}));
+jest.mock('../../src/core/issue-deduplicator.js', () => ({
+  IssueDeduplicator: jest.fn(),
+}));
+jest.mock('../../src/core/issue-generator.js', () => ({
+  IssueGenerator: jest.fn(),
+}));
 jest.mock('../../src/commands/execute/agent-setup.js');
 jest.mock('../../src/core/config.js');
 jest.mock('../../src/utils/logger.js');
@@ -442,6 +451,346 @@ describe('auto-issue workflow integration tests', () => {
 
       // Then: 部分的な失敗でも処理が継続される
       expect(mockGenerator.generate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  /**
+   * Issue #257: --output-file オプションのエンドツーエンド検証
+   */
+  describe('Issue #257: JSON output integration', () => {
+    const baseDir = path.join(process.cwd(), 'tmp', 'auto-issue-workflow-tests');
+
+    const cleanupOutput = async () => {
+      await fs.rm(baseDir, { recursive: true, force: true });
+    };
+
+    beforeEach(async () => {
+      await cleanupOutput();
+    });
+
+    afterEach(async () => {
+      await cleanupOutput();
+    });
+
+    /**
+     * TC-INT-257-001: CLI_正常系_JSON出力
+     *
+     * 目的: `--output-file` 指定時に JSON が生成されることを検証 (FR1/FR2/AC1)
+     */
+    it('should create JSON file with execution summary when output file is provided', async () => {
+      const candidate = {
+        title: 'Fix CLI crash when writing JSON',
+        file: 'src/commands/auto-issue.ts',
+        line: 50,
+        severity: 'high' as const,
+        description: 'Ensure CLI handles JSON output errors gracefully.',
+        suggestedFix: 'Wrap file writes with try/catch and tests.',
+        category: 'bug' as const,
+      };
+
+      mockAnalyzer.analyze.mockResolvedValue([candidate]);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerator.generate.mockResolvedValue({
+        success: true,
+        issueUrl: 'https://github.com/owner/repo/issues/321',
+        issueNumber: 321,
+        title: 'Fix CLI crash when writing JSON',
+      });
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'results.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: false,
+        limit: '1',
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      expect(payload.summary).toEqual({
+        total: 1,
+        success: 1,
+        failed: 0,
+        skipped: 0,
+      });
+      expect(payload.execution.repository).toBe('owner/repo');
+      expect(payload.issues[0]).toEqual(
+        expect.objectContaining({
+          issueNumber: 321,
+          issueUrl: 'https://github.com/owner/repo/issues/321',
+          title: 'Fix CLI crash when writing JSON',
+        }),
+      );
+    });
+
+    /**
+     * TC-INT-257-002: CLI_dryRun_JSONカウント
+     *
+     * 目的: dry-run指定でも JSON が生成され summary.skipped が増加することを確認 (FR3/AC2)
+     */
+    it('should record skipped entries in JSON when running in dry-run mode', async () => {
+      const candidate = {
+        title: 'Add JSON export option',
+        file: 'src/commands/auto-issue.ts',
+        line: 75,
+        severity: 'medium' as const,
+        description: 'Verify dry-run mode still produces JSON output.',
+        suggestedFix: 'Add integration test to cover JSON writer.',
+        category: 'bug' as const,
+      };
+
+      mockAnalyzer.analyze.mockResolvedValue([candidate]);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerator.generate.mockResolvedValue({
+        success: true,
+        skippedReason: 'dry-run mode',
+        title: 'Add JSON export option',
+      });
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'dry-run.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: true,
+        limit: '1',
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      expect(payload.summary).toEqual({
+        total: 1,
+        success: 0,
+        failed: 0,
+        skipped: 1,
+      });
+      expect(payload.issues[0]).toEqual(
+        expect.objectContaining({
+          skippedReason: 'dry-run mode',
+          title: 'Add JSON export option',
+        }),
+      );
+      expect(payload.issues[0].issueNumber).toBeUndefined();
+      expect(payload.issues[0].issueUrl).toBeUndefined();
+    });
+
+    /**
+     * TC-INT-257-003: CLI_outputFile_missingDir_エラー
+     *
+     * 目的: 書き込み不可パス指定時に CLI が非0終了でエラーを表示することを確認 (FR5/AC3)
+     */
+    it('should propagate output file errors so the CLI exits with failure', async () => {
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'error.json');
+      const writeSpy = jest
+        .spyOn(autoIssueOutput, 'writeAutoIssueOutputFile')
+        .mockRejectedValue(new Error('permission denied'));
+
+      await expect(
+        handleAutoIssueCommand({
+          category: 'bug',
+          outputFile: relativePath,
+        }),
+      ).rejects.toThrow('permission denied');
+
+      writeSpy.mockRestore();
+    });
+
+    /**
+     * TC-INT-257-004: JSON出力_timestampがISO8601形式
+     *
+     * 目的: execution.timestamp が ISO8601 UTC 形式であることを確認
+     */
+    it('should generate execution timestamp in ISO8601 UTC format', async () => {
+      const candidate = {
+        title: 'Test timestamp format validation',
+        file: 'src/test.ts',
+        line: 1,
+        severity: 'low' as const,
+        description: 'Verify timestamp is ISO8601 format.',
+        suggestedFix: 'Check date formatting.',
+        category: 'bug' as const,
+      };
+
+      mockAnalyzer.analyze.mockResolvedValue([candidate]);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerator.generate.mockResolvedValue({
+        success: true,
+        skippedReason: 'dry-run mode',
+        title: 'Test timestamp format validation',
+      });
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'timestamp.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: true,
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+
+      // ISO8601 形式の検証 (YYYY-MM-DDTHH:mm:ss.sssZ)
+      const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
+      expect(payload.execution.timestamp).toMatch(iso8601Regex);
+
+      // 有効な日付かどうかを検証
+      const parsedDate = new Date(payload.execution.timestamp);
+      expect(parsedDate.toISOString()).toBe(payload.execution.timestamp);
+    });
+
+    /**
+     * TC-INT-257-005: JSON出力_カテゴリ別の整合性
+     *
+     * 目的: カテゴリが正しく execution に含まれることを確認
+     */
+    it('should include correct category in execution info', async () => {
+      const candidate = {
+        title: 'Test category tracking',
+        file: 'src/test.ts',
+        line: 1,
+        severity: 'medium' as const,
+        description: 'Verify category is correctly recorded.',
+        suggestedFix: 'Check category field.',
+        category: 'bug' as const,
+      };
+
+      mockAnalyzer.analyze.mockResolvedValue([candidate]);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerator.generate.mockResolvedValue({
+        success: true,
+        skippedReason: 'dry-run mode',
+        title: 'Test category tracking',
+      });
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'category.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: true,
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      expect(payload.execution.category).toBe('bug');
+      expect(payload.execution.dryRun).toBe(true);
+    });
+
+    /**
+     * TC-INT-257-006: JSON出力_複数件処理
+     *
+     * 目的: 複数の Issue 候補が正しく JSON に含まれることを確認
+     */
+    it('should include multiple issues in JSON output', async () => {
+      const candidates = [
+        {
+          title: 'Bug 1 with sufficient length',
+          file: 'src/test1.ts',
+          line: 10,
+          severity: 'high' as const,
+          description: 'First bug candidate with enough detail.',
+          suggestedFix: 'Fix suggestion 1.',
+          category: 'bug' as const,
+        },
+        {
+          title: 'Bug 2 with sufficient length',
+          file: 'src/test2.ts',
+          line: 20,
+          severity: 'medium' as const,
+          description: 'Second bug candidate with enough detail.',
+          suggestedFix: 'Fix suggestion 2.',
+          category: 'bug' as const,
+        },
+        {
+          title: 'Bug 3 with sufficient length',
+          file: 'src/test3.ts',
+          line: 30,
+          severity: 'low' as const,
+          description: 'Third bug candidate with enough detail.',
+          suggestedFix: 'Fix suggestion 3.',
+          category: 'bug' as const,
+        },
+      ];
+
+      mockAnalyzer.analyze.mockResolvedValue(candidates);
+      mockDeduplicator.filterDuplicates.mockImplementation(async (c) => c);
+
+      // 1件目成功、2件目失敗、3件目スキップ
+      mockGenerator.generate
+        .mockResolvedValueOnce({
+          success: true,
+          issueUrl: 'https://github.com/owner/repo/issues/1',
+          issueNumber: 1,
+          title: 'Bug 1 with sufficient length',
+        })
+        .mockResolvedValueOnce({
+          success: false,
+          error: 'API rate limit exceeded',
+          title: 'Bug 2 with sufficient length',
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          skippedReason: 'dry-run mode',
+          title: 'Bug 3 with sufficient length',
+        });
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'multiple.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: false,
+        limit: '3',
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+
+      expect(payload.summary).toEqual({
+        total: 3,
+        success: 1,
+        failed: 1,
+        skipped: 1,
+      });
+
+      expect(payload.issues).toHaveLength(3);
+      expect(payload.issues[0].success).toBe(true);
+      expect(payload.issues[0].issueNumber).toBe(1);
+      expect(payload.issues[1].success).toBe(false);
+      expect(payload.issues[1].error).toBe('API rate limit exceeded');
+      expect(payload.issues[2].skippedReason).toBe('dry-run mode');
+    });
+
+    /**
+     * TC-INT-257-007: JSON出力_空の候補リスト
+     *
+     * 目的: 候補がゼロの場合でも JSON が正しく生成されることを確認
+     */
+    it('should generate valid JSON even with zero candidates', async () => {
+      mockAnalyzer.analyze.mockResolvedValue([]);
+
+      const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'empty.json');
+      const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        outputFile: relativePath,
+        dryRun: true,
+      });
+
+      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+
+      expect(payload.summary).toEqual({
+        total: 0,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+      });
+      expect(payload.issues).toEqual([]);
+      expect(payload.execution.repository).toBe('owner/repo');
+      expect(payload.execution.category).toBe('bug');
     });
   });
 });

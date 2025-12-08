@@ -92,6 +92,7 @@ export class IssueGenerator {
     dryRun: boolean,
   ): Promise<IssueCreationResult> {
     logger.info(`Generating issue for candidate: "${candidate.title}"`);
+    const issueTitle = candidate.title;
 
     // 1. プロンプトテンプレートを読み込み
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/generate-issue-body.txt');
@@ -99,6 +100,7 @@ export class IssueGenerator {
       return {
         success: false,
         error: `Prompt template not found: ${promptPath}`,
+        title: issueTitle,
       };
     }
 
@@ -122,6 +124,7 @@ export class IssueGenerator {
           return {
             success: false,
             error: 'Codex agent is not available.',
+            title: issueTitle,
           };
         }
         logger.warn('Codex not available, falling back to Claude.');
@@ -135,6 +138,7 @@ export class IssueGenerator {
             return {
               success: false,
               error: `Codex failed: ${getErrorMessage(error)}`,
+              title: issueTitle,
             };
           }
           logger.warn(`Codex failed, falling back to Claude.`);
@@ -148,6 +152,7 @@ export class IssueGenerator {
         return {
           success: false,
           error: 'Claude agent is not available.',
+          title: issueTitle,
         };
       }
       logger.info('Using Claude agent for issue body generation.');
@@ -168,6 +173,7 @@ export class IssueGenerator {
       return {
         success: true,
         skippedReason: 'dry-run mode',
+        title: issueTitle,
       };
     }
 
@@ -184,11 +190,13 @@ export class IssueGenerator {
         success: true,
         issueUrl: result.url,
         issueNumber: result.number,
+        title: issueTitle,
       };
     } catch (error) {
       return {
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
+        title: issueTitle,
       };
     }
   }
@@ -290,6 +298,7 @@ ${candidate.suggestedFix}
     logger.info(
       `Generating refactoring issue for: "${candidate.type}" in "${candidate.filePath}"`,
     );
+    const title = this.generateRefactorTitle(candidate);
 
     // 1. プロンプトテンプレートを読み込み
     const promptPath = path.resolve(
@@ -321,6 +330,7 @@ ${candidate.suggestedFix}
           return {
             success: false,
             error: 'Codex agent is not available.',
+            title,
           };
         }
         logger.warn('Codex not available, falling back to Claude.');
@@ -334,6 +344,7 @@ ${candidate.suggestedFix}
             return {
               success: false,
               error: `Codex failed: ${getErrorMessage(error)}`,
+              title,
             };
           }
           logger.warn(`Codex failed, falling back to Claude.`);
@@ -347,6 +358,7 @@ ${candidate.suggestedFix}
         return {
           success: false,
           error: 'Claude agent is not available.',
+          title,
         };
       }
       logger.info('Using Claude agent for refactor issue body generation.');
@@ -360,7 +372,6 @@ ${candidate.suggestedFix}
     this.cleanupOutputFile(outputFilePath);
 
     // 7. タイトルとラベルを生成
-    const title = this.generateRefactorTitle(candidate);
     const labels = this.generateRefactorLabels(candidate);
 
     // 8. dry-runモードの場合はスキップ
@@ -372,6 +383,7 @@ ${candidate.suggestedFix}
       return {
         success: true,
         skippedReason: 'dry-run mode',
+        title,
       };
     }
 
@@ -384,11 +396,13 @@ ${candidate.suggestedFix}
         success: true,
         issueUrl: result.url,
         issueNumber: result.number,
+        title,
       };
     } catch (error) {
       return {
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
+        title,
       };
     }
   }
@@ -416,6 +430,7 @@ ${candidate.suggestedFix}
       return {
         success: true,
         skippedReason: 'dry-run mode',
+        title,
       };
     }
 
@@ -426,11 +441,13 @@ ${candidate.suggestedFix}
         success: true,
         issueUrl: result.url,
         issueNumber: result.number,
+        title,
       };
     } catch (error) {
       return {
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
+        title,
       };
     }
   }
@@ -593,6 +610,7 @@ ${candidate.suggestion}
     logger.info(
       `Generating enhancement issue for: "${proposal.type}" - "${proposal.title}"`,
     );
+    const title = this.generateEnhancementTitle(proposal);
 
     // 1. プロンプトテンプレートを読み込み
     const promptPath = path.resolve(
@@ -624,6 +642,7 @@ ${candidate.suggestion}
           return {
             success: false,
             error: 'Codex agent is not available.',
+            title,
           };
         }
         logger.warn('Codex not available, falling back to Claude.');
@@ -637,6 +656,7 @@ ${candidate.suggestion}
             return {
               success: false,
               error: `Codex failed: ${getErrorMessage(error)}`,
+              title,
             };
           }
           logger.warn(`Codex failed, falling back to Claude.`);
@@ -650,6 +670,7 @@ ${candidate.suggestion}
         return {
           success: false,
           error: 'Claude agent is not available.',
+          title,
         };
       }
       logger.info('Using Claude agent for enhancement issue body generation.');
@@ -663,7 +684,6 @@ ${candidate.suggestion}
     this.cleanupOutputFile(outputFilePath);
 
     // 7. タイトルとラベルを生成
-    const title = this.generateEnhancementTitle(proposal);
     const labels = this.generateEnhancementLabels(proposal);
 
     // 8. dry-runモードの場合はスキップ
@@ -675,6 +695,7 @@ ${candidate.suggestion}
       return {
         success: true,
         skippedReason: 'dry-run mode',
+        title,
       };
     }
 
@@ -687,11 +708,13 @@ ${candidate.suggestion}
         success: true,
         issueUrl: result.url,
         issueNumber: result.number,
+        title,
       };
     } catch (error) {
       return {
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
+        title,
       };
     }
   }
@@ -719,6 +742,7 @@ ${candidate.suggestion}
       return {
         success: true,
         skippedReason: 'dry-run mode',
+        title,
       };
     }
 
@@ -729,11 +753,13 @@ ${candidate.suggestion}
         success: true,
         issueUrl: result.url,
         issueNumber: result.number,
+        title,
       };
     } catch (error) {
       return {
         success: false,
         error: `GitHub API failed: ${getErrorMessage(error)}`,
+        title,
       };
     }
   }
