@@ -6,31 +6,16 @@ import { logger } from '../../utils/logger.js';
 import { config } from '../../core/config.js';
 import { CodexAgentClient } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import {
+  CODEX_MIN_API_KEY_LENGTH,
+  detectCodexCliAuth,
+  isValidCodexApiKey,
+} from '../../core/helpers/codex-credentials.js';
 
 /**
  * API キーの最小文字数
  * OpenAI/Codex API キーは通常 40 文字以上
  */
-const MIN_API_KEY_LENGTH = 20;
-
-/**
- * API キーが有効かどうかを判定
- *
- * 以下の条件をすべて満たす場合に有効と判定:
- * - null または undefined でない
- * - トリム後の長さが MIN_API_KEY_LENGTH 以上
- *
- * @param apiKey - 検証する API キー
- * @returns 有効な場合は true
- */
-function isValidApiKey(apiKey: string | null | undefined): apiKey is string {
-  if (!apiKey) {
-    return false;
-  }
-  const trimmed = apiKey.trim();
-  return trimmed.length >= MIN_API_KEY_LENGTH;
-}
-
 /**
  * エージェント初期化結果
  */
@@ -95,10 +80,10 @@ export function resolveAgentCredentials(homeDir: string, repoRoot: string): Cred
   // デバッグログ: API キーの長さを出力（値自体は出力しない）
   if (codexApiKey !== null) {
     const trimmedLength = codexApiKey.trim().length;
-    logger.debug(`CODEX_API_KEY detected (length=${trimmedLength}, valid=${isValidApiKey(codexApiKey)})`);
-    if (!isValidApiKey(codexApiKey)) {
+    logger.debug(`CODEX_API_KEY detected (length=${trimmedLength}, valid=${isValidCodexApiKey(codexApiKey)})`);
+    if (!isValidCodexApiKey(codexApiKey)) {
       logger.warn(
-        `CODEX_API_KEY is set but appears invalid (length=${trimmedLength}, expected>=${MIN_API_KEY_LENGTH}). ` +
+        `CODEX_API_KEY is set but appears invalid (length=${trimmedLength}, expected>=${CODEX_MIN_API_KEY_LENGTH}). ` +
           'It will be ignored.',
       );
     }
@@ -171,20 +156,11 @@ export function setupAgentClients(
 
   // Claude の認証情報が利用可能かどうか
   const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
-  const codexHome = process.env.CODEX_HOME;
-  const codexAuthCandidates: string[] = [];
-  if (codexHome) {
-    codexAuthCandidates.push(path.join(codexHome, 'auth.json'));
-  }
-  const homeDir = process.env.HOME;
-  if (homeDir) {
-    codexAuthCandidates.push(path.join(homeDir, '.codex', 'auth.json'));
-  }
-  const codexAuthFile = codexAuthCandidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+  const { authFilePath: codexAuthFile, candidates: codexAuthCandidates } = detectCodexCliAuth();
   const hasCodexCliAuth = codexAuthFile !== null;
-  const hasCodexCredentials = isValidApiKey(codexApiKey) || hasCodexCliAuth;
+  const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || hasCodexCliAuth;
   const codexCredentialHints: string[] = [];
-  if (!isValidApiKey(codexApiKey)) {
+  if (!isValidCodexApiKey(codexApiKey)) {
     codexCredentialHints.push('CODEX_API_KEY missing or invalid');
   }
   if (!hasCodexCliAuth) {
@@ -203,11 +179,11 @@ export function setupAgentClients(
     case 'codex': {
       if (!hasCodexCredentials) {
         throw new Error(
-          `Agent mode "codex" requires CODEX_API_KEY (>=${MIN_API_KEY_LENGTH} characters) ` +
+          `Agent mode "codex" requires CODEX_API_KEY (>=${CODEX_MIN_API_KEY_LENGTH} characters) ` +
             'or CODEX_AUTH_JSON (Codex CLI auth file).',
         );
       }
-      if (isValidApiKey(codexApiKey)) {
+      if (isValidCodexApiKey(codexApiKey)) {
         const trimmed = codexApiKey.trim();
         process.env.CODEX_API_KEY = trimmed;
         if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
@@ -242,7 +218,7 @@ export function setupAgentClients(
     default: {
       // Auto モード: Codex を優先、Claude にフォールバック
       if (hasCodexCredentials) {
-        if (isValidApiKey(codexApiKey)) {
+        if (isValidCodexApiKey(codexApiKey)) {
           const trimmed = codexApiKey.trim();
           process.env.CODEX_API_KEY = trimmed;
           if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {

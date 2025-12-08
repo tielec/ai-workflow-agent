@@ -50,7 +50,7 @@ jenkins-jobs:
 
   ai_workflow_finalize_job:
     name: 'finalize'
-    displayName: 'AI Workflow - Finalize'
+    displayName: 'Finalize Execution'
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
