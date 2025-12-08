@@ -178,6 +178,12 @@ export interface AutoIssueOptions {
   limit: number;
 
   /**
+   * JSON結果を出力するファイルパス
+   * 指定されていない場合はファイル出力しない
+   */
+  outputFile?: string;
+
+  /**
    * dry-runモード（デフォルト: false）
    * true の場合、Issue作成をスキップし、候補のみ表示
    */
@@ -200,6 +206,62 @@ export interface AutoIssueOptions {
    * enhancement カテゴリでのみ有効
    */
   creativeMode?: boolean;
+}
+
+/**
+ * JSON出力用の実行情報
+ */
+export interface AutoIssueExecutionInfo {
+  /**
+   * 実行タイムスタンプ（ISO8601 UTC）
+   */
+  timestamp: string;
+
+  /**
+   * 対象リポジトリ (owner/repo)
+   */
+  repository: string;
+
+  /**
+   * 検出カテゴリ
+   */
+  category: AutoIssueOptions['category'];
+
+  /**
+   * dry-runでの実行かどうか
+   */
+  dryRun: boolean;
+}
+
+/**
+ * JSON出力用のサマリー
+ */
+export interface AutoIssueSummary {
+  total: number;
+  success: number;
+  failed: number;
+  skipped: number;
+}
+
+/**
+ * JSON出力用のIssue詳細
+ */
+export interface AutoIssueIssueEntry {
+  success: boolean;
+  title: string;
+  issueNumber?: number;
+  issueUrl?: string;
+  error?: string;
+  skippedReason?: string;
+}
+
+/**
+ * auto-issueコマンドのJSON出力スキーマ
+ */
+export interface AutoIssueJsonOutput {
+  execution: AutoIssueExecutionInfo;
+  summary: AutoIssueSummary;
+  issues: AutoIssueIssueEntry[];
 }
 
 /**
@@ -244,6 +306,11 @@ export interface IssueCreationResult {
    * 成功フラグ
    */
   success: boolean;
+
+  /**
+   * Issueタイトル（成功/失敗を問わず表示用）
+   */
+  title?: string;
 
   /**
    * 作成されたIssue URL（成功時のみ）

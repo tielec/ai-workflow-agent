@@ -471,3 +471,102 @@ describe('環境変数設定の検証', () => {
     expect(ClaudeAgentClient).toHaveBeenCalled();
   });
 });
+
+// =============================================================================
+// PHASE_AGENT_PRIORITY マッピング（Issue #306）
+// =============================================================================
+
+import { PHASE_AGENT_PRIORITY, type AgentPriority } from '../../../../src/commands/execute/agent-setup.js';
+import { PhaseName } from '../../../../src/types.js';
+
+describe('PHASE_AGENT_PRIORITY - 正常系（Issue #306）', () => {
+  test('すべてのフェーズに優先順位が定義されている', () => {
+    // Given: 全10フェーズのリスト
+    const phaseNames: PhaseName[] = [
+      'planning', 'requirements', 'design', 'test_scenario',
+      'implementation', 'test_implementation', 'testing',
+      'documentation', 'report', 'evaluation',
+    ];
+
+    // When & Then: 各フェーズに対して優先順位が定義されている
+    for (const phaseName of phaseNames) {
+      expect(PHASE_AGENT_PRIORITY[phaseName]).toBeDefined();
+      expect(['codex-first', 'claude-first']).toContain(PHASE_AGENT_PRIORITY[phaseName]);
+    }
+  });
+
+  test('claude-first フェーズが正しく設定されている', () => {
+    // Given: Claude Code優先のフェーズリスト
+    const claudeFirstPhases: PhaseName[] = [
+      'planning',          // 戦略立案、情報整理
+      'requirements',      // 要件の構造化、分析
+      'design',            // アーキテクチャ設計、ドキュメント作成
+      'test_scenario',     // テストシナリオの設計・整理
+      'documentation',     // ドキュメント作成
+      'report',            // レポート作成、要約
+      'evaluation',        // 評価、分析
+    ];
+
+    // When & Then: すべてのフェーズで 'claude-first' が返される
+    for (const phaseName of claudeFirstPhases) {
+      expect(PHASE_AGENT_PRIORITY[phaseName]).toBe('claude-first');
+    }
+  });
+
+  test('codex-first フェーズが正しく設定されている', () => {
+    // Given: Codex優先のフェーズリスト
+    const codexFirstPhases: PhaseName[] = [
+      'implementation',        // 具体的なコード実装
+      'test_implementation',   // テストコード生成
+      'testing',               // テスト実行、デバッグ
+    ];
+
+    // When & Then: すべてのフェーズで 'codex-first' が返される
+    for (const phaseName of codexFirstPhases) {
+      expect(PHASE_AGENT_PRIORITY[phaseName]).toBe('codex-first');
+    }
+  });
+
+  test('claude-first フェーズは7つ、codex-first フェーズは3つ', () => {
+    // Given: PHASE_AGENT_PRIORITY マッピング
+    const allPhases = Object.entries(PHASE_AGENT_PRIORITY);
+
+    // When: 各優先順位をカウント
+    const claudeFirstCount = allPhases.filter(([_, priority]) => priority === 'claude-first').length;
+    const codexFirstCount = allPhases.filter(([_, priority]) => priority === 'codex-first').length;
+
+    // Then: 期待どおりのカウント
+    expect(claudeFirstCount).toBe(7);
+    expect(codexFirstCount).toBe(3);
+    expect(allPhases.length).toBe(10); // 全10フェーズ
+  });
+});
+
+describe('PHASE_AGENT_PRIORITY - 型安全性（Issue #306）', () => {
+  test('Record<PhaseName, AgentPriority> 型として定義されている', () => {
+    // Given: PHASE_AGENT_PRIORITY 定数
+    // When & Then: 型安全性はコンパイル時にチェックされる
+    // ランタイムテストとしては、キーの網羅性を確認
+
+    const expectedPhases: PhaseName[] = [
+      'planning', 'requirements', 'design', 'test_scenario',
+      'implementation', 'test_implementation', 'testing',
+      'documentation', 'report', 'evaluation',
+    ];
+
+    const actualPhases = Object.keys(PHASE_AGENT_PRIORITY) as PhaseName[];
+
+    // すべてのフェーズがマッピングに含まれている
+    expect(actualPhases.sort()).toEqual(expectedPhases.sort());
+  });
+
+  test('AgentPriority 型の値のみが含まれている', () => {
+    // Given: PHASE_AGENT_PRIORITY マッピング
+    const validPriorities: AgentPriority[] = ['codex-first', 'claude-first'];
+
+    // When & Then: すべての値が有効な AgentPriority である
+    for (const priority of Object.values(PHASE_AGENT_PRIORITY)) {
+      expect(validPriorities).toContain(priority);
+    }
+  });
+});

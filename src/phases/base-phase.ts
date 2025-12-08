@@ -24,6 +24,7 @@ import { ArtifactCleaner } from './cleanup/artifact-cleaner.js';
 import { StepExecutor } from './lifecycle/step-executor.js';
 import { PhaseRunner } from './lifecycle/phase-runner.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { PHASE_AGENT_PRIORITY } from '../commands/execute/agent-setup.js';
 
 // PhaseRunOptions を BasePhase から export（Issue #49）
 export interface PhaseRunOptions {
@@ -173,7 +174,9 @@ export abstract class BasePhase {
 
     // AgentExecutor は遅延初期化（codex/claude が設定されている場合のみ）
     // Issue #264: getAgentWorkingDirectory 関数を渡して REPOS_ROOT 対応
+    // Issue #306: agentPriority を渡してフェーズ固有の優先順位を適用
     if (this.codex || this.claude) {
+      const agentPriority = PHASE_AGENT_PRIORITY[this.phaseName];
       this.agentExecutor = new AgentExecutor(
         this.codex,
         this.claude,
@@ -181,6 +184,7 @@ export abstract class BasePhase {
         this.phaseName,
         this.workingDir,
         () => this.getAgentWorkingDirectory(),
+        agentPriority,
       );
     }
 

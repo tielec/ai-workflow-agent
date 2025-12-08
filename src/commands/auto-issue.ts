@@ -7,6 +7,7 @@
  * @module auto-issue-command
  */
 
+import path from 'node:path';
 import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
@@ -19,6 +20,7 @@ import { resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
+import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 
 /**
  * CLIオプションパース結果（生の入力）
@@ -26,6 +28,7 @@ import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.
 interface RawAutoIssueOptions {
   category?: string;
   limit?: string;
+  outputFile?: string;
   dryRun?: boolean;
   similarityThreshold?: string;
   agent?: 'auto' | 'codex' | 'claude';
@@ -45,7 +48,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     // 1. オプションパース（デフォルト値適用、バリデーション）
     const options = parseOptions(rawOptions);
 
-    logger.info(`Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}`);
+    logger.info(
+      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}`,
+    );
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
     const githubRepository = config.getGitHubRepository();
@@ -96,6 +101,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
     // 9. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
     const analyzer = new RepositoryAnalyzer(codexClient, claudeClient);
+    let issueResults: IssueCreationResult[] = [];
 
     if (options.category === 'bug') {
       logger.info('Analyzing repository for bugs...');
@@ -105,18 +111,17 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
       if (bugCandidates.length === 0) {
         logger.info('No bug candidates found. Exiting.');
-        return;
+      } else {
+        // バグ候補の処理を継続
+        issueResults = await processBugCandidates(
+          bugCandidates,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
       }
-
-      // バグ候補の処理を継続
-      await processBugCandidates(
-        bugCandidates,
-        octokit,
-        githubRepository,
-        codexClient,
-        claudeClient,
-        options,
-      );
     } else if (options.category === 'refactor') {
       logger.info('Analyzing repository for refactoring...');
       logger.info(`Analyzing repository: ${repoPath}`);
@@ -125,18 +130,17 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
       if (refactorCandidates.length === 0) {
         logger.info('No refactoring candidates found. Exiting.');
-        return;
+      } else {
+        // リファクタリング候補の処理を継続
+        issueResults = await processRefactorCandidates(
+          refactorCandidates,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
       }
-
-      // リファクタリング候補の処理を継続
-      await processRefactorCandidates(
-        refactorCandidates,
-        octokit,
-        githubRepository,
-        codexClient,
-        claudeClient,
-        options,
-      );
     } else if (options.category === 'enhancement') {
       logger.info('Analyzing repository for enhancement proposals...');
       logger.info(`Analyzing repository: ${repoPath}`);
@@ -150,24 +154,25 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
       if (enhancementProposals.length === 0) {
         logger.info('No enhancement proposals found. Exiting.');
-        return;
+      } else {
+        // 機能拡張提案の処理を継続
+        issueResults = await processEnhancementCandidates(
+          enhancementProposals,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
       }
-
-      // 機能拡張提案の処理を継続
-      await processEnhancementCandidates(
-        enhancementProposals,
-        octokit,
-        githubRepository,
-        codexClient,
-        claudeClient,
-        options,
-      );
     } else {
       // 'all' は Phase 4 以降で実装予定
       throw new Error(
         `Category "${options.category}" is not yet supported. Please use "bug", "refactor", or "enhancement".`,
       );
     }
+
+    await exportJsonIfRequested(issueResults, options, githubRepository);
 
     logger.info('auto-issue command completed successfully.');
   } catch (error) {
@@ -193,7 +198,7 @@ async function processBugCandidates(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
   options: AutoIssueOptions,
-): Promise<void> {
+): Promise<IssueCreationResult[]> {
   // 既存Issueを取得（リポジトリ情報から）
   const [owner, repo] = repoName.split('/');
   if (!owner || !repo) {
@@ -228,7 +233,7 @@ async function processBugCandidates(
 
   if (filteredCandidates.length === 0) {
     logger.info('No non-duplicate candidates found. Exiting.');
-    return;
+    return [];
   }
 
   // limitオプションで制限
@@ -247,6 +252,8 @@ async function processBugCandidates(
 
   // 結果サマリーを表示
   reportResults(results, options.dryRun);
+
+  return results;
 }
 
 /**
@@ -266,7 +273,7 @@ async function processRefactorCandidates(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
   options: AutoIssueOptions,
-): Promise<void> {
+): Promise<IssueCreationResult[]> {
   // 優先度でソート（high → medium → low）
   const sortedCandidates = candidates.sort((a, b) => {
     const priorityOrder = { high: 3, medium: 2, low: 1 };
@@ -291,6 +298,8 @@ async function processRefactorCandidates(
 
   // 結果サマリーを表示
   reportResults(results, options.dryRun);
+
+  return results;
 }
 
 /**
@@ -310,7 +319,7 @@ async function processEnhancementCandidates(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
   options: AutoIssueOptions,
-): Promise<void> {
+): Promise<IssueCreationResult[]> {
   // 期待される効果でソート（high → medium → low）
   const sortedProposals = proposals.sort((a, b) => {
     const impactOrder = { high: 3, medium: 2, low: 1 };
@@ -337,6 +346,41 @@ async function processEnhancementCandidates(
 
   // 結果サマリーを表示
   reportResults(results, options.dryRun);
+
+  return results;
+}
+
+/**
+ * JSON出力を必要に応じて実行
+ *
+ * @param results - Issue作成結果
+ * @param options - CLIオプション
+ * @param repository - リポジトリ名 (owner/repo)
+ */
+async function exportJsonIfRequested(
+  results: IssueCreationResult[],
+  options: AutoIssueOptions,
+  repository: string,
+): Promise<void> {
+  if (!options.outputFile) {
+    return;
+  }
+
+  const execution = {
+    timestamp: new Date().toISOString(),
+    repository,
+    category: options.category,
+    dryRun: options.dryRun,
+  };
+
+  try {
+    const payload = buildAutoIssueJsonPayload({ execution, results });
+    await writeAutoIssueOutputFile(options.outputFile, payload);
+    logger.info(`auto-issue JSON output written to ${options.outputFile}`);
+  } catch (error) {
+    logger.error(`Failed to write auto-issue JSON output: ${getErrorMessage(error)}`);
+    throw error;
+  }
 }
 
 /**
@@ -354,7 +398,7 @@ async function processLegacyBugFlow(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
   options: AutoIssueOptions,
-): Promise<void> {
+): Promise<IssueCreationResult[]> {
   // 7. 既存Issueを取得（リポジトリ情報から）
   const [owner, repo] = repoName.split('/');
   if (!owner || !repo) {
@@ -389,7 +433,7 @@ async function processLegacyBugFlow(
 
   if (filteredCandidates.length === 0) {
     logger.info('No non-duplicate candidates found. Exiting.');
-    return;
+    return [];
   }
 
   // 9. limitオプションで制限
@@ -408,6 +452,8 @@ async function processLegacyBugFlow(
 
   // 11. 結果サマリーを表示
   reportResults(results, options.dryRun);
+
+  return results;
 }
 
 /**
@@ -431,6 +477,17 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   const limit = parseInt(limitStr, 10);
   if (!Number.isFinite(limit) || limit < 1) {
     throw new Error(`Invalid limit: "${limitStr}". Must be a positive integer.`);
+  }
+
+  // outputFile（オプション）
+  const outputFileRaw = rawOptions.outputFile;
+  let outputFile: string | undefined;
+  if (typeof outputFileRaw === 'string') {
+    const trimmed = outputFileRaw.trim();
+    if (!trimmed) {
+      throw new Error('output-file must not be empty.');
+    }
+    outputFile = path.resolve(process.cwd(), trimmed);
   }
 
   // dryRun（デフォルト: false）
@@ -461,6 +518,7 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
+    outputFile,
     dryRun,
     similarityThreshold,
     agent: agent as 'auto' | 'codex' | 'claude',

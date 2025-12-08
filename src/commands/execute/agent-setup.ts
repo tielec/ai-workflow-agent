@@ -11,6 +11,52 @@ import {
   detectCodexCliAuth,
   isValidCodexApiKey,
 } from '../../core/helpers/codex-credentials.js';
+import { PhaseName } from '../../types.js';
+
+/**
+ * エージェント優先順位（Issue #306）
+ *
+ * - 'codex-first': Codex を優先的に使用し、失敗時に Claude へフォールバック
+ * - 'claude-first': Claude を優先的に使用し、失敗時に Codex へフォールバック
+ *
+ * @example
+ * // claude-first の場合
+ * // 1. Claude Agent を試行
+ * // 2. Claude 失敗時 → Codex Agent にフォールバック
+ *
+ * // codex-first の場合
+ * // 1. Codex Agent を試行
+ * // 2. Codex 失敗時 → Claude Agent にフォールバック
+ */
+export type AgentPriority = 'codex-first' | 'claude-first';
+
+/**
+ * フェーズごとのエージェント優先順位マッピング（Issue #306）
+ *
+ * `--agent auto` モード実行時に、フェーズの特性に応じて
+ * エージェントの優先順位を自動的に切り替えます。
+ *
+ * | 優先順位 | 対象フェーズ | 理由 |
+ * |---------|-------------|------|
+ * | claude-first | planning, requirements, design, test_scenario, documentation, report, evaluation | 情報整理・戦略立案・ドキュメント作成が得意 |
+ * | codex-first | implementation, test_implementation, testing | 具体的なコード実装・テスト実行が得意 |
+ *
+ * @example
+ * const priority = PHASE_AGENT_PRIORITY['planning']; // 'claude-first'
+ * const priority = PHASE_AGENT_PRIORITY['implementation']; // 'codex-first'
+ */
+export const PHASE_AGENT_PRIORITY: Record<PhaseName, AgentPriority> = {
+  planning: 'claude-first',
+  requirements: 'claude-first',
+  design: 'claude-first',
+  test_scenario: 'claude-first',
+  implementation: 'codex-first',
+  test_implementation: 'codex-first',
+  testing: 'codex-first',
+  documentation: 'claude-first',
+  report: 'claude-first',
+  evaluation: 'claude-first',
+};
 
 /**
  * API キーの最小文字数
