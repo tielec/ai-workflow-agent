@@ -233,9 +233,14 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
 
   // uncommitted changesがある場合はpullをスキップ
   const status = await gitManager.getStatus();
-  if (status.is_dirty) {
-    logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
-  } else {
+    if (status.is_dirty) {
+      logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
+      if (status.untracked_files.length > 0 || status.modified_files.length > 0) {
+        const untracked = status.untracked_files.length > 0 ? status.untracked_files.join(', ') : '(none)';
+        const modified = status.modified_files.length > 0 ? status.modified_files.join(', ') : '(none)';
+        logger.info(`Git status details -> Untracked: ${untracked} | Modified: ${modified}`);
+      }
+    } else {
     const pullResult = await gitManager.pullLatest(branchName);
     if (!pullResult.success) {
       logger.warn(`Failed to pull latest changes: ${pullResult.error ?? 'unknown error'}`);
