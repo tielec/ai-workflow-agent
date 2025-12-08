@@ -236,10 +236,9 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     if (status.is_dirty) {
       logger.info('Uncommitted changes detected. Skipping git pull to avoid conflicts.');
       if (status.untracked_files.length > 0 || status.modified_files.length > 0) {
-        const cwd = status.repo_path ?? process.cwd();
         const qualify = (fileList: string[]) =>
           fileList.length > 0
-            ? fileList.map((f) => path.resolve(cwd, f)).join(', ')
+            ? fileList.map((f) => path.resolve(repoRoot, f)).join(', ')
             : '(none)';
 
         logger.info(
