@@ -82,6 +82,12 @@ export interface IConfig {
    */
   getAnthropicApiKey(): string | null;
 
+  /**
+   * Claude モデルを取得（Claude エージェント実行用）
+   * @returns モデル名またはエイリアス、または未設定の場合は null
+   */
+  getClaudeModel(): string | null;
+
   // ========== Git関連 ==========
 
   /**
@@ -263,6 +269,11 @@ export class Config implements IConfig {
   public getAnthropicApiKey(): string | null {
     // ANTHROPIC_API_KEY のみを使用（テキスト生成用）
     return this.getEnv('ANTHROPIC_API_KEY', false);
+  }
+
+  public getClaudeModel(): string | null {
+    // CLAUDE_MODEL 環境変数（エイリアスまたはフルモデルID）
+    return this.getEnv('CLAUDE_MODEL', false);
   }
 
   // ========== Git関連 ==========

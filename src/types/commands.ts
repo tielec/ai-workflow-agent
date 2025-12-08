@@ -229,6 +229,14 @@ export interface ExecuteCommandOptions {
    * true の場合、Evaluation Phase 完了後にワークフロー開始時点からのコミットを1つにスカッシュ
    */
   squashOnComplete?: boolean;
+
+  /**
+   * Claude モデル指定（Issue #301）
+   *
+   * エイリアス（opus, sonnet, haiku）またはフルモデルIDで指定
+   * デフォルト: opus（claude-opus-4-5-20251101）
+   */
+  claudeModel?: string;
 }
 
 /**

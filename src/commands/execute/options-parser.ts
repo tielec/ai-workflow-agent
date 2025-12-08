@@ -80,6 +80,11 @@ export interface ParsedExecuteOptions {
    * ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
    */
   squashOnComplete: boolean;
+
+  /**
+   * Claude モデル指定（エイリアスまたはフルモデルID）（Issue #301）
+   */
+  claudeModel?: string;
 }
 
 /**
@@ -152,6 +157,12 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
 
   const squashOnComplete = Boolean(options.squashOnComplete);
 
+  // Claude モデルの解析（Issue #301）
+  const claudeModel =
+    typeof options.claudeModel === 'string' && options.claudeModel.trim().length > 0
+      ? options.claudeModel.trim()
+      : undefined;
+
   return {
     issueNumber,
     phaseOption,
@@ -168,6 +179,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     followupLlmMaxRetries: Number.isFinite(followupLlmMaxRetries ?? NaN) ? followupLlmMaxRetries : undefined,
     followupLlmAppendMetadata,
     squashOnComplete,
+    claudeModel,
   };
 }
 

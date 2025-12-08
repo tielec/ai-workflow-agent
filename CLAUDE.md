@@ -405,6 +405,39 @@ node dist/index.js auto-issue \
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）
 - `--agent claude`: Claude を強制使用（`CLAUDE_CODE_CREDENTIALS_PATH` が必要）
 
+### Claude モデル指定（Issue #301で追加）
+
+```bash
+# デフォルト（Opus 4.5）を使用
+node dist/index.js execute --issue 123 --phase all
+
+# Sonnet を明示的に指定
+node dist/index.js execute --issue 123 --phase all --claude-model sonnet
+
+# Haiku を明示的に指定（高速・低コスト）
+node dist/index.js execute --issue 123 --phase all --claude-model haiku
+
+# フルモデルIDで指定
+node dist/index.js execute --issue 123 --phase all --claude-model claude-opus-4-5-20251101
+
+# 環境変数でデフォルト動作を設定
+export CLAUDE_MODEL=sonnet
+node dist/index.js execute --issue 123 --phase all
+```
+
+**モデルエイリアス**:
+
+| エイリアス | 実際のモデル ID | 説明 |
+|-----------|----------------|------|
+| `opus` | `claude-opus-4-5-20251101` | **デフォルト**。最高性能、複雑なタスク向け |
+| `sonnet` | `claude-sonnet-4-20250514` | バランス型、コスト効率良好 |
+| `haiku` | `claude-haiku-3-5-20241022` | 高速・低コスト、シンプルなタスク向け |
+
+**優先順位**:
+1. CLI オプション `--claude-model`（最優先）
+2. 環境変数 `CLAUDE_MODEL`
+3. デフォルト値 `opus`（`claude-opus-4-5-20251101`）
+
 ### コミットスカッシュ（Issue #194で追加）
 ```bash
 # ワークフロー完了後にコミットをスカッシュ
@@ -686,6 +719,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 |---------|------|---------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code エージェント | **優先** |
 | `CLAUDE_CODE_API_KEY` | Claude Code エージェント | フォールバック（OAuth トークンがない場合） |
+| `CLAUDE_MODEL` | Claude モデル指定（Issue #301） | エイリアス（opus/sonnet/haiku）またはフルモデルID。デフォルト: `opus` |
 | `ANTHROPIC_API_KEY` | Anthropic API 呼び出し | テキスト生成（Follow-up Issue 生成等）に使用 |
 | `CLAUDE_CODE_CREDENTIALS_PATH` | credentials.json パス | **非推奨**、レガシーサポート |
 
