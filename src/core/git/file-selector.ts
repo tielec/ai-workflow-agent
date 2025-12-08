@@ -3,6 +3,37 @@ import type { SimpleGit } from 'simple-git';
 import type { PhaseName } from '../../types.js';
 
 /**
+ * Security-sensitive file patterns that should NEVER be committed.
+ * These patterns are checked against file paths to prevent accidental credential leaks.
+ */
+const SECURITY_EXCLUDED_PATTERNS: string[] = [
+  '.codex/auth.json',
+  '.codex/',
+  'auth.json',
+  'credentials.json',
+  '.env',
+  '.env.local',
+  '.env.production',
+  '.env.development',
+];
+
+/**
+ * Check if a file path matches any security-sensitive pattern.
+ * @param filePath - The file path to check
+ * @returns true if the file should be excluded for security reasons
+ */
+export function isSecuritySensitiveFile(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  return SECURITY_EXCLUDED_PATTERNS.some((pattern) => {
+    // Exact match or ends with pattern (for nested paths)
+    return normalizedPath === pattern ||
+      normalizedPath.endsWith(`/${pattern}`) ||
+      normalizedPath.includes(`/${pattern.replace(/\/$/, '')}/`) ||
+      normalizedPath.startsWith(pattern);
+  });
+}
+
+/**
  * FileSelector - Specialized module for file selection and filtering
  *
  * Responsibilities:
@@ -11,6 +42,7 @@ import type { PhaseName } from '../../types.js';
  * - Get phase-specific files (implementation, test_implementation, documentation)
  * - Scan directories by patterns
  * - Scan files by minimatch patterns
+ * - SECURITY: Exclude sensitive credential files from all operations
  */
 export class FileSelector {
   private readonly git: SimpleGit;
@@ -21,7 +53,9 @@ export class FileSelector {
 
   /**
    * Get changed files from git status
-   * Excludes files containing '@tmp'
+   * Excludes:
+   * - Files containing '@tmp'
+   * - Security-sensitive files (credentials, auth files, .env)
    */
   public async getChangedFiles(): Promise<string[]> {
     const status = await this.git.status();
@@ -29,7 +63,8 @@ export class FileSelector {
 
     const collect = (paths: string[] | undefined) => {
       paths?.forEach((file) => {
-        if (!file.includes('@tmp')) {
+        // SECURITY: Exclude @tmp and sensitive credential files
+        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file)) {
           aggregated.add(file);
         }
       });
@@ -42,7 +77,12 @@ export class FileSelector {
     collect(status.renamed?.map((entry) => entry.to));
     collect(status.staged);
 
-    status.files.forEach((file) => aggregated.add(file.path));
+    status.files.forEach((file) => {
+      // SECURITY: Exclude sensitive credential files
+      if (!isSecuritySensitiveFile(file.path)) {
+        aggregated.add(file.path);
+      }
+    });
 
     return Array.from(aggregated);
   }
@@ -55,13 +95,15 @@ export class FileSelector {
    * Excludes:
    * - Files containing '@tmp'
    * - Files in .ai-workflow/issue-{OTHER_NUMBER}/
+   * - Security-sensitive files (credentials, auth files, .env)
    */
   public filterPhaseFiles(files: string[], issueNumber: string): string[] {
     const targetPrefix = `.ai-workflow/issue-${issueNumber}/`;
     const result: string[] = [];
 
     for (const file of files) {
-      if (file.includes('@tmp')) {
+      // SECURITY: Exclude @tmp and sensitive credential files
+      if (file.includes('@tmp') || isSecuritySensitiveFile(file)) {
         continue;
       }
 
