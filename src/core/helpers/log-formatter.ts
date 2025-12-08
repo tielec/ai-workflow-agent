@@ -112,6 +112,23 @@ export function formatCodexLog(eventType: string, payload: CodexEvent): string {
       }
       break;
     }
+    case 'error':
+    case 'turn.failed': {
+      // エラーイベントは詳細を表示するため生のJSONを出力
+      const errorType = payload.type ?? 'error';
+      const message = payload.message ?? payload.error ?? '';
+      const code = payload.code ?? payload.error_code ?? '';
+      logs.push(`[CODEX ERROR] type=${errorType}`);
+      if (message) {
+        logs.push(`[CODEX ERROR] message=${typeof message === 'string' ? message : JSON.stringify(message)}`);
+      }
+      if (code) {
+        logs.push(`[CODEX ERROR] code=${code}`);
+      }
+      // 生のJSONも出力（デバッグ用）
+      logs.push(`[CODEX ERROR] raw=${JSON.stringify(payload)}`);
+      break;
+    }
     default: {
       // 未知のイベントタイプは簡潔に表示
       const eventType = payload.type ?? 'unknown';
