@@ -22,6 +22,7 @@ import { getErrorMessage } from '../utils/error-utils.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { AgentExecutor } from '../phases/core/agent-executor.js';
+import { detectCodexCliAuth, isValidCodexApiKey } from '../core/helpers/codex-credentials.js';
 import { glob } from 'glob';
 
 /**
@@ -618,6 +619,11 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
 
+  // Codex 認証情報のチェック（API キーまたは CLI 認証ファイル）
+  const codexApiKey = config.getCodexApiKey();
+  const { authFilePath: codexAuthFile } = detectCodexCliAuth();
+  const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || codexAuthFile !== null;
+
   if (mode === 'codex') {
     // Codex 強制
     codexClient = new CodexAgentClient();
@@ -627,10 +633,14 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
     claudeClient = new ClaudeAgentClient();
     logger.info('Using Claude agent (forced)');
   } else {
-    // auto モード: CODEX_API_KEY があれば Codex、なければ Claude
-    if (config.getCodexApiKey()) {
+    // auto モード: Codex 認証情報があれば Codex、なければ Claude
+    if (hasCodexCredentials) {
       codexClient = new CodexAgentClient();
-      logger.info('Using Codex agent (auto-selected)');
+      if (isValidCodexApiKey(codexApiKey)) {
+        logger.info('Using Codex agent (auto-selected via CODEX_API_KEY)');
+      } else {
+        logger.info('Using Codex agent (auto-selected via CODEX_AUTH_JSON)');
+      }
     } else if (config.getClaudeCodeToken()) {
       claudeClient = new ClaudeAgentClient();
       logger.info('Using Claude agent (auto-selected)');
@@ -802,29 +812,15 @@ export function parseRollbackDecision(messages: string[]): RollbackDecision {
     }
   }
 
-  // パターン2: プレーンテキストの JSON オブジェクト
-  const plainMatch = fullText.match(/\{[\s\S]*"needs_rollback"[\s\S]*\}/);
-  if (plainMatch) {
+  // パターン2: バランスの取れた JSON オブジェクトを抽出
+  const jsonObject = extractBalancedJsonObject(fullText);
+  if (jsonObject) {
     try {
-      const parsed = JSON.parse(plainMatch[0]) as RollbackDecision;
-      logger.debug('Parsed RollbackDecision from plain JSON');
+      const parsed = JSON.parse(jsonObject) as RollbackDecision;
+      logger.debug('Parsed RollbackDecision from balanced JSON extraction');
       return parsed;
     } catch (error) {
-      logger.warn(`Failed to parse plain JSON: ${getErrorMessage(error)}`);
-    }
-  }
-
-  // パターン3: ブラケット検索（最初の { から最後の } まで）
-  const firstBrace = fullText.indexOf('{');
-  const lastBrace = fullText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
-    try {
-      const jsonStr = fullText.slice(firstBrace, lastBrace + 1);
-      const parsed = JSON.parse(jsonStr) as RollbackDecision;
-      logger.debug('Parsed RollbackDecision using bracket search');
-      return parsed;
-    } catch (error) {
-      logger.warn(`Failed to parse JSON using bracket search: ${getErrorMessage(error)}`);
+      logger.warn(`Failed to parse balanced JSON: ${getErrorMessage(error)}`);
     }
   }
 
@@ -833,6 +829,55 @@ export function parseRollbackDecision(messages: string[]): RollbackDecision {
     'Failed to parse RollbackDecision from agent response. ' +
     'Expected a JSON object with "needs_rollback" field.'
   );
+}
+
+/**
+ * バランスの取れた JSON オブジェクトを抽出
+ *
+ * 最初の { から対応する } までを抽出する。
+ * ネストされた {} を正しく処理する。
+ */
+function extractBalancedJsonObject(text: string): string | null {
+  const startIndex = text.indexOf('{');
+  if (startIndex === -1) {
+    return null;
+  }
+
+  let braceCount = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') {
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          return text.slice(startIndex, i + 1);
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
