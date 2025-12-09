@@ -6,16 +6,17 @@ TypeScript CLI を Docker / Jenkins 上で実行する際に必要な認証情�
 
 | 用途 | 変数 / パス | 補足 |
 |------|-------------|------|
-| Codex API キー | `CODEX_API_KEY`（または `OPENAI_API_KEY`） | `gpt-5-codex` の高推論キー |
+| Codex API キー | `CODEX_API_KEY`（または `OPENAI_API_KEY`） | `gpt-5.1-codex-max` の高推論キー（`legacy` で旧モデルも指定可） |
 | Claude 認証情報 | `CLAUDE_CODE_CREDENTIALS_PATH`（JSON ファイル） | Claude Code CLI で取得した OAuth トークン |
 | GitHub API | `GITHUB_TOKEN` | `repo`, `workflow`, `read:org` を付与した PAT |
 | リポジトリ名 | `GITHUB_REPOSITORY` | `tielec/ai-workflow-agent` 形式 |
 
 ### Codex API キー
 
-1. Codex（`gpt-5-codex`）のヘッドレス利用用 API キーを取得します。
+1. Codex（`gpt-5.1-codex-max`、エイリアス: `max`）のヘッドレス利用用 API キーを取得します。旧デフォルト（`gpt-5-codex`）を使いたい場合は CLI 実行時に `--codex-model legacy` もしくは環境変数 `CODEX_MODEL=legacy` を設定してください。
 2. Jenkins では Job DSL パラメータとして定義します（`password` 型でマスキング表示）。
 3. 実行時に `OPENAI_API_KEY` 環境変数として設定されます。CLI 側で `CODEX_API_KEY` としても利用可能です。
+4. Jenkins / Docker ワーカーで `CODEX_MODEL` を指定すると、Codex エージェントのデフォルトモデル（`max`, `mini`, `5.1`, `legacy` など）を切り替えられます。
 
 ### Claude 認証情報
 

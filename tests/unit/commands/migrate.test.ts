@@ -9,6 +9,7 @@ import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals
 import fs from 'fs-extra';
 import path from 'node:path';
 import { glob } from 'glob';
+import type { SpiedFunction } from 'jest-mock';
 import {
   handleMigrateCommand,
   MigrationResult,
@@ -18,7 +19,9 @@ import { sanitizeGitUrl } from '../../../src/utils/git-url-utils.js';
 
 // モックの設定
 jest.mock('fs-extra');
-jest.mock('glob');
+jest.mock('glob', () => ({
+  glob: jest.fn(),
+}));
 jest.mock('../../../src/utils/logger.js', () => ({
   logger: {
     info: jest.fn(),
@@ -29,18 +32,24 @@ jest.mock('../../../src/utils/logger.js', () => ({
 }));
 jest.mock('../../../src/utils/git-url-utils.js');
 
-const mockFs = fs as jest.Mocked<typeof fs>;
-const mockGlob = glob as jest.MockedFunction<typeof glob>;
-const mockSanitizeGitUrl = sanitizeGitUrl as jest.MockedFunction<
-  typeof sanitizeGitUrl
+type AsyncMockFn<TResult = any, TArgs extends any[] = any[]> = jest.Mock<
+  (...args: TArgs) => Promise<TResult>
 >;
 
+const mockFs = fs as jest.Mocked<typeof fs>;
+const mockGlob = glob as jest.MockedFunction<typeof glob>;
+const mockSanitizeGitUrl = sanitizeGitUrl as jest.MockedFunction<typeof sanitizeGitUrl>;
+const mockLstat = mockFs.lstat as unknown as AsyncMockFn<any>;
+const mockCopy = mockFs.copy as unknown as AsyncMockFn<void>;
+const mockReadJSON = mockFs.readJSON as unknown as AsyncMockFn<any>;
+const mockWriteJSON = mockFs.writeJSON as unknown as AsyncMockFn<void>;
+
 // process.exit のモック
-const mockExit = jest
+const exitSpy: SpiedFunction<typeof process.exit> = jest
   .spyOn(process, 'exit')
   .mockImplementation((code?: string | number | null | undefined) => {
     throw new Error(`process.exit(${code})`);
-  }) as unknown as jest.SpyInstance;
+  });
 
 describe('migrate command - Unit Tests', () => {
   beforeEach(() => {
@@ -48,7 +57,7 @@ describe('migrate command - Unit Tests', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('handleMigrateCommand', () => {
@@ -63,7 +72,7 @@ describe('migrate command - Unit Tests', () => {
       await expect(handleMigrateCommand(options)).rejects.toThrow(
         'process.exit(1)'
       );
-      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
 
     it('マイグレーション処理が失敗した場合、エラーを表示して終了', async () => {
@@ -72,11 +81,11 @@ describe('migrate command - Unit Tests', () => {
         sanitizeTokens: true,
         dryRun: false,
       };
-      (mockGlob as unknown as jest.Mock).mockRejectedValue(new Error('Glob failed'));
+      mockGlob.mockRejectedValue(new Error('Glob failed'));
 
       // When/Then: process.exit(1) が呼び出される
       await expect(handleMigrateCommand(options)).rejects.toThrow();
-      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
 
@@ -93,10 +102,10 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -121,10 +130,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-2/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -152,7 +161,7 @@ describe('migrate command - Unit Tests', () => {
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
 
     it('パストラバーサル攻撃防止: 不正なパスはフィルタリング', async () => {
@@ -166,10 +175,10 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/../../etc/passwd', // 不正
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -192,10 +201,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'https://ghp_token@github.com/owner/repo.git',
         },
@@ -219,10 +228,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -243,10 +252,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {},
       });
 
@@ -265,13 +274,13 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockRejectedValue(new Error('File not found'));
+      mockLstat.mockRejectedValue(new Error('File not found'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない（続行）
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
 
     it('JSON解析失敗: null が返される', async () => {
@@ -282,16 +291,16 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      (mockFs.readJSON as jest.Mock).mockRejectedValue(new Error('Invalid JSON'));
+      mockReadJSON.mockRejectedValue(new Error('Invalid JSON'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない（続行）
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
 
     it('シンボリックリンク攻撃防止: null が返される', async () => {
@@ -302,7 +311,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => true,
       } as any);
 
@@ -323,7 +332,7 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       const mockContent = {
@@ -331,10 +340,10 @@ describe('migrate command - Unit Tests', () => {
           remote_url: 'https://ghp_token@github.com/owner/repo.git',
         },
       };
-      mockFs.readJSON.mockResolvedValue(mockContent);
+      mockReadJSON.mockResolvedValue(mockContent);
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
-      mockFs.writeJSON.mockResolvedValue(undefined);
+      mockCopy.mockResolvedValue(undefined);
+      mockWriteJSON.mockResolvedValue(undefined);
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -356,10 +365,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'https://ghp_token@github.com/owner/repo.git',
         },
@@ -383,10 +392,10 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -409,22 +418,22 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'https://ghp_token@github.com/owner/repo.git',
         },
       });
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      (mockFs.copy as unknown as jest.Mock).mockRejectedValue(new Error('Backup failed'));
+      mockCopy.mockRejectedValue(new Error('Backup failed'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない（続行）
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
 
     it('ファイル書き込み失敗: エラーログ出力', async () => {
@@ -435,23 +444,23 @@ describe('migrate command - Unit Tests', () => {
       };
       const mockFiles = ['/tmp/repo/.ai-workflow/issue-1/metadata.json'];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'https://ghp_token@github.com/owner/repo.git',
         },
       });
       mockSanitizeGitUrl.mockReturnValue('https://github.com/owner/repo.git');
-      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
-      (mockFs.writeJSON as jest.Mock).mockRejectedValue(new Error('Write failed'));
+      mockCopy.mockResolvedValue(undefined);
+      mockWriteJSON.mockRejectedValue(new Error('Write failed'));
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない（続行）
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -468,7 +477,7 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
       mockFs.readJSON
@@ -490,8 +499,8 @@ describe('migrate command - Unit Tests', () => {
       mockSanitizeGitUrl
         .mockReturnValueOnce('https://github.com/owner/repo1.git')
         .mockReturnValueOnce('https://github.com/owner/repo3.git');
-      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
-      mockFs.writeJSON.mockResolvedValue(undefined);
+      mockCopy.mockResolvedValue(undefined);
+      mockWriteJSON.mockResolvedValue(undefined);
 
       // When: マイグレーションコマンドを実行
       await handleMigrateCommand(options);
@@ -513,10 +522,10 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      mockFs.readJSON.mockResolvedValue({
+      mockReadJSON.mockResolvedValue({
         target_repository: {
           remote_url: 'git@github.com:owner/repo.git',
         },
@@ -542,10 +551,10 @@ describe('migrate command - Unit Tests', () => {
         '/tmp/repo/.ai-workflow/issue-3/metadata.json',
       ];
       mockGlob.mockResolvedValue(mockFiles);
-      (mockFs.lstat as unknown as jest.Mock).mockResolvedValue({
+      mockLstat.mockResolvedValue({
         isSymbolicLink: () => false,
       } as any);
-      (mockFs.readJSON as jest.Mock)
+      mockFs.readJSON
         .mockRejectedValueOnce(new Error('Failed to load metadata file'))
         .mockResolvedValueOnce({
           target_repository: {
@@ -560,8 +569,8 @@ describe('migrate command - Unit Tests', () => {
       mockSanitizeGitUrl
         .mockReturnValueOnce('https://github.com/owner/repo2.git')
         .mockReturnValueOnce('https://github.com/owner/repo3.git');
-      (mockFs.copy as unknown as jest.Mock).mockResolvedValue(undefined);
-      (mockFs.writeJSON as jest.Mock)
+      mockCopy.mockResolvedValue(undefined);
+      mockFs.writeJSON
         .mockRejectedValueOnce(new Error('Failed to sanitize metadata file'))
         .mockResolvedValueOnce(undefined);
 
@@ -569,7 +578,7 @@ describe('migrate command - Unit Tests', () => {
       await handleMigrateCommand(options);
 
       // Then: エラーで終了しない（続行）
-      expect(mockExit).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
       // 1つのファイルは正常にサニタイズされる
       expect(mockFs.writeJSON).toHaveBeenCalled();
     });
@@ -619,4 +628,8 @@ describe('migrate command - Unit Tests', () => {
       expect(true).toBe(true);
     });
   });
+});
+
+afterAll(() => {
+  exitSpy.mockRestore();
 });

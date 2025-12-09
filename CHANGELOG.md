@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #302**: Codex モデル選択オプションの追加と gpt-5.1-codex-max へのデフォルト更新
+  - 新しい CLI オプション `--codex-model <model>` を追加（エイリアスまたはフルモデルIDで指定可能）
+  - 新しい環境変数 `CODEX_MODEL` のサポート（CLI オプションより低優先度）
+  - デフォルトモデルを `gpt-5-codex` から `gpt-5.1-codex-max` に変更
+  - モデルエイリアス機能: `max`（gpt-5.1-codex-max）、`mini`（gpt-5.1-codex-mini）、`5.1`（gpt-5.1）、`legacy`（gpt-5-codex）
+  - 優先順位: CLI オプション > 環境変数 > デフォルト値
+  - 後方互換性: `--codex-model legacy` または `CODEX_MODEL=legacy` で旧モデル使用可能
+  - テストカバレッジ: 30件のユニットテスト（resolveCodexModel、CODEX_MODEL_ALIASES、DEFAULT_CODEX_MODEL）
+  - ドキュメント更新: README.md / DOCKER_AUTH_SETUP.md / SETUP_TYPESCRIPT.md / TROUBLESHOOTING.md / CLAUDE.md で CLI オプション、環境変数、エイリアスの使い分けと優先順位を説明
 - **Issue #257**: auto-issue CLI に `--output-file` オプションを追加
   - 実行結果を JSON 形式でファイルに出力する機能
   - `execution`（実行メタデータ）、`summary`（集計）、`issues`（Issue詳細）の3セクション構造

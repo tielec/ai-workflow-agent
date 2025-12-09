@@ -17,6 +17,53 @@ interface ExecuteTaskOptions {
 
 const DEFAULT_MAX_TURNS = 50;
 
+/**
+ * Default Codex model for agent execution.
+ * gpt-5.1-codex-max is optimized for long-running agent tasks.
+ */
+export const DEFAULT_CODEX_MODEL = 'gpt-5.1-codex-max';
+
+/**
+ * Codex model aliases for user-friendly model selection.
+ */
+export const CODEX_MODEL_ALIASES: Record<string, string> = {
+  max: 'gpt-5.1-codex-max', // Default, for complex multi-step projects
+  mini: 'gpt-5.1-codex-mini', // Lightweight, cost-effective
+  '5.1': 'gpt-5.1', // General-purpose
+  legacy: 'gpt-5-codex', // Legacy (backward compatibility)
+};
+
+/**
+ * Resolve a model alias or ID to the actual model ID.
+ *
+ * Priority: alias resolution → passthrough (full model ID)
+ * If input is null/undefined/empty, returns DEFAULT_CODEX_MODEL.
+ *
+ * @param modelOrAlias - Model alias (max, mini, 5.1, legacy) or full model ID
+ * @returns Resolved model ID
+ *
+ * @example
+ * resolveCodexModel('max')           // → 'gpt-5.1-codex-max'
+ * resolveCodexModel('MINI')          // → 'gpt-5.1-codex-mini' (case-insensitive)
+ * resolveCodexModel('gpt-5.1-codex') // → 'gpt-5.1-codex' (passthrough)
+ * resolveCodexModel(undefined)       // → 'gpt-5.1-codex-max' (default)
+ */
+export function resolveCodexModel(modelOrAlias: string | undefined | null): string {
+  if (!modelOrAlias || !modelOrAlias.trim()) {
+    return DEFAULT_CODEX_MODEL;
+  }
+
+  const normalized = modelOrAlias.toLowerCase().trim();
+
+  // Check if it's an alias
+  if (CODEX_MODEL_ALIASES[normalized]) {
+    return CODEX_MODEL_ALIASES[normalized];
+  }
+
+  // Return as-is (assume it's a full model ID)
+  return modelOrAlias;
+}
+
 export class CodexAgentClient {
   private readonly workingDir: string;
   private readonly binaryPath: string;

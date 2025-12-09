@@ -1,12 +1,16 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { Octokit } from '@octokit/rest';
 import { IssueClient, IssueCreationResult } from '../../../src/core/github/issue-client.js';
-import { IssueAgentGenerator, type GeneratedIssue, type FollowUpContext } from '../../../src/core/github/issue-agent-generator.js';
+import {
+  IssueAgentGenerator,
+  type GeneratedIssue,
+  type FollowUpContext,
+} from '../../../src/core/github/issue-agent-generator.js';
 import type { RemainingTask, IssueGenerationOptions, IssueContext } from '../../../src/types.js';
+import { createMockOctokit } from '../../helpers/mock-octokit.js';
 
 describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', () => {
   let issueClient: IssueClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
   let mockAgentGenerator: jest.Mocked<IssueAgentGenerator>;
 
   const NORMAL_REMAINING_TASKS: RemainingTask[] = [
@@ -28,13 +32,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
   };
 
   beforeEach(() => {
-    // Create mock Octokit instance
-    const createFn = jest.fn() as jest.MockedFunction<any>;
-    mockOctokit = {
-      issues: {
-        create: createFn,
-      },
-    } as unknown as jest.Mocked<Octokit>;
+    mockOctokit = createMockOctokit();
 
     // Create mock IssueAgentGenerator
     mockAgentGenerator = {
@@ -43,7 +41,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
 
     // Create IssueClient with agent generator
     issueClient = new IssueClient(
-      mockOctokit,
+      mockOctokit.client,
       'owner',
       'repo',
       null, // issueAIGenerator
@@ -71,8 +69,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         html_url: 'https://github.com/owner/repo/issues/456',
       };
 
-      // @ts-expect-error - Mock setup requires any type
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const options: IssueGenerationOptions = {
         enabled: true,
@@ -129,8 +126,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         html_url: 'https://github.com/owner/repo/issues/456',
       };
 
-      // @ts-expect-error - Mock setup requires any type
-      (mockOctokit.issues.create as unknown as jest.Mock).mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
 
       const options: IssueGenerationOptions = {
         enabled: true,
@@ -271,7 +267,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
     it('IssueClient_tryGenerateWithAgent_異常系_Generator未設定', async () => {
       // Given: IssueClient without agent generator
       const issueClientWithoutAgent = new IssueClient(
-        mockOctokit,
+        mockOctokit.client,
         'owner',
         'repo',
         null, // issueAIGenerator

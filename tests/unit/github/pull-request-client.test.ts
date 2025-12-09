@@ -1,28 +1,25 @@
-import { Octokit } from '@octokit/rest';
+import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
 import { RequestError } from '@octokit/request-error';
-import { PullRequestClient, PullRequestSummary, PullRequestResult, GenericResult } from '../../../src/core/github/pull-request-client.js';
+import {
+  PullRequestClient,
+  PullRequestSummary,
+  PullRequestResult,
+  GenericResult,
+} from '../../../src/core/github/pull-request-client.js';
+import { createMockOctokit } from '../../helpers/mock-octokit.js';
 
 describe('PullRequestClient', () => {
   let pullRequestClient: PullRequestClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
 
   beforeEach(() => {
-    // Create mock Octokit instance
-    mockOctokit = {
-      pulls: {
-        create: jest.fn(),
-        list: jest.fn(),
-        update: jest.fn(),
-      },
-      issues: {
-        createComment: jest.fn(),
-      },
-      search: {
-        issuesAndPullRequests: jest.fn(),
-      },
-    } as unknown as jest.Mocked<Octokit>;
-
-    pullRequestClient = new PullRequestClient(mockOctokit, 'owner', 'repo', 'owner/repo');
+    mockOctokit = createMockOctokit();
+    pullRequestClient = new PullRequestClient(
+      mockOctokit.client,
+      'owner',
+      'repo',
+      'owner/repo',
+    );
   });
 
   afterEach(() => {
@@ -268,7 +265,7 @@ describe('PullRequestClient', () => {
       mockOctokit.pulls.list.mockRejectedValue(mockError);
 
       // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       // When: Check for existing PR
       const result = await pullRequestClient.checkExistingPr('feature/test', 'main');
@@ -327,7 +324,7 @@ describe('PullRequestClient', () => {
       mockOctokit.pulls.update.mockRejectedValue(mockError);
 
       // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Attempt to update PR
       const result = await pullRequestClient.updatePullRequest(10, 'new body');
@@ -350,7 +347,7 @@ describe('PullRequestClient', () => {
       mockOctokit.pulls.update.mockResolvedValue({ data: {} } as any);
 
       // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
 
       // When: Close PR with reason
       const result: GenericResult = await pullRequestClient.closePullRequest(
@@ -406,7 +403,7 @@ describe('PullRequestClient', () => {
       mockOctokit.pulls.update.mockRejectedValue(mockError);
 
       // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Attempt to close PR
       const result = await pullRequestClient.closePullRequest(10);
@@ -465,7 +462,7 @@ describe('PullRequestClient', () => {
       mockOctokit.search.issuesAndPullRequests.mockRejectedValue(mockError);
 
       // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       // When: Attempt to search
       const result = await pullRequestClient.getPullRequestNumber(24);

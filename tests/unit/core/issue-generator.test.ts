@@ -13,19 +13,18 @@ import type {
   EnhancementProposal,
   RefactorCandidate,
 } from '../../../src/types/auto-issue.js';
-import { Octokit } from '@octokit/rest';
 import { jest } from '@jest/globals';
+import { createMockOctokit } from '../../helpers/mock-octokit.js';
 
 // モック設定
 jest.mock('../../../src/core/codex-agent-client.js');
 jest.mock('../../../src/core/claude-agent-client.js');
-jest.mock('@octokit/rest');
 jest.mock('../../../src/utils/logger.js');
 
 describe('IssueGenerator', () => {
   let mockCodexClient: jest.Mocked<CodexAgentClient>;
   let mockClaudeClient: jest.Mocked<ClaudeAgentClient>;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
   let generator: IssueGenerator;
 
   const repositoryName = 'owner/repo';
@@ -42,15 +41,15 @@ describe('IssueGenerator', () => {
     } as unknown as jest.Mocked<ClaudeAgentClient>;
 
     // Octokit のモック - jest.fn()を使用して型安全なモック作成
-    const mockCreate = jest.fn();
-    mockOctokit = {
-      issues: {
-        create: mockCreate,
-      },
-    } as unknown as jest.Mocked<Octokit>;
+    mockOctokit = createMockOctokit();
 
     // IssueGenerator インスタンス作成
-    generator = new IssueGenerator(mockCodexClient, mockClaudeClient, mockOctokit, repositoryName);
+    generator = new IssueGenerator(
+      mockCodexClient,
+      mockClaudeClient,
+      mockOctokit.client,
+      repositoryName,
+    );
   });
 
   afterEach(() => {

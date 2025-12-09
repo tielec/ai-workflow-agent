@@ -7,7 +7,7 @@ AI Workflow Agent リポジトリで開発するための環境構築手順で�
 - Node.js 20.x（nvm または公式インストーラで導入）
 - npm 10.x
 - Git
-- Codex API キー（`gpt-5-codex` 高推論ライセンス）
+- Codex API キー（`gpt-5.1-codex-max` 高推論ライセンス。旧モデルは `legacy` エイリアスで指定可能）
 - Claude Code 認証情報（`claude login` で生成される `credentials.json`）
 - GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org` スコープ）
 - （任意）Docker Desktop（Jenkins コンテナと同条件で動作確認したい場合）
@@ -28,6 +28,7 @@ npm run build   # dist/ に成果物を生成
 
 ```bash
 export CODEX_API_KEY="sk-code-..."                    # Codex API キー
+export CODEX_MODEL="max"                              # （任意）Codex モデル（max|mini|5.1|legacy など）
 export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json"
 export GITHUB_TOKEN="ghp_..."                         # GitHub PAT
 export GITHUB_REPOSITORY="tielec/ai-workflow-agent"   # 既定のリポジトリ

@@ -4,7 +4,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 
 ## 特長
 
-- **Codex + Claude のデュアルエージェント** … Codex（`gpt-5-codex`）で高い推論が必要な編集を担当し、状況に応じて自動で Claude にフォールバックします。
+- **Codex + Claude のデュアルエージェント** … Codex（`gpt-5.1-codex-max`）で高い推論が必要な編集を担当し、状況に応じて自動で Claude にフォールバックします。
 - **決定的なプロンプト管理** … すべてのプロンプトテンプレートは `src/prompts/{phase}` に配置され、ビルド時に `dist` へコピーされます。
 - **永続化されたワークフロー状態** … `.ai-workflow/issue-*/metadata.json` へメタデータを保存する `MetadataManager` により、途中再開やコスト集計が可能です。
 - **マルチリポジトリ対応** … Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行できます（v0.2.0 で追加）。
@@ -94,6 +94,8 @@ ai-workflow execute \
   [--cleanup-on-complete-force] \
   [--squash-on-complete] \
   [--no-squash-on-complete] \
+  [--codex-model <model>] \
+  [--claude-model <model>] \
   [--requirements-doc <path>] [...] \
   [--git-user <name>] [--git-email <email>] \
   [--followup-llm-mode auto|openai|claude|off] \
@@ -185,8 +187,38 @@ Git 命名規則に従わないブランチ名はエラーになります：
 ### エージェントモード
 
 - `auto`（既定）: Codex API キーがあれば Codex を使用し、なければ Claude にフォールバックします。
-- `codex`: Codex のみを使用（`gpt-5-codex`）。Claude 認証情報は無視されます。
+- `codex`: Codex のみを使用（デフォルト: `gpt-5.1-codex-max`）。Claude 認証情報は無視されます。`--codex-model` オプションでモデル変更可能。
 - `claude`: Claude Code を強制使用。`CLAUDE_CODE_CREDENTIALS_PATH` が必須です。
+
+### Codex モデル選択（Issue #302で追加）
+
+Codex エージェントのモデルを CLI オプションまたは環境変数で指定できます。
+
+```bash
+# デフォルト（gpt-5.1-codex-max）を使用
+node dist/index.js execute --issue 123 --phase all
+
+# エイリアスでモデルを指定
+node dist/index.js execute --issue 123 --phase all --codex-model mini
+
+# フルモデルIDで指定
+node dist/index.js execute --issue 123 --phase all --codex-model gpt-5.1-codex-max
+
+# 環境変数でデフォルト動作を設定
+export CODEX_MODEL=mini
+node dist/index.js execute --issue 123 --phase all
+```
+
+**モデルエイリアス**:
+
+| エイリアス | 実際のモデルID | 説明 |
+|-----------|---------------|------|
+| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間エージェントタスク向け |
+| `mini` | `gpt-5.1-codex-mini` | 軽量・経済的 |
+| `5.1` | `gpt-5.1` | 汎用モデル |
+| `legacy` | `gpt-5-codex` | レガシー（後方互換性） |
+
+**優先順位**: CLI オプション `--codex-model` > 環境変数 `CODEX_MODEL` > デフォルト値 `gpt-5.1-codex-max`
 
 ### プリセット
 
@@ -990,7 +1022,7 @@ ai-workflow auto-issue \
   - **注意**: バグ検出時のみ有効（リファクタリング検出時は無視されます）
 - `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
   - `auto`（デフォルト）: Codex優先、なければClaudeにフォールバック
-  - `codex`: Codexのみ使用（`gpt-5-codex`）
+  - `codex`: Codexのみ使用（デフォルト: `gpt-5.1-codex-max`、`CODEX_MODEL` で上書き可能）
   - `claude`: Claude Code強制使用
 - `--creative-mode`: 創造的・実験的な提案を有効化（`enhancement` カテゴリのみ有効）
   - より野心的で革新的な機能拡張アイデアを生成

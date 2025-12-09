@@ -439,7 +439,7 @@ describe('CommitManager - SecretMasker Integration', () => {
     );
 
     // Spy on console.error
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     // When: commitPhaseOutput を呼び出す
     const result = await commitManager.commitPhaseOutput(

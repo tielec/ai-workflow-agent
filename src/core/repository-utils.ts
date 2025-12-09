@@ -147,7 +147,7 @@ export async function findWorkflowMetadata(
 
   // 4. すべての候補で見つからない場合はエラー
   throw new Error(
-    `Workflow metadata for issue ${issueNumber} not found.\nPlease run init first or check the issue number.`,
+    `Workflow not found for issue ${issueNumber}. Please run init first or check the issue number.`,
   );
 }
 

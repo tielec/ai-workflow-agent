@@ -63,6 +63,35 @@ node dist/index.js execute --issue <NUM> --preset <PRESET_NAME>
 node dist/index.js list-presets
 ```
 
+### Codex モデル選択（Issue #302で追加）
+
+Codex エージェントは `gpt-5.1-codex-max` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。
+
+```bash
+# CLI オプションでエイリアスを指定
+node dist/index.js execute --issue 302 --phase implementation --codex-model mini
+
+# 環境変数でデフォルト値を切り替え（CLI指定があればそちらを優先）
+export CODEX_MODEL=legacy
+node dist/index.js execute --issue 302 --phase documentation
+```
+
+**優先順位**:
+- CLI オプション `--codex-model <alias|model>` が最優先
+- 環境変数 `CODEX_MODEL=<alias|model>` は CLI 未指定時に使用
+- どちらも未指定の場合は `gpt-5.1-codex-max` を使用
+
+**モデルエイリアス**（`CODEX_MODEL_ALIASES` 定数で定義）:
+
+| エイリアス | 実際のモデルID | 用途 |
+|-----------|---------------|------|
+| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間・高負荷タスク向け |
+| `mini` | `gpt-5.1-codex-mini` | 軽量／コスト重視の検証タスク |
+| `5.1` | `gpt-5.1` | 汎用プロンプト向け |
+| `legacy` | `gpt-5-codex` | 旧デフォルトとの後方互換性 |
+
+フルモデルIDを指定した場合はエイリアス解決をスキップしてそのまま渡されるため、新しい Codex リリースにも即応できます。`legacy` エイリアスを使えば既存の `gpt-5-codex` 固定ワークフローを破壊せずに動作確認が可能です。
+
 ### フェーズ差し戻し（v0.4.0、Issue #90で追加）
 ```bash
 # ワークフローを前のフェーズに差し戻し（直接理由を指定）
@@ -465,6 +494,40 @@ node dist/index.js execute --issue 123 --phase all
 1. CLI オプション `--claude-model`（最優先）
 2. 環境変数 `CLAUDE_MODEL`
 3. デフォルト値 `opus`（`claude-opus-4-5-20251101`）
+
+### Codex モデル指定（Issue #302で追加）
+
+```bash
+# デフォルト（gpt-5.1-codex-max）を使用
+node dist/index.js execute --issue 123 --phase all
+
+# mini モデルを明示的に指定（軽量・経済的）
+node dist/index.js execute --issue 123 --phase all --codex-model mini
+
+# レガシーモデルを使用（後方互換性）
+node dist/index.js execute --issue 123 --phase all --codex-model legacy
+
+# フルモデルIDで指定
+node dist/index.js execute --issue 123 --phase all --codex-model gpt-5.1-codex-max
+
+# 環境変数でデフォルト動作を設定
+export CODEX_MODEL=mini
+node dist/index.js execute --issue 123 --phase all
+```
+
+**モデルエイリアス**:
+
+| エイリアス | 実際のモデル ID | 説明 |
+|-----------|----------------|------|
+| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間エージェントタスク向けに最適化 |
+| `mini` | `gpt-5.1-codex-mini` | 軽量・経済的 |
+| `5.1` | `gpt-5.1` | 汎用モデル |
+| `legacy` | `gpt-5-codex` | レガシー（後方互換性） |
+
+**優先順位**:
+1. CLI オプション `--codex-model`（最優先）
+2. 環境変数 `CODEX_MODEL`
+3. デフォルト値 `max`（`gpt-5.1-codex-max`）
 
 ### コミットスカッシュ（Issue #194で追加）
 ```bash

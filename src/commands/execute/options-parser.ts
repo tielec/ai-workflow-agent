@@ -85,6 +85,11 @@ export interface ParsedExecuteOptions {
    * Claude モデル指定（エイリアスまたはフルモデルID）（Issue #301）
    */
   claudeModel?: string;
+
+  /**
+   * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
+   */
+  codexModel?: string;
 }
 
 /**
@@ -163,6 +168,12 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
       ? options.claudeModel.trim()
       : undefined;
 
+  // Codex モデルの解析（Issue #302）
+  const codexModel =
+    typeof options.codexModel === 'string' && options.codexModel.trim().length > 0
+      ? options.codexModel.trim()
+      : undefined;
+
   return {
     issueNumber,
     phaseOption,
@@ -180,6 +191,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     followupLlmAppendMetadata,
     squashOnComplete,
     claudeModel,
+    codexModel,
   };
 }
 

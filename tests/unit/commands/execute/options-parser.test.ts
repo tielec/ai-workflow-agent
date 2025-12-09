@@ -429,3 +429,145 @@ describe('parseExecuteOptions - エッジケース', () => {
     expect(result.phaseOption).toBe('all');
   });
 });
+
+// =============================================================================
+// parseExecuteOptions - codexModel オプション（Issue #302）
+// =============================================================================
+
+describe('parseExecuteOptions - codexModel オプション（Issue #302）', () => {
+  test('codexModel オプションが正しくパースされる', () => {
+    // Given: codexModel オプションが 'mini' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: 'mini',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が 'mini' である
+    expect(result.codexModel).toBe('mini');
+  });
+
+  test('codexModel 未指定で undefined になる', () => {
+    // Given: codexModel オプションが指定されない
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が undefined である
+    expect(result.codexModel).toBeUndefined();
+  });
+
+  test('codexModel 空文字列で undefined になる', () => {
+    // Given: codexModel オプションが空文字列 '' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: '',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が undefined である
+    expect(result.codexModel).toBeUndefined();
+  });
+
+  test('codexModel 空白文字列で undefined になる', () => {
+    // Given: codexModel オプションが空白のみの文字列 '   ' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: '   ',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が undefined である
+    expect(result.codexModel).toBeUndefined();
+  });
+
+  test('codexModel がトリムされる', () => {
+    // Given: codexModel オプションが前後に空白を含む ' max ' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: ' max ',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が 'max' である（トリムされる）
+    expect(result.codexModel).toBe('max');
+  });
+
+  test('codexModel フルモデルIDが正しくパースされる', () => {
+    // Given: codexModel オプションがフルモデルID 'gpt-5.1-codex-max' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: 'gpt-5.1-codex-max',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が 'gpt-5.1-codex-max' である
+    expect(result.codexModel).toBe('gpt-5.1-codex-max');
+  });
+
+  test('codexModel と claudeModel が両方指定できる', () => {
+    // Given: codexModel と claudeModel の両方が指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: 'mini',
+      claudeModel: 'opus',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: 両方が正しくパースされる
+    expect(result.codexModel).toBe('mini');
+    expect(result.claudeModel).toBe('opus');
+  });
+
+  test('codexModel legacy エイリアスが正しくパースされる', () => {
+    // Given: codexModel オプションが 'legacy' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: 'legacy',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が 'legacy' である
+    expect(result.codexModel).toBe('legacy');
+  });
+
+  test('codexModel 5.1 エイリアスが正しくパースされる', () => {
+    // Given: codexModel オプションが '5.1' で指定される
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      codexModel: '5.1',
+    };
+
+    // When: parseExecuteOptions を呼び出す
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    // Then: result.codexModel が '5.1' である
+    expect(result.codexModel).toBe('5.1');
+  });
+});

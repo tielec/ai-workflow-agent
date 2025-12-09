@@ -88,6 +88,12 @@ export interface IConfig {
    */
   getClaudeModel(): string | null;
 
+  /**
+   * Codex モデルを取得（Codex エージェント実行用）
+   * @returns モデル名またはエイリアス、または未設定の場合は null
+   */
+  getCodexModel(): string | null;
+
   // ========== Git関連 ==========
 
   /**
@@ -274,6 +280,11 @@ export class Config implements IConfig {
   public getClaudeModel(): string | null {
     // CLAUDE_MODEL 環境変数（エイリアスまたはフルモデルID）
     return this.getEnv('CLAUDE_MODEL', false);
+  }
+
+  public getCodexModel(): string | null {
+    // CODEX_MODEL 環境変数（エイリアスまたはフルモデルID）
+    return this.getEnv('CODEX_MODEL', false);
   }
 
   // ========== Git関連 ==========

@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
-import { Octokit } from '@octokit/rest';
 import { IssueClient, IssueCreationResult } from '../../src/core/github/issue-client.js';
 import { IssueAgentGenerator, type FollowUpContext, type GeneratedIssue } from '../../src/core/github/issue-agent-generator.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { RemainingTask, IssueGenerationOptions, IssueContext } from '../../src/types.js';
+import { createMockOctokit } from '../helpers/mock-octokit.js';
 
 /**
  * Integration tests for agent-based FOLLOW-UP Issue generation (Issue #174)
@@ -105,7 +105,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
   let claudeClient: ClaudeMock;
   let agentGenerator: IssueAgentGenerator;
   let issueClient: IssueClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
   let tempFilePath: string;
 
   beforeEach(() => {
@@ -113,18 +113,14 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
     claudeClient = createClaudeMock();
     agentGenerator = new IssueAgentGenerator(codexClient, claudeClient);
 
-    mockOctokit = {
-      issues: {
-        create: jest.fn(),
-      },
-    } as unknown as jest.Mocked<Octokit>;
+    mockOctokit = createMockOctokit();
 
     issueClient = new IssueClient(
-      mockOctokit,
+      mockOctokit.client,
       'owner',
       'repo',
-      null, // issueAIGenerator
-      agentGenerator, // issueAgentGenerator
+      null,
+      agentGenerator,
     );
 
     tempFilePath = '';
