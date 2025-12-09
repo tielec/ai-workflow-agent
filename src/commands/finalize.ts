@@ -292,8 +292,13 @@ async function createGitHubClient(metadataManager: MetadataManager): Promise<Git
     throw new Error('target_repository not found in metadata');
   }
 
-  // GitHubClient は環境変数から自動的に認証情報を取得する
-  const githubClient = new GitHubClient();
+  // owner/repo 形式のリポジトリ名を構築
+  const repositoryName = `${targetRepo.owner}/${targetRepo.repo}`;
+  logger.debug(`Initializing GitHubClient for repository: ${repositoryName}`);
+
+  // GitHubClient を対象リポジトリで初期化
+  // token は環境変数から自動取得、repository を明示的に指定
+  const githubClient = new GitHubClient(null, repositoryName);
   return githubClient;
 }
 
