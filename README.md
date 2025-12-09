@@ -1423,18 +1423,15 @@ ISSUE_URL: "https://github.com/owner/repo/issues/123"
 ROLLBACK_TO_PHASE: "implementation"
 ROLLBACK_TO_STEP: "revise"  // execute | review | revise
 ROLLBACK_REASON: "Testing Phaseで失敗。モック実装が不完全"
-AUTO_MODEL_SELECTION: true  // 自動モデル選択
 
 // Finalize モード
 ISSUE_URL: "https://github.com/owner/repo/issues/123"
-AUTO_MODEL_SELECTION: true  // 自動モデル選択
 
 // Auto Issue モード
 GITHUB_REPOSITORY: "owner/repo"
 AUTO_ISSUE_CATEGORY: "bug"  // bug | refactor | enhancement | all
 AUTO_ISSUE_LIMIT: 5
 AUTO_ISSUE_SIMILARITY_THRESHOLD: 0.75
-AUTO_MODEL_SELECTION: true  // 自動モデル選択（auto-issue用）
 DRY_RUN: false
 ```
 
