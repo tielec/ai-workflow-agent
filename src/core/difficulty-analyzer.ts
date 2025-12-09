@@ -176,10 +176,12 @@ export class DifficultyAnalyzer {
           }
         }
 
-        const messageContent = this.extractTextBlocks(parsed);
+        // TypeScript: parsed は object 型なので Record<string, unknown> にキャスト
+        const record = parsed as Record<string, unknown>;
+        const messageContent = this.extractTextBlocks(record);
         textCandidates.push(...messageContent);
-        if (typeof parsed.result === 'string') {
-          textCandidates.push(parsed.result);
+        if (typeof record.result === 'string') {
+          textCandidates.push(record.result);
         }
       } else {
         textCandidates.push(raw);
