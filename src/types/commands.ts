@@ -17,6 +17,8 @@ export type PhaseContext = {
   ignoreDependencies: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
   issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
+  modelOptimizer?: import('../core/model-optimizer.js').ModelOptimizer | null;
+  modelOverrides?: import('../core/model-optimizer.js').ModelOverrides;
   squashOnComplete?: boolean; // ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
   issueNumber?: number; // Issue番号（Issue #194: スカッシュ時のメッセージ生成に使用）
   issueInfo?: { title?: string; body?: string }; // Issue情報（Issue #194: スカッシュ時のメッセージ生成に使用）

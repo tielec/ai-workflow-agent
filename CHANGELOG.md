@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #363**: Issue難易度に基づくエージェントモデル自動選択機能
+  - 新しい CLI オプション `--auto-model-selection` を `init` コマンドに追加
+  - **難易度分析エンジン（DifficultyAnalyzer）**: Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（simple, moderate, complex）を判定
+    - Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）でJSON形式の分析結果を取得
+    - 失敗時は安全側フォールバックとして `complex` を設定
+  - **モデル最適化エンジン（ModelOptimizer）**: 難易度×フェーズ×ステップのマッピングに基づいて最適なモデルを自動選択
+    - 難易度別デフォルトマッピング:
+      - `simple`: 全ステップで軽量モデル（Sonnet/Mini）
+      - `moderate`: planning/requirements/design/test_scenario/evaluation は execute=Opus/Max, review/revise=Sonnet/Mini、implementation/test_implementation/testing は revise も Opus/Max、documentation/report は全ステップ Sonnet/Mini
+      - `complex`: execute/reviseは高品質（Opus/Max）、reviewは軽量（Sonnet/Mini）
+    - **reviewステップは常に軽量モデル**: 難易度に関係なく Sonnet/Mini を使用し、CLI/ENV オーバーライドは review には適用しない（コスト最適化）
+  - **優先順位**: CLI `--codex-model`/`--claude-model` > 環境変数 `CODEX_MODEL`/`CLAUDE_MODEL` > metadata.json > デフォルトマッピング
+  - **後方互換性**: `--auto-model-selection` 未指定時は従来動作（Opus/Max固定）を維持
+  - **新規ファイル**:
+    - `src/core/difficulty-analyzer.ts`: 難易度分析モジュール
+    - `src/core/model-optimizer.ts`: モデル最適化モジュール
+    - `src/prompts/difficulty/analyze.txt`: 難易度分析プロンプトテンプレート
+  - **修正ファイル**:
+    - `src/commands/init.ts`: `--auto-model-selection` オプション追加、分析結果をmetadata.jsonに保存
+    - `src/commands/execute.ts`: ModelOptimizerをコンテキストに注入
+    - `src/phases/base-phase.ts`: ステップ開始前にモデルを解決しAgentExecutorへ反映
+    - `src/phases/core/agent-executor.ts`: ステップ単位のモデル指定を適用
+    - `src/core/metadata-manager.ts`: `difficulty_analysis`と`model_config`の保存・取得を追加
+  - テストカバレッジ: 32件のユニット/インテグレーションテスト（100%成功）
+
 - **Issue #302**: Codex モデル選択オプションの追加と gpt-5.1-codex-max へのデフォルト更新
   - 新しい CLI オプション `--codex-model <model>` を追加（エイリアスまたはフルモデルIDで指定可能）
   - 新しい環境変数 `CODEX_MODEL` のサポート（CLI オプションより低優先度）

@@ -15,6 +15,38 @@ export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 // Issue #10: ステップ名の型定義
 export type StepName = 'execute' | 'review' | 'revise';
 
+export type DifficultyLevel = 'simple' | 'moderate' | 'complex';
+
+export interface DifficultyAnalysisResult {
+  level: DifficultyLevel;
+  confidence: number;
+  factors: {
+    estimated_file_changes: number;
+    scope: 'single_file' | 'single_module' | 'multiple_modules' | 'cross_cutting';
+    requires_tests: boolean;
+    requires_architecture_change: boolean;
+    complexity_score: number;
+  };
+  analyzed_at: string;
+  analyzer_agent: 'claude' | 'codex';
+  analyzer_model: string;
+}
+
+export interface StepModelConfig {
+  claudeModel: 'opus' | 'sonnet';
+  codexModel: 'max' | 'mini';
+}
+
+export interface PhaseModelConfig {
+  execute: StepModelConfig;
+  review: StepModelConfig;
+  revise: StepModelConfig;
+}
+
+export type ModelConfigByPhase = {
+  [phase in PhaseName]?: PhaseModelConfig;
+};
+
 export interface PhaseMetadata {
   status: PhaseStatus;
   retry_count: number;
@@ -221,6 +253,14 @@ export interface WorkflowMetadata {
   base_commit?: string | null;                 // ワークフロー開始時のコミットハッシュ（init時に記録）
   pre_squash_commits?: string[] | null;        // スカッシュ前のコミットハッシュリスト（ロールバック用）
   squashed_at?: string | null;                 // スカッシュ完了時のタイムスタンプ（ISO 8601形式）
+  /**
+   * 難易度分析結果（auto-model-selection 有効時に設定）
+   */
+  difficulty_analysis?: DifficultyAnalysisResult | null;
+  /**
+   * フェーズ別のモデル設定（auto-model-selection 有効時に設定）
+   */
+  model_config?: ModelConfigByPhase | null;
 }
 
 export interface PhaseExecutionResult {

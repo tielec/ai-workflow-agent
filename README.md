@@ -81,7 +81,8 @@ node dist/index.js execute --phase all --issue 123
 ```bash
 ai-workflow init \
   --issue-url <URL> \
-  [--branch <name>]
+  [--branch <name>] \
+  [--auto-model-selection]
 
 ai-workflow execute \
   --issue <number> \
@@ -189,6 +190,93 @@ Git 命名規則に従わないブランチ名はエラーになります：
 - `auto`（既定）: Codex API キーがあれば Codex を使用し、なければ Claude にフォールバックします。
 - `codex`: Codex のみを使用（デフォルト: `gpt-5.1-codex-max`）。Claude 認証情報は無視されます。`--codex-model` オプションでモデル変更可能。
 - `claude`: Claude Code を強制使用。`CLAUDE_CODE_CREDENTIALS_PATH` が必須です。
+
+### モデル自動選択機能（Issue #363で追加）
+
+`--auto-model-selection` オプションを `init` コマンドで指定すると、Issueの難易度に基づいて各フェーズ・ステップで使用するモデルを自動的に最適化します。
+
+```bash
+# 難易度分析を有効にしてワークフローを初期化
+node dist/index.js init \
+  --issue-url https://github.com/owner/repo/issues/123 \
+  --auto-model-selection
+
+# 通常通りワークフローを実行（モデルが自動選択される）
+node dist/index.js execute --phase all --issue 123
+```
+
+**難易度分析**:
+
+Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度を判定します:
+
+| 難易度 | 説明 | 例 |
+|--------|------|-----|
+| `simple` | 軽微な修正、タイポ修正、小さなバグ修正 | ドキュメント更新、定数値の変更 |
+| `moderate` | 中程度の複雑さ、既存機能の拡張 | 新規オプション追加、軽微なリファクタリング |
+| `complex` | 大規模な変更、新機能、アーキテクチャ変更 | 新規モジュール追加、複雑なバグ修正 |
+
+**モデルマッピング**:
+
+難易度とフェーズに応じて、各ステップで使用するモデルが自動的に選択されます:
+
+- `simple`: 全フェーズで execute/review/revise ともに Sonnet / Mini
+- `moderate`:
+  - planning / requirements / design / test_scenario / evaluation: execute=Opus/Max, review=Sonnet/Mini, revise=Sonnet/Mini
+  - implementation / test_implementation / testing: execute=Opus/Max, review=Sonnet/Mini, revise=Opus/Max
+  - documentation / report: execute/review/revise ともに Sonnet/Mini
+- `complex`: 全フェーズで execute/revise が Opus/Max、review が Sonnet/Mini
+
+**重要**: `review` ステップは難易度に関係なく常に軽量モデル（Sonnet/Mini）を使用します。これはレビュー処理が比較的単純であり、コスト最適化のためです。
+
+**優先順位**:
+
+モデル選択の優先順位は以下の通りです（上が優先）:
+
+1. CLI オプション（`--codex-model`、`--claude-model`）
+2. 環境変数（`CODEX_MODEL`、`CLAUDE_MODEL`）
+3. metadata.json に保存された `model_config`（`--auto-model-selection` で生成）
+4. デフォルトマッピング
+
+※ `review` ステップは上記の優先順位に関係なく軽量モデル固定です（オーバーライドを指定しても review には適用されません）。
+
+**後方互換性**:
+
+`--auto-model-selection` を指定しない場合、従来通りすべてのステップで高品質モデル（Opus/Max）が使用されます。
+
+**metadata.json への保存**:
+
+難易度分析結果と生成されたモデル設定は `metadata.json` に保存され、execute コマンド実行時に参照されます:
+
+```json
+{
+  "difficulty_analysis": {
+    "level": "moderate",
+    "confidence": 0.85,
+    "factors": {
+      "estimated_file_changes": 6,
+      "scope": "single_module",
+      "requires_tests": true,
+      "requires_architecture_change": false,
+      "complexity_score": 0.62
+    },
+    "analyzed_at": "2025-01-20T10:30:00Z",
+    "analyzer_agent": "claude",
+    "analyzer_model": "sonnet"
+  },
+  "model_config": {
+    "planning": {
+      "execute": { "claudeModel": "opus", "codexModel": "max" },
+      "review": { "claudeModel": "sonnet", "codexModel": "mini" },
+      "revise": { "claudeModel": "sonnet", "codexModel": "mini" }
+    },
+    "implementation": {
+      "execute": { "claudeModel": "opus", "codexModel": "max" },
+      "review": { "claudeModel": "sonnet", "codexModel": "mini" },
+      "revise": { "claudeModel": "opus", "codexModel": "max" }
+    }
+  }
+}
+```
 
 ### Codex モデル選択（Issue #302で追加）
 

@@ -36,6 +36,8 @@ export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext)
     ignoreDependencies: context.ignoreDependencies,
     presetPhases: context.presetPhases,
     issueGenerationOptions: context.issueGenerationOptions,
+    modelOptimizer: context.modelOptimizer,
+    modelOverrides: context.modelOverrides,
   };
 
   // フェーズ名に応じてインスタンスを生成

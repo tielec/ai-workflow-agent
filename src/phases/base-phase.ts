@@ -13,6 +13,7 @@ import {
   PhaseName,
   PhaseStatus,
   PhaseMetadata,
+  StepName,
   type IssueGenerationOptions,
   type WorkflowMetadata,
 } from '../types.js';
@@ -26,6 +27,7 @@ import { StepExecutor } from './lifecycle/step-executor.js';
 import { PhaseRunner } from './lifecycle/phase-runner.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { PHASE_AGENT_PRIORITY } from '../commands/execute/agent-setup.js';
+import { ModelOptimizer, ModelOverrides } from '../core/model-optimizer.js';
 
 // PhaseRunOptions を BasePhase から export（Issue #49）
 export interface PhaseRunOptions {
@@ -50,6 +52,8 @@ export type BasePhaseConstructorParams = {
   ignoreDependencies?: boolean;
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
   issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
+  modelOptimizer?: ModelOptimizer | null;
+  modelOverrides?: ModelOverrides;
 };
 
 export type PhaseInitializationParams = Omit<BasePhaseConstructorParams, 'phaseName'>;
@@ -66,6 +70,8 @@ export abstract class BasePhase {
   protected readonly presetPhases: PhaseName[] | undefined; // プリセット実行時のフェーズリスト（Issue #396）
   protected readonly contentParser: ContentParser;
   protected readonly issueGenerationOptions: IssueGenerationOptions;
+  protected readonly modelOptimizer: ModelOptimizer | null;
+  protected readonly modelOverrides: ModelOverrides | undefined;
 
   protected readonly phaseDir: string;
   protected readonly outputDir: string;
@@ -112,6 +118,30 @@ export abstract class BasePhase {
       return this.getActiveAgent().getWorkingDirectory();
     } catch {
       return this.workingDir;
+    }
+  }
+
+  private async runWithStepModel<T>(step: StepName, fn: () => Promise<T>): Promise<T> {
+    this.applyModelForStep(step);
+    return fn();
+  }
+
+  private applyModelForStep(step: StepName): void {
+    if (!this.agentExecutor || !this.modelOptimizer) {
+      return;
+    }
+
+    try {
+      const resolved = this.modelOptimizer.resolveModel(this.phaseName, step, this.modelOverrides);
+      this.agentExecutor.updateModelConfig(resolved);
+      logger.info(
+        `Phase ${this.phaseName}: models for ${step} -> Claude=${resolved.claudeModel}, Codex=${resolved.codexModel}`
+      );
+    } catch (error) {
+      logger.warn(
+        `Phase ${this.phaseName}: Failed to resolve model for ${step}: ${getErrorMessage(error)}`
+      );
+      this.agentExecutor.updateModelConfig(null);
     }
   }
 
@@ -166,6 +196,8 @@ export abstract class BasePhase {
     this.issueGenerationOptions = params.issueGenerationOptions
       ? { ...params.issueGenerationOptions }
       : { enabled: false, provider: 'auto' };
+    this.modelOptimizer = params.modelOptimizer ?? null;
+    this.modelOverrides = params.modelOverrides;
 
     const phaseNumber = this.getPhaseNumber(this.phaseName);
     // Issue #274: REPOS_ROOT が設定されている場合は動的にパスを解決
@@ -227,13 +259,19 @@ export abstract class BasePhase {
         this.phaseName,
         this.metadata,
         this.reviewCycleManager,
-        async () => this.execute(),
-        async () => this.review(),
+        async () => this.runWithStepModel('execute', () => this.execute()),
+        async () => this.runWithStepModel('review', () => this.review()),
         async () => this.shouldRunReview()
       );
     }
 
     if (!this.phaseRunner) {
+      const reviseHandler = this.getReviseFunction();
+      const wrappedRevise =
+        reviseHandler !== null
+          ? (feedback: string) => this.runWithStepModel('revise', () => reviseHandler(feedback))
+          : null;
+
       this.phaseRunner = new PhaseRunner(
         this.phaseName,
         this.metadata,
@@ -242,7 +280,7 @@ export abstract class BasePhase {
         this.skipDependencyCheck,
         this.ignoreDependencies,
         this.presetPhases,
-        this.getReviseFunction()
+        wrappedRevise
       );
     }
 
@@ -707,7 +745,7 @@ export abstract class BasePhase {
         };
       }
 
-      const reviseResult = await reviseFunction(feedback);
+      const reviseResult = await this.runWithStepModel('revise', () => reviseFunction(feedback));
 
       return reviseResult;
     } catch (error) {
