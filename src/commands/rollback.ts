@@ -804,9 +804,10 @@ export function parseRollbackDecision(messages: string[]): RollbackDecision {
   const markdownMatch = fullText.match(/```json\s*\n([\s\S]*?)\n```/);
   if (markdownMatch) {
     try {
-      const parsed = JSON.parse(markdownMatch[1]) as RollbackDecision;
+      const parsed = JSON.parse(markdownMatch[1]) as Record<string, unknown>;
+      const normalized = normalizeRollbackDecision(parsed);
       logger.debug('Parsed RollbackDecision from markdown code block');
-      return parsed;
+      return normalized;
     } catch (error) {
       logger.warn(`Failed to parse JSON from markdown block: ${getErrorMessage(error)}`);
     }
@@ -816,9 +817,10 @@ export function parseRollbackDecision(messages: string[]): RollbackDecision {
   const jsonObject = extractBalancedJsonObject(fullText);
   if (jsonObject) {
     try {
-      const parsed = JSON.parse(jsonObject) as RollbackDecision;
+      const parsed = JSON.parse(jsonObject) as Record<string, unknown>;
+      const normalized = normalizeRollbackDecision(parsed);
       logger.debug('Parsed RollbackDecision from balanced JSON extraction');
-      return parsed;
+      return normalized;
     } catch (error) {
       logger.warn(`Failed to parse balanced JSON: ${getErrorMessage(error)}`);
     }
@@ -878,6 +880,25 @@ function extractBalancedJsonObject(text: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * RollbackDecision を正規化
+ *
+ * LLM の応答で文字列 "true"/"false" がブール値として返されることがあるため、
+ * 適切な型に変換する。
+ */
+function normalizeRollbackDecision(raw: Record<string, unknown>): RollbackDecision {
+  const decision = { ...raw } as unknown as RollbackDecision;
+
+  // needs_rollback を正規化（文字列 "true"/"false" をブール値に変換）
+  if (typeof decision.needs_rollback === 'string') {
+    const strValue = (decision.needs_rollback as string).toLowerCase().trim();
+    decision.needs_rollback = strValue === 'true';
+    logger.debug(`Normalized needs_rollback from string "${strValue}" to boolean ${decision.needs_rollback}`);
+  }
+
+  return decision;
 }
 
 /**
