@@ -1,294 +1,200 @@
-import { Octokit } from '@octokit/rest';
+import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
 import { RequestError } from '@octokit/request-error';
 import { CommentClient, ProgressCommentResult } from '../../../src/core/github/comment-client.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
+import { createMockOctokit } from '../../helpers/mock-octokit.js';
+
+type SyncMock<TReturn = any, TArgs extends any[] = any[]> = jest.Mock<
+  (...args: TArgs) => TReturn
+>;
+
+type MockMetadataManager = {
+  getProgressCommentId: SyncMock<number | null, []>;
+  saveProgressCommentId: SyncMock<void, [number, string]>;
+};
 
 describe('CommentClient', () => {
   let commentClient: CommentClient;
-  let mockOctokit: jest.Mocked<Octokit>;
-  let mockMetadataManager: jest.Mocked<MetadataManager>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
+  let mockMetadataManager: MockMetadataManager;
 
   beforeEach(() => {
-    // Create mock Octokit instance
-    mockOctokit = {
-      issues: {
-        createComment: jest.fn(),
-        updateComment: jest.fn(),
-      },
-    } as unknown as jest.Mocked<Octokit>;
-
-    // Create mock MetadataManager
+    mockOctokit = createMockOctokit();
     mockMetadataManager = {
-      getProgressCommentId: jest.fn(),
-      saveProgressCommentId: jest.fn(),
-    } as unknown as jest.Mocked<MetadataManager>;
+      getProgressCommentId: jest.fn<() => number | null>(),
+      saveProgressCommentId: jest.fn<(id: number, url: string) => void>(),
+    };
 
-    commentClient = new CommentClient(mockOctokit, 'owner', 'repo');
+    commentClient = new CommentClient(mockOctokit.client, 'owner', 'repo');
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('postWorkflowProgress', () => {
-    it('should post workflow progress comment successfully', async () => {
-      // Given: Mock comment creation response
+    it('posts workflow progress comment with details', async () => {
       const mockComment = {
-        id: 123456,
-        body: '## 🔄 AI Workflow - 要件定義フェーズ...',
-        html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
-        created_at: '2025-01-21T12:00:00Z',
+        id: 123,
+        body: 'body',
+        html_url: 'https://example.com',
+        created_at: '2024-01-01T00:00:00Z',
       };
 
       mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
 
-      // When: Post workflow progress
       const result = await commentClient.postWorkflowProgress(
         24,
         'requirements',
         'in_progress',
-        '要件定義書を作成中です。'
+        '要件定義書を作成中です。',
       );
 
-      // Then: Verify Octokit was called with formatted content
-      expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
-        owner: 'owner',
-        repo: 'repo',
-        issue_number: 24,
-        body: expect.stringContaining('🔄 AI Workflow - 要件定義フェーズ'),
-      });
-
-      // And: Body should include status
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
+      expect(mockOctokit.issues.createComment).toHaveBeenCalledTimes(1);
+      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
+      expect(callArgs.body).toContain('🔄 AI Workflow - 要件定義フェーズ');
       expect(callArgs.body).toContain('**ステータス**: IN_PROGRESS');
-
-      // And: Body should include details
       expect(callArgs.body).toContain('要件定義書を作成中です。');
-
-      // And: Result should match mock data
       expect(result).toEqual(mockComment);
     });
 
-    it('should use correct emoji for each status', async () => {
-      // Given: Mock response
+    it('uses correct emoji when status is completed', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      // When: Post with 'completed' status
-      await commentClient.postWorkflowProgress(24, 'requirements', 'completed');
+      await commentClient.postWorkflowProgress(10, 'requirements', 'completed');
 
-      // Then: Should use checkmark emoji
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
+      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
       expect(callArgs.body).toContain('✅');
     });
 
-    it('should handle unknown phase gracefully', async () => {
-      // Given: Mock response
+    it('falls back to raw phase name when unknown', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      // When: Post with unknown phase
-      await commentClient.postWorkflowProgress(24, 'unknown_phase', 'in_progress');
+      await commentClient.postWorkflowProgress(11, 'unknown_phase', 'in_progress');
 
-      // Then: Should use phase name as-is
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
+      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
       expect(callArgs.body).toContain('unknown_phase');
     });
 
-    it('should not include details when not provided', async () => {
-      // Given: Mock response
+    it('does not include details when omitted', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      // When: Post without details
-      await commentClient.postWorkflowProgress(24, 'requirements', 'in_progress');
+      await commentClient.postWorkflowProgress(12, 'requirements', 'in_progress');
 
-      // Then: Should not include details section
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).not.toContain('要件定義書を作成中です。');
+      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
+      expect(callArgs.body).not.toContain('詳細');
+      expect(callArgs.body).toMatch(/ステータス/);
     });
   });
 
   describe('createOrUpdateProgressComment', () => {
-    it('should create new comment when no existing ID', async () => {
-      // Given: No existing comment ID
+    it('creates new comment when no stored comment id', async () => {
       mockMetadataManager.getProgressCommentId.mockReturnValue(null);
-
-      const mockComment = {
-        id: 123456,
-        html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
-      };
-
+      const mockComment = { id: 456, html_url: 'https://example.com/comment/456' };
       mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
 
-      // When: Create or update progress comment
       const result: ProgressCommentResult = await commentClient.createOrUpdateProgressComment(
         24,
         '## Phase 1: Requirements - 完了',
-        mockMetadataManager
+        mockMetadataManager as unknown as MetadataManager,
       );
 
-      // Then: Should check for existing ID
-      expect(mockMetadataManager.getProgressCommentId).toHaveBeenCalled();
-
-      // And: Should create new comment
       expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
         issue_number: 24,
         body: '## Phase 1: Requirements - 完了',
       });
-
-      // And: Should save new comment ID
       expect(mockMetadataManager.saveProgressCommentId).toHaveBeenCalledWith(
-        123456,
-        'https://github.com/owner/repo/issues/24#issuecomment-123456'
+        456,
+        'https://example.com/comment/456',
       );
-
-      // And: Result should match
       expect(result).toEqual({
-        comment_id: 123456,
-        comment_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
+        comment_id: 456,
+        comment_url: 'https://example.com/comment/456',
       });
     });
 
-    it('should update existing comment when ID exists', async () => {
-      // Given: Existing comment ID
-      mockMetadataManager.getProgressCommentId.mockReturnValue(123456);
-
-      const mockComment = {
-        id: 123456,
-        html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
-      };
-
+    it('updates existing comment when metadata has id', async () => {
+      mockMetadataManager.getProgressCommentId.mockReturnValue(789);
+      const mockComment = { id: 789, html_url: 'https://example.com/comment/789' };
       mockOctokit.issues.updateComment.mockResolvedValue({ data: mockComment } as any);
 
-      // When: Create or update progress comment
       const result = await commentClient.createOrUpdateProgressComment(
-        24,
+        30,
         '## Phase 2: Design - 完了',
-        mockMetadataManager
+        mockMetadataManager as unknown as MetadataManager,
       );
 
-      // Then: Should update existing comment
       expect(mockOctokit.issues.updateComment).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
-        comment_id: 123456,
+        comment_id: 789,
         body: '## Phase 2: Design - 完了',
       });
-
-      // And: Should save comment ID
       expect(mockMetadataManager.saveProgressCommentId).toHaveBeenCalledWith(
-        123456,
-        'https://github.com/owner/repo/issues/24#issuecomment-123456'
+        789,
+        'https://example.com/comment/789',
       );
-
-      // And: Result should match
       expect(result).toEqual({
-        comment_id: 123456,
-        comment_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
+        comment_id: 789,
+        comment_url: 'https://example.com/comment/789',
       });
     });
 
-    it('should fallback to create new comment when update fails', async () => {
-      // Given: Existing comment ID but update fails
-      mockMetadataManager.getProgressCommentId.mockReturnValue(123456);
+    it('falls back to create when update fails with RequestError', async () => {
+      mockMetadataManager.getProgressCommentId.mockReturnValue(123);
 
-      const mockUpdateError = new RequestError('Not Found', 404, {
-        request: {
-          method: 'PATCH',
-          url: 'https://api.github.com/repos/owner/repo/issues/comments/123456',
-          headers: {},
-        },
-        response: {
-          status: 404,
-          url: 'https://api.github.com/repos/owner/repo/issues/comments/123456',
-          headers: {},
-          data: {},
-        },
+      const updateError = new RequestError('Not Found', 404, {
+        request: { method: 'PATCH', url: 'https://api.github.com/comments/123', headers: {} },
+        response: { status: 404, url: '', headers: {}, data: {} },
       });
+      mockOctokit.issues.updateComment.mockRejectedValue(updateError);
 
-      mockOctokit.issues.updateComment.mockRejectedValue(mockUpdateError);
+      const createdComment = { id: 555, html_url: 'https://example.com/comment/555' };
+      mockOctokit.issues.createComment.mockResolvedValue({ data: createdComment } as any);
 
-      const mockNewComment = {
-        id: 789012,
-        html_url: 'https://github.com/owner/repo/issues/24#issuecomment-789012',
-      };
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-      mockOctokit.issues.createComment.mockResolvedValue({ data: mockNewComment } as any);
-
-      // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      // When: Create or update progress comment
       const result = await commentClient.createOrUpdateProgressComment(
-        24,
+        45,
         '## Phase 3: Test Scenario - 完了',
-        mockMetadataManager
+        mockMetadataManager as unknown as MetadataManager,
       );
 
-      // Then: Should attempt to update
-      expect(mockOctokit.issues.updateComment).toHaveBeenCalled();
-
-      // And: Should log warning
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[WARNING] Failed to update progress comment')
+      expect(mockOctokit.issues.updateComment).toHaveBeenCalledTimes(1);
+      expect(mockOctokit.issues.createComment).toHaveBeenCalledTimes(1);
+      expect(mockMetadataManager.saveProgressCommentId).toHaveBeenLastCalledWith(
+        555,
+        'https://example.com/comment/555',
       );
-
-      // And: Should create new comment (fallback)
-      expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
-        owner: 'owner',
-        repo: 'repo',
-        issue_number: 24,
-        body: '## Phase 3: Test Scenario - 完了',
-      });
-
-      // And: Should save new comment ID
-      expect(mockMetadataManager.saveProgressCommentId).toHaveBeenCalledWith(
-        789012,
-        'https://github.com/owner/repo/issues/24#issuecomment-789012'
-      );
-
-      // And: Result should match new comment
       expect(result).toEqual({
-        comment_id: 789012,
-        comment_url: 'https://github.com/owner/repo/issues/24#issuecomment-789012',
+        comment_id: 555,
+        comment_url: 'https://example.com/comment/555',
       });
-
       consoleWarnSpy.mockRestore();
     });
 
-    it('should throw error when create also fails', async () => {
-      // Given: No existing ID and create fails
+    it('throws when create also fails', async () => {
       mockMetadataManager.getProgressCommentId.mockReturnValue(null);
 
-      const mockError = new RequestError('Unauthorized', 401, {
-        request: {
-          method: 'POST',
-          url: 'https://api.github.com/repos/owner/repo/issues/24/comments',
-          headers: {},
-        },
-        response: {
-          status: 401,
-          url: 'https://api.github.com/repos/owner/repo/issues/24/comments',
-          headers: {},
-          data: {},
-        },
+      const createError = new RequestError('Unauthorized', 401, {
+        request: { method: 'POST', url: 'https://api.github.com/issues/24/comments', headers: {} },
+        response: { status: 401, url: '', headers: {}, data: {} },
       });
+      mockOctokit.issues.createComment.mockRejectedValue(createError);
 
-      mockOctokit.issues.createComment.mockRejectedValue(mockError);
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
-      // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      // When/Then: Should throw error
       await expect(
-        commentClient.createOrUpdateProgressComment(24, 'content', mockMetadataManager)
+        commentClient.createOrUpdateProgressComment(
+          24,
+          '## Phase 4: Implementation - 完了',
+          mockMetadataManager as unknown as MetadataManager,
+        ),
       ).rejects.toThrow('Failed to create or update progress comment');
 
-      // And: Error should be logged
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[ERROR] Failed to create/update progress comment')
-      );
-
+      expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
     });
   });

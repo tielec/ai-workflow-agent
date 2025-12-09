@@ -186,6 +186,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   // 5. エージェント初期化（agent-setup に委譲）
   const { codexClient, claudeClient } = setupAgentClients(agentMode, workingDir, credentials, {
     claudeModel: parsedOptions.claudeModel,
+    codexModel: parsedOptions.codexModel,
   });
 
   if (!codexClient && !claudeClient) {

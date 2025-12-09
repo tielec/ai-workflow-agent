@@ -649,68 +649,34 @@ export class ContentParser {
     logger.warn('Using fallback pattern matching for evaluation decision.');
 
     try {
-      // Step 1: FAIL_PHASE_ の場合は専用パターンで抽出
-      const failPhasePatterns = [
-        // DECISION: FAIL_PHASE_4 または FAIL_PHASE_implementation
-        /DECISION:\s*FAIL_PHASE_(\d+)/i,
-        /DECISION:\s*FAIL_PHASE_([a-z_]+)/i,
-        // FAILED_PHASE: implementation (別の行で指定されている場合)
-        /FAILED_PHASE:\s*([a-z_]+)/i,
-        // Rework Phase 5 / Re-run Phase 6 のような表現
-        /(?:Rework|Re-?run|Fix)\s+Phase\s*(\d+)/i,
-        // Phase 5 (test_implementation) needs rework
-        /Phase\s*(\d+)\s*\([^)]+\)\s*(?:needs?|requires?)\s+(?:rework|fix)/i,
-      ];
+      const decision = this.extractDecisionToken(content);
+      const result: EvaluationDecisionResult = {
+        success: true,
+        decision,
+      };
 
-      // まず FAIL_PHASE_ パターンをチェック
-      const decisionMatch = content.match(/DECISION:\s*FAIL_PHASE/i);
-      if (decisionMatch) {
-        let failedPhase: string | null = null;
-
-        for (const pattern of failPhasePatterns) {
-          const match = content.match(pattern);
-          if (match) {
-            failedPhase = match[1].trim();
-            break;
-          }
-        }
-
+      if (decision.startsWith('FAIL_PHASE')) {
+        const failedPhase = this.extractFailedPhase(content, decision);
         if (failedPhase) {
-          const mappedPhase = this.mapPhaseKey(failedPhase);
-          if (mappedPhase) {
-            const decision = `FAIL_PHASE_${mappedPhase.toUpperCase()}`;
-            logger.info(`Fallback extracted decision: ${decision}, failedPhase: ${mappedPhase}`);
-            return { success: true, decision, failedPhase: mappedPhase };
-          }
+          result.failedPhase = failedPhase;
         }
-
-        // フェーズ名が特定できない場合でも FAIL_PHASE_ として返す（後続で処理）
-        logger.warn('FAIL_PHASE_ detected but phase name could not be extracted.');
-        return { success: true, decision: 'FAIL_PHASE_UNKNOWN' };
       }
 
-      // Step 2: 通常の判定パターン
-      const patterns = [
-        /DECISION:\s*([A-Z_]+)/i,
-        /\*\*総合評価\*\*.*?\*\*([A-Z_]+)\*\*/i,
-        /(?:判定|決定|結果)[:：]\s*\**([A-Z_]+)\**/i,
-      ];
-
-      let match: RegExpMatchArray | null = null;
-      for (const pattern of patterns) {
-        match = content.match(pattern);
-        if (match) break;
+      if (decision === 'PASS_WITH_ISSUES') {
+        const remainingTasks = this.extractRemainingTasks(content);
+        if (remainingTasks.length > 0) {
+          result.remainingTasks = remainingTasks;
+        }
       }
 
-      if (!match) {
-        logger.warn('No decision pattern matched in fallback. Defaulting to PASS.');
-        return { success: true, decision: 'PASS' };
+      if (decision === 'ABORT') {
+        const abortReason = this.extractAbortReason(content);
+        if (abortReason) {
+          result.abortReason = abortReason;
+        }
       }
 
-      const decision = match[1].trim().toUpperCase();
-      logger.info(`Fallback extracted decision: ${decision}`);
-
-      return { success: true, decision };
+      return result;
     } catch (error) {
       const message = getErrorMessage(error);
       return {
@@ -718,6 +684,127 @@ export class ContentParser {
         error: `判定解析中にエラー: ${message}`,
       };
     }
+  }
+
+  private extractDecisionToken(content: string): string {
+    const primaryMatch = content.match(/DECISION:\s*([A-Z0-9_]+)/i);
+    if (primaryMatch?.[1]) {
+      const decision = primaryMatch[1].trim().toUpperCase();
+      logger.info(`Fallback extracted decision: ${decision}`);
+      return decision;
+    }
+
+    const patterns = [
+      /\*\*総合評価\*\*.*?\*\*([A-Z_]+)\*\*/i,
+      /(?:判定|決定|結果)[:：]\s*\**([A-Z_]+)\**/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match?.[1]) {
+        const decision = match[1].trim().toUpperCase();
+        logger.info(`Fallback extracted decision: ${decision}`);
+        return decision;
+      }
+    }
+
+    logger.warn('No decision pattern matched in fallback. Defaulting to PASS.');
+    return 'PASS';
+  }
+
+  private extractFailedPhase(content: string, decision: string): PhaseName | null {
+    const token = decision.replace(/^FAIL_PHASE_/, '');
+    const mappedFromDecision = this.mapPhaseKey(token);
+    if (mappedFromDecision) {
+      return mappedFromDecision;
+    }
+
+    const failPhasePatterns = [
+      /FAILED_PHASE:\s*([a-z_]+)/i,
+      /(?:Rework|Re-?run|Fix)\s+Phase\s*(\d+)/i,
+      /Phase\s*(\d+)\s*\([^)]+\)\s*(?:needs?|requires?)\s+(?:rework|fix)/i,
+      /DECISION:\s*FAIL_PHASE_([a-z_]+)/i,
+      /DECISION:\s*FAIL_PHASE_(\d+)/i,
+    ];
+
+    for (const pattern of failPhasePatterns) {
+      const match = content.match(pattern);
+      if (match?.[1]) {
+        const mapped = this.mapPhaseKey(match[1].trim());
+        if (mapped) {
+          logger.info(`Fallback extracted failed phase: ${mapped}`);
+          return mapped;
+        }
+      }
+    }
+
+    logger.warn('FAIL_PHASE detected but phase name could not be extracted.');
+    return null;
+  }
+
+  private extractRemainingTasks(content: string): RemainingTask[] {
+    const lines = content.split(/\r?\n/);
+    const startIndex = lines.findIndex((line) => /REMAINING_TASKS/i.test(line));
+    if (startIndex === -1) {
+      return [];
+    }
+
+    const tasks: RemainingTask[] = [];
+    for (let i = startIndex + 1; i < lines.length; i += 1) {
+      const rawLine = lines[i];
+      const trimmed = rawLine.trim();
+      if (!trimmed) {
+        if (tasks.length > 0) {
+          break;
+        }
+        continue;
+      }
+
+      if (/^[A-Z][A-Z0-9 _-]*:/.test(trimmed) && !trimmed.startsWith('-')) {
+        break;
+      }
+
+      if (trimmed.startsWith('-')) {
+        const taskText = trimmed.replace(/^-\s*(\[[xX ]\]\s*)?/, '').trim();
+        if (taskText) {
+          tasks.push({
+            task: taskText,
+            phase: 'general',
+            priority: 'Medium',
+          });
+        }
+      }
+    }
+
+    return tasks;
+  }
+
+  private extractAbortReason(content: string): string | null {
+    const lines = content.split(/\r?\n/);
+    const startIndex = lines.findIndex((line) => /ABORT_REASON/i.test(line));
+    if (startIndex === -1) {
+      return null;
+    }
+
+    const reasonLines: string[] = [];
+    for (let i = startIndex + 1; i < lines.length; i += 1) {
+      const rawLine = lines[i];
+      const trimmed = rawLine.trim();
+      if (!trimmed && reasonLines.length > 0) {
+        break;
+      }
+
+      if (/^[A-Z][A-Z0-9 _-]*:/.test(trimmed) && reasonLines.length > 0) {
+        break;
+      }
+
+      if (trimmed) {
+        reasonLines.push(trimmed);
+      }
+    }
+
+    const reason = reasonLines.join('\n').trim();
+    return reason.length > 0 ? reason : null;
   }
 
   private mapPhaseKey(phaseKey: string): PhaseName | null {

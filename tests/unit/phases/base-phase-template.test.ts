@@ -1,20 +1,14 @@
-import { jest } from '@jest/globals';
+import { jest, beforeAll } from '@jest/globals';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import path from 'node:path';
 import type * as FsExtra from 'fs-extra';
+import type { PhaseExecutionResult } from '../../../src/types.js';
 
 // jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
 // 重要: このモックは BasePhase インポート**より前**に定義する必要がある
 const mockFs: DeepMockProxy<typeof FsExtra> = mockDeep<typeof FsExtra>();
 jest.unstable_mockModule('fs-extra', () => mockFs);
 
-// モジュールを動的インポート（モック後）
-const { BasePhase } = await import('../../../src/phases/base-phase.js');
-const { MetadataManager } = await import('../../../src/core/metadata-manager.js');
-const { GitHubClient } = await import('../../../src/core/github-client.js');
-const { PhaseExecutionResult } = await import('../../../src/types.js');
-const path = await import('node:path');
-
-// BasePhaseConstructorParams型定義（動的インポートのため再定義）
 type BasePhaseConstructorParams = {
   phaseName: string;
   workingDir: string;
@@ -23,36 +17,38 @@ type BasePhaseConstructorParams = {
   skipDependencyCheck?: boolean;
 };
 
-/**
- * テスト用の BasePhase サブクラス
- * executePhaseTemplate() を public にアクセス可能にする
- */
-class TestPhase extends BasePhase {
-  constructor(params: BasePhaseConstructorParams) {
-    super(params);
+let TestPhaseCtor: any;
+
+beforeAll(async () => {
+  const { BasePhase } = await import('../../../src/phases/base-phase.js');
+
+  class TestPhase extends BasePhase {
+    constructor(params: BasePhaseConstructorParams) {
+      super(params);
+    }
+
+    public async testExecutePhaseTemplate<T extends Record<string, string>>(
+      phaseOutputFile: string,
+      templateVariables: T,
+      options?: { maxTurns?: number; verbose?: boolean; logDir?: string }
+    ): Promise<PhaseExecutionResult> {
+      return this.executePhaseTemplate(phaseOutputFile, templateVariables, options);
+    }
+
+    protected async execute(): Promise<PhaseExecutionResult> {
+      return { success: true };
+    }
+
+    protected async review(): Promise<PhaseExecutionResult> {
+      return { success: true };
+    }
   }
 
-  // executePhaseTemplate() を public にするラッパー
-  public async testExecutePhaseTemplate<T extends Record<string, string>>(
-    phaseOutputFile: string,
-    templateVariables: T,
-    options?: { maxTurns?: number; verbose?: boolean; logDir?: string }
-  ): Promise<PhaseExecutionResult> {
-    return this.executePhaseTemplate(phaseOutputFile, templateVariables, options);
-  }
-
-  // 抽象メソッドの実装（ダミー）
-  protected async execute(): Promise<PhaseExecutionResult> {
-    return { success: true };
-  }
-
-  protected async review(): Promise<PhaseExecutionResult> {
-    return { success: true };
-  }
-}
+  TestPhaseCtor = TestPhase;
+});
 
 describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
-  let testPhase: TestPhase;
+  let testPhase: any;
   let mockMetadata: any;
   let mockGithub: any;
   const testWorkingDir = '/test/workspace';
@@ -87,7 +83,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
     mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
 
     // TestPhase インスタンス作成
-    testPhase = new TestPhase({
+    testPhase = new TestPhaseCtor({
       phaseName: 'requirements',
       workingDir: testWorkingDir,
       metadataManager: mockMetadata,

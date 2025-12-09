@@ -14,6 +14,7 @@ import {
   PhaseStatus,
   PhaseMetadata,
   type IssueGenerationOptions,
+  type WorkflowMetadata,
 } from '../types.js';
 import { LogFormatter } from './formatters/log-formatter.js';
 import { ProgressFormatter } from './formatters/progress-formatter.js';
@@ -125,8 +126,12 @@ export abstract class BasePhase {
    */
   private resolveWorkflowBaseDir(): string {
     const reposRoot = config.getReposRoot();
-    const repoName = this.metadata.data.target_repository?.repo;
-    const issueNumber = this.metadata.data.issue_number;
+    const metadataData = (this.metadata as MetadataManager & { data?: WorkflowMetadata }).data;
+    const repoName = metadataData?.target_repository?.repo;
+    const issueNumber = metadataData?.issue_number;
+    const fallbackDir =
+      (this.metadata as { workflowDir?: string }).workflowDir ??
+      path.join(process.cwd(), '.ai-workflow', `issue-${issueNumber ?? 'unknown'}`);
 
     if (reposRoot && repoName && issueNumber) {
       const reposRootPath = path.join(reposRoot, repoName);
@@ -138,7 +143,13 @@ export abstract class BasePhase {
     }
 
     // フォールバック: metadata.workflowDir を使用
-    return this.metadata.workflowDir;
+    if (!metadataData) {
+      logger.debug('Metadata data is not available when resolving workflow base dir. Using fallback.');
+    }
+    if (!((this.metadata as { workflowDir?: string }).workflowDir)) {
+      logger.debug('metadata.workflowDir is missing. Falling back to workingDir-based path.');
+    }
+    return fallbackDir;
   }
 
   constructor(params: BasePhaseConstructorParams) {

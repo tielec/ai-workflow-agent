@@ -46,7 +46,7 @@ nvm use --lts
 
 ### `exceeded retry limit, last status: 401 Unauthorized`
 
-- `CODEX_API_KEY`（または `OPENAI_API_KEY`）が `gpt-5-codex` の高推論キーか確認します。
+- `CODEX_API_KEY`（または `OPENAI_API_KEY`）がデフォルトの `gpt-5.1-codex-max`（エイリアス: `max`）に対応した高推論キーか確認します。旧モデルしか利用できない場合は CLI 実行時に `--codex-model legacy` を付与するか、環境変数 `CODEX_MODEL=legacy` を設定してください。
 - 旧来の `auth.json` は使用せず、API キーのみを渡してください。
 - CLI の疎通チェック:
   ```bash

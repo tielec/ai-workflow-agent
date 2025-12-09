@@ -1,17 +1,42 @@
 import { Octokit } from '@octokit/rest';
+import { jest } from '@jest/globals';
 import { ReviewClient } from '../../../src/core/github/review-client.js';
 
 describe('ReviewClient', () => {
+  type CreateCommentParams = Parameters<Octokit['issues']['createComment']>[0];
+  type CreateCommentResponse = Awaited<ReturnType<Octokit['issues']['createComment']>>;
+
   let reviewClient: ReviewClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: Octokit;
+  let createCommentMock: jest.MockedFunction<Octokit['issues']['createComment']>;
+  const getCreateCommentArgs = (): Required<CreateCommentParams> => {
+    const call = createCommentMock.mock.calls[0];
+    const args = call?.[0];
+    if (!args) {
+      throw new Error('createCommentMock was not called');
+    }
+    return args as Required<CreateCommentParams>;
+  };
+
+  const getCreateCommentBody = (): string => {
+    const args = getCreateCommentArgs();
+    if (!args) {
+      throw new Error('createCommentMock was not called');
+    }
+    if (!args.body) {
+      throw new Error('createCommentMock body was not provided');
+    }
+    return args.body;
+  };
 
   beforeEach(() => {
     // Create mock Octokit instance
+    createCommentMock = jest.fn() as unknown as jest.MockedFunction<Octokit['issues']['createComment']>;
     mockOctokit = {
       issues: {
-        createComment: jest.fn(),
+        createComment: createCommentMock,
       },
-    } as unknown as jest.Mocked<Octokit>;
+    } as unknown as Octokit;
 
     reviewClient = new ReviewClient(mockOctokit, 'owner', 'repo');
   });
@@ -29,7 +54,7 @@ describe('ReviewClient', () => {
         html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
       };
 
-      mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
+      createCommentMock.mockResolvedValue({ data: mockComment } as CreateCommentResponse);
 
       // When: Post PASS review result
       const result = await reviewClient.postReviewResult(
@@ -41,7 +66,7 @@ describe('ReviewClient', () => {
       );
 
       // Then: Verify Octokit was called correctly
-      expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
+      expect(createCommentMock).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
         issue_number: 24,
@@ -49,15 +74,15 @@ describe('ReviewClient', () => {
       });
 
       // And: Body should include judgment
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).toContain('**判定**: PASS');
+      const body = getCreateCommentBody();
+      expect(body).toContain('**判定**: PASS');
 
       // And: Body should include feedback
-      expect(callArgs.body).toContain('### フィードバック');
-      expect(callArgs.body).toContain('要件定義書は完璧です。');
+      expect(body).toContain('### フィードバック');
+      expect(body).toContain('要件定義書は完璧です。');
 
       // And: Body should NOT include suggestions (empty array)
-      expect(callArgs.body).not.toContain('### 改善提案');
+      expect(body).not.toContain('### 改善提案');
 
       // And: Result should match mock data
       expect(result).toEqual(mockComment);
@@ -71,7 +96,7 @@ describe('ReviewClient', () => {
         html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
       };
 
-      mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
+      createCommentMock.mockResolvedValue({ data: mockComment } as CreateCommentResponse);
 
       // When: Post PASS_WITH_SUGGESTIONS with suggestions
       const result = await reviewClient.postReviewResult(
@@ -83,7 +108,7 @@ describe('ReviewClient', () => {
       );
 
       // Then: Verify Octokit was called correctly
-      expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
+      expect(createCommentMock).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
         issue_number: 24,
@@ -91,17 +116,17 @@ describe('ReviewClient', () => {
       });
 
       // And: Body should include judgment
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).toContain('**判定**: PASS_WITH_SUGGESTIONS');
+      const body = getCreateCommentBody();
+      expect(body).toContain('**判定**: PASS_WITH_SUGGESTIONS');
 
       // And: Body should include feedback
-      expect(callArgs.body).toContain('### フィードバック');
-      expect(callArgs.body).toContain('設計書は良好ですが、改善提案があります。');
+      expect(body).toContain('### フィードバック');
+      expect(body).toContain('設計書は良好ですが、改善提案があります。');
 
       // And: Body should include suggestions list
-      expect(callArgs.body).toContain('### 改善提案');
-      expect(callArgs.body).toContain('1. エラーハンドリングの詳細を追記してください。');
-      expect(callArgs.body).toContain('2. パフォーマンス要件を明確化してください。');
+      expect(body).toContain('### 改善提案');
+      expect(body).toContain('1. エラーハンドリングの詳細を追記してください。');
+      expect(body).toContain('2. パフォーマンス要件を明確化してください。');
 
       // And: Result should match mock data
       expect(result).toEqual(mockComment);
@@ -115,7 +140,7 @@ describe('ReviewClient', () => {
         html_url: 'https://github.com/owner/repo/issues/24#issuecomment-123456',
       };
 
-      mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
+      createCommentMock.mockResolvedValue({ data: mockComment } as CreateCommentResponse);
 
       // When: Post FAIL review result
       const result = await reviewClient.postReviewResult(
@@ -127,7 +152,7 @@ describe('ReviewClient', () => {
       );
 
       // Then: Verify Octokit was called correctly
-      expect(mockOctokit.issues.createComment).toHaveBeenCalledWith({
+      expect(createCommentMock).toHaveBeenCalledWith({
         owner: 'owner',
         repo: 'repo',
         issue_number: 24,
@@ -135,16 +160,16 @@ describe('ReviewClient', () => {
       });
 
       // And: Body should include judgment
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).toContain('**判定**: FAIL');
+      const body = getCreateCommentBody();
+      expect(body).toContain('**判定**: FAIL');
 
       // And: Body should include feedback
-      expect(callArgs.body).toContain('実装に重大な問題があります。');
+      expect(body).toContain('実装に重大な問題があります。');
 
       // And: Body should include suggestions
-      expect(callArgs.body).toContain('### 改善提案');
-      expect(callArgs.body).toContain('1. セキュリティ脆弱性を修正してください。');
-      expect(callArgs.body).toContain('2. テストカバレッジが不足しています。');
+      expect(body).toContain('### 改善提案');
+      expect(body).toContain('1. セキュリティ脆弱性を修正してください。');
+      expect(body).toContain('2. テストカバレッジが不足しています。');
 
       // And: Result should match mock data
       expect(result).toEqual(mockComment);
@@ -152,7 +177,7 @@ describe('ReviewClient', () => {
 
     it('should handle empty suggestions array', async () => {
       // Given: Mock response
-      mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
+      createCommentMock.mockResolvedValue({ data: {} } as CreateCommentResponse);
 
       // When: Post review with empty suggestions
       await reviewClient.postReviewResult(
@@ -164,13 +189,13 @@ describe('ReviewClient', () => {
       );
 
       // Then: Body should NOT include suggestions section
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).not.toContain('### 改善提案');
+      const body = getCreateCommentBody();
+      expect(body).not.toContain('### 改善提案');
     });
 
     it('should handle unknown phase gracefully', async () => {
       // Given: Mock response
-      mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
+      createCommentMock.mockResolvedValue({ data: {} } as CreateCommentResponse);
 
       // When: Post with unknown phase
       await reviewClient.postReviewResult(
@@ -182,13 +207,13 @@ describe('ReviewClient', () => {
       );
 
       // Then: Should use phase name as-is
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).toContain('unknown_phase');
+      const body = getCreateCommentBody();
+      expect(body).toContain('unknown_phase');
     });
 
     it('should handle unknown result gracefully', async () => {
       // Given: Mock response
-      mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
+      createCommentMock.mockResolvedValue({ data: {} } as CreateCommentResponse);
 
       // When: Post with unknown result
       await reviewClient.postReviewResult(
@@ -200,21 +225,21 @@ describe('ReviewClient', () => {
       );
 
       // Then: Should use default emoji
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).toContain('📝');
-      expect(callArgs.body).toContain('**判定**: UNKNOWN_RESULT');
+      const body = getCreateCommentBody();
+      expect(body).toContain('📝');
+      expect(body).toContain('**判定**: UNKNOWN_RESULT');
     });
 
     it('should not include feedback section when feedback is empty', async () => {
       // Given: Mock response
-      mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
+      createCommentMock.mockResolvedValue({ data: {} } as CreateCommentResponse);
 
       // When: Post with empty feedback
       await reviewClient.postReviewResult(24, 'requirements', 'PASS', '', []);
 
       // Then: Body should not include feedback section (empty string is falsy)
-      const callArgs = mockOctokit.issues.createComment.mock.calls[0][0];
-      expect(callArgs.body).not.toContain('### フィードバック');
+      const body = getCreateCommentBody();
+      expect(body).not.toContain('### フィードバック');
     });
   });
 });

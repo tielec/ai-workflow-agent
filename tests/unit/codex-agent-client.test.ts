@@ -1,12 +1,15 @@
 import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
-import * as child_process from 'node:child_process';
 import { jest } from '@jest/globals';
-
-// child_processのモック
-jest.mock('node:child_process');
 
 describe('CodexAgentClient', () => {
   let client: CodexAgentClient;
+  type RunCodexProcess = (
+    args: string[],
+    options: { cwd: string; verbose: boolean; stdinPayload: string }
+  ) => Promise<string[]>;
+
+  const spyOnRunCodexProcess = () =>
+    jest.spyOn(client as unknown as { runCodexProcess: RunCodexProcess }, 'runCodexProcess');
 
   beforeEach(() => {
     client = new CodexAgentClient({ workingDir: '/test/workspace' });
@@ -17,33 +20,15 @@ describe('CodexAgentClient', () => {
     // REQ-001, REQ-002, REQ-003: リファクタリング後の動作確認
     it('正常系: Codex実行が成功する（リファクタリング後も既存APIが動作）', async () => {
       // Given: Codex CLI実行環境
-      const mockSpawn = jest.fn().mockReturnValue({
-        stdout: {
-          on: jest.fn((event, callback) => {
-            if (event === 'data') {
-              callback(
-                Buffer.from(
-                  JSON.stringify({
-                    type: 'assistant',
-                    message: {
-                      role: 'assistant',
-                      content: [{ type: 'text', text: 'Test response' }],
-                    },
-                  })
-                )
-              );
-            }
-          }),
-        },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            callback(0);
-          }
+      const runSpy = spyOnRunCodexProcess().mockResolvedValue([
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Test response' }],
+          },
         }),
-      });
-      (child_process.spawn as any) = mockSpawn;
-
+      ]);
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
         prompt: 'Test prompt',
@@ -54,28 +39,14 @@ describe('CodexAgentClient', () => {
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
       // Codex CLIプロセスが起動される
-      expect(mockSpawn).toHaveBeenCalled();
+      expect(runSpy).toHaveBeenCalled();
     });
 
     it('異常系: Codex CLI未インストールの場合、エラーがスローされる', async () => {
       // Given: Codex CLIが存在しない環境
-      const mockSpawn = jest.fn().mockReturnValue({
-        stdout: { on: jest.fn() },
-        stderr: {
-          on: jest.fn((event, callback) => {
-            if (event === 'data') {
-              callback(Buffer.from('command not found: codex'));
-            }
-          }),
-        },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            callback(127); // command not found
-          }
-        }),
-      });
-      (child_process.spawn as any) = mockSpawn;
-
+      const spawnError = new Error('spawn codex ENOENT') as NodeJS.ErrnoException;
+      spawnError.code = 'ENOENT';
+      spyOnRunCodexProcess().mockRejectedValue(spawnError);
       // When/Then: executeTask関数を呼び出すとエラーがスローされる
       await expect(
         client.executeTask({
@@ -89,30 +60,7 @@ describe('CodexAgentClient', () => {
   describe('executeTaskFromFile', () => {
     it('正常系: プロンプトファイルからテンプレート変数が埋め込まれる', async () => {
       // Given: プロンプトファイルパスとテンプレート変数
-      const mockSpawn = jest.fn().mockReturnValue({
-        stdout: {
-          on: jest.fn((event, callback) => {
-            if (event === 'data') {
-              callback(
-                Buffer.from(
-                  JSON.stringify({
-                    type: 'result',
-                    result: 'success',
-                  })
-                )
-              );
-            }
-          }),
-        },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, callback) => {
-          if (event === 'close') {
-            callback(0);
-          }
-        }),
-      });
-      (child_process.spawn as any) = mockSpawn;
-
+      spyOnRunCodexProcess().mockResolvedValue([JSON.stringify({ type: 'result', result: 'success' })]);
       // プロンプトファイルの読み込みをモック化する必要があるが、
       // 実装の詳細に依存するため、ここでは省略
       // 実際のテストでは、fs.readFileSyncのモックを追加する

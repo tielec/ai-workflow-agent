@@ -15,7 +15,11 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
-import type { BugCandidate, RefactorCandidate, EnhancementProposal } from '../types/auto-issue.js';
+import type {
+  BugCandidate,
+  RefactorCandidate,
+  EnhancementProposal,
+} from '../types/auto-issue.js';
 import { parseCodexEvent } from './helpers/agent-event-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -194,7 +198,13 @@ function isExcludedFile(filePath: string): boolean {
  * @param prefix - ファイル名のプレフィックス（'bugs' | 'refactor' | 'enhancements'）
  * @returns 一時ディレクトリ内のユニークなファイルパス
  */
-function generateOutputFilePath(prefix: 'bugs' | 'refactor' | 'enhancements' = 'bugs'): string {
+type OutputPrefix = 'bugs' | 'refactor' | 'enhancements';
+
+interface RepositoryAnalyzerOptions {
+  outputFileFactory?: (prefix: OutputPrefix) => string;
+}
+
+function generateOutputFilePath(prefix: OutputPrefix = 'bugs'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
   return path.join(os.tmpdir(), `auto-issue-${prefix}-${timestamp}-${random}.json`);
@@ -208,6 +218,7 @@ function generateOutputFilePath(prefix: 'bugs' | 'refactor' | 'enhancements' = '
 export class RepositoryAnalyzer {
   private readonly codexClient: CodexAgentClient | null;
   private readonly claudeClient: ClaudeAgentClient | null;
+  private readonly outputFileFactory?: (prefix: OutputPrefix) => string;
 
   /**
    * コンストラクタ
@@ -218,9 +229,11 @@ export class RepositoryAnalyzer {
   constructor(
     codexClient: CodexAgentClient | null,
     claudeClient: ClaudeAgentClient | null,
+    options: RepositoryAnalyzerOptions = {},
   ) {
     this.codexClient = codexClient;
     this.claudeClient = claudeClient;
+    this.outputFileFactory = options.outputFileFactory;
   }
 
   /**
@@ -239,7 +252,7 @@ export class RepositoryAnalyzer {
 
     // 1. プロンプトパスと出力ファイルパスを準備
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-bugs.txt');
-    const outputFilePath = generateOutputFilePath();
+    const outputFilePath = this.outputFileFactory?.('bugs') ?? generateOutputFilePath();
     logger.debug(`Output file path: ${outputFilePath}`);
 
     try {
@@ -275,7 +288,7 @@ export class RepositoryAnalyzer {
 
     // 1. プロンプトパスと出力ファイルパスを準備
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-refactoring.txt');
-    const outputFilePath = generateOutputFilePath('refactor');
+    const outputFilePath = this.outputFileFactory?.('refactor') ?? generateOutputFilePath('refactor');
     logger.debug(`Output file path: ${outputFilePath}`);
 
     try {
@@ -314,7 +327,8 @@ export class RepositoryAnalyzer {
 
     // 1. プロンプトパスと出力ファイルパスを準備
     const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-enhancements.txt');
-    const outputFilePath = generateOutputFilePath('enhancements');
+    const outputFilePath =
+      this.outputFileFactory?.('enhancements') ?? generateOutputFilePath('enhancements');
     logger.debug(`Output file path: ${outputFilePath}`);
 
     try {
@@ -930,18 +944,10 @@ export class RepositoryAnalyzer {
       const content = fs.readFileSync(filePath, 'utf-8');
       logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
 
-      const parsed = JSON.parse(content);
-
-      // [...] 配列形式
-      if (Array.isArray(parsed)) {
-        logger.info(`Read ${parsed.length} enhancement proposals from output file.`);
-        return parsed as EnhancementProposal[];
-      }
-
-      // 単一オブジェクト形式
-      if (parsed.type && parsed.title) {
-        logger.info('Read 1 enhancement proposal from output file.');
-        return [parsed as EnhancementProposal];
+      const proposals = this.parseEnhancementProposals(content);
+      if (proposals.length > 0) {
+        logger.info(`Read ${proposals.length} enhancement proposals from output file.`);
+        return proposals;
       }
 
       logger.warn('Output file does not contain valid enhancement proposals structure.');
@@ -950,6 +956,132 @@ export class RepositoryAnalyzer {
       logger.error(`Failed to read/parse enhancement output file: ${getErrorMessage(error)}`);
       return [];
     }
+  }
+
+  /**
+   * 機能拡張提案JSONをパース
+   *
+   * エージェント出力はJSONコードブロックや余計なテキストを含む場合があるため、
+   * 寛容なパーサーで配列または単一オブジェクトを抽出する。
+   *
+   * @param rawContent - エージェントの生出力
+   * @returns パースされた提案配列（失敗時は空配列）
+   */
+  private parseEnhancementProposals(rawContent: string): EnhancementProposal[] {
+    if (!rawContent || !rawContent.trim()) {
+      return [];
+    }
+
+    const trimmed = rawContent.trim();
+    const candidates: string[] = [];
+
+    // ```json ... ``` コードブロック
+    const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (codeBlockMatch?.[1]) {
+      candidates.push(codeBlockMatch[1].trim());
+    }
+
+    // オブジェクトセグメント
+    const objectSegment = this.extractJsonSegment(trimmed, '{', '}');
+    if (objectSegment) {
+      candidates.push(objectSegment);
+    }
+
+    // 配列セグメント
+    const arraySegment = this.extractJsonSegment(trimmed, '[', ']');
+    if (arraySegment) {
+      candidates.push(arraySegment);
+    }
+
+    // 生文字列も最後に試す
+    candidates.push(trimmed);
+
+    const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
+
+    for (const candidate of uniqueCandidates) {
+      if (!candidate) {
+        continue;
+      }
+      const parsed = this.tryParseEnhancementJson(candidate);
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    logger.debug('Failed to parse enhancement proposals with lenient parser.');
+    return [];
+  }
+
+  /**
+   * 候補文字列からJSONをパース
+   */
+  private tryParseEnhancementJson(payload: string): EnhancementProposal[] | null {
+    try {
+      const parsed = JSON.parse(payload);
+      if (Array.isArray(parsed)) {
+        return parsed as EnhancementProposal[];
+      }
+      if (parsed && typeof parsed === 'object') {
+        return [parsed as EnhancementProposal];
+      }
+      return null;
+    } catch (error) {
+      logger.debug(`Failed to parse enhancement JSON payload: ${getErrorMessage(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * 最初に出現するJSONセグメントを抽出
+   *
+   * @param source - 元文字列
+   * @param startChar - 開始文字（'[' | '{'）
+   * @param endChar - 終了文字（']' | '}'）
+   */
+  private extractJsonSegment(
+    source: string,
+    startChar: '[' | '{',
+    endChar: ']' | '}',
+  ): string | null {
+    const startIndex = source.indexOf(startChar);
+    if (startIndex === -1) {
+      return null;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = startIndex; i < source.length; i += 1) {
+      const char = source[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+      }
+
+      if (!inString) {
+        if (char === startChar) {
+          depth += 1;
+        } else if (char === endChar) {
+          depth -= 1;
+          if (depth === 0) {
+            return source.slice(startIndex, i + 1);
+          }
+        }
+      }
+    }
+
+    return null;
   }
 
   /**

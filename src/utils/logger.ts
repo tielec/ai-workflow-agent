@@ -50,7 +50,7 @@ function getTimestamp(): string {
  */
 function formatMessage(level: LogLevel, ...args: unknown[]): string {
   const timestamp = getTimestamp();
-  const levelStr = level.toUpperCase().padEnd(5);
+  const levelStr = level.toUpperCase().padEnd(5).trimEnd();
   const message = args
     .map((arg) => {
       if (typeof arg === 'object' && arg !== null) {
@@ -110,11 +110,16 @@ function log(level: LogLevel, ...args: unknown[]): void {
   const coloredMessage = applyColor(level, message);
 
   // 出力先の選択
-  if (level === 'error') {
-    console.error(coloredMessage);
-  } else {
-    console.log(coloredMessage);
-  }
+  const consoleMethod =
+    level === 'error'
+      ? console.error
+      : level === 'warn'
+      ? console.warn
+      : level === 'info'
+      ? console.info
+      : console.debug;
+
+  consoleMethod.call(console, coloredMessage);
 }
 
 /**

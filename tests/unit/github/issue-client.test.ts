@@ -1,25 +1,22 @@
-import { Octokit } from '@octokit/rest';
+import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
 import { RequestError } from '@octokit/request-error';
-import { IssueClient, IssueInfo, CommentDict, IssueCreationResult, GenericResult } from '../../../src/core/github/issue-client.js';
+import {
+  IssueClient,
+  IssueInfo,
+  CommentDict,
+  IssueCreationResult,
+  GenericResult,
+} from '../../../src/core/github/issue-client.js';
 import { RemainingTask } from '../../../src/types.js';
+import { createMockOctokit } from '../../helpers/mock-octokit.js';
 
 describe('IssueClient', () => {
   let issueClient: IssueClient;
-  let mockOctokit: jest.Mocked<Octokit>;
+  let mockOctokit: ReturnType<typeof createMockOctokit>;
 
   beforeEach(() => {
-    // Create mock Octokit instance
-    mockOctokit = {
-      issues: {
-        get: jest.fn(),
-        listComments: jest.fn(),
-        createComment: jest.fn(),
-        update: jest.fn(),
-        create: jest.fn(),
-      },
-    } as unknown as jest.Mocked<Octokit>;
-
-    issueClient = new IssueClient(mockOctokit, 'owner', 'repo');
+    mockOctokit = createMockOctokit();
+    issueClient = new IssueClient(mockOctokit.client, 'owner', 'repo');
   });
 
   afterEach(() => {
@@ -233,7 +230,7 @@ describe('IssueClient', () => {
       mockOctokit.issues.update.mockResolvedValue(mockUpdate as any);
 
       // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
+      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
 
       // When: Close issue with reason
       const result: GenericResult = await issueClient.closeIssueWithReason(24, '実装完了');
@@ -282,7 +279,7 @@ describe('IssueClient', () => {
       mockOctokit.issues.createComment.mockRejectedValue(mockError);
 
       // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Attempt to close issue
       const result = await issueClient.closeIssueWithReason(24, 'reason');
@@ -376,7 +373,7 @@ describe('IssueClient', () => {
       mockOctokit.issues.create.mockRejectedValue(mockError);
 
       // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Attempt to create issue
       const result = await issueClient.createIssueFromEvaluation(24, [], 'eval.md');
