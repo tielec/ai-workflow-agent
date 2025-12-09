@@ -236,10 +236,18 @@ async function executeStep4And5(
   const githubClient = await createGitHubClient(metadataManager);
   const prClient = githubClient.getPullRequestClient();
 
-  // PR 番号の取得
-  const prNumber = await prClient.getPullRequestNumber(issueNumber);
+  // PR 番号の取得（メタデータから優先、フォールバックとして検索API）
+  let prNumber = metadataManager.data.pr_number;
+
   if (!prNumber) {
-    throw new Error(`Pull request not found for issue #${issueNumber}`);
+    logger.warn('PR number not found in metadata, searching via GitHub API...');
+    prNumber = await prClient.getPullRequestNumber(issueNumber);
+    if (!prNumber) {
+      throw new Error(
+        `Pull request not found for issue #${issueNumber}. ` +
+        'Make sure the PR was created during workflow initialization.'
+      );
+    }
   }
 
   logger.info(`Found PR #${prNumber}`);
