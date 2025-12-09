@@ -22,6 +22,7 @@ import { getErrorMessage } from '../utils/error-utils.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { AgentExecutor } from '../phases/core/agent-executor.js';
+import { detectCodexCliAuth, isValidCodexApiKey } from '../core/helpers/codex-credentials.js';
 import { glob } from 'glob';
 
 /**
@@ -618,6 +619,11 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
 
+  // Codex 認証情報のチェック（API キーまたは CLI 認証ファイル）
+  const codexApiKey = config.getCodexApiKey();
+  const { authFilePath: codexAuthFile } = detectCodexCliAuth();
+  const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || codexAuthFile !== null;
+
   if (mode === 'codex') {
     // Codex 強制
     codexClient = new CodexAgentClient();
@@ -627,10 +633,14 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
     claudeClient = new ClaudeAgentClient();
     logger.info('Using Claude agent (forced)');
   } else {
-    // auto モード: CODEX_API_KEY があれば Codex、なければ Claude
-    if (config.getCodexApiKey()) {
+    // auto モード: Codex 認証情報があれば Codex、なければ Claude
+    if (hasCodexCredentials) {
       codexClient = new CodexAgentClient();
-      logger.info('Using Codex agent (auto-selected)');
+      if (isValidCodexApiKey(codexApiKey)) {
+        logger.info('Using Codex agent (auto-selected via CODEX_API_KEY)');
+      } else {
+        logger.info('Using Codex agent (auto-selected via CODEX_AUTH_JSON)');
+      }
     } else if (config.getClaudeCodeToken()) {
       claudeClient = new ClaudeAgentClient();
       logger.info('Using Claude agent (auto-selected)');
