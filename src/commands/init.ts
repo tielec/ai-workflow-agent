@@ -160,7 +160,13 @@ async function performAutoModelSelection(
     const analysisResult = await analyzer.analyze({
       title: issue.title ?? '',
       body: issue.body ?? '',
-      labels: (issue.labels ?? []).map((label: { name?: string }) => label?.name ?? ''),
+      labels: (issue.labels ?? []).map((label) => {
+        // GitHub API の label は string または object
+        if (typeof label === 'string') {
+          return label;
+        }
+        return label?.name ?? '';
+      }),
     });
     metadataManager.setDifficultyAnalysis(analysisResult);
 
