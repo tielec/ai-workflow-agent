@@ -48,12 +48,12 @@ jenkins/
 
 | ジョブ名 | 説明 | パラメータ数 |
 |---------|------|-------------|
-| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 20 |
-| **preset** | プリセット実行（quick-fix, implementation等） | 21 |
-| **single_phase** | 単一フェーズ実行（デバッグ用） | 19 |
-| **rollback** | フェーズ差し戻し実行 | 18 |
-| **auto_issue** | 自動Issue作成 | 14 |
-| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 20 |
+| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 21 |
+| **preset** | プリセット実行（quick-fix, implementation等） | 22 |
+| **single_phase** | 単一フェーズ実行（デバッグ用） | 20 |
+| **rollback** | フェーズ差し戻し実行 | 19 |
+| **auto_issue** | 自動Issue作成 | 15 |
+| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 17 |
 
 ### フォルダ構成
 

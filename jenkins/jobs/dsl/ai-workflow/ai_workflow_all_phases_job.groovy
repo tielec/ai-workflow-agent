@@ -3,7 +3,7 @@
  *
  * 全フェーズ一括実行用ジョブ（planning → evaluation）
  * EXECUTION_MODE: all_phases（固定値、パラメータとして表示しない）
- * パラメータ数: 20個（14個 + APIキー6個）
+ * パラメータ数: 21個（15個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -99,6 +99,16 @@ Evaluation Phase完了後にワークフローディレクトリを強制削除
 
             booleanParam('SQUASH_ON_COMPLETE', false, '''
 ワークフロー完了時にコミットをスカッシュする（非推奨: finalize コマンドを使用してください）
+            '''.stripIndent().trim())
+
+            // ========================================
+            // モデル選択オプション
+            // ========================================
+            booleanParam('AUTO_MODEL_SELECTION', true, '''
+Issue難易度に基づく自動エージェントモデル選択
+- true: Issue内容を分析し最適なモデルを自動選択（コスト最適化＋品質バランス）
+- false: AGENT_MODEパラメータで指定された固定モデルを使用
+デフォルト: true
             '''.stripIndent().trim())
 
             // ========================================
