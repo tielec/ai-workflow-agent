@@ -57,18 +57,24 @@ If rollback is needed, choose the target phase based on:
 
 ## Output Format
 
-You MUST respond with ONLY a valid JSON object in this exact format:
+You MUST write your analysis result to the following JSON file:
+
+**Output File**: `{output_file_path}`
+
+Write a valid JSON object in this exact format:
 
 ```json
 {
-  "needs_rollback": boolean,
-  "to_phase": "phase_name" or null,
-  "to_step": "step_name" or null,
+  "needs_rollback": true,
+  "to_phase": "design",
+  "to_step": "revise",
   "reason": "string (max 1000 chars)",
-  "confidence": "high" | "medium" | "low",
+  "confidence": "high",
   "analysis": "detailed explanation of your reasoning"
 }
 ```
+
+**IMPORTANT**: You must write the JSON to the file specified above. Do NOT output JSON to stdout.
 
 ### Field Requirements
 
@@ -105,11 +111,11 @@ You MUST respond with ONLY a valid JSON object in this exact format:
 
 ## Important Notes
 
-- Do NOT include any text outside the JSON object
-- Do NOT use markdown formatting in the JSON fields (except for the reason/analysis text content)
+- **File output is mandatory**: Write the JSON to `{output_file_path}`
 - Ensure the JSON is valid and parseable
 - If review/test results are not available, state this in your analysis and use lower confidence
 - Be conservative: only recommend rollback for genuine fundamental issues
 - Consider the cost of rollback (wasted work) vs. benefit (fixing fundamental problems)
+- If no rollback is needed, write `"needs_rollback": false` and set `"to_phase": null`, `"to_step": null`
 
-Now analyze the provided context and output your decision as a JSON object.
+Now analyze the provided context and write your decision as a JSON object to the specified output file.
