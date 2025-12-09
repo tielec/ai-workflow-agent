@@ -142,7 +142,6 @@ pipeline {
                     echo "Skip Squash: ${params.SKIP_SQUASH ?: false}"
                     echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
                     echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
-                    echo "Auto Model Selection: ${params.AUTO_MODEL_SELECTION ?: true}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                 }
             }
