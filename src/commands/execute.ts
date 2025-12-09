@@ -17,6 +17,7 @@ import { PhaseName, type IssueGenerationOptions } from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { PhaseContext, ExecuteCommandOptions } from '../types/commands.js';
+import { ModelOptimizer, ModelOverrides } from '../core/model-optimizer.js';
 
 // 新規モジュールからインポート
 import { validateExecuteOptions, parseExecuteOptions } from './execute/options-parser.js';
@@ -186,6 +187,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
   // 5. エージェント初期化（agent-setup に委譲）
   const { codexClient, claudeClient } = setupAgentClients(agentMode, workingDir, credentials, {
     claudeModel: parsedOptions.claudeModel,
+    codexModel: parsedOptions.codexModel,
   });
 
   if (!codexClient && !claudeClient) {
@@ -284,6 +286,32 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     cliAppendMetadata: followupLlmAppendMetadata,
   });
 
+  const difficultyAnalysis = metadataManager.getDifficultyAnalysis();
+  const modelConfig = metadataManager.getModelConfig();
+  const modelOverrides: ModelOverrides | undefined = (() => {
+    const overrides: ModelOverrides = {};
+    const envClaudeModel = config.getClaudeModel();
+    const envCodexModel = config.getCodexModel();
+    if (parsedOptions.claudeModel) {
+      overrides.claudeModel = parsedOptions.claudeModel;
+    } else if (envClaudeModel) {
+      overrides.claudeModel = envClaudeModel;
+    }
+    if (parsedOptions.codexModel) {
+      overrides.codexModel = parsedOptions.codexModel;
+    } else if (envCodexModel) {
+      overrides.codexModel = envCodexModel;
+    }
+    return Object.keys(overrides).length ? overrides : undefined;
+  })();
+
+  const shouldEnableModelOptimizer = Boolean(
+    modelConfig || difficultyAnalysis || modelOverrides
+  );
+  const modelOptimizer = shouldEnableModelOptimizer
+    ? new ModelOptimizer(difficultyAnalysis?.level ?? 'complex', modelConfig ?? undefined)
+    : null;
+
   // 6. PhaseContext 構築
   // Issue #194: Issue情報をGitHubから取得（squashコミットメッセージ生成用）
   let issueInfo = null;
@@ -313,6 +341,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     skipDependencyCheck,
     ignoreDependencies,
     issueGenerationOptions,
+    modelOptimizer,
+    modelOverrides,
     squashOnComplete,
     issueNumber: Number(issueNumber),
     issueInfo,

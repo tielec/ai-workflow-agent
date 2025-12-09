@@ -8,6 +8,10 @@ import {
   StepName,
   WorkflowMetadata,
   RemainingTask,
+  PhaseMetadata,
+  EvaluationPhaseMetadata,
+  DifficultyAnalysisResult,
+  ModelConfigByPhase,
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
@@ -39,6 +43,58 @@ export class MetadataManager {
     this.state = WorkflowState.load(metadataPath);
   }
 
+  private ensurePhaseData(
+    phaseName: PhaseName,
+  ): PhaseMetadata | EvaluationPhaseMetadata {
+    let phaseData = this.state.data.phases[phaseName];
+    if (phaseData) {
+      return phaseData;
+    }
+
+    const migrated = this.state.migrate();
+    phaseData = this.state.data.phases[phaseName];
+    if (phaseData) {
+      return phaseData;
+    }
+
+    logger.warn(`Phase ${phaseName} missing from metadata. Initializing default entry.`);
+    if (phaseName === 'evaluation') {
+      const evaluationData = this.createDefaultEvaluationPhaseMetadata();
+      this.state.data.phases.evaluation = evaluationData;
+      return evaluationData;
+    }
+
+    const defaultData = this.createDefaultPhaseMetadata();
+    this.state.data.phases[phaseName] = defaultData;
+    return defaultData;
+  }
+
+  private createDefaultPhaseMetadata(): PhaseMetadata {
+    return {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      output_files: [],
+      current_step: null,
+      completed_steps: [],
+      rollback_context: null,
+    };
+  }
+
+  private createDefaultEvaluationPhaseMetadata(): EvaluationPhaseMetadata {
+    const base = this.createDefaultPhaseMetadata();
+    return {
+      ...base,
+      decision: null,
+      failed_phase: null,
+      remaining_tasks: [],
+      created_issue_url: null,
+      abort_reason: null,
+    };
+  }
+
   public get data(): WorkflowMetadata {
     return this.state.data;
   }
@@ -55,7 +111,7 @@ export class MetadataManager {
       reviewResult?: string;
     } = {},
   ): void {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     const currentStatus = phaseData.status;
 
     // Issue #248: 冪等性チェック（同じステータスへの重複更新をスキップ）
@@ -138,6 +194,24 @@ export class MetadataManager {
     this.state.save();
   }
 
+  public setDifficultyAnalysis(result: DifficultyAnalysisResult | null): void {
+    this.state.data.difficulty_analysis = result;
+    this.state.save();
+  }
+
+  public getDifficultyAnalysis(): DifficultyAnalysisResult | null {
+    return this.state.data.difficulty_analysis ?? null;
+  }
+
+  public setModelConfig(config: ModelConfigByPhase | null): void {
+    this.state.data.model_config = config;
+    this.state.save();
+  }
+
+  public getModelConfig(): ModelConfigByPhase | null {
+    return this.state.data.model_config ?? null;
+  }
+
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {
     return this.state.getPhaseStatus(phaseName);
   }
@@ -182,7 +256,7 @@ export class MetadataManager {
     const rolledBack = phases.slice(startIndex);
 
     for (const phase of rolledBack) {
-      const phaseData = this.state.data.phases[phase];
+      const phaseData = this.ensurePhaseData(phase);
       phaseData.status = 'pending';
       phaseData.started_at = null;
       phaseData.completed_at = null;
@@ -226,7 +300,7 @@ export class MetadataManager {
     createdIssueUrl?: string | null;
     abortReason?: string | null;
   }): void {
-    const evaluation = this.state.data.phases.evaluation;
+    const evaluation = this.ensurePhaseData('evaluation') as EvaluationPhaseMetadata;
     if (!evaluation) {
       throw new Error('Evaluation phase not found in metadata');
     }
@@ -274,7 +348,7 @@ export class MetadataManager {
     phaseName: PhaseName,
     step: StepName | null,
   ): void {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     phaseData.current_step = step;
     this.save();
   }
@@ -286,7 +360,7 @@ export class MetadataManager {
     phaseName: PhaseName,
     step: StepName,
   ): void {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     if (!phaseData.completed_steps) {
       phaseData.completed_steps = [];
     }
@@ -305,7 +379,7 @@ export class MetadataManager {
    * Issue #10: completed_stepsを取得
    */
   public getCompletedSteps(phaseName: PhaseName): StepName[] {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     return phaseData.completed_steps ?? [];
   }
 
@@ -313,7 +387,7 @@ export class MetadataManager {
    * Issue #10: current_stepを取得
    */
   public getCurrentStep(phaseName: PhaseName): StepName | null {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     return phaseData.current_step ?? null;
   }
 
@@ -326,7 +400,7 @@ export class MetadataManager {
     phaseName: PhaseName,
     context: import('../types/commands.js').RollbackContext,
   ): void {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     phaseData.rollback_context = context;
     this.save();
 
@@ -341,7 +415,7 @@ export class MetadataManager {
   public getRollbackContext(
     phaseName: PhaseName,
   ): import('../types/commands.js').RollbackContext | null {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     return phaseData.rollback_context ?? null;
   }
 
@@ -350,7 +424,7 @@ export class MetadataManager {
    * @param phaseName - 対象フェーズ名
    */
   public clearRollbackContext(phaseName: PhaseName): void {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     phaseData.rollback_context = null;
     this.save();
 
@@ -391,7 +465,7 @@ export class MetadataManager {
     valid: boolean;
     warnings: string[];
   } {
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
     const warnings: string[] = [];
 
     // パターン1: status === 'pending' かつ completed_steps が存在
@@ -445,7 +519,7 @@ export class MetadataManager {
     // Issue #208: 整合性チェック（警告のみ、処理継続）
     this.validatePhaseConsistency(phaseName);
 
-    const phaseData = this.state.data.phases[phaseName];
+    const phaseData = this.ensurePhaseData(phaseName);
 
     phaseData.status = 'in_progress';
     phaseData.current_step = toStep;
@@ -491,7 +565,7 @@ export class MetadataManager {
     const subsequentPhases = PHASE_ORDER.slice(startIndex + 1);
 
     for (const phase of subsequentPhases) {
-      const phaseData = this.state.data.phases[phase];
+      const phaseData = this.ensurePhaseData(phase);
       phaseData.status = 'pending';
       phaseData.started_at = null;
       phaseData.completed_at = null;

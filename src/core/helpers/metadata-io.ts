@@ -65,7 +65,38 @@ export function removeWorkflowDirectory(workflowDir: string): void {
  * @param workflowDir - ワークフローディレクトリパス
  * @returns 出力ファイルの絶対パス、または見つからない場合はnull
  */
-export function getPhaseOutputFilePath(phaseName: PhaseName, workflowDir: string): string | null {
+function normalizePhaseKey(phaseName: PhaseName | string): PhaseName | null {
+  const raw = phaseName?.toString().trim().toLowerCase();
+  if (!raw) {
+    return null;
+  }
+
+  const sanitized = raw.replace(/-/g, '_');
+  const prefixedMatch = sanitized.match(/^\d+_(.+)$/);
+  const baseKey = prefixedMatch ? prefixedMatch[1] : sanitized;
+
+  const mapping: Record<string, PhaseName> = {
+    planning: 'planning',
+    requirements: 'requirements',
+    design: 'design',
+    test_scenario: 'test_scenario',
+    implementation: 'implementation',
+    test_implementation: 'test_implementation',
+    testing: 'testing',
+    documentation: 'documentation',
+    report: 'report',
+    evaluation: 'evaluation',
+  };
+
+  return mapping[baseKey] ?? null;
+}
+
+export function getPhaseOutputFilePath(phaseName: PhaseName | string, workflowDir: string): string | null {
+  const normalizedPhase = normalizePhaseKey(phaseName);
+  if (!normalizedPhase) {
+    return null;
+  }
+
   const phaseNumberMap: Record<PhaseName, string> = {
     planning: '00_planning',
     requirements: '01_requirements',
@@ -92,8 +123,8 @@ export function getPhaseOutputFilePath(phaseName: PhaseName, workflowDir: string
     evaluation: 'evaluation.md',
   };
 
-  const phaseDir = phaseNumberMap[phaseName];
-  const fileName = fileNameMap[phaseName];
+  const phaseDir = phaseNumberMap[normalizedPhase];
+  const fileName = fileNameMap[normalizedPhase];
 
   if (!phaseDir || !fileName) {
     return null;
@@ -101,7 +132,7 @@ export function getPhaseOutputFilePath(phaseName: PhaseName, workflowDir: string
 
   const phaseBasePath = resolvePath(workflowDir, phaseDir);
 
-  if (phaseName === 'testing') {
+  if (normalizedPhase === 'testing') {
     const reviewResultPath = resolvePath(phaseBasePath, 'review', 'result.md');
     if (fs.existsSync(reviewResultPath)) {
       return reviewResultPath;

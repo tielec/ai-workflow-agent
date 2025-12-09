@@ -21,6 +21,8 @@ const config = {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: 'tsconfig.test.json',
+      isolatedModules: true,
+      diagnostics: false,
     }],
   },
   extensionsToTreatAsEsm: ['.ts'],

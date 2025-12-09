@@ -28,9 +28,10 @@ export async function runCli(): Promise<void> {
     .command('init')
     .requiredOption('--issue-url <url>', 'GitHub Issue URL')
     .option('--branch <name>', 'Custom branch name (default: ai-workflow/issue-{issue_number})')
+    .option('--auto-model-selection', 'Analyze issue difficulty and select models automatically')
     .action(async (options) => {
       try {
-        await handleInitCommand(options.issueUrl, options.branch);
+        await handleInitCommand(options.issueUrl, options.branch, options.autoModelSelection);
       } catch (error) {
         reportFatalError(error);
       }
@@ -75,6 +76,10 @@ export async function runCli(): Promise<void> {
     .option(
       '--claude-model <model>',
       'Claude model (opus|sonnet|haiku or full model ID, default: opus)',
+    )
+    .option(
+      '--codex-model <model>',
+      'Codex model (max|mini|5.1|legacy or full model ID, default: max)',
     )
     .option('--requirements-doc <path>', 'External requirements document path')
     .option('--design-doc <path>', 'External design document path')

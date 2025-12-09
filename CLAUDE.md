@@ -63,6 +63,106 @@ node dist/index.js execute --issue <NUM> --preset <PRESET_NAME>
 node dist/index.js list-presets
 ```
 
+### Codex モデル選択（Issue #302で追加）
+
+Codex エージェントは `gpt-5.1-codex-max` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。
+
+```bash
+# CLI オプションでエイリアスを指定
+node dist/index.js execute --issue 302 --phase implementation --codex-model mini
+
+# 環境変数でデフォルト値を切り替え（CLI指定があればそちらを優先）
+export CODEX_MODEL=legacy
+node dist/index.js execute --issue 302 --phase documentation
+```
+
+**優先順位**:
+- CLI オプション `--codex-model <alias|model>` が最優先
+- 環境変数 `CODEX_MODEL=<alias|model>` は CLI 未指定時に使用
+- どちらも未指定の場合は `gpt-5.1-codex-max` を使用
+
+**モデルエイリアス**（`CODEX_MODEL_ALIASES` 定数で定義）:
+
+| エイリアス | 実際のモデルID | 用途 |
+|-----------|---------------|------|
+| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間・高負荷タスク向け |
+| `mini` | `gpt-5.1-codex-mini` | 軽量／コスト重視の検証タスク |
+| `5.1` | `gpt-5.1` | 汎用プロンプト向け |
+| `legacy` | `gpt-5-codex` | 旧デフォルトとの後方互換性 |
+
+フルモデルIDを指定した場合はエイリアス解決をスキップしてそのまま渡されるため、新しい Codex リリースにも即応できます。`legacy` エイリアスを使えば既存の `gpt-5-codex` 固定ワークフローを破壊せずに動作確認が可能です。
+
+### モデル自動選択機能（Issue #363で追加）
+
+Issue の難易度に基づいて、各フェーズ・ステップで使用するモデルを自動的に最適化する機能です。
+
+```bash
+# init 時に --auto-model-selection を指定
+node dist/index.js init \
+  --issue-url https://github.com/owner/repo/issues/123 \
+  --auto-model-selection
+
+# execute は通常通り実行（モデルが自動選択される）
+node dist/index.js execute --issue 123 --phase all
+```
+
+**実装モジュール**:
+- **DifficultyAnalyzer** (`src/core/difficulty-analyzer.ts`): Issue情報（タイトル、本文、ラベル）を LLM で分析し、難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行。
+- **ModelOptimizer** (`src/core/model-optimizer.ts`): 難易度×フェーズ×ステップのマッピングに基づいてモデルを解決。CLI/ENV オーバーライドをサポート。
+
+**難易度別モデルマッピング**:
+
+- `simple`: 全フェーズで execute/review/revise ともに Sonnet/Mini
+- `moderate`:
+  - planning / requirements / design / test_scenario / evaluation: execute=Opus/Max, review=Sonnet/Mini, revise=Sonnet/Mini
+  - implementation / test_implementation / testing: execute=Opus/Max, review=Sonnet/Mini, revise=Opus/Max
+  - documentation / report: execute/review/revise ともに Sonnet/Mini
+- `complex`: 全フェーズで execute/revise が Opus/Max、review が Sonnet/Mini
+
+**重要**: `review` ステップは難易度に関係なく常に軽量モデルを使用（コスト最適化）。
+
+**モデル選択優先順位**:
+1. CLI オプション（`--codex-model`, `--claude-model`）
+2. 環境変数（`CODEX_MODEL`, `CLAUDE_MODEL`）
+3. metadata.json の `model_config`（`--auto-model-selection` で生成）
+4. デフォルトマッピング
+
+※ review ステップは常に軽量モデル固定のため、CLI/ENV で指定したモデルは review には適用されません。
+
+**metadata.json 構造**:
+```json
+{
+  "difficulty_analysis": {
+    "level": "moderate",
+    "confidence": 0.85,
+    "factors": {
+      "estimated_file_changes": 6,
+      "scope": "single_module",
+      "requires_tests": true,
+      "requires_architecture_change": false,
+      "complexity_score": 0.62
+    },
+    "analyzed_at": "2025-01-20T10:30:00Z",
+    "analyzer_agent": "claude",
+    "analyzer_model": "sonnet"
+  },
+  "model_config": {
+    "planning": {
+      "execute": { "claudeModel": "opus", "codexModel": "max" },
+      "review": { "claudeModel": "sonnet", "codexModel": "mini" },
+      "revise": { "claudeModel": "sonnet", "codexModel": "mini" }
+    },
+    "implementation": {
+      "execute": { "claudeModel": "opus", "codexModel": "max" },
+      "review": { "claudeModel": "sonnet", "codexModel": "mini" },
+      "revise": { "claudeModel": "opus", "codexModel": "max" }
+    }
+  }
+}
+```
+
+**後方互換性**: `--auto-model-selection` 未指定時は従来動作（全ステップで Opus/Max）を維持。
+
 ### フェーズ差し戻し（v0.4.0、Issue #90で追加）
 ```bash
 # ワークフローを前のフェーズに差し戻し（直接理由を指定）
@@ -465,6 +565,40 @@ node dist/index.js execute --issue 123 --phase all
 1. CLI オプション `--claude-model`（最優先）
 2. 環境変数 `CLAUDE_MODEL`
 3. デフォルト値 `opus`（`claude-opus-4-5-20251101`）
+
+### Codex モデル指定（Issue #302で追加）
+
+```bash
+# デフォルト（gpt-5.1-codex-max）を使用
+node dist/index.js execute --issue 123 --phase all
+
+# mini モデルを明示的に指定（軽量・経済的）
+node dist/index.js execute --issue 123 --phase all --codex-model mini
+
+# レガシーモデルを使用（後方互換性）
+node dist/index.js execute --issue 123 --phase all --codex-model legacy
+
+# フルモデルIDで指定
+node dist/index.js execute --issue 123 --phase all --codex-model gpt-5.1-codex-max
+
+# 環境変数でデフォルト動作を設定
+export CODEX_MODEL=mini
+node dist/index.js execute --issue 123 --phase all
+```
+
+**モデルエイリアス**:
+
+| エイリアス | 実際のモデル ID | 説明 |
+|-----------|----------------|------|
+| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間エージェントタスク向けに最適化 |
+| `mini` | `gpt-5.1-codex-mini` | 軽量・経済的 |
+| `5.1` | `gpt-5.1` | 汎用モデル |
+| `legacy` | `gpt-5-codex` | レガシー（後方互換性） |
+
+**優先順位**:
+1. CLI オプション `--codex-model`（最優先）
+2. 環境変数 `CODEX_MODEL`
+3. デフォルト値 `max`（`gpt-5.1-codex-max`）
 
 ### コミットスカッシュ（Issue #194で追加）
 ```bash

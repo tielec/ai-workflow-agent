@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 
 import { logger } from '../../utils/logger.js';
 import { config } from '../../core/config.js';
-import { CodexAgentClient } from '../../core/codex-agent-client.js';
+import { CodexAgentClient, resolveCodexModel, DEFAULT_CODEX_MODEL } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient, resolveClaudeModel, DEFAULT_CLAUDE_MODEL } from '../../core/claude-agent-client.js';
 import {
   CODEX_MIN_API_KEY_LENGTH,
@@ -176,7 +176,7 @@ export function resolveAgentCredentials(homeDir: string, repoRoot: string): Cred
 }
 
 /**
- * エージェントセットアップオプション（Issue #301）
+ * エージェントセットアップオプション（Issue #301, #302）
  */
 export interface AgentSetupOptions {
   /**
@@ -184,6 +184,12 @@ export interface AgentSetupOptions {
    * 未指定時は環境変数 CLAUDE_MODEL → デフォルト (opus) の順で解決
    */
   claudeModel?: string;
+
+  /**
+   * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
+   * 未指定時は環境変数 CODEX_MODEL → デフォルト (gpt-5.1-codex-max) の順で解決
+   */
+  codexModel?: string;
 }
 
 /**
@@ -217,6 +223,11 @@ export function setupAgentClients(
   const claudeModelInput = options.claudeModel ?? config.getClaudeModel();
   const resolvedClaudeModel = resolveClaudeModel(claudeModelInput);
   logger.debug(`Claude model resolved: ${claudeModelInput ?? '(default)'} -> ${resolvedClaudeModel}`);
+
+  // Codex モデルの解決（CLI > 環境変数 > デフォルト）（Issue #302）
+  const codexModelInput = options.codexModel ?? config.getCodexModel();
+  const resolvedCodexModel = resolveCodexModel(codexModelInput);
+  logger.debug(`Codex model resolved: ${codexModelInput ?? '(default)'} -> ${resolvedCodexModel}`);
 
   // Claude の認証情報が利用可能かどうか
   const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
@@ -257,8 +268,8 @@ export function setupAgentClients(
         logger.info('Using Codex auth.json (CODEX_HOME) for codex agent mode.');
       }
 
-      codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
-      logger.info('Codex agent enabled (codex mode).');
+      codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
+      logger.info(`Codex agent enabled (codex mode, model=${resolvedCodexModel}).`);
       break;
     }
     case 'claude': {
@@ -289,11 +300,11 @@ export function setupAgentClients(
           if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
             process.env.OPENAI_API_KEY = trimmed;
           }
-          logger.info('Codex API key detected. Codex agent enabled (model=gpt-5-codex).');
+          logger.info(`Codex API key detected. Codex agent enabled (model=${resolvedCodexModel}).`);
         } else {
-          logger.info('CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials.');
+          logger.info(`CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials (model=${resolvedCodexModel}).`);
         }
-        codexClient = new CodexAgentClient({ workingDir, model: 'gpt-5-codex' });
+        codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
       }
 
       if (hasClaudeCredentials) {
