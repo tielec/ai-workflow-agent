@@ -889,14 +889,33 @@ function extractBalancedJsonObject(text: string): string | null {
  * 適切な型に変換する。
  */
 function normalizeRollbackDecision(raw: Record<string, unknown>): RollbackDecision {
-  const decision = { ...raw } as unknown as RollbackDecision;
+  // デバッグ: 生の入力を確認
+  logger.debug(`normalizeRollbackDecision input: needs_rollback type=${typeof raw.needs_rollback}, value=${JSON.stringify(raw.needs_rollback)}`);
 
-  // needs_rollback を正規化（文字列 "true"/"false" をブール値に変換）
-  if (typeof decision.needs_rollback === 'string') {
-    const strValue = (decision.needs_rollback as string).toLowerCase().trim();
-    decision.needs_rollback = strValue === 'true';
-    logger.debug(`Normalized needs_rollback from string "${strValue}" to boolean ${decision.needs_rollback}`);
+  // 型アサーション前に raw オブジェクトで正規化を行う
+  // TypeScript の型ガードが正しく機能するように、Record<string, unknown> のまま処理
+  const needsRollbackRaw = raw.needs_rollback;
+
+  let needsRollback: boolean;
+  if (typeof needsRollbackRaw === 'string') {
+    const strValue = needsRollbackRaw.toLowerCase().trim();
+    needsRollback = strValue === 'true';
+    logger.info(`Normalized needs_rollback from string "${strValue}" to boolean ${needsRollback}`);
+  } else if (typeof needsRollbackRaw === 'boolean') {
+    needsRollback = needsRollbackRaw;
+  } else {
+    // 予期しない型の場合（undefined, null, number, object など）
+    logger.warn(`Unexpected needs_rollback type: ${typeof needsRollbackRaw}, value: ${JSON.stringify(needsRollbackRaw)}`);
+    // undefined や null の場合は false にする
+    needsRollback = Boolean(needsRollbackRaw);
+    logger.info(`Coerced needs_rollback to boolean: ${needsRollback}`);
   }
+
+  // 正規化された値で新しいオブジェクトを作成
+  const decision: RollbackDecision = {
+    ...raw,
+    needs_rollback: needsRollback,
+  } as RollbackDecision;
 
   return decision;
 }
