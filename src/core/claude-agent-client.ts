@@ -11,6 +11,7 @@ interface ExecuteTaskOptions {
   maxTurns?: number;
   workingDirectory?: string;
   verbose?: boolean;
+  model?: string | null;
 }
 
 const DEFAULT_MAX_TURNS = 50;
@@ -90,7 +91,7 @@ export class ClaudeAgentClient {
         cwd,
         permissionMode,
         maxTurns,
-        model: this.model,
+        model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
       },
     });
@@ -113,10 +114,11 @@ export class ClaudeAgentClient {
     systemPrompt?: string,
     maxTurns?: number,
     verbose?: boolean,
+    model?: string,
   ): Promise<string[]> {
     const template = fs.readFileSync(promptFile, 'utf-8');
     const prompt = this.fillTemplate(template, templateVars ?? {});
-    return this.executeTask({ prompt, systemPrompt, maxTurns, verbose });
+    return this.executeTask({ prompt, systemPrompt, maxTurns, verbose, model });
   }
 
   /**

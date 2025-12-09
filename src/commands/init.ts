@@ -13,6 +13,9 @@ import { parseIssueUrl, resolveLocalRepoPath, getRepoRoot } from '../core/reposi
 import { sanitizeGitUrl } from '../utils/git-url-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { BranchValidationResult } from '../types/commands.js';
+import { DifficultyAnalyzer } from '../core/difficulty-analyzer.js';
+import { ModelOptimizer } from '../core/model-optimizer.js';
+import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
 
 /**
  * Gitブランチ名のバリデーション
@@ -111,12 +114,78 @@ async function commitAndPushMetadata(
   logger.info('Push successful.');
 }
 
+async function performAutoModelSelection(
+  metadataManager: MetadataManager,
+  repoRoot: string,
+  repositoryName: string,
+  issueNumber: number,
+  autoModelSelection?: boolean
+): Promise<void> {
+  if (!autoModelSelection) {
+    return;
+  }
+
+  logger.info('Auto model selection enabled. Running difficulty analysis...');
+
+  let githubToken: string;
+  try {
+    githubToken = config.getGitHubToken();
+  } catch (error) {
+    logger.warn(`GITHUB_TOKEN is required for difficulty analysis: ${getErrorMessage(error)}`);
+    return;
+  }
+
+  const githubClient = new GitHubClient(githubToken, repositoryName, null, null);
+  let issue;
+  try {
+    issue = await githubClient.getIssue(issueNumber);
+  } catch (error) {
+    logger.warn(`Failed to fetch issue for analysis: ${getErrorMessage(error)}`);
+    return;
+  }
+
+  const credentials = resolveAgentCredentials(config.getHomeDir(), repoRoot);
+  const { codexClient, claudeClient } = setupAgentClients('auto', repoRoot, credentials, {
+    claudeModel: 'sonnet',
+    codexModel: 'mini',
+  });
+
+  const analyzer = new DifficultyAnalyzer({
+    claudeClient,
+    codexClient,
+    workingDir: repoRoot,
+  });
+
+  try {
+    const analysisResult = await analyzer.analyze({
+      title: issue.title ?? '',
+      body: issue.body ?? '',
+      labels: (issue.labels ?? []).map((label: { name?: string }) => label?.name ?? ''),
+    });
+    metadataManager.setDifficultyAnalysis(analysisResult);
+
+    const optimizer = new ModelOptimizer(analysisResult.level);
+    const modelConfig = optimizer.generateModelConfig();
+    metadataManager.setModelConfig(modelConfig);
+
+    logger.info(
+      `Difficulty analysis complete: level=${analysisResult.level}, confidence=${analysisResult.confidence.toFixed(2)}`
+    );
+  } catch (error) {
+    logger.warn(`Difficulty analysis failed. Using default models. Details: ${getErrorMessage(error)}`);
+  }
+}
+
 /**
  * Issue初期化コマンドハンドラ
  * @param issueUrl - GitHub Issue URL
  * @param customBranch - カスタムブランチ名（オプション）
  */
-export async function handleInitCommand(issueUrl: string, customBranch?: string): Promise<void> {
+export async function handleInitCommand(
+  issueUrl: string,
+  customBranch?: string,
+  autoModelSelection?: boolean
+): Promise<void> {
   // Issue URLをパース
   let issueInfo;
   try {
@@ -251,6 +320,13 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
         owner: owner,
         repo: repo,
       };
+      await performAutoModelSelection(
+        metadataManager,
+        repoRoot,
+        repositoryName,
+        issueNumber,
+        autoModelSelection
+      );
       metadataManager.save();
       logger.info(
         migrated
@@ -323,6 +399,14 @@ export async function handleInitCommand(issueUrl: string, customBranch?: string)
     // base_commit記録失敗は警告のみ（ワークフロー初期化は継続）
     logger.warn(`Failed to record base_commit: ${getErrorMessage(error)}`);
   }
+
+  await performAutoModelSelection(
+    metadataManager,
+    repoRoot,
+    repositoryName,
+    issueNumber,
+    autoModelSelection
+  );
 
   metadataManager.save();
 

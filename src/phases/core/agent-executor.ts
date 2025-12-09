@@ -11,11 +11,11 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
-import { CodexAgentClient } from '../../core/codex-agent-client.js';
-import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
+import { ClaudeAgentClient, resolveClaudeModel } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { LogFormatter } from '../formatters/log-formatter.js';
-import { PhaseName } from '../../types.js';
+import { PhaseName, StepModelConfig } from '../../types.js';
 import { AgentPriority } from '../../commands/execute/agent-setup.js';
 
 type UsageMetrics = {
@@ -35,6 +35,8 @@ export class AgentExecutor {
   private lastExecutionMetrics: UsageMetrics | null = null;
   // NEW: エージェント優先順位（Issue #306）
   private readonly agentPriority: AgentPriority;
+  // NEW: ステップ単位のモデル設定（Issue #363）
+  private stepModelConfig: StepModelConfig | null = null;
 
   /**
    * @param codex - Codex エージェントクライアント
@@ -63,6 +65,13 @@ export class AgentExecutor {
     this.getAgentWorkingDirectoryFn = getAgentWorkingDirectoryFn ?? null;
     // NEW: デフォルトは 'codex-first'（従来動作を維持）
     this.agentPriority = agentPriority ?? 'codex-first';
+  }
+
+  /**
+   * ステップ単位のモデル設定を更新
+   */
+  updateModelConfig(config: StepModelConfig | null): void {
+    this.stepModelConfig = config;
   }
 
   /**
@@ -223,11 +232,27 @@ export class AgentExecutor {
     logger.debug(`Agent working directory: ${agentWorkingDir}`);
 
     try {
+      const modelOverride =
+        agent === this.codex
+          ? this.stepModelConfig?.codexModel
+            ? resolveCodexModel(this.stepModelConfig.codexModel)
+            : undefined
+          : this.stepModelConfig?.claudeModel
+            ? resolveClaudeModel(this.stepModelConfig.claudeModel)
+            : undefined;
+
+      if (modelOverride) {
+        logger.info(
+          `Using model override for ${agentName}: ${modelOverride} (phase=${this.phaseName})`
+        );
+      }
+
       messages = await agent.executeTask({
         prompt,
         maxTurns: options?.maxTurns ?? 50,
         workingDirectory: agentWorkingDir,
         verbose: options?.verbose,
+        model: modelOverride,
       });
     } catch (e) {
       error = e instanceof Error ? e : new Error(String(e));

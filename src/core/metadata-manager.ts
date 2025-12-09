@@ -10,6 +10,8 @@ import {
   RemainingTask,
   PhaseMetadata,
   EvaluationPhaseMetadata,
+  DifficultyAnalysisResult,
+  ModelConfigByPhase,
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
@@ -190,6 +192,24 @@ export class MetadataManager {
     tracking.total_output_tokens += outputTokens;
     tracking.total_cost_usd += costUsd;
     this.state.save();
+  }
+
+  public setDifficultyAnalysis(result: DifficultyAnalysisResult | null): void {
+    this.state.data.difficulty_analysis = result;
+    this.state.save();
+  }
+
+  public getDifficultyAnalysis(): DifficultyAnalysisResult | null {
+    return this.state.data.difficulty_analysis ?? null;
+  }
+
+  public setModelConfig(config: ModelConfigByPhase | null): void {
+    this.state.data.model_config = config;
+    this.state.save();
+  }
+
+  public getModelConfig(): ModelConfigByPhase | null {
+    return this.state.data.model_config ?? null;
   }
 
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {

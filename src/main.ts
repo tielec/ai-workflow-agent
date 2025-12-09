@@ -28,9 +28,10 @@ export async function runCli(): Promise<void> {
     .command('init')
     .requiredOption('--issue-url <url>', 'GitHub Issue URL')
     .option('--branch <name>', 'Custom branch name (default: ai-workflow/issue-{issue_number})')
+    .option('--auto-model-selection', 'Analyze issue difficulty and select models automatically')
     .action(async (options) => {
       try {
-        await handleInitCommand(options.issueUrl, options.branch);
+        await handleInitCommand(options.issueUrl, options.branch, options.autoModelSelection);
       } catch (error) {
         reportFatalError(error);
       }

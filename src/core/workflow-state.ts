@@ -206,6 +206,18 @@ export class WorkflowState {
       migrated = true;
     }
 
+    // Difficulty analysis / model config (Issue #363)
+    if (!('difficulty_analysis' in this.data)) {
+      logger.info('Migrating metadata.json: Adding difficulty_analysis');
+      (this.data as WorkflowMetadata).difficulty_analysis = null;
+      migrated = true;
+    }
+    if (!('model_config' in this.data)) {
+      logger.info('Migrating metadata.json: Adding model_config');
+      (this.data as WorkflowMetadata).model_config = null;
+      migrated = true;
+    }
+
     // Issue #10: ステップ管理フィールドのマイグレーション
     for (const [phaseName, phaseData] of Object.entries(phases)) {
       let phaseChanged = false;
