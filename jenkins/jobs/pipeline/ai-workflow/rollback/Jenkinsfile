@@ -205,54 +205,56 @@ pipeline {
 
 
 
-        stage('Execute Rollback') {
-            steps {
-                script {
-                    echo "========================================="
-                    def rollbackMode = env.ROLLBACK_MODE ?: 'auto'
-                    def targetLabel = env.ROLLBACK_TARGET_LABEL ?: (rollbackMode == 'manual' ? (params.ROLLBACK_TO_PHASE ?: 'implementation') : 'auto-detect (agent)')
-                    echo "Stage: Execute Rollback (${rollbackMode}) - ${targetLabel}"
-                    echo "========================================="
-
-                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Executing Rollback (${rollbackMode}) -> ${targetLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
-
-                    dir(env.WORKFLOW_DIR) {
-                        if (params.DRY_RUN) {
-                            if (rollbackMode == 'manual') {
-                                echo "[DRY RUN] Rollback to ${targetLabel} skipped"
-                            } else {
-                                echo "[DRY RUN] Rollback auto analysis skipped"
-                            }
-                        } else {
-                            // 差し戻しを実行
-                            // CI環境では --force フラグを付与（確認プロンプトをスキップ）
-                            if (rollbackMode == 'manual') {
-                                def toStepFlag = params.ROLLBACK_TO_STEP ? "--to-step ${params.ROLLBACK_TO_STEP}" : ''
-                                def reasonFlag = params.ROLLBACK_REASON ? "--reason \"${params.ROLLBACK_REASON}\"" : ''
-                                def reasonFileFlag = params.ROLLBACK_REASON_FILE ? "--reason-file ${params.ROLLBACK_REASON_FILE}" : ''
-
-                                sh """
-                                    node dist/index.js rollback \
-                                        --issue ${env.ISSUE_NUMBER} \
-                                        --to-phase ${params.ROLLBACK_TO_PHASE ?: 'implementation'} \
-                                        ${toStepFlag} \
-                                        ${reasonFlag} \
-                                        ${reasonFileFlag} \
-                                        --force
-                                """
-                            } else {
-                                sh """
-                                    node dist/index.js rollback-auto \
-                                        --issue ${env.ISSUE_NUMBER} \
-                                        --agent ${params.AGENT_MODE ?: 'auto'} \
-                                        --force
-                                """
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        stage('Execute Rollback') {
+            steps {
+                script {
+                    echo "========================================="
+                    def rollbackMode = env.ROLLBACK_MODE ?: 'auto'
+                    def targetLabel = env.ROLLBACK_TARGET_LABEL ?: (rollbackMode == 'manual' ? (params.ROLLBACK_TO_PHASE ?: 'implementation') : 'auto-detect (agent)')
+                    echo "Stage: Execute Rollback (${rollbackMode}) - ${targetLabel}"
+                    echo "========================================="
+
+                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Executing Rollback (${rollbackMode}) -> ${targetLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        if (params.DRY_RUN) {
+                            if (rollbackMode == 'manual') {
+                                echo "[DRY RUN] Rollback to ${targetLabel} skipped"
+                            } else {
+                                echo "[DRY RUN] Rollback auto analysis skipped"
+                            }
+                        } else {
+                            // 差し戻しを実行
+                            // CI環境では --force フラグを付与（確認プロンプトをスキップ）
+                            if (rollbackMode == 'manual') {
+                                def toStepFlag = params.ROLLBACK_TO_STEP ? "--to-step ${params.ROLLBACK_TO_STEP}" : ''
+                                def reasonFlag = params.ROLLBACK_REASON ? "--reason \"${params.ROLLBACK_REASON}\"" : ''
+                                def reasonFileFlag = params.ROLLBACK_REASON_FILE ? "--reason-file ${params.ROLLBACK_REASON_FILE}" : ''
+
+                                sh """
+                                    node dist/index.js rollback \
+                                        --issue ${env.ISSUE_NUMBER} \
+                                        --to-phase ${params.ROLLBACK_TO_PHASE ?: 'implementation'} \
+                                        ${toStepFlag} \
+                                        ${reasonFlag} \
+                                        ${reasonFileFlag} \
+                                        --force
+                                """
+                            } else {
+                                sh """
+                                    node dist/index.js rollback-auto \
+                                        --issue ${env.ISSUE_NUMBER} \
+                                        --agent ${params.AGENT_MODE ?: 'auto'} \
+                                        --force
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     post {
         always {
             script {

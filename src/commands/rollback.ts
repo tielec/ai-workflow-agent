@@ -10,6 +10,7 @@
 
 import fs from 'fs-extra';
 import path from 'node:path';
+import os from 'node:os';
 import readline from 'node:readline';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
@@ -22,6 +23,7 @@ import { getErrorMessage } from '../utils/error-utils.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
 import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { AgentExecutor } from '../phases/core/agent-executor.js';
+import { detectCodexCliAuth, isValidCodexApiKey } from '../core/helpers/codex-credentials.js';
 import { glob } from 'glob';
 
 /**
@@ -520,91 +522,104 @@ export async function handleRollbackAutoCommand(options: RollbackAutoOptions): P
 
   if (!codexClient && !claudeClient) {
     throw new Error(
-      'No agent client available. Please configure CODEX_API_KEY or CLAUDE_CODE_CREDENTIALS_PATH.'
+      'No agent client available. Please configure CODEX_API_KEY or CLAUDE_CODE_OAUTH_TOKEN/CLAUDE_CODE_API_KEY.'
     );
   }
 
-  // 3. 分析コンテキストの収集
-  const analysisContext = await collectAnalysisContext(
-    options.issueNumber,
-    metadataManager,
-    workflowDir
-  );
+  // 3. 出力ファイルパスの生成
+  const outputFilePath = generateRollbackOutputFilePath();
+  logger.debug(`Rollback decision output file: ${outputFilePath}`);
 
-  // 4. プロンプト生成
-  const prompt = buildAgentPrompt(
-    options.issueNumber,
-    analysisContext,
-    metadataManager
-  );
+  try {
+    // 4. 分析コンテキストの収集
+    const analysisContext = await collectAnalysisContext(
+      options.issueNumber,
+      metadataManager,
+      workflowDir
+    );
 
-  // 5. エージェント実行
-  logger.info('Running agent analysis...');
-  const agentExecutor = new AgentExecutor(
-    codexClient,
-    claudeClient,
-    metadataManager,
-    'evaluation', // ダミーフェーズ名（メトリクス記録用）
-    workflowDir,
-    () => workflowDir
-  );
+    // 5. プロンプト生成
+    const prompt = buildAgentPrompt(
+      options.issueNumber,
+      analysisContext,
+      metadataManager,
+      outputFilePath
+    );
 
-  const messages = await agentExecutor.executeWithAgent(prompt, {
-    maxTurns: 10,
-    verbose: false,
-  });
+    // 6. エージェント実行
+    logger.info('Running agent analysis...');
+    const agentExecutor = new AgentExecutor(
+      codexClient,
+      claudeClient,
+      metadataManager,
+      'evaluation', // ダミーフェーズ名（メトリクス記録用）
+      workflowDir,
+      () => workflowDir
+    );
 
-  // 6. レスポンスをパース
-  const decision = parseRollbackDecision(messages);
+    await agentExecutor.executeWithAgent(prompt, {
+      maxTurns: 10,
+      verbose: false,
+    });
 
-  // 7. バリデーション
-  validateRollbackDecision(decision);
+    // 7. 出力ファイルから RollbackDecision を読み込む
+    const decision = readRollbackDecisionFile(outputFilePath);
 
-  // 8. 結果表示
-  displayAnalysisResult(decision, options);
+    // 8. バリデーション
+    validateRollbackDecision(decision);
 
-  // 9. 差し戻し不要の場合は終了
-  if (!decision.needs_rollback) {
-    logger.info('Analysis complete: No rollback needed.');
-    return;
-  }
+    // 9. 結果表示
+    displayAnalysisResult(decision, options);
 
-  // 10. ドライランモードの場合はプレビュー表示して終了
-  if (options.dryRun) {
-    displayDryRunPreview(decision);
-    return;
-  }
-
-  // 11. 確認プロンプト（--force かつ high confidence の場合はスキップ）
-  const shouldConfirm = !(options.force && decision.confidence === 'high');
-  if (shouldConfirm) {
-    const confirmed = await confirmRollbackAuto(decision);
-    if (!confirmed) {
-      logger.info('Rollback cancelled.');
+    // 10. 差し戻し不要の場合は終了
+    if (!decision.needs_rollback) {
+      logger.info('Analysis complete: No rollback needed.');
       return;
     }
-  } else {
-    logger.info('Skipping confirmation (--force with high confidence)');
+
+    // 11. ドライランモードの場合はプレビュー表示して終了
+    if (options.dryRun) {
+      displayDryRunPreview(decision);
+      return;
+    }
+
+    // 12. 確認プロンプト（--force かつ high confidence の場合はスキップ）
+    const shouldConfirm = !(options.force && decision.confidence === 'high');
+    if (shouldConfirm) {
+      const confirmed = await confirmRollbackAuto(decision);
+      if (!confirmed) {
+        logger.info('Rollback cancelled.');
+        return;
+      }
+    } else {
+      logger.info('Skipping confirmation (--force with high confidence)');
+    }
+
+    // 13. 差し戻し実行
+    const rollbackOptions: RollbackCommandOptions = {
+      issue: String(options.issueNumber),
+      toPhase: decision.to_phase!,
+      toStep: decision.to_step,
+      reason: decision.reason,
+      force: true, // 既に確認済み
+      dryRun: false,
+    };
+
+    await executeRollback(
+      rollbackOptions,
+      metadataManager,
+      workflowDir,
+      decision.reason
+    );
+
+    logger.info('Rollback auto completed successfully.');
+  } finally {
+    // 14. 一時ファイルのクリーンアップ
+    if (fs.existsSync(outputFilePath)) {
+      fs.unlinkSync(outputFilePath);
+      logger.debug(`Cleaned up output file: ${outputFilePath}`);
+    }
   }
-
-  // 12. 差し戻し実行
-  const rollbackOptions: RollbackCommandOptions = {
-    issue: String(options.issueNumber),
-    toPhase: decision.to_phase!,
-    toStep: decision.to_step,
-    reason: decision.reason,
-    force: true, // 既に確認済み
-    dryRun: false,
-  };
-
-  await executeRollback(
-    rollbackOptions,
-    metadataManager,
-    workflowDir,
-    decision.reason
-  );
-
-  logger.info('Rollback auto completed successfully.');
 }
 
 /**
@@ -618,6 +633,11 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
 
+  // Codex 認証情報のチェック（API キーまたは CLI 認証ファイル）
+  const codexApiKey = config.getCodexApiKey();
+  const { authFilePath: codexAuthFile } = detectCodexCliAuth();
+  const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || codexAuthFile !== null;
+
   if (mode === 'codex') {
     // Codex 強制
     codexClient = new CodexAgentClient();
@@ -627,11 +647,15 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
     claudeClient = new ClaudeAgentClient();
     logger.info('Using Claude agent (forced)');
   } else {
-    // auto モード: CODEX_API_KEY があれば Codex、なければ Claude
-    if (config.getCodexApiKey()) {
+    // auto モード: Codex 認証情報があれば Codex、なければ Claude
+    if (hasCodexCredentials) {
       codexClient = new CodexAgentClient();
-      logger.info('Using Codex agent (auto-selected)');
-    } else if (config.getClaudeCredentialsPath()) {
+      if (isValidCodexApiKey(codexApiKey)) {
+        logger.info('Using Codex agent (auto-selected via CODEX_API_KEY)');
+      } else {
+        logger.info('Using Codex agent (auto-selected via CODEX_AUTH_JSON)');
+      }
+    } else if (config.getClaudeCodeToken()) {
       claudeClient = new ClaudeAgentClient();
       logger.info('Using Claude agent (auto-selected)');
     }
@@ -680,6 +704,8 @@ async function collectAnalysisContext(
  */
 async function findLatestReviewResult(workflowDir: string): Promise<string | null> {
   const reviewPatterns = [
+    '**/review/result.md',
+    '**/review/review_result.md',
     '**/review/review-result.md',
     '**/review-result.md',
     '**/REVIEW_RESULT.md',
@@ -711,6 +737,8 @@ async function findLatestReviewResult(workflowDir: string): Promise<string | nul
  */
 async function findLatestTestResult(workflowDir: string): Promise<string | null> {
   const testPatterns = [
+    '**/06_testing/output/test-result.md',
+    '**/testing/output/test-result.md',
     '**/testing/execute/test-result.md',
     '**/testing/test-result.md',
     '**/TEST_RESULT.md',
@@ -746,7 +774,8 @@ function buildAgentPrompt(
     latestReviewResultPath: string | null;
     latestTestResultPath: string | null;
   },
-  metadataManager: MetadataManager
+  metadataManager: MetadataManager,
+  outputFilePath: string
 ): string {
   // プロンプトテンプレートを読み込む
   const templatePath = path.join(
@@ -757,6 +786,7 @@ function buildAgentPrompt(
 
   // 変数の置き換え
   template = template.replace(/{issue_number}/g, String(issueNumber));
+  template = template.replace(/{output_file_path}/g, outputFilePath);
 
   // メタデータJSON
   const metadataJson = JSON.stringify(metadataManager.data, null, 2);
@@ -780,56 +810,32 @@ function buildAgentPrompt(
 }
 
 /**
- * エージェントレスポンスから RollbackDecision をパース（Issue #271）
+ * 出力ファイルから RollbackDecision を読み込む（Issue #271）
  */
-export function parseRollbackDecision(messages: string[]): RollbackDecision {
-  // 全メッセージを結合
-  const fullText = messages.join('\n');
-
-  // パターン1: Markdown コードブロック内の JSON
-  const markdownMatch = fullText.match(/```json\s*\n([\s\S]*?)\n```/);
-  if (markdownMatch) {
-    try {
-      const parsed = JSON.parse(markdownMatch[1]) as RollbackDecision;
-      logger.debug('Parsed RollbackDecision from markdown code block');
-      return parsed;
-    } catch (error) {
-      logger.warn(`Failed to parse JSON from markdown block: ${getErrorMessage(error)}`);
-    }
+function readRollbackDecisionFile(outputFilePath: string): RollbackDecision {
+  // ファイル存在チェック
+  if (!fs.existsSync(outputFilePath)) {
+    throw new Error(
+      `Rollback decision file not found: ${outputFilePath}. ` +
+      'The agent may have failed to generate the output file.'
+    );
   }
 
-  // パターン2: プレーンテキストの JSON オブジェクト
-  const plainMatch = fullText.match(/\{[\s\S]*"needs_rollback"[\s\S]*\}/);
-  if (plainMatch) {
-    try {
-      const parsed = JSON.parse(plainMatch[0]) as RollbackDecision;
-      logger.debug('Parsed RollbackDecision from plain JSON');
-      return parsed;
-    } catch (error) {
-      logger.warn(`Failed to parse plain JSON: ${getErrorMessage(error)}`);
-    }
-  }
+  try {
+    // JSONファイルを読み込む
+    const content = fs.readFileSync(outputFilePath, 'utf-8');
+    const parsed = JSON.parse(content) as RollbackDecision;
 
-  // パターン3: ブラケット検索（最初の { から最後の } まで）
-  const firstBrace = fullText.indexOf('{');
-  const lastBrace = fullText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
-    try {
-      const jsonStr = fullText.slice(firstBrace, lastBrace + 1);
-      const parsed = JSON.parse(jsonStr) as RollbackDecision;
-      logger.debug('Parsed RollbackDecision using bracket search');
-      return parsed;
-    } catch (error) {
-      logger.warn(`Failed to parse JSON using bracket search: ${getErrorMessage(error)}`);
-    }
+    logger.debug('Successfully parsed RollbackDecision from file');
+    return parsed;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse rollback decision file: ${getErrorMessage(error)}. ` +
+      'The output file may contain invalid JSON.'
+    );
   }
-
-  // パース失敗
-  throw new Error(
-    'Failed to parse RollbackDecision from agent response. ' +
-    'Expected a JSON object with "needs_rollback" field.'
-  );
 }
+
 
 /**
  * RollbackDecision をバリデーション（Issue #271）
@@ -962,4 +968,15 @@ async function confirmRollbackAuto(decision: RollbackDecision): Promise<boolean>
       resolve(normalized === 'y' || normalized === 'yes');
     });
   });
+}
+
+/**
+ * Rollback Auto用の一時ファイルパスを生成
+ *
+ * @returns 一時ディレクトリ内のユニークなファイルパス
+ */
+function generateRollbackOutputFilePath(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return path.join(os.tmpdir(), `rollback-auto-${timestamp}-${random}.json`);
 }
