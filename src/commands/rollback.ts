@@ -520,7 +520,7 @@ export async function handleRollbackAutoCommand(options: RollbackAutoOptions): P
 
   if (!codexClient && !claudeClient) {
     throw new Error(
-      'No agent client available. Please configure CODEX_API_KEY or CLAUDE_CODE_CREDENTIALS_PATH.'
+      'No agent client available. Please configure CODEX_API_KEY or CLAUDE_CODE_OAUTH_TOKEN/CLAUDE_CODE_API_KEY.'
     );
   }
 
@@ -631,7 +631,7 @@ function initializeAgentClients(agentMode?: 'auto' | 'codex' | 'claude'): {
     if (config.getCodexApiKey()) {
       codexClient = new CodexAgentClient();
       logger.info('Using Codex agent (auto-selected)');
-    } else if (config.getClaudeCredentialsPath()) {
+    } else if (config.getClaudeCodeToken()) {
       claudeClient = new ClaudeAgentClient();
       logger.info('Using Claude agent (auto-selected)');
     }
