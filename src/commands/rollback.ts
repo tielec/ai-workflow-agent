@@ -680,6 +680,8 @@ async function collectAnalysisContext(
  */
 async function findLatestReviewResult(workflowDir: string): Promise<string | null> {
   const reviewPatterns = [
+    '**/review/result.md',
+    '**/review/review_result.md',
     '**/review/review-result.md',
     '**/review-result.md',
     '**/REVIEW_RESULT.md',
@@ -711,6 +713,8 @@ async function findLatestReviewResult(workflowDir: string): Promise<string | nul
  */
 async function findLatestTestResult(workflowDir: string): Promise<string | null> {
   const testPatterns = [
+    '**/06_testing/output/test-result.md',
+    '**/testing/output/test-result.md',
     '**/testing/execute/test-result.md',
     '**/testing/test-result.md',
     '**/TEST_RESULT.md',
