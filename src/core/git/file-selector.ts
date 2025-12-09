@@ -47,6 +47,28 @@ const DEBUG_ONLY_PATTERNS: string[] = [
 ];
 
 /**
+ * Build artifact and cache file patterns that should NEVER be committed.
+ *
+ * These files are generated automatically and should not be version controlled:
+ * - Python: __pycache__/, *.pyc, *.pyo, *.pyd
+ * - Node.js: node_modules/ (already in .gitignore, but double-check)
+ * - Build outputs: dist/, build/, out/, target/
+ * - Cache: .pytest_cache/, .mypy_cache/, .cache/
+ */
+const BUILD_ARTIFACT_PATTERNS: string[] = [
+  '__pycache__',
+  '*.pyc',
+  '*.pyo',
+  '*.pyd',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.cache',
+  'node_modules',
+  '.npm',
+  '.yarn',
+];
+
+/**
  * Check if a file is a debug-only file that should be excluded when LOG_LEVEL is not 'debug'.
  *
  * Debug-only files (agent_log_raw.txt, prompt.txt) can be large and are only needed for debugging.
@@ -79,6 +101,38 @@ export function shouldExcludeRawLog(filePath: string): boolean {
 }
 
 /**
+ * Check if a file is a build artifact or cache file that should be excluded.
+ *
+ * Build artifacts and cache files (__pycache__/, *.pyc, node_modules/, etc.) should never be committed.
+ * These files are generated automatically and pollute the repository if included.
+ *
+ * @param filePath - The file path to check
+ * @returns true if the file should be excluded as a build artifact
+ */
+export function isBuildArtifact(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+
+  return BUILD_ARTIFACT_PATTERNS.some((pattern) => {
+    // Check for directory patterns (e.g., __pycache__, node_modules)
+    if (!pattern.includes('*')) {
+      return (
+        normalizedPath.includes(`/${pattern}/`) ||
+        normalizedPath.endsWith(`/${pattern}`) ||
+        normalizedPath.startsWith(`${pattern}/`)
+      );
+    }
+
+    // Check for wildcard patterns (e.g., *.pyc, *.pyo)
+    if (pattern.startsWith('*.')) {
+      const extension = pattern.substring(1); // Remove '*'
+      return normalizedPath.endsWith(extension);
+    }
+
+    return false;
+  });
+}
+
+/**
  * FileSelector - Specialized module for file selection and filtering
  *
  * Responsibilities:
@@ -102,6 +156,7 @@ export class FileSelector {
    * - Files containing '@tmp'
    * - Security-sensitive files (credentials, auth files, .env)
    * - Debug-only files (agent_log_raw.txt, prompt.txt) when LOG_LEVEL is not 'debug'
+   * - Build artifacts and cache files (__pycache__/, *.pyc, node_modules/, etc.)
    */
   public async getChangedFiles(): Promise<string[]> {
     const status = await this.git.status();
@@ -109,8 +164,13 @@ export class FileSelector {
 
     const collect = (paths: string[] | undefined) => {
       paths?.forEach((file) => {
-        // SECURITY: Exclude @tmp, sensitive credential files, and debug-only files when not in debug mode
-        if (!file.includes('@tmp') && !isSecuritySensitiveFile(file) && !shouldExcludeDebugFile(file)) {
+        // SECURITY & HYGIENE: Exclude @tmp, sensitive files, debug files, and build artifacts
+        if (
+          !file.includes('@tmp') &&
+          !isSecuritySensitiveFile(file) &&
+          !shouldExcludeDebugFile(file) &&
+          !isBuildArtifact(file)
+        ) {
           aggregated.add(file);
         }
       });
@@ -124,8 +184,12 @@ export class FileSelector {
     collect(status.staged);
 
     status.files.forEach((file) => {
-      // SECURITY: Exclude sensitive credential files and debug-only files when not in debug mode
-      if (!isSecuritySensitiveFile(file.path) && !shouldExcludeDebugFile(file.path)) {
+      // SECURITY & HYGIENE: Exclude sensitive files, debug files, and build artifacts
+      if (
+        !isSecuritySensitiveFile(file.path) &&
+        !shouldExcludeDebugFile(file.path) &&
+        !isBuildArtifact(file.path)
+      ) {
         aggregated.add(file.path);
       }
     });
@@ -143,14 +207,20 @@ export class FileSelector {
    * - Files in .ai-workflow/issue-{OTHER_NUMBER}/
    * - Security-sensitive files (credentials, auth files, .env)
    * - Debug-only files (agent_log_raw.txt, prompt.txt) when LOG_LEVEL is not 'debug'
+   * - Build artifacts and cache files (__pycache__/, *.pyc, node_modules/, etc.)
    */
   public filterPhaseFiles(files: string[], issueNumber: string): string[] {
     const targetPrefix = `.ai-workflow/issue-${issueNumber}/`;
     const result: string[] = [];
 
     for (const file of files) {
-      // SECURITY: Exclude @tmp, sensitive credential files, and debug-only files when not in debug mode
-      if (file.includes('@tmp') || isSecuritySensitiveFile(file) || shouldExcludeDebugFile(file)) {
+      // SECURITY & HYGIENE: Exclude @tmp, sensitive files, debug files, and build artifacts
+      if (
+        file.includes('@tmp') ||
+        isSecuritySensitiveFile(file) ||
+        shouldExcludeDebugFile(file) ||
+        isBuildArtifact(file)
+      ) {
         continue;
       }
 
@@ -199,7 +269,9 @@ export class FileSelector {
 
   /**
    * Scan specific directories for changed files
-   * Excludes files containing '@tmp'
+   * Excludes:
+   * - Files containing '@tmp'
+   * - Build artifacts and cache files
    */
   private async scanDirectories(directories: string[]): Promise<string[]> {
     const changedFiles = await this.getChangedFiles();
@@ -208,7 +280,7 @@ export class FileSelector {
     for (const dir of directories) {
       const prefix = `${dir}/`;
       changedFiles.forEach((file) => {
-        if (file.startsWith(prefix) && !file.includes('@tmp')) {
+        if (file.startsWith(prefix) && !file.includes('@tmp') && !isBuildArtifact(file)) {
           results.push(file);
         }
       });
@@ -222,14 +294,16 @@ export class FileSelector {
    * Supports two matching modes:
    * - Direct match: minimatch(file, pattern)
    * - Recursive match: minimatch(file, `**\/${pattern}`)
-   * Excludes files containing '@tmp'
+   * Excludes:
+   * - Files containing '@tmp'
+   * - Build artifacts and cache files
    */
   private async scanByPatterns(patterns: string[]): Promise<string[]> {
     const changedFiles = await this.getChangedFiles();
     const results = new Set<string>();
 
     changedFiles.forEach((file) => {
-      if (file.includes('@tmp')) {
+      if (file.includes('@tmp') || isBuildArtifact(file)) {
         return;
       }
 
