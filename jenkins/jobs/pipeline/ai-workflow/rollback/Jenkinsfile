@@ -12,7 +12,6 @@
  * - ROLLBACK_REASON_FILE: 差し戻し理由ファイルパス（オプション）
  * - ROLLBACK_MODE: 差し戻しモード（auto: エージェント自動判定 / manual: 従来の手動指定）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
- * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
@@ -64,9 +63,6 @@ pipeline {
         CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
         CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
         ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
-
-        // 自動モデル選択設定
-        AUTO_MODEL_SELECTION = "${params.AUTO_MODEL_SELECTION ?: 'true'}"
     }
 
     stages {
@@ -196,13 +192,11 @@ pipeline {
                             echo "[DRY RUN] Workflow initialization skipped"
                         } else {
                             def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
-                            def autoModelSelectionFlag = env.AUTO_MODEL_SELECTION == 'true' ? '--auto-model-selection' : ''
 
                             sh """
                                 node dist/index.js init \
                                     --issue-url ${params.ISSUE_URL} \
-                                    ${branchOption} \
-                                    ${autoModelSelectionFlag}
+                                    ${branchOption}
                             """
                         }
                     }
