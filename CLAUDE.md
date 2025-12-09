@@ -972,6 +972,10 @@ if (config.isCI()) {
 ### 実行設定
 
 - **エージェントモード**: `AGENT_MODE` パラメータで制御（auto/codex/claude）
+- **自動モデル選択**: `AUTO_MODEL_SELECTION` パラメータで制御（デフォルト: true）
+  - Issue難易度に基づいて最適なモデルを自動選択（Issue #379で追加）
+  - `true`: 難易度分析を実行し、simple/moderate/complexに応じてモデルを選択
+  - `false`: 従来動作（`AGENT_MODE`パラメータに従う）
 - **実行モード**: 各Jenkinsfileが対応する実行モードを担当
 - **認証情報**:
   - `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）: Job DSLパラメータから取得

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #379**: JenkinsパイプラインにAUTO_MODEL_SELECTIONパラメータを追加
+  - 5つのJenkinsfile（all-phases, preset, single-phase, rollback, finalize）に`AUTO_MODEL_SELECTION`パラメータを追加
+  - デフォルト値: `true`（Issue難易度に基づく自動モデル選択を有効化）
+  - `initコマンドに`--auto-model-selection`フラグを条件付きで渡す機能を追加
+  - 環境変数定義: `AUTO_MODEL_SELECTION = "${params.AUTO_MODEL_SELECTION ?: 'true'}"`
+  - 後方互換性: `AUTO_MODEL_SELECTION=false`で従来動作（`AGENT_MODE`パラメータに従う）に戻すことが可能
+  - CLAUDE.mdにパラメータ説明を追加
+  - Issue #363の`--auto-model-selection` CLIオプションをJenkins環境から利用可能に
+
 - **Issue #363**: Issue難易度に基づくエージェントモデル自動選択機能
   - 新しい CLI オプション `--auto-model-selection` を `init` コマンドに追加
   - **難易度分析エンジン（DifficultyAnalyzer）**: Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（simple, moderate, complex）を判定
