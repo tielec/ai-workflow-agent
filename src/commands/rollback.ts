@@ -10,6 +10,7 @@
 
 import fs from 'fs-extra';
 import path from 'node:path';
+import os from 'node:os';
 import readline from 'node:readline';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
@@ -525,87 +526,100 @@ export async function handleRollbackAutoCommand(options: RollbackAutoOptions): P
     );
   }
 
-  // 3. 分析コンテキストの収集
-  const analysisContext = await collectAnalysisContext(
-    options.issueNumber,
-    metadataManager,
-    workflowDir
-  );
+  // 3. 出力ファイルパスの生成
+  const outputFilePath = generateRollbackOutputFilePath();
+  logger.debug(`Rollback decision output file: ${outputFilePath}`);
 
-  // 4. プロンプト生成
-  const prompt = buildAgentPrompt(
-    options.issueNumber,
-    analysisContext,
-    metadataManager
-  );
+  try {
+    // 4. 分析コンテキストの収集
+    const analysisContext = await collectAnalysisContext(
+      options.issueNumber,
+      metadataManager,
+      workflowDir
+    );
 
-  // 5. エージェント実行
-  logger.info('Running agent analysis...');
-  const agentExecutor = new AgentExecutor(
-    codexClient,
-    claudeClient,
-    metadataManager,
-    'evaluation', // ダミーフェーズ名（メトリクス記録用）
-    workflowDir,
-    () => workflowDir
-  );
+    // 5. プロンプト生成
+    const prompt = buildAgentPrompt(
+      options.issueNumber,
+      analysisContext,
+      metadataManager,
+      outputFilePath
+    );
 
-  const messages = await agentExecutor.executeWithAgent(prompt, {
-    maxTurns: 10,
-    verbose: false,
-  });
+    // 6. エージェント実行
+    logger.info('Running agent analysis...');
+    const agentExecutor = new AgentExecutor(
+      codexClient,
+      claudeClient,
+      metadataManager,
+      'evaluation', // ダミーフェーズ名（メトリクス記録用）
+      workflowDir,
+      () => workflowDir
+    );
 
-  // 6. レスポンスをパース
-  const decision = parseRollbackDecision(messages);
+    await agentExecutor.executeWithAgent(prompt, {
+      maxTurns: 10,
+      verbose: false,
+    });
 
-  // 7. バリデーション
-  validateRollbackDecision(decision);
+    // 7. 出力ファイルから RollbackDecision を読み込む
+    const decision = readRollbackDecisionFile(outputFilePath);
 
-  // 8. 結果表示
-  displayAnalysisResult(decision, options);
+    // 8. バリデーション
+    validateRollbackDecision(decision);
 
-  // 9. 差し戻し不要の場合は終了
-  if (!decision.needs_rollback) {
-    logger.info('Analysis complete: No rollback needed.');
-    return;
-  }
+    // 9. 結果表示
+    displayAnalysisResult(decision, options);
 
-  // 10. ドライランモードの場合はプレビュー表示して終了
-  if (options.dryRun) {
-    displayDryRunPreview(decision);
-    return;
-  }
-
-  // 11. 確認プロンプト（--force かつ high confidence の場合はスキップ）
-  const shouldConfirm = !(options.force && decision.confidence === 'high');
-  if (shouldConfirm) {
-    const confirmed = await confirmRollbackAuto(decision);
-    if (!confirmed) {
-      logger.info('Rollback cancelled.');
+    // 10. 差し戻し不要の場合は終了
+    if (!decision.needs_rollback) {
+      logger.info('Analysis complete: No rollback needed.');
       return;
     }
-  } else {
-    logger.info('Skipping confirmation (--force with high confidence)');
+
+    // 11. ドライランモードの場合はプレビュー表示して終了
+    if (options.dryRun) {
+      displayDryRunPreview(decision);
+      return;
+    }
+
+    // 12. 確認プロンプト（--force かつ high confidence の場合はスキップ）
+    const shouldConfirm = !(options.force && decision.confidence === 'high');
+    if (shouldConfirm) {
+      const confirmed = await confirmRollbackAuto(decision);
+      if (!confirmed) {
+        logger.info('Rollback cancelled.');
+        return;
+      }
+    } else {
+      logger.info('Skipping confirmation (--force with high confidence)');
+    }
+
+    // 13. 差し戻し実行
+    const rollbackOptions: RollbackCommandOptions = {
+      issue: String(options.issueNumber),
+      toPhase: decision.to_phase!,
+      toStep: decision.to_step,
+      reason: decision.reason,
+      force: true, // 既に確認済み
+      dryRun: false,
+    };
+
+    await executeRollback(
+      rollbackOptions,
+      metadataManager,
+      workflowDir,
+      decision.reason
+    );
+
+    logger.info('Rollback auto completed successfully.');
+  } finally {
+    // 14. 一時ファイルのクリーンアップ
+    if (fs.existsSync(outputFilePath)) {
+      fs.unlinkSync(outputFilePath);
+      logger.debug(`Cleaned up output file: ${outputFilePath}`);
+    }
   }
-
-  // 12. 差し戻し実行
-  const rollbackOptions: RollbackCommandOptions = {
-    issue: String(options.issueNumber),
-    toPhase: decision.to_phase!,
-    toStep: decision.to_step,
-    reason: decision.reason,
-    force: true, // 既に確認済み
-    dryRun: false,
-  };
-
-  await executeRollback(
-    rollbackOptions,
-    metadataManager,
-    workflowDir,
-    decision.reason
-  );
-
-  logger.info('Rollback auto completed successfully.');
 }
 
 /**
@@ -760,7 +774,8 @@ function buildAgentPrompt(
     latestReviewResultPath: string | null;
     latestTestResultPath: string | null;
   },
-  metadataManager: MetadataManager
+  metadataManager: MetadataManager,
+  outputFilePath: string
 ): string {
   // プロンプトテンプレートを読み込む
   const templatePath = path.join(
@@ -771,6 +786,7 @@ function buildAgentPrompt(
 
   // 変数の置き換え
   template = template.replace(/{issue_number}/g, String(issueNumber));
+  template = template.replace(/{output_file_path}/g, outputFilePath);
 
   // メタデータJSON
   const metadataJson = JSON.stringify(metadataManager.data, null, 2);
@@ -794,131 +810,32 @@ function buildAgentPrompt(
 }
 
 /**
- * エージェントレスポンスから RollbackDecision をパース（Issue #271）
+ * 出力ファイルから RollbackDecision を読み込む（Issue #271）
  */
-export function parseRollbackDecision(messages: string[]): RollbackDecision {
-  // 全メッセージを結合
-  const fullText = messages.join('\n');
-
-  // パターン1: Markdown コードブロック内の JSON
-  const markdownMatch = fullText.match(/```json\s*\n([\s\S]*?)\n```/);
-  if (markdownMatch) {
-    try {
-      const parsed = JSON.parse(markdownMatch[1]) as Record<string, unknown>;
-      const normalized = normalizeRollbackDecision(parsed);
-      logger.debug('Parsed RollbackDecision from markdown code block');
-      return normalized;
-    } catch (error) {
-      logger.warn(`Failed to parse JSON from markdown block: ${getErrorMessage(error)}`);
-    }
+function readRollbackDecisionFile(outputFilePath: string): RollbackDecision {
+  // ファイル存在チェック
+  if (!fs.existsSync(outputFilePath)) {
+    throw new Error(
+      `Rollback decision file not found: ${outputFilePath}. ` +
+      'The agent may have failed to generate the output file.'
+    );
   }
 
-  // パターン2: バランスの取れた JSON オブジェクトを抽出
-  const jsonObject = extractBalancedJsonObject(fullText);
-  if (jsonObject) {
-    try {
-      const parsed = JSON.parse(jsonObject) as Record<string, unknown>;
-      const normalized = normalizeRollbackDecision(parsed);
-      logger.debug('Parsed RollbackDecision from balanced JSON extraction');
-      return normalized;
-    } catch (error) {
-      logger.warn(`Failed to parse balanced JSON: ${getErrorMessage(error)}`);
-    }
-  }
+  try {
+    // JSONファイルを読み込む
+    const content = fs.readFileSync(outputFilePath, 'utf-8');
+    const parsed = JSON.parse(content) as RollbackDecision;
 
-  // パース失敗
-  throw new Error(
-    'Failed to parse RollbackDecision from agent response. ' +
-    'Expected a JSON object with "needs_rollback" field.'
-  );
+    logger.debug('Successfully parsed RollbackDecision from file');
+    return parsed;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse rollback decision file: ${getErrorMessage(error)}. ` +
+      'The output file may contain invalid JSON.'
+    );
+  }
 }
 
-/**
- * バランスの取れた JSON オブジェクトを抽出
- *
- * 最初の { から対応する } までを抽出する。
- * ネストされた {} を正しく処理する。
- */
-function extractBalancedJsonObject(text: string): string | null {
-  const startIndex = text.indexOf('{');
-  if (startIndex === -1) {
-    return null;
-  }
-
-  let braceCount = 0;
-  let inString = false;
-  let escapeNext = false;
-
-  for (let i = startIndex; i < text.length; i++) {
-    const char = text[i];
-
-    if (escapeNext) {
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === '\\' && inString) {
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"' && !escapeNext) {
-      inString = !inString;
-      continue;
-    }
-
-    if (!inString) {
-      if (char === '{') {
-        braceCount++;
-      } else if (char === '}') {
-        braceCount--;
-        if (braceCount === 0) {
-          return text.slice(startIndex, i + 1);
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * RollbackDecision を正規化
- *
- * LLM の応答で文字列 "true"/"false" がブール値として返されることがあるため、
- * 適切な型に変換する。
- */
-function normalizeRollbackDecision(raw: Record<string, unknown>): RollbackDecision {
-  // デバッグ: 生の入力を確認
-  logger.debug(`normalizeRollbackDecision input: needs_rollback type=${typeof raw.needs_rollback}, value=${JSON.stringify(raw.needs_rollback)}`);
-
-  // 型アサーション前に raw オブジェクトで正規化を行う
-  // TypeScript の型ガードが正しく機能するように、Record<string, unknown> のまま処理
-  const needsRollbackRaw = raw.needs_rollback;
-
-  let needsRollback: boolean;
-  if (typeof needsRollbackRaw === 'string') {
-    const strValue = needsRollbackRaw.toLowerCase().trim();
-    needsRollback = strValue === 'true';
-    logger.info(`Normalized needs_rollback from string "${strValue}" to boolean ${needsRollback}`);
-  } else if (typeof needsRollbackRaw === 'boolean') {
-    needsRollback = needsRollbackRaw;
-  } else {
-    // 予期しない型の場合（undefined, null, number, object など）
-    logger.warn(`Unexpected needs_rollback type: ${typeof needsRollbackRaw}, value: ${JSON.stringify(needsRollbackRaw)}`);
-    // undefined や null の場合は false にする
-    needsRollback = Boolean(needsRollbackRaw);
-    logger.info(`Coerced needs_rollback to boolean: ${needsRollback}`);
-  }
-
-  // 正規化された値で新しいオブジェクトを作成
-  const decision: RollbackDecision = {
-    ...raw,
-    needs_rollback: needsRollback,
-  } as RollbackDecision;
-
-  return decision;
-}
 
 /**
  * RollbackDecision をバリデーション（Issue #271）
@@ -1051,4 +968,15 @@ async function confirmRollbackAuto(decision: RollbackDecision): Promise<boolean>
       resolve(normalized === 'y' || normalized === 'yes');
     });
   });
+}
+
+/**
+ * Rollback Auto用の一時ファイルパスを生成
+ *
+ * @returns 一時ディレクトリ内のユニークなファイルパス
+ */
+function generateRollbackOutputFilePath(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return path.join(os.tmpdir(), `rollback-auto-${timestamp}-${random}.json`);
 }
