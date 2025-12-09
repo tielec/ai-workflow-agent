@@ -1401,6 +1401,7 @@ Jenkinsfileは実行モード別に分割され、保守性と可読性が大幅
 // All Phases モード
 ISSUE_URL: "https://github.com/owner/repo/issues/123"
 AGENT_MODE: "auto"  // auto | codex | claude
+AUTO_MODEL_SELECTION: true  // 自動モデル選択（デフォルト: true）
 FORCE_RESET: false
 CLEANUP_ON_COMPLETE_FORCE: false
 SQUASH_ON_COMPLETE: false
@@ -1409,17 +1410,24 @@ SQUASH_ON_COMPLETE: false
 ISSUE_URL: "https://github.com/owner/repo/issues/123"
 PRESET: "quick-fix"  // 7種類のプリセットから選択
 AGENT_MODE: "auto"
+AUTO_MODEL_SELECTION: true  // 自動モデル選択
 
 // Single Phase モード
 ISSUE_URL: "https://github.com/owner/repo/issues/123"
 START_PHASE: "implementation"  // 10種類のフェーズから選択
 AGENT_MODE: "auto"
+AUTO_MODEL_SELECTION: true  // 自動モデル選択
 
 // Rollback モード
 ISSUE_URL: "https://github.com/owner/repo/issues/123"
 ROLLBACK_TO_PHASE: "implementation"
 ROLLBACK_TO_STEP: "revise"  // execute | review | revise
 ROLLBACK_REASON: "Testing Phaseで失敗。モック実装が不完全"
+AUTO_MODEL_SELECTION: true  // 自動モデル選択
+
+// Finalize モード
+ISSUE_URL: "https://github.com/owner/repo/issues/123"
+AUTO_MODEL_SELECTION: true  // 自動モデル選択
 
 // Auto Issue モード
 GITHUB_REPOSITORY: "owner/repo"
@@ -1428,6 +1436,12 @@ AUTO_ISSUE_LIMIT: 5
 AUTO_ISSUE_SIMILARITY_THRESHOLD: 0.75
 DRY_RUN: false
 ```
+
+**AUTO_MODEL_SELECTION パラメータ**（Issue #379で追加）:
+- **デフォルト**: `true`
+- **説明**: Issue難易度に基づく自動モデル選択を有効化
+- `true`: 難易度分析を実行し、simple/moderate/complexに応じてモデルを選択
+- `false`: 従来動作（`AGENT_MODE`パラメータに従う）
 
 **認証情報の管理**:
 - **Job DSLパラメータ経由**: `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）
