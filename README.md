@@ -1434,6 +1434,7 @@ GITHUB_REPOSITORY: "owner/repo"
 AUTO_ISSUE_CATEGORY: "bug"  // bug | refactor | enhancement | all
 AUTO_ISSUE_LIMIT: 5
 AUTO_ISSUE_SIMILARITY_THRESHOLD: 0.75
+AUTO_MODEL_SELECTION: true  // 自動モデル選択（auto-issue用）
 DRY_RUN: false
 ```
 
