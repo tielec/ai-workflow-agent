@@ -11,6 +11,9 @@ import { handleRollbackCommand, handleRollbackAutoCommand } from './commands/rol
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
 import { handleFinalizeCommand } from './commands/finalize.js';
+import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
+import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
+import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
 
 /**
  * CLIエントリーポイント
@@ -257,6 +260,54 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handleFinalizeCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // pr-comment コマンド
+  const prComment = program.command('pr-comment').description('Handle PR review comments automatically');
+
+  prComment
+    .command('init')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--issue <number>', 'Issue number to resolve PR from')
+    .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .action(async (options) => {
+      try {
+        await handlePRCommentInitCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  prComment
+    .command('execute')
+    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .option('--dry-run', 'Preview mode (do not apply changes or update metadata)', false)
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .option('--batch-size <number>', 'Batch size for processing comments', '3')
+    .action(async (options) => {
+      try {
+        await handlePRCommentExecuteCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  prComment
+    .command('finalize')
+    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--skip-cleanup', 'Skip metadata cleanup', false)
+    .option('--dry-run', 'Preview mode (do not resolve threads)', false)
+    .action(async (options) => {
+      try {
+        await handlePRCommentFinalizeCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

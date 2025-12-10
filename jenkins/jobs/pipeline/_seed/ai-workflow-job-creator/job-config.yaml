@@ -54,3 +54,17 @@ jenkins-jobs:
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
+
+  ai_workflow_pr_comment_execute_job:
+    name: 'pr_comment_execute'
+    displayName: 'PR Comment Execute'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_execute_job.groovy
+    jenkinsfile: Jenkinsfile
+    skipJenkinsfileValidation: true
+
+  ai_workflow_pr_comment_finalize_job:
+    name: 'pr_comment_finalize'
+    displayName: 'PR Comment Finalize'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_finalize_job.groovy
+    jenkinsfile: Jenkinsfile
+    skipJenkinsfileValidation: true

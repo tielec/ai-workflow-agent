@@ -600,6 +600,67 @@ node dist/index.js execute --issue 123 --phase all
 2. 環境変数 `CODEX_MODEL`
 3. デフォルト値 `max`（`gpt-5.1-codex-max`）
 
+### PRコメント自動対応（Issue #383で追加）
+
+```bash
+# 1. PRから未解決コメントを取得してメタデータを初期化
+node dist/index.js pr-comment init --pr 123
+
+# 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+node dist/index.js pr-comment execute --pr 123
+
+# 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+node dist/index.js pr-comment finalize --pr 123
+
+# プレビューモード（実際の変更を行わない）
+node dist/index.js pr-comment execute --pr 123 --dry-run
+
+# 使用するエージェントを指定
+node dist/index.js pr-comment execute --pr 123 --agent codex
+
+# バッチサイズを指定（一度に処理するコメント数）
+node dist/index.js pr-comment execute --pr 123 --batch-size 10
+```
+
+**主な機能**:
+- **コメント分析エンジン**: AIエージェントがコメントを分析し、4種類の解決タイプを判定
+  - `code_change`: コード修正が必要（ファイル変更を適用）
+  - `reply`: 返信のみで対応（コメントを投稿）
+  - `discussion`: 議論が必要（人間の判断を待つ）
+  - `skip`: 対応不要（スキップ）
+- **コード変更適用**: ファイル変更適用（modify, create, delete）
+- **セキュリティ機能**:
+  - パストラバーサル防止（リポジトリ外への書き込み禁止）
+  - 機密ファイル除外（`.env`, `credentials.json`, `*.pem`, `*.key` 等）
+  - `confidence: low` のコード変更は自動的に `discussion` に変更
+- **レジューム機能**: 中断からの再開、部分的成功時の継続処理
+
+**オプション**:
+- `--pr <number>`: 対象のPR番号（必須）
+- `--dry-run`: プレビューモード（実際の変更を行わない）
+- `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`、デフォルト: `auto`）
+- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5）
+
+**メタデータ構造**:
+```
+.ai-workflow/pr-123/
+├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
+└── execute/
+    └── agent_log.md                  # エージェント実行ログ
+```
+
+**技術詳細**:
+- **実装モジュール**:
+  - `src/commands/pr-comment/init.ts`: 初期化コマンド
+  - `src/commands/pr-comment/execute.ts`: 実行コマンド
+  - `src/commands/pr-comment/finalize.ts`: 完了コマンド
+  - `src/core/pr-comment/metadata-manager.ts`: メタデータ管理
+  - `src/core/pr-comment/comment-analyzer.ts`: コメント分析エンジン
+  - `src/core/pr-comment/change-applier.ts`: コード変更適用エンジン
+- **型定義**: `src/types/pr-comment.ts`
+- **プロンプト**: `src/prompts/pr-comment/analyze.txt`
+- **GitHub API**: PRレビューコメント取得（REST）、スレッド解決（GraphQL mutation）、返信投稿
+
 ### コミットスカッシュ（Issue #194で追加）
 ```bash
 # ワークフロー完了後にコミットをスカッシュ
@@ -963,6 +1024,8 @@ if (config.isCI()) {
   - 10種類のフェーズ: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
 - `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
 - `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` … PRコメント自動対応（init + execute）（v0.6.0、Issue #393）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` … PRコメント解決処理（finalize）（v0.6.0、Issue #393）
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
