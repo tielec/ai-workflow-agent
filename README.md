@@ -154,6 +154,20 @@ ai-workflow finalize \
   [--skip-squash] \
   [--skip-pr-update] \
   [--base-branch <branch>]
+
+ai-workflow pr-comment init \
+  --pr <number> \
+  [--dry-run]
+
+ai-workflow pr-comment execute \
+  --pr <number> \
+  [--dry-run] \
+  [--agent auto|codex|claude] \
+  [--batch-size <number>]
+
+ai-workflow pr-comment finalize \
+  --pr <number> \
+  [--dry-run]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -1286,6 +1300,56 @@ ai-workflow auto-issue --category bug --limit 5 --output-file ./results/auto-iss
 | 9       | `src/phases/evaluation.ts`       | 最終評価と残作業の整理                     |
 
 各フェーズは `BasePhase` を継承し、メタデータ永続化、実行/レビューサイクル、エージェント制御、Git 自動コミットなど共通機能を利用します。
+
+### PRコメント自動対応機能（Issue #383で追加）
+
+`pr-comment` コマンドは、PRレビューコメントを検出し、AIエージェントが各コメントに対して自動的に対応（コード修正、返信、解決マーク）を行う機能です。
+
+```bash
+# 1. PRから未解決コメントを取得してメタデータを初期化
+ai-workflow pr-comment init --pr 123
+
+# 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+ai-workflow pr-comment execute --pr 123
+
+# 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+ai-workflow pr-comment finalize --pr 123
+
+# プレビューモード（実際の変更を行わない）
+ai-workflow pr-comment execute --pr 123 --dry-run
+```
+
+**主な機能**:
+
+- **コメント分析エンジン**: AIエージェントがコメントを分析し、4種類の解決タイプを判定
+  - `code_change`: コード修正が必要
+  - `reply`: 返信のみで対応
+  - `discussion`: 議論が必要（人間の判断を待つ）
+  - `skip`: 対応不要
+- **コード変更適用**: ファイル変更適用（modify, create, delete）
+- **セキュリティ機能**:
+  - パストラバーサル防止（リポジトリ外への書き込み禁止）
+  - 機密ファイル除外（`.env`, `credentials.json` 等）
+  - `confidence: low` のコード変更は自動的に `discussion` に変更
+- **レジューム機能**: 中断からの再開、部分的成功時の継続処理
+
+**オプション**:
+
+- `--pr <number>`: 対象のPR番号（必須）
+- `--dry-run`: プレビューモード（実際の変更を行わない）
+- `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`）
+- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5）
+
+**メタデータ構造**:
+
+```
+.ai-workflow/pr-123/
+├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
+└── execute/                          # エージェント実行ログ
+    └── agent_log.md
+```
+
+詳細は [PR_COMMENT_RESOLUTION.md](docs/PR_COMMENT_RESOLUTION.md) を参照してください。
 
 ### ステップ単位のGitコミット＆レジューム
 
