@@ -1,0 +1,311 @@
+import fs from 'fs-extra';
+import path from 'node:path';
+import { logger } from '../../utils/logger.js';
+import {
+  CommentResolutionMetadata,
+  CommentMetadata,
+  CommentResolutionStatus,
+  CommentResolution,
+  ReviewComment,
+  PRInfo,
+  RepositoryInfo,
+  ResolutionSummary,
+} from '../../types/pr-comment.js';
+
+/**
+ * PRコメント対応メタデータ管理クラス
+ */
+export class PRCommentMetadataManager {
+  private readonly metadataPath: string;
+  private metadata: CommentResolutionMetadata | null = null;
+
+  constructor(workingDir: string, prNumber: number) {
+    this.metadataPath = path.join(
+      workingDir,
+      '.ai-workflow',
+      `pr-${prNumber}`,
+      'comment-resolution-metadata.json',
+    );
+  }
+
+  /**
+   * メタデータを初期化
+   */
+  public async initialize(
+    prInfo: PRInfo,
+    repoInfo: RepositoryInfo,
+    comments: ReviewComment[],
+    issueNumber?: number,
+  ): Promise<void> {
+    const now = new Date().toISOString();
+
+    const commentsMap: Record<string, CommentMetadata> = {};
+    for (const comment of comments) {
+      const prNumber = prInfo.number;
+      commentsMap[String(comment.id)] = {
+        comment: { ...comment, pr_number: comment.pr_number ?? prNumber },
+        status: 'pending',
+        started_at: null,
+        completed_at: null,
+        retry_count: 0,
+        resolution: null,
+        reply_comment_id: null,
+        resolved_at: null,
+        error: null,
+      };
+    }
+
+    this.metadata = {
+      version: '1.0.0',
+      pr: prInfo,
+      repository: repoInfo,
+      issue_number: issueNumber,
+      comments: commentsMap,
+      summary: this.calculateSummary(commentsMap),
+      cost_tracking: {
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        total_cost_usd: 0,
+      },
+      created_at: now,
+      updated_at: now,
+    };
+
+    await this.save();
+  }
+
+  /**
+   * メタデータを読み込み
+   */
+  public async load(): Promise<CommentResolutionMetadata> {
+    if (this.metadata) {
+      return this.metadata;
+    }
+
+    const content = await fs.readFile(this.metadataPath, 'utf-8');
+    this.metadata = JSON.parse(content) as CommentResolutionMetadata;
+    return this.metadata;
+  }
+
+  /**
+   * メタデータが存在するか確認
+   */
+  public async exists(): Promise<boolean> {
+    return fs.pathExists(this.metadataPath);
+  }
+
+  /**
+   * メタデータを保存
+   */
+  public async save(): Promise<void> {
+    if (!this.metadata) {
+      throw new Error('Metadata not initialized');
+    }
+
+    this.metadata.updated_at = new Date().toISOString();
+    this.metadata.summary = this.calculateSummary(this.metadata.comments);
+
+    const dir = path.dirname(this.metadataPath);
+    await fs.ensureDir(dir);
+    await fs.writeFile(this.metadataPath, JSON.stringify(this.metadata, null, 2), 'utf-8');
+  }
+
+  /**
+   * コメントステータスを更新
+   */
+  public async updateCommentStatus(
+    commentId: string,
+    status: CommentResolutionStatus,
+    resolution?: CommentResolution,
+    error?: string,
+  ): Promise<void> {
+    await this.ensureLoaded();
+
+    const comment = this.metadata!.comments[commentId];
+    if (!comment) {
+      throw new Error(`Comment ${commentId} not found`);
+    }
+
+    const now = new Date().toISOString();
+
+    if (status === 'in_progress' && comment.status === 'pending') {
+      comment.started_at = now;
+    }
+
+    if (status === 'completed' || status === 'skipped' || status === 'failed') {
+      comment.completed_at = now;
+    }
+
+    comment.status = status;
+
+    if (resolution) {
+      comment.resolution = resolution;
+    }
+
+    if (error) {
+      comment.error = error;
+    }
+
+    await this.save();
+  }
+
+  /**
+   * リトライカウントをインクリメント
+   */
+  public async incrementRetryCount(commentId: string): Promise<number> {
+    await this.ensureLoaded();
+
+    const comment = this.metadata!.comments[commentId];
+    if (!comment) {
+      throw new Error(`Comment ${commentId} not found`);
+    }
+
+    comment.retry_count += 1;
+    await this.save();
+
+    return comment.retry_count;
+  }
+
+  /**
+   * 返信コメントIDを記録
+   */
+  public async setReplyCommentId(commentId: string, replyId: number): Promise<void> {
+    await this.ensureLoaded();
+
+    const comment = this.metadata!.comments[commentId];
+    if (!comment) {
+      throw new Error(`Comment ${commentId} not found`);
+    }
+
+    comment.reply_comment_id = replyId;
+    await this.save();
+  }
+
+  /**
+   * 解決日時を記録
+   */
+  public async setResolved(commentId: string): Promise<void> {
+    await this.ensureLoaded();
+
+    const comment = this.metadata!.comments[commentId];
+    if (!comment) {
+      throw new Error(`Comment ${commentId} not found`);
+    }
+
+    comment.resolved_at = new Date().toISOString();
+    await this.save();
+  }
+
+  /**
+   * コスト追跡を更新
+   */
+  public async updateCostTracking(
+    inputTokens: number,
+    outputTokens: number,
+    costUsd: number,
+  ): Promise<void> {
+    await this.ensureLoaded();
+
+    this.metadata!.cost_tracking.total_input_tokens += inputTokens;
+    this.metadata!.cost_tracking.total_output_tokens += outputTokens;
+    this.metadata!.cost_tracking.total_cost_usd += costUsd;
+
+    await this.save();
+  }
+
+  /**
+   * 未処理コメントを取得
+   */
+  public async getPendingComments(): Promise<CommentMetadata[]> {
+    await this.ensureLoaded();
+
+    return Object.values(this.metadata!.comments).filter(
+      (c) => c.status === 'pending' || c.status === 'in_progress',
+    );
+  }
+
+  /**
+   * 完了コメントを取得
+   */
+  public async getCompletedComments(): Promise<CommentMetadata[]> {
+    await this.ensureLoaded();
+
+    return Object.values(this.metadata!.comments).filter((c) => c.status === 'completed');
+  }
+
+  /**
+   * サマリーを取得
+   */
+  public async getSummary(): Promise<ResolutionSummary> {
+    await this.ensureLoaded();
+    return this.metadata!.summary;
+  }
+
+  /**
+   * コメントメタデータを取得
+   */
+  public async getMetadata(): Promise<CommentResolutionMetadata> {
+    await this.ensureLoaded();
+    return this.metadata!;
+  }
+
+  /**
+   * メタデータファイルパスを取得
+   */
+  public getMetadataPath(): string {
+    return this.metadataPath;
+  }
+
+  /**
+   * メタデータファイルを削除（クリーンアップ用）
+   */
+  public async cleanup(): Promise<void> {
+    const dir = path.dirname(this.metadataPath);
+    await fs.remove(dir);
+  }
+
+  /**
+   * サマリーを計算
+   */
+  private calculateSummary(comments: Record<string, CommentMetadata>): ResolutionSummary {
+    const values = Object.values(comments);
+
+    const byStatus = {
+      pending: 0,
+      in_progress: 0,
+      completed: 0,
+      skipped: 0,
+      failed: 0,
+    };
+
+    const byType = {
+      code_change: 0,
+      reply: 0,
+      discussion: 0,
+      skip: 0,
+    };
+
+    for (const c of values) {
+      byStatus[c.status]++;
+
+      if (c.status === 'completed' && c.resolution) {
+        byType[c.resolution.type]++;
+      }
+    }
+
+    return {
+      total: values.length,
+      by_status: byStatus,
+      by_type: byType,
+    };
+  }
+
+  /**
+   * メタデータがロードされていることを確認
+   */
+  private async ensureLoaded(): Promise<void> {
+    if (!this.metadata) {
+      await this.load();
+    }
+  }
+}

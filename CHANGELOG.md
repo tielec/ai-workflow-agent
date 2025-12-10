@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #383**: PRコメント自動対応機能の実装
+  - 新規 `pr-comment` CLIコマンド群で、PRレビューコメントを検出し、AIエージェントが自動対応
+  - **3つの新規コマンド**:
+    - `pr-comment init`: PRから未解決レビューコメントを取得し、メタデータを初期化
+    - `pr-comment execute`: 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+    - `pr-comment finalize`: 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+  - **コメント分析エンジン（ReviewCommentAnalyzer）**: AIエージェントがコメントを分析し、4種類の解決タイプ（code_change, reply, discussion, skip）を判定
+  - **コード変更適用エンジン（CodeChangeApplier）**: ファイル変更適用（modify, create, delete）、パストラバーサル防止、機密ファイル除外
+  - **メタデータ管理（PRCommentMetadataManager）**: コメントごとのステータス管理、レジューム機能、コスト追跡
+  - **GitHub API拡張**: PRレビューコメント取得（REST）、スレッド解決（GraphQL mutation）、返信投稿
+  - **セキュリティ機能**: confidence: low のコード変更を discussion に強制変更、機密ファイル（.env, credentials.json等）除外
+  - **CLIオプション**: `--pr <number>`, `--dry-run`, `--agent auto|codex|claude`, `--batch-size`
+  - テストカバレッジ: ユニット19件、統合3件（全テスト成功）
+  - 新規ファイル: `src/commands/pr-comment/init.ts`, `src/commands/pr-comment/execute.ts`, `src/commands/pr-comment/finalize.ts`, `src/core/pr-comment/metadata-manager.ts`, `src/core/pr-comment/comment-analyzer.ts`, `src/core/pr-comment/change-applier.ts`, `src/types/pr-comment.ts`, `src/prompts/pr-comment/analyze.txt`
+
 - **Issue #379**: JenkinsパイプラインにAUTO_MODEL_SELECTIONパラメータを追加
   - 5つのJenkinsfile（all-phases, preset, single-phase, rollback, finalize）に`AUTO_MODEL_SELECTION`パラメータを追加
   - デフォルト値: `true`（Issue難易度に基づく自動モデル選択を有効化）

@@ -71,7 +71,7 @@ export class GitHubClient {
   // Specialized clients
   private readonly issueClient: IssueClient;
   private readonly pullRequestClient: PullRequestClient;
-  private readonly commentClient: CommentClient;
+  public readonly commentClient: CommentClient;
   private readonly reviewClient: ReviewClient;
 
   constructor(
@@ -260,6 +260,55 @@ export class GitHubClient {
    */
   public getPullRequestClient(): PullRequestClient {
     return this.pullRequestClient;
+  }
+
+  /**
+   * リポジトリ情報を返す（owner/repo）
+   */
+  public getRepositoryInfo(): { owner: string; repo: string; repositoryName: string } {
+    return {
+      owner: this.owner,
+      repo: this.repo,
+      repositoryName: this.repositoryName,
+    };
+  }
+
+  /**
+   * PR情報を取得
+   */
+  public async getPullRequestInfo(prNumber: number): Promise<{
+    number: number;
+    url: string;
+    title: string;
+    head: string;
+    base: string;
+    state: 'open' | 'closed' | 'merged';
+    node_id: string;
+  }> {
+    try {
+      const { data } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      const merged = Boolean(data.merged_at);
+      const state = merged ? 'merged' : ((data.state as 'open' | 'closed') ?? 'open');
+
+      return {
+        number: data.number ?? prNumber,
+        url: data.html_url ?? '',
+        title: data.title ?? '',
+        head: data.head?.ref ?? '',
+        base: data.base?.ref ?? '',
+        state,
+        node_id: data.node_id ?? '',
+      };
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Failed to get pull request info: ${this.encodeWarning(message)}`);
+      throw new Error(`Failed to get pull request info: ${message}`);
+    }
   }
 
   // ============================================================================

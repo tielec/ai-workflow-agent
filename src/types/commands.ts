@@ -528,3 +528,32 @@ export interface RollbackDecision {
    */
   analysis: string;
 }
+
+/**
+ * pr-comment init コマンドオプション
+ */
+export interface PRCommentInitOptions {
+  pr?: string;
+  issue?: string;
+  commentIds?: string;
+}
+
+/**
+ * pr-comment execute コマンドオプション
+ */
+export interface PRCommentExecuteOptions {
+  pr: string;
+  commentIds?: string;
+  dryRun?: boolean;
+  agent?: 'auto' | 'codex' | 'claude';
+  batchSize?: string;
+}
+
+/**
+ * pr-comment finalize コマンドオプション
+ */
+export interface PRCommentFinalizeOptions {
+  pr: string;
+  skipCleanup?: boolean;
+  dryRun?: boolean;
+}
