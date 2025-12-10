@@ -58,6 +58,7 @@ describe('auto-issue command handler', () => {
   const mockGenerator = { generate: mockGenerate };
 
   beforeEach(async () => {
+    process.env.GITHUB_TOKEN = 'test-token';
     // モック関数のクリア
     mockAnalyze.mockClear();
     mockFilterDuplicates.mockClear();

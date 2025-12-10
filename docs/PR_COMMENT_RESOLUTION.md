@@ -23,6 +23,11 @@ ai-workflow pr-comment execute --pr 123
 
 # 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
 ai-workflow pr-comment finalize --pr 123
+
+# Jenkins環境やマルチリポジトリ環境での使用例（--pr-urlオプション）
+ai-workflow pr-comment init --pr-url https://github.com/owner/target-repo/pull/123
+ai-workflow pr-comment execute --pr-url https://github.com/owner/target-repo/pull/123
+ai-workflow pr-comment finalize --pr-url https://github.com/owner/target-repo/pull/123
 ```
 
 ## コマンド詳細
@@ -32,14 +37,17 @@ ai-workflow pr-comment finalize --pr 123
 PRから未解決のレビューコメントを取得し、メタデータを初期化します。
 
 ```bash
-ai-workflow pr-comment init --pr <number> [--dry-run]
+ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--dry-run]
 ```
 
 **オプション**:
 | オプション | 必須 | 説明 |
 |-----------|------|------|
-| `--pr <number>` | ✓ | 対象のPR番号 |
+| `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） |
+| `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） |
 | `--dry-run` | | プレビューモード（メタデータを作成しない） |
+
+*`--pr` または `--pr-url` のいずれか一方が必須
 
 **実行内容**:
 1. GitHub APIを使用してPRの未解決レビューコメントを取得
@@ -65,16 +73,19 @@ ai-workflow pr-comment init --pr <number> [--dry-run]
 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行します。
 
 ```bash
-ai-workflow pr-comment execute --pr <number> [--dry-run] [--agent <mode>] [--batch-size <number>]
+ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--agent <mode>] [--batch-size <number>]
 ```
 
 **オプション**:
 | オプション | 必須 | 説明 | デフォルト |
 |-----------|------|------|----------|
-| `--pr <number>` | ✓ | 対象のPR番号 | - |
+| `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） | - |
+| `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） | - |
 | `--dry-run` | | プレビューモード（変更を適用しない） | false |
 | `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
 | `--batch-size <number>` | | 一度に処理するコメント数 | 5 |
+
+*`--pr` または `--pr-url` のいずれか一方が必須
 
 **実行内容**:
 1. メタデータから未処理のコメントを取得
@@ -125,14 +136,17 @@ ai-workflow pr-comment execute --pr <number> [--dry-run] [--agent <mode>] [--bat
 完了したコメントスレッドを解決し、メタデータをクリーンアップします。
 
 ```bash
-ai-workflow pr-comment finalize --pr <number> [--dry-run]
+ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 ```
 
 **オプション**:
 | オプション | 必須 | 説明 |
 |-----------|------|------|
-| `--pr <number>` | ✓ | 対象のPR番号 |
+| `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） |
+| `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） |
 | `--dry-run` | | プレビューモード（実際に解決しない） |
+
+*`--pr` または `--pr-url` のいずれか一方が必須
 
 **実行内容**:
 1. メタデータから `completed` ステータスのコメントを取得
@@ -358,12 +372,17 @@ PRから未解決コメントを取得し、AIエージェントで分析・処�
 
 | パラメータ | 説明 | 必須 | デフォルト |
 |-----------|------|------|----------|
-| `PR_NUMBER` | 対象のPR番号 | ✓ | - |
-| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | | `tielec/ai-workflow-agent` |
+| `PR_URL` | 対象のPR URL（REPOS_ROOT配下のリポジトリを使用） | ✓ | - |
 | `AGENT_MODE` | 使用するエージェント（auto/codex/claude） | | `auto` |
 | `DRY_RUN` | プレビューモード | | `false` |
 | `BATCH_SIZE` | 一度に処理するコメント数 | | `5` |
 | `GITHUB_TOKEN` | GitHub Personal Access Token | ✓ | - |
+
+**非推奨パラメータ（後方互換性のみ）**:
+| パラメータ | 説明 | 置き換え先 |
+|-----------|------|-----------|
+| `PR_NUMBER` | 対象のPR番号 | `PR_URL`を使用 |
+| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | `PR_URL`から自動解決 |
 
 **ステージ構成**:
 1. Load Common Library
@@ -383,10 +402,15 @@ PRから未解決コメントを取得し、AIエージェントで分析・処�
 
 | パラメータ | 説明 | 必須 | デフォルト |
 |-----------|------|------|----------|
-| `PR_NUMBER` | 対象のPR番号 | ✓ | - |
-| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | | `tielec/ai-workflow-agent` |
+| `PR_URL` | 対象のPR URL（REPOS_ROOT配下のリポジトリを使用） | ✓ | - |
 | `DRY_RUN` | プレビューモード | | `false` |
 | `GITHUB_TOKEN` | GitHub Personal Access Token | ✓ | - |
+
+**非推奨パラメータ（後方互換性のみ）**:
+| パラメータ | 説明 | 置き換え先 |
+|-----------|------|-----------|
+| `PR_NUMBER` | 対象のPR番号 | `PR_URL`を使用 |
+| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | `PR_URL`から自動解決 |
 
 **ステージ構成**:
 1. Load Common Library
@@ -399,18 +423,58 @@ PRから未解決コメントを取得し、AIエージェントで分析・処�
 
 ```
 # 1. Jenkins UIで PR Comment Execute ジョブを実行
-PR_NUMBER: 123
-GITHUB_REPOSITORY: tielec/ai-workflow-agent
+PR_URL: https://github.com/owner/target-repo/pull/123
 AGENT_MODE: auto
 DRY_RUN: false
 GITHUB_TOKEN: ghp_xxx
 
 # 2. 処理完了後、PR Comment Finalize ジョブを実行
-PR_NUMBER: 123
-GITHUB_REPOSITORY: tielec/ai-workflow-agent
+PR_URL: https://github.com/owner/target-repo/pull/123
 DRY_RUN: false
 GITHUB_TOKEN: ghp_xxx
 ```
+
+## マルチリポジトリサポート（Issue #407で追加）
+
+`pr-comment`コマンドは、`--pr-url`オプションでマルチリポジトリ環境をサポートします。
+
+### 従来の動作（`--pr`オプション）
+- 現在のワーキングディレクトリでコマンドを実行
+- `GITHUB_REPOSITORY`環境変数からリポジトリ情報を取得
+- Jenkins環境では`ai-workflow-agent`リポジトリ内で動作してしまう問題
+
+### 新機能（`--pr-url`オプション）
+- PR URLからリポジトリ名を自動抽出
+- `REPOS_ROOT`環境変数配下の対象リポジトリで動作
+- Jenkins環境でクローンされた対象リポジトリを正しく使用
+
+### 環境変数要件
+
+**`REPOS_ROOT`環境変数**:
+- Jenkins環境では`common.groovy`の`setupEnvironment()`で自動設定
+- マルチリポジトリの親ディレクトリを指定
+- 例: `/var/jenkins/repos`
+
+**ディレクトリ構造例**:
+```
+$REPOS_ROOT/
+├── ai-workflow-agent/  # ワークフローエージェント自体
+├── target-repo/        # 対象リポジトリ
+│   ├── .git/
+│   ├── .ai-workflow/   # PRコメントメタデータが作成される
+│   └── src/
+└── other-repo/         # その他のリポジトリ
+```
+
+### パス解決の優先順位
+
+1. **PR URL指定時**（`--pr-url`）:
+   - `REPOS_ROOT/{リポジトリ名}`を優先使用
+   - REPOS_ROOT未設定時はフォールバックパスを探索
+   - 見つからない場合はエラーで終了
+
+2. **PR番号指定時**（`--pr`、後方互換性）:
+   - 現在のワーキングディレクトリを使用（従来動作維持）
 
 ## 制限事項
 
