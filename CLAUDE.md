@@ -763,6 +763,7 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 ### Phase 7（Documentation）
 - **更新サマリー**: テーブルフォーマット（ファイル、更新理由）
 - **削除されたセクション**: 調査したドキュメント一覧、更新不要と判断したドキュメント一覧
+- **Readツールの制限**: `CLAUDE.md` / `~/.claude/CLAUDE.md` は自動コンテキストに含まれるため Read 不要。Read は一度に3-5ファイルまでに絞り、大型ドキュメントは `limit: 1000-2000` を付けて部分読みにする（プロンプト長エラー防止）。
 
 ### Phase 8（Report）
 - **エグゼクティブサマリー**: Issue番号、タイトル、実装内容、変更規模、テスト結果、マージ推奨
