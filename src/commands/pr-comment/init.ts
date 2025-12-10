@@ -137,16 +137,22 @@ async function fetchReviewComments(
   const unresolvedIds = new Set<number>();
   const threadMap = new Map<number, string>();
 
+  logger.debug(`Found ${unresolvedThreads.length} unresolved threads`);
+
   for (const thread of unresolvedThreads) {
+    logger.debug(`Thread ${thread.id}: isResolved=${thread.isResolved}, comments=${thread.comments.nodes.length}`);
     for (const comment of thread.comments.nodes) {
       if (comment.databaseId !== undefined && comment.databaseId !== null) {
         unresolvedIds.add(comment.databaseId);
         threadMap.set(comment.databaseId, thread.id);
+        logger.debug(`  Comment #${comment.databaseId} by ${comment.author.login}: ${comment.body.substring(0, 50)}...`);
       }
     }
   }
 
   const allComments = await githubClient.commentClient.getPRReviewComments(prNumber);
+  logger.debug(`Total PR review comments (REST API): ${allComments.length}`);
+  logger.debug(`Unresolved comment IDs (GraphQL): ${Array.from(unresolvedIds).join(', ')}`);
 
   let filtered = unresolvedIds.size > 0 ? allComments.filter((c) => unresolvedIds.has(c.id)) : allComments;
 
