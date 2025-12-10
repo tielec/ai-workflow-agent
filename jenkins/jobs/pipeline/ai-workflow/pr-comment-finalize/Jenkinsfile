@@ -102,7 +102,7 @@ pipeline {
 
                     // GitHub APIでPR情報を取得してブランチ名を設定
                     def prInfo = sh(
-                        script: "gh api repos/${env.REPO_OWNER}/${env.REPO_NAME}/pulls/${env.PR_NUMBER} --jq '{\"head\":.head.ref,\"base\":.base.ref}' 2>/dev/null || echo '{\"head\":\"\",\"base\":\"\"}'",
+                        script: '''gh api repos/''' + env.REPO_OWNER + '''/''' + env.REPO_NAME + '''/pulls/''' + env.PR_NUMBER + ''' --jq '{"head":.head.ref,"base":.base.ref}' 2>/dev/null || echo '{"head":"","base":""}'  ''',
                         returnStdout: true
                     ).trim()
 
