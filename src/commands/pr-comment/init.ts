@@ -40,6 +40,19 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     displaySummary(summary);
 
     logger.info(`Initialization completed. Metadata saved to: ${metadataManager.getMetadataPath()}`);
+
+    // Git コミット & プッシュ
+    const git = simpleGit(repoInfo.path);
+    const metadataPath = metadataManager.getMetadataPath();
+    const relativePath = metadataPath.replace(`${repoInfo.path}/`, '').replace(/\\/g, '/');
+
+    logger.info('Committing PR comment metadata...');
+    await git.add(relativePath);
+    await git.commit(`[pr-comment] Initialize PR #${prNumber} comment resolution metadata`);
+
+    logger.info('Pushing to remote...');
+    await git.push();
+    logger.info('Metadata committed and pushed to remote.');
   } catch (error) {
     logger.error(`Failed to initialize: ${getErrorMessage(error)}`);
     process.exit(1);
