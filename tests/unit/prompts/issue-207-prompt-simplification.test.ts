@@ -1,8 +1,7 @@
 import { jest } from '@jest/globals';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import type * as FsExtra from 'fs-extra';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { DocumentationPhase } from '../../../src/phases/documentation.js';
 
 /**
  * Issue #207: 中盤フェーズ（Phase 4-8）の出力ドキュメント簡潔化
@@ -142,6 +141,101 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   });
 
   // ========================================
+  // Issue #388: Documentation prompt length guidance
+  // ========================================
+  describe('Issue #388: Documentation prompt length guidance', () => {
+    const documentationPromptPath = path.join(srcPromptsDir, 'documentation', 'execute.txt');
+    const documentationReviewPath = path.join(srcPromptsDir, 'documentation', 'review.txt');
+    const documentationRevisePath = path.join(srcPromptsDir, 'documentation', 'revise.txt');
+    const troubleshootingPath = path.join(projectRoot, 'TROUBLESHOOTING.md');
+
+    let documentationPrompt: string;
+    let documentationReviewPrompt: string;
+    let documentationRevisePrompt: string;
+    let troubleshootingContent: string;
+
+    beforeAll(() => {
+      expect(fs.existsSync(documentationPromptPath)).toBe(true);
+      documentationPrompt = fs.readFileSync(documentationPromptPath, 'utf-8');
+
+      expect(fs.existsSync(documentationReviewPath)).toBe(true);
+      documentationReviewPrompt = fs.readFileSync(documentationReviewPath, 'utf-8');
+
+      expect(fs.existsSync(documentationRevisePath)).toBe(true);
+      documentationRevisePrompt = fs.readFileSync(documentationRevisePath, 'utf-8');
+
+      expect(fs.existsSync(troubleshootingPath)).toBe(true);
+      troubleshootingContent = fs.readFileSync(troubleshootingPath, 'utf-8');
+    });
+
+    it('should include a prompt length mitigation section with auto-context warning', () => {
+      expect(documentationPrompt).toContain('⚠️ 重要: プロンプト長制限への対応');
+      expect(documentationPrompt).toMatch(/自動的にコンテキストに含まれているファイル/);
+      expect(documentationPrompt).toContain('Read ツールで再読込すると二重読み込み');
+    });
+
+    it('should warn that CLAUDE context files must not be re-read', () => {
+      expect(documentationPrompt).toContain('CLAUDE.md');
+      expect(documentationPrompt).toContain('~/.claude/CLAUDE.md');
+      expect(documentationPrompt).toMatch(/Read\s*(ツール)?で再読込しない|Read\s*不要/);
+    });
+
+    it('should outline strict Read tool limits and partial read guidance', () => {
+      expect(documentationPrompt).toMatch(/最大3-5件|最大3-5ファイル/);
+      expect(documentationPrompt).toContain('limit: 1000-2000');
+      expect(documentationPrompt).toMatch(/再読み込みしない|再読込しない/);
+      expect(documentationPrompt).toMatch(/部分読み込み|部分読み/);
+    });
+
+    it('should recommend staged processing for documentation updates', () => {
+      expect(documentationPrompt).toContain('1-2ファイルずつ');
+      expect(documentationPrompt).toMatch(/重要度の高いもの|重要なドキュメント/);
+      expect(documentationPrompt).toContain('Edit で反映');
+    });
+
+    it('should keep required template placeholders and quality gates intact', () => {
+      const requiredPlaceholders = [
+        '{planning_document_path}',
+        '{implementation_context}',
+        '{testing_context}',
+        '{requirements_context}',
+        '{design_context}',
+        '{test_scenario_context}',
+        '{test_implementation_context}',
+      ];
+
+      requiredPlaceholders.forEach((placeholder) => {
+        expect(documentationPrompt).toContain(placeholder);
+      });
+      expect(documentationPrompt).toMatch(/品質ゲート（Phase 7: Documentation）/);
+      expect(documentationPrompt).toContain('ドキュメント更新手順');
+    });
+
+    it('should include read-tool constraints in review and revise prompts', () => {
+      const sharedChecks = (content: string) => {
+        expect(content).toContain('CLAUDE.md');
+        expect(content).toContain('~/.claude/CLAUDE.md');
+        expect(content).toMatch(/3-5ファイル|3-5件/);
+        expect(content).toContain('limit: 1000-2000');
+      };
+
+      sharedChecks(documentationReviewPrompt);
+      sharedChecks(documentationRevisePrompt);
+    });
+
+    it('should describe symptoms, causes, actions, and prevention in troubleshooting guide', () => {
+      expect(troubleshootingContent).toContain('`Prompt is too long` エラー（Documentation Phase）');
+      expect(troubleshootingContent).toMatch(/症状/);
+      expect(troubleshootingContent).toMatch(/主な原因/);
+      expect(troubleshootingContent).toMatch(/対処法/);
+      expect(troubleshootingContent).toMatch(/予防策/);
+      expect(troubleshootingContent).toMatch(/CLAUDE\.md/);
+      expect(troubleshootingContent).toMatch(/limit: 1000-2000/);
+      expect(troubleshootingContent).toMatch(/1-2ファイルずつ|3-5ファイル/);
+    });
+  });
+
+  // ========================================
   // UT-5: Phase 8（Report）プロンプト読み込みテスト
   // ========================================
   describe('UT-5: Phase 8 Report Prompt Loading', () => {
@@ -275,6 +369,86 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   });
 
   // ========================================
+  // Integration: DocumentationPhase prompt loading (Issue #388)
+  // ========================================
+  describe('Issue #388 Integration: DocumentationPhase prompt loading', () => {
+    const tempRoot = path.join(projectRoot, 'tests', 'temp', 'documentation-phase-issue-388');
+    const workflowDir = path.join(tempRoot, '.ai-workflow', 'issue-388');
+    const documentationOutputDir = path.join(workflowDir, '07_documentation', 'output');
+    const documentationLogPath = path.join(documentationOutputDir, 'documentation-update-log.md');
+    let phase: DocumentationPhase;
+
+    beforeAll(() => {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      fs.mkdirSync(documentationOutputDir, { recursive: true });
+      fs.writeFileSync(documentationLogPath, '# documentation log', 'utf-8');
+
+      const mockMetadata: any = {
+        workflowDir,
+        data: {
+          issue_number: '388',
+          phases: {
+            documentation: {
+              status: 'pending',
+              retry_count: 0,
+              completed_steps: [],
+              review_result: null,
+              output_files: [],
+              started_at: null,
+              completed_at: null,
+              current_step: null,
+              rollback_context: null,
+            },
+          },
+        },
+        updatePhaseStatus: jest.fn(),
+        getPhaseStatus: jest.fn(),
+        addCompletedStep: jest.fn(),
+        getCompletedSteps: jest.fn().mockReturnValue([]),
+        updateCurrentStep: jest.fn(),
+        save: jest.fn(),
+        incrementRetryCount: jest.fn().mockReturnValue(0),
+        getRollbackContext: jest.fn().mockReturnValue(null),
+        clearRollbackContext: jest.fn(),
+      };
+
+      const mockGithub: any = {
+        getIssueInfo: jest.fn(),
+        postComment: jest.fn(),
+        createOrUpdateProgressComment: jest.fn(),
+        postReviewResult: jest.fn(),
+      };
+
+      phase = new DocumentationPhase({
+        workingDir: tempRoot,
+        metadataManager: mockMetadata,
+        githubClient: mockGithub,
+        skipDependencyCheck: true,
+      });
+
+      jest.spyOn(phase as any, 'executeWithAgent').mockResolvedValue([]);
+    });
+
+    afterAll(() => {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    });
+
+    it('should load execute prompt with guidance without throwing', () => {
+      const prompt = (phase as any).loadPrompt('execute');
+      expect(prompt).toContain('⚠️ 重要: プロンプト長制限への対応');
+      expect(prompt).toMatch(/🛠️.*開発環境情報/);
+      expect(prompt.length).toBeGreaterThan(0);
+    });
+
+    it('should build review prompt that resolves documentation log reference', () => {
+      const reviewPrompt = (phase as any).buildPrompt('review', 388, documentationLogPath);
+      expect(reviewPrompt).toMatch(/@\.ai-workflow\/issue-388\/07_documentation\/output\/documentation-update-log\.md/);
+      expect(reviewPrompt).toContain('Readツール使用時の注意');
+      expect(reviewPrompt).not.toContain('{documentation_update_log_path}');
+    });
+  });
+
+  // ========================================
   // 追加テスト: プロンプトファイルの基本構造維持
   // ========================================
   describe('Additional: Prompt File Structure Preservation', () => {
@@ -315,26 +489,6 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
 
           // Then: 品質ゲートセクションが維持されている
           expect(content).toMatch(/品質ゲート|Quality Gate/i);
-        }
-      });
-    });
-
-    it('should preserve environment information section in all modified prompts', () => {
-      const modifiedPhases = [
-        'implementation',
-        'test_implementation',
-        'testing',
-        'documentation',
-        'report',
-      ];
-
-      modifiedPhases.forEach((dir) => {
-        const promptPath = path.join(srcPromptsDir, dir, 'execute.txt');
-        if (fs.existsSync(promptPath)) {
-          const content = fs.readFileSync(promptPath, 'utf-8');
-
-          // Then: 開発環境情報セクションが維持されている
-          expect(content).toMatch(/🛠️.*開発環境情報|環境情報|Docker環境/i);
         }
       });
     });

@@ -18,6 +18,10 @@
 - Phase 4: {implementation_document_path}
 - Phase 5: {test_result_document_path}
 
+## ⚠️ Readツール使用時の注意（プロンプト長抑制）
+- `CLAUDE.md`（リポジトリルート）と `~/.claude/CLAUDE.md` は自動コンテキストに含まれるため再読込しない
+- 追加で読むファイルは **3-5件以内** に絞り、大きなファイルは `limit: 1000-2000` を指定して必要な箇所だけ部分読みする
+
 ## 修正指示
 
 ### ブロッカー（BLOCKER）の解消
