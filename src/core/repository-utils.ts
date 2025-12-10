@@ -9,6 +9,16 @@ import simpleGit from 'simple-git';
 import type { IssueInfo } from '../types/commands.js';
 
 /**
+ * Pull Request情報
+ */
+export interface PullRequestInfo {
+  owner: string;
+  repo: string;
+  prNumber: number;
+  repositoryName: string;
+}
+
+/**
  * GitHub Issue URLからリポジトリ情報を抽出
  * @param issueUrl - GitHub Issue URL（例: https://github.com/tielec/my-app/issues/123）
  * @returns Issue情報（owner, repo, issueNumber, repositoryName）
@@ -32,6 +42,34 @@ export function parseIssueUrl(issueUrl: string): IssueInfo {
     owner,
     repo,
     issueNumber,
+    repositoryName,
+  };
+}
+
+/**
+ * GitHub Pull Request URLからリポジトリ情報を抽出
+ * @param prUrl - GitHub PR URL（例: https://github.com/tielec/my-app/pull/123）
+ * @returns PR情報（owner, repo, prNumber, repositoryName）
+ * @throws URL形式が不正な場合はエラー
+ */
+export function parsePullRequestUrl(prUrl: string): PullRequestInfo {
+  // 末尾スラッシュの有無を許容する正規表現
+  const pattern = /github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)(?:\/)?$/;
+  const match = prUrl.match(pattern);
+
+  if (!match) {
+    throw new Error(`Invalid GitHub Pull Request URL: ${prUrl}`);
+  }
+
+  const owner = match[1];
+  const repo = match[2];
+  const prNumber = Number.parseInt(match[3], 10);
+  const repositoryName = `${owner}/${repo}`;
+
+  return {
+    owner,
+    repo,
+    prNumber,
     repositoryName,
   };
 }

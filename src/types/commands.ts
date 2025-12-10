@@ -534,6 +534,7 @@ export interface RollbackDecision {
  */
 export interface PRCommentInitOptions {
   pr?: string;
+  prUrl?: string;
   issue?: string;
   commentIds?: string;
 }
@@ -542,7 +543,8 @@ export interface PRCommentInitOptions {
  * pr-comment execute コマンドオプション
  */
 export interface PRCommentExecuteOptions {
-  pr: string;
+  pr?: string;
+  prUrl?: string;
   commentIds?: string;
   dryRun?: boolean;
   agent?: 'auto' | 'codex' | 'claude';
@@ -553,7 +555,8 @@ export interface PRCommentExecuteOptions {
  * pr-comment finalize コマンドオプション
  */
 export interface PRCommentFinalizeOptions {
-  pr: string;
+  pr?: string;
+  prUrl?: string;
   skipCleanup?: boolean;
   dryRun?: boolean;
 }

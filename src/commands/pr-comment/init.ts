@@ -6,15 +6,17 @@ import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager
 import { GitHubClient } from '../../core/github-client.js';
 import { PRCommentInitOptions } from '../../types/commands.js';
 import { PRInfo, RepositoryInfo, ReviewComment, ResolutionSummary } from '../../types/pr-comment.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
 
 /**
  * pr-comment init コマンドハンドラ
  */
 export async function handlePRCommentInitCommand(options: PRCommentInitOptions): Promise<void> {
   try {
-    const githubClient = new GitHubClient();
-    const prNumber = await resolvePrNumber(options, githubClient);
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const { repositoryName, prNumber } = await resolvePrInfo(options);
+
+    const githubClient = new GitHubClient(null, repositoryName);
 
     logger.info(`Initializing PR comment resolution for PR #${prNumber}...`);
 
@@ -44,20 +46,52 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
   }
 }
 
-async function resolvePrNumber(options: PRCommentInitOptions, githubClient: GitHubClient): Promise<number> {
-  if (options.pr) {
-    return Number.parseInt(options.pr, 10);
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+async function resolvePrInfo(options: PRCommentInitOptions): Promise<{ repositoryName: string; prNumber: number }> {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+    };
   }
 
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  // --issue オプションが指定されている場合（後方互換性）
   if (options.issue) {
-    const prNumber = await githubClient.getPullRequestNumber(Number.parseInt(options.issue, 10));
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const issueNumber = Number.parseInt(options.issue, 10);
+    const prNumber = await githubClient.getPullRequestNumber(issueNumber);
     if (prNumber) {
-      return prNumber;
+      logger.info(`Resolved from --issue option: ${repositoryName}#${prNumber}`);
+      return {
+        repositoryName,
+        prNumber,
+      };
     }
     throw new Error(`Pull request not found for issue #${options.issue}`);
   }
 
-  throw new Error('Either --pr or --issue option is required.');
+  throw new Error('Either --pr-url, --pr, or --issue option is required.');
 }
 
 async function fetchPrInfo(githubClient: GitHubClient, prNumber: number): Promise<PRInfo> {
