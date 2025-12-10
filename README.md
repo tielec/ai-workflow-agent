@@ -156,17 +156,17 @@ ai-workflow finalize \
   [--base-branch <branch>]
 
 ai-workflow pr-comment init \
-  --pr <number> \
+  --pr <number> | --pr-url <URL> \
   [--dry-run]
 
 ai-workflow pr-comment execute \
-  --pr <number> \
+  --pr <number> | --pr-url <URL> \
   [--dry-run] \
   [--agent auto|codex|claude] \
   [--batch-size <number>]
 
 ai-workflow pr-comment finalize \
-  --pr <number> \
+  --pr <number> | --pr-url <URL> \
   [--dry-run]
 ```
 
@@ -1317,6 +1317,11 @@ ai-workflow pr-comment finalize --pr 123
 
 # プレビューモード（実際の変更を行わない）
 ai-workflow pr-comment execute --pr 123 --dry-run
+
+# --pr-urlオプション: REPOS_ROOT配下のリポジトリを使用（Jenkins環境向け）
+ai-workflow pr-comment init --pr-url https://github.com/owner/repo/pull/123
+ai-workflow pr-comment execute --pr-url https://github.com/owner/repo/pull/123
+ai-workflow pr-comment finalize --pr-url https://github.com/owner/repo/pull/123
 ```
 
 **主な機能**:

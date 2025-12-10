@@ -6,7 +6,11 @@ import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager
 import { GitHubClient } from '../../core/github-client.js';
 import { config } from '../../core/config.js';
 import { PRCommentFinalizeOptions } from '../../types/commands.js';
-import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 
 /**
  * pr-comment finalize コマンドハンドラ
@@ -16,9 +20,16 @@ export async function handlePRCommentFinalizeCommand(
 ): Promise<void> {
   try {
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
-    const { repositoryName, prNumber } = resolvePrInfo(options);
+    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
 
-    const repoRoot = await getRepoRoot();
+    const repoRoot = prUrl
+      ? resolveRepoPathFromPrUrl(prUrl)
+      : await getRepoRoot();
+    logger.debug(
+      prUrl
+        ? `Resolved repository path from PR URL: ${repoRoot}`
+        : `Using current repository path: ${repoRoot}`,
+    );
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
     if (!(await metadataManager.exists())) {
@@ -115,7 +126,11 @@ export async function handlePRCommentFinalizeCommand(
 /**
  * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
  */
-function resolvePrInfo(options: PRCommentFinalizeOptions): { repositoryName: string; prNumber: number } {
+function resolvePrInfo(options: PRCommentFinalizeOptions): {
+  repositoryName: string;
+  prNumber: number;
+  prUrl?: string;
+} {
   // --pr-url オプションが指定されている場合
   if (options.prUrl) {
     const prInfo = parsePullRequestUrl(options.prUrl);
@@ -123,6 +138,7 @@ function resolvePrInfo(options: PRCommentFinalizeOptions): { repositoryName: str
     return {
       repositoryName: prInfo.repositoryName,
       prNumber: prInfo.prNumber,
+      prUrl: options.prUrl,
     };
   }
 

@@ -7,7 +7,11 @@ import { GitHubClient } from '../../core/github-client.js';
 import { config } from '../../core/config.js';
 import { PRCommentInitOptions } from '../../types/commands.js';
 import { PRInfo, RepositoryInfo, ReviewComment, ResolutionSummary } from '../../types/pr-comment.js';
-import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 
 /**
  * pr-comment init コマンドハンドラ
@@ -22,7 +26,7 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     logger.info(`Initializing PR comment resolution for PR #${prNumber}...`);
 
     const prInfo = await fetchPrInfo(githubClient, prNumber);
-    const repoInfo = await buildRepositoryInfo(githubClient);
+    const repoInfo = await buildRepositoryInfo(githubClient, options.prUrl);
     const comments = await fetchReviewComments(githubClient, prNumber, options.commentIds);
 
     if (comments.length === 0) {
@@ -140,9 +144,19 @@ async function fetchPrInfo(githubClient: GitHubClient, prNumber: number): Promis
   };
 }
 
-async function buildRepositoryInfo(githubClient: GitHubClient): Promise<RepositoryInfo> {
+async function buildRepositoryInfo(
+  githubClient: GitHubClient,
+  prUrl?: string,
+): Promise<RepositoryInfo> {
   const repoMeta = githubClient.getRepositoryInfo();
-  const repoPath = await getRepoRoot();
+  const repoPath = prUrl
+    ? resolveRepoPathFromPrUrl(prUrl)
+    : await getRepoRoot();
+  logger.debug(
+    prUrl
+      ? `Resolved repository path from PR URL: ${repoPath}`
+      : `Using current repository path: ${repoPath}`,
+  );
   const git = simpleGit(repoPath);
 
   let remoteUrl = '';

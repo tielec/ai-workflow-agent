@@ -75,6 +75,17 @@ export function parsePullRequestUrl(prUrl: string): PullRequestInfo {
 }
 
 /**
+ * PR URLからローカルリポジトリパスを解決する
+ * @param prUrl - GitHub PR URL（例: https://github.com/tielec/my-app/pull/123）
+ * @returns ローカルリポジトリパス
+ * @throws URL形式が不正、またはリポジトリが見つからない場合はエラー
+ */
+export function resolveRepoPathFromPrUrl(prUrl: string): string {
+  const prInfo = parsePullRequestUrl(prUrl);
+  return resolveLocalRepoPath(prInfo.repo);
+}
+
+/**
  * リポジトリ名からローカルパスを解決
  * @param repoName - リポジトリ名（例: my-app）
  * @returns ローカルリポジトリパス

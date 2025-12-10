@@ -11,7 +11,11 @@ import { PRCommentExecuteOptions } from '../../types/commands.js';
 import { CommentMetadata, CommentResolution, ResolutionSummary } from '../../types/pr-comment.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import { config } from '../../core/config.js';
-import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 
@@ -27,9 +31,16 @@ export async function handlePRCommentExecuteCommand(
 ): Promise<void> {
   try {
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
-    const { repositoryName, prNumber } = resolvePrInfo(options);
+    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
 
-    const repoRoot = await getRepoRoot();
+    const repoRoot = prUrl
+      ? resolveRepoPathFromPrUrl(prUrl)
+      : await getRepoRoot();
+    logger.debug(
+      prUrl
+        ? `Resolved repository path from PR URL: ${repoRoot}`
+        : `Using current repository path: ${repoRoot}`,
+    );
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
     if (!(await metadataManager.exists())) {
@@ -273,7 +284,11 @@ function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): v
 /**
  * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
  */
-function resolvePrInfo(options: PRCommentExecuteOptions): { repositoryName: string; prNumber: number } {
+function resolvePrInfo(options: PRCommentExecuteOptions): {
+  repositoryName: string;
+  prNumber: number;
+  prUrl?: string;
+} {
   // --pr-url オプションが指定されている場合
   if (options.prUrl) {
     const prInfo = parsePullRequestUrl(options.prUrl);
@@ -281,6 +296,7 @@ function resolvePrInfo(options: PRCommentExecuteOptions): { repositoryName: stri
     return {
       repositoryName: prInfo.repositoryName,
       prNumber: prInfo.prNumber,
+      prUrl: options.prUrl,
     };
   }
 
