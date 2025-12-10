@@ -54,9 +54,13 @@ export async function handlePRCommentExecuteCommand(
     const prBranch = metadata.pr.branch;
 
     let pendingComments = await metadataManager.getPendingComments();
+    logger.debug(`Initial pending comments count: ${pendingComments.length}`);
+
     const targetIds = parseCommentIds(options.commentIds);
     if (targetIds.size > 0) {
+      logger.debug(`Filtering by comment IDs: ${Array.from(targetIds).join(', ')}`);
       pendingComments = pendingComments.filter((c) => targetIds.has(c.comment.id));
+      logger.debug(`Filtered pending comments count: ${pendingComments.length}`);
     }
 
     const inProgress = pendingComments.filter((c) => c.status === 'in_progress');
@@ -68,6 +72,8 @@ export async function handlePRCommentExecuteCommand(
       logger.info('No pending comments to process.');
       return;
     }
+
+    logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
 
     const githubClient = new GitHubClient(null, repositoryName);
     const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
@@ -81,7 +87,10 @@ export async function handlePRCommentExecuteCommand(
 
     for (let i = 0; i < pendingComments.length; i += batchSize) {
       const batch = pendingComments.slice(i, i + batchSize);
+      logger.debug(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(pendingComments.length / batchSize)}: ${batch.length} comment(s)`);
+
       for (const comment of batch) {
+        logger.debug(`Processing comment #${comment.comment.id}...`);
         await processComment(
           comment,
           metadataManager,
@@ -96,6 +105,7 @@ export async function handlePRCommentExecuteCommand(
       }
 
       if (!dryRun) {
+        logger.debug(`Committing batch ${Math.floor(i / batchSize) + 1}...`);
         await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`, prBranch);
       }
     }
