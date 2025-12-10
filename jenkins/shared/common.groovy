@@ -186,7 +186,7 @@ def setupEnvironment() {
 
     // PR comment jobs の場合、GitHub API で PR のブランチ名を取得
     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
-    if (executionMode in ['pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
+    if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
         echo "Fetching PR branch name from GitHub API..."
         def prBranch = sh(
             script: "gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref 2>/dev/null || echo ''",
@@ -245,8 +245,10 @@ def setupEnvironment() {
                 echo "Branch ${targetBranch} exists on remote. Checking out..."
                 git checkout -B ${targetBranch} origin/${targetBranch}
             else
-                echo "Branch ${targetBranch} does not exist on remote. Creating from develop..."
-                git checkout -B ${targetBranch} origin/develop || git checkout -B ${targetBranch}
+                echo "Branch ${targetBranch} does not exist on remote. Creating from main/develop..."
+                git checkout -B ${targetBranch} origin/main 2>/dev/null || \
+                git checkout -B ${targetBranch} origin/develop 2>/dev/null || \
+                git checkout -B ${targetBranch}
             fi
 
             echo "Target repository: \${TARGET_REPO_PATH}"
