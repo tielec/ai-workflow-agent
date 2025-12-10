@@ -145,7 +145,7 @@ pipeline {
 
                         sh """
                             node dist/index.js pr-comment finalize \
-                                --pr ${env.PR_NUMBER} \
+                                --pr-url ${params.PR_URL} \
                                 ${dryRunFlag}
                         """
                     }

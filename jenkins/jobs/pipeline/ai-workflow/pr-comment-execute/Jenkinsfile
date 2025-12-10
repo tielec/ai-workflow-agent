@@ -161,7 +161,7 @@ pipeline {
 
                         sh """
                             node dist/index.js pr-comment init \
-                                --pr ${env.PR_NUMBER} \
+                                --pr-url ${params.PR_URL} \
                                 ${dryRunFlag}
                         """
                     }
@@ -189,7 +189,7 @@ pipeline {
 
                         sh """
                             node dist/index.js pr-comment execute \
-                                --pr ${env.PR_NUMBER} \
+                                --pr-url ${params.PR_URL} \
                                 --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag} \
                                 ${batchSizeFlag}
