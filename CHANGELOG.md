@@ -76,6 +76,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #388**: Documentation Phase でプロンプトが長すぎるエラーが発生する問題の対策
+  - `src/prompts/documentation/execute.txt` にプロンプト長制限への対応ガイダンスセクションを追加
+  - 自動コンテキストファイル（`CLAUDE.md`、`~/.claude/CLAUDE.md`）の二重読み込み警告を追加
+  - Read ツール使用ルール（最大3-5ファイル、limit指定推奨）を明記
+  - 段階的処理（1-2ファイルずつ、重要度順）の推奨を追加
+  - `src/prompts/documentation/review.txt`、`revise.txt` にも同様のガイダンスを追加
+  - `TROUBLESHOOTING.md` にセクション17「Prompt is too long エラー（Documentation Phase）」を追加
+  - テストカバレッジ: 30件のユニット/インテグレーションテスト（100%成功）
 - **Issue #253**: Fixed metadata.json pr_url persistence issue
   - `pr_url` and `pr_number` are now correctly committed and pushed to remote after PR creation
   - Modified `src/commands/init.ts` to add Git commit & push after PR metadata save

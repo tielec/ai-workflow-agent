@@ -1188,4 +1188,26 @@ node dist/index.js init --issue-url <URL> --force
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 - **コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。
 
+## 17. `Prompt is too long` エラー（Documentation Phase）
+
+### 症状
+- Documentation Phase の execute/review/revise で `Prompt is too long` や `context length exceeded` が発生する
+- エージェントログに大容量の Read ツールレスポンスが多数記録されている
+
+### 主な原因
+- `CLAUDE.md` や `~/.claude/CLAUDE.md` を Read ツールで再読込し、自動コンテキストと二重化している
+- README/ROADMAP/TROUBLESHOOTING など大型ファイルを limit 指定なしで一度に読み込んでいる
+- 同じファイルを複数ターンで繰り返し読み、コンテキストが累積している
+
+### 対処法
+1. `CLAUDE.md` と `~/.claude/CLAUDE.md` は Read しない（自動コンテキストに含まれる）
+2. Read は **3-5ファイル以内** に絞り、大きなファイルは `limit: 1000-2000` を付けて部分読みにする
+3. 重要度順に **1-2ファイルずつ** 処理し、必要箇所だけ読んでから Edit で反映する
+4. 直近で読んだ内容は再読込せず、エージェントログを参照する
+5. 既にコンテキストが膨らんだ場合はフェーズを再実行し、上記ルールを徹底する
+
+### 予防策
+- `src/prompts/documentation/execute.txt` の「⚠️ 重要: プロンプト長制限への対応」に従い、レビュー/修正ステップでも同じ制限を守る
+- 大型ドキュメントは必要セクションのみ部分読みし、全文読込を避ける
+
 対処できない場合は、実行したコマンド、環境変数（機微情報をマスク）、`agent_log_raw.txt` の該当箇所を添えて Issue もしくはチームチャンネルで共有してください。
