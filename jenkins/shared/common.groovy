@@ -190,11 +190,13 @@ def setupEnvironment() {
     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
     if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
         echo "Fetching PR branch name from GitHub API..."
+        echo "Running: gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref"
         def prBranch = sh(
-            script: "gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref 2>/dev/null || echo ''",
+            script: "gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref || echo ''",
             returnStdout: true
         ).trim()
-        if (prBranch) {
+        echo "API response: '${prBranch}'"
+        if (prBranch && prBranch != '') {
             targetBranch = prBranch
             echo "PR branch detected: ${targetBranch}"
         } else {
