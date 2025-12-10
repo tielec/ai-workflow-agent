@@ -48,7 +48,10 @@ export async function handlePRCommentExecuteCommand(
       process.exit(1);
     }
 
-    await metadataManager.load();
+    const metadata = await metadataManager.load();
+
+    // PRブランチ名を取得
+    const prBranch = metadata.pr.branch;
 
     let pendingComments = await metadataManager.getPendingComments();
     const targetIds = parseCommentIds(options.commentIds);
@@ -93,7 +96,7 @@ export async function handlePRCommentExecuteCommand(
       }
 
       if (!dryRun) {
-        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`);
+        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`, prBranch);
       }
     }
 
@@ -240,7 +243,7 @@ function formatReply(resolution: CommentResolution): string {
   return resolution.reply;
 }
 
-async function commitIfNeeded(repoRoot: string, message: string): Promise<void> {
+async function commitIfNeeded(repoRoot: string, message: string, prBranch: string): Promise<void> {
   const git = simpleGit(repoRoot);
   const status = await git.status();
   if (status.files.length === 0) {
@@ -262,16 +265,9 @@ async function commitIfNeeded(repoRoot: string, message: string): Promise<void> 
   await git.commit(message);
   logger.info('Changes committed.');
 
-  // プッシュ
-  const branchSummary = await git.branch();
-  const currentBranch = branchSummary.current;
-
-  if (!currentBranch) {
-    throw new Error('Cannot determine current branch');
-  }
-
-  logger.debug(`Pushing branch: ${currentBranch}`);
-  await git.push('origin', currentBranch);
+  // PRのheadブランチにプッシュ
+  logger.debug(`Pushing to PR branch: ${prBranch}`);
+  await git.push('origin', prBranch);
   logger.info('Changes pushed to remote.');
 }
 

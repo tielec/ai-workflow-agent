@@ -65,16 +65,11 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
 
     logger.info('Pushing to remote...');
 
-    // 現在のブランチを取得してプッシュ
-    const branchSummary = await git.branch();
-    const currentBranch = branchSummary.current;
+    // PRのheadブランチにプッシュ
+    const targetBranch = prInfo.branch;
 
-    if (!currentBranch) {
-      throw new Error('Cannot determine current branch');
-    }
-
-    logger.debug(`Pushing branch: ${currentBranch}`);
-    await git.push('origin', currentBranch);
+    logger.debug(`Pushing to PR branch: ${targetBranch}`);
+    await git.push('origin', targetBranch);
 
     logger.info('Metadata committed and pushed to remote.');
   } catch (error) {

@@ -105,16 +105,12 @@ export async function handlePRCommentFinalizeCommand(
       await git.add(relativePath);
       await git.commit(`[pr-comment] Finalize PR #${prNumber} comment resolution (${resolvedCount} threads resolved)`);
 
-      // プッシュ
-      const branchSummary = await git.branch();
-      const currentBranch = branchSummary.current;
+      // PRのheadブランチにプッシュ
+      const metadata = await metadataManager.load();
+      const prBranch = metadata.pr.branch;
 
-      if (!currentBranch) {
-        throw new Error('Cannot determine current branch');
-      }
-
-      logger.debug(`Pushing branch: ${currentBranch}`);
-      await git.push('origin', currentBranch);
+      logger.debug(`Pushing to PR branch: ${prBranch}`);
+      await git.push('origin', prBranch);
       logger.info('Finalization committed and pushed to remote.');
     }
   } catch (error) {
