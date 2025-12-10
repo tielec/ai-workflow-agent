@@ -1,0 +1,260 @@
+/**
+ * AI Workflow - PR Comment Execute
+ *
+ * PRレビューコメントの初期化と自動対応を行うJenkinsfile。
+ * pr-comment init/execute サブコマンドを実行し、未解決コメントに対する返信・修正を自動化します。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - PR_NUMBER: Pull Request番号（必須）
+ * - GITHUB_REPOSITORY: 対象リポジトリ owner/repo（デフォルト: tielec/ai-workflow-agent）
+ * - AGENT_MODE: エージェントモード（auto/codex/claude）
+ * - DRY_RUN: ドライランモード（デフォルト: false）
+ * - BATCH_SIZE: 一度に処理するコメント数（デフォルト: 5）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
+ * - その他: APIキー、Git設定
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        // Claude Agent SDK設定
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+
+        // AI Workflow設定
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.6.0'
+        EXECUTION_MODE = 'pr_comment_execute'
+        CODEX_HOME = ''
+
+        // ログ設定（CI環境ではカラーリング無効化）
+        LOG_NO_COLOR = 'true'
+
+        // Git設定
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        // GitHub認証情報
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
+
+        // OpenAI系認証情報
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        // Claude系認証情報
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: PR Comment Execute"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.PR_NUMBER) {
+                        error("PR_NUMBER parameter is required")
+                    }
+
+                    if (!params.GITHUB_REPOSITORY) {
+                        error("GITHUB_REPOSITORY parameter is required for pr_comment_execute mode")
+                    }
+
+                    def repoParts = params.GITHUB_REPOSITORY.split('/')
+                    if (repoParts.length != 2) {
+                        error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
+                    }
+
+                    env.PR_NUMBER = params.PR_NUMBER
+                    env.ISSUE_NUMBER = params.PR_NUMBER  // 共通処理との互換用
+                    env.REPO_OWNER = repoParts[0]
+                    env.REPO_NAME = repoParts[1]
+
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Execute | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Batch Size: ${params.BATCH_SIZE ?: '5'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('PR Comment Init') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: PR Comment Init"
+                    echo "========================================="
+
+                    dir(env.WORKFLOW_DIR) {
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+
+                        sh """
+                            node dist/index.js pr-comment init \
+                                --pr ${params.PR_NUMBER} \
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('PR Comment Execute') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: PR Comment Execute"
+                    echo "========================================="
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Batch Size: ${params.BATCH_SIZE ?: '5'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Execute Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def batchSizeFlag = params.BATCH_SIZE ? "--batch-size ${params.BATCH_SIZE}" : ''
+
+                        sh """
+                            node dist/index.js pr-comment execute \
+                                --pr ${params.PR_NUMBER} \
+                                --agent ${params.AGENT_MODE ?: 'auto'} \
+                                ${dryRunFlag} \
+                                ${batchSizeFlag}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Execute | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.PR_NUMBER) {
+                    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/**/*"
+                    echo "Archiving artifacts from: ${artifactPath}"
+                    archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
+                }
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - PR Comment Execute Success"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - PR Comment Execute Failure"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                echo "Please check the logs"
+            }
+        }
+    }
+}

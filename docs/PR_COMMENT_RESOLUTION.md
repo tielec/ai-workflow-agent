@@ -339,6 +339,79 @@ rm -rf .ai-workflow/pr-123
 ai-workflow pr-comment init --pr 123
 ```
 
+## Jenkins 統合
+
+Issue #393で追加されたJenkinsジョブにより、PR Comment機能をJenkins UIから実行できます。
+
+### 利用可能なジョブ
+
+| ジョブ名 | 説明 | パラメータ数 |
+|---------|------|-------------|
+| **pr_comment_execute** | PRコメント自動対応（init + execute） | 14 |
+| **pr_comment_finalize** | PRコメント解決処理（finalize） | 11 |
+
+### PR Comment Execute ジョブ
+
+PRから未解決コメントを取得し、AIエージェントで分析・処理します。
+
+**パラメータ**:
+
+| パラメータ | 説明 | 必須 | デフォルト |
+|-----------|------|------|----------|
+| `PR_NUMBER` | 対象のPR番号 | ✓ | - |
+| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | | `tielec/ai-workflow-agent` |
+| `AGENT_MODE` | 使用するエージェント（auto/codex/claude） | | `auto` |
+| `DRY_RUN` | プレビューモード | | `false` |
+| `BATCH_SIZE` | 一度に処理するコメント数 | | `5` |
+| `GITHUB_TOKEN` | GitHub Personal Access Token | ✓ | - |
+
+**ステージ構成**:
+1. Load Common Library
+2. Prepare Codex auth.json
+3. Prepare Agent Credentials
+4. Validate Parameters
+5. Setup Environment
+6. Setup Node.js Environment
+7. PR Comment Init
+8. PR Comment Execute
+
+### PR Comment Finalize ジョブ
+
+完了したコメントスレッドを解決し、メタデータをクリーンアップします。
+
+**パラメータ**:
+
+| パラメータ | 説明 | 必須 | デフォルト |
+|-----------|------|------|----------|
+| `PR_NUMBER` | 対象のPR番号 | ✓ | - |
+| `GITHUB_REPOSITORY` | 対象リポジトリ（owner/repo形式） | | `tielec/ai-workflow-agent` |
+| `DRY_RUN` | プレビューモード | | `false` |
+| `GITHUB_TOKEN` | GitHub Personal Access Token | ✓ | - |
+
+**ステージ構成**:
+1. Load Common Library
+2. Validate Parameters
+3. Setup Environment
+4. Setup Node.js Environment
+5. PR Comment Finalize
+
+### 使用例
+
+```
+# 1. Jenkins UIで PR Comment Execute ジョブを実行
+PR_NUMBER: 123
+GITHUB_REPOSITORY: tielec/ai-workflow-agent
+AGENT_MODE: auto
+DRY_RUN: false
+GITHUB_TOKEN: ghp_xxx
+
+# 2. 処理完了後、PR Comment Finalize ジョブを実行
+PR_NUMBER: 123
+GITHUB_REPOSITORY: tielec/ai-workflow-agent
+DRY_RUN: false
+GITHUB_TOKEN: ghp_xxx
+```
+
 ## 制限事項
 
 1. **対象コメント**: PRレビューコメントのみ（一般的なIssueコメントは対象外）
@@ -357,3 +430,4 @@ ai-workflow pr-comment init --pr 123
 | バージョン | 日付 | 変更内容 |
 |-----------|------|---------|
 | 1.0.0 | 2025-01-20 | 初版作成（Issue #383） |
+| 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |

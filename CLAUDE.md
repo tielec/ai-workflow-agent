@@ -1024,6 +1024,8 @@ if (config.isCI()) {
   - 10種類のフェーズ: `planning`, `requirements`, `design`, `test-scenario`, `implementation`, `test-implementation`, `testing`, `documentation`, `report`, `evaluation`
 - `jenkins/Jenkinsfile.rollback` … フェーズ差し戻し実行（v0.4.0、Issue #90）
 - `jenkins/Jenkinsfile.auto-issue` … 自動Issue生成（v0.5.0、Issue #121）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` … PRコメント自動対応（init + execute）（v0.6.0、Issue #393）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` … PRコメント解決処理（finalize）（v0.6.0、Issue #393）
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
