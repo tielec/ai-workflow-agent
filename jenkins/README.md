@@ -26,7 +26,11 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── auto-issue/
 │   │       │   └── Jenkinsfile
-│   │       └── finalize/
+│   │       ├── finalize/
+│   │       │   └── Jenkinsfile
+│   │       ├── pr-comment-execute/
+│   │       │   └── Jenkinsfile
+│   │       └── pr-comment-finalize/
 │   │           └── Jenkinsfile
 │   └── dsl/
 │       ├── folders.groovy               # フォルダ作成DSL
@@ -37,6 +41,8 @@ jenkins/
 │           ├── ai_workflow_rollback_job.groovy
 │           ├── ai_workflow_auto_issue_job.groovy
 │           ├── ai_workflow_finalize_job.groovy
+│           ├── ai_workflow_pr_comment_execute_job.groovy
+│           ├── ai_workflow_pr_comment_finalize_job.groovy
 │           └── TEST_PLAN.md
 └── shared/
     └── common.groovy                    # 共通処理モジュール
@@ -54,6 +60,8 @@ jenkins/
 | **rollback** | フェーズ差し戻し実行 | 19 |
 | **auto_issue** | 自動Issue作成 | 15 |
 | **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 17 |
+| **pr_comment_execute** | PRコメント自動対応（init + execute） | 14 |
+| **pr_comment_finalize** | PRコメント解決処理（finalize） | 11 |
 
 ### フォルダ構成
 
@@ -67,7 +75,9 @@ AI_Workflow/
 │   ├── single_phase
 │   ├── rollback
 │   ├── auto_issue
-│   └── finalize
+│   ├── finalize
+│   ├── pr_comment_execute
+│   └── pr_comment_finalize
 ├── stable-1/          # mainブランチ用（安定バージョン）
 │   └── ...
 ├── stable-2/
@@ -96,7 +106,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（6種類 × 10フォルダ = 60ジョブ）
+- 各実行モード用のジョブ（8種類 × 10フォルダ = 80ジョブ）
 
 ## 詳細ドキュメント
 

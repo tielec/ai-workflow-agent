@@ -1,0 +1,215 @@
+/**
+ * AI Workflow - PR Comment Finalize
+ *
+ * PRレビューコメントの完了処理を行うJenkinsfile。
+ * pr-comment finalize サブコマンドを実行し、コメントスレッドの解決とメタデータ後処理を実施します。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - PR_URL: Pull Request URL（必須、例: https://github.com/owner/repo/pull/123）
+ * - DRY_RUN: ドライランモード（デフォルト: false）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - その他: APIキー（互換性のため定義）
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        // Claude Agent SDK設定
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+
+        // AI Workflow設定
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.6.0'
+        EXECUTION_MODE = 'pr_comment_finalize'
+        CODEX_HOME = ''
+
+        // ログ設定（CI環境ではカラーリング無効化）
+        LOG_NO_COLOR = 'true'
+
+        // Git設定
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        // GitHub認証情報
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+
+        // OpenAI系認証情報（互換性用）
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        // Claude系認証情報（互換性用）
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: PR Comment Finalize"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.PR_URL) {
+                        error("PR_URL parameter is required")
+                    }
+
+                    // PR URLからowner/repo/numberを抽出
+                    // 例: https://github.com/tielec/ai-workflow-agent/pull/123
+                    def prUrlPattern = ~/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)$/
+                    def matcher = (params.PR_URL =~ prUrlPattern)
+
+                    if (!matcher.matches()) {
+                        error("PR_URL must be in the format 'https://github.com/owner/repo/pull/number': ${params.PR_URL}")
+                    }
+
+                    env.REPO_OWNER = matcher[0][1]
+                    env.REPO_NAME = matcher[0][2]
+                    env.PR_NUMBER = matcher[0][3]
+                    env.ISSUE_NUMBER = env.PR_NUMBER  // 共通処理との互換用
+                    env.GITHUB_REPOSITORY = "${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Finalize | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "PR URL: ${params.PR_URL}"
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "GitHub Repository: ${env.GITHUB_REPOSITORY}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('PR Comment Finalize') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: PR Comment Finalize"
+                    echo "========================================="
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Finalize Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+
+                        sh """
+                            node dist/index.js pr-comment finalize \
+                                --pr ${env.PR_NUMBER} \
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Finalize | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.PR_NUMBER) {
+                    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/**/*"
+                    echo "Archiving artifacts from: ${artifactPath}"
+                    archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
+                }
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - PR Comment Finalize Success"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - PR Comment Finalize Failure"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                echo "Please check the logs"
+            }
+        }
+    }
+}
