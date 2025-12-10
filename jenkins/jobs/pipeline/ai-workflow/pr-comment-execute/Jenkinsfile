@@ -5,8 +5,7 @@
  * pr-comment init/execute サブコマンドを実行し、未解決コメントに対する返信・修正を自動化します。
  *
  * パラメータ（Job DSLで定義）:
- * - PR_NUMBER: Pull Request番号（必須）
- * - GITHUB_REPOSITORY: 対象リポジトリ owner/repo（デフォルト: tielec/ai-workflow-agent）
+ * - PR_URL: Pull Request URL（必須、例: https://github.com/owner/repo/pull/123）
  * - AGENT_MODE: エージェントモード（auto/codex/claude）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - BATCH_SIZE: 一度に処理するコメント数（デフォルト: 5）
@@ -51,7 +50,6 @@ pipeline {
 
         // GitHub認証情報
         GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
-        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
 
         // OpenAI系認証情報
         CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
@@ -101,30 +99,33 @@ pipeline {
                     echo "Stage: Validate Parameters"
                     echo "========================================="
 
-                    if (!params.PR_NUMBER) {
-                        error("PR_NUMBER parameter is required")
+                    if (!params.PR_URL) {
+                        error("PR_URL parameter is required")
                     }
 
-                    if (!params.GITHUB_REPOSITORY) {
-                        error("GITHUB_REPOSITORY parameter is required for pr_comment_execute mode")
+                    // PR URLからowner/repo/numberを抽出
+                    // 例: https://github.com/tielec/ai-workflow-agent/pull/123
+                    def prUrlPattern = ~/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)$/
+                    def matcher = (params.PR_URL =~ prUrlPattern)
+
+                    if (!matcher.matches()) {
+                        error("PR_URL must be in the format 'https://github.com/owner/repo/pull/number': ${params.PR_URL}")
                     }
 
-                    def repoParts = params.GITHUB_REPOSITORY.split('/')
-                    if (repoParts.length != 2) {
-                        error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
-                    }
-
-                    env.PR_NUMBER = params.PR_NUMBER
-                    env.ISSUE_NUMBER = params.PR_NUMBER  // 共通処理との互換用
-                    env.REPO_OWNER = repoParts[0]
-                    env.REPO_NAME = repoParts[1]
+                    env.REPO_OWNER = matcher[0][1]
+                    env.REPO_NAME = matcher[0][2]
+                    env.PR_NUMBER = matcher[0][3]
+                    env.ISSUE_NUMBER = env.PR_NUMBER  // 共通処理との互換用
+                    env.GITHUB_REPOSITORY = "${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
                     currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Execute | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
+                    echo "PR URL: ${params.PR_URL}"
                     echo "PR Number: ${env.PR_NUMBER}"
                     echo "Repository Owner: ${env.REPO_OWNER}"
                     echo "Repository Name: ${env.REPO_NAME}"
+                    echo "GitHub Repository: ${env.GITHUB_REPOSITORY}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Batch Size: ${params.BATCH_SIZE ?: '5'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
@@ -160,7 +161,7 @@ pipeline {
 
                         sh """
                             node dist/index.js pr-comment init \
-                                --pr ${params.PR_NUMBER} \
+                                --pr ${env.PR_NUMBER} \
                                 ${dryRunFlag}
                         """
                     }
@@ -188,7 +189,7 @@ pipeline {
 
                         sh """
                             node dist/index.js pr-comment execute \
-                                --pr ${params.PR_NUMBER} \
+                                --pr ${env.PR_NUMBER} \
                                 --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag} \
                                 ${batchSizeFlag}

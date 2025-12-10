@@ -58,16 +58,10 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 基本設定
             // ========================================
-            stringParam('PR_NUMBER', '', '''
-Pull Request番号（必須）
+            stringParam('PR_URL', '', '''
+Pull Request URL（必須）
 
-例: 123
-            '''.stripIndent().trim())
-
-            stringParam('GITHUB_REPOSITORY', 'tielec/ai-workflow-agent', '''
-対象GitHubリポジトリ（owner/repo）
-
-例: tielec/ai-workflow-agent
+例: https://github.com/tielec/ai-workflow-agent/pull/123
             '''.stripIndent().trim())
 
             booleanParam('DRY_RUN', false, '''
