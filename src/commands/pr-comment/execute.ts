@@ -267,7 +267,8 @@ async function commitIfNeeded(repoRoot: string, message: string, prBranch: strin
 
   // PRのheadブランチにプッシュ
   logger.debug(`Pushing to PR branch: ${prBranch}`);
-  await git.push('origin', prBranch);
+  // 現在のHEADをリモートのprBranchにpush
+  await git.push('origin', `HEAD:${prBranch}`);
   logger.info('Changes pushed to remote.');
 }
 

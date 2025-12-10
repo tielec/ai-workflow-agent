@@ -69,7 +69,8 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     const targetBranch = prInfo.branch;
 
     logger.debug(`Pushing to PR branch: ${targetBranch}`);
-    await git.push('origin', targetBranch);
+    // 現在のHEADをリモートのtargetBranchにpush
+    await git.push('origin', `HEAD:${targetBranch}`);
 
     logger.info('Metadata committed and pushed to remote.');
   } catch (error) {

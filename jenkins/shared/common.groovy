@@ -184,6 +184,8 @@ def setupEnvironment() {
     def issueNumber = env.ISSUE_NUMBER ?: ''
     def prNumber = env.PR_NUMBER ?: ''
 
+    echo "DEBUG: executionMode=${executionMode}, prNumber=${prNumber}, repoOwner=${repoOwner}, repoName=${repoName}"
+
     // PR comment jobs の場合、GitHub API で PR のブランチ名を取得
     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
     if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize'] && prNumber) {

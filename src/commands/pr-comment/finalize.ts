@@ -110,7 +110,8 @@ export async function handlePRCommentFinalizeCommand(
       const prBranch = metadata.pr.branch;
 
       logger.debug(`Pushing to PR branch: ${prBranch}`);
-      await git.push('origin', prBranch);
+      // 現在のHEADをリモートのprBranchにpush
+      await git.push('origin', `HEAD:${prBranch}`);
       logger.info('Finalization committed and pushed to remote.');
     }
   } catch (error) {
