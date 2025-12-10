@@ -119,6 +119,16 @@ pipeline {
                     env.ISSUE_NUMBER = env.PR_NUMBER  // 共通処理との互換用
                     env.GITHUB_REPOSITORY = "${env.REPO_OWNER}/${env.REPO_NAME}"
 
+                    // GitHub APIでPR情報を取得してブランチ名を設定
+                    def prInfo = sh(
+                        script: "gh api repos/${env.REPO_OWNER}/${env.REPO_NAME}/pulls/${env.PR_NUMBER} --jq '{head: .head.ref, base: .base.ref}' 2>/dev/null || echo '{\"head\":\"\",\"base\":\"\"}'",
+                        returnStdout: true
+                    ).trim()
+
+                    def prInfoJson = readJSON text: prInfo
+                    env.BRANCH_NAME = prInfoJson.head ?: "unknown-branch"
+                    env.BASE_BRANCH = prInfoJson.base ?: "main"
+
                     def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
                     currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Execute | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
@@ -127,6 +137,8 @@ pipeline {
                     echo "Repository Owner: ${env.REPO_OWNER}"
                     echo "Repository Name: ${env.REPO_NAME}"
                     echo "GitHub Repository: ${env.GITHUB_REPOSITORY}"
+                    echo "PR Branch: ${env.BRANCH_NAME}"
+                    echo "Base Branch: ${env.BASE_BRANCH}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Batch Size: ${params.BATCH_SIZE ?: '5'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"

@@ -15,6 +15,8 @@ import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 
+let gitConfigured = false; // Git設定済みフラグ
+
 const MAX_RETRY_COUNT = 3;
 
 /**
@@ -234,9 +236,32 @@ async function commitIfNeeded(repoRoot: string, message: string): Promise<void> 
     return;
   }
 
+  // Git設定（初回のみ）
+  if (!gitConfigured) {
+    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
+    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+
+    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
+    await git.addConfig('user.name', gitUserName);
+    await git.addConfig('user.email', gitUserEmail);
+    gitConfigured = true;
+  }
+
   await git.add(status.files.map((f) => f.path));
   await git.commit(message);
-  logger.info('Changes committed. (Push not executed)');
+  logger.info('Changes committed.');
+
+  // プッシュ
+  const branchSummary = await git.branch();
+  const currentBranch = branchSummary.current;
+
+  if (!currentBranch) {
+    throw new Error('Cannot determine current branch');
+  }
+
+  logger.debug(`Pushing branch: ${currentBranch}`);
+  await git.push('origin', currentBranch);
+  logger.info('Changes pushed to remote.');
 }
 
 function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): void {

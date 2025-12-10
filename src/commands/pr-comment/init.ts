@@ -60,7 +60,18 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     await git.commit(`[pr-comment] Initialize PR #${prNumber} comment resolution metadata`);
 
     logger.info('Pushing to remote...');
-    await git.push();
+
+    // 現在のブランチを取得してプッシュ
+    const branchSummary = await git.branch();
+    const currentBranch = branchSummary.current;
+
+    if (!currentBranch) {
+      throw new Error('Cannot determine current branch');
+    }
+
+    logger.debug(`Pushing branch: ${currentBranch}`);
+    await git.push('origin', currentBranch);
+
     logger.info('Metadata committed and pushed to remote.');
   } catch (error) {
     logger.error(`Failed to initialize: ${getErrorMessage(error)}`);
