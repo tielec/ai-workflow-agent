@@ -1,8 +1,10 @@
 import process from 'node:process';
+import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
+import { config } from '../../core/config.js';
 import { PRCommentFinalizeOptions } from '../../types/commands.js';
 import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
 
@@ -70,6 +72,39 @@ export async function handlePRCommentFinalizeCommand(
 
     if (dryRun) {
       logger.info('[DRY RUN COMPLETE] No actual changes were made.');
+    }
+
+    // Git コミット & プッシュ（dry-runでない場合）
+    if (!dryRun && resolvedCount > 0) {
+      const git = simpleGit(repoRoot);
+
+      // Git設定
+      const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
+      const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+
+      logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
+      await git.addConfig('user.name', gitUserName);
+      await git.addConfig('user.email', gitUserEmail);
+
+      // メタデータファイルをコミット
+      const metadataPath = metadataManager.getMetadataPath();
+      const relativePath = metadataPath.replace(`${repoRoot}/`, '').replace(/\\/g, '/');
+
+      logger.info('Committing PR comment finalization...');
+      await git.add(relativePath);
+      await git.commit(`[pr-comment] Finalize PR #${prNumber} comment resolution (${resolvedCount} threads resolved)`);
+
+      // プッシュ
+      const branchSummary = await git.branch();
+      const currentBranch = branchSummary.current;
+
+      if (!currentBranch) {
+        throw new Error('Cannot determine current branch');
+      }
+
+      logger.debug(`Pushing branch: ${currentBranch}`);
+      await git.push('origin', currentBranch);
+      logger.info('Finalization committed and pushed to remote.');
     }
   } catch (error) {
     logger.error(`Failed to finalize: ${getErrorMessage(error)}`);
