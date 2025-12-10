@@ -140,11 +140,15 @@ async function processComment(
       await metadataManager.updateCommentStatus(commentId, 'in_progress');
     }
 
+    logger.debug(`Analyzing comment #${commentId}...`);
     const analysisResult = await analyzer.analyze(commentMeta, { repoPath: repoRoot }, agent);
+    logger.debug(`Analysis result for comment #${commentId}: success=${analysisResult.success}, hasResolution=${!!analysisResult.resolution}, error=${analysisResult.error || 'none'}`);
 
     if (!analysisResult.success || !analysisResult.resolution) {
+      logger.warn(`Analysis failed for comment #${commentId}: ${analysisResult.error ?? 'No resolution returned'}`);
       if (!dryRun) {
         const retryCount = await metadataManager.incrementRetryCount(commentId);
+        logger.debug(`Retry count for comment #${commentId}: ${retryCount}/${MAX_RETRY_COUNT}`);
         if (retryCount >= MAX_RETRY_COUNT) {
           await metadataManager.updateCommentStatus(
             commentId,
@@ -152,10 +156,13 @@ async function processComment(
             undefined,
             analysisResult.error ?? 'Analysis failed',
           );
+          logger.info(`Comment #${commentId} marked as failed after ${MAX_RETRY_COUNT} retries`);
         }
       }
       return;
     }
+
+    logger.debug(`Resolution type for comment #${commentId}: ${analysisResult.resolution.type}`);
 
     const resolution = analysisResult.resolution;
 
@@ -168,8 +175,10 @@ async function processComment(
     }
 
     if (resolution.type === 'code_change' && resolution.changes?.length) {
+      logger.debug(`Applying ${resolution.changes.length} code change(s) for comment #${commentId}...`);
       const applyResult = await applier.apply(resolution.changes, dryRun);
       if (!applyResult.success) {
+        logger.warn(`Failed to apply changes for comment #${commentId}: ${applyResult.error}`);
         if (!dryRun) {
           await metadataManager.updateCommentStatus(
             commentId,
@@ -180,6 +189,7 @@ async function processComment(
         }
         return;
       }
+      logger.debug(`Code changes applied successfully for comment #${commentId}`);
     }
 
     if (dryRun) {
@@ -189,19 +199,23 @@ async function processComment(
       return;
     }
 
+    logger.debug(`Posting reply to comment #${commentId}...`);
     const reply = await githubClient.commentClient.replyToPRReviewComment(
       prNumber,
       commentMeta.comment.id,
       formatReply(resolution),
     );
     await metadataManager.setReplyCommentId(commentId, reply.id);
+    logger.debug(`Reply posted for comment #${commentId}: reply ID ${reply.id}`);
 
     await metadataManager.updateCommentStatus(
       commentId,
       resolution.type === 'skip' ? 'skipped' : 'completed',
       resolution,
     );
+    logger.info(`Comment #${commentId} marked as ${resolution.type === 'skip' ? 'skipped' : 'completed'}`);
   } catch (error) {
+    logger.error(`Exception while processing comment #${commentId}: ${getErrorMessage(error)}`);
     if (!dryRun) {
       await metadataManager.updateCommentStatus(
         commentId,
@@ -209,6 +223,7 @@ async function processComment(
         undefined,
         getErrorMessage(error),
       );
+      logger.info(`Comment #${commentId} marked as failed due to exception`);
     } else {
       logger.warn(`[DRY-RUN] Failed to process comment #${commentId}: ${getErrorMessage(error)}`);
     }
