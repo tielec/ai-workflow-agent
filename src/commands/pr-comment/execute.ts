@@ -77,10 +77,16 @@ export async function handlePRCommentExecuteCommand(
 
     const githubClient = new GitHubClient(null, repositoryName);
     const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
-    const analyzer = new ReviewCommentAnalyzer(
-      path.join(repoRoot, 'src', 'prompts'),
-      path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis'),
-    );
+
+    // プロンプトディレクトリはai-workflow-agentリポジトリ内を使用
+    // Jenkins環境ではprocess.cwd()がWORKSPACE（ai-workflow-agent）を指す
+    const promptsDir = path.join(process.cwd(), 'dist', 'prompts');
+    const analysisDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis');
+
+    logger.debug(`Prompts directory: ${promptsDir}`);
+    logger.debug(`Analysis directory: ${analysisDir}`);
+
+    const analyzer = new ReviewCommentAnalyzer(promptsDir, analysisDir);
     const applier = new CodeChangeApplier(repoRoot);
     const dryRun = options.dryRun ?? false;
     const batchSize = Number.parseInt(options.batchSize ?? '3', 10);
