@@ -271,6 +271,7 @@ export async function runCli(): Promise<void> {
   prComment
     .command('init')
     .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--issue <number>', 'Issue number to resolve PR from')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .action(async (options) => {
@@ -283,7 +284,8 @@ export async function runCli(): Promise<void> {
 
   prComment
     .command('execute')
-    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .option('--dry-run', 'Preview mode (do not apply changes or update metadata)', false)
     .addOption(
@@ -302,7 +304,8 @@ export async function runCli(): Promise<void> {
 
   prComment
     .command('finalize')
-    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--skip-cleanup', 'Skip metadata cleanup', false)
     .option('--dry-run', 'Preview mode (do not resolve threads)', false)
     .action(async (options) => {

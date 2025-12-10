@@ -11,7 +11,7 @@ import { PRCommentExecuteOptions } from '../../types/commands.js';
 import { CommentMetadata, CommentResolution, ResolutionSummary } from '../../types/pr-comment.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import { config } from '../../core/config.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import { getRepoRoot, parsePullRequestUrl } from '../../core/repository-utils.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 
@@ -24,7 +24,9 @@ export async function handlePRCommentExecuteCommand(
   options: PRCommentExecuteOptions,
 ): Promise<void> {
   try {
-    const prNumber = Number.parseInt(options.pr, 10);
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const { repositoryName, prNumber } = resolvePrInfo(options);
+
     const repoRoot = await getRepoRoot();
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
@@ -51,7 +53,7 @@ export async function handlePRCommentExecuteCommand(
       return;
     }
 
-    const githubClient = new GitHubClient();
+    const githubClient = new GitHubClient(null, repositoryName);
     const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
     const analyzer = new ReviewCommentAnalyzer(
       path.join(repoRoot, 'src', 'prompts'),
@@ -241,4 +243,35 @@ function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): v
   logger.info(
     `Execution summary${dryRun ? ' (dry-run)' : ''}: completed=${summary.by_status.completed}, skipped=${summary.by_status.skipped}, failed=${summary.by_status.failed}`,
   );
+}
+
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+function resolvePrInfo(options: PRCommentExecuteOptions): { repositoryName: string; prNumber: number } {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+    };
+  }
+
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  throw new Error('Either --pr-url or --pr option is required.');
 }
