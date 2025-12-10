@@ -150,13 +150,51 @@ async function fetchReviewComments(
     }
   }
 
+  // GraphQLで未解決スレッドが見つかった場合は、そのまま使用
+  if (unresolvedIds.size > 0) {
+    logger.debug(`Using GraphQL unresolved threads directly (${unresolvedIds.size} comments)`);
+
+    const targetIds = parseCommentIds(commentIds);
+    const commentsToProcess: ReviewComment[] = [];
+
+    for (const thread of unresolvedThreads) {
+      for (const comment of thread.comments.nodes) {
+        if (comment.databaseId !== undefined && comment.databaseId !== null) {
+          // --comment-ids フィルタリング
+          if (targetIds.size > 0 && !targetIds.has(comment.databaseId)) {
+            continue;
+          }
+
+          commentsToProcess.push({
+            id: comment.databaseId,
+            node_id: comment.id,
+            path: comment.path ?? '',
+            line: comment.line ?? null,
+            start_line: comment.startLine ?? null,
+            end_line: null,
+            body: comment.body ?? '',
+            user: comment.author.login ?? 'unknown',
+            created_at: comment.createdAt ?? '',
+            updated_at: comment.updatedAt ?? '',
+            diff_hunk: '',  // GraphQLにはdiff_hunkがないため空文字
+            in_reply_to_id: undefined,
+            thread_id: thread.id,
+            pr_number: prNumber,
+          });
+        }
+      }
+    }
+
+    logger.debug(`Processed ${commentsToProcess.length} comments from GraphQL threads`);
+    return commentsToProcess;
+  }
+
+  // GraphQLで未解決スレッドが見つからない場合は、REST APIから全コメントを取得
   const allComments = await githubClient.commentClient.getPRReviewComments(prNumber);
   logger.debug(`Total PR review comments (REST API): ${allComments.length}`);
-  logger.debug(`Unresolved comment IDs (GraphQL): ${Array.from(unresolvedIds).join(', ')}`);
-
-  let filtered = unresolvedIds.size > 0 ? allComments.filter((c) => unresolvedIds.has(c.id)) : allComments;
 
   const targetIds = parseCommentIds(commentIds);
+  let filtered = allComments;
   if (targetIds.size > 0) {
     filtered = filtered.filter((c) => targetIds.has(c.id));
   }
