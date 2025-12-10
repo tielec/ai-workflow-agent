@@ -133,12 +133,14 @@ export class ReviewCommentAnalyzer {
     repoPath: string,
   ): Promise<string | null> {
     try {
+      logger.debug(`Running agent for PR comment analysis...`);
       const messages = await agent.executeTask({
         prompt,
         maxTurns: 1,
-        verbose: false,
+        verbose: true,
         workingDirectory: repoPath,
       });
+      logger.debug(`Agent execution completed, processing response...`);
 
       if (agent instanceof CodexAgentClient) {
         return this.extractFromCodexMessages(messages);
