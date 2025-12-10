@@ -101,14 +101,15 @@ pipeline {
                     env.GITHUB_REPOSITORY = "${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     // GitHub APIでPR情報を取得してブランチ名を設定
-                    def prInfo = sh(
-                        script: '''gh api repos/''' + env.REPO_OWNER + '''/''' + env.REPO_NAME + '''/pulls/''' + env.PR_NUMBER + ''' --jq '{"head":.head.ref,"base":.base.ref}' 2>/dev/null || echo '{"head":"","base":""}'  ''',
+                    env.BRANCH_NAME = sh(
+                        script: "gh api repos/${env.REPO_OWNER}/${env.REPO_NAME}/pulls/${env.PR_NUMBER} --jq .head.ref 2>/dev/null || echo unknown-branch",
                         returnStdout: true
                     ).trim()
 
-                    def prInfoJson = readJSON text: prInfo
-                    env.BRANCH_NAME = prInfoJson.head ?: "unknown-branch"
-                    env.BASE_BRANCH = prInfoJson.base ?: "main"
+                    env.BASE_BRANCH = sh(
+                        script: "gh api repos/${env.REPO_OWNER}/${env.REPO_NAME}/pulls/${env.PR_NUMBER} --jq .base.ref 2>/dev/null || echo main",
+                        returnStdout: true
+                    ).trim()
 
                     def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
                     currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Finalize | ${env.REPO_OWNER}/${env.REPO_NAME}"
