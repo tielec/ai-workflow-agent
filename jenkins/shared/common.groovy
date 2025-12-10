@@ -182,7 +182,23 @@ def setupEnvironment() {
     def repoOwner = env.REPO_OWNER ?: ''
     def repoName = env.REPO_NAME ?: ''
     def issueNumber = env.ISSUE_NUMBER ?: ''
+    def prNumber = env.PR_NUMBER ?: ''
+
+    // PR comment jobs の場合、GitHub API で PR のブランチ名を取得
     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
+    if (executionMode in ['pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
+        echo "Fetching PR branch name from GitHub API..."
+        def prBranch = sh(
+            script: "gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref 2>/dev/null || echo ''",
+            returnStdout: true
+        ).trim()
+        if (prBranch) {
+            targetBranch = prBranch
+            echo "PR branch detected: ${targetBranch}"
+        } else {
+            echo "Warning: Failed to fetch PR branch. Using default: ${targetBranch}"
+        }
+    }
 
     sh """
         # REPOS_ROOT ディレクトリ作成
