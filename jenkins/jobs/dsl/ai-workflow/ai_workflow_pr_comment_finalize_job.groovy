@@ -76,6 +76,14 @@ Git コミットユーザー名
 Git コミットメールアドレス
             '''.stripIndent().trim())
 
+            choiceParam('LOG_LEVEL', ['INFO', 'DEBUG', 'WARNING', 'ERROR'], '''
+ログレベル
+- DEBUG: 詳細なデバッグ情報を出力
+- INFO: 通常の情報を出力（デフォルト）
+- WARNING: 警告のみ出力
+- ERROR: エラーのみ出力
+            '''.stripIndent().trim())
+
             // ========================================
             // APIキー設定
             // ========================================

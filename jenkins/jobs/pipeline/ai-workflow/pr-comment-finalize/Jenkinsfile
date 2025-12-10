@@ -38,7 +38,8 @@ pipeline {
         EXECUTION_MODE = 'pr_comment_finalize'
         CODEX_HOME = ''
 
-        // ログ設定（CI環境ではカラーリング無効化）
+        // ログ設定
+        LOG_LEVEL = "${(params.LOG_LEVEL ?: 'INFO').toLowerCase()}"
         LOG_NO_COLOR = 'true'
 
         // Git設定
