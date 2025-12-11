@@ -196,7 +196,7 @@ src/types/commands.ts (コマンド関連の型定義)
 |------------|------|
 | `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
-| `src/commands/init.ts` | Issue初期化コマンド処理（約400行、Issue #363で拡張）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。**`--auto-model-selection` オプション追加**（Issue #363）: 指定時に `DifficultyAnalyzer` でIssue難易度を分析し、`ModelOptimizer` でモデル設定を生成、`metadata.json` に `difficulty_analysis` と `model_config` を保存。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理（約400行、Issue #363で拡張、Issue #391で拡張）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。**`--auto-model-selection` オプション追加**（Issue #363）: 指定時に `DifficultyAnalyzer` でIssue難易度を分析し、`ModelOptimizer` でモデル設定を生成、`metadata.json` に `difficulty_analysis` と `model_config` を保存。**`--base-branch` オプション追加**（Issue #391）: 新規ブランチ作成時の分岐元ベースブランチを明示的に指定。未指定時は現在のブランチから分岐（従来動作）。リモート/ローカルブランチが既に存在する場合は無視。 |
 | `src/commands/execute.ts` | フェーズ実行コマンド処理（約497行、v0.3.1で27%削減、Issue #46）。ファサードパターンにより4つの専門モジュールに分離。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
 | `src/commands/execute/options-parser.ts` | CLIオプション解析とバリデーション（約151行、v0.3.1で追加、Issue #46）。`parseExecuteOptions()`, `validateExecuteOptions()` を提供。 |
 | `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46、v0.5.0でエージェント優先順位追加、Issue #306）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。**エージェント優先順位機能**: `AgentPriority` 型（`'codex-first' | 'claude-first'`）と `PHASE_AGENT_PRIORITY` 定数（10フェーズのエージェント優先順位マッピング）を提供。 |

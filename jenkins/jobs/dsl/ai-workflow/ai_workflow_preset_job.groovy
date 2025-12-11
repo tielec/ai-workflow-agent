@@ -3,7 +3,7 @@
  *
  * プリセット実行用ジョブ（定義済みワークフローパターンを実行）
  * EXECUTION_MODE: preset（固定値、パラメータとして表示しない）
- * パラメータ数: 22個（all_phasesの15個 + PRESET + APIキー6個）
+ * パラメータ数: 23個（all_phasesの16個 + PRESET + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -67,6 +67,16 @@ GitHub Issue URL（必須）
             stringParam('BRANCH_NAME', '', '''
 作業ブランチ名（任意）
 空欄の場合は Issue 番号から自動生成されます
+            '''.stripIndent().trim())
+
+            stringParam('BASE_BRANCH', '', '''
+ベースブランチ（任意）
+
+新規ブランチを作成する際の分岐元ブランチを指定します。
+- 空欄の場合: 現在チェックアウトされているブランチから分岐
+- 指定する場合: 「main」「develop」等のブランチ名を指定
+
+注: リモートブランチが既に存在する場合、このパラメータは無視されます
             '''.stripIndent().trim())
 
             choiceParam('AGENT_MODE', ['auto', 'codex', 'claude'], '''
