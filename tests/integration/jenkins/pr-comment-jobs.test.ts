@@ -84,10 +84,11 @@ describe('Integration: PR Comment Jenkins jobs (Issue #393)', () => {
 
   describe('TC-001/TC-002/TC-008/TC-009: DSL parameter definitions', () => {
     it('defines required execute parameters including API keys and batch/agent options', () => {
+      // PR_URL replaces PR_NUMBER and GITHUB_REPOSITORY as user input
+      // PR_NUMBER and GITHUB_REPOSITORY are derived dynamically in the Jenkinsfile
       const requiredExecuteParams = [
         'EXECUTION_MODE',
-        'PR_NUMBER',
-        'GITHUB_REPOSITORY',
+        'PR_URL',
         'AGENT_MODE',
         'DRY_RUN',
         'BATCH_SIZE',
@@ -108,10 +109,10 @@ describe('Integration: PR Comment Jenkins jobs (Issue #393)', () => {
     });
 
     it('defines required finalize parameters and omits agent/batch-only settings', () => {
+      // PR_URL replaces PR_NUMBER and GITHUB_REPOSITORY as user input
       const requiredFinalizeParams = [
         'EXECUTION_MODE',
-        'PR_NUMBER',
-        'GITHUB_REPOSITORY',
+        'PR_URL',
         'DRY_RUN',
         'GIT_COMMIT_USER_NAME',
         'GIT_COMMIT_USER_EMAIL',
@@ -183,20 +184,20 @@ describe('Integration: PR Comment Jenkins jobs (Issue #393)', () => {
     });
 
     it('invokes pr-comment init/execute/finalize commands with PR number context', () => {
-      expect(executeJenkinsfile).toMatch(/pr-comment init[\s\S]*--pr \${params\.PR_NUMBER}/);
+      expect(executeJenkinsfile).toMatch(/pr-comment init[\s\S]*--pr \${env\.PR_NUMBER}/);
       expect(executeJenkinsfile).toMatch(/pr-comment execute[\s\S]*--agent \${params\.AGENT_MODE \?: 'auto'}/);
       expect(executeJenkinsfile).toMatch(/def batchSizeFlag\s*=\s*params\.BATCH_SIZE\s*\?\s*"--batch-size \${params\.BATCH_SIZE}"/);
       expect(executeJenkinsfile).toMatch(/pr-comment execute[\s\S]*\${batchSizeFlag}/);
-      expect(finalizeJenkinsfile).toMatch(/pr-comment finalize[\s\S]*--pr \${params\.PR_NUMBER}/);
+      expect(finalizeJenkinsfile).toMatch(/pr-comment finalize[\s\S]*--pr \${env\.PR_NUMBER}/);
     });
   });
 
   describe('TC-012/TC-013/TC-014/TC-015: Validation and dry-run labeling', () => {
     it('validates required parameters and labels builds with [DRY RUN]', () => {
-      expect(executeJenkinsfile).toMatch(/PR_NUMBER parameter is required/);
-      expect(executeJenkinsfile).toMatch(/GITHUB_REPOSITORY parameter is required/);
-      expect(finalizeJenkinsfile).toMatch(/PR_NUMBER parameter is required/);
-      expect(finalizeJenkinsfile).toMatch(/GITHUB_REPOSITORY parameter is required/);
+      expect(executeJenkinsfile).toMatch(/PR_URL parameter is required/);
+      expect(executeJenkinsfile).toMatch(/PR_URL must be in the format/);
+      expect(finalizeJenkinsfile).toMatch(/PR_URL parameter is required/);
+      expect(finalizeJenkinsfile).toMatch(/PR_URL must be in the format/);
 
       expect(executeJenkinsfile).toMatch(/\[DRY RUN\]/);
       expect(finalizeJenkinsfile).toMatch(/\[DRY RUN\]/);
