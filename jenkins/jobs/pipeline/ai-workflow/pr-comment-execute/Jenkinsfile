@@ -2,7 +2,12 @@
  * AI Workflow - PR Comment Execute
  *
  * PRレビューコメントの初期化と自動対応を行うJenkinsfile。
- * pr-comment init/execute サブコマンドを実行し、未解決コメントに対する返信・修正を自動化します。
+ * pr-comment init/analyze/execute サブコマンドを実行し、未解決コメントに対する返信・修正を自動化します。
+ *
+ * ワークフロー:
+ * 1. init: PRから未解決コメントを取得してメタデータを初期化
+ * 2. analyze: 全コメントを一括分析してresponse-plan.mdを生成（エージェント起動1回目）
+ * 3. execute: response-plan.mdに基づいて対応を実行（エージェント起動2回目）
  *
  * パラメータ（Job DSLで定義）:
  * - PR_URL: Pull Request URL（必須、例: https://github.com/owner/repo/pull/123）
@@ -163,6 +168,33 @@ pipeline {
                         sh """
                             node dist/index.js pr-comment init \
                                 --pr-url ${params.PR_URL} \
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('PR Comment Analyze') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: PR Comment Analyze"
+                    echo "========================================="
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Analyze Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+
+                        sh """
+                            node dist/index.js pr-comment analyze \
+                                --pr-url ${params.PR_URL} \
+                                --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag}
                         """
                     }
