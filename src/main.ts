@@ -291,7 +291,8 @@ export async function runCli(): Promise<void> {
 
   prComment
     .command('analyze')
-    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .option('--dry-run', 'Preview mode (do not save artifacts)', false)
     .addOption(

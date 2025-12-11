@@ -5,9 +5,14 @@ import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
+import { GitHubClient } from '../../core/github-client.js';
 import { config } from '../../core/config.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 import type { PRCommentAnalyzeOptions } from '../../types/commands.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
@@ -23,8 +28,17 @@ import type {
  */
 export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOptions): Promise<void> {
   try {
-    const prNumber = Number.parseInt(options.pr, 10);
-    const repoRoot = await getRepoRoot();
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
+
+    const repoRoot = prUrl
+      ? resolveRepoPathFromPrUrl(prUrl)
+      : await getRepoRoot();
+    logger.debug(
+      prUrl
+        ? `Resolved repository path from PR URL: ${repoRoot}`
+        : `Using current repository path: ${repoRoot}`,
+    );
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
     if (!(await metadataManager.exists())) {
@@ -311,6 +325,42 @@ function parseCommentIds(value?: string): Set<number> {
       .filter((v) => v.length > 0)
       .map((v) => Number.parseInt(v, 10)),
   );
+}
+
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+function resolvePrInfo(options: PRCommentAnalyzeOptions): {
+  repositoryName: string;
+  prNumber: number;
+  prUrl?: string;
+} {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+      prUrl: options.prUrl,
+    };
+  }
+
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  throw new Error('Either --pr-url or --pr option is required.');
 }
 
 export const __testables = {
