@@ -111,8 +111,7 @@ async function analyzeComments(
 ): Promise<ResponsePlan> {
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
-  const outputFilePath = path.join(analyzeDir, 'response-plan.json');
-  const prompt = await buildAnalyzePrompt(prNumber, repoRoot, metadataManager, comments, outputFilePath);
+  const prompt = await buildAnalyzePrompt(prNumber, repoRoot, metadataManager, comments);
 
   if (!options.dryRun) {
     await fs.ensureDir(analyzeDir);
@@ -170,7 +169,6 @@ async function buildAnalyzePrompt(
   repoRoot: string,
   metadataManager: PRCommentMetadataManager,
   comments: CommentMetadata[],
-  outputFilePath: string,
 ): Promise<string> {
   const template = await fs.readFile(path.join(repoRoot, 'src', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
   const metadata = await metadataManager.getMetadata();
@@ -184,8 +182,7 @@ async function buildAnalyzePrompt(
     .replace('{pr_number}', String(prNumber))
     .replace('{pr_title}', metadata.pr.title)
     .replace('{repo_path}', repoRoot)
-    .replace('{all_comments}', commentBlocks.join('\n\n'))
-    .replace('{output_file_path}', outputFilePath);
+    .replace('{all_comments}', commentBlocks.join('\n\n'));
 }
 
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {

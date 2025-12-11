@@ -22,7 +22,7 @@ You are assisting with PR review comment triage. Analyze **all** provided commen
 - Keep replies concise, professional, and actionable
 
 ## Output
-Write **only** the JSON block below to `{output_file_path}`.
+Output **only** the JSON below (no additional text or commentary):
 
 ```json
 {
@@ -51,6 +51,8 @@ Write **only** the JSON block below to `{output_file_path}`.
   ]
 }
 ```
+
+**Important**: Return the JSON directly in your response. Do NOT use file writing tools.
 
 Notes:
 - Include every comment from input once.
