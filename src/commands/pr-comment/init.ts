@@ -240,8 +240,18 @@ async function fetchReviewComments(
   const allComments = await githubClient.commentClient.getPRReviewComments(prNumber);
   logger.debug(`Total PR review comments (REST API): ${allComments.length}`);
 
+  // Pending reviewのコメントも取得
+  const pendingComments = await githubClient.commentClient.getPendingReviewComments(prNumber);
+  logger.debug(`Total pending review comments: ${pendingComments.length}`);
+
+  // Pending reviewコメントをマージ（重複を避けるためIDでフィルタリング）
+  const existingIds = new Set(allComments.map((c) => c.id));
+  const uniquePendingComments = pendingComments.filter((c) => !existingIds.has(c.id));
+  const combinedComments = [...allComments, ...uniquePendingComments];
+  logger.debug(`Total combined comments (submitted + pending): ${combinedComments.length}`);
+
   const targetIds = parseCommentIds(commentIds);
-  let filtered = allComments;
+  let filtered = combinedComments;
   if (targetIds.size > 0) {
     filtered = filtered.filter((c) => targetIds.has(c.id));
   }

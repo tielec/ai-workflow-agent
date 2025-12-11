@@ -285,6 +285,72 @@ export class CommentClient {
   }
 
   /**
+   * Pending reviewのコメントを取得（REST API）
+   *
+   * 注意: GitHub APIの制限により、**認証済みユーザー自身のPending reviewのみ**取得可能。
+   * 他のユーザーのPending reviewは取得できません（セキュリティ上の理由）。
+   */
+  public async getPendingReviewComments(prNumber: number): Promise<PRReviewComment[]> {
+    try {
+      // Step 1: Pending reviewsを取得
+      const { data: reviews } = await this.octokit.pulls.listReviews({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      const pendingReviews = reviews.filter((r) => r.state === 'PENDING');
+      logger.debug(`Found ${pendingReviews.length} pending review(s)`);
+
+      if (pendingReviews.length === 0) {
+        return [];
+      }
+
+      // Step 2: 各Pending reviewのコメントを取得
+      const allComments: PRReviewComment[] = [];
+
+      for (const review of pendingReviews) {
+        logger.debug(`Fetching comments for pending review #${review.id} by ${review.user?.login ?? 'unknown'}`);
+        const { data: comments } = await this.octokit.pulls.listCommentsForReview({
+          owner: this.owner,
+          repo: this.repo,
+          pull_number: prNumber,
+          review_id: review.id,
+        });
+
+        logger.debug(`  Found ${comments.length} comment(s) in pending review #${review.id}`);
+
+        allComments.push(
+          ...comments.map((c) => ({
+            id: c.id,
+            node_id: c.node_id,
+            path: c.path,
+            line: c.line ?? null,
+            start_line: c.start_line ?? null,
+            body: c.body ?? '',
+            user: { login: c.user?.login ?? 'unknown' },
+            created_at: c.created_at ?? '',
+            updated_at: c.updated_at ?? '',
+            diff_hunk: c.diff_hunk ?? '',
+            in_reply_to_id: c.in_reply_to_id ?? undefined,
+          })),
+        );
+      }
+
+      logger.info(`Total pending review comments: ${allComments.length}`);
+      return allComments;
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.warn(`Failed to get pending review comments: ${this.encodeWarning(message)}`);
+      // Pending review取得失敗は致命的エラーではないため、空配列を返す
+      return [];
+    }
+  }
+
+  /**
    * レビューコメントに返信を投稿（REST API）
    */
   public async replyToPRReviewComment(
