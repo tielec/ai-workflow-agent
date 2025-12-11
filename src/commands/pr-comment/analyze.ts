@@ -244,8 +244,40 @@ function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
     // Try alternative parsing strategies
     logger.warn('Attempting alternative JSON extraction strategies...');
 
-    // Strategy 1: Search for plain JSON (no code block)
+    // Strategy 1: Extract from JSON Lines format (Codex event stream)
+    // Look for the last complete JSON object that contains "comments" field
     try {
+      logger.debug('Strategy 1: Searching for JSON in event stream...');
+      const lines = rawOutput.split('\n');
+
+      // Search backwards for a line containing valid JSON with "comments" field
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.length === 0) continue;
+
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.comments && Array.isArray(parsed.comments)) {
+            logger.debug(`Found valid response plan JSON at line ${i + 1}`);
+            if (!parsed.pr_number) {
+              parsed.pr_number = prNumber;
+            }
+            parsed.comments = (parsed.comments ?? []).map((c: ResponsePlanComment) => normalizePlanComment(c));
+            return parsed;
+          }
+        } catch {
+          // Skip invalid JSON lines
+          continue;
+        }
+      }
+      logger.debug('Strategy 1 failed: No valid JSON with "comments" field found in lines');
+    } catch (altError) {
+      logger.debug(`Strategy 1 failed: ${getErrorMessage(altError)}`);
+    }
+
+    // Strategy 2: Search for plain JSON object (no code block)
+    try {
+      logger.debug('Strategy 2: Searching for plain JSON object...');
       const plainJsonMatch = rawOutput.match(/\{[\s\S]*"comments"[\s\S]*\}/);
       if (plainJsonMatch) {
         logger.debug('Found plain JSON pattern');
@@ -256,11 +288,12 @@ function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
         parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
         return parsed;
       }
+      logger.debug('Strategy 2 failed: No plain JSON pattern found');
     } catch (altError) {
-      logger.debug(`Alternative parsing failed: ${getErrorMessage(altError)}`);
+      logger.debug(`Strategy 2 failed: ${getErrorMessage(altError)}`);
     }
 
-    // Strategy 2: Fallback to empty plan
+    // All strategies failed
     logger.error('All parsing strategies failed. Using fallback plan.');
     throw new Error(`Failed to parse agent response: ${getErrorMessage(error)}`);
   }
