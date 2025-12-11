@@ -1,40 +1,10 @@
-import { jest } from '@jest/globals';
+import { MetadataManager } from '../../src/core/metadata-manager.js';
+import * as fs from 'fs-extra';
 import * as path from 'node:path';
+import { jest } from '@jest/globals';
 
-// Factory-based mock functions (ESM compatible)
-const mockExistsSync = jest.fn<any>();
-const mockReadFileSync = jest.fn<any>();
-const mockReadJsonSync = jest.fn<any>();
-const mockWriteFileSync = jest.fn<any>();
-const mockWriteJsonSync = jest.fn<any>();
-const mockEnsureDirSync = jest.fn<any>();
-const mockCopyFileSync = jest.fn<any>();
-const mockRemoveSync = jest.fn<any>();
-
-// ESM-compatible mocks with factory functions
-jest.unstable_mockModule('fs-extra', () => ({
-  default: {
-    existsSync: mockExistsSync,
-    readFileSync: mockReadFileSync,
-    readJsonSync: mockReadJsonSync,
-    writeFileSync: mockWriteFileSync,
-    writeJsonSync: mockWriteJsonSync,
-    ensureDirSync: mockEnsureDirSync,
-    copyFileSync: mockCopyFileSync,
-    removeSync: mockRemoveSync,
-  },
-  existsSync: mockExistsSync,
-  readFileSync: mockReadFileSync,
-  readJsonSync: mockReadJsonSync,
-  writeFileSync: mockWriteFileSync,
-  writeJsonSync: mockWriteJsonSync,
-  ensureDirSync: mockEnsureDirSync,
-  copyFileSync: mockCopyFileSync,
-  removeSync: mockRemoveSync,
-}));
-
-// Import after mocking
-const { MetadataManager } = await import('../../src/core/metadata-manager.js');
+// fs-extraのモック
+jest.mock('fs-extra');
 
 describe('メタデータ永続化の統合テスト', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-26';
@@ -46,24 +16,16 @@ describe('メタデータ永続化の統合テスト', () => {
 
   describe('メタデータ永続化フロー', () => {
     it('統合テスト: メタデータの作成、更新、保存、読み込みの統合フローが動作する', () => {
-      // Given: 既存のメタデータファイルが存在する
-      mockExistsSync.mockReturnValue(true);
-      mockReadJsonSync.mockReturnValue({
-        issueNumber: 26,
-        issueTitle: 'Test Issue',
-        phases: {
-          planning: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null, output_files: [], current_step: null, completed_steps: [], rollback_context: null },
-        },
-        cost_tracking: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
-      });
-      mockEnsureDirSync.mockImplementation(() => {});
-      mockWriteJsonSync.mockImplementation(() => {});
+      // Given: テスト用ワークフローディレクトリ
+      (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
 
       // When: MetadataManagerインスタンスを作成
       const manager = new MetadataManager(testMetadataPath);
 
       // フェーズステータスを更新
-      manager.updatePhaseStatus('planning' as any, 'in_progress' as any, {
+      manager.updatePhaseStatus('00_planning' as any, 'completed' as any, {
         outputFile: '/path/to/planning.md',
       });
 
@@ -74,26 +36,28 @@ describe('メタデータ永続化の統合テスト', () => {
       manager.save();
 
       // Then: メタデータが正しく保存される
-      expect(mockWriteJsonSync).toHaveBeenCalled();
-      // メタデータが読み込まれたことを確認
-      expect(mockReadJsonSync).toHaveBeenCalledWith(testMetadataPath);
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      // 保存された内容を確認（モックの呼び出し引数を確認）
+      const writeCall = (fs.writeFileSync as any).mock.calls[0];
+      expect(writeCall[0]).toContain('metadata.json');
+      const savedData = JSON.parse(writeCall[1]);
+      expect(savedData.issueNumber).toBe(26);
     });
   });
 
   describe('バックアップ＋ロールバック', () => {
     it('統合テスト: メタデータのバックアップとロールバックが動作する', () => {
       // Given: 既存のメタデータファイル
-      mockExistsSync.mockReturnValue(true);
-      mockReadJsonSync.mockReturnValue({
-        issueNumber: 26,
-        issueTitle: 'Test Issue',
-        phases: {
-          planning: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null, output_files: [], current_step: null, completed_steps: [], rollback_context: null },
-        },
-        cost_tracking: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
-      });
-      mockCopyFileSync.mockImplementation(() => {});
-      mockWriteJsonSync.mockImplementation(() => {});
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.readFileSync as any) = jest.fn().mockReturnValue(
+        JSON.stringify({
+          issueNumber: 26,
+          phaseStatuses: {},
+          totalCost: {},
+        })
+      );
+      (fs.copyFileSync as any) = jest.fn().mockImplementation(() => {});
+      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: メタデータを読み込み
@@ -104,7 +68,7 @@ describe('メタデータ永続化の統合テスト', () => {
 
       // Then: バックアップファイルが作成される
       expect(backupPath).toMatch(/metadata\.json\.backup_\d{8}_\d{6}$/);
-      expect(mockCopyFileSync).toHaveBeenCalled();
+      expect(fs.copyFileSync).toHaveBeenCalled();
 
       consoleLogSpy.mockRestore();
     });
@@ -113,29 +77,21 @@ describe('メタデータ永続化の統合テスト', () => {
   describe('ワークフローディレクトリクリーンアップ', () => {
     it('統合テスト: ワークフローディレクトリのクリーンアップが動作する', () => {
       // Given: メタデータファイルとワークフローディレクトリが存在
-      mockExistsSync.mockReturnValue(true);
-      mockReadJsonSync.mockReturnValue({
-        issueNumber: 26,
-        issueTitle: 'Test Issue',
-        phases: {
-          planning: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null, output_files: [], current_step: null, completed_steps: [], rollback_context: null },
-        },
-        cost_tracking: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
-      });
-      mockRemoveSync.mockImplementation(() => {});
-      mockWriteJsonSync.mockImplementation(() => {});
+      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
+      (fs.removeSync as any) = jest.fn().mockImplementation(() => {});
       const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: MetadataManagerインスタンスを作成してclearを呼び出す
       const manager = new MetadataManager(testMetadataPath);
-
-      // clear呼び出し前にファイルが存在しない状態をシミュレート
-      mockExistsSync.mockReturnValue(false);
       manager.clear();
 
-      // Then: メタデータが読み込まれ、クリア処理が実行される
-      expect(mockReadJsonSync).toHaveBeenCalled();
+      // Then: メタデータファイルとワークフローディレクトリが削除される
+      expect(fs.removeSync).toHaveBeenCalled();
+      // 削除処理のログが出力される
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[INFO] Clearing metadata:')
+      );
 
       consoleInfoSpy.mockRestore();
       consoleLogSpy.mockRestore();
