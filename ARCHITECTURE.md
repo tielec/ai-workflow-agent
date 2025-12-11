@@ -122,22 +122,10 @@ src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマン�
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
 
-src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #409で追加)
- ├─ handlePRCommentAnalyzeCommand() … pr-comment analyze コマンドハンドラ
- ├─ buildAnalyzePrompt() … 全コメント一括分析用プロンプト構築
- ├─ parseResponsePlan() … エージェント出力をResponsePlan型にパース
- ├─ generateResponsePlanMarkdown() … response-plan.md生成
- └─ PRCommentMetadataManager.setAnalyzeArtifacts() … 成果物パス/完了時刻保存
-
-src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #409で改修)
+src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ
- ├─ executeWithResponsePlan() … response-plan駆動の新フロー（単一エージェント）
- ├─ executeLegacyFlow() … 従来フロー（フォールバック）
- ├─ buildExecutePrompt() … 実行フェーズ用プロンプト構築
- ├─ parseExecutionResult() … エージェント出力をExecutionResult型にパース
- ├─ generateExecutionResultMarkdown() … execution-result.md生成
- ├─ processComments() … バッチ処理でコメントを順次処理（フォールバック時）
- ├─ ReviewCommentAnalyzer.analyze() … コメント分析（フォールバック時）
+ ├─ processComments() … バッチ処理でコメントを順次処理
+ ├─ ReviewCommentAnalyzer.analyze() … コメント分析
  ├─ CodeChangeApplier.apply() … コード変更適用
  └─ CommentClient.replyToPRReviewComment() … 返信投稿
 
@@ -146,7 +134,7 @@ src/commands/pr-comment/finalize.ts (PRコメント自動対応: 完了コマン
  ├─ resolveCompletedThreads() … 完了スレッドを解決
  └─ PRCommentMetadataManager.cleanup() … メタデータクリーンアップ
 
-src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加、Issue #409で拡張)
+src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加)
  ├─ PRCommentMetadataManager クラス
  │   ├─ initialize() … メタデータ初期化
  │   ├─ load() … メタデータ読み込み
@@ -157,8 +145,6 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定
- │   ├─ setAnalyzeArtifacts() … analyze成果物パス/完了時刻保存（Issue #409）
- │   ├─ setExecuteArtifacts() … execute成果物パス/完了時刻保存（Issue #409）
  │   └─ cleanup() … クリーンアップ
  └─ CommentResolutionMetadata 型
 
@@ -178,20 +164,15 @@ src/core/pr-comment/change-applier.ts (PRコメント: コード変更適用エ�
  │   └─ applyModification() … ファイル変更適用
  └─ FileChange 型（modify | create | delete）
 
-src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加、Issue #409で拡張)
+src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加)
  ├─ PRCommentInitOptions … init コマンドオプション
- ├─ PRCommentAnalyzeOptions … analyze コマンドオプション（Issue #409）
  ├─ PRCommentExecuteOptions … execute コマンドオプション
  ├─ PRCommentFinalizeOptions … finalize コマンドオプション
- ├─ CommentResolutionMetadata … メタデータ構造（Issue #409で拡張: analyze/execute成果物パス）
+ ├─ CommentResolutionMetadata … メタデータ構造
  ├─ CommentMetadata … コメントメタデータ
  ├─ ResolutionMetadata … 解決メタデータ
  ├─ CommentResolution … 解決結果
- ├─ FileChange … ファイル変更
- ├─ ResponsePlan … response-plan.md構造（Issue #409）
- ├─ ResponsePlanComment … 分析結果コメント（Issue #409）
- ├─ ExecutionResult … execution-result.md構造（Issue #409）
- └─ ExecutionResultComment … 実行結果コメント（Issue #409）
+ └─ FileChange … ファイル変更
 
 src/core/repository-utils.ts (リポジトリ関連ユーティリティ)
  ├─ parseIssueUrl() … GitHub Issue URLからリポジトリ情報を抽出
@@ -223,13 +204,12 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
 | `src/commands/pr-comment/init.ts` | PRコメント自動対応: 初期化コマンド処理（Issue #383で追加）。`handlePRCommentInitCommand()` でPRから未解決レビューコメントを収集し、メタデータを初期化。`--pr`, `--dry-run` オプションをサポート。 |
-| `src/commands/pr-comment/analyze.ts` | PRコメント自動対応: 分析コマンド処理（Issue #409で追加）。`handlePRCommentAnalyzeCommand()` で全コメントを一括分析し、対応方針（`response-plan.md`）を生成。1回のエージェント呼び出しで全コメントを分析。`--pr`, `--dry-run`, `--agent`, `--comment-ids` オプションをサポート。 |
-| `src/commands/pr-comment/execute.ts` | PRコメント自動対応: 実行コマンド処理（Issue #383で追加、Issue #409で改修）。`handlePRCommentExecuteCommand()` で`response-plan.md`を参照して対応を実行。新フロー（単一エージェント）とフォールバック（従来の逐次処理）を切り替え。`--pr`, `--dry-run`, `--agent`, `--batch-size` オプションをサポート。 |
+| `src/commands/pr-comment/execute.ts` | PRコメント自動対応: 実行コマンド処理（Issue #383で追加）。`handlePRCommentExecuteCommand()` でコメントをバッチ処理、AIエージェントで分析、コード修正適用、返信投稿を実行。`--pr`, `--dry-run`, `--agent`, `--batch-size` オプションをサポート。レジューム機能により中断からの再開が可能。 |
 | `src/commands/pr-comment/finalize.ts` | PRコメント自動対応: 完了コマンド処理（Issue #383で追加）。`handlePRCommentFinalizeCommand()` で完了したコメントスレッドをGraphQL mutationで解決し、メタデータをクリーンアップ。`--pr`, `--dry-run` オプションをサポート。 |
-| `src/core/pr-comment/metadata-manager.ts` | PRコメント: メタデータ管理（Issue #383で追加、Issue #409で拡張）。`PRCommentMetadataManager` クラスでコメントごとのステータス管理、サマリー計算、コスト追跡を実施。`initialize()`, `load()`, `save()`, `exists()`, `updateStatus()`, `incrementRetry()`, `getPendingComments()`, `addCost()`, `setResolved()`, `setAnalyzeArtifacts()`, `setExecuteArtifacts()`, `cleanup()` を提供。 |
+| `src/core/pr-comment/metadata-manager.ts` | PRコメント: メタデータ管理（Issue #383で追加）。`PRCommentMetadataManager` クラスでコメントごとのステータス管理、サマリー計算、コスト追跡を実施。`initialize()`, `load()`, `save()`, `exists()`, `updateStatus()`, `incrementRetry()`, `getPendingComments()`, `addCost()`, `setResolved()`, `cleanup()` を提供。 |
 | `src/core/pr-comment/comment-analyzer.ts` | PRコメント: コメント分析エンジン（Issue #383で追加）。`ReviewCommentAnalyzer` クラスでAIエージェントを使用してコメントを分析し、4種類の解決タイプ（`code_change`, `reply`, `discussion`, `skip`）を判定。`analyze()`, `classifyComment()`, `buildPrompt()`, `parseResult()` を提供。confidence レベルによる自動スキップ機能付き。 |
 | `src/core/pr-comment/change-applier.ts` | PRコメント: コード変更適用エンジン（Issue #383で追加）。`CodeChangeApplier` クラスでファイル変更適用（modify, create, delete）を実施。`apply()`, `validatePath()`, `isExcluded()`, `applyModification()` を提供。セキュリティ機能（パストラバーサル防止、機密ファイル除外）を実装。 |
-| `src/types/pr-comment.ts` | PRコメント: 型定義（Issue #383で追加、Issue #409で拡張）。`PRCommentInitOptions`, `PRCommentAnalyzeOptions`, `PRCommentExecuteOptions`, `PRCommentFinalizeOptions`, `CommentResolutionMetadata`, `CommentMetadata`, `ResolutionMetadata`, `CommentResolution`, `FileChange`, `ResponsePlan`, `ResponsePlanComment`, `ExecutionResult`, `ExecutionResultComment` 等の型を定義。 |
+| `src/types/pr-comment.ts` | PRコメント: 型定義（Issue #383で追加）。`PRCommentInitOptions`, `PRCommentExecuteOptions`, `PRCommentFinalizeOptions`, `CommentResolutionMetadata`, `CommentMetadata`, `ResolutionMetadata`, `CommentResolution`, `FileChange` 等の型を定義。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約170行）。Issue URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `resolveLocalRepoPath()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
