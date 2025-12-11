@@ -12,6 +12,7 @@ import {
   parsePullRequestUrl,
   resolveRepoPathFromPrUrl,
 } from '../../core/repository-utils.js';
+import { sanitizeGitUrl } from '../../utils/git-url-utils.js';
 
 /**
  * pr-comment init コマンドハンドラ
@@ -163,11 +164,14 @@ async function buildRepositoryInfo(
     remoteUrl = '';
   }
 
+  // Sanitize Git URL to remove authentication credentials (Issue #54)
+  const sanitizedUrl = sanitizeGitUrl(remoteUrl);
+
   return {
     owner: repoMeta.owner,
     repo: repoMeta.repo,
     path: repoPath,
-    remote_url: remoteUrl,
+    remote_url: sanitizedUrl,
   };
 }
 
