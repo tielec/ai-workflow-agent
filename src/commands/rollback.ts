@@ -502,6 +502,32 @@ export function getPhaseNumber(phase: PhaseName): string {
   return mapping[phase];
 }
 
+/**
+ * エージェント出力から RollbackDecision を抽出
+ *
+ * - Markdown の ```json コードブロックを優先的にパース
+ * - 次にプレーンテキスト内の JSON オブジェクトを探索
+ * - どちらも見つからない場合はエラーをスロー
+ */
+export function parseRollbackDecision(agentOutput: string[]): RollbackDecision {
+  const joined = agentOutput.join('\n');
+
+  const codeBlockMatch = joined.match(/```json\s*([\s\S]*?)```/i);
+  const inlineJsonMatch = joined.match(/\{[\s\S]*\}/);
+
+  const jsonText = codeBlockMatch?.[1] ?? inlineJsonMatch?.[0];
+  if (!jsonText) {
+    throw new Error('Failed to parse RollbackDecision from agent response: JSON not found.');
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    return parsed as RollbackDecision;
+  } catch (error) {
+    throw new Error(`Failed to parse RollbackDecision: ${getErrorMessage(error)}`);
+  }
+}
+
 // ========================================
 // Rollback Auto Mode (Issue #271)
 // ========================================

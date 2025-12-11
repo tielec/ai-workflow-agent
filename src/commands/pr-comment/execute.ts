@@ -8,7 +8,14 @@ import { ReviewCommentAnalyzer } from '../../core/pr-comment/comment-analyzer.js
 import { CodeChangeApplier } from '../../core/pr-comment/change-applier.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { PRCommentExecuteOptions } from '../../types/commands.js';
-import { CommentMetadata, CommentResolution, ResolutionSummary } from '../../types/pr-comment.js';
+import {
+  CommentMetadata,
+  CommentResolution,
+  ExecutionResult,
+  ExecutionResultComment,
+  ResponsePlan,
+  ResolutionSummary,
+} from '../../types/pr-comment.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import { config } from '../../core/config.js';
 import {
@@ -309,6 +316,99 @@ function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): v
   );
 }
 
+function extractJsonFromBlock(rawOutput: string): any {
+  const match = rawOutput.match(/```json\s*([\s\S]*?)```/i);
+  const jsonText = match ? match[1] : rawOutput;
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeExecutionComments(
+  parsedComments: any[],
+  plan: ResponsePlan,
+): ExecutionResultComment[] {
+  const planMap = new Map(plan.comments.map((c) => [String(c.comment_id), c]));
+
+  return parsedComments.map((comment) => {
+    const commentId = String(comment.comment_id ?? comment.id ?? '');
+    const planComment = planMap.get(commentId);
+
+    return {
+      comment_id: commentId,
+      status: comment.status ?? 'failed',
+      type: planComment?.type ?? comment.type ?? 'discussion',
+      actions: comment.actions ?? [],
+      error: comment.error ?? null,
+      reply_comment_id: comment.reply_comment_id ?? null,
+      reply_message: comment.reply_message ?? planComment?.reply_message,
+      changes: comment.changes ?? planComment?.proposed_changes,
+    };
+  });
+}
+
+function parseExecutionResult(rawOutput: string, plan: ResponsePlan): ExecutionResult {
+  const parsed = extractJsonFromBlock(rawOutput);
+  const comments = Array.isArray(parsed.comments) ? parsed.comments : [];
+
+  const executedAt = parsed.executed_at || new Date().toISOString();
+
+  return {
+    pr_number: parsed.pr_number ?? plan.pr_number,
+    executed_at: executedAt,
+    source_plan: parsed.source_plan ?? 'response-plan.md',
+    comments: normalizeExecutionComments(comments, plan),
+  };
+}
+
+function buildExecutionResultMarkdown(result: ExecutionResult): string {
+  const counts = {
+    completed: result.comments.filter((c) => c.status === 'completed').length,
+    skipped: result.comments.filter((c) => c.status === 'skipped').length,
+    failed: result.comments.filter((c) => c.status === 'failed').length,
+  };
+
+  const lines: string[] = [
+    '# Execution Result',
+    `- PR Number: ${result.pr_number}`,
+    `- Executed At: ${result.executed_at}`,
+    `- Source Plan: ${result.source_plan}`,
+    '',
+    '## Summary',
+    '| Status | Count |',
+    '| --- | --- |',
+    `| Completed | ${counts.completed} |`,
+    `| Skipped | ${counts.skipped} |`,
+    `| Failed | ${counts.failed} |`,
+    '',
+  ];
+
+  const renderSection = (status: ExecutionResultComment['status'], title: string): void => {
+    lines.push(`## ${title} Comments`);
+    const byStatus = result.comments.filter((c) => c.status === status);
+    if (byStatus.length === 0) {
+      lines.push('_None_');
+      lines.push('');
+      return;
+    }
+
+    for (const comment of byStatus) {
+      const actions = (comment.actions ?? []).join(', ');
+      const detail = comment.error ? ` — ${comment.error}` : actions ? ` — ${actions}` : '';
+      lines.push(`- #${comment.comment_id} (${comment.type})${detail}`);
+    }
+    lines.push('');
+  };
+
+  renderSection('completed', 'Completed');
+  renderSection('skipped', 'Skipped');
+  renderSection('failed', 'Failed');
+
+  return lines.join('\n');
+}
+
 /**
  * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
  */
@@ -344,3 +444,8 @@ function resolvePrInfo(options: PRCommentExecuteOptions): {
 
   throw new Error('Either --pr-url or --pr option is required.');
 }
+
+export const __testables = {
+  parseExecutionResult,
+  buildExecutionResultMarkdown,
+};

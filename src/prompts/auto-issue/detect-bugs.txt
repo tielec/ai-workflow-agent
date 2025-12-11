@@ -107,6 +107,8 @@
 - 設定ファイル: `.yml`, `.yaml`, `.json`, `.toml`, `.xml`
 - IaC: `.tf`, `.template`
 
+{custom_instruction}
+
 # 重要な注意事項
 
 1. **言語非依存性**: あらゆるプログラミング言語のファイルを解析対象に含めてください
