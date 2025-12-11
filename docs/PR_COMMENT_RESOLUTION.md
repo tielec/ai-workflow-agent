@@ -14,11 +14,30 @@
 
 ## クイックスタート
 
+### 推奨フロー（v1.2.0以降）
+
+```bash
+# 1. PRから未解決コメントを取得してメタデータを初期化
+ai-workflow pr-comment init --pr 123
+
+# 2. 全コメントを一括分析し、対応方針を決定（エージェント1回目）
+ai-workflow pr-comment analyze --pr 123
+
+# 3. 決定された対応方針を実行（エージェント2回目）
+ai-workflow pr-comment execute --pr 123
+
+# 4. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+ai-workflow pr-comment finalize --pr 123
+```
+
+### 後方互換フロー（analyzeなしで実行）
+
 ```bash
 # 1. PRから未解決コメントを取得してメタデータを初期化
 ai-workflow pr-comment init --pr 123
 
 # 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+#    （警告表示後、各コメントごとにエージェント起動する従来動作）
 ai-workflow pr-comment execute --pr 123
 
 # 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
@@ -60,9 +79,56 @@ ai-workflow pr-comment init --pr <number> [--dry-run]
 ✅ メタデータを初期化しました: .ai-workflow/pr-123/comment-resolution-metadata.json
 ```
 
+### `pr-comment analyze`（v1.2.0、Issue #409で追加）
+
+全PRレビューコメントを一括分析し、対応方針（response-plan.md）を生成します。
+
+```bash
+ai-workflow pr-comment analyze --pr <number> [--dry-run] [--agent <mode>] [--comment-ids <ids>]
+```
+
+**オプション**:
+| オプション | 必須 | 説明 | デフォルト |
+|-----------|------|------|----------|
+| `--pr <number>` | ✓ | 対象のPR番号 | - |
+| `--dry-run` | | プレビューモード（ファイル生成・コミットなし） | false |
+| `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
+| `--comment-ids <ids>` | | 分析対象のコメントIDをカンマ区切りで指定 | - |
+
+**実行内容**:
+1. メタデータから未処理のコメントを取得
+2. 全コメントを**1回のエージェント呼び出し**で一括分析
+3. 各コメントの解決タイプ（code_change/reply/discussion/skip）を判定
+4. 対応方針を `response-plan.md` として生成
+5. エージェントログとプロンプトを保存
+6. 成果物をGitコミット（dry-run時を除く）
+
+**出力例**:
+```
+🔍 PR #123 のコメントを分析中...
+📊 5件の未解決コメントを検出
+
+🤖 エージェントで一括分析中...（1回のみ）
+
+✅ 分析完了
+📋 response-plan.md を生成しました
+
+  Summary:
+    - code_change: 2件
+    - reply: 2件
+    - discussion: 1件
+
+📝 成果物:
+  - .ai-workflow/pr-123/output/response-plan.md
+  - .ai-workflow/pr-123/analyze/agent_log.md
+  - .ai-workflow/pr-123/analyze/prompt.txt
+
+✅ Gitコミット: [ai-workflow] PR Comment: Analyze completed
+```
+
 ### `pr-comment execute`
 
-各コメントをAIエージェントで分析し、コード修正・返信投稿を実行します。
+`response-plan.md`を参照して対応を実行します（推奨）。`response-plan.md`が存在しない場合は、従来動作（各コメントごとにエージェント起動）にフォールバックします。
 
 ```bash
 ai-workflow pr-comment execute --pr <number> [--dry-run] [--agent <mode>] [--batch-size <number>]
@@ -76,15 +142,23 @@ ai-workflow pr-comment execute --pr <number> [--dry-run] [--agent <mode>] [--bat
 | `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
 | `--batch-size <number>` | | 一度に処理するコメント数 | 5 |
 
-**実行内容**:
-1. メタデータから未処理のコメントを取得
-2. 各コメントをAIエージェントで分析し、解決タイプを判定
+**実行内容（推奨フロー: response-plan.mdが存在する場合）**:
+1. `response-plan.md`を読み込み
+2. **1回のエージェント呼び出し**で対応方針を実行
 3. 解決タイプに応じた処理を実行:
    - `code_change`: ファイル変更を適用し、返信を投稿
    - `reply`: 返信のみを投稿
    - `discussion`: スキップ（人間の判断を待つ）
    - `skip`: スキップ（対応不要）
-4. 処理結果をメタデータに保存
+4. 実行結果を `execution-result.md` として生成
+5. 処理結果をメタデータに保存
+
+**実行内容（フォールバック: response-plan.mdが存在しない場合）**:
+1. 警告メッセージを表示（「Run 'pr-comment analyze' first for optimized processing」）
+2. メタデータから未処理のコメントを取得
+3. **各コメントごとにAIエージェントで分析**し、解決タイプを判定
+4. 解決タイプに応じた処理を実行
+5. 処理結果をメタデータに保存
 
 **解決タイプ**:
 
@@ -95,8 +169,35 @@ ai-workflow pr-comment execute --pr <number> [--dry-run] [--agent <mode>] [--bat
 | `discussion` | 議論が必要 | スキップ（人間の判断を待つ） |
 | `skip` | 対応不要 | スキップ |
 
-**出力例**:
+**出力例（推奨フロー）**:
 ```
+🤖 PR #123 のコメントを処理中...
+
+📄 response-plan.md を読み込みました（5件のコメント）
+🤖 エージェントで一括実行中...（1回のみ）
+
+✅ 実行完了
+📋 execution-result.md を生成しました
+
+  Summary:
+    - Completed: 3件
+    - Skipped: 1件（discussion）
+    - Failed: 0件
+
+📝 成果物:
+  - .ai-workflow/pr-123/output/execution-result.md
+  - .ai-workflow/pr-123/execute/agent_log.md
+  - .ai-workflow/pr-123/execute/prompt.txt
+
+✅ Gitコミット: [ai-workflow] PR Comment: Execute completed
+```
+
+**出力例（フォールバック）**:
+```
+⚠️ response-plan.md が見つかりません
+   Run 'pr-comment analyze' first for optimized processing
+   従来の逐次処理にフォールバックします...
+
 🤖 PR #123 のコメントを処理中...
 
 [1/5] src/core/parser.ts:45
@@ -151,6 +252,118 @@ ai-workflow pr-comment finalize --pr <number> [--dry-run]
 🧹 メタデータをクリーンアップしました
 ```
 
+## 成果物構造（v1.2.0、Issue #409で追加）
+
+### ディレクトリ構造
+
+```
+.ai-workflow/pr-123/
+├── comment-resolution-metadata.json  # メタデータ（既存、拡張）
+├── analyze/                          # 分析フェーズ成果物（新規）
+│   ├── agent_log.md                  # エージェント実行ログ
+│   └── prompt.txt                    # 使用したプロンプト
+├── execute/                          # 実行フェーズ成果物（新規）
+│   ├── agent_log.md                  # エージェント実行ログ
+│   └── prompt.txt                    # 使用したプロンプト
+└── output/                           # 成果物ファイル（新規）
+    ├── response-plan.md              # 分析結果（analyzeで生成）
+    └── execution-result.md           # 実行結果（executeで生成）
+```
+
+### response-plan.md フォーマット
+
+```markdown
+# Response Plan
+
+**PR Number**: 123
+**Analyzed At**: 2025-01-20T10:00:00Z
+**Analyzer Agent**: codex
+
+## Summary
+
+| Type | Count |
+|------|-------|
+| code_change | 2 |
+| reply | 2 |
+| discussion | 1 |
+| **Total** | 5 |
+
+## Comment #c100
+
+**File**: src/core/parser.ts
+**Line**: 45
+**Author**: reviewer1
+**Body**: エラーハンドリングが不足しています
+
+### Resolution
+
+- **Type**: code_change
+- **Confidence**: high
+- **Rationale**: Clear bug fix needed. Null check addition.
+
+### Proposed Changes
+
+1. **Action**: modify
+   **File**: src/core/parser.ts
+   **Changes**: Add optional chaining operator
+
+### Reply Message
+
+> Fixed. Added null check with optional chaining.
+
+---
+
+## Comment #c101
+
+...
+```
+
+### execution-result.md フォーマット
+
+```markdown
+# Execution Result
+
+**PR Number**: 123
+**Executed At**: 2025-01-20T11:00:00Z
+**Source Plan**: response-plan.md
+
+## Summary
+
+| Status | Count |
+|--------|-------|
+| Completed | 3 |
+| Skipped | 1 |
+| Failed | 0 |
+| **Total** | 4 |
+
+## Completed Comments
+
+### Comment #c100
+
+- **Type**: code_change
+- **Actions**:
+  - Modified src/core/parser.ts
+  - Posted reply (ID: 12345)
+- **Reply Comment ID**: 12345
+
+### Comment #c101
+
+...
+
+## Skipped Comments
+
+### Comment #c102
+
+- **Type**: discussion
+- **Reason**: Requires human review
+- **Actions**:
+  - Posted clarification request (ID: 12347)
+
+## Failed Comments
+
+(none)
+```
+
 ## メタデータ構造
 
 `.ai-workflow/pr-<number>/comment-resolution-metadata.json`:
@@ -159,6 +372,10 @@ ai-workflow pr-comment finalize --pr <number> [--dry-run]
 {
   "pr_number": 123,
   "initialized_at": "2025-01-20T10:00:00Z",
+  "analyze_completed_at": "2025-01-20T10:15:00Z",
+  "execute_completed_at": "2025-01-20T10:30:00Z",
+  "response_plan_path": ".ai-workflow/pr-123/output/response-plan.md",
+  "execution_result_path": ".ai-workflow/pr-123/output/execution-result.md",
   "comments": [
     {
       "id": 12345,
@@ -425,9 +642,22 @@ GITHUB_TOKEN: ghp_xxx
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - アーキテクチャ詳細
 - [CLAUDE.md](../CLAUDE.md) - Claude Code向けガイダンス
 
+## 期待される効果（v1.2.0、Issue #409）
+
+| 効果 | 説明 |
+|------|------|
+| **エージェント起動回数削減** | 10コメント → 10回起動 から **2回起動**（80%削減） |
+| **コスト削減** | エージェント起動オーバーヘッドの削減 |
+| **処理時間短縮** | 並列化可能な処理の一括実行 |
+| **コンテキスト統合** | 全コメントを一度に渡すため、関連性を考慮可能 |
+| **透明性向上** | Markdown形式で対応方針と実行結果が事前にコミット |
+| **デバッグ容易性** | 分析フェーズと実行フェーズが分離され、問題箇所の特定が容易 |
+| **トレーサビリティ** | エージェントログにより、どのコメントがどう処理されたか追跡可能 |
+
 ## 変更履歴
 
 | バージョン | 日付 | 変更内容 |
 |-----------|------|---------|
 | 1.0.0 | 2025-01-20 | 初版作成（Issue #383） |
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
+| 1.2.0 | 2025-01-20 | analyze/executeフェーズ分離、成果物フォーマット追加（Issue #409） |
