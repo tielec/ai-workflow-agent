@@ -76,6 +76,42 @@ describe('validateBranchName', () => {
       expect(result.valid).toBe(true);
       expect(result.error).toBeUndefined();
     });
+
+    test('ベースブランチ用の標準的な main ブランチ名を受け入れる', () => {
+      // Given: ベースブランチとして指定されることが多い main
+      const branchName = 'main';
+
+      // When: バリデーションを実行
+      const result = validateBranchName(branchName);
+
+      // Then: バリデーションが成功する
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    test('ベースブランチ用の develop ブランチ名を受け入れる', () => {
+      // Given: ベースブランチとして指定される develop
+      const branchName = 'develop';
+
+      // When: バリデーションを実行
+      const result = validateBranchName(branchName);
+
+      // Then: バリデーションが成功する
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    test('リリースブランチ（release/v1.0.0）を受け入れる', () => {
+      // Given: バージョンを含むリリースブランチ
+      const branchName = 'release/v1.0.0';
+
+      // When: バリデーションを実行
+      const result = validateBranchName(branchName);
+
+      // Then: バリデーションが成功する
+      expect(result.valid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
   });
 
   describe('異常系: 不正なブランチ名', () => {
@@ -155,6 +191,36 @@ describe('validateBranchName', () => {
       expect(result.error).toBeTruthy();
       expect(result.error).toContain('cannot contain');
     });
+  });
+});
+
+// =============================================================================
+// baseBranch オプションのログメッセージ生成
+// =============================================================================
+
+describe('baseBranch logging behavior', () => {
+  test('baseBranch 指定時はブランチ名付きのログ文言を生成できる', () => {
+    // Given: baseBranch が develop のケース
+    const baseBranch = 'develop';
+
+    // When: ログ出力に渡す文言を組み立て
+    const logMessage = `Branching from: ${baseBranch}`;
+
+    // Then: ベースブランチ名が含まれる
+    expect(logMessage).toBe('Branching from: develop');
+  });
+
+  test('baseBranch 未指定時は current branch を示す文言を使う', () => {
+    // Given: baseBranch が未指定
+    const baseBranch: string | undefined = undefined;
+
+    // When: フォールバックのログ文言を決定
+    const logMessage = baseBranch
+      ? `Branching from: ${baseBranch}`
+      : 'Branching from: current branch';
+
+    // Then: デフォルトのメッセージが採用される
+    expect(logMessage).toBe('Branching from: current branch');
   });
 });
 

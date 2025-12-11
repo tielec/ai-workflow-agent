@@ -36,12 +36,21 @@ node dist/index.js init --issue-url <GITHUB_ISSUE_URL>
 
 # カスタムブランチ名を指定（v0.2.0 で追加）
 node dist/index.js init --issue-url <GITHUB_ISSUE_URL> --branch <BRANCH_NAME>
+
+# ベースブランチを指定して分岐元を明示（v0.5.0、Issue #391 で追加）
+node dist/index.js init --issue-url <GITHUB_ISSUE_URL> --base-branch main
 ```
 
 **`--branch` オプション**:
 - **未指定時**: デフォルトブランチ名 `ai-workflow/issue-{issue_number}` を使用
 - **指定時**: カスタムブランチ名を使用（既存ブランチにも切り替え可能）
 - **バリデーション**: Git 命名規則（空白不可、連続ドット不可、不正文字不可）に従う
+
+**`--base-branch` オプション**（v0.5.0、Issue #391 で追加）:
+- **未指定時**: 現在チェックアウトされているブランチから分岐（従来動作）
+- **指定時**: 指定されたブランチにチェックアウト後、新規ブランチを作成
+- **既存ブランチ優先**: リモート/ローカルブランチが既に存在する場合、`--base-branch` は無視される
+- **バリデーション**: 存在しないブランチを指定するとエラー終了
 
 **PR タイトル生成**（v0.3.0 で追加、Issue #73）:
 - Issue タイトルを取得し、そのままPRタイトルとして使用

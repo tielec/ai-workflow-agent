@@ -186,11 +186,14 @@ async function performAutoModelSelection(
  * Issue初期化コマンドハンドラ
  * @param issueUrl - GitHub Issue URL
  * @param customBranch - カスタムブランチ名（オプション）
+ * @param autoModelSelection - 難易度分析に基づくモデル自動選択フラグ
+ * @param baseBranch - 新規ブランチの分岐元（オプション）
  */
 export async function handleInitCommand(
   issueUrl: string,
   customBranch?: string,
-  autoModelSelection?: boolean
+  autoModelSelection?: boolean,
+  baseBranch?: string
 ): Promise<void> {
   // Issue URLをパース
   let issueInfo;
@@ -259,7 +262,6 @@ export async function handleInitCommand(
     process.exit(1);
   }
 
-
   // ワークフローディレクトリ作成（対象リポジトリ配下）
   const workflowDir = path.join(repoRoot, '.ai-workflow', `issue-${issueNumber}`);
   const metadataPath = path.join(workflowDir, 'metadata.json');
@@ -269,9 +271,10 @@ export async function handleInitCommand(
 
   const git = simpleGit(repoRoot);
 
-  // リモートブランチの存在確認
   await git.fetch();
   const remoteBranches = await git.branch(['-r']);
+
+  // リモートブランチの存在確認
   const remoteBranchExists = remoteBranches.all.some((ref) => ref.includes(`origin/${branchName}`));
 
   if (remoteBranchExists) {
@@ -355,6 +358,42 @@ export async function handleInitCommand(
       await git.checkout(branchName);
       logger.info(`Switched to existing local branch: ${branchName}`);
     } else {
+      if (baseBranch !== undefined) {
+        if (baseBranch.trim() === '') {
+          logger.error('Error: --base-branch cannot be empty');
+          process.exit(1);
+        }
+
+        const baseBranchValidation = validateBranchName(baseBranch);
+        if (!baseBranchValidation.valid) {
+          logger.error(
+            `Error: Invalid base branch name: ${baseBranch}. ${baseBranchValidation.error}`,
+          );
+          process.exit(1);
+        }
+
+        const baseBranchExists =
+          localBranches.all.includes(baseBranch) ||
+          remoteBranches.all.includes(`origin/${baseBranch}`);
+
+        if (!baseBranchExists) {
+          logger.error(`Error: Base branch '${baseBranch}' not found`);
+          process.exit(1);
+        }
+
+        logger.info(`Branching from: ${baseBranch}`);
+
+        if (localBranches.all.includes(baseBranch)) {
+          await git.checkout(baseBranch);
+        } else if (remoteBranches.all.includes(`origin/${baseBranch}`)) {
+          await git.checkoutBranch(baseBranch, `origin/${baseBranch}`);
+        } else {
+          await git.checkout(baseBranch);
+        }
+      } else {
+        logger.info('Branching from: current branch');
+      }
+
       await git.checkoutLocalBranch(branchName);
       logger.info(`Created and switched to new branch: ${branchName}`);
     }
