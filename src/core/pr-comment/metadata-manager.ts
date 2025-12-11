@@ -69,6 +69,10 @@ export class PRCommentMetadataManager {
       },
       created_at: now,
       updated_at: now,
+      analyze_completed_at: null,
+      execute_completed_at: null,
+      response_plan_path: null,
+      execution_result_path: null,
     };
 
     await this.save();
@@ -247,6 +251,42 @@ export class PRCommentMetadataManager {
   public async getMetadata(): Promise<CommentResolutionMetadata> {
     await this.ensureLoaded();
     return this.metadata!;
+  }
+
+  /**
+   * analyze完了タイムスタンプを設定
+   */
+  public async setAnalyzeCompletedAt(timestamp: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyze_completed_at = timestamp;
+    await this.save();
+  }
+
+  /**
+   * execute完了タイムスタンプを設定
+   */
+  public async setExecuteCompletedAt(timestamp: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.execute_completed_at = timestamp;
+    await this.save();
+  }
+
+  /**
+   * response-plan.mdのパスを保存
+   */
+  public async setResponsePlanPath(planPath: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.response_plan_path = planPath;
+    await this.save();
+  }
+
+  /**
+   * execution-result.mdのパスを保存
+   */
+  public async setExecutionResultPath(resultPath: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.execution_result_path = resultPath;
+    await this.save();
   }
 
   /**

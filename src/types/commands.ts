@@ -540,6 +540,16 @@ export interface PRCommentInitOptions {
 }
 
 /**
+ * pr-comment analyze コマンドオプション
+ */
+export interface PRCommentAnalyzeOptions {
+  pr: string;
+  commentIds?: string;
+  dryRun?: boolean;
+  agent?: 'auto' | 'codex' | 'claude';
+}
+
+/**
  * pr-comment execute コマンドオプション
  */
 export interface PRCommentExecuteOptions {
