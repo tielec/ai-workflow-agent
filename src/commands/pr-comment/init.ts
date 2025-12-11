@@ -4,22 +4,29 @@ import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
+import { config } from '../../core/config.js';
 import { PRCommentInitOptions } from '../../types/commands.js';
 import { PRInfo, RepositoryInfo, ReviewComment, ResolutionSummary } from '../../types/pr-comment.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 
 /**
  * pr-comment init コマンドハンドラ
  */
 export async function handlePRCommentInitCommand(options: PRCommentInitOptions): Promise<void> {
   try {
-    const githubClient = new GitHubClient();
-    const prNumber = await resolvePrNumber(options, githubClient);
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const { repositoryName, prNumber } = await resolvePrInfo(options);
+
+    const githubClient = new GitHubClient(null, repositoryName);
 
     logger.info(`Initializing PR comment resolution for PR #${prNumber}...`);
 
     const prInfo = await fetchPrInfo(githubClient, prNumber);
-    const repoInfo = await buildRepositoryInfo(githubClient);
+    const repoInfo = await buildRepositoryInfo(githubClient, options.prUrl);
     const comments = await fetchReviewComments(githubClient, prNumber, options.commentIds);
 
     if (comments.length === 0) {
@@ -38,26 +45,86 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     displaySummary(summary);
 
     logger.info(`Initialization completed. Metadata saved to: ${metadataManager.getMetadataPath()}`);
+
+    // Git コミット & プッシュ
+    const git = simpleGit(repoInfo.path);
+    const metadataPath = metadataManager.getMetadataPath();
+    const relativePath = metadataPath.replace(`${repoInfo.path}/`, '').replace(/\\/g, '/');
+
+    // Git設定（環境変数から取得、デフォルト値使用）
+    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
+    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+
+    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
+    await git.addConfig('user.name', gitUserName);
+    await git.addConfig('user.email', gitUserEmail);
+
+    logger.info('Committing PR comment metadata...');
+    await git.add(relativePath);
+    await git.commit(`[pr-comment] Initialize PR #${prNumber} comment resolution metadata`);
+
+    logger.info('Pushing to remote...');
+
+    // PRのheadブランチにプッシュ
+    const targetBranch = prInfo.branch;
+
+    logger.debug(`Pushing to PR branch: ${targetBranch}`);
+    // 現在のHEADをリモートのtargetBranchにpush
+    await git.push('origin', `HEAD:${targetBranch}`);
+
+    logger.info('Metadata committed and pushed to remote.');
   } catch (error) {
     logger.error(`Failed to initialize: ${getErrorMessage(error)}`);
     process.exit(1);
   }
 }
 
-async function resolvePrNumber(options: PRCommentInitOptions, githubClient: GitHubClient): Promise<number> {
-  if (options.pr) {
-    return Number.parseInt(options.pr, 10);
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+async function resolvePrInfo(options: PRCommentInitOptions): Promise<{ repositoryName: string; prNumber: number }> {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+    };
   }
 
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  // --issue オプションが指定されている場合（後方互換性）
   if (options.issue) {
-    const prNumber = await githubClient.getPullRequestNumber(Number.parseInt(options.issue, 10));
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const issueNumber = Number.parseInt(options.issue, 10);
+    const prNumber = await githubClient.getPullRequestNumber(issueNumber);
     if (prNumber) {
-      return prNumber;
+      logger.info(`Resolved from --issue option: ${repositoryName}#${prNumber}`);
+      return {
+        repositoryName,
+        prNumber,
+      };
     }
     throw new Error(`Pull request not found for issue #${options.issue}`);
   }
 
-  throw new Error('Either --pr or --issue option is required.');
+  throw new Error('Either --pr-url, --pr, or --issue option is required.');
 }
 
 async function fetchPrInfo(githubClient: GitHubClient, prNumber: number): Promise<PRInfo> {
@@ -73,9 +140,19 @@ async function fetchPrInfo(githubClient: GitHubClient, prNumber: number): Promis
   };
 }
 
-async function buildRepositoryInfo(githubClient: GitHubClient): Promise<RepositoryInfo> {
+async function buildRepositoryInfo(
+  githubClient: GitHubClient,
+  prUrl?: string,
+): Promise<RepositoryInfo> {
   const repoMeta = githubClient.getRepositoryInfo();
-  const repoPath = await getRepoRoot();
+  const repoPath = prUrl
+    ? resolveRepoPathFromPrUrl(prUrl)
+    : await getRepoRoot();
+  logger.debug(
+    prUrl
+      ? `Resolved repository path from PR URL: ${repoPath}`
+      : `Using current repository path: ${repoPath}`,
+  );
   const git = simpleGit(repoPath);
 
   let remoteUrl = '';
@@ -103,20 +180,64 @@ async function fetchReviewComments(
   const unresolvedIds = new Set<number>();
   const threadMap = new Map<number, string>();
 
+  logger.debug(`Found ${unresolvedThreads.length} unresolved threads`);
+
   for (const thread of unresolvedThreads) {
+    logger.debug(`Thread ${thread.id}: isResolved=${thread.isResolved}, comments=${thread.comments.nodes.length}`);
     for (const comment of thread.comments.nodes) {
       if (comment.databaseId !== undefined && comment.databaseId !== null) {
         unresolvedIds.add(comment.databaseId);
         threadMap.set(comment.databaseId, thread.id);
+        logger.debug(`  Comment #${comment.databaseId} by ${comment.author.login}: ${comment.body.substring(0, 50)}...`);
       }
     }
   }
 
-  const allComments = await githubClient.commentClient.getPRReviewComments(prNumber);
+  // GraphQLで未解決スレッドが見つかった場合は、そのまま使用
+  if (unresolvedIds.size > 0) {
+    logger.debug(`Using GraphQL unresolved threads directly (${unresolvedIds.size} comments)`);
 
-  let filtered = unresolvedIds.size > 0 ? allComments.filter((c) => unresolvedIds.has(c.id)) : allComments;
+    const targetIds = parseCommentIds(commentIds);
+    const commentsToProcess: ReviewComment[] = [];
+
+    for (const thread of unresolvedThreads) {
+      for (const comment of thread.comments.nodes) {
+        if (comment.databaseId !== undefined && comment.databaseId !== null) {
+          // --comment-ids フィルタリング
+          if (targetIds.size > 0 && !targetIds.has(comment.databaseId)) {
+            continue;
+          }
+
+          commentsToProcess.push({
+            id: comment.databaseId,
+            node_id: comment.id,
+            path: comment.path ?? '',
+            line: comment.line ?? null,
+            start_line: comment.startLine ?? null,
+            end_line: null,
+            body: comment.body ?? '',
+            user: comment.author.login ?? 'unknown',
+            created_at: comment.createdAt ?? '',
+            updated_at: comment.updatedAt ?? '',
+            diff_hunk: '',  // GraphQLにはdiff_hunkがないため空文字
+            in_reply_to_id: undefined,
+            thread_id: thread.id,
+            pr_number: prNumber,
+          });
+        }
+      }
+    }
+
+    logger.debug(`Processed ${commentsToProcess.length} comments from GraphQL threads`);
+    return commentsToProcess;
+  }
+
+  // GraphQLで未解決スレッドが見つからない場合は、REST APIから全コメントを取得
+  const allComments = await githubClient.commentClient.getPRReviewComments(prNumber);
+  logger.debug(`Total PR review comments (REST API): ${allComments.length}`);
 
   const targetIds = parseCommentIds(commentIds);
+  let filtered = allComments;
   if (targetIds.size > 0) {
     filtered = filtered.filter((c) => targetIds.has(c.id));
   }

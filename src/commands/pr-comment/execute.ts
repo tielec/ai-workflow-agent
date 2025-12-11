@@ -11,9 +11,15 @@ import { PRCommentExecuteOptions } from '../../types/commands.js';
 import { CommentMetadata, CommentResolution, ResolutionSummary } from '../../types/pr-comment.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import { config } from '../../core/config.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+
+let gitConfigured = false; // Git設定済みフラグ
 
 const MAX_RETRY_COUNT = 3;
 
@@ -24,8 +30,17 @@ export async function handlePRCommentExecuteCommand(
   options: PRCommentExecuteOptions,
 ): Promise<void> {
   try {
-    const prNumber = Number.parseInt(options.pr, 10);
-    const repoRoot = await getRepoRoot();
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
+
+    const repoRoot = prUrl
+      ? resolveRepoPathFromPrUrl(prUrl)
+      : await getRepoRoot();
+    logger.debug(
+      prUrl
+        ? `Resolved repository path from PR URL: ${repoRoot}`
+        : `Using current repository path: ${repoRoot}`,
+    );
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
     if (!(await metadataManager.exists())) {
@@ -33,12 +48,19 @@ export async function handlePRCommentExecuteCommand(
       process.exit(1);
     }
 
-    await metadataManager.load();
+    const metadata = await metadataManager.load();
+
+    // PRブランチ名を取得
+    const prBranch = metadata.pr.branch;
 
     let pendingComments = await metadataManager.getPendingComments();
+    logger.debug(`Initial pending comments count: ${pendingComments.length}`);
+
     const targetIds = parseCommentIds(options.commentIds);
     if (targetIds.size > 0) {
+      logger.debug(`Filtering by comment IDs: ${Array.from(targetIds).join(', ')}`);
       pendingComments = pendingComments.filter((c) => targetIds.has(c.comment.id));
+      logger.debug(`Filtered pending comments count: ${pendingComments.length}`);
     }
 
     const inProgress = pendingComments.filter((c) => c.status === 'in_progress');
@@ -51,19 +73,30 @@ export async function handlePRCommentExecuteCommand(
       return;
     }
 
-    const githubClient = new GitHubClient();
+    logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
+
+    const githubClient = new GitHubClient(null, repositoryName);
     const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
-    const analyzer = new ReviewCommentAnalyzer(
-      path.join(repoRoot, 'src', 'prompts'),
-      path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis'),
-    );
+
+    // プロンプトディレクトリはai-workflow-agentリポジトリ内を使用
+    // Jenkins環境ではprocess.cwd()がWORKSPACE（ai-workflow-agent）を指す
+    const promptsDir = path.join(process.cwd(), 'dist', 'prompts');
+    const analysisDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis');
+
+    logger.debug(`Prompts directory: ${promptsDir}`);
+    logger.debug(`Analysis directory: ${analysisDir}`);
+
+    const analyzer = new ReviewCommentAnalyzer(promptsDir, analysisDir);
     const applier = new CodeChangeApplier(repoRoot);
     const dryRun = options.dryRun ?? false;
     const batchSize = Number.parseInt(options.batchSize ?? '3', 10);
 
     for (let i = 0; i < pendingComments.length; i += batchSize) {
       const batch = pendingComments.slice(i, i + batchSize);
+      logger.debug(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(pendingComments.length / batchSize)}: ${batch.length} comment(s)`);
+
       for (const comment of batch) {
+        logger.debug(`Processing comment #${comment.comment.id}...`);
         await processComment(
           comment,
           metadataManager,
@@ -78,7 +111,8 @@ export async function handlePRCommentExecuteCommand(
       }
 
       if (!dryRun) {
-        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`);
+        logger.debug(`Committing batch ${Math.floor(i / batchSize) + 1}...`);
+        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`, prBranch);
       }
     }
 
@@ -112,11 +146,15 @@ async function processComment(
       await metadataManager.updateCommentStatus(commentId, 'in_progress');
     }
 
+    logger.debug(`Analyzing comment #${commentId}...`);
     const analysisResult = await analyzer.analyze(commentMeta, { repoPath: repoRoot }, agent);
+    logger.debug(`Analysis result for comment #${commentId}: success=${analysisResult.success}, hasResolution=${!!analysisResult.resolution}, error=${analysisResult.error || 'none'}`);
 
     if (!analysisResult.success || !analysisResult.resolution) {
+      logger.warn(`Analysis failed for comment #${commentId}: ${analysisResult.error ?? 'No resolution returned'}`);
       if (!dryRun) {
         const retryCount = await metadataManager.incrementRetryCount(commentId);
+        logger.debug(`Retry count for comment #${commentId}: ${retryCount}/${MAX_RETRY_COUNT}`);
         if (retryCount >= MAX_RETRY_COUNT) {
           await metadataManager.updateCommentStatus(
             commentId,
@@ -124,10 +162,13 @@ async function processComment(
             undefined,
             analysisResult.error ?? 'Analysis failed',
           );
+          logger.info(`Comment #${commentId} marked as failed after ${MAX_RETRY_COUNT} retries`);
         }
       }
       return;
     }
+
+    logger.debug(`Resolution type for comment #${commentId}: ${analysisResult.resolution.type}`);
 
     const resolution = analysisResult.resolution;
 
@@ -140,8 +181,10 @@ async function processComment(
     }
 
     if (resolution.type === 'code_change' && resolution.changes?.length) {
+      logger.debug(`Applying ${resolution.changes.length} code change(s) for comment #${commentId}...`);
       const applyResult = await applier.apply(resolution.changes, dryRun);
       if (!applyResult.success) {
+        logger.warn(`Failed to apply changes for comment #${commentId}: ${applyResult.error}`);
         if (!dryRun) {
           await metadataManager.updateCommentStatus(
             commentId,
@@ -152,6 +195,7 @@ async function processComment(
         }
         return;
       }
+      logger.debug(`Code changes applied successfully for comment #${commentId}`);
     }
 
     if (dryRun) {
@@ -161,19 +205,23 @@ async function processComment(
       return;
     }
 
+    logger.debug(`Posting reply to comment #${commentId}...`);
     const reply = await githubClient.commentClient.replyToPRReviewComment(
       prNumber,
       commentMeta.comment.id,
       formatReply(resolution),
     );
     await metadataManager.setReplyCommentId(commentId, reply.id);
+    logger.debug(`Reply posted for comment #${commentId}: reply ID ${reply.id}`);
 
     await metadataManager.updateCommentStatus(
       commentId,
       resolution.type === 'skip' ? 'skipped' : 'completed',
       resolution,
     );
+    logger.info(`Comment #${commentId} marked as ${resolution.type === 'skip' ? 'skipped' : 'completed'}`);
   } catch (error) {
+    logger.error(`Exception while processing comment #${commentId}: ${getErrorMessage(error)}`);
     if (!dryRun) {
       await metadataManager.updateCommentStatus(
         commentId,
@@ -181,6 +229,7 @@ async function processComment(
         undefined,
         getErrorMessage(error),
       );
+      logger.info(`Comment #${commentId} marked as failed due to exception`);
     } else {
       logger.warn(`[DRY-RUN] Failed to process comment #${commentId}: ${getErrorMessage(error)}`);
     }
@@ -225,20 +274,73 @@ function formatReply(resolution: CommentResolution): string {
   return resolution.reply;
 }
 
-async function commitIfNeeded(repoRoot: string, message: string): Promise<void> {
+async function commitIfNeeded(repoRoot: string, message: string, prBranch: string): Promise<void> {
   const git = simpleGit(repoRoot);
   const status = await git.status();
   if (status.files.length === 0) {
     return;
   }
 
+  // Git設定（初回のみ）
+  if (!gitConfigured) {
+    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
+    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+
+    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
+    await git.addConfig('user.name', gitUserName);
+    await git.addConfig('user.email', gitUserEmail);
+    gitConfigured = true;
+  }
+
   await git.add(status.files.map((f) => f.path));
   await git.commit(message);
-  logger.info('Changes committed. (Push not executed)');
+  logger.info('Changes committed.');
+
+  // PRのheadブランチにプッシュ
+  logger.debug(`Pushing to PR branch: ${prBranch}`);
+  // 現在のHEADをリモートのprBranchにpush
+  await git.push('origin', `HEAD:${prBranch}`);
+  logger.info('Changes pushed to remote.');
 }
 
 function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): void {
   logger.info(
     `Execution summary${dryRun ? ' (dry-run)' : ''}: completed=${summary.by_status.completed}, skipped=${summary.by_status.skipped}, failed=${summary.by_status.failed}`,
   );
+}
+
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+function resolvePrInfo(options: PRCommentExecuteOptions): {
+  repositoryName: string;
+  prNumber: number;
+  prUrl?: string;
+} {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+      prUrl: options.prUrl,
+    };
+  }
+
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  throw new Error('Either --pr-url or --pr option is required.');
 }

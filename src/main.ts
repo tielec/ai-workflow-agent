@@ -12,6 +12,7 @@ import { handleAutoIssueCommand } from './commands/auto-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
 import { handleFinalizeCommand } from './commands/finalize.js';
 import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
+import { handlePRCommentAnalyzeCommand } from './commands/pr-comment/analyze.js';
 import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
 
@@ -271,6 +272,7 @@ export async function runCli(): Promise<void> {
   prComment
     .command('init')
     .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--issue <number>', 'Issue number to resolve PR from')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .action(async (options) => {
@@ -282,8 +284,27 @@ export async function runCli(): Promise<void> {
     });
 
   prComment
-    .command('execute')
+    .command('analyze')
     .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .option('--dry-run', 'Preview mode (do not save artifacts)', false)
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .action(async (options) => {
+      try {
+        await handlePRCommentAnalyzeCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  prComment
+    .command('execute')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .option('--dry-run', 'Preview mode (do not apply changes or update metadata)', false)
     .addOption(
@@ -302,7 +323,8 @@ export async function runCli(): Promise<void> {
 
   prComment
     .command('finalize')
-    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--skip-cleanup', 'Skip metadata cleanup', false)
     .option('--dry-run', 'Preview mode (do not resolve threads)', false)
     .action(async (options) => {

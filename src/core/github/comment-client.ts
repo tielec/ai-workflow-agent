@@ -306,6 +306,12 @@ export class CommentClient {
         html_url: data.html_url ?? '',
       };
     } catch (error) {
+      // 422エラー（pending review制限）の場合、通常のissue commentにフォールバック
+      if (error instanceof RequestError && error.status === 422) {
+        logger.warn(`Failed to create review comment reply (422), falling back to issue comment`);
+        return this.createIssueComment(prNumber, body);
+      }
+
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
@@ -313,6 +319,26 @@ export class CommentClient {
       logger.error(`Failed to reply to comment: ${this.encodeWarning(message)}`);
       throw new Error(`Failed to reply to comment: ${message}`);
     }
+  }
+
+  /**
+   * 通常のissue commentを作成（PR commentへの返信のフォールバック用）
+   */
+  private async createIssueComment(
+    issueNumber: number,
+    body: string,
+  ): Promise<{ id: number; html_url: string }> {
+    const { data } = await this.octokit.issues.createComment({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+      body,
+    });
+
+    return {
+      id: data.id ?? 0,
+      html_url: data.html_url ?? '',
+    };
   }
 
   /**

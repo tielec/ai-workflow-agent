@@ -1,100 +1,58 @@
-# PR Review Comment Analysis Prompt
+# PR Review Comments — Analyze Phase
 
-You are an AI code reviewer assistant tasked with analyzing a PR review comment and determining the appropriate response.
+You are assisting with PR review comment triage. Analyze **all** provided comments together and propose a single response plan.
 
-## Your Task
+## Goal
+- Classify each comment into one of: `code_change`, `reply`, `discussion`, `skip`
+- Provide confidence (`high` | `medium` | `low`)
+- For `code_change`, propose minimal, safe changes (avoid sensitive files)
+- Draft the reply message for each comment
 
-Analyze the following review comment and determine:
-1. The type of response needed (code_change, reply, discussion, or skip)
-2. Your confidence level in the response
-3. The specific changes to make (if code_change)
-4. The reply message to post
+## Input Context
+- PR Number: {pr_number}
+- PR Title: {pr_title}
+- Target Repo: {repo_path}
+- Comments (batched):
+{all_comments}
 
-## Context
+## Security & Safety Guardrails
+- Never modify or propose changes to: `.env`, `.env.*`, `credentials.*`, `secrets.*`, `*.pem`, `*.key`
+- Only use repository-relative paths; no absolute paths or traversal (`..`)
+- If confidence would be `low` for a `code_change`, downgrade to `discussion` instead
+- Keep replies concise, professional, and actionable
 
-### Comment Information
-- **Comment ID**: {comment_id}
-- **File Path**: {comment_path}
-- **Line**: {comment_line}
-- **Author**: {comment_user}
-- **Body**:
-```
-{comment_body}
-```
-
-### Diff Context
-```diff
-{diff_hunk}
-```
-
-### File Content
-```
-{file_content}
-```
-
-### PR Description
-{pr_description}
-
-## Response Types
-
-1. **code_change**: The comment requests a specific code modification
-   - Use when: Fix typos, bugs, style issues, add missing code
-   - Requires: List of file changes
-
-2. **reply**: The comment is a question or needs explanation only
-   - Use when: Answering "why" questions, explaining design decisions
-   - No code changes needed
-
-3. **discussion**: The comment raises a complex topic requiring human input
-   - Use when: Architecture decisions, trade-offs, unclear requirements
-   - Post a reply acknowledging the discussion
-
-4. **skip**: The comment doesn't require any action
-   - Use when: Praise, acknowledgment, already resolved
-   - Post a brief acknowledgment
-
-## Output Format
-
-Write your analysis result to the following JSON file:
-
-**Output File**: `{output_file_path}`
+## Output
+Write **only** the JSON block below to `{output_file_path}`.
 
 ```json
 {
-  "type": "code_change",
-  "confidence": "high",
-  "changes": [
+  "pr_number": 123,
+  "analyzer_agent": "codex|claude|auto",
+  "comments": [
     {
-      "path": "src/example.ts",
-      "change_type": "modify",
-      "content": "// New file content here"
+      "comment_id": "c001",
+      "file": "src/app.ts",
+      "line": 42,
+      "author": "reviewer",
+      "body": "...comment text...",
+      "type": "code_change|reply|discussion|skip",
+      "confidence": "high|medium|low",
+      "rationale": "Why this choice",
+      "proposed_changes": [
+        {
+          "action": "modify|create|delete",
+          "file": "src/app.ts",
+          "line_range": "40-55",
+          "changes": "Concise description of intended edit or patch"
+        }
+      ],
+      "reply_message": "Reply to post back on GitHub"
     }
-  ],
-  "reply": "Thank you for the feedback! I've made the suggested changes.",
-  "analysis_notes": "The reviewer pointed out a typo in variable name."
+  ]
 }
 ```
 
-### Field Requirements
-
-- **type** (required): One of "code_change", "reply", "discussion", "skip"
-- **confidence** (required): One of "high", "medium", "low"
-  - high: Clear request with obvious solution
-  - medium: Request is clear but solution may vary
-  - low: Ambiguous request or uncertain solution
-- **changes** (required if type=code_change): Array of file changes
-  - path: Relative path from repository root
-  - change_type: "modify", "create", or "delete"
-  - content: New file content (for modify/create)
-- **reply** (required): Message to post as reply to the comment
-- **skip_reason** (optional): Reason for skipping (if type=skip)
-- **analysis_notes** (optional): Internal notes about your analysis
-
-## Important Guidelines
-
-1. **Be Conservative**: If unsure, use "discussion" type instead of "code_change"
-2. **Security**: Never suggest changes to .env, credentials, or sensitive files
-3. **Completeness**: For code_change, provide the complete new file content
-4. **Politeness**: Reply messages should be professional and appreciative
-5. **Explain Changes**: In the reply, briefly explain what was changed and why
-6. **Low Confidence = No Code Change**: If confidence is "low", do not use "code_change" type
+Notes:
+- Include every comment from input once.
+- `proposed_changes` can be empty for non-`code_change` types.
+- If the file is missing, set `proposed_changes` to an empty array and choose `discussion` or `reply`.

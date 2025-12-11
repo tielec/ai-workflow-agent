@@ -3,6 +3,8 @@
  *
  * テスト対象:
  * - parseIssueUrl(): Issue URL解析
+ * - parsePullRequestUrl(): PR URL解析
+ * - resolveRepoPathFromPrUrl(): PR URLからローカルパス解決
  * - resolveLocalRepoPath(): ローカルリポジトリパス解決
  * - findWorkflowMetadata(): ワークフローメタデータ探索
  * - getRepoRoot(): リポジトリルート取得
@@ -10,13 +12,19 @@
  * テスト戦略: UNIT_INTEGRATION - ユニット部分
  */
 
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, jest, afterEach } from '@jest/globals';
+import path from 'node:path';
+import process from 'node:process';
+import fs from 'fs-extra';
 import {
   parseIssueUrl,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
   resolveLocalRepoPath,
   findWorkflowMetadata,
   getRepoRoot,
 } from '../../../src/core/repository-utils.js';
+import { config } from '../../../src/core/config.js';
 
 // =============================================================================
 // parseIssueUrl() のテスト
@@ -135,6 +143,118 @@ describe('parseIssueUrl', () => {
 });
 
 // =============================================================================
+// parsePullRequestUrl() のテスト
+// =============================================================================
+
+describe('parsePullRequestUrl', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('正常系: PR URL解析', () => {
+    const validPrUrls = [
+      {
+        url: 'https://github.com/owner/repo/pull/123',
+        expected: { owner: 'owner', repo: 'repo', prNumber: 123, repositoryName: 'owner/repo' },
+      },
+      {
+        url: 'https://github.com/owner/repo/pull/456/',
+        expected: { owner: 'owner', repo: 'repo', prNumber: 456, repositoryName: 'owner/repo' },
+      },
+      {
+        url: 'github.com/owner/repo/pull/789',
+        expected: { owner: 'owner', repo: 'repo', prNumber: 789, repositoryName: 'owner/repo' },
+      },
+      {
+        url: 'https://github.com/my-org/my-repo/pull/100',
+        expected: {
+          owner: 'my-org',
+          repo: 'my-repo',
+          prNumber: 100,
+          repositoryName: 'my-org/my-repo',
+        },
+      },
+      {
+        url: 'http://github.com/owner/repo/pull/101',
+        expected: { owner: 'owner', repo: 'repo', prNumber: 101, repositoryName: 'owner/repo' },
+      },
+      {
+        url: 'https://github.com/org_name/repo_name/pull/300',
+        expected: {
+          owner: 'org_name',
+          repo: 'repo_name',
+          prNumber: 300,
+          repositoryName: 'org_name/repo_name',
+        },
+      },
+    ];
+
+    test.each(validPrUrls)('PR URLを正しく解析できる: %s', ({ url, expected }) => {
+      // Given: Phase3の正常系PR URL
+      const prUrl = url;
+
+      // When: PR URLを解析
+      const result = parsePullRequestUrl(prUrl);
+
+      // Then: owner/repo/PR番号が期待通りに抽出される
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('境界値: PR番号・リポジトリ名', () => {
+    const boundaryPrUrls = [
+      {
+        url: 'https://github.com/owner/repo/pull/1',
+        expected: { prNumber: 1 },
+        description: 'PR番号最小値',
+      },
+      {
+        url: 'https://github.com/owner/repo/pull/999999',
+        expected: { prNumber: 999999 },
+        description: 'PR番号大きい値',
+      },
+      {
+        url: 'https://github.com/o/r/pull/1',
+        expected: { owner: 'o', repo: 'r' },
+        description: '1文字のオーナー名・リポジトリ名',
+      },
+    ];
+
+    test.each(boundaryPrUrls)('境界値でも解析できる: %s', ({ url, expected }) => {
+      // Given: 境界値となるPR URL
+      const prUrl = url;
+
+      // When: PR URLを解析
+      const result = parsePullRequestUrl(prUrl);
+
+      // Then: 指定項目が期待通りに抽出される
+      expect(result).toMatchObject(expected);
+      expect(result.repositoryName).toBeDefined();
+    });
+  });
+
+  describe('異常系: 不正なURL', () => {
+    const invalidPrUrls = [
+      { url: '', description: '空文字列' },
+      { url: 'https://github.com/owner/repo/issues/123', description: 'Issue URL' },
+      { url: 'https://gitlab.com/owner/repo/pull/123', description: '別ドメイン' },
+      { url: 'https://github.com/owner/repo/pull/', description: 'PR番号なし' },
+      { url: 'https://github.com/owner/repo/pull/abc', description: 'PR番号が文字列' },
+      { url: 'https://github.com/owner', description: '不完全なURL' },
+      { url: 'not-a-url', description: '無効な形式' },
+    ];
+
+    test.each(invalidPrUrls)('不正URLはエラーになる: %s', ({ url }) => {
+      // Given: Phase3で想定される不正PR URL
+      const prUrl = url;
+
+      // When & Then: 例外がスローされる
+      expect(() => parsePullRequestUrl(prUrl)).toThrow(/Invalid GitHub Pull Request URL/);
+    });
+  });
+});
+
+// =============================================================================
 // resolveLocalRepoPath() のテスト
 // =============================================================================
 
@@ -159,6 +279,88 @@ describe('resolveLocalRepoPath', () => {
         resolveLocalRepoPath(repoName);
       }).toThrow(/REPOS_ROOT/);
     });
+  });
+});
+
+// =============================================================================
+// resolveRepoPathFromPrUrl() のテスト
+// =============================================================================
+
+describe('resolveRepoPathFromPrUrl', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('REPOS_ROOTが設定されている場合は優先的に使用する', () => {
+    // Given
+    const repoName = 'my-app';
+    const prUrl = `https://github.com/owner/${repoName}/pull/42`;
+    jest.spyOn(config, 'getReposRoot').mockReturnValue('/repos');
+    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/user');
+    jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
+
+    const existsSpy = jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
+      const normalized = path.resolve(targetPath);
+      return (
+        normalized === path.resolve('/repos/my-app') ||
+        normalized === path.resolve('/repos/my-app/.git')
+      );
+    });
+
+    // When
+    const repoPath = resolveRepoPathFromPrUrl(prUrl);
+
+    // Then
+    expect(repoPath).toBe(path.resolve('/repos/my-app'));
+    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app'));
+    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app/.git'));
+  });
+
+  test('REPOS_ROOT未設定時はフォールバックパスを探索する', () => {
+    // Given
+    const repoName = 'fallback-repo';
+    const prUrl = `https://github.com/owner/${repoName}/pull/1`;
+    jest.spyOn(config, 'getReposRoot').mockReturnValue(null);
+    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/tester');
+    jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
+
+    jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
+      const normalized = path.resolve(targetPath);
+      return (
+        normalized === path.resolve('/home/tester/TIELEC/development/fallback-repo') ||
+        normalized === path.resolve('/home/tester/TIELEC/development/fallback-repo/.git')
+      );
+    });
+
+    // When
+    const repoPath = resolveRepoPathFromPrUrl(prUrl);
+
+    // Then
+    expect(repoPath).toBe(path.resolve('/home/tester/TIELEC/development/fallback-repo'));
+  });
+
+  test('すべての候補で見つからない場合はエラーを投げる', () => {
+    // Given
+    const prUrl = 'https://github.com/owner/missing-repo/pull/99';
+    jest.spyOn(config, 'getReposRoot').mockReturnValue('/repos');
+    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/tester');
+    jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
+    jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+
+    // When & Then
+    expect(() => resolveRepoPathFromPrUrl(prUrl)).toThrow(
+      /Repository 'missing-repo' not found[\s\S]*REPOS_ROOT/,
+    );
+  });
+
+  test('不正なPR URLの場合は入力検証エラーをそのまま返す', () => {
+    // Given
+    const invalidPrUrl = 'https://invalid-url';
+
+    // When & Then
+    expect(() => resolveRepoPathFromPrUrl(invalidPrUrl)).toThrow(
+      /Invalid GitHub Pull Request URL/,
+    );
   });
 });
 

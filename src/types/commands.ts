@@ -534,15 +534,27 @@ export interface RollbackDecision {
  */
 export interface PRCommentInitOptions {
   pr?: string;
+  prUrl?: string;
   issue?: string;
   commentIds?: string;
+}
+
+/**
+ * pr-comment analyze コマンドオプション
+ */
+export interface PRCommentAnalyzeOptions {
+  pr: string;
+  commentIds?: string;
+  dryRun?: boolean;
+  agent?: 'auto' | 'codex' | 'claude';
 }
 
 /**
  * pr-comment execute コマンドオプション
  */
 export interface PRCommentExecuteOptions {
-  pr: string;
+  pr?: string;
+  prUrl?: string;
   commentIds?: string;
   dryRun?: boolean;
   agent?: 'auto' | 'codex' | 'claude';
@@ -553,7 +565,8 @@ export interface PRCommentExecuteOptions {
  * pr-comment finalize コマンドオプション
  */
 export interface PRCommentFinalizeOptions {
-  pr: string;
+  pr?: string;
+  prUrl?: string;
   skipCleanup?: boolean;
   dryRun?: boolean;
 }

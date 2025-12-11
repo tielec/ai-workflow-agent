@@ -262,6 +262,72 @@ export interface CommentResolutionMetadata {
 
   /** 更新日時 */
   updated_at: string;
+
+  /** analyzeフェーズ完了日時 */
+  analyze_completed_at?: string | null;
+
+  /** executeフェーズ完了日時 */
+  execute_completed_at?: string | null;
+
+  /** response-plan.md パス */
+  response_plan_path?: string | null;
+
+  /** execution-result.md パス */
+  execution_result_path?: string | null;
+}
+
+export interface PRCommentAnalyzeOptions {
+  pr: string;
+  commentIds?: string;
+  dryRun?: boolean;
+  agent?: 'auto' | 'codex' | 'claude';
+}
+
+export interface ProposedChange {
+  action: 'modify' | 'create' | 'delete';
+  file: string;
+  line_range?: string;
+  changes: string;
+}
+
+export interface ResponsePlanComment {
+  comment_id: string;
+  file?: string;
+  line?: number | null;
+  author?: string;
+  body?: string;
+  type: ResolutionType;
+  confidence: ConfidenceLevel;
+  rationale?: string;
+  proposed_changes?: ProposedChange[];
+  reply_message: string;
+}
+
+export interface ResponsePlan {
+  pr_number: number;
+  analyzed_at: string;
+  analyzer_agent: string;
+  comments: ResponsePlanComment[];
+}
+
+export type ExecutionStatus = 'completed' | 'skipped' | 'failed';
+
+export interface ExecutionResultComment {
+  comment_id: string;
+  status: ExecutionStatus;
+  type: ResolutionType;
+  actions?: string[];
+  error?: string | null;
+  reply_comment_id?: number | null;
+  reply_message?: string;
+  changes?: FileChange[];
+}
+
+export interface ExecutionResult {
+  pr_number: number;
+  executed_at: string;
+  source_plan: string;
+  comments: ExecutionResultComment[];
 }
 
 /**

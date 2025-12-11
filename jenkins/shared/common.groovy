@@ -182,7 +182,27 @@ def setupEnvironment() {
     def repoOwner = env.REPO_OWNER ?: ''
     def repoName = env.REPO_NAME ?: ''
     def issueNumber = env.ISSUE_NUMBER ?: ''
+    def prNumber = env.PR_NUMBER ?: ''
+
+    echo "DEBUG: executionMode=${executionMode}, prNumber=${prNumber}, repoOwner=${repoOwner}, repoName=${repoName}"
+
+    // PR comment jobs の場合、GitHub API で PR のブランチ名を取得
     def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
+    if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
+        echo "Fetching PR branch name from GitHub API..."
+        echo "Running: gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref"
+        def prBranch = sh(
+            script: "gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref || echo ''",
+            returnStdout: true
+        ).trim()
+        echo "API response: '${prBranch}'"
+        if (prBranch && prBranch != '') {
+            targetBranch = prBranch
+            echo "PR branch detected: ${targetBranch}"
+        } else {
+            echo "Warning: Failed to fetch PR branch. Using default: ${targetBranch}"
+        }
+    }
 
     sh """
         # REPOS_ROOT ディレクトリ作成
@@ -229,8 +249,10 @@ def setupEnvironment() {
                 echo "Branch ${targetBranch} exists on remote. Checking out..."
                 git checkout -B ${targetBranch} origin/${targetBranch}
             else
-                echo "Branch ${targetBranch} does not exist on remote. Creating from develop..."
-                git checkout -B ${targetBranch} origin/develop || git checkout -B ${targetBranch}
+                echo "Branch ${targetBranch} does not exist on remote. Creating from main/develop..."
+                git checkout -B ${targetBranch} origin/main 2>/dev/null || \
+                git checkout -B ${targetBranch} origin/develop 2>/dev/null || \
+                git checkout -B ${targetBranch}
             fi
 
             echo "Target repository: \${TARGET_REPO_PATH}"
