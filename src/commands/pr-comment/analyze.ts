@@ -27,11 +27,16 @@ import type {
  * pr-comment analyze コマンドハンドラ
  */
 export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOptions): Promise<void> {
+  let prNumber: number | undefined;
+  let repoRoot: string | undefined;
+
   try {
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
-    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
+    const prInfo = resolvePrInfo(options);
+    prNumber = prInfo.prNumber;
+    const prUrl = prInfo.prUrl;
 
-    const repoRoot = prUrl
+    repoRoot = prUrl
       ? resolveRepoPathFromPrUrl(prUrl)
       : await getRepoRoot();
     logger.debug(
@@ -79,6 +84,20 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     await commitIfNeeded(repoRoot, '[ai-workflow] PR Comment: Analyze completed');
   } catch (error) {
     logger.error(`Failed to analyze PR comments: ${getErrorMessage(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+
+    // Check if agent log was saved for debugging
+    if (repoRoot && prNumber) {
+      const baseDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
+      const logPath = path.join(baseDir, 'analyze', 'agent_log.md');
+      if (await fs.pathExists(logPath)) {
+        logger.info(`Agent log saved to: ${logPath}`);
+        logger.info('Please check the agent log for detailed error information.');
+      }
+    }
+
     process.exit(1);
   }
 }
@@ -115,15 +134,35 @@ async function analyzeComments(
     }
   }
 
-  const plan = rawOutput.trim().length > 0
-    ? parseResponsePlan(rawOutput, prNumber)
-    : buildFallbackPlan(prNumber, comments);
+  if (rawOutput.trim().length === 0) {
+    logger.warn('Agent returned empty output. Using fallback plan.');
+    const fallbackPlan = buildFallbackPlan(prNumber, comments);
+    return {
+      ...fallbackPlan,
+      analyzed_at: new Date().toISOString(),
+      analyzer_agent: options.agent ?? 'auto',
+    };
+  }
 
-  return {
-    ...plan,
-    analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
-    analyzer_agent: plan.analyzer_agent ?? (options.agent ?? 'auto'),
-  };
+  logger.debug(`Agent output length: ${rawOutput.length} chars`);
+  logger.debug(`Agent output preview (first 200 chars): ${rawOutput.substring(0, 200)}`);
+
+  try {
+    const plan = parseResponsePlan(rawOutput, prNumber);
+    return {
+      ...plan,
+      analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
+      analyzer_agent: plan.analyzer_agent ?? (options.agent ?? 'auto'),
+    };
+  } catch (error) {
+    logger.error(`Failed to parse agent output, using fallback plan: ${getErrorMessage(error)}`);
+    const fallbackPlan = buildFallbackPlan(prNumber, comments);
+    return {
+      ...fallbackPlan,
+      analyzed_at: new Date().toISOString(),
+      analyzer_agent: 'fallback',
+    };
+  }
 }
 
 async function buildAnalyzePrompt(
@@ -182,16 +221,49 @@ async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Prom
 }
 
 function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
-  const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
-  const jsonString = jsonMatch ? jsonMatch[1] : rawOutput;
-  const parsed = JSON.parse(jsonString) as ResponsePlan;
+  try {
+    // Step 1: Extract JSON from markdown code block
+    const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
+    const jsonString = jsonMatch ? jsonMatch[1] : rawOutput;
 
-  if (!parsed.pr_number) {
-    parsed.pr_number = prNumber;
+    logger.debug(`Attempting to parse response plan (${jsonString.length} chars)`);
+
+    // Step 2: Parse JSON
+    const parsed = JSON.parse(jsonString) as ResponsePlan;
+
+    if (!parsed.pr_number) {
+      parsed.pr_number = prNumber;
+    }
+
+    parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
+    return parsed;
+  } catch (error) {
+    logger.error(`Failed to parse response plan: ${getErrorMessage(error)}`);
+    logger.debug(`Raw output preview (first 500 chars): ${rawOutput.substring(0, 500)}`);
+
+    // Try alternative parsing strategies
+    logger.warn('Attempting alternative JSON extraction strategies...');
+
+    // Strategy 1: Search for plain JSON (no code block)
+    try {
+      const plainJsonMatch = rawOutput.match(/\{[\s\S]*"comments"[\s\S]*\}/);
+      if (plainJsonMatch) {
+        logger.debug('Found plain JSON pattern');
+        const parsed = JSON.parse(plainJsonMatch[0]) as ResponsePlan;
+        if (!parsed.pr_number) {
+          parsed.pr_number = prNumber;
+        }
+        parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
+        return parsed;
+      }
+    } catch (altError) {
+      logger.debug(`Alternative parsing failed: ${getErrorMessage(altError)}`);
+    }
+
+    // Strategy 2: Fallback to empty plan
+    logger.error('All parsing strategies failed. Using fallback plan.');
+    throw new Error(`Failed to parse agent response: ${getErrorMessage(error)}`);
   }
-
-  parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
-  return parsed;
 }
 
 function normalizePlanComment(comment: ResponsePlanComment): ResponsePlanComment {
