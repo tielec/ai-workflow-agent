@@ -12,6 +12,7 @@ import { handleAutoIssueCommand } from './commands/auto-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
 import { handleFinalizeCommand } from './commands/finalize.js';
 import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
+import { handlePRCommentAnalyzeCommand } from './commands/pr-comment/analyze.js';
 import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
 
@@ -276,6 +277,24 @@ export async function runCli(): Promise<void> {
     .action(async (options) => {
       try {
         await handlePRCommentInitCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  prComment
+    .command('analyze')
+    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .option('--dry-run', 'Preview mode (do not save artifacts)', false)
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .action(async (options) => {
+      try {
+        await handlePRCommentAnalyzeCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

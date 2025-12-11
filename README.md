@@ -159,6 +159,12 @@ ai-workflow pr-comment init \
   --pr <number> \
   [--dry-run]
 
+ai-workflow pr-comment analyze \
+  --pr <number> \
+  [--dry-run] \
+  [--agent auto|codex|claude] \
+  [--comment-ids <ids>]
+
 ai-workflow pr-comment execute \
   --pr <number> \
   [--dry-run] \
@@ -1301,26 +1307,36 @@ ai-workflow auto-issue --category bug --limit 5 --output-file ./results/auto-iss
 
 各フェーズは `BasePhase` を継承し、メタデータ永続化、実行/レビューサイクル、エージェント制御、Git 自動コミットなど共通機能を利用します。
 
-### PRコメント自動対応機能（Issue #383で追加）
+### PRコメント自動対応機能（Issue #383で追加、Issue #409で分析/実行フェーズ分離）
 
 `pr-comment` コマンドは、PRレビューコメントを検出し、AIエージェントが各コメントに対して自動的に対応（コード修正、返信、解決マーク）を行う機能です。
+
+**推奨フロー（v1.2.0以降）**:
 
 ```bash
 # 1. PRから未解決コメントを取得してメタデータを初期化
 ai-workflow pr-comment init --pr 123
 
-# 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+# 2. 全コメントを一括分析し、対応方針を決定（エージェント1回目）
+ai-workflow pr-comment analyze --pr 123
+
+# 3. 決定された対応方針を実行（エージェント2回目）
 ai-workflow pr-comment execute --pr 123
 
-# 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+# 4. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
 ai-workflow pr-comment finalize --pr 123
 
 # プレビューモード（実際の変更を行わない）
+ai-workflow pr-comment analyze --pr 123 --dry-run
 ai-workflow pr-comment execute --pr 123 --dry-run
 ```
 
 **主な機能**:
 
+- **2段階フェーズ分離**（Issue #409）:
+  - **分析フェーズ（analyze）**: 全コメントを一括分析し、対応方針を決定（エージェント起動1回目）
+  - **実行フェーズ（execute）**: 決定された対応方針を実行（エージェント起動2回目）
+  - **効果**: 10コメント → 10回起動 から **2回起動**（80%削減）
 - **コメント分析エンジン**: AIエージェントがコメントを分析し、4種類の解決タイプを判定
   - `code_change`: コード修正が必要
   - `reply`: 返信のみで対応
@@ -1332,21 +1348,30 @@ ai-workflow pr-comment execute --pr 123 --dry-run
   - 機密ファイル除外（`.env`, `credentials.json` 等）
   - `confidence: low` のコード変更は自動的に `discussion` に変更
 - **レジューム機能**: 中断からの再開、部分的成功時の継続処理
+- **後方互換性**: `response-plan.md`がない場合は従来動作（各コメントごと処理）にフォールバック
 
 **オプション**:
 
 - `--pr <number>`: 対象のPR番号（必須）
 - `--dry-run`: プレビューモード（実際の変更を行わない）
 - `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`）
-- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5）
+- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5、フォールバック時のみ有効）
+- `--comment-ids <ids>`: 分析対象のコメントIDをカンマ区切りで指定（analyze時のみ）
 
-**メタデータ構造**:
+**成果物構造**:
 
 ```
 .ai-workflow/pr-123/
 ├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
-└── execute/                          # エージェント実行ログ
-    └── agent_log.md
+├── analyze/                          # 分析フェーズ成果物
+│   ├── agent_log.md
+│   └── prompt.txt
+├── execute/                          # 実行フェーズ成果物
+│   ├── agent_log.md
+│   └── prompt.txt
+└── output/                           # 成果物ファイル
+    ├── response-plan.md              # 分析結果
+    └── execution-result.md           # 実行結果
 ```
 
 詳細は [PR_COMMENT_RESOLUTION.md](docs/PR_COMMENT_RESOLUTION.md) を参照してください。
