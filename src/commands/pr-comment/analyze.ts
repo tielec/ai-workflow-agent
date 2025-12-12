@@ -170,7 +170,7 @@ async function buildAnalyzePrompt(
   metadataManager: PRCommentMetadataManager,
   comments: CommentMetadata[],
 ): Promise<string> {
-  const template = await fs.readFile(path.join(repoRoot, 'src', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
+  const template = await fs.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
   const metadata = await metadataManager.getMetadata();
 
   const commentBlocks: string[] = [];
