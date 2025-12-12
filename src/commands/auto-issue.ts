@@ -25,7 +25,21 @@ import type {
   RawAutoIssueOptions,
 } from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
-import { InstructionValidator } from '../core/safety/instruction-validator.js';
+import { InstructionValidator } from '../core/instruction-validator.js';
+
+/**
+ * CLIオプションパース結果（生の入力）
+ */
+interface RawAutoIssueOptions {
+  category?: string;
+  limit?: string;
+  outputFile?: string;
+  dryRun?: boolean;
+  similarityThreshold?: string;
+  agent?: 'auto' | 'codex' | 'claude';
+  creativeMode?: boolean;
+  customInstruction?: string;
+}
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -41,10 +55,28 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const options = parseOptions(rawOptions);
 
     logger.info(
-      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}`,
+      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
     if (options.customInstruction) {
       logger.info(`Using custom instruction: ${options.customInstruction}`);
+    }
+
+    if (options.customInstruction) {
+      logger.info('Validating custom instruction...');
+      const validationResult = await InstructionValidator.validate(options.customInstruction);
+
+      if (!validationResult.isValid) {
+        logger.error(`Unsafe custom instruction detected: ${validationResult.reason}`);
+        throw new Error(validationResult.errorMessage ?? 'Unsafe custom instruction detected.');
+      }
+
+      if (validationResult.confidence === 'low') {
+        logger.warn(`Low confidence validation: ${validationResult.reason}`);
+      }
+
+      logger.info(
+        `Custom instruction validated: category=${validationResult.category}, confidence=${validationResult.confidence}, method=${validationResult.validationMethod}`,
+      );
     }
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
@@ -514,22 +546,15 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   // creativeMode（デフォルト: false）
   const creativeMode = rawOptions.creativeMode ?? false;
 
-  // customInstruction（オプション、バリデーション付き）
+  // customInstruction（オプション）
+  const customInstructionRaw = rawOptions.customInstruction;
   let customInstruction: string | undefined;
-  if (typeof rawOptions.customInstruction === 'string') {
-    const trimmed = rawOptions.customInstruction.trim();
-    if (trimmed) {
-      const validationResult = InstructionValidator.validate(trimmed);
-      if (!validationResult.isValid) {
-        throw new Error(
-          validationResult.errorMessage ??
-            'Invalid custom instruction. Custom instructions must be analysis-only.',
-        );
-      }
-      customInstruction = trimmed;
+  if (typeof customInstructionRaw === 'string') {
+    const trimmed = customInstructionRaw.trim();
+    if (!trimmed) {
+      throw new Error('custom-instruction must not be empty.');
     }
-  } else if (rawOptions.customInstruction !== undefined) {
-    throw new Error('custom-instruction must be a string value.');
+    customInstruction = trimmed;
   }
 
   return {
