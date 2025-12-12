@@ -215,6 +215,7 @@ export async function runCli(): Promise<void> {
     .option('--output-file <path>', 'Write execution summary JSON to the specified path')
     .option('--dry-run', 'Preview mode (do not create issues)', false)
     .option('--similarity-threshold <number>', 'Duplicate detection threshold (0.0-1.0)', '0.8')
+    .option('--custom-instruction <text>', 'Additional custom instruction for analysis')
     .addOption(
       new Option('--agent <mode>', 'Agent mode')
         .choices(['auto', 'codex', 'claude'])

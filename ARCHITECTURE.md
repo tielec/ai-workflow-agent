@@ -261,6 +261,10 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/prompts/difficulty/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
+| `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
+| `src/core/instruction-validator.ts` | LLMベースのカスタム指示検証エンジン（Issue #422で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定されたユーザー指示の安全性を検証。OpenAI API（gpt-4o-mini）による文脈理解型検証を実施し、「分析指示」と「実行指示」を区別。フォールバックとして静的パターンマッチングをサポート。インメモリキャッシュ（TTL: 1時間、最大1000エントリ）、リトライロジック（最大3回、指数バックオフ）を実装。`validate()`, `validateWithLLM()`, `validateWithPatterns()`, `parseResponse()` を提供。 |
+| `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
+| `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
 

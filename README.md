@@ -115,7 +115,8 @@ ai-workflow auto-issue \
   [--similarity-threshold <0.0-1.0>] \
   [--agent auto|codex|claude] \
   [--creative-mode] \
-  [--output-file <path>]
+  [--output-file <path>] \
+  [--custom-instruction <text>]
 
 ai-workflow review \
   --phase <name> \
@@ -1139,6 +1140,13 @@ ai-workflow auto-issue \
   - 指定しない場合はファイル出力なし（後方互換性維持）
   - CI環境（Jenkins）でのアーティファクト収集に有用
   - dry-runモードでも出力可能
+- `--custom-instruction <text>`: カスタム指示を追加（Issue #422で追加）
+  - 検出時に特定の観点を重視するよう指示を追加可能
+  - **安全な指示の例**: 「重複関数を重点的に検出してください」「SQLインジェクションを優先的に検出してください」
+  - **ブロックされる指示**: ファイル削除、コード変更、Git操作などの実行指示は自動的にブロック
+  - LLMベースの文脈理解型検証により、「分析指示」と「実行指示」を正確に区別
+  - LLM検証失敗時は静的パターンマッチングにフォールバック
+  - 検証結果の信頼度（confidence: high/medium/low）が低い場合は警告を表示
 
 **環境変数**:
 
@@ -1192,6 +1200,16 @@ ai-workflow auto-issue --category enhancement --creative-mode --limit 10
 ai-workflow auto-issue --category bug --limit 5 --output-file ./results/auto-issue.json
 # → 検出結果とIssue生成結果をJSONファイルに保存
 # → Jenkins等のCIでアーティファクトとして収集可能
+
+# ケース10: カスタム指示で特定の観点を重視（Issue #422で追加）
+ai-workflow auto-issue --category refactor \
+  --custom-instruction "重複関数や類似ロジックを重点的に検出してください"
+# → LLMベースの検証で安全性を確認後、指示をプロンプトに注入して分析
+
+# ケース11: セキュリティ観点に焦点を当てる
+ai-workflow auto-issue --category bug \
+  --custom-instruction "SQLインジェクションやXSS脆弱性を優先的に検出してください"
+# → セキュリティ関連のバグを優先的に検出
 ```
 
 **出力例（--dry-runモード）**:
