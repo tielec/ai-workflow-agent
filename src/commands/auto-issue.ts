@@ -28,20 +28,6 @@ import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issu
 import { InstructionValidator } from '../core/instruction-validator.js';
 
 /**
- * CLIオプションパース結果（生の入力）
- */
-interface RawAutoIssueOptions {
-  category?: string;
-  limit?: string;
-  outputFile?: string;
-  dryRun?: boolean;
-  similarityThreshold?: string;
-  agent?: 'auto' | 'codex' | 'claude';
-  creativeMode?: boolean;
-  customInstruction?: string;
-}
-
-/**
  * auto-issue コマンドのメインハンドラ
  *
  * @param rawOptions - CLIオプション（生の入力）

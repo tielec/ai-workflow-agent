@@ -92,14 +92,27 @@ export class InstructionValidator {
    */
   public static validate(instruction: string): ValidationResult {
     const normalized = instruction.trim();
+    const validatedAt = new Date().toISOString();
 
     if (!normalized) {
-      return { isValid: true };
+      return {
+        isValid: true,
+        confidence: 'high',
+        reason: 'Empty instruction',
+        category: 'analysis',
+        validationMethod: 'pattern',
+        validatedAt,
+      };
     }
 
     if (normalized.length > InstructionValidator.MAX_LENGTH) {
       return {
         isValid: false,
+        confidence: 'high',
+        reason: `Instruction exceeds maximum length (${InstructionValidator.MAX_LENGTH} characters)`,
+        category: 'execution',
+        validationMethod: 'pattern',
+        validatedAt,
         errorMessage: `Custom instruction exceeds maximum length (${InstructionValidator.MAX_LENGTH} characters)`,
       };
     }
@@ -108,12 +121,24 @@ export class InstructionValidator {
     if (detectedPattern) {
       return {
         isValid: false,
+        confidence: 'high',
+        reason: `Dangerous operation detected: "${detectedPattern}"`,
+        category: 'execution',
+        validationMethod: 'pattern',
+        validatedAt,
         errorMessage: `Invalid custom instruction: Dangerous operation detected: "${detectedPattern}". Custom instructions must be limited to analysis guidance only.`,
         detectedPattern,
       };
     }
 
-    return { isValid: true };
+    return {
+      isValid: true,
+      confidence: 'high',
+      reason: 'No dangerous patterns detected',
+      category: 'analysis',
+      validationMethod: 'pattern',
+      validatedAt,
+    };
   }
 
   /**

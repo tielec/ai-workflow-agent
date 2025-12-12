@@ -418,23 +418,3 @@ export interface IssueCreationResult {
    */
   skippedReason?: string;
 }
-
-/**
- * カスタム指示検証結果
- */
-export interface ValidationResult {
-  /**
-   * 検証結果（true: 有効、false: 無効）
-   */
-  isValid: boolean;
-
-  /**
-   * エラーメッセージ（無効な場合のみ）
-   */
-  errorMessage?: string;
-
-  /**
-   * 検出された危険パターン（無効な場合のみ）
-   */
-  detectedPattern?: string;
-}
