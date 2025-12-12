@@ -185,16 +185,16 @@ export class ContextBuilder {
     const phaseNumber = this.getPhaseNumber(targetPhase);
 
     // Issue #274: workflowBaseDir を使用（REPOS_ROOT 対応済み）
-    // workflowBaseDir は .ai-workflow/issue-{NUM} 形式なので、親ディレクトリを取得
-    const basePath = path.resolve(this.workflowBaseDir, '..');
+    // workflowBaseDir が .ai-workflow/issue-{NUM}/... を指している場合は issue-{NUM} 部分まで切り出す
+    const normalizedBase = path.resolve(this.workflowBaseDir);
+    const marker = `issue-${issueIdentifier}`;
+    const markerIndex = normalizedBase.lastIndexOf(marker);
+    const issueDir =
+      markerIndex >= 0
+        ? normalizedBase.slice(0, markerIndex + marker.length)
+        : path.join(normalizedBase, `issue-${issueIdentifier}`);
 
-    const filePath = path.join(
-      basePath,
-      `issue-${issueIdentifier}`,
-      `${phaseNumber}_${targetPhase}`,
-      'output',
-      fileName
-    );
+    const filePath = path.join(issueDir, `${phaseNumber}_${targetPhase}`, 'output', fileName);
 
     if (!fs.existsSync(filePath)) {
       logger.warn(`Output file not found for phase ${targetPhase}: ${filePath}`);

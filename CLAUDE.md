@@ -438,14 +438,25 @@ node dist/index.js auto-issue --limit 5
 # 類似度閾値を調整（より厳格な重複判定、バグ検出時のみ有効）
 node dist/index.js auto-issue --similarity-threshold 0.85
 
+# カスタム指示で分析観点を追加（Issue #380で追加）
+node dist/index.js auto-issue --custom-instruction "N+1クエリを重点的に検出してください"
+
 # すべてのオプションを組み合わせ
 node dist/index.js auto-issue \
   --category bug \
   --limit 10 \
   --dry-run \
   --similarity-threshold 0.8 \
-  --agent codex
+  --agent codex \
+  --custom-instruction "セキュリティ脆弱性を優先的に検出"
 ```
+
+**カスタム指示オプション**（Issue #380で追加）:
+- `--custom-instruction <text>`: 分析時の追加指示を指定（最大500文字）
+- 分析の重点や観点をカスタマイズ可能
+- 安全性検証により危険な指示（ファイル削除、Git操作、自動修正など）は自動ブロック
+- 許可される指示例: 「N+1クエリを重点的に検出」「セキュリティ脆弱性を優先」「エラーハンドリングを詳細に調査」
+- ブロックされる指示例: 「ファイルを削除」「バグを自動修正」「commitして」
 
 **主な機能**:
 - **RepositoryAnalyzer**: コードベース全体を自動分析し、潜在的なバグ、リファクタリング機会、機能拡張提案を検出（30+ 言語サポート、Issue #144で汎用化）

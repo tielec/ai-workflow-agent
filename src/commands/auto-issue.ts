@@ -19,21 +19,13 @@ import { IssueGenerator } from '../core/issue-generator.js';
 import { resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
-import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
+import type {
+  AutoIssueOptions,
+  IssueCreationResult,
+  RawAutoIssueOptions,
+} from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
-
-/**
- * CLIオプションパース結果（生の入力）
- */
-interface RawAutoIssueOptions {
-  category?: string;
-  limit?: string;
-  outputFile?: string;
-  dryRun?: boolean;
-  similarityThreshold?: string;
-  agent?: 'auto' | 'codex' | 'claude';
-  creativeMode?: boolean;
-}
+import { InstructionValidator } from '../core/safety/instruction-validator.js';
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -51,6 +43,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     logger.info(
       `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}`,
     );
+    if (options.customInstruction) {
+      logger.info(`Using custom instruction: ${options.customInstruction}`);
+    }
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
     const githubRepository = config.getGitHubRepository();
@@ -106,7 +101,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     if (options.category === 'bug') {
       logger.info('Analyzing repository for bugs...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const bugCandidates = await analyzer.analyze(repoPath, options.agent);
+      const bugCandidates = await analyzer.analyze(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${bugCandidates.length} bug candidates.`);
 
       if (bugCandidates.length === 0) {
@@ -125,7 +122,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     } else if (options.category === 'refactor') {
       logger.info('Analyzing repository for refactoring...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent);
+      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
 
       if (refactorCandidates.length === 0) {
@@ -148,7 +147,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       const enhancementProposals = await analyzer.analyzeForEnhancements(
         repoPath,
         options.agent,
-        { creativeMode: options.creativeMode },
+        { creativeMode: options.creativeMode, customInstruction: options.customInstruction },
       );
       logger.info(`Found ${enhancementProposals.length} enhancement proposals.`);
 
@@ -515,6 +514,24 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   // creativeMode（デフォルト: false）
   const creativeMode = rawOptions.creativeMode ?? false;
 
+  // customInstruction（オプション、バリデーション付き）
+  let customInstruction: string | undefined;
+  if (typeof rawOptions.customInstruction === 'string') {
+    const trimmed = rawOptions.customInstruction.trim();
+    if (trimmed) {
+      const validationResult = InstructionValidator.validate(trimmed);
+      if (!validationResult.isValid) {
+        throw new Error(
+          validationResult.errorMessage ??
+            'Invalid custom instruction. Custom instructions must be analysis-only.',
+        );
+      }
+      customInstruction = trimmed;
+    }
+  } else if (rawOptions.customInstruction !== undefined) {
+    throw new Error('custom-instruction must be a string value.');
+  }
+
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
@@ -523,6 +540,7 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     similarityThreshold,
     agent: agent as 'auto' | 'codex' | 'claude',
     creativeMode,
+    customInstruction,
   };
 }
 

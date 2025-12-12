@@ -231,6 +231,10 @@ export async function runCli(): Promise<void> {
       'Enable creative mode for enhancement proposals (experimental ideas)',
       false,
     )
+    .option(
+      '--custom-instruction <text>',
+      'Custom instruction for analysis guidance (max 500 chars, analysis-only)',
+    )
     .action(async (options) => {
       try {
         await handleAutoIssueCommand(options);
