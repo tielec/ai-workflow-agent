@@ -82,6 +82,7 @@ node dist/index.js execute --phase all --issue 123
 ai-workflow init \
   --issue-url <URL> \
   [--branch <name>] \
+  [--base-branch <branch>] \
   [--auto-model-selection]
 
 ai-workflow execute \
@@ -205,6 +206,38 @@ Git 命名規則に従わないブランチ名はエラーになります：
 - 不正文字（`~`, `^`, `:`, `?`, `*`, `[`, `\`, `@{`）を含まない
 - `/` で始まらない、終わらない
 - `.` で終わらない
+
+### ベースブランチの指定
+
+`init` コマンドで `--base-branch` オプションを使用すると、新規ブランチの分岐元となるベースブランチを明示的に指定できます（v0.5.0、Issue #391 で追加）：
+
+```bash
+# main ブランチから新規ブランチを作成
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 \
+  --base-branch main
+
+# develop ブランチから新規ブランチを作成
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 \
+  --base-branch develop
+
+# 未指定時は現在のブランチから分岐（従来動作）
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123
+```
+
+**動作仕様**:
+
+- `--base-branch` 指定時: 指定されたブランチにチェックアウト後、新規ブランチを作成
+- `--base-branch` 未指定時: 現在チェックアウトされているブランチから分岐（従来動作）
+- リモートブランチが既に存在する場合: `--base-branch` は無視され、既存ブランチをチェックアウト
+- ローカルブランチが既に存在する場合: `--base-branch` は無視され、既存ブランチをチェックアウト
+- 存在しないベースブランチを指定した場合: エラーメッセージを表示して終了
+
+**Jenkins 連携**:
+
+Jenkins Job DSL に `BASE_BRANCH` パラメータが追加されており、`Initialize Workflow` ステージで `--base-branch` オプションとして渡されます。
 
 ### エージェントモード
 

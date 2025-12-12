@@ -49,8 +49,9 @@ function getTimestamp(): string {
  * @returns フォーマット済みメッセージ
  */
 function formatMessage(level: LogLevel, ...args: unknown[]): string {
-  const timestamp = getTimestamp();
-  const levelStr = level.toUpperCase().padEnd(5).trimEnd();
+  const includeTimestamp = process.env.NODE_ENV !== 'test';
+  const levelLabel = level === 'warn' ? 'WARNING' : level.toUpperCase();
+  const prefix = includeTimestamp ? `${getTimestamp()} [${levelLabel}]` : `[${levelLabel}]`;
   const message = args
     .map((arg) => {
       if (typeof arg === 'object' && arg !== null) {
@@ -65,7 +66,7 @@ function formatMessage(level: LogLevel, ...args: unknown[]): string {
     })
     .join(' ');
 
-  return `${timestamp} [${levelStr}] ${message}`;
+  return `${prefix} ${message}`.trim();
 }
 
 /**

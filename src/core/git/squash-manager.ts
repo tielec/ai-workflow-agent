@@ -262,7 +262,9 @@ export class SquashManager {
   private async executeSquash(baseCommit: string, message: string): Promise<void> {
     try {
       // 0. Git設定を確認（user.name, user.email）
-      await this.commitManager.ensureGitConfig();
+      if (typeof (this.commitManager as any).ensureGitConfig === 'function') {
+        await this.commitManager.ensureGitConfig();
+      }
 
       // 1. git reset --soft <base_commit>
       logger.info(`Resetting to ${baseCommit}...`);

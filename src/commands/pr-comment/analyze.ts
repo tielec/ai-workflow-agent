@@ -5,9 +5,14 @@ import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
+import { GitHubClient } from '../../core/github-client.js';
 import { config } from '../../core/config.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
-import { getRepoRoot } from '../../core/repository-utils.js';
+import {
+  getRepoRoot,
+  parsePullRequestUrl,
+  resolveRepoPathFromPrUrl,
+} from '../../core/repository-utils.js';
 import type { PRCommentAnalyzeOptions } from '../../types/commands.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
@@ -22,9 +27,23 @@ import type {
  * pr-comment analyze コマンドハンドラ
  */
 export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOptions): Promise<void> {
+  let prNumber: number | undefined;
+  let repoRoot: string | undefined;
+
   try {
-    const prNumber = Number.parseInt(options.pr, 10);
-    const repoRoot = await getRepoRoot();
+    // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+    const prInfo = resolvePrInfo(options);
+    prNumber = prInfo.prNumber;
+    const prUrl = prInfo.prUrl;
+
+    repoRoot = prUrl
+      ? resolveRepoPathFromPrUrl(prUrl)
+      : await getRepoRoot();
+    logger.debug(
+      prUrl
+        ? `Resolved repository path from PR URL: ${repoRoot}`
+        : `Using current repository path: ${repoRoot}`,
+    );
     const metadataManager = new PRCommentMetadataManager(repoRoot, prNumber);
 
     if (!(await metadataManager.exists())) {
@@ -65,6 +84,20 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     await commitIfNeeded(repoRoot, '[ai-workflow] PR Comment: Analyze completed');
   } catch (error) {
     logger.error(`Failed to analyze PR comments: ${getErrorMessage(error)}`);
+    if (error instanceof Error && error.stack) {
+      logger.debug(`Stack trace: ${error.stack}`);
+    }
+
+    // Check if agent log was saved for debugging
+    if (repoRoot && prNumber) {
+      const baseDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
+      const logPath = path.join(baseDir, 'analyze', 'agent_log.md');
+      if (await fs.pathExists(logPath)) {
+        logger.info(`Agent log saved to: ${logPath}`);
+        logger.info('Please check the agent log for detailed error information.');
+      }
+    }
+
     process.exit(1);
   }
 }
@@ -78,8 +111,7 @@ async function analyzeComments(
 ): Promise<ResponsePlan> {
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
-  const outputFilePath = path.join(analyzeDir, 'response-plan.json');
-  const prompt = await buildAnalyzePrompt(prNumber, repoRoot, metadataManager, comments, outputFilePath);
+  const prompt = await buildAnalyzePrompt(prNumber, repoRoot, metadataManager, comments);
 
   if (!options.dryRun) {
     await fs.ensureDir(analyzeDir);
@@ -101,15 +133,35 @@ async function analyzeComments(
     }
   }
 
-  const plan = rawOutput.trim().length > 0
-    ? parseResponsePlan(rawOutput, prNumber)
-    : buildFallbackPlan(prNumber, comments);
+  if (rawOutput.trim().length === 0) {
+    logger.warn('Agent returned empty output. Using fallback plan.');
+    const fallbackPlan = buildFallbackPlan(prNumber, comments);
+    return {
+      ...fallbackPlan,
+      analyzed_at: new Date().toISOString(),
+      analyzer_agent: options.agent ?? 'auto',
+    };
+  }
 
-  return {
-    ...plan,
-    analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
-    analyzer_agent: plan.analyzer_agent ?? (options.agent ?? 'auto'),
-  };
+  logger.debug(`Agent output length: ${rawOutput.length} chars`);
+  logger.debug(`Agent output preview (first 200 chars): ${rawOutput.substring(0, 200)}`);
+
+  try {
+    const plan = parseResponsePlan(rawOutput, prNumber);
+    return {
+      ...plan,
+      analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
+      analyzer_agent: plan.analyzer_agent ?? (options.agent ?? 'auto'),
+    };
+  } catch (error) {
+    logger.error(`Failed to parse agent output, using fallback plan: ${getErrorMessage(error)}`);
+    const fallbackPlan = buildFallbackPlan(prNumber, comments);
+    return {
+      ...fallbackPlan,
+      analyzed_at: new Date().toISOString(),
+      analyzer_agent: 'fallback',
+    };
+  }
 }
 
 async function buildAnalyzePrompt(
@@ -117,9 +169,8 @@ async function buildAnalyzePrompt(
   repoRoot: string,
   metadataManager: PRCommentMetadataManager,
   comments: CommentMetadata[],
-  outputFilePath: string,
 ): Promise<string> {
-  const template = await fs.readFile(path.join(repoRoot, 'src', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
+  const template = await fs.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
   const metadata = await metadataManager.getMetadata();
 
   const commentBlocks: string[] = [];
@@ -131,8 +182,7 @@ async function buildAnalyzePrompt(
     .replace('{pr_number}', String(prNumber))
     .replace('{pr_title}', metadata.pr.title)
     .replace('{repo_path}', repoRoot)
-    .replace('{all_comments}', commentBlocks.join('\n\n'))
-    .replace('{output_file_path}', outputFilePath);
+    .replace('{all_comments}', commentBlocks.join('\n\n'));
 }
 
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {
@@ -168,16 +218,82 @@ async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Prom
 }
 
 function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
-  const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
-  const jsonString = jsonMatch ? jsonMatch[1] : rawOutput;
-  const parsed = JSON.parse(jsonString) as ResponsePlan;
+  try {
+    // Step 1: Extract JSON from markdown code block
+    const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
+    const jsonString = jsonMatch ? jsonMatch[1] : rawOutput;
 
-  if (!parsed.pr_number) {
-    parsed.pr_number = prNumber;
+    logger.debug(`Attempting to parse response plan (${jsonString.length} chars)`);
+
+    // Step 2: Parse JSON
+    const parsed = JSON.parse(jsonString) as ResponsePlan;
+
+    if (!parsed.pr_number) {
+      parsed.pr_number = prNumber;
+    }
+
+    parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
+    return parsed;
+  } catch (error) {
+    logger.error(`Failed to parse response plan: ${getErrorMessage(error)}`);
+    logger.debug(`Raw output preview (first 500 chars): ${rawOutput.substring(0, 500)}`);
+
+    // Try alternative parsing strategies
+    logger.warn('Attempting alternative JSON extraction strategies...');
+
+    // Strategy 1: Extract from JSON Lines format (Codex event stream)
+    // Look for the last complete JSON object that contains "comments" field
+    try {
+      logger.debug('Strategy 1: Searching for JSON in event stream...');
+      const lines = rawOutput.split('\n');
+
+      // Search backwards for a line containing valid JSON with "comments" field
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.length === 0) continue;
+
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.comments && Array.isArray(parsed.comments)) {
+            logger.debug(`Found valid response plan JSON at line ${i + 1}`);
+            if (!parsed.pr_number) {
+              parsed.pr_number = prNumber;
+            }
+            parsed.comments = (parsed.comments ?? []).map((c: ResponsePlanComment) => normalizePlanComment(c));
+            return parsed;
+          }
+        } catch {
+          // Skip invalid JSON lines
+          continue;
+        }
+      }
+      logger.debug('Strategy 1 failed: No valid JSON with "comments" field found in lines');
+    } catch (altError) {
+      logger.debug(`Strategy 1 failed: ${getErrorMessage(altError)}`);
+    }
+
+    // Strategy 2: Search for plain JSON object (no code block)
+    try {
+      logger.debug('Strategy 2: Searching for plain JSON object...');
+      const plainJsonMatch = rawOutput.match(/\{[\s\S]*"comments"[\s\S]*\}/);
+      if (plainJsonMatch) {
+        logger.debug('Found plain JSON pattern');
+        const parsed = JSON.parse(plainJsonMatch[0]) as ResponsePlan;
+        if (!parsed.pr_number) {
+          parsed.pr_number = prNumber;
+        }
+        parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
+        return parsed;
+      }
+      logger.debug('Strategy 2 failed: No plain JSON pattern found');
+    } catch (altError) {
+      logger.debug(`Strategy 2 failed: ${getErrorMessage(altError)}`);
+    }
+
+    // All strategies failed
+    logger.error('All parsing strategies failed. Using fallback plan.');
+    throw new Error(`Failed to parse agent response: ${getErrorMessage(error)}`);
   }
-
-  parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
-  return parsed;
 }
 
 function normalizePlanComment(comment: ResponsePlanComment): ResponsePlanComment {
@@ -311,6 +427,42 @@ function parseCommentIds(value?: string): Set<number> {
       .filter((v) => v.length > 0)
       .map((v) => Number.parseInt(v, 10)),
   );
+}
+
+/**
+ * PR URLまたはPR番号からリポジトリ情報とPR番号を解決
+ */
+function resolvePrInfo(options: PRCommentAnalyzeOptions): {
+  repositoryName: string;
+  prNumber: number;
+  prUrl?: string;
+} {
+  // --pr-url オプションが指定されている場合
+  if (options.prUrl) {
+    const prInfo = parsePullRequestUrl(options.prUrl);
+    logger.info(`Resolved from PR URL: ${prInfo.repositoryName}#${prInfo.prNumber}`);
+    return {
+      repositoryName: prInfo.repositoryName,
+      prNumber: prInfo.prNumber,
+      prUrl: options.prUrl,
+    };
+  }
+
+  // --pr オプションが指定されている場合（後方互換性）
+  if (options.pr) {
+    // GITHUB_REPOSITORY 環境変数から取得（従来の動作）
+    const githubClient = new GitHubClient();
+    const repoInfo = githubClient.getRepositoryInfo();
+    const repositoryName = repoInfo.repositoryName;
+    const prNumber = Number.parseInt(options.pr, 10);
+    logger.info(`Resolved from --pr option: ${repositoryName}#${prNumber}`);
+    return {
+      repositoryName,
+      prNumber,
+    };
+  }
+
+  throw new Error('Either --pr-url or --pr option is required.');
 }
 
 export const __testables = {

@@ -19,7 +19,11 @@ import { IssueGenerator } from '../core/issue-generator.js';
 import { resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
-import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
+import type {
+  AutoIssueOptions,
+  IssueCreationResult,
+  RawAutoIssueOptions,
+} from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
 
@@ -53,6 +57,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     logger.info(
       `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
+    if (options.customInstruction) {
+      logger.info(`Using custom instruction: ${options.customInstruction}`);
+    }
 
     if (options.customInstruction) {
       logger.info('Validating custom instruction...');
@@ -126,7 +133,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     if (options.category === 'bug') {
       logger.info('Analyzing repository for bugs...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const bugCandidates = await analyzer.analyze(repoPath, options.agent);
+      const bugCandidates = await analyzer.analyze(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${bugCandidates.length} bug candidates.`);
 
       if (bugCandidates.length === 0) {
@@ -145,7 +154,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     } else if (options.category === 'refactor') {
       logger.info('Analyzing repository for refactoring...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent);
+      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
 
       if (refactorCandidates.length === 0) {
@@ -168,7 +179,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       const enhancementProposals = await analyzer.analyzeForEnhancements(
         repoPath,
         options.agent,
-        { creativeMode: options.creativeMode },
+        { creativeMode: options.creativeMode, customInstruction: options.customInstruction },
       );
       logger.info(`Found ${enhancementProposals.length} enhancement proposals.`);
 

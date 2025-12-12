@@ -124,6 +124,7 @@ pipeline {
                     echo "Issue Number: ${env.ISSUE_NUMBER}"
                     echo "Repository Owner: ${env.REPO_OWNER}"
                     echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Base Branch: ${params.BASE_BRANCH ?: '(current branch)'}"
                     echo "Start Phase: ${params.START_PHASE ?: 'planning'}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Auto Model Selection: ${params.AUTO_MODEL_SELECTION ?: true}"
@@ -162,12 +163,14 @@ pipeline {
                             echo "[DRY RUN] Workflow initialization skipped"
                         } else {
                             def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+                            def baseBranchOption = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ""
                             def autoModelSelectionFlag = env.AUTO_MODEL_SELECTION == 'true' ? '--auto-model-selection' : ''
 
                             sh """
                                 node dist/index.js init \
                                     --issue-url ${params.ISSUE_URL} \
                                     ${branchOption} \
+                                    ${baseBranchOption} \
                                     ${autoModelSelectionFlag}
                             """
                         }

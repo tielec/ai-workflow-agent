@@ -205,6 +205,26 @@ export interface AutoIssueOptions {
    * true の場合、より実験的・創造的な提案を含める
    * enhancement カテゴリでのみ有効
    */
+ creativeMode?: boolean;
+
+  /**
+   * カスタム指示（解析の重点を示す任意入力、最大500文字）
+   */
+  customInstruction?: string;
+}
+
+/**
+ * CLIオプション（生の入力）
+ *
+ * commander から受け取る文字列中心のオプションを表します。
+ */
+export interface RawAutoIssueOptions {
+  category?: string;
+  limit?: string;
+  outputFile?: string;
+  dryRun?: boolean;
+  similarityThreshold?: string;
+  agent?: 'auto' | 'codex' | 'claude';
   creativeMode?: boolean;
 
   /**
@@ -397,4 +417,24 @@ export interface IssueCreationResult {
    * スキップ理由（重複等で作成しなかった場合）
    */
   skippedReason?: string;
+}
+
+/**
+ * カスタム指示検証結果
+ */
+export interface ValidationResult {
+  /**
+   * 検証結果（true: 有効、false: 無効）
+   */
+  isValid: boolean;
+
+  /**
+   * エラーメッセージ（無効な場合のみ）
+   */
+  errorMessage?: string;
+
+  /**
+   * 検出された危険パターン（無効な場合のみ）
+   */
+  detectedPattern?: string;
 }

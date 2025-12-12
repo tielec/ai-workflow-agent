@@ -32,10 +32,16 @@ export async function runCli(): Promise<void> {
     .command('init')
     .requiredOption('--issue-url <url>', 'GitHub Issue URL')
     .option('--branch <name>', 'Custom branch name (default: ai-workflow/issue-{issue_number})')
+    .option('--base-branch <branch>', 'Base branch to branch from (default: current branch)')
     .option('--auto-model-selection', 'Analyze issue difficulty and select models automatically')
     .action(async (options) => {
       try {
-        await handleInitCommand(options.issueUrl, options.branch, options.autoModelSelection);
+        await handleInitCommand(
+          options.issueUrl,
+          options.branch,
+          options.autoModelSelection,
+          options.baseBranch,
+        );
       } catch (error) {
         reportFatalError(error);
       }
@@ -226,6 +232,10 @@ export async function runCli(): Promise<void> {
       'Enable creative mode for enhancement proposals (experimental ideas)',
       false,
     )
+    .option(
+      '--custom-instruction <text>',
+      'Custom instruction for analysis guidance (max 500 chars, analysis-only)',
+    )
     .action(async (options) => {
       try {
         await handleAutoIssueCommand(options);
@@ -286,7 +296,8 @@ export async function runCli(): Promise<void> {
 
   prComment
     .command('analyze')
-    .requiredOption('--pr <number>', 'Pull Request number')
+    .option('--pr <number>', 'Pull Request number')
+    .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
     .option('--dry-run', 'Preview mode (do not save artifacts)', false)
     .addOption(

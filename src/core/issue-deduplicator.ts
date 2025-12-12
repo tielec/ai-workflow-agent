@@ -31,8 +31,7 @@ export interface ExistingIssue {
  * OPENAI_API_KEY が未設定の場合はコサイン類似度のみで判定します。
  */
 export class IssueDeduplicator {
-  private readonly openai: OpenAI | null;
-  private readonly llmEnabled: boolean;
+  private openaiClient: OpenAI | null;
 
   /**
    * コンストラクタ
@@ -43,12 +42,10 @@ export class IssueDeduplicator {
   constructor() {
     const apiKey = config.getOpenAiApiKey();
     if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
-      this.llmEnabled = true;
+      this.openaiClient = new OpenAI({ apiKey });
       logger.debug('IssueDeduplicator initialized with LLM support (OpenAI API)');
     } else {
-      this.openai = null;
-      this.llmEnabled = false;
+      this.openaiClient = null;
       logger.warn(
         'OPENAI_API_KEY is not set. Duplicate detection will use cosine similarity only (LLM validation disabled).',
       );
@@ -96,7 +93,7 @@ export class IssueDeduplicator {
 
         if (similarity >= threshold) {
           // 第2段階: LLM判定（LLM無効の場合はコサイン類似度のみで判定）
-          if (this.llmEnabled) {
+          if (this.openaiClient) {
             const llmResult = await this.checkDuplicateWithLLM(candidate, issue);
             if (llmResult) {
               logger.info(
@@ -175,7 +172,14 @@ export class IssueDeduplicator {
       return 0.0;
     }
 
-    return dotProduct / (magnitude1 * magnitude2);
+    const similarity = dotProduct / (magnitude1 * magnitude2);
+
+    // 浮動小数点誤差を吸収し、理論上1.0になるケースを正規化
+    if (Math.abs(similarity - 1.0) < 1e-12) {
+      return 1.0;
+    }
+
+    return similarity;
   }
 
   /**
@@ -192,7 +196,7 @@ export class IssueDeduplicator {
     issue: ExistingIssue,
   ): Promise<boolean> {
     // OpenAI クライアントが初期化されていない場合はフォールバック
-    if (!this.openai) {
+    if (!this.openaiClient) {
       logger.debug('LLM check skipped: OpenAI client not initialized');
       return false;
     }
@@ -212,7 +216,7 @@ Issue 2:
   `.trim();
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const response = await this.openaiClient.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.0,
