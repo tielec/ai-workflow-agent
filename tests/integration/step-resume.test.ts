@@ -17,6 +17,7 @@ import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { ResumeManager } from '../../src/utils/resume.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import { logger } from '../../src/utils/logger.js';
+import { setFsExtra } from '../../src/utils/fs-proxy.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'step-resume-test');
@@ -30,11 +31,13 @@ describe('ステップレジュームの統合テスト', () => {
     // テスト用ディレクトリを作成
     await fs.ensureDir(TEST_DIR);
     testMetadataPath = path.join(TEST_DIR, 'metadata.json');
+    setFsExtra(fs as any);
   });
 
   afterAll(async () => {
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
+    setFsExtra(null);
   });
 
   test('TC-I-003: executeステップスキップ（レジューム）', async () => {
@@ -311,10 +314,12 @@ describe('メタデータマイグレーションの統合テスト', () => {
 
   beforeAll(async () => {
     await fs.ensureDir(TEST_DIR);
+    setFsExtra(fs as any);
   });
 
   afterAll(async () => {
     await fs.remove(TEST_DIR);
+    setFsExtra(null);
   });
 
   test('TC-I-012: 既存ワークフローのマイグレーション', async () => {
@@ -457,10 +462,12 @@ describe('エッジケースの統合テスト', () => {
 
   beforeAll(async () => {
     await fs.ensureDir(TEST_DIR);
+    setFsExtra(fs as any);
   });
 
   afterAll(async () => {
     await fs.remove(TEST_DIR);
+    setFsExtra(null);
   });
 
   test('TC-I-017: メタデータ不整合の検出', async () => {

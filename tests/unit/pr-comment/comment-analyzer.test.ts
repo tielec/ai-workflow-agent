@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import fs from 'fs-extra';
+import { setFsExtra } from '../../../src/utils/fs-proxy.js';
 import path from 'node:path';
 import { ReviewCommentAnalyzer } from '../../../src/core/pr-comment/comment-analyzer.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
@@ -40,12 +41,14 @@ describe('ReviewCommentAnalyzer', () => {
     jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
     jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
     readFileSpy = jest.spyOn(fs, 'readFile');
+    setFsExtra(fs as any);
 
     analyzer = new ReviewCommentAnalyzer(promptsDir, outputDir);
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    setFsExtra(undefined as any);
   });
 
   it('classifies comments by keyword patterns', () => {

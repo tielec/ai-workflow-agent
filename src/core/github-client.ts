@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { Octokit } from '@octokit/rest';
@@ -19,6 +19,8 @@ import {
 import { IssueAgentGenerator } from './github/issue-agent-generator.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
+
+const fs = getFsExtra();
 
 // Re-export types for backward compatibility
 export type {

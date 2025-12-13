@@ -399,7 +399,7 @@ describe('RemoteManager - GitHub Credentials', () => {
 
       // Then: 警告ログが出力される（例外はthrowされない）
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[WARNING] Failed to setup GitHub credentials')
+        expect.stringContaining('Failed to setup GitHub credentials')
       );
 
       consoleWarnSpy.mockRestore();

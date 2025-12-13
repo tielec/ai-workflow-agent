@@ -58,6 +58,7 @@ beforeAll(async () => {
         getMetadata: jest.fn().mockResolvedValue({ pr: { title: prTitle } }),
         setAnalyzeCompletedAt: jest.fn().mockResolvedValue(undefined),
         setResponsePlanPath: jest.fn().mockResolvedValue(undefined),
+        setAnalyzeError: jest.fn().mockResolvedValue(undefined),
       };
       return currentMetadataManager;
     }),
@@ -166,6 +167,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
       path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'response-plan.md'),
     );
     expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed');
+    expect(processExitSpy).not.toHaveBeenCalled();
   });
 
   it('skips file writes and metadata updates in dry-run mode', async () => {
@@ -256,7 +258,10 @@ describe('handlePRCommentAnalyzeCommand', () => {
     }) as any);
 
     await expect(handlePRCommentAnalyzeCommand({ pr: '123' })).rejects.toThrow('exit called');
-    expect(fs.writeFile).not.toHaveBeenCalledWith(expect.stringContaining('response-plan.md'), expect.anything(), 'utf-8');
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: fallback');
     expect(processExitSpy).toHaveBeenCalledWith(1);
   });
 
@@ -303,5 +308,58 @@ describe('handlePRCommentAnalyzeCommand', () => {
     expect(logger.info).toHaveBeenCalledWith('No pending comments to analyze.');
     expect(fs.writeFile).not.toHaveBeenCalled();
     expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('records analyze error and exits with code 1 when parsing fails', async () => {
+    // Given invalid agent output, when all parsing strategies fail, then fallback plan is used and exit code is 1
+    agentExecuteTaskMock.mockResolvedValue(['not valid json']);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    expect(currentMetadataManager.setAnalyzeError).toHaveBeenCalledWith(
+      'Fallback plan used due to parsing failure or empty agent output',
+    );
+    expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed (fallback)');
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: fallback');
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('All parsing strategies failed'));
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('warns and does not exit in dry-run mode when fallback is used', async () => {
+    // Given dry-run and invalid output, when fallback triggers, then it logs but does not write files or exit
+    agentExecuteTaskMock.mockResolvedValue(['invalid output']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: true, agent: 'auto' });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[DRY-RUN] Fallback plan was used. In actual run, exit code would be 1.',
+    );
+    expect(fs.writeFile).not.toHaveBeenCalledWith(expect.stringContaining('response-plan.md'), expect.anything(), 'utf-8');
+    expect(currentMetadataManager.setAnalyzeError).not.toHaveBeenCalled();
+    expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('sets analyzer_agent to fallback when agent returns empty output', async () => {
+    // Given empty agent output, when fallback plan is built, then analyzer agent is marked as fallback and process exits
+    agentExecuteTaskMock.mockResolvedValue(['']);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: fallback');
+    expect(currentMetadataManager.setAnalyzeError).toHaveBeenCalled();
+    expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed (fallback)');
+    expect(logger.warn).toHaveBeenCalledWith('Agent returned empty output. Using fallback plan.');
   });
 });

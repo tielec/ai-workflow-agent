@@ -275,6 +275,7 @@ export async function runCli(): Promise<void> {
     .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--issue <number>', 'Issue number to resolve PR from')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .option('--force', 'Force reinitialization even if metadata exists', false)
     .action(async (options) => {
       try {
         await handlePRCommentInitCommand(options);

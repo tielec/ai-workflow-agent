@@ -1,7 +1,9 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import path from 'node:path';
 
 export const CODEX_MIN_API_KEY_LENGTH = 20;
+
+const fs = getFsExtra();
 
 export function isValidCodexApiKey(apiKey: string | null | undefined): apiKey is string {
   if (!apiKey) {

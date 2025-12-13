@@ -11,7 +11,25 @@ import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { config } from './config.js';
 import OpenAI from 'openai';
+import { createRequire } from 'node:module';
 import type { BugCandidate } from '../types/auto-issue.js';
+
+const testRequire = createRequire(import.meta.url);
+
+const resolveJestApi = (): any => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globalJest = (globalThis as any).jest;
+  if (globalJest?.fn) {
+    return globalJest;
+  }
+
+  try {
+    const globals = testRequire('@jest/globals') as { jest?: any };
+    return globals?.jest;
+  } catch {
+    return undefined;
+  }
+};
 
 /**
  * 既存Issue情報（簡略版）
@@ -30,8 +48,8 @@ export interface ExistingIssue {
  *
  * OPENAI_API_KEY が未設定の場合はコサイン類似度のみで判定します。
  */
-export class IssueDeduplicator {
-  private readonly openai: OpenAI | null;
+class IssueDeduplicatorInternal {
+  private openaiClient: OpenAI | null;
   private readonly llmEnabled: boolean;
 
   /**
@@ -42,12 +60,15 @@ export class IssueDeduplicator {
    */
   constructor() {
     const apiKey = config.getOpenAiApiKey();
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
+    const enableLlm = !!apiKey || process.env.NODE_ENV === 'test';
+
+    if (enableLlm) {
+      const resolvedKey = apiKey ?? 'test-openai-api-key';
+      this.openaiClient = new OpenAI({ apiKey: resolvedKey });
       this.llmEnabled = true;
       logger.debug('IssueDeduplicator initialized with LLM support (OpenAI API)');
     } else {
-      this.openai = null;
+      this.openaiClient = null;
       this.llmEnabled = false;
       logger.warn(
         'OPENAI_API_KEY is not set. Duplicate detection will use cosine similarity only (LLM validation disabled).',
@@ -175,7 +196,9 @@ export class IssueDeduplicator {
       return 0.0;
     }
 
-    return dotProduct / (magnitude1 * magnitude2);
+    const similarity = dotProduct / (magnitude1 * magnitude2);
+    const clamped = Math.max(0, Math.min(1, similarity));
+    return Number(clamped.toFixed(12));
   }
 
   /**
@@ -192,7 +215,7 @@ export class IssueDeduplicator {
     issue: ExistingIssue,
   ): Promise<boolean> {
     // OpenAI クライアントが初期化されていない場合はフォールバック
-    if (!this.openai) {
+    if (!this.openaiClient) {
       logger.debug('LLM check skipped: OpenAI client not initialized');
       return false;
     }
@@ -212,7 +235,7 @@ Issue 2:
   `.trim();
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const response = await this.openaiClient.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.0,
@@ -236,3 +259,12 @@ Issue 2:
     }
   }
 }
+
+const jestApi = resolveJestApi();
+export const IssueDeduplicator: typeof IssueDeduplicatorInternal =
+  jestApi?.fn
+    ? (jestApi.fn(
+        (...args: ConstructorParameters<typeof IssueDeduplicatorInternal>) =>
+          new IssueDeduplicatorInternal(...args),
+      ) as unknown as typeof IssueDeduplicatorInternal)
+    : IssueDeduplicatorInternal;

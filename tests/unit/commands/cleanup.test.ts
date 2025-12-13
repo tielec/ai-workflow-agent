@@ -17,16 +17,11 @@ import {
 import type { CleanupCommandOptions } from '../../../src/commands/cleanup.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
+import { createFsExtraMock } from '../../helpers/fs-extra-mock.js';
 
 // fs-extraのモック - モック化してからインポート
-jest.mock('fs-extra', () => ({
-  existsSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  readdirSync: jest.fn(),
-}));
+const fsExtraMock = createFsExtraMock();
+jest.mock('fs-extra', () => fsExtraMock);
 
 import * as fs from 'fs-extra';
 

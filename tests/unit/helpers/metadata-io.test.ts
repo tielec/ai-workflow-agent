@@ -4,13 +4,28 @@ import {
   removeWorkflowDirectory,
   getPhaseOutputFilePath,
 } from '../../../src/core/helpers/metadata-io.js';
-import fs from 'fs-extra';
 import { jest } from '@jest/globals';
+import { createFsExtraMock } from '../../helpers/fs-extra-mock.js';
+import { setFsExtra } from '../../../src/utils/fs-proxy.js';
 
 describe('metadata-io', () => {
+  let fsMockModule: ReturnType<typeof createFsExtraMock>;
+  let fsMock: jest.Mocked<typeof import('fs-extra')>;
+
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    fsMockModule = createFsExtraMock();
+    fsMock = fsMockModule.default as jest.Mocked<typeof import('fs-extra')>;
+    setFsExtra(fsMock as any);
+    fsMock.existsSync.mockReturnValue(false);
+    jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    setFsExtra(null);
+    jest.restoreAllMocks();
   });
 
   describe('formatTimestampForFilename', () => {
@@ -56,18 +71,14 @@ describe('metadata-io', () => {
     it('正常系: バックアップファイルが作成される', () => {
       // Given: テスト用metadata.jsonファイルパス
       const metadataPath = '/path/to/metadata.json';
-      const copyFileSyncSpy = jest
-        .spyOn(fs, 'copyFileSync')
-        .mockImplementation(() => undefined);
-      const consoleInfoSpy = jest
-        .spyOn(console, 'info')
-        .mockImplementation(() => undefined);
+      fsMock.copyFileSync.mockImplementation(() => undefined);
+      const consoleInfoSpy = jest.spyOn(console, 'info');
 
       // When: backupMetadataFile関数を呼び出す
       const result = backupMetadataFile(metadataPath);
 
       // Then: fs.copyFileSync()が呼ばれる
-      expect(copyFileSyncSpy).toHaveBeenCalled();
+      expect(fsMock.copyFileSync).toHaveBeenCalled();
       // バックアップファイルパスが返される
       expect(result).toMatch(/metadata\.json\.backup_\d{8}_\d{6}$/);
       // コンソールログ出力がある
@@ -80,7 +91,7 @@ describe('metadata-io', () => {
 
     it('正常系: 元のファイル名を維持したバックアップが作成される', () => {
       const metadataPath = '/path/to/custom-metadata.json';
-      jest.spyOn(fs, 'copyFileSync').mockImplementation(() => undefined);
+      fsMock.copyFileSync.mockImplementation(() => undefined);
 
       const result = backupMetadataFile(metadataPath);
 
@@ -90,7 +101,7 @@ describe('metadata-io', () => {
     it('異常系: ファイルが存在しない場合、例外がスローされる', () => {
       // Given: 存在しないファイルパス
       const nonexistentPath = '/path/to/nonexistent.json';
-      jest.spyOn(fs, 'copyFileSync').mockImplementation(() => {
+      fsMock.copyFileSync.mockImplementation(() => {
         throw new Error('ENOENT: no such file or directory');
       });
 
@@ -109,23 +120,17 @@ describe('metadata-io', () => {
     it('正常系: ディレクトリが削除される', () => {
       // Given: テスト用ディレクトリパス
       const workflowDir = '/path/to/.ai-workflow/issue-26';
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockReturnValue(true);
-      const removeSyncSpy = jest
-        .spyOn(fs, 'removeSync')
-        .mockImplementation(() => undefined);
-      const consoleInfoSpy = jest
-        .spyOn(console, 'info')
-        .mockImplementation(() => undefined);
+      fsMock.existsSync.mockReturnValue(true);
+      fsMock.removeSync.mockImplementation(() => undefined);
+      const consoleInfoSpy = jest.spyOn(console, 'info');
 
       // When: removeWorkflowDirectory関数を呼び出す
       removeWorkflowDirectory(workflowDir);
 
       // Then: fs.existsSync()が呼ばれる
-      expect(existsSyncSpy).toHaveBeenCalledWith(workflowDir);
+      expect(fsMock.existsSync).toHaveBeenCalledWith(workflowDir);
       // fs.removeSync()が呼ばれる
-      expect(removeSyncSpy).toHaveBeenCalledWith(workflowDir);
+      expect(fsMock.removeSync).toHaveBeenCalledWith(workflowDir);
       // コンソールログ出力がある
       expect(consoleInfoSpy).toHaveBeenCalledWith(
         expect.stringContaining('[INFO] Removing workflow directory:')
@@ -137,20 +142,16 @@ describe('metadata-io', () => {
     it('正常系: ディレクトリが存在しない場合、削除処理がスキップされる', () => {
       // Given: 存在しないディレクトリパス
       const nonexistentDir = '/path/to/.ai-workflow/issue-99';
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockReturnValue(false);
-      const removeSyncSpy = jest
-        .spyOn(fs, 'removeSync')
-        .mockImplementation(() => undefined);
+      fsMock.existsSync.mockReturnValue(false);
+      fsMock.removeSync.mockImplementation(() => undefined);
 
       // When: removeWorkflowDirectory関数を呼び出す
       removeWorkflowDirectory(nonexistentDir);
 
       // Then: fs.existsSync()が呼ばれる
-      expect(existsSyncSpy).toHaveBeenCalledWith(nonexistentDir);
+      expect(fsMock.existsSync).toHaveBeenCalledWith(nonexistentDir);
       // fs.removeSync()は呼ばれない
-      expect(removeSyncSpy).not.toHaveBeenCalled();
+      expect(fsMock.removeSync).not.toHaveBeenCalled();
     });
   });
 
@@ -186,28 +187,24 @@ describe('metadata-io', () => {
     it('正常系: testingフェーズでreview/result.mdが存在すればそのパスを返す', () => {
       const workflowDir = '/path/to/.ai-workflow/issue-38';
       const reviewPath = `${workflowDir}/06_testing/review/result.md`;
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockImplementation((targetPath) => targetPath === reviewPath);
+      fsMock.existsSync.mockImplementation((targetPath) => targetPath === reviewPath);
 
       const result = getPhaseOutputFilePath('testing' as any, workflowDir);
 
       expect(result).toBe(reviewPath);
-      expect(existsSyncSpy).toHaveBeenCalledWith(reviewPath);
+      expect(fsMock.existsSync).toHaveBeenCalledWith(reviewPath);
     });
 
     it('正常系: testingフェーズでreview/result.mdが無ければ従来パスを返す', () => {
       const workflowDir = '/path/to/.ai-workflow/issue-26';
       const reviewPath = `${workflowDir}/06_testing/review/result.md`;
       const legacyPath = `${workflowDir}/06_testing/output/test-result.md`;
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockImplementation(() => false);
+      fsMock.existsSync.mockImplementation(() => false);
 
       const result = getPhaseOutputFilePath('testing' as any, workflowDir);
 
       expect(result).toBe(legacyPath);
-      expect(existsSyncSpy).toHaveBeenCalledWith(reviewPath);
+      expect(fsMock.existsSync).toHaveBeenCalledWith(reviewPath);
     });
 
     it('異常系: 無効なフェーズ名の場合、nullが返される', () => {

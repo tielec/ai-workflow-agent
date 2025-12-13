@@ -48,6 +48,13 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
     __esModule: true,
     getRepoRoot: getRepoRootMock,
+    parsePullRequestUrl: jest.fn((url: string) => ({
+      owner: 'owner',
+      repo: 'repo',
+      prNumber: Number.parseInt(url.split('/').pop() ?? '0', 10) || 0,
+      repositoryName: 'owner/repo',
+    })),
+    resolveRepoPathFromPrUrl: jest.fn(() => '/repo'),
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -55,7 +62,7 @@ beforeAll(async () => {
     PRCommentMetadataManager: jest.fn().mockImplementation(() => {
       currentMetadataManager = {
         exists: jest.fn().mockResolvedValue(true),
-        load: jest.fn().mockResolvedValue(undefined),
+        load: jest.fn().mockResolvedValue({ pr: { branch: 'feature/test' } }),
         getPendingComments: jest.fn(async () => pendingComments),
         getSummary: jest.fn().mockResolvedValue({
           by_status: { completed: 1, skipped: 0, failed: 0 },
@@ -64,6 +71,9 @@ beforeAll(async () => {
         setReplyCommentId: jest.fn().mockResolvedValue(undefined),
         setExecuteCompletedAt: jest.fn().mockResolvedValue(undefined),
         setExecutionResultPath: jest.fn().mockResolvedValue(undefined),
+        metadataPath: '/repo/.ai-workflow/pr-123/metadata.json',
+        workflowDir: '/repo/.ai-workflow/pr-123',
+        metadata: { pr: { branch: 'feature/test' } },
       };
       return currentMetadataManager;
     }),
@@ -86,6 +96,7 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/github-client.js', () => ({
     __esModule: true,
     GitHubClient: jest.fn().mockImplementation(() => ({
+      getRepositoryInfo: () => ({ repositoryName: 'owner/repo' }),
       commentClient: {
         replyToPRReviewComment: githubReplyMock,
       },
@@ -102,6 +113,8 @@ beforeAll(async () => {
     __esModule: true,
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
+      getGitCommitUserName: jest.fn(() => 'AI Workflow Bot'),
+      getGitCommitUserEmail: jest.fn(() => 'ai-workflow@example.com'),
     },
   }));
 
@@ -111,6 +124,8 @@ beforeAll(async () => {
       status: simpleGitStatusMock,
       add: simpleGitAddMock,
       commit: simpleGitCommitMock,
+      addConfig: jest.fn().mockResolvedValue(undefined),
+      push: jest.fn().mockResolvedValue(undefined),
     })),
   }));
 

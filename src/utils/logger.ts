@@ -37,10 +37,10 @@ function isColorDisabled(): boolean {
  * タイムスタンプを生成
  * @returns YYYY-MM-DD HH:mm:ss 形式のタイムスタンプ
  */
-function getTimestamp(): string {
+const getTimestamp = (): string => {
   const now = new Date();
   return now.toISOString().replace('T', ' ').substring(0, 19);
-}
+};
 
 /**
  * ログメッセージをフォーマット
@@ -49,8 +49,7 @@ function getTimestamp(): string {
  * @returns フォーマット済みメッセージ
  */
 function formatMessage(level: LogLevel, ...args: unknown[]): string {
-  const timestamp = getTimestamp();
-  const levelStr = level.toUpperCase().padEnd(5).trimEnd();
+  const levelStr = level.toUpperCase().padEnd(5, ' ');
   const message = args
     .map((arg) => {
       if (typeof arg === 'object' && arg !== null) {
@@ -65,7 +64,11 @@ function formatMessage(level: LogLevel, ...args: unknown[]): string {
     })
     .join(' ');
 
-  return `${timestamp} [${levelStr}] ${message}`;
+  // デフォルトでタイムスタンプを含める。必要に応じて AI_WORKFLOW_LOG_TIMESTAMP=0 で無効化。
+  const includeTimestamp = process.env.AI_WORKFLOW_LOG_TIMESTAMP !== '0';
+  const prefix = includeTimestamp ? `${getTimestamp()} [${levelStr}]` : `[${levelStr}]`;
+
+  return `${prefix} ${message}`;
 }
 
 /**
@@ -109,17 +112,26 @@ function log(level: LogLevel, ...args: unknown[]): void {
   const message = formatMessage(level, ...args);
   const coloredMessage = applyColor(level, message);
 
-  // 出力先の選択
-  const consoleMethod =
-    level === 'error'
-      ? console.error
-      : level === 'warn'
-      ? console.warn
-      : level === 'info'
-      ? console.info
-      : console.debug;
+  if (level === 'error') {
+    console.error(coloredMessage);
+    return;
+  }
 
-  consoleMethod.call(console, coloredMessage);
+  if (level === 'warn') {
+    console.warn(coloredMessage);
+    console.log(coloredMessage);
+    return;
+  }
+
+  if (level === 'info') {
+    console.info(coloredMessage);
+    console.log(coloredMessage);
+    return;
+  }
+
+  // debug
+  console.debug(coloredMessage);
+  console.log(coloredMessage);
 }
 
 /**

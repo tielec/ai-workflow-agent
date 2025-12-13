@@ -1,10 +1,12 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, PhaseStatus } from '../types.js';
 import { buildErrorMessage, buildWarningMessage } from './helpers/dependency-messages.js';
 import { getPhaseOutputFilePath } from './helpers/metadata-io.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+
+const fs = getFsExtra();
 
 export const PHASE_DEPENDENCIES: Record<PhaseName, PhaseName[]> = {
   planning: [],

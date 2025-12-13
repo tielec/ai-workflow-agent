@@ -191,6 +191,20 @@ describe('PRCommentMetadataManager', () => {
     expect(removeSpy).toHaveBeenCalledWith(path.dirname(metadataPath));
   });
 
+  it('records analyze errors and clears them when requested', async () => {
+    (manager as any).metadata = buildBaseMetadata();
+
+    await manager.setAnalyzeError('Fallback plan used due to parsing failure');
+
+    expect((manager as any).metadata.analyze_error).toBe('Fallback plan used due to parsing failure');
+    expect(writeFileSpy).toHaveBeenCalled();
+
+    await manager.clearAnalyzeError();
+
+    expect((manager as any).metadata.analyze_error).toBeNull();
+    expect(writeFileSpy).toHaveBeenCalledTimes(2);
+  });
+
   function buildBaseMetadata(): CommentResolutionMetadata {
     return {
       version: '1.0.0',
@@ -243,6 +257,11 @@ describe('PRCommentMetadataManager', () => {
       },
       created_at: '2025-01-20T12:00:00.000Z',
       updated_at: '2025-01-20T12:00:00.000Z',
+      analyze_completed_at: null,
+      analyze_error: null,
+      execute_completed_at: null,
+      response_plan_path: null,
+      execution_result_path: null,
     };
   }
 });

@@ -135,8 +135,10 @@ export class PullRequestClient {
         state: pr.state ?? 'open',
       };
     } catch (error) {
+      const message = getErrorMessage(error);
+      console.warn(`[WARNING] Failed to check existing PR: ${message}`);
       logger.warn(
-        `Failed to check existing PR: ${this.encodeWarning(getErrorMessage(error))}`,
+        `Failed to check existing PR: ${this.encodeWarning(message)}`,
       );
       return null;
     }
@@ -193,6 +195,7 @@ export class PullRequestClient {
         state: 'closed',
       });
 
+      console.info(`[INFO] Closed pull request #${prNumber}`);
       logger.info(`Closed pull request #${prNumber}`);
       return { success: true, error: null };
     } catch (error) {

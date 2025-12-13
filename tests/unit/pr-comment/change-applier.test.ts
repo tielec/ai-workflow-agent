@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { CodeChangeApplier } from '../../../src/core/pr-comment/change-applier.js';
+import { setFsExtra } from '../../../src/utils/fs-proxy.js';
 
 describe('CodeChangeApplier', () => {
   const repoPath = '/repo';
@@ -16,8 +17,13 @@ describe('CodeChangeApplier', () => {
     writeFileSpy = jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
     jest.spyOn(fs, 'pathExists').mockResolvedValue(false as any);
     jest.spyOn(fs, 'remove').mockResolvedValue(undefined);
+    setFsExtra(fs as any);
 
     applier = new CodeChangeApplier(repoPath);
+  });
+
+  afterEach(() => {
+    setFsExtra(undefined as any);
   });
 
   it('rejects absolute and traversal paths', () => {

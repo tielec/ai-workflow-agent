@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { dirname, join } from 'node:path';
 import { WorkflowState } from './workflow-state.js';
@@ -32,6 +32,8 @@ const PHASE_ORDER: PhaseName[] = [
   'evaluation',
 ];
 
+const fs = getFsExtra();
+
 export class MetadataManager {
   public readonly metadataPath: string;
   public readonly workflowDir: string;
@@ -41,6 +43,22 @@ export class MetadataManager {
     this.metadataPath = metadataPath;
     this.workflowDir = dirname(metadataPath);
     this.state = WorkflowState.load(metadataPath);
+  }
+
+  private normalizePhaseName(phaseName: PhaseName | string): PhaseName {
+    const mapping: Record<string, PhaseName> = {
+      '00_planning': 'planning',
+      '01_requirements': 'requirements',
+      '02_design': 'design',
+      '03_test_scenario': 'test_scenario',
+      '04_implementation': 'implementation',
+      '05_test_implementation': 'test_implementation',
+      '06_testing': 'testing',
+      '07_documentation': 'documentation',
+      '08_report': 'report',
+      '09_evaluation': 'evaluation',
+    };
+    return (mapping[phaseName] ?? phaseName) as PhaseName;
   }
 
   private ensurePhaseData(
@@ -111,20 +129,21 @@ export class MetadataManager {
       reviewResult?: string;
     } = {},
   ): void {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const normalizedPhase = this.normalizePhaseName(phaseName);
+    const phaseData = this.ensurePhaseData(normalizedPhase);
     const currentStatus = phaseData.status;
 
     // Issue #248: 冪等性チェック（同じステータスへの重複更新をスキップ）
     if (currentStatus === status) {
-      logger.info(`Phase ${phaseName}: Status already set to '${status}', skipping update`);
+      logger.info(`Phase ${normalizedPhase}: Status already set to '${status}', skipping update`);
       return;
     }
 
     // Issue #248: ステータス遷移バリデーション（不正な遷移を検出）
-    this.validateStatusTransition(phaseName, currentStatus, status);
+    this.validateStatusTransition(normalizedPhase, currentStatus, status);
 
     // 既存のステータス更新処理
-    this.state.updatePhaseStatus(phaseName, status);
+    this.state.updatePhaseStatus(normalizedPhase, status);
 
     if (options.outputFile) {
       if (!phaseData.output_files) {
@@ -139,7 +158,7 @@ export class MetadataManager {
 
     this.state.save();
 
-    logger.debug(`Phase ${phaseName}: Status updated from '${currentStatus}' to '${status}'`);
+    logger.debug(`Phase ${normalizedPhase}: Status updated from '${currentStatus}' to '${status}'`);
   }
 
   /**
@@ -213,7 +232,7 @@ export class MetadataManager {
   }
 
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {
-    return this.state.getPhaseStatus(phaseName);
+    return this.state.getPhaseStatus(this.normalizePhaseName(phaseName));
   }
 
   public setDesignDecision(key: string, value: string): void {
@@ -222,7 +241,7 @@ export class MetadataManager {
   }
 
   public incrementRetryCount(phaseName: PhaseName): number {
-    const count = this.state.incrementRetryCount(phaseName);
+    const count = this.state.incrementRetryCount(this.normalizePhaseName(phaseName));
     this.state.save();
     return count;
   }
@@ -230,6 +249,7 @@ export class MetadataManager {
   public clear(): void {
     if (fs.existsSync(this.metadataPath)) {
       logger.info(`Clearing metadata: ${this.metadataPath}`);
+      console.info(`[INFO] Clearing metadata: ${this.metadataPath}`);
       fs.removeSync(this.metadataPath);
     }
 
@@ -348,7 +368,8 @@ export class MetadataManager {
     phaseName: PhaseName,
     step: StepName | null,
   ): void {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const normalizedPhase = this.normalizePhaseName(phaseName);
+    const phaseData = this.ensurePhaseData(normalizedPhase);
     phaseData.current_step = step;
     this.save();
   }
@@ -360,7 +381,7 @@ export class MetadataManager {
     phaseName: PhaseName,
     step: StepName,
   ): void {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     if (!phaseData.completed_steps) {
       phaseData.completed_steps = [];
     }
@@ -379,7 +400,7 @@ export class MetadataManager {
    * Issue #10: completed_stepsを取得
    */
   public getCompletedSteps(phaseName: PhaseName): StepName[] {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     return phaseData.completed_steps ?? [];
   }
 
@@ -387,7 +408,7 @@ export class MetadataManager {
    * Issue #10: current_stepを取得
    */
   public getCurrentStep(phaseName: PhaseName): StepName | null {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     return phaseData.current_step ?? null;
   }
 
@@ -400,7 +421,7 @@ export class MetadataManager {
     phaseName: PhaseName,
     context: import('../types/commands.js').RollbackContext,
   ): void {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     phaseData.rollback_context = context;
     this.save();
 
@@ -415,7 +436,7 @@ export class MetadataManager {
   public getRollbackContext(
     phaseName: PhaseName,
   ): import('../types/commands.js').RollbackContext | null {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     return phaseData.rollback_context ?? null;
   }
 
@@ -424,7 +445,7 @@ export class MetadataManager {
    * @param phaseName - 対象フェーズ名
    */
   public clearRollbackContext(phaseName: PhaseName): void {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(this.normalizePhaseName(phaseName));
     phaseData.rollback_context = null;
     this.save();
 
@@ -465,7 +486,8 @@ export class MetadataManager {
     valid: boolean;
     warnings: string[];
   } {
-    const phaseData = this.ensurePhaseData(phaseName);
+    const normalizedPhase = this.normalizePhaseName(phaseName);
+    const phaseData = this.ensurePhaseData(normalizedPhase);
     const warnings: string[] = [];
 
     // パターン1: status === 'pending' かつ completed_steps が存在
@@ -474,7 +496,7 @@ export class MetadataManager {
       (phaseData.completed_steps ?? []).length > 0
     ) {
       warnings.push(
-        `Phase ${phaseName}: status is 'pending' but completed_steps is not empty ` +
+        `Phase ${normalizedPhase}: status is 'pending' but completed_steps is not empty ` +
         `(${JSON.stringify(phaseData.completed_steps)})`
       );
     }
@@ -485,7 +507,7 @@ export class MetadataManager {
       (phaseData.completed_steps ?? []).length === 0
     ) {
       warnings.push(
-        `Phase ${phaseName}: status is 'completed' but completed_steps is empty`
+        `Phase ${normalizedPhase}: status is 'completed' but completed_steps is empty`
       );
     }
 
@@ -495,7 +517,7 @@ export class MetadataManager {
       phaseData.started_at === null
     ) {
       warnings.push(
-        `Phase ${phaseName}: status is 'in_progress' but started_at is null`
+        `Phase ${normalizedPhase}: status is 'in_progress' but started_at is null`
       );
     }
 
@@ -516,10 +538,11 @@ export class MetadataManager {
    * @param toStep - 差し戻し先ステップ（'execute' | 'review' | 'revise'）
    */
   public updatePhaseForRollback(phaseName: PhaseName, toStep: StepName): void {
+    const normalizedPhase = this.normalizePhaseName(phaseName);
     // Issue #208: 整合性チェック（警告のみ、処理継続）
-    this.validatePhaseConsistency(phaseName);
+    this.validatePhaseConsistency(normalizedPhase);
 
-    const phaseData = this.ensurePhaseData(phaseName);
+    const phaseData = this.ensurePhaseData(normalizedPhase);
 
     phaseData.status = 'in_progress';
     phaseData.current_step = toStep;
@@ -544,7 +567,7 @@ export class MetadataManager {
 
     this.save();
 
-    logger.info(`Phase ${phaseName} updated for rollback: status=in_progress, current_step=${toStep}, completed_steps=${JSON.stringify(phaseData.completed_steps)}`);
+    logger.info(`Phase ${normalizedPhase} updated for rollback: status=in_progress, current_step=${toStep}, completed_steps=${JSON.stringify(phaseData.completed_steps)}`);
   }
 
   /**

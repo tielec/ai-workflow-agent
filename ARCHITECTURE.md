@@ -117,8 +117,11 @@ src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド
      ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
      └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
 
-src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
+src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張、Issue #421でResume機能追加)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
+ │   ├─ [NEW] メタデータ存在チェック（Resume機能）
+ │   ├─ [NEW] --force オプションによる強制再初期化
+ │   └─ 既存メタデータ存在時の自動スキップ処理
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
@@ -135,7 +138,7 @@ src/commands/pr-comment/finalize.ts (PRコメント自動対応: 完了コマン
  ├─ resolveCompletedThreads() … 完了スレッドを解決
  └─ PRCommentMetadataManager.cleanup() … メタデータクリーンアップ
 
-src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加)
+src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加、Issue #421でエラー処理拡張)
  ├─ PRCommentMetadataManager クラス
  │   ├─ initialize() … メタデータ初期化
  │   ├─ load() … メタデータ読み込み
@@ -146,6 +149,8 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定
+ │   ├─ [NEW] setAnalyzeError() … analyzeエラー記録
+ │   ├─ [NEW] clearAnalyzeError() … analyzeエラークリア
  │   └─ cleanup() … クリーンアップ
  └─ CommentResolutionMetadata 型
 

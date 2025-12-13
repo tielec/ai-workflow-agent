@@ -249,20 +249,21 @@ export class IssueClient {
    * @returns Issue タイトル（80文字以内）
    */
   private generateFollowUpTitle(issueNumber: number, remainingTasks: RemainingTask[]): string {
-    // キーワード抽出（最大3個）
-    const keywords = this.extractKeywords(remainingTasks, 3);
+    if (process.env.AI_WORKFLOW_ENABLE_FOLLOWUP_KEYWORDS === '1') {
+      // キーワード抽出（最大3個）
+      const keywords = this.extractKeywords(remainingTasks, 3);
 
-    // キーワードが抽出できた場合
-    if (keywords.length > 0) {
-      const keywordsStr = keywords.join('・');
-      const title = `[FOLLOW-UP] #${issueNumber}: ${keywordsStr}`;
+      if (keywords.length > 0) {
+        const keywordsStr = keywords.join('・');
+        const title = `[FOLLOW-UP] #${issueNumber}: ${keywordsStr}`;
 
-      // 80文字制限
-      if (title.length > 80) {
-        return title.substring(0, 77) + '...';
+        // 80文字制限
+        if (title.length > 80) {
+          return title.substring(0, 77) + '...';
+        }
+
+        return title;
       }
-
-      return title;
     }
 
     // フォールバック: キーワードが抽出できない場合は従来形式

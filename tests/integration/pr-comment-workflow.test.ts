@@ -94,7 +94,11 @@ describe('Integration: pr-comment workflow', () => {
 
     // Configure default mock implementations
     metadataManagerMock.exists.mockResolvedValue(true);
-    metadataManagerMock.load.mockResolvedValue(undefined);
+    metadataManagerMock.load.mockResolvedValue({
+      pr: {
+        branch: 'feature/pr-comment',
+      },
+    });
     metadataManagerMock.getPendingComments.mockResolvedValue([]);
     metadataManagerMock.updateCommentStatus.mockResolvedValue(undefined);
     metadataManagerMock.incrementRetryCount.mockResolvedValue(0);
@@ -204,6 +208,55 @@ describe('Integration: pr-comment workflow', () => {
     expect(applierConstructorMock).toHaveBeenCalledWith('/repo');
   });
 
+  it('skips init when metadata already exists and execute stage still runs', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+    metadataManagerMock.exists.mockResolvedValue(true);
+    metadataManagerMock.getPendingComments.mockResolvedValue([
+      {
+        comment: {
+          id: 110,
+          node_id: 'N110',
+          path: 'src/core/config.ts',
+          line: 15,
+          body: 'Refine implementation',
+          user: 'dave',
+          created_at: '2025-01-21T00:00:00Z',
+          updated_at: '2025-01-21T00:00:00Z',
+        },
+        status: 'pending',
+      },
+    ]);
+    analyzerMock.analyze.mockResolvedValue({
+      success: true,
+      resolution: {
+        type: 'code_change',
+        confidence: 'high',
+        changes: [{ path: 'src/core/config.ts', change_type: 'modify', content: 'export const x = 1;' }],
+        reply: 'Updated',
+      },
+      inputTokens: 20,
+      outputTokens: 10,
+    });
+    applierMock.apply.mockResolvedValue({ success: true, applied_files: ['src/core/config.ts'], skipped_files: [] });
+    githubClientMock.commentClient.replyToPRReviewComment.mockResolvedValue({ id: 910, html_url: 'https://example.com/comment/910' });
+
+    await handlePRCommentInitCommand({ pr: '123' } as any);
+
+    expect(metadataManagerMock.initialize).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith('Metadata already exists for PR #123. Skipping initialization.');
+
+    await handlePRCommentExecuteCommand({ pr: '123' } as any);
+
+    expect(analyzerMock.analyze).toHaveBeenCalled();
+    expect(applierMock.apply).toHaveBeenCalled();
+    expect(metadataManagerMock.updateCommentStatus).toHaveBeenCalledWith(
+      '110',
+      'completed',
+      expect.objectContaining({ type: 'code_change' }),
+    );
+    infoSpy.mockRestore();
+  });
+
   it('finalizes completed comments and cleans up metadata', async () => {
     metadataManagerMock.getCompletedComments.mockResolvedValue([
       {
@@ -228,6 +281,7 @@ describe('Integration: pr-comment workflow', () => {
   });
 
   it('initializes metadata for unresolved review comments on a PR', async () => {
+    metadataManagerMock.exists.mockResolvedValue(false);
     githubClientMock.getPullRequestInfo.mockResolvedValue({
       number: 123,
       url: 'https://github.com/owner/repo/pull/123',
@@ -369,6 +423,7 @@ describe('Integration: pr-comment workflow', () => {
   });
 
   it('initializes metadata using a repository path resolved from PR URL', async () => {
+    metadataManagerMock.exists.mockResolvedValue(false);
     const prUrl = 'https://github.com/owner/target-repo/pull/123';
     parsePullRequestUrlMock.mockReturnValue({
       owner: 'owner',
@@ -403,6 +458,52 @@ describe('Integration: pr-comment workflow', () => {
       undefined,
     );
     expect(simpleGitMock).toHaveBeenCalledWith('/repos/target-repo');
+  });
+
+  it('reinitializes with --force even when metadata exists and continues workflow', async () => {
+    metadataManagerMock.exists.mockResolvedValue(true);
+    metadataManagerMock.initialize.mockResolvedValue(undefined);
+    metadataManagerMock.getPendingComments.mockResolvedValue([
+      {
+        comment: {
+          id: 305,
+          node_id: 'N305',
+          path: 'src/core/config.ts',
+          line: 8,
+          body: 'Please adjust',
+          user: 'erin',
+          created_at: '2025-01-21T00:00:00Z',
+          updated_at: '2025-01-21T00:00:00Z',
+        },
+        status: 'pending',
+      },
+    ]);
+    analyzerMock.analyze.mockResolvedValue({
+      success: true,
+      resolution: {
+        type: 'reply',
+        confidence: 'high',
+        reply: 'Acknowledged',
+        changes: [],
+      },
+      inputTokens: 5,
+      outputTokens: 2,
+    });
+    applierMock.apply.mockResolvedValue({ success: true, applied_files: [], skipped_files: [] });
+    githubClientMock.commentClient.replyToPRReviewComment.mockResolvedValue({ id: 911, html_url: 'https://example.com/comment/911' });
+
+    await handlePRCommentInitCommand({ pr: '123', force: true } as any);
+
+    const initGit = simpleGitMock.mock.results[0]?.value;
+    expect(metadataManagerMock.initialize).toHaveBeenCalledTimes(1);
+    expect(initGit?.addConfig).toHaveBeenCalled();
+    expect(initGit?.commit).toHaveBeenCalledWith('[pr-comment] Initialize PR #123 comment resolution metadata');
+    expect(initGit?.push).toHaveBeenCalled();
+
+    await handlePRCommentExecuteCommand({ pr: '123' } as any);
+
+    expect(analyzerMock.analyze).toHaveBeenCalled();
+    expect(metadataManagerMock.setReplyCommentId).toHaveBeenCalledWith('305', 911);
   });
 
   it('uses REPOS_ROOT-based path for execute when prUrl is provided', async () => {

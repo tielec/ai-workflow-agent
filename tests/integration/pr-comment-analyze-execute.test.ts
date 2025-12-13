@@ -14,6 +14,7 @@ const simpleGitCommitMock = jest.fn();
 const agentExecuteTaskMock = jest.fn();
 const githubReplyMock = jest.fn();
 const codeChangeApplyMock = jest.fn();
+const analyzerAnalyzeMock = jest.fn();
 
 let handlePRCommentAnalyzeCommand: typeof import('../../src/commands/pr-comment/analyze.js')['handlePRCommentAnalyzeCommand'];
 let handlePRCommentExecuteCommand: typeof import('../../src/commands/pr-comment/execute.js')['handlePRCommentExecuteCommand'];
@@ -56,6 +57,13 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
     __esModule: true,
     getRepoRoot: getRepoRootMock,
+    parsePullRequestUrl: jest.fn((url: string) => ({
+      owner: 'owner',
+      repo: 'repo',
+      prNumber: Number.parseInt(url.match(/(\\d+)/)?.[1] ?? '0', 10),
+      repositoryName: 'owner/repo',
+    })),
+    resolveRepoPathFromPrUrl: jest.fn(() => '/repo'),
   }));
 
   await jest.unstable_mockModule('../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -64,13 +72,16 @@ beforeAll(async () => {
       metadataManagerInstance = {
         setAnalyzeCompletedAt: jest.fn().mockResolvedValue(undefined),
         setResponsePlanPath: jest.fn().mockResolvedValue(undefined),
+        setAnalyzeError: jest.fn().mockResolvedValue(undefined),
         setExecuteCompletedAt: jest.fn().mockResolvedValue(undefined),
         setExecutionResultPath: jest.fn().mockResolvedValue(undefined),
         updateCommentStatus: jest.fn().mockResolvedValue(undefined),
+        setReplyCommentId: jest.fn().mockResolvedValue(undefined),
+        updateCostTracking: jest.fn().mockResolvedValue(undefined),
         exists: jest.fn().mockResolvedValue(true),
-        load: jest.fn().mockResolvedValue(undefined),
+        load: jest.fn().mockResolvedValue({ pr: { title: 'Integration PR', branch: 'feature/mock' } }),
         getPendingComments: jest.fn(async () => pendingComments),
-        getMetadata: jest.fn().mockResolvedValue({ pr: { title: 'Integration PR' } }),
+        getMetadata: jest.fn().mockResolvedValue({ pr: { title: 'Integration PR', branch: 'feature/mock' } }),
         getSummary: jest.fn().mockResolvedValue({ by_status: { completed: 1, skipped: 0, failed: 0 } }),
       };
       metadataStore = metadataManagerInstance;
@@ -88,6 +99,11 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../src/core/github-client.js', () => ({
     __esModule: true,
     GitHubClient: jest.fn().mockImplementation(() => ({
+      getRepositoryInfo: jest.fn(() => ({
+        owner: 'owner',
+        repo: 'repo',
+        repositoryName: 'owner/repo',
+      })),
       commentClient: {
         replyToPRReviewComment: githubReplyMock,
       },
@@ -100,11 +116,19 @@ beforeAll(async () => {
       apply: codeChangeApplyMock,
     })),
   }));
+  await jest.unstable_mockModule('../../src/core/pr-comment/comment-analyzer.js', () => ({
+    __esModule: true,
+    ReviewCommentAnalyzer: jest.fn().mockImplementation(() => ({
+      analyze: analyzerAnalyzeMock,
+    })),
+  }));
 
   await jest.unstable_mockModule('../../src/core/config.js', () => ({
     __esModule: true,
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
+      getGitCommitUserName: jest.fn(() => 'AI Workflow Bot'),
+      getGitCommitUserEmail: jest.fn(() => 'ai-workflow@example.com'),
     },
   }));
 
@@ -114,6 +138,8 @@ beforeAll(async () => {
       status: simpleGitStatusMock,
       add: simpleGitAddMock,
       commit: simpleGitCommitMock,
+      addConfig: jest.fn().mockResolvedValue(undefined),
+      push: jest.fn().mockResolvedValue(undefined),
     })),
   }));
 
@@ -170,6 +196,7 @@ beforeEach(async () => {
   agentExecuteTaskMock.mockReset();
   githubReplyMock.mockReset();
   codeChangeApplyMock.mockReset();
+  analyzerAnalyzeMock.mockReset();
   simpleGitStatusMock.mockResolvedValue({ files: [{ path: '.ai-workflow/pr-123/output/response-plan.md' }] });
   simpleGitAddMock.mockResolvedValue(undefined);
   simpleGitCommitMock.mockResolvedValue(undefined);
@@ -178,9 +205,7 @@ beforeEach(async () => {
   jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
-  jest.spyOn(process, 'exit').mockImplementation(((code?: number) => {
-    throw new Error(`process.exit: ${code}`);
-  }) as any);
+  jest.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
 
   const analyzeResponse = [
     '```json',
@@ -203,6 +228,20 @@ beforeEach(async () => {
   agentExecuteTaskMock.mockResolvedValueOnce([analyzeResponse]).mockResolvedValueOnce([executeResponse]);
   codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/a.ts'], skipped_files: [] });
   githubReplyMock.mockResolvedValue({ id: 321 });
+  analyzerAnalyzeMock
+    .mockResolvedValueOnce({
+      success: true,
+      resolution: {
+        type: 'code_change',
+        confidence: 'high',
+        changes: [{ path: 'src/a.ts', change_type: 'modify', content: 'export const x = 2;' }],
+        reply: 'Fixed',
+      },
+    })
+    .mockResolvedValueOnce({
+      success: true,
+      resolution: { type: 'reply', confidence: 'high', reply: 'Explained', changes: [] },
+    });
 });
 
 afterEach(async () => {
@@ -222,9 +261,7 @@ describe('Analyze → Execute integration flow', () => {
 
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
 
-    const resultPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'execution-result.md');
-    expect(await fs.pathExists(resultPath)).toBe(true);
-    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(2);
+    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(1);
     expect(codeChangeApplyMock).toHaveBeenCalledWith(
       [
         {
@@ -235,8 +272,91 @@ describe('Analyze → Execute integration flow', () => {
       ],
       false,
     );
-    expect(githubReplyMock).toHaveBeenCalled();
+    expect(githubReplyMock).toHaveBeenCalledTimes(2);
     expect(metadataManagerInstances[0].setAnalyzeCompletedAt).toHaveBeenCalled();
-    expect(metadataManagerInstances[1].setExecuteCompletedAt).toHaveBeenCalled();
+    expect(metadataManagerInstances[1].updateCommentStatus).toHaveBeenCalledWith(
+      '100',
+      'completed',
+      expect.objectContaining({ type: 'code_change' }),
+    );
+    expect(metadataManagerInstances[1].updateCommentStatus).toHaveBeenCalledWith(
+      '101',
+      'completed',
+      expect.objectContaining({ type: 'reply' }),
+    );
+    expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  it('writes fallback plan and exits with code 1 when agent output is empty', async () => {
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValue(['']);
+    (process.exit as jest.Mock).mockImplementation(() => {
+      throw new Error('process.exit: 1');
+    });
+
+    await expect(
+      handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' }),
+    ).rejects.toThrow('process.exit: 1');
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    expect(await fs.pathExists(planPath)).toBe(true);
+    const markdown = await fs.readFile(planPath, 'utf-8');
+    expect(markdown).toContain('Analyzer Agent: fallback');
+    expect(metadataManagerInstances[0].setAnalyzeError).toHaveBeenCalledWith(
+      'Fallback plan used due to parsing failure or empty agent output',
+    );
+    expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed (fallback)');
+  });
+
+  it('halts workflow when analyze output cannot be parsed, blocking execute stage', async () => {
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValue(['{ invalid json']);
+    (process.exit as jest.Mock).mockImplementation(() => {
+      throw new Error('process.exit: 1');
+    });
+
+    await expect(
+      handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' }),
+    ).rejects.toThrow('process.exit: 1');
+
+    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(1);
+    expect(metadataManagerInstances.length).toBe(1);
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+  });
+
+  it('parses JSON Lines output without fallback and keeps analyzer_agent', async () => {
+    const jsonLines = [
+      '{"type":"event","data":"start"}',
+      '{"type":"event","data":"processing"}',
+      JSON.stringify(responsePlanData),
+    ].join('\n');
+    const executeResponse = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        comments: [
+          { comment_id: '100', status: 'completed', actions: ['Applied change'] },
+          { comment_id: '101', status: 'completed', actions: ['Replied'], reply_comment_id: 321 },
+        ],
+      }),
+      '```',
+    ].join('\n');
+
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce([jsonLines]).mockResolvedValueOnce([executeResponse]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    expect(await fs.pathExists(planPath)).toBe(true);
+    const markdown = await fs.readFile(planPath, 'utf-8');
+    expect(markdown).toContain('Analyzer Agent: auto');
+    expect(markdown).toContain('Comment #100');
+    expect(metadataManagerInstances[0].setAnalyzeError).not.toHaveBeenCalled();
+    expect(process.exit).not.toHaveBeenCalled();
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(1);
+    expect(analyzerAnalyzeMock).toHaveBeenCalledTimes(2);
   });
 });

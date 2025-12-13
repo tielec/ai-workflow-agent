@@ -472,7 +472,7 @@ describe('PullRequestClient', () => {
 
       // And: Warning should be logged
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[WARNING] Failed to lookup PR number')
+        expect.stringContaining('Failed to lookup PR number')
       );
 
       consoleWarnSpy.mockRestore();

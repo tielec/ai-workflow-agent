@@ -17,22 +17,11 @@ import { handleCleanupCommand } from '../../src/commands/cleanup.js';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import type { CleanupCommandOptions } from '../../src/commands/cleanup.js';
 import * as path from 'node:path';
-
-// fs-extraのモック - モック化してからインポート
-jest.mock('fs-extra', () => ({
-  existsSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  readdirSync: jest.fn(),
-  removeSync: jest.fn(),
-}));
+// fs-extraのモック - 手動モックを使用
+jest.mock('fs-extra');
 
 // repository-utilsのモック
-jest.mock('../../src/core/repository-utils.js', () => ({
-  findWorkflowMetadata: jest.fn(),
-}));
+jest.mock('../../src/core/repository-utils.js');
 
 // GitManagerのモック
 jest.mock('../../src/core/git-manager.js', () => ({
@@ -50,10 +39,30 @@ jest.mock('../../src/phases/cleanup/artifact-cleaner.js', () => ({
   })),
 }));
 
-import * as fs from 'fs-extra';
-import { findWorkflowMetadata } from '../../src/core/repository-utils.js';
+// repository-utilsのモック
+jest.mock('../../src/core/repository-utils.js', () => ({
+  __esModule: true,
+  findWorkflowMetadata: jest.fn(),
+}));
+
+import fs from 'fs-extra';
 import { GitManager } from '../../src/core/git-manager.js';
 import { ArtifactCleaner } from '../../src/phases/cleanup/artifact-cleaner.js';
+import { setFsExtra } from '../../src/utils/fs-proxy.js';
+const { findWorkflowMetadata } = jest.requireMock('../../src/core/repository-utils.js') as {
+  findWorkflowMetadata: jest.Mock;
+};
+const mockFs = fs as any;
+const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
+const resetFsMocks = () => {
+  mockFs.existsSync = jest.fn();
+  mockFs.ensureDirSync = jest.fn();
+  mockFs.writeFileSync = jest.fn();
+  mockFs.readFileSync = jest.fn();
+  mockFs.readdirSync = jest.fn();
+  mockFs.statSync = jest.fn();
+  mockFs.removeSync = jest.fn();
+};
 
 describe('Integration: Cleanup Command - 基本的なクリーンアップ', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
@@ -62,12 +71,14 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    resetFsMocks();
+    setFsExtra(fs as any);
+    mockFs.existsSync.mockReturnValue(true);
+    mockFs.ensureDirSync.mockImplementation(() => undefined as any);
+    mockFs.writeFileSync.mockImplementation(() => undefined);
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    mockFindWorkflowMetadata.mockResolvedValue({
       metadataPath: testMetadataPath,
     });
 
@@ -85,13 +96,14 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
     metadataManager.data.phases.report.status = 'completed';
 
     // fs.readFileSyncでメタデータを返す
-    (fs.readFileSync as jest.Mock).mockReturnValue(
+    mockFs.readFileSync.mockReturnValue(
       JSON.stringify(metadataManager.data)
     );
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
+    setFsExtra(undefined as any);
   });
 
   // =============================================================================
@@ -130,7 +142,7 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
       };
 
       // ファイルスキャンのモック設定
-      (fs.readdirSync as jest.Mock).mockReturnValue([]);
+      mockFs.readdirSync.mockReturnValue([]);
 
       // When: クリーンアップコマンドを実行
       await handleCleanupCommand(options);
@@ -208,10 +220,12 @@ describe('Integration: Cleanup Command - 完全クリーンアップ（--all）'
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    resetFsMocks();
+    mockFs.existsSync.mockReturnValue(true);
+    setFsExtra(fs as any);
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    mockFindWorkflowMetadata.mockResolvedValue({
       metadataPath: testMetadataPath,
     });
 
@@ -221,9 +235,13 @@ describe('Integration: Cleanup Command - 完全クリーンアップ（--all）'
     metadataManager.data.phases.evaluation.status = 'completed';
 
     // fs.readFileSyncでメタデータを返す
-    (fs.readFileSync as jest.Mock).mockReturnValue(
+    mockFs.readFileSync.mockReturnValue(
       JSON.stringify(metadataManager.data)
     );
+  });
+
+  afterEach(() => {
+    setFsExtra(undefined as any);
   });
 
   // =============================================================================
@@ -258,7 +276,7 @@ describe('Integration: Cleanup Command - 完全クリーンアップ（--all）'
     test('Evaluation未完了時に--allオプションを指定するとエラーがスローされる', async () => {
       // Given: Evaluation Phaseが未完了
       metadataManager.data.phases.evaluation.status = 'in_progress';
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockFs.readFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -280,6 +298,15 @@ describe('Integration: Cleanup Command - エラーハンドリング', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetFsMocks();
+    setFsExtra(fs as any);
+    mockFs.ensureDirSync.mockImplementation(() => {});
+    mockFs.existsSync.mockReturnValue(false);
+    mockFs.readFileSync.mockReturnValue('{}');
+  });
+
+  afterEach(() => {
+    setFsExtra(undefined as any);
   });
 
   // =============================================================================
@@ -288,7 +315,7 @@ describe('Integration: Cleanup Command - エラーハンドリング', () => {
   describe('IC-CLEANUP-ERR-01: ワークフロー不存在時のエラー', () => {
     test('ワークフローが存在しない場合にエラーメッセージが表示される', async () => {
       // Given: ワークフローが存在しない
-      (findWorkflowMetadata as jest.Mock).mockRejectedValue(
+      mockFindWorkflowMetadata.mockRejectedValue(
         new Error('Workflow for issue #999 not found')
       );
 
@@ -309,10 +336,10 @@ describe('Integration: Cleanup Command - エラーハンドリング', () => {
     test('無効なフェーズ範囲が指定された場合にエラーメッセージが表示される', async () => {
       // Given: 無効なフェーズ範囲
       const metadataManager = new MetadataManager(testMetadataPath);
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         metadataPath: testMetadataPath,
       });
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockFs.readFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -336,10 +363,10 @@ describe('Integration: Cleanup Command - エラーハンドリング', () => {
       const metadataManager = new MetadataManager(testMetadataPath);
       metadataManager.data.phases.evaluation.status = 'completed';
 
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         metadataPath: testMetadataPath,
       });
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockFs.readFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -362,10 +389,10 @@ describe('Integration: Cleanup Command - エラーハンドリング', () => {
     test('無効なIssue番号が指定された場合にエラーがスローされる', async () => {
       // Given: 無効なIssue番号
       const metadataManager = new MetadataManager(testMetadataPath);
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         metadataPath: testMetadataPath,
       });
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockFs.readFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data)
       );
 
@@ -387,19 +414,25 @@ describe('Integration: Cleanup Command - Git操作エラーハンドリング', 
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    resetFsMocks();
+    setFsExtra(fs as any);
+    mockFs.existsSync.mockReturnValue(true);
 
     // findWorkflowMetadataのモック設定
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    mockFindWorkflowMetadata.mockResolvedValue({
       metadataPath: testMetadataPath,
     });
 
     metadataManager = new MetadataManager(testMetadataPath);
     metadataManager.data.phases.planning.status = 'completed';
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(
+    mockFs.readFileSync.mockReturnValue(
       JSON.stringify(metadataManager.data)
     );
+  });
+
+  afterEach(() => {
+    setFsExtra(undefined as any);
   });
 
   // =============================================================================

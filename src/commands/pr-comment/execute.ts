@@ -1,5 +1,6 @@
 import path from 'node:path';
 import process from 'node:process';
+import fs from 'fs-extra';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -53,8 +54,41 @@ export async function handlePRCommentExecuteCommand(
     // PRブランチ名を取得
     const prBranch = metadata.pr.branch;
 
+    const githubClient = new GitHubClient(null, repositoryName);
+    const promptsDir = path.join(process.cwd(), 'dist', 'prompts');
+    const analysisDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis');
+    const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
+
+    const dryRun = options.dryRun ?? false;
     let pendingComments = await metadataManager.getPendingComments();
     logger.debug(`Initial pending comments count: ${pendingComments.length}`);
+    const workflowRoot = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
+    const responsePlanPath = path.join(workflowRoot, 'analysis', 'response-plan.md');
+    const outputDir = path.join(workflowRoot, 'output');
+    const executeDir = path.join(workflowRoot, 'execute');
+    const outputJsonPath = path.join(executeDir, 'execution-result.json');
+    const outputMarkdownPath = path.join(outputDir, 'execution-result.md');
+    const planExists = await fs.pathExists(responsePlanPath);
+
+    if (planExists) {
+      await runPlannedExecution({
+        metadataManager,
+        githubClient,
+        pendingComments,
+        promptsDir,
+        repoRoot,
+        prNumber,
+        prBranch,
+        dryRun,
+        responsePlanPath,
+        outputJsonPath,
+        outputMarkdownPath,
+        agent,
+      });
+      return;
+    }
+
+    logger.warn("Run 'pr-comment analyze' first for optimized processing. Falling back to legacy flow.");
 
     const targetIds = parseCommentIds(options.commentIds);
     if (targetIds.size > 0) {
@@ -75,20 +109,11 @@ export async function handlePRCommentExecuteCommand(
 
     logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
 
-    const githubClient = new GitHubClient(null, repositoryName);
-    const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
-
-    // プロンプトディレクトリはai-workflow-agentリポジトリ内を使用
-    // Jenkins環境ではprocess.cwd()がWORKSPACE（ai-workflow-agent）を指す
-    const promptsDir = path.join(process.cwd(), 'dist', 'prompts');
-    const analysisDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis');
-
     logger.debug(`Prompts directory: ${promptsDir}`);
     logger.debug(`Analysis directory: ${analysisDir}`);
 
     const analyzer = new ReviewCommentAnalyzer(promptsDir, analysisDir);
     const applier = new CodeChangeApplier(repoRoot);
-    const dryRun = options.dryRun ?? false;
     const batchSize = Number.parseInt(options.batchSize ?? '3', 10);
 
     for (let i = 0; i < pendingComments.length; i += batchSize) {
@@ -123,6 +148,9 @@ export async function handlePRCommentExecuteCommand(
       logger.info('[DRY RUN COMPLETE] No metadata changes were saved.');
     }
   } catch (error) {
+    if (process.env.JEST_WORKER_ID) {
+      throw error;
+    }
     logger.error(`Failed to execute: ${getErrorMessage(error)}`);
     process.exit(1);
   }
@@ -307,6 +335,228 @@ function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): v
   logger.info(
     `Execution summary${dryRun ? ' (dry-run)' : ''}: completed=${summary.by_status.completed}, skipped=${summary.by_status.skipped}, failed=${summary.by_status.failed}`,
   );
+}
+
+type PlannedExecutionResult = {
+  pr_number: number;
+  comments: Array<{
+    comment_id: string;
+    status?: 'completed' | 'failed' | 'skipped';
+    actions?: string[];
+    reply_comment_id?: number;
+    error?: string;
+  }>;
+};
+
+const parsePlanContent = (content: string): any => {
+  const match = content.match(/```json\s*([\s\S]*?)```/);
+  const jsonText = match ? match[1] : content;
+  return JSON.parse(jsonText.trim());
+};
+
+const parseExecutionOutput = (outputs: string[] | undefined): PlannedExecutionResult => {
+  const text = outputs?.filter(Boolean).join('\n') ?? '';
+  const blocks = [...text.matchAll(/```json\s*([\s\S]*?)```/g)];
+  const jsonText = blocks.length ? blocks[blocks.length - 1][1] : text;
+  try {
+    const parsed = JSON.parse(jsonText.trim());
+    return parsed as PlannedExecutionResult;
+  } catch {
+    return { pr_number: 0, comments: [] };
+  }
+};
+
+const buildExecutionSummaryMarkdown = (
+  result: PlannedExecutionResult,
+  planLookup?: Map<string, any>,
+): string => {
+  const counts = result.comments.reduce(
+    (acc, cur) => {
+      const status = cur.status ?? 'completed';
+      if (status === 'failed') acc.failed += 1;
+      else if (status === 'skipped') acc.skipped += 1;
+      else acc.completed += 1;
+      return acc;
+    },
+    { completed: 0, skipped: 0, failed: 0 },
+  );
+
+  const lines = [
+    '# Execution Result',
+    '',
+    '| Status | Count |',
+    '| --- | --- |',
+    `| Completed | ${counts.completed} |`,
+    `| Skipped | ${counts.skipped} |`,
+    `| Failed | ${counts.failed} |`,
+    '',
+  ];
+
+  const details: string[] = [];
+  for (const comment of result.comments) {
+    const type = planLookup?.get(String(comment.comment_id))?.type;
+    const label = type ? `Comment #${comment.comment_id} (${type})` : `Comment #${comment.comment_id}`;
+    if (comment.status === 'failed') {
+      details.push(`- ${label}: ${comment.error ?? 'failed'}`);
+    } else if (comment.status === 'skipped') {
+      details.push(`- ${label}: skipped`);
+    }
+  }
+
+  if (details.length > 0) {
+    lines.push('## Details', '', ...details, '');
+  }
+
+  return lines.join('\n');
+};
+
+async function runPlannedExecution(params: {
+  metadataManager: PRCommentMetadataManager;
+  githubClient: GitHubClient;
+  pendingComments: CommentMetadata[];
+  promptsDir: string;
+  repoRoot: string;
+  prNumber: number;
+  prBranch: string;
+  dryRun: boolean;
+  responsePlanPath: string;
+  outputJsonPath: string;
+  outputMarkdownPath: string;
+  agent: CodexAgentClient | ClaudeAgentClient | null;
+}): Promise<void> {
+  const {
+    metadataManager,
+    githubClient,
+    pendingComments,
+    promptsDir,
+    repoRoot,
+    prNumber,
+    prBranch,
+    dryRun,
+    responsePlanPath,
+    outputJsonPath,
+    outputMarkdownPath,
+    agent,
+  } = params;
+
+  try {
+    const planContent = await fs.readFile(responsePlanPath, 'utf-8');
+    const plan = parsePlanContent(planContent);
+    const promptTemplate = await fs.readFile(
+      path.join(promptsDir, 'pr-comment', 'execute.txt'),
+      'utf-8',
+    );
+    const planJson = JSON.stringify(plan, null, 2);
+    const prompt = promptTemplate
+      .replace('{pr_number}', String(prNumber))
+      .replace('{repo_path}', repoRoot)
+      .replace('{response_plan}', planJson)
+      .replace('{output_file_path}', outputJsonPath);
+
+    const agentClient = agent as unknown as { executeTask?: (args: { prompt: string }) => Promise<string[]> };
+    if (!agentClient?.executeTask) {
+      throw new Error('Agent client not available for execute');
+    }
+
+    const agentOutputs = await agentClient.executeTask({ prompt });
+    const executionResult = parseExecutionOutput(agentOutputs);
+
+    const planById = new Map<string, any>(
+      Array.isArray(plan?.comments)
+        ? plan.comments.map((c: any) => [String(c.comment_id), c])
+        : [],
+    );
+    const pendingById = new Map<string, CommentMetadata>(
+      pendingComments.map((c) => [String(c.comment.id), c]),
+    );
+    const resultById = new Map<string, PlannedExecutionResult['comments'][number]>(
+      executionResult.comments?.map((c) => [String(c.comment_id), c]) ?? [],
+    );
+
+    for (const [commentId, planComment] of planById) {
+      const pending = pendingById.get(commentId);
+
+      const execResult = resultById.get(commentId);
+      let status = execResult?.status ?? 'completed';
+
+      const changes =
+        planComment.type === 'code_change'
+          ? (planComment.proposed_changes ?? []).map((c: any) => ({
+              path: c.file,
+              change_type: c.action,
+              content: c.changes,
+            }))
+          : [];
+
+      if (planComment.type === 'code_change' && changes.length > 0) {
+        const applyResult = await new CodeChangeApplier(repoRoot).apply(changes, dryRun);
+        if (!applyResult.success) {
+          if (!dryRun) {
+            status = 'failed';
+            if (execResult) {
+              execResult.status = 'failed';
+              execResult.error = applyResult.error ?? 'Failed to apply changes';
+              resultById.set(commentId, execResult);
+            } else {
+              executionResult.comments.push({
+                comment_id: commentId,
+                status: 'failed',
+                error: applyResult.error ?? 'Failed to apply changes',
+              });
+              resultById.set(commentId, executionResult.comments[executionResult.comments.length - 1]);
+            }
+            await metadataManager.updateCommentStatus(
+              commentId,
+              'failed',
+              { type: 'code_change', reply: planComment.reply_message, changes },
+              applyResult.error ?? 'Failed to apply changes',
+            );
+          }
+          continue;
+        }
+      }
+
+      if (dryRun) {
+        continue;
+      }
+
+      const reply = await githubClient.commentClient.replyToPRReviewComment(
+        prNumber,
+        pending?.comment.id ?? Number.parseInt(commentId, 10),
+        planComment.reply_message ?? '',
+      );
+      await metadataManager.setReplyCommentId(commentId, reply.id);
+
+      await metadataManager.updateCommentStatus(
+        commentId,
+        status === 'failed' ? 'failed' : status === 'skipped' ? 'skipped' : 'completed',
+        {
+          type: planComment.type,
+          reply: planComment.reply_message,
+          changes,
+        } as unknown as CommentResolution,
+        execResult?.error,
+      );
+    }
+
+    if (dryRun) {
+      return;
+    }
+
+    await fs.ensureDir(path.dirname(outputJsonPath));
+    await fs.ensureDir(path.dirname(outputMarkdownPath));
+    await fs.writeFile(outputJsonPath, JSON.stringify(executionResult, null, 2));
+    await fs.writeFile(outputMarkdownPath, buildExecutionSummaryMarkdown(executionResult, planById));
+    await metadataManager.setExecuteCompletedAt();
+    await metadataManager.setExecutionResultPath(outputMarkdownPath);
+    await commitIfNeeded(repoRoot, '[ai-workflow] PR Comment: Execute completed', prBranch);
+  } catch (error) {
+    if (process.env.JEST_WORKER_ID) {
+      console.error('[pr-comment execute] planned flow error', error);
+    }
+    logger.error(`Failed to execute: ${getErrorMessage(error)}`);
+    process.exit(1);
+  }
 }
 
 /**

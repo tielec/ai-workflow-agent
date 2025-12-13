@@ -207,6 +207,38 @@ export async function loadRollbackReason(
 }
 
 /**
+ * エージェント出力から RollbackDecision をパース（Issue #271）
+ */
+export function parseRollbackDecision(agentOutput: string[] | string): RollbackDecision {
+  const lines = Array.isArray(agentOutput) ? agentOutput : agentOutput.split(/\r?\n/);
+  const joined = lines.join('\n');
+
+  const candidates: string[] = [];
+
+  const codeBlockMatch = joined.match(/```json\s*([\s\S]*?)```/i);
+  if (codeBlockMatch?.[1]) {
+    candidates.push(codeBlockMatch[1]);
+  }
+
+  const inlineMatch = joined.match(/\{[\s\S]*\}/);
+  if (inlineMatch?.[0]) {
+    candidates.push(inlineMatch[0]);
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as RollbackDecision;
+    } catch (error) {
+      logger.warn(`Failed to parse candidate rollback decision: ${getErrorMessage(error)}`);
+    }
+  }
+
+  throw new Error(
+    'Failed to parse RollbackDecision from agent response. Ensure the agent returns valid JSON.'
+  );
+}
+
+/**
  * 確認プロンプトを表示
  */
 async function confirmRollback(

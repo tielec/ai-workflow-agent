@@ -31,7 +31,7 @@ import simpleGit, { type SimpleGit } from 'simple-git';
 async function createBareRepository(bareRepoPath: string): Promise<void> {
   await fs.ensureDir(bareRepoPath);
   const bareGit = simpleGit(bareRepoPath);
-  await bareGit.init(true); // --bare オプション
+  await bareGit.init(true, ['--initial-branch=main']); // --bare オプションで main を初期ブランチに設定
 }
 
 /**
@@ -43,7 +43,7 @@ async function createWorkingRepository(
 ): Promise<SimpleGit> {
   await fs.ensureDir(workingRepoPath);
   const git = simpleGit(workingRepoPath);
-  await git.init();
+  await git.init(false, ['--initial-branch=main']);
   await git.addConfig('user.name', 'Test User', false, 'local');
   await git.addConfig('user.email', 'test@example.com', false, 'local');
   await git.addRemote('origin', bareRepoPath);
@@ -193,6 +193,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
       await fs.remove(workflowDir);
       await git.checkout(branchName);
       await git.pull('origin', branchName, { '--no-rebase': null });
+      await git.reset(['--hard']); // ローカルの削除を破棄してリモート状態に揃える
 
       // Then: ローカルのmetadata.jsonにpr_urlが存在する
       const localMetadata = await fs.readJson(metadataPath);

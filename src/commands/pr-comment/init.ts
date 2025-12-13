@@ -23,17 +23,28 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
 
     const githubClient = new GitHubClient(null, repositoryName);
 
+    const repoInfo = await buildRepositoryInfo(githubClient, options.prUrl);
+    const metadataManager = new PRCommentMetadataManager(repoInfo.path, prNumber);
+
+    if (await metadataManager.exists()) {
+      if (options.force) {
+        logger.info(`Metadata exists for PR #${prNumber}. Reinitializing with --force.`);
+      } else {
+        logger.info(`Metadata already exists for PR #${prNumber}. Skipping initialization.`);
+        logger.info('Use --force to reinitialize.');
+        return;
+      }
+    }
+
     logger.info(`Initializing PR comment resolution for PR #${prNumber}...`);
 
     const prInfo = await fetchPrInfo(githubClient, prNumber);
-    const repoInfo = await buildRepositoryInfo(githubClient, options.prUrl);
     const comments = await fetchReviewComments(githubClient, prNumber, options.commentIds);
 
     if (comments.length === 0) {
       logger.warn('No unresolved comments found.');
     }
 
-    const metadataManager = new PRCommentMetadataManager(repoInfo.path, prNumber);
     await metadataManager.initialize(
       prInfo,
       repoInfo,

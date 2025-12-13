@@ -1,9 +1,11 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+
+const fs = getFsExtra();
 
 type PhaseOutputInfo = {
   path: string;

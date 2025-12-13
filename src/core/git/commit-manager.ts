@@ -352,6 +352,10 @@ export class CommitManager {
     // 1. File selection (delegated to FileSelector)
     const changedFiles = await this.fileSelector.getChangedFiles();
     const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+    const status = await this.git.status();
+    const deletedFiles = new Set(
+      status.deleted.filter((file) => file.startsWith(`.ai-workflow/issue-${issueNumber}/`)),
+    );
 
     // 2. No files to commit
     if (filteredFiles.length === 0) {
@@ -364,7 +368,7 @@ export class CommitManager {
     }
 
     // Issue #234: Filter out non-existent files before git add
-    const targetFiles = this.filterExistingFiles(filteredFiles);
+    const targetFiles = this.filterExistingFiles(filteredFiles, deletedFiles);
 
     if (targetFiles.length === 0) {
       logger.warn('No existing files to commit for cleanup');
@@ -425,13 +429,15 @@ export class CommitManager {
    *
    * Issue #234: Fix git add error for non-existent files
    */
-  private filterExistingFiles(files: string[]): string[] {
+  private filterExistingFiles(files: string[], allowMissing: Set<string> = new Set()): string[] {
     const existingFiles: string[] = [];
     const missingFiles: string[] = [];
 
     for (const file of files) {
       const fullPath = join(this.repoPath, file);
       if (existsSync(fullPath)) {
+        existingFiles.push(file);
+      } else if (allowMissing.has(file)) {
         existingFiles.push(file);
       } else {
         missingFiles.push(file);

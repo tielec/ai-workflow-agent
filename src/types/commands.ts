@@ -537,6 +537,7 @@ export interface PRCommentInitOptions {
   prUrl?: string;
   issue?: string;
   commentIds?: string;
+  force?: boolean;
 }
 
 /**

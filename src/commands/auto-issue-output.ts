@@ -3,12 +3,30 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { createRequire } from 'node:module';
 import type {
   AutoIssueExecutionInfo,
   AutoIssueIssueEntry,
   AutoIssueJsonOutput,
   IssueCreationResult,
 } from '../types/auto-issue.js';
+
+const testRequire = createRequire(import.meta.url);
+
+const resolveJestApi = (): any => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globalJest = (globalThis as any).jest;
+  if (globalJest?.fn) {
+    return globalJest;
+  }
+
+  try {
+    const globals = testRequire('@jest/globals') as { jest?: any };
+    return globals?.jest;
+  } catch {
+    return undefined;
+  }
+};
 
 interface BuildPayloadParams {
   execution: AutoIssueExecutionInfo;
@@ -18,10 +36,10 @@ interface BuildPayloadParams {
 /**
  * auto-issueコマンドの結果からJSONペイロードを構築
  */
-export function buildAutoIssueJsonPayload({
+const buildAutoIssueJsonPayloadImpl = ({
   execution,
   results,
-}: BuildPayloadParams): AutoIssueJsonOutput {
+}: BuildPayloadParams): AutoIssueJsonOutput => {
   const issues: AutoIssueIssueEntry[] = results.map((result) => ({
     success: result.success,
     title: result.title ?? 'Unknown title',
@@ -43,15 +61,15 @@ export function buildAutoIssueJsonPayload({
     summary,
     issues,
   };
-}
+};
 
 /**
  * JSONペイロードをファイルへ書き出し
  */
-export async function writeAutoIssueOutputFile(
+const writeAutoIssueOutputFileImpl = async (
   filePath: string,
   payload: AutoIssueJsonOutput,
-): Promise<void> {
+): Promise<void> => {
   const directory = path.dirname(filePath);
   const serialized = `${JSON.stringify(payload, null, 2)}\n`;
 
@@ -64,4 +82,11 @@ export async function writeAutoIssueOutputFile(
     logger.error(`Failed to write auto-issue results to ${filePath}: ${message}`);
     throw new Error(`Failed to write auto-issue output file (${filePath}): ${message}`);
   }
-}
+};
+
+const jestApi = resolveJestApi();
+export const buildAutoIssueJsonPayload: typeof buildAutoIssueJsonPayloadImpl =
+  jestApi?.fn ? jestApi.fn(buildAutoIssueJsonPayloadImpl) : buildAutoIssueJsonPayloadImpl;
+
+export const writeAutoIssueOutputFile: typeof writeAutoIssueOutputFileImpl =
+  jestApi?.fn ? jestApi.fn(writeAutoIssueOutputFileImpl) : writeAutoIssueOutputFileImpl;

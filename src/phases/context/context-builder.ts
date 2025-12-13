@@ -1,8 +1,10 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { PhaseName } from '../../types.js';
+
+const fs = getFsExtra();
 
 /**
  * ContextBuilder - コンテキスト構築を担当
@@ -185,12 +187,17 @@ export class ContextBuilder {
     const phaseNumber = this.getPhaseNumber(targetPhase);
 
     // Issue #274: workflowBaseDir を使用（REPOS_ROOT 対応済み）
-    // workflowBaseDir は .ai-workflow/issue-{NUM} 形式なので、親ディレクトリを取得
-    const basePath = path.resolve(this.workflowBaseDir, '..');
+    // workflowBaseDir が .ai-workflow/issue-<NUM>/XX_phase の場合は1つ上のディレクトリを基点にする
+    const resolvedBase = path.resolve(this.workflowBaseDir);
+    const segments = resolvedBase.split(path.sep);
+    const aiIndex = segments.lastIndexOf('.ai-workflow');
+    const workflowRoot =
+      aiIndex !== -1
+        ? path.join(segments.slice(0, aiIndex + 1).join(path.sep), `issue-${issueIdentifier}`)
+        : path.join(path.resolve(this.workingDir), '.ai-workflow', `issue-${issueIdentifier}`);
 
     const filePath = path.join(
-      basePath,
-      `issue-${issueIdentifier}`,
+      workflowRoot,
       `${phaseNumber}_${targetPhase}`,
       'output',
       fileName

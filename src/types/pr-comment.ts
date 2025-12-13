@@ -266,6 +266,9 @@ export interface CommentResolutionMetadata {
   /** analyzeフェーズ完了日時 */
   analyze_completed_at?: string | null;
 
+  /** analyzeフェーズのエラー情報（フォールバック使用時など） */
+  analyze_error?: string | null;
+
   /** executeフェーズ完了日時 */
   execute_completed_at?: string | null;
 

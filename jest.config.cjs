@@ -33,6 +33,7 @@ const config = {
   transformIgnorePatterns: [
     '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
   ],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup/simple-git-log-patch.ts'],
 };
 
 module.exports = config;

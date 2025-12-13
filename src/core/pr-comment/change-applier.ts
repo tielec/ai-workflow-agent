@@ -1,8 +1,10 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { FileChange, ChangeApplyResult } from '../../types/pr-comment.js';
+
+const fs = getFsExtra();
 
 /**
  * 機密ファイルパターン（変更禁止）

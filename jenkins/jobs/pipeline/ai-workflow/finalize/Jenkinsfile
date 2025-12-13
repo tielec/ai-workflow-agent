@@ -16,6 +16,7 @@
  * - BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
+ * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他: APIキー、AWS認証情報、Git設定
@@ -47,6 +48,8 @@ pipeline {
         WORKFLOW_VERSION = '0.5.0'
         EXECUTION_MODE = 'finalize'
         CODEX_HOME = ''
+        // 自動モデル選択設定
+        AUTO_MODEL_SELECTION = "${params.AUTO_MODEL_SELECTION ?: 'true'}"
 
         // ログ設定（CI環境ではカラーリング無効化）
         LOG_NO_COLOR = 'true'
@@ -142,6 +145,7 @@ pipeline {
                     echo "Skip Squash: ${params.SKIP_SQUASH ?: false}"
                     echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
                     echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
+                    echo "Auto Model Selection: ${params.AUTO_MODEL_SELECTION ?: true}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                 }
             }
@@ -175,11 +179,13 @@ pipeline {
                             echo "[DRY RUN] Workflow initialization skipped"
                         } else {
                             def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+                            def autoModelSelectionFlag = env.AUTO_MODEL_SELECTION == 'true' ? '--auto-model-selection' : ''
 
                             sh """
                                 node dist/index.js init \
                                     --issue-url ${params.ISSUE_URL} \
-                                    ${branchOption}
+                                    ${branchOption} \
+                                    ${autoModelSelectionFlag}
                             """
                         }
                     }

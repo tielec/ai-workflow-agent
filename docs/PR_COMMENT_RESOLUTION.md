@@ -37,7 +37,7 @@ ai-workflow pr-comment finalize --pr-url https://github.com/owner/target-repo/pu
 PRから未解決のレビューコメントを取得し、メタデータを初期化します。
 
 ```bash
-ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--dry-run]
+ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--force] [--dry-run]
 ```
 
 **オプション**:
@@ -45,14 +45,18 @@ ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--dry-run]
 |-----------|------|------|
 | `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） |
 | `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） |
+| `--force` | | 既存メタデータを強制的に再初期化 |
 | `--dry-run` | | プレビューモード（メタデータを作成しない） |
 
 *`--pr` または `--pr-url` のいずれか一方が必須
 
 **実行内容**:
-1. GitHub APIを使用してPRの未解決レビューコメントを取得
-2. 各コメントのメタデータ（ID、本文、対象ファイル、行番号等）を収集
-3. `.ai-workflow/pr-<number>/comment-resolution-metadata.json` を作成
+1. 既存メタデータの存在チェック（Resume機能）
+   - メタデータが存在する場合は初期化をスキップ
+   - `--force` オプション指定時のみ再初期化を実行
+2. GitHub APIを使用してPRの未解決レビューコメントを取得
+3. 各コメントのメタデータ（ID、本文、対象ファイル、行番号等）を収集
+4. `.ai-workflow/pr-<number>/comment-resolution-metadata.json` を作成
 
 **出力例**:
 ```
@@ -67,6 +71,31 @@ ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--dry-run]
 
 ✅ メタデータを初期化しました: .ai-workflow/pr-123/comment-resolution-metadata.json
 ```
+
+### `pr-comment analyze`
+
+AIエージェント出力をパースして応答プランを生成します。複数のパース戦略により出力形式の多様性に対応します。
+
+```bash
+ai-workflow pr-comment analyze --pr <number> [--dry-run] [--agent <mode>] [--comment-ids <ids>]
+```
+
+**オプション**:
+| オプション | 必須 | 説明 | デフォルト |
+|-----------|------|------|----------|
+| `--pr <number>` | ✓ | 対象のPR番号 | - |
+| `--dry-run` | | プレビューモード（ファイルを作成しない） | false |
+| `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
+| `--comment-ids <ids>` | | 分析対象のコメントID（カンマ区切り） | 全コメント |
+
+**実行内容**:
+1. AIエージェントでコメントを分析し、JSON形式の応答プランを生成
+2. 複数のパース戦略で出力を解析:
+   - Markdownコードブロック抽出（```json ... ```）
+   - JSON Lines形式（最後のJSONオブジェクト抽出）
+   - プレーンJSON形式
+3. パース成功時はresponse-plan.mdを生成してexit code 0で終了
+4. パース失敗時はフォールバックプランを使用してexit code 1で終了
 
 ### `pr-comment execute`
 
@@ -173,6 +202,7 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 {
   "pr_number": 123,
   "initialized_at": "2025-01-20T10:00:00Z",
+  "analyze_error": null,
   "comments": [
     {
       "id": 12345,
@@ -495,3 +525,4 @@ $REPOS_ROOT/
 |-----------|------|---------|
 | 1.0.0 | 2025-01-20 | 初版作成（Issue #383） |
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
+| 1.2.0 | 2025-01-21 | Resume機能とエラーハンドリング改善（Issue #421）<br>・`--force`オプション追加<br>・複数パース戦略対応（JSON Lines等）<br>・analyze失敗時のexit code 1対応 |

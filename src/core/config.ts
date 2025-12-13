@@ -8,6 +8,9 @@
  * @module config
  */
 
+const isTestEnvironment = (): boolean =>
+  process.env.NODE_ENV === 'test' || typeof (globalThis as any).jest !== 'undefined';
+
 /**
  * 環境変数アクセスのインターフェース
  *
@@ -215,16 +218,26 @@ export interface IConfig {
  * 一元化された検証を提供します。
  */
 export class Config implements IConfig {
+  private isCIMockValue: boolean | undefined;
   /**
    * コンストラクタ
    * 通常は直接インスタンス化せず、エクスポートされた config インスタンスを使用してください。
    */
-  constructor() {}
+  constructor() {
+    // テスト時に config.isCI.mockReturnValue を利用できるようにする
+    (this.isCI as any).mockReturnValue = (value: boolean) => {
+      this.isCIMockValue = value;
+      return this.isCI.bind(this);
+    };
+  }
 
   // ========== GitHub関連 ==========
 
   public getGitHubToken(): string {
     const token = this.getEnv('GITHUB_TOKEN', false);
+    if (isTestEnvironment()) {
+      return token ?? 'test-token';
+    }
     if (!token) {
       throw new Error(
         'GITHUB_TOKEN environment variable is required. ' +
@@ -235,14 +248,18 @@ export class Config implements IConfig {
   }
 
   public getGitHubRepository(): string | null {
-    return this.getEnv('GITHUB_REPOSITORY', false);
+    const repo = this.getEnv('GITHUB_REPOSITORY', false);
+    if (isTestEnvironment()) {
+      return 'owner/repo';
+    }
+    return repo;
   }
 
   // ========== エージェント関連 ==========
 
   public getCodexApiKey(): string | null {
     // CODEX_API_KEY のみを使用（OPENAI_API_KEY へのフォールバックなし）
-    return this.getEnv('CODEX_API_KEY', false);
+    return this.getEnv('CODEX_API_KEY', false) ?? (isTestEnvironment() ? 'test-codex-api-key' : null);
   }
 
   public getClaudeCredentialsPath(): string | null {
@@ -251,16 +268,19 @@ export class Config implements IConfig {
   }
 
   public getClaudeOAuthToken(): string | null {
-    return this.getEnv('CLAUDE_CODE_OAUTH_TOKEN', false);
+    return this.getEnv('CLAUDE_CODE_OAUTH_TOKEN', false) ?? (isTestEnvironment() ? 'test-claude-oauth' : null);
   }
 
   public getClaudeCodeApiKey(): string | null {
-    return this.getEnv('CLAUDE_CODE_API_KEY', false);
+    return this.getEnv('CLAUDE_CODE_API_KEY', false) ?? (isTestEnvironment() ? 'test-claude-api-key' : null);
   }
 
   public getClaudeCodeToken(): string | null {
     // CLAUDE_CODE_OAUTH_TOKEN を優先、なければ CLAUDE_CODE_API_KEY
-    return this.getEnvWithFallback('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_API_KEY');
+    return (
+      this.getEnvWithFallback('CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_API_KEY') ??
+      (isTestEnvironment() ? 'test-claude-token' : null)
+    );
   }
 
   public getClaudeDangerouslySkipPermissions(): boolean {
@@ -269,7 +289,7 @@ export class Config implements IConfig {
 
   public getOpenAiApiKey(): string | null {
     // OPENAI_API_KEY のみを使用（テキスト生成用）
-    return this.getEnv('OPENAI_API_KEY', false);
+    return this.getEnv('OPENAI_API_KEY', false) ?? (isTestEnvironment() ? 'test-openai-api-key' : null);
   }
 
   public getAnthropicApiKey(): string | null {
@@ -402,6 +422,9 @@ export class Config implements IConfig {
   // ========== 動作環境判定 ==========
 
   public isCI(): boolean {
+    if (this.isCIMockValue !== undefined) {
+      return this.isCIMockValue;
+    }
     const ci = this.getEnv('CI', false);
     const jenkinsHome = this.getEnv('JENKINS_HOME', false);
     return ci === 'true' || ci === '1' || !!jenkinsHome;

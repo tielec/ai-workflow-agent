@@ -12,25 +12,33 @@
 
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
-import * as fs from 'fs-extra';
 import * as path from 'node:path';
 import type { PhaseName } from '../../src/types/phase.js';
-
-// fs-extraのモック
-jest.mock('fs-extra');
+import { createFsExtraMock } from '../helpers/fs-extra-mock.js';
+import { setFsExtra } from '../../src/utils/fs-proxy.js';
 
 describe('Preset workflow: review-design (Issue #248)', () => {
   let metadataManager: MetadataManager;
   const testWorkflowDir = '/test/.ai-workflow/issue-248';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
+  let mockFsModule: ReturnType<typeof createFsExtraMock>;
+  let mockFs: jest.Mocked<typeof import('fs-extra')>;
 
   beforeEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
-    (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-    (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    mockFsModule = createFsExtraMock();
+    mockFs = mockFsModule.default as jest.Mocked<typeof import('fs-extra')>;
+    setFsExtra(mockFs as any);
+    mockFs.existsSync.mockReturnValue(false);
+    mockFs.ensureDirSync.mockImplementation(() => {});
+    mockFs.writeFileSync.mockImplementation(() => {});
 
     metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterEach(() => {
+    setFsExtra(null);
   });
 
   // =============================================================================
@@ -214,14 +222,24 @@ describe('Preset workflow: Status transition validation (Issue #248)', () => {
   let metadataManager: MetadataManager;
   const testWorkflowDir = '/test/.ai-workflow/issue-248';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
+  let mockFsModule: ReturnType<typeof createFsExtraMock>;
+  let mockFs: jest.Mocked<typeof import('fs-extra')>;
 
   beforeEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
-    (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-    (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    mockFsModule = createFsExtraMock();
+    mockFs = mockFsModule.default as jest.Mocked<typeof import('fs-extra')>;
+    setFsExtra(mockFs as any);
+    mockFs.existsSync.mockReturnValue(false);
+    mockFs.ensureDirSync.mockImplementation(() => {});
+    mockFs.writeFileSync.mockImplementation(() => {});
 
     metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterEach(() => {
+    setFsExtra(null);
   });
 
   // =============================================================================

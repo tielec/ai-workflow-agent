@@ -10,9 +10,13 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import { createRequire } from 'node:module';
 import { simpleGit, SimpleGit } from 'simple-git';
 import { logger } from '../../src/utils/logger.js';
+import { setFsExtra } from '../../src/utils/fs-proxy.js';
+
+const require = createRequire(import.meta.url);
+const fs = require('fs-extra') as typeof import('fs-extra');
 
 // テスト用の一時ディレクトリ
 const TEST_ROOT = path.join('/tmp', 'ai-workflow-test-' + Date.now());
@@ -31,6 +35,8 @@ async function setupTestRepositories(): Promise<void> {
   await fs.ensureDir(INFRA_REPO);
   const infraGit: SimpleGit = simpleGit(INFRA_REPO);
   await infraGit.init();
+  await infraGit.addConfig('user.name', 'Test User', false, 'local');
+  await infraGit.addConfig('user.email', 'test@example.com', false, 'local');
   await fs.writeFile(path.join(INFRA_REPO, 'README.md'), '# Infrastructure as Code');
   await infraGit.add('README.md');
   await infraGit.commit('Initial commit');
@@ -39,6 +45,8 @@ async function setupTestRepositories(): Promise<void> {
   await fs.ensureDir(MY_APP_REPO);
   const myAppGit: SimpleGit = simpleGit(MY_APP_REPO);
   await myAppGit.init();
+  await myAppGit.addConfig('user.name', 'Test User', false, 'local');
+  await myAppGit.addConfig('user.email', 'test@example.com', false, 'local');
   await fs.writeFile(path.join(MY_APP_REPO, 'README.md'), '# My App');
   await myAppGit.add('README.md');
   await myAppGit.commit('Initial commit');
@@ -61,12 +69,14 @@ beforeAll(async () => {
   await setupTestRepositories();
   // 環境変数REPOS_ROOTを設定
   process.env.REPOS_ROOT = TEST_ROOT;
+  setFsExtra(fs as any);
 }, 30000); // タイムアウト: 30秒
 
 afterAll(async () => {
   await cleanupTestRepositories();
   // 環境変数をクリア
   delete process.env.REPOS_ROOT;
+  setFsExtra(null);
 }, 30000);
 
 // =============================================================================

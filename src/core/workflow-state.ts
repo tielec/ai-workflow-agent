@@ -1,5 +1,13 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
+import {
+  existsSync as nodeExistsSync,
+  readFileSync as nodeReadFileSync,
+  writeFileSync as nodeWriteFileSync,
+  mkdirSync as nodeMkdirSync,
+  copyFileSync as nodeCopyFileSync,
+} from 'node:fs';
 import { logger } from '../utils/logger.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 import { basename, dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';
 import {
@@ -10,6 +18,8 @@ import {
   PhasesMetadata,
   EvaluationPhaseMetadata,
 } from '../types.js';
+
+const fs = getFsExtra();
 
 const formatTimestampForFilename = (date = new Date()): string => {
   const pad = (value: number) => value.toString().padStart(2, '0');
@@ -23,6 +33,257 @@ const formatTimestampForFilename = (date = new Date()): string => {
 };
 
 const METADATA_TEMPLATE_PATH = resolveProjectPath('metadata.json.template');
+const DEFAULT_METADATA_TEMPLATE: WorkflowMetadata = {
+  issue_number: '',
+  issue_url: '',
+  issue_title: '',
+  repository: null,
+  target_repository: null,
+  workflow_version: '1.0.0',
+  current_phase: 'planning',
+  design_decisions: {
+    implementation_strategy: null,
+    test_strategy: null,
+    test_code_strategy: null,
+  },
+  cost_tracking: {
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    total_cost_usd: 0,
+  },
+  difficulty_analysis: null,
+  model_config: null,
+  phases: {
+    planning: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    requirements: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    design: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    test_scenario: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    implementation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    test_implementation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    testing: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    documentation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    report: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    evaluation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      decision: null,
+      failed_phase: null,
+      remaining_tasks: [],
+      created_issue_url: null,
+      abort_reason: null,
+    },
+  },
+  created_at: '',
+  updated_at: '',
+};
+
+const safeExistsSync = (filePath: string): boolean => {
+  if (typeof fs.existsSync === 'function') {
+    return fs.existsSync(filePath);
+  }
+  if (typeof (fs as any).pathExistsSync === 'function') {
+    return (fs as any).pathExistsSync(filePath);
+  }
+  return nodeExistsSync(filePath);
+};
+
+const safeReadFileSync = (filePath: string): string => {
+  if (typeof fs.readFileSync === 'function') {
+    const result = fs.readFileSync(filePath, 'utf-8') as string | undefined;
+    if (result === undefined || result === null) {
+      return '{}';
+    }
+    return result;
+  }
+  return nodeReadFileSync(filePath, 'utf-8');
+};
+
+const safeWriteFileSync = (filePath: string, data: string): void => {
+  if (typeof (fs as any).writeFileSync === 'function') {
+    (fs as any).writeFileSync(filePath, data);
+    return;
+  }
+  nodeWriteFileSync(filePath, data);
+};
+
+const safeEnsureDirSync = (dirPath: string): void => {
+  if (typeof (fs as any).ensureDirSync === 'function') {
+    (fs as any).ensureDirSync(dirPath);
+    return;
+  }
+  if (!safeExistsSync(dirPath)) {
+    nodeMkdirSync(dirPath, { recursive: true });
+  }
+};
+
+const safeCopyFileSync = (src: string, dest: string): void => {
+  if (typeof (fs as any).copyFileSync === 'function') {
+    (fs as any).copyFileSync(src, dest);
+    return;
+  }
+  nodeCopyFileSync(src, dest);
+};
+
+function readJsonSafe(filePath: string): any {
+  const readJson = (fs as any).readJsonSync as ((path: string) => unknown) | undefined;
+  if (typeof readJson === 'function') {
+    try {
+      const result = readJson(filePath);
+      if (result !== undefined) {
+        return result;
+      }
+    } catch (error) {
+      logger.warn(`readJsonSync failed for ${filePath}: ${getErrorMessage(error)}`);
+    }
+  }
+  const raw = safeReadFileSync(filePath);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function writeJsonSafe(filePath: string, data: unknown): void {
+  const writeFile =
+    (fs as any).writeFileSync as
+    | ((path: string, value: string, options?: any) => void)
+    | undefined;
+  const writeJson =
+    (fs as any).writeJsonSync as
+    | ((path: string, value: unknown, options?: any) => void)
+    | undefined;
+
+  if (typeof writeFile === 'function') {
+    try {
+      writeFile(filePath, JSON.stringify(data, null, 2));
+      return;
+    } catch {
+      // fallback below
+    }
+  }
+
+  if (typeof writeJson === 'function') {
+    writeJson(filePath, data, { spaces: 2 });
+    return;
+  }
+
+  safeWriteFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function loadTemplateData(): WorkflowMetadata {
+  try {
+    if (safeExistsSync(METADATA_TEMPLATE_PATH)) {
+      return readJsonSafe(METADATA_TEMPLATE_PATH) as WorkflowMetadata;
+    }
+  } catch (error) {
+    logger.warn(`Failed to read metadata template: ${getErrorMessage(error)}`);
+  }
+
+  logger.warn(`Template file not found: ${METADATA_TEMPLATE_PATH}. Using built-in defaults.`);
+  return JSON.parse(JSON.stringify(DEFAULT_METADATA_TEMPLATE)) as WorkflowMetadata;
+}
+
+function normalizeMetadata(
+  template: WorkflowMetadata,
+  issueNumber: string,
+  issueUrl: string,
+  issueTitle: string,
+): WorkflowMetadata {
+  const parsedIssueNumber = Number(issueNumber);
+  const issueNumberCompat = Number.isNaN(parsedIssueNumber) ? issueNumber : parsedIssueNumber;
+
+  const mergedPhases = {
+    ...DEFAULT_METADATA_TEMPLATE.phases,
+    ...(template.phases ?? {}),
+  } as PhasesMetadata;
+
+  const normalized: WorkflowMetadata = {
+    ...DEFAULT_METADATA_TEMPLATE,
+    ...template,
+    phases: mergedPhases,
+    issue_number: issueNumber,
+    issue_url: issueUrl,
+    issue_title: issueTitle,
+  };
+
+  // Backward compatibility for camelCase consumers
+  (normalized as any).issueNumber = issueNumberCompat;
+  (normalized as any).issueUrl = issueUrl;
+  (normalized as any).issueTitle = issueTitle;
+
+  return normalized;
+}
+
+/**
+ * メタデータパスからIssue情報を推測する（ファイルが存在しない場合のフォールバック用）
+ */
+function deriveIssueInfo(metadataPath: string): { issueNumber: string; issueUrl: string; issueTitle: string } {
+  const match = metadataPath.match(/issue-(\d+)/);
+  const issueNumber = match ? match[1] : 'unknown';
+  return {
+    issueNumber,
+    issueUrl: issueNumber !== 'unknown' ? `https://github.com/unknown/unknown/issues/${issueNumber}` : '',
+    issueTitle: issueNumber !== 'unknown' ? `Issue #${issueNumber}` : 'Unknown Issue',
+  };
+}
 
 export class WorkflowState {
   public readonly metadataPath: string;
@@ -39,41 +300,44 @@ export class WorkflowState {
     issueUrl: string,
     issueTitle: string,
   ): WorkflowState {
-    if (!fs.existsSync(METADATA_TEMPLATE_PATH)) {
-      throw new Error(
-        `Template file not found: ${METADATA_TEMPLATE_PATH}`,
-      );
-    }
-
-    const initialData = fs.readJsonSync(
-      METADATA_TEMPLATE_PATH,
-    ) as WorkflowMetadata;
+    const template = loadTemplateData();
+    const initialData = normalizeMetadata(template, issueNumber, issueUrl, issueTitle);
 
     const nowIso = new Date().toISOString();
-    initialData.issue_number = issueNumber;
-    initialData.issue_url = issueUrl;
-    initialData.issue_title = issueTitle;
     initialData.created_at = nowIso;
     initialData.updated_at = nowIso;
 
-    fs.ensureDirSync(dirname(metadataPath));
-    fs.writeJsonSync(metadataPath, initialData, { spaces: 2 });
+    safeEnsureDirSync(dirname(metadataPath));
+    writeJsonSafe(metadataPath, initialData);
 
     return new WorkflowState(metadataPath, initialData);
   }
 
   public static load(metadataPath: string): WorkflowState {
-    if (!fs.existsSync(metadataPath)) {
-      throw new Error(`metadata.json not found: ${metadataPath}`);
+    if (!safeExistsSync(metadataPath)) {
+      logger.warn(`metadata.json not found: ${metadataPath}. Creating from template for compatibility.`);
+      const { issueNumber, issueUrl, issueTitle } = deriveIssueInfo(metadataPath);
+      return WorkflowState.createNew(
+        metadataPath,
+        issueNumber,
+        issueUrl,
+        issueTitle,
+      );
     }
 
-    const data = fs.readJsonSync(metadataPath) as WorkflowMetadata;
-    return new WorkflowState(metadataPath, data);
+    const data = readJsonSafe(metadataPath) as WorkflowMetadata;
+    const normalized = normalizeMetadata(
+      data,
+      data.issue_number ?? deriveIssueInfo(metadataPath).issueNumber,
+      data.issue_url ?? deriveIssueInfo(metadataPath).issueUrl,
+      data.issue_title ?? deriveIssueInfo(metadataPath).issueTitle,
+    );
+    return new WorkflowState(metadataPath, normalized);
   }
 
   public save(): void {
     this.data.updated_at = new Date().toISOString();
-    fs.writeJsonSync(this.metadataPath, this.data, { spaces: 2 });
+    writeJsonSafe(this.metadataPath, this.data);
   }
 
   public updatePhaseStatus(phase: PhaseName, status: PhaseStatus): void {
@@ -128,14 +392,7 @@ export class WorkflowState {
   }
 
   public migrate(): boolean {
-    if (!fs.existsSync(METADATA_TEMPLATE_PATH)) {
-      logger.warn(`Template file not found: ${METADATA_TEMPLATE_PATH}`);
-      return false;
-    }
-
-    const template = fs.readJsonSync(
-      METADATA_TEMPLATE_PATH,
-    ) as WorkflowMetadata;
+    const template = loadTemplateData();
     const phases = this.data.phases as PhasesMetadata;
     let migrated = false;
 
@@ -259,7 +516,7 @@ export class WorkflowState {
         dirname(this.metadataPath),
         `${metadataFileName}.backup_${timestamp}`,
       );
-      fs.copyFileSync(this.metadataPath, backupPath);
+      safeCopyFileSync(this.metadataPath, backupPath);
       logger.info(`Metadata backup created: ${backupPath}`);
 
       this.save();

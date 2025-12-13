@@ -1,8 +1,10 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
+
+const fs = getFsExtra();
 
 export class TestingPhase extends BasePhase {
   constructor(params: PhaseInitializationParams) {

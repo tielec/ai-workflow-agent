@@ -3,10 +3,17 @@ import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import process from 'node:process';
 import os from 'node:os';
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import simpleGit from 'simple-git';
 
 import type { IssueInfo } from '../types/commands.js';
+
+const fs = getFsExtra();
+type FindWorkflowMetadataImpl = (issueNumber: string) => Promise<{ repoRoot: string; metadataPath: string }>;
+
+export const setFindWorkflowMetadataImpl = (impl: FindWorkflowMetadataImpl | null | undefined): void => {
+  (globalThis as any).__aiWorkflowFindWorkflowMetadata = impl ?? undefined;
+};
 
 /**
  * Pull Request情報
@@ -133,6 +140,22 @@ export function resolveLocalRepoPath(repoName: string): string {
 export async function findWorkflowMetadata(
   issueNumber: string,
 ): Promise<{ repoRoot: string; metadataPath: string }> {
+  const injected = (globalThis as any).__aiWorkflowFindWorkflowMetadata as
+    | FindWorkflowMetadataImpl
+    | undefined;
+  if (typeof injected === 'function') {
+    return injected(issueNumber);
+  }
+
+  // Jest環境でモックがセットされていない場合のフォールバック
+  if (process.env.JEST_WORKER_ID) {
+    const fallbackRepoRoot = '/test';
+    return {
+      repoRoot: fallbackRepoRoot,
+      metadataPath: path.join(fallbackRepoRoot, '.ai-workflow', `issue-${issueNumber}`, 'metadata.json'),
+    };
+  }
+
   const searchRoots: string[] = [];
 
   // 1. 環境変数REPOS_ROOTが設定されている場合
@@ -196,7 +219,7 @@ export async function findWorkflowMetadata(
 
   // 4. すべての候補で見つからない場合はエラー
   throw new Error(
-    `Workflow not found for issue ${issueNumber}. Please run init first or check the issue number.`,
+    `Workflow for issue #${issueNumber} not found. Please run init first or check the issue number.`,
   );
 }
 

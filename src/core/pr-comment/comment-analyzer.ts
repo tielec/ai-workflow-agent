@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -12,6 +12,8 @@ import {
 import { CodexAgentClient } from '../codex-agent-client.js';
 import { ClaudeAgentClient } from '../claude-agent-client.js';
 import { parseCodexEvent, determineCodexEventType } from '../helpers/agent-event-parser.js';
+
+const fs = getFsExtra();
 
 export interface AnalysisContext {
   repoPath: string;
@@ -97,6 +99,9 @@ export class ReviewCommentAnalyzer {
   ): Promise<string> {
     const template = await fs.readFile(this.promptTemplatePath, 'utf-8');
     const comment = commentMeta.comment;
+    const commentBody = comment.body ?? '';
+    const commentPath = comment.path ?? '(No path)';
+    const commentUser = comment.user ?? '(unknown user)';
 
     let fileContext = '';
     if (context.fileContent) {
@@ -114,12 +119,12 @@ export class ReviewCommentAnalyzer {
 
     return template
       .replace('{comment_id}', String(comment.id))
-      .replace('{comment_body}', comment.body)
-      .replace('{comment_path}', comment.path)
+      .replace('{comment_body}', commentBody)
+      .replace('{comment_path}', commentPath)
       .replace('{comment_line}', String(lineNumber))
-      .replace('{comment_user}', comment.user)
+      .replace('{comment_user}', commentUser)
       .replace('{diff_hunk}', comment.diff_hunk || '(No diff context)')
-      .replace('{file_content}', fileContext)
+      .replace('{file_content}', fileContext || '(File not found)')
       .replace('{pr_description}', context.prDescription || '(No description)')
       .replace('{output_file_path}', outputFile);
   }

@@ -1,9 +1,11 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
+
+const fs = getFsExtra();
 
 interface ExecuteTaskOptions {
   prompt: string;

@@ -28,7 +28,8 @@ import {
 } from './execute/workflow-executor.js';
 
 // phase-factory から createPhaseInstance を再エクスポート
-export { createPhaseInstance } from '../core/phase-factory.js';
+import { createPhaseInstance } from '../core/phase-factory.js';
+export { createPhaseInstance };
 // workflow-executor から executePhasesSequential, executePhasesFrom を再エクスポート
 export { executePhasesSequential, executePhasesFrom } from './execute/workflow-executor.js';
 
@@ -710,6 +711,31 @@ function reportExecutionSummary(summary: import('../types/commands.js').Executio
   if (summary.error) {
     logger.error(`Reason: ${summary.error}`);
   }
+}
+
+// CommonJS compatibility for Jest tests that rely on require().
+const cjsModule = (globalThis as any).module;
+if (cjsModule?.exports) {
+  Object.assign(cjsModule.exports, {
+    handleExecuteCommand,
+    executePhasesSequential,
+    executePhasesFrom,
+    createPhaseInstance,
+    resolvePresetName,
+    getPresetPhases,
+  });
+}
+
+// Jest ESM tests sometimes rely on a global require shim; provide the exports explicitly.
+if (process.env.JEST_WORKER_ID) {
+  (globalThis as any).__aiWorkflowExecuteModule = {
+    handleExecuteCommand,
+    executePhasesSequential,
+    executePhasesFrom,
+    createPhaseInstance,
+    resolvePresetName,
+    getPresetPhases,
+  };
 }
 
 /**

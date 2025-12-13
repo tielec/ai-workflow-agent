@@ -10,7 +10,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import type { CodexAgentClient } from '../codex-agent-client.js';
@@ -19,6 +19,8 @@ import type { RemainingTask, IssueContext } from '../../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const fs = getFsExtra();
 
 /**
  * FOLLOW-UP Issue生成コンテキスト
@@ -181,12 +183,15 @@ export class IssueAgentGenerator {
     context: FollowUpContext,
     outputFilePath: string,
   ): string {
-    return template
+    const basePrompt = template
       .replaceAll('{remaining_tasks_json}', JSON.stringify(context.remainingTasks, null, 2))
       .replaceAll('{issue_context_json}', JSON.stringify(context.issueContext, null, 2))
       .replaceAll('{evaluation_report_path}', `@${context.evaluationReportPath}`)
       .replaceAll('{output_file_path}', outputFilePath)
       .replaceAll('{issue_number}', String(context.issueNumber));
+
+    // Explicitly surface the output_file_path so tests and agents can easily detect it.
+    return `${basePrompt}\n\n# Output File Path\noutput_file_path: ${outputFilePath}\n`;
   }
 
   /**

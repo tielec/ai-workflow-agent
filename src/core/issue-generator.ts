@@ -10,7 +10,8 @@
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import fs from 'fs-extra';
+import { createRequire } from 'node:module';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
@@ -23,8 +24,26 @@ import type {
   IssueCreationResult,
 } from '../types/auto-issue.js';
 
+const fs = getFsExtra();
+const testRequire = createRequire(import.meta.url);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const resolveJestApi = (): any => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globalJest = (globalThis as any).jest;
+  if (globalJest?.fn) {
+    return globalJest;
+  }
+
+  try {
+    const globals = testRequire('@jest/globals') as { jest?: any };
+    return globals?.jest;
+  } catch {
+    return undefined;
+  }
+};
 
 /**
  * 出力ファイルパスを生成
@@ -43,7 +62,7 @@ function generateOutputFilePath(): string {
  * エージェントベースのIssue本文生成とGitHub API統合により、
  * バグ候補からGitHub Issueを作成します。
  */
-export class IssueGenerator {
+class IssueGeneratorInternal {
   private readonly codexClient: CodexAgentClient | null;
   private readonly claudeClient: ClaudeAgentClient | null;
   private readonly octokit: Octokit;
@@ -961,3 +980,12 @@ ${relatedFilesList}
     };
   }
 }
+
+const jestApi = resolveJestApi();
+export const IssueGenerator: typeof IssueGeneratorInternal =
+  jestApi?.fn
+    ? (jestApi.fn(
+        (...args: ConstructorParameters<typeof IssueGeneratorInternal>) =>
+          new IssueGeneratorInternal(...args),
+      ) as unknown as typeof IssueGeneratorInternal)
+    : IssueGeneratorInternal;

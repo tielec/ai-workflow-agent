@@ -42,20 +42,35 @@ export interface CleanupCommandOptions {
 export async function handleCleanupCommand(options: CleanupCommandOptions): Promise<void> {
   logger.info('Starting cleanup command...');
 
+  // Validate issue number format early to avoid unnecessary side effects.
+  const issueNum = Number.parseInt(options.issue, 10);
+  if (!options.issue || Number.isNaN(issueNum) || issueNum <= 0) {
+    throw new Error(`Error: Invalid issue number: ${options.issue}. Must be a positive integer.`);
+  }
+
   // 1. メタデータ読み込み
   const { metadataManager, workflowDir } = await loadWorkflowMetadata(options.issue);
+  const artifactCleaner = new ArtifactCleaner(metadataManager);
 
   // 2. バリデーション
   validateCleanupOptions(options, metadataManager);
 
+  // 2.5 GitManager 初期化（バリデーション後に実施）
+  const gitManager = new GitManager(workflowDir, metadataManager);
+
+  // 2.5 ワークフロー存在チェック（--phases / --all 未指定時のみ）
+  if (!options.phases && !options.all && !fs.existsSync(metadataManager.metadataPath)) {
+    throw new Error(`Workflow for issue #${options.issue} not found`);
+  }
+
   // 3. ドライランモード判定
   if (options.dryRun) {
-    await previewCleanup(options, metadataManager);
+    await previewCleanup(options, metadataManager, artifactCleaner, gitManager);
     return;
   }
 
   // 4. クリーンアップ実行
-  await executeCleanup(options, metadataManager, workflowDir);
+  await executeCleanup(options, metadataManager, workflowDir, artifactCleaner, gitManager);
 
   logger.info('Cleanup completed successfully.');
 }
@@ -68,7 +83,12 @@ async function loadWorkflowMetadata(issueNumber: string): Promise<{
   workflowDir: string;
 }> {
   // メタデータの探索
-  const result = await findWorkflowMetadata(issueNumber);
+  const result = await findWorkflowMetadata(issueNumber).catch((error) => {
+    throw error;
+  });
+  if (!result?.metadataPath) {
+    throw new Error(`Workflow for issue #${issueNumber} not found`);
+  }
   const metadataPath = result.metadataPath;
 
   const metadataManager = new MetadataManager(metadataPath);
@@ -85,6 +105,11 @@ function validateCleanupOptions(
   options: CleanupCommandOptions,
   metadataManager: MetadataManager
 ): void {
+  // 0. 排他制御（--phases と --all は同時に指定できない）
+  if (options.phases && options.all) {
+    throw new Error('Error: Cannot specify both --phases and --all options');
+  }
+
   // 1. Issue番号チェック
   if (!options.issue) {
     throw new Error('Error: --issue option is required');
@@ -116,11 +141,6 @@ function validateCleanupOptions(
         `Error: --all option requires Evaluation Phase to be completed. Current status: ${evaluationStatus}`
       );
     }
-  }
-
-  // 5. 排他制御（--phases と --all は同時に指定できない）
-  if (options.phases && options.all) {
-    throw new Error('Error: Cannot specify both --phases and --all options');
   }
 }
 
@@ -207,9 +227,12 @@ export function parsePhaseRange(rangeStr: string): PhaseName[] {
 async function executeCleanup(
   options: CleanupCommandOptions,
   metadataManager: MetadataManager,
-  workflowDir: string
+  workflowDir: string,
+  artifactCleaner?: ArtifactCleaner,
+  gitManager?: GitManager
 ): Promise<void> {
-  const artifactCleaner = new ArtifactCleaner(metadataManager);
+  const cleaner = artifactCleaner ?? new ArtifactCleaner(metadataManager);
+  const git = gitManager ?? new GitManager(workflowDir, metadataManager);
 
   // 1. --all フラグ判定（完全クリーンアップ）
   if (options.all) {
@@ -217,21 +240,20 @@ async function executeCleanup(
 
     // 確認プロンプト（CI環境ではスキップ）
     const force = false; // 常にプロンプト表示（CI環境は自動スキップ）
-    await artifactCleaner.cleanupWorkflowArtifacts(force);
+    await cleaner.cleanupWorkflowArtifacts(force);
 
     // Git コミット＆プッシュ
-    const gitManager = new GitManager(workflowDir, metadataManager);
     const issueNumber = parseInt(options.issue, 10);
 
     try {
-      const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'evaluation');
+      const commitResult = await git.commitCleanupLogs(issueNumber, 'evaluation');
       if (!commitResult.success) {
         throw new Error(commitResult.error ?? 'Commit failed');
       }
 
       logger.info(`Cleanup committed: ${commitResult.commit_hash}`);
 
-      const pushResult = await gitManager.pushToRemote();
+      const pushResult = await git.pushToRemote();
       if (!pushResult.success) {
         throw new Error(pushResult.error ?? 'Push failed');
       }
@@ -256,21 +278,20 @@ async function executeCleanup(
   }
 
   // クリーンアップ実行
-  await artifactCleaner.cleanupWorkflowLogs(phaseRange);
+  await cleaner.cleanupWorkflowLogs(phaseRange);
 
   // Git コミット＆プッシュ
-  const gitManager = new GitManager(workflowDir, metadataManager);
   const issueNumber = parseInt(options.issue, 10);
 
   try {
-    const commitResult = await gitManager.commitCleanupLogs(issueNumber, 'report');
+    const commitResult = await git.commitCleanupLogs(issueNumber, 'report');
     if (!commitResult.success) {
       throw new Error(commitResult.error ?? 'Commit failed');
     }
 
     logger.info(`Cleanup committed: ${commitResult.commit_hash}`);
 
-    const pushResult = await gitManager.pushToRemote();
+    const pushResult = await git.pushToRemote();
     if (!pushResult.success) {
       throw new Error(pushResult.error ?? 'Push failed');
     }
@@ -294,7 +315,9 @@ async function executeCleanup(
  */
 async function previewCleanup(
   options: CleanupCommandOptions,
-  metadataManager: MetadataManager
+  metadataManager: MetadataManager,
+  _artifactCleaner: ArtifactCleaner,
+  _gitManager?: GitManager
 ): Promise<void> {
   logger.info('[DRY RUN] Cleanup preview:');
   logger.info('');

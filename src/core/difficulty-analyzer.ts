@@ -1,10 +1,12 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { ClaudeAgentClient, resolveClaudeModel } from './claude-agent-client.js';
 import { CodexAgentClient, resolveCodexModel } from './codex-agent-client.js';
 import { DifficultyAnalysisResult, DifficultyLevel } from '../types.js';
 import { resolveProjectPath } from './path-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+
+const fs = getFsExtra();
 
 export interface DifficultyAnalyzerInput {
   title: string;

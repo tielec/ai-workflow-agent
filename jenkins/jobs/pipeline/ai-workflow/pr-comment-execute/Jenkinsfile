@@ -165,36 +165,10 @@ pipeline {
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
 
+                        // The init command now performs a metadata existence check and will no-op if already initialized.
                         sh """
                             node dist/index.js pr-comment init \
                                 --pr-url ${params.PR_URL} \
-                                ${dryRunFlag}
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('PR Comment Analyze') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: PR Comment Analyze"
-                    echo "========================================="
-                    echo "PR Number: ${env.PR_NUMBER}"
-                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
-                    echo "Dry Run: ${params.DRY_RUN ?: false}"
-
-                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
-                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Analyze Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
-
-                    dir(env.WORKFLOW_DIR) {
-                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
-
-                        sh """
-                            node dist/index.js pr-comment analyze \
-                                --pr-url ${params.PR_URL} \
-                                --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag}
                         """
                     }

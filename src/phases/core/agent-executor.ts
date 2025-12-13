@@ -8,7 +8,7 @@
  * - 利用量メトリクスの抽出・記録
  */
 
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
@@ -23,6 +23,8 @@ type UsageMetrics = {
   outputTokens: number;
   totalCostUsd: number;
 };
+
+const fs = getFsExtra();
 
 export class AgentExecutor {
   private codex: CodexAgentClient | null;

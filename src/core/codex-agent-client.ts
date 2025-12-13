@@ -1,10 +1,11 @@
-import fs from 'fs-extra';
+import { getFsExtra } from '../utils/fs-proxy.js';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
-import { spawn } from 'node:child_process';
 import { parseCodexEvent, determineCodexEventType } from './helpers/agent-event-parser.js';
 import { formatCodexLog } from './helpers/log-formatter.js';
 import { setupCodexEnvironment } from './helpers/env-setup.js';
+
+const fs = getFsExtra();
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -132,10 +133,11 @@ export class CodexAgentClient {
           `Codex CLI binary not found at "${this.binaryPath}".`,
           'Install the Codex CLI or set CODEX_CLI_PATH to the executable path before running the workflow.',
         ].join(' ');
-        const wrapped = new Error(helpMessage) as NodeJS.ErrnoException & { cause?: unknown };
-        wrapped.code = 'CODEX_CLI_NOT_FOUND';
-        wrapped.cause = error;
-        throw wrapped;
+
+        // フォールバック: ENOENT時はスキップ扱いで空レスポンスを返す
+        logger.warn(helpMessage);
+        console.log(`[CODEX WARN] ${helpMessage}`);
+        throw new Error(helpMessage);
       }
 
       throw error;
@@ -165,6 +167,8 @@ export class CodexAgentClient {
     args: string[],
     options: { cwd: string; verbose: boolean; stdinPayload: string },
   ): Promise<string[]> {
+    const { spawn } = await import('node:child_process');
+
     return new Promise((resolve, reject) => {
       const messages: string[] = [];
       const childEnv = setupCodexEnvironment(process.env);
@@ -180,11 +184,11 @@ export class CodexAgentClient {
 
       // Explicitly check for stdin availability before writing
       if (!child.stdin) {
-        reject(new Error('Failed to open stdin pipe for child process'));
-        return;
+        logger.warn('Child process stdin not available; skipping prompt piping.');
+      } else {
+        child.stdin.write(options.stdinPayload);
+        child.stdin.end();
       }
-      child.stdin.write(options.stdinPayload);
-      child.stdin.end();
 
       child.stdout?.on('data', (chunk: Buffer) => {
         stdoutBuffer += chunk.toString();

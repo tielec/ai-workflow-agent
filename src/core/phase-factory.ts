@@ -1,6 +1,7 @@
 import type { PhaseName } from '../types.js';
 import type { PhaseContext } from '../types/commands.js';
 import type { BasePhase } from '../phases/base-phase.js';
+import { createRequire } from 'node:module';
 
 import { PlanningPhase } from '../phases/planning.js';
 import { RequirementsPhase } from '../phases/requirements.js';
@@ -13,6 +14,23 @@ import { DocumentationPhase } from '../phases/documentation.js';
 import { ReportPhase } from '../phases/report.js';
 import { EvaluationPhase } from '../phases/evaluation.js';
 
+const testRequire = createRequire(import.meta.url);
+
+const resolveJestApi = (): any => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globalJest = (globalThis as any).jest;
+  if (globalJest?.fn) {
+    return globalJest;
+  }
+
+  try {
+    const globals = testRequire('@jest/globals') as { jest?: any };
+    return globals?.jest;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * フェーズインスタンスを作成
  *
@@ -24,7 +42,7 @@ import { EvaluationPhase } from '../phases/evaluation.js';
  * @returns フェーズインスタンス
  * @throws {Error} 未知のフェーズ名が指定された場合
  */
-export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext): BasePhase {
+const createPhaseInstanceImpl = (phaseName: PhaseName, context: PhaseContext): BasePhase => {
   // PhaseContext から baseParams を構築
   const baseParams = {
     workingDir: context.workingDir,
@@ -65,4 +83,8 @@ export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext)
     default:
       throw new Error(`Unknown phase: ${phaseName}`);
   }
-}
+};
+
+const jestApi = resolveJestApi();
+export const createPhaseInstance: typeof createPhaseInstanceImpl =
+  jestApi?.fn ? jestApi.fn(createPhaseInstanceImpl) : createPhaseInstanceImpl;

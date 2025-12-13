@@ -14,11 +14,10 @@ import { ImplementationPhase } from '../../src/phases/implementation.js';
 import { TestingPhase } from '../../src/phases/testing.js';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
-import { mockDeep } from 'jest-mock-extended';
-import type * as FsExtra from 'fs-extra';
+import { createFsExtraMock } from '../helpers/fs-extra-mock.js';
 
-// jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
-const mockFs = mockDeep<typeof FsExtra>();
+// fs-extra のモック（実モジュールも上書きする形で差し替え）
+const mockFs = createFsExtraMock();
 jest.mock('fs-extra', () => mockFs);
 
 describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {

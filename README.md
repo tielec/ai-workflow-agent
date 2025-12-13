@@ -157,7 +157,7 @@ ai-workflow finalize \
 
 ai-workflow pr-comment init \
   --pr <number> | --pr-url <URL> \
-  [--dry-run]
+  [--force] [--dry-run]
 
 ai-workflow pr-comment analyze \
   --pr <number> \

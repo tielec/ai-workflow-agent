@@ -104,8 +104,14 @@ export class PhaseRunner {
 
     // Issue #90: current_step と completed_steps を確認してレジューム
     const currentStatus = this.metadata.getPhaseStatus(this.phaseName);
-    const currentStep = this.metadata.getCurrentStep(this.phaseName);
-    const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+    const currentStep =
+      typeof (this.metadata as any).getCurrentStep === 'function'
+        ? (this.metadata as any).getCurrentStep(this.phaseName)
+        : null;
+    const completedSteps =
+      typeof (this.metadata as any).getCompletedSteps === 'function'
+        ? (this.metadata as any).getCompletedSteps(this.phaseName)
+        : [];
 
     // フェーズが pending の場合のみステータス更新
     if (currentStatus === 'pending') {

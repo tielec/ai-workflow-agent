@@ -6,62 +6,95 @@
  */
 
 import path from 'node:path';
-import { handleAutoIssueCommand } from '../../../src/commands/auto-issue.js';
+import { jest } from '@jest/globals';
 import type { AutoIssueOptions, IssueCreationResult } from '../../../src/types/auto-issue.js';
-import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
-import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
-import { IssueGenerator } from '../../../src/core/issue-generator.js';
-import * as autoIssueOutput from '../../../src/commands/auto-issue-output.js';
 import { config } from '../../../src/core/config.js';
 import { logger } from '../../../src/utils/logger.js';
-import * as agentSetup from '../../../src/commands/execute/agent-setup.js';
-import * as repositoryUtils from '../../../src/core/repository-utils.js';
-import { jest } from '@jest/globals';
 
 // モック関数の事前定義（グローバルスコープで定義）
 const mockAnalyze = jest.fn<any>();
 const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
 
-// モック設定
-jest.mock('../../../src/core/repository-analyzer.js', () => ({
+// ESM互換のモジュールモック
+jest.unstable_mockModule('../../../src/core/repository-analyzer.js', () => ({
+  __esModule: true,
   RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
     analyze: mockAnalyze,
   })),
 }));
 
-jest.mock('../../../src/core/issue-deduplicator.js', () => ({
+jest.unstable_mockModule('../../../src/core/issue-deduplicator.js', () => ({
+  __esModule: true,
   IssueDeduplicator: jest.fn().mockImplementation(() => ({
     filterDuplicates: mockFilterDuplicates,
   })),
 }));
 
-jest.mock('../../../src/core/issue-generator.js', () => ({
+jest.unstable_mockModule('../../../src/core/issue-generator.js', () => ({
+  __esModule: true,
   IssueGenerator: jest.fn().mockImplementation(() => ({
     generate: mockGenerate,
   })),
 }));
-jest.mock('../../../src/commands/auto-issue-output.js', () => ({
+
+jest.unstable_mockModule('../../../src/commands/auto-issue-output.js', () => ({
+  __esModule: true,
   buildAutoIssueJsonPayload: jest.fn(),
   writeAutoIssueOutputFile: jest.fn(),
 }));
 
-jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
+jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', () => ({
+  __esModule: true,
   resolveAgentCredentials: jest.fn(),
   setupAgentClients: jest.fn(),
 }));
-jest.mock('../../../src/core/repository-utils.js', () => ({
+
+jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
+  __esModule: true,
   resolveLocalRepoPath: jest.fn(),
 }));
-jest.mock('@octokit/rest');
+
+jest.unstable_mockModule('@octokit/rest', () => ({
+  __esModule: true,
+  Octokit: jest.fn().mockImplementation(() => ({
+    issues: { create: jest.fn() },
+  })),
+}));
+
+let handleAutoIssueCommand: (options: AutoIssueOptions) => Promise<IssueCreationResult | void>;
+let repositoryUtils: typeof import('../../../src/core/repository-utils.js');
+let agentSetup: typeof import('../../../src/commands/execute/agent-setup.js');
+let autoIssueOutput: typeof import('../../../src/commands/auto-issue-output.js');
+let RepositoryAnalyzer: typeof import('../../../src/core/repository-analyzer.js').RepositoryAnalyzer;
+let IssueDeduplicator: typeof import('../../../src/core/issue-deduplicator.js').IssueDeduplicator;
+let IssueGenerator: typeof import('../../../src/core/issue-generator.js').IssueGenerator;
 
 describe('auto-issue command handler', () => {
   // 変数名のエイリアス（既存コードとの互換性のため）
   const mockAnalyzer = { analyze: mockAnalyze };
   const mockDeduplicator = { filterDuplicates: mockFilterDuplicates };
   const mockGenerator = { generate: mockGenerate };
+  let resolveLocalRepoPathMock: jest.MockedFunction<typeof repositoryUtils.resolveLocalRepoPath>;
+  let resolveAgentCredentialsMock: jest.MockedFunction<typeof agentSetup.resolveAgentCredentials>;
+  let setupAgentClientsMock: jest.MockedFunction<typeof agentSetup.setupAgentClients>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    ({ handleAutoIssueCommand } = await import('../../../src/commands/auto-issue.js'));
+    repositoryUtils = await import('../../../src/core/repository-utils.js');
+    agentSetup = await import('../../../src/commands/execute/agent-setup.js');
+    autoIssueOutput = await import('../../../src/commands/auto-issue-output.js');
+    ({ RepositoryAnalyzer } = await import('../../../src/core/repository-analyzer.js'));
+    ({ IssueDeduplicator } = await import('../../../src/core/issue-deduplicator.js'));
+    ({ IssueGenerator } = await import('../../../src/core/issue-generator.js'));
+
+    resolveLocalRepoPathMock = repositoryUtils
+      .resolveLocalRepoPath as jest.MockedFunction<typeof repositoryUtils.resolveLocalRepoPath>;
+    resolveAgentCredentialsMock = agentSetup
+      .resolveAgentCredentials as jest.MockedFunction<typeof agentSetup.resolveAgentCredentials>;
+    setupAgentClientsMock = agentSetup
+      .setupAgentClients as jest.MockedFunction<typeof agentSetup.setupAgentClients>;
+
     process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? 'test-github-token';
     process.env.GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY ?? 'owner/repo';
   });
@@ -89,14 +122,14 @@ describe('auto-issue command handler', () => {
     logger.error = jest.fn();
 
     // repositoryUtils.resolveLocalRepoPath のモック
-    jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
+    resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
 
     // agent-setup のモック
-    jest.mocked(agentSetup.resolveAgentCredentials).mockReturnValue({
+    resolveAgentCredentialsMock.mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     } as any);
-    jest.mocked(agentSetup.setupAgentClients).mockReturnValue({
+    setupAgentClientsMock.mockReturnValue({
       codexClient: {},
       claudeClient: {},
     } as any);

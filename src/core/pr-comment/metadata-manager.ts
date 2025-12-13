@@ -70,6 +70,7 @@ export class PRCommentMetadataManager {
       created_at: now,
       updated_at: now,
       analyze_completed_at: null,
+      analyze_error: null,
       execute_completed_at: null,
       response_plan_path: null,
       execution_result_path: null,
@@ -259,6 +260,25 @@ export class PRCommentMetadataManager {
   public async setAnalyzeCompletedAt(timestamp: string): Promise<void> {
     await this.ensureLoaded();
     this.metadata!.analyze_completed_at = timestamp;
+    this.metadata!.analyze_error = null;
+    await this.save();
+  }
+
+  /**
+   * analyzeエラー情報を設定
+   */
+  public async setAnalyzeError(error: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyze_error = error;
+    await this.save();
+  }
+
+  /**
+   * analyzeエラー情報をクリア
+   */
+  public async clearAnalyzeError(): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyze_error = null;
     await this.save();
   }
 

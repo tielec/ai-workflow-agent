@@ -22,6 +22,7 @@ jest.unstable_mockModule('fs-extra', () => ({
 // モジュールをダイナミックインポート
 const fs = await import('fs-extra');
 const { MetadataManager } = await import('../../src/core/metadata-manager.js');
+const { setFsExtra } = await import('../../src/utils/fs-proxy.js');
 
 describe('メタデータ永続化の統合テスト', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-26';
@@ -29,6 +30,11 @@ describe('メタデータ永続化の統合テスト', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setFsExtra(fs as any);
+  });
+
+  afterEach(() => {
+    setFsExtra(undefined as any);
   });
 
   describe('メタデータ永続化フロー', () => {

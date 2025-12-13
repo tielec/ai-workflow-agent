@@ -4,10 +4,12 @@
  * メタデータファイルI/O操作を提供するヘルパーモジュール
  */
 
-import fs from 'fs-extra';
+import { getFsExtra } from '../../utils/fs-proxy.js';
 import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
 import { logger } from '../../utils/logger.js';
+
+const fs = getFsExtra();
 
 /**
  * タイムスタンプをファイル名用にフォーマット

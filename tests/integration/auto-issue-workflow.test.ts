@@ -28,9 +28,46 @@ jest.mock('../../src/core/issue-generator.js', () => ({
   IssueGenerator: jest.fn(),
 }));
 jest.mock('../../src/commands/execute/agent-setup.js');
-jest.mock('../../src/core/config.js');
+jest.mock('../../src/core/repository-utils.js', () => ({
+  resolveLocalRepoPath: jest.fn(() => '/tmp/mock-repo'),
+}));
+jest.mock('../../src/core/config.js', () => ({
+  config: {
+    getGitHubToken: jest.fn(() => 'test-token'),
+    getGitHubRepository: jest.fn(() => 'owner/repo'),
+    getHomeDir: jest.fn(() => '/home/test'),
+    getReposRoot: jest.fn(() => null),
+    getLogLevel: jest.fn(() => 'info'),
+    getLogNoColor: jest.fn(() => false),
+    getOpenAiApiKey: jest.fn(() => 'test-openai-api-key'),
+    getClaudeCodeApiKey: jest.fn(() => 'test-claude-api-key'),
+    getClaudeOAuthToken: jest.fn(() => 'test-claude-oauth'),
+    getClaudeCodeToken: jest.fn(() => 'test-claude-token'),
+    getClaudeDangerouslySkipPermissions: jest.fn(() => false),
+    getClaudeModel: jest.fn(() => null),
+    getCodexModel: jest.fn(() => null),
+    isCI: jest.fn(() => false),
+  },
+}));
 jest.mock('../../src/utils/logger.js');
-jest.mock('@octokit/rest');
+jest.mock('@octokit/rest', () => {
+  const issuesApi = {
+    listForRepo: jest.fn().mockResolvedValue({ data: [] }),
+    create: jest.fn().mockResolvedValue({ data: { number: 1, html_url: 'https://example.com/1' } }),
+  };
+  return {
+    Octokit: jest.fn().mockImplementation(() => ({
+      issues: issuesApi,
+    })),
+  };
+});
+jest.mock('../../src/commands/auto-issue-output.js', () => {
+  const actual = jest.requireActual('../../src/commands/auto-issue-output.js');
+  return {
+    ...actual,
+    writeAutoIssueOutputFile: jest.fn(actual.writeAutoIssueOutputFile),
+  };
+});
 
 describe('auto-issue workflow integration tests', () => {
   let mockAnalyzer: jest.Mocked<RepositoryAnalyzer>;
@@ -61,6 +98,11 @@ describe('auto-issue workflow integration tests', () => {
     (IssueGenerator as jest.MockedClass<typeof IssueGenerator>).mockImplementation(
       () => mockGenerator
     );
+
+    // 安全なデフォルトを設定
+    mockAnalyzer.analyze.mockResolvedValue([]);
+    mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+    mockGenerator.generate.mockResolvedValue({ success: true });
 
     // config のモック
     const config = require('../../src/core/config.js');
@@ -459,17 +501,25 @@ describe('auto-issue workflow integration tests', () => {
    */
   describe('Issue #257: JSON output integration', () => {
     const baseDir = path.join(process.cwd(), 'tmp', 'auto-issue-workflow-tests');
+    const writeSpy = autoIssueOutput.writeAutoIssueOutputFile as jest.Mock;
+    const defaultWriteImplementation = writeSpy.getMockImplementation();
+
+    const restoreWriteSpy = () => {
+      writeSpy.mockImplementation(defaultWriteImplementation ?? (() => Promise.resolve()));
+    };
 
     const cleanupOutput = async () => {
       await fs.rm(baseDir, { recursive: true, force: true });
     };
 
     beforeEach(async () => {
+      restoreWriteSpy();
       await cleanupOutput();
     });
 
     afterEach(async () => {
       await cleanupOutput();
+      restoreWriteSpy();
     });
 
     /**
@@ -582,9 +632,8 @@ describe('auto-issue workflow integration tests', () => {
      */
     it('should propagate output file errors so the CLI exits with failure', async () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'error.json');
-      const writeSpy = jest
-        .spyOn(autoIssueOutput, 'writeAutoIssueOutputFile')
-        .mockRejectedValue(new Error('permission denied'));
+      const writeSpy = autoIssueOutput.writeAutoIssueOutputFile as jest.Mock;
+      writeSpy.mockRejectedValue(new Error('permission denied'));
 
       await expect(
         handleAutoIssueCommand({
@@ -593,7 +642,8 @@ describe('auto-issue workflow integration tests', () => {
         }),
       ).rejects.toThrow('permission denied');
 
-      writeSpy.mockRestore();
+      // 元の実装に戻して以降のテストの副作用を防ぐ
+      restoreWriteSpy();
     });
 
     /**
