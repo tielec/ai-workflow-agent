@@ -1174,7 +1174,228 @@ node dist/index.js init --issue-url <URL> --force
 
 **注意**: スカッシュはオプショナル機能であり、失敗してもワークフローの成功には影響しません。
 
-## 16. デバッグのヒント
+## 16. PRコメント自動対応関連（v0.5.0、Issue #428）
+
+### pr-comment analyze フェーズのエラー終了
+
+PR commentワークフローの2段階ワークフロー（analyze → execute）でanallyzeフェーズが失敗する場合：
+
+**症状**:
+```
+[ERROR] Failed to analyze PR comments: <エラー詳細>
+```
+
+**原因と環境別動作（Issue #428で改善）**:
+
+**CI環境**（`process.env.CI` が設定されている場合）:
+- エージェント実行失敗時に即座に `process.exit(1)` で終了
+- executeフェーズには進まない
+- Jenkinsパイプラインで失敗として検知される
+
+**ローカル環境**:
+- 確認プロンプトが表示される
+- ユーザーが継続（'y'）を選択 → フォールバックプランで続行
+- ユーザーが拒否（'N' or Enter）を選択 → `process.exit(1)` で終了
+
+**対処法**:
+
+**1. エラー原因の確認**:
+```bash
+# メタデータからエラー詳細を確認
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error, .analyzer_error_type'
+
+# 一般的なエラー種別
+# - agent_execution_error: API認証エラー、タイムアウト等
+# - agent_empty_output: エージェントが空出力を返した
+# - json_parse_error: レスポンスのJSONパースに失敗
+# - validation_error: レスポンス構造の検証に失敗
+```
+
+**2. エラー種別別の対処法**:
+
+**`agent_execution_error`（エージェント実行エラー）**:
+```bash
+# API認証の確認
+echo $CODEX_API_KEY  # Codexの場合
+echo $CLAUDE_CODE_CREDENTIALS_PATH  # Claudeの場合
+
+# エージェントを切り替えて再試行
+ai-workflow pr-comment analyze --pr 123 --agent claude  # CodexからClaudeに変更
+ai-workflow pr-comment analyze --pr 123 --agent codex   # ClaudeからCodexに変更
+```
+
+**`agent_empty_output`（空出力エラー）**:
+```bash
+# エージェントログの確認
+cat .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# プロンプトが正しく渡されているか確認
+cat .ai-workflow/pr-123/analyze/execute/prompt.txt
+
+# APIレート制限の可能性があるため、時間を置いて再試行
+sleep 300  # 5分待機
+ai-workflow pr-comment analyze --pr 123
+```
+
+**`json_parse_error`（JSONパースエラー）**:
+```bash
+# エージェント出力の確認
+cat .ai-workflow/pr-123/analyze/execute/agent_log.md | grep -A 20 -B 5 "json"
+
+# エージェントが出力したJSONが不正な可能性
+# エージェントを切り替えて再試行
+ai-workflow pr-comment analyze --pr 123 --agent claude
+```
+
+**3. 完全なリセット（最終手段）**:
+```bash
+# メタデータを削除して最初からやり直し
+rm -rf .ai-workflow/pr-123
+
+# 再初期化
+ai-workflow pr-comment init --pr 123
+ai-workflow pr-comment analyze --pr 123
+```
+
+### フォールバックプランが使用されたときの対処
+
+ローカル環境でユーザーが継続（'y'）を選択した場合、フォールバックプランが使用されます。
+
+**症状**:
+```
+[WARNING] Analyze phase used fallback plan.
+All comments will be treated as 'discussion' type.
+Manual review may be required after execution.
+```
+
+**影響**:
+- すべてのコメントが `discussion` タイプとして処理される
+- 本来 `code_change` として処理すべきコメントも手動対応待ちとなる
+- 低品質な自動対応となる可能性
+
+**対処法**:
+
+**1. executeフェーズ実行前の確認**:
+```bash
+# フォールバックプランの内容を確認
+cat .ai-workflow/pr-123/analyze/output/response-plan.md
+
+# メタデータでフォールバック使用を確認
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
+# 出力: "fallback"
+```
+
+**2. 手動でのanalyze再実行（推奨）**:
+```bash
+# エラー原因を修正してからanalyzeを再実行
+# 例: API認証問題を修正後
+ai-workflow pr-comment analyze --pr 123 --agent claude
+
+# 成功した場合、フォールバックが上書きされる
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
+# 出力: "claude" または "codex"
+```
+
+**3. フォールバックプランでの実行継続**:
+```bash
+# 品質は低いがワークフローを継続
+ai-workflow pr-comment execute --pr 123
+
+# 実行後に手動レビューを実施
+# discussion タイプのコメントは自動対応されないため、手動で対応が必要
+```
+
+### Jenkins環境でのanalyze失敗検知
+
+Jenkins パイプラインでanalyze失敗を適切に検知する場合：
+
+**Jenkinsfile設定例**:
+```groovy
+stage('PR Comment Analyze') {
+    steps {
+        script {
+            // returnStatus: true で終了コードを取得
+            def analyzeResult = sh(
+                script: """
+                    node dist/index.js pr-comment analyze \\
+                        --pr-url ${params.PR_URL} \\
+                        --agent ${params.AGENT_MODE ?: 'auto'}
+                """,
+                returnStatus: true
+            )
+
+            // 終了コードが0以外の場合はパイプライン失敗
+            if (analyzeResult != 0) {
+                error("Analyze phase failed with exit code ${analyzeResult}. Execute stage will be skipped.")
+            }
+
+            // メタデータからanalyzerエラーをチェック
+            def metadataPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+            if (fileExists(metadataPath)) {
+                def metadata = readJSON file: metadataPath
+                if (metadata.analyzer_error != null) {
+                    echo "⚠️ WARNING: Analyze phase encountered an error."
+                    echo "Error Type: ${metadata.analyzer_error_type ?: 'unknown'}"
+                    echo "Error: ${metadata.analyzer_error}"
+                }
+            }
+        }
+    }
+}
+```
+
+**確認方法**:
+```bash
+# Jenkinsログでエラー検知を確認
+grep -i "analyze phase failed" jenkins-build.log
+
+# メタデータの警告表示を確認
+grep -i "WARNING: Analyze phase encountered an error" jenkins-build.log
+```
+
+### pr-comment ワークフロー固有のメタデータ破損
+
+PR comment専用のメタデータ（`comment-resolution-metadata.json`）が破損した場合：
+
+**症状**:
+```
+[ERROR] Failed to load comment resolution metadata
+[ERROR] Invalid metadata format
+```
+
+**対処法**:
+
+**1. メタデータ構造の確認**:
+```bash
+# JSONフォーマットが正しいか確認
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq .
+
+# エラーが表示される場合、JSONが破損している
+# 再初期化が必要
+```
+
+**2. メタデータの再初期化**:
+```bash
+# 破損したメタデータを削除
+rm .ai-workflow/pr-123/comment-resolution-metadata.json
+
+# または、ディレクトリ全体を削除
+rm -rf .ai-workflow/pr-123
+
+# 再初期化
+ai-workflow pr-comment init --pr 123
+```
+
+**3. バックアップからの復元（Git履歴がある場合）**:
+```bash
+# Git履歴からメタデータを復元
+git log --all --full-history -- .ai-workflow/pr-123/comment-resolution-metadata.json
+
+# 特定のコミットから復元
+git checkout <commit-hash> -- .ai-workflow/pr-123/comment-resolution-metadata.json
+```
+
+## 17. デバッグのヒント
 
 - Codex の問題切り分けには `--agent claude`、Claude の問題切り分けには `--agent codex` を利用。
 - `.ai-workflow/issue-*/<phase>/execute/agent_log_raw.txt` の生ログを確認すると詳細が分かります（Report Phase 前のみ利用可能）。

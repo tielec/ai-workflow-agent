@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
+import readline from 'node:readline';
 import { logger } from '../../../src/utils/logger.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
 import type { PRCommentAnalyzeOptions } from '../../../src/types/commands.js';
@@ -11,6 +12,7 @@ const setupAgentClientsMock = jest.fn();
 const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
+const configIsCIMock = jest.fn(() => false);
 
 let handlePRCommentAnalyzeCommand: (options: PRCommentAnalyzeOptions) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
@@ -58,6 +60,9 @@ beforeAll(async () => {
         getMetadata: jest.fn().mockResolvedValue({ pr: { title: prTitle } }),
         setAnalyzeCompletedAt: jest.fn().mockResolvedValue(undefined),
         setResponsePlanPath: jest.fn().mockResolvedValue(undefined),
+        setAnalyzerAgent: jest.fn().mockResolvedValue(undefined),
+        setAnalyzerError: jest.fn().mockResolvedValue(undefined),
+        clearAnalyzerError: jest.fn().mockResolvedValue(undefined),
       };
       return currentMetadataManager;
     }),
@@ -73,6 +78,7 @@ beforeAll(async () => {
     __esModule: true,
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
+      isCI: configIsCIMock,
     },
   }));
 
@@ -97,6 +103,7 @@ beforeEach(() => {
   currentMetadataManager = null;
   metadataExists = true;
   processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
+  configIsCIMock.mockReturnValue(false);
 
   agentExecuteTaskMock = jest.fn();
   setupAgentClientsMock.mockReturnValue({
@@ -233,6 +240,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
 
   it('does not write partial artifacts when agent execution fails', async () => {
     // Given agent throws, when analyze runs, then the process exits and no files are written
+    configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockRejectedValue(new Error('API timeout'));
     processExitSpy.mockImplementation((() => {
       throw new Error('exit called');
@@ -249,6 +257,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
 
   it('exits on parse error when agent returns malformed JSON', async () => {
     // Given malformed agent output, when parse fails, then analyze exits without creating response-plan
+    configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockResolvedValue(['```json\n{ invalid\n```']);
 
     processExitSpy.mockImplementation((() => {
@@ -303,5 +312,125 @@ describe('handlePRCommentAnalyzeCommand', () => {
     expect(logger.info).toHaveBeenCalledWith('No pending comments to analyze.');
     expect(fs.writeFile).not.toHaveBeenCalled();
     expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('exits in CI when agent execution fails and records analyzer error', async () => {
+    // Given CI environment and agent failure, when analyze runs, then it records error and exits without artifacts
+    configIsCIMock.mockReturnValue(true);
+    agentExecuteTaskMock.mockRejectedValue(new Error('API timeout'));
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+    const promptSpy = jest.spyOn(readline, 'createInterface');
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith('API timeout', 'agent_execution_error');
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(
+      (fs.writeFile as jest.Mock).mock.calls.some((call) => String(call[0]).endsWith('response-plan.md')),
+    ).toBe(false);
+  });
+
+  it('prompts locally when agent fails and exits when user declines', async () => {
+    // Given local environment and agent failure, when user declines fallback, then process exits
+    agentExecuteTaskMock.mockRejectedValue(new Error('Authentication failed'));
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: (_, callback) => callback('n'),
+      close: jest.fn(),
+    } as any);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith(
+      'Authentication failed',
+      'agent_execution_error',
+    );
+    expect(logger.info).toHaveBeenCalledWith('User cancelled workflow due to analyze failure.');
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('continues with fallback when user accepts after agent failure locally', async () => {
+    // Given local environment and user accepts fallback, when agent fails, then fallback response-plan is written
+    agentExecuteTaskMock.mockRejectedValue(new Error('Rate limit exceeded'));
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: (_, callback) => callback('y'),
+      close: jest.fn(),
+    } as any);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' });
+
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: fallback');
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith(
+      'Rate limit exceeded',
+      'agent_execution_error',
+    );
+    expect(currentMetadataManager.setAnalyzerAgent).toHaveBeenCalledWith('fallback');
+    expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('exits in CI when agent returns empty output', async () => {
+    // Given CI environment and empty output, when analyze runs, then it exits with agent_empty_output error
+    configIsCIMock.mockReturnValue(true);
+    agentExecuteTaskMock.mockResolvedValue(['']);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith(
+      'Agent returned empty output',
+      'agent_empty_output',
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('prompts locally on parse error and continues when user accepts fallback', async () => {
+    // Given malformed output locally, when user accepts, then fallback plan is used and saved
+    agentExecuteTaskMock.mockResolvedValue(['```json\n{ invalid\n```']);
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: (_, callback) => callback('y'),
+      close: jest.fn(),
+    } as any);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' });
+
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: fallback');
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith(
+      expect.stringContaining('JSON parsing failed'),
+      'json_parse_error',
+    );
+    expect(processExitSpy).not.toHaveBeenCalled();
+  });
+
+  it('treats empty prompt input as decline', async () => {
+    // Given user presses Enter on confirmation, when agent fails, then workflow exits
+    agentExecuteTaskMock.mockRejectedValue(new Error('Network error'));
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: (_, callback) => callback(''),
+      close: jest.fn(),
+    } as any);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('exit called');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', agent: 'auto' })).rejects.toThrow('exit called');
+
+    expect(currentMetadataManager.setAnalyzerError).toHaveBeenCalledWith(
+      'Network error',
+      'agent_execution_error',
+    );
+    expect(processExitSpy).toHaveBeenCalledWith(1);
   });
 });

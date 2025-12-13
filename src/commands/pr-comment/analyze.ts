@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import process from 'node:process';
+import readline from 'node:readline';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -16,6 +17,7 @@ import type {
   ProposedChange,
   ResponsePlan,
   ResponsePlanComment,
+  AnalyzerErrorType,
 } from '../../types/pr-comment.js';
 
 /**
@@ -59,6 +61,10 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     await fs.ensureDir(outputDir);
 
     await fs.writeFile(path.join(outputDir, 'response-plan.md'), markdown, 'utf-8');
+    if (plan.analyzer_agent !== 'fallback') {
+      await metadataManager.clearAnalyzerError();
+    }
+    await metadataManager.setAnalyzerAgent(plan.analyzer_agent);
     await metadataManager.setAnalyzeCompletedAt(plan.analyzed_at);
     await metadataManager.setResponsePlanPath(path.join(outputDir, 'response-plan.md'));
 
@@ -76,6 +82,7 @@ async function analyzeComments(
   comments: CommentMetadata[],
   options: PRCommentAnalyzeOptions,
 ): Promise<ResponsePlan> {
+  const persistMetadata = !options.dryRun;
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
   const outputFilePath = path.join(analyzeDir, 'response-plan.json');
@@ -86,8 +93,26 @@ async function analyzeComments(
     await fs.writeFile(path.join(analyzeDir, 'prompt.txt'), prompt, 'utf-8');
   }
 
+  if (!agent) {
+    const fallbackPlan = await handleAgentError(
+      'No agent client available (Codex and Claude both unavailable)',
+      'agent_execution_error',
+      metadataManager,
+      prNumber,
+      comments,
+      persistMetadata,
+    );
+
+    if (fallbackPlan) {
+      return applyPlanDefaults(fallbackPlan, options);
+    }
+
+    throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
+  }
+
   let rawOutput = '';
-  if (agent) {
+
+  try {
     const messages = await agent.executeTask({
       prompt,
       maxTurns: 1,
@@ -99,12 +124,149 @@ async function analyzeComments(
     if (!options.dryRun) {
       await fs.writeFile(path.join(analyzeDir, 'agent_log.md'), rawOutput, 'utf-8');
     }
+  } catch (agentError) {
+    const fallbackPlan = await handleAgentError(
+      getErrorMessage(agentError),
+      'agent_execution_error',
+      metadataManager,
+      prNumber,
+      comments,
+      persistMetadata,
+    );
+
+    if (fallbackPlan) {
+      return applyPlanDefaults(fallbackPlan, options);
+    }
+
+    throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
   }
 
-  const plan = rawOutput.trim().length > 0
-    ? parseResponsePlan(rawOutput, prNumber)
-    : buildFallbackPlan(prNumber, comments);
+  if (rawOutput.trim().length === 0) {
+    const fallbackPlan = await handleEmptyOutputError(
+      metadataManager,
+      prNumber,
+      comments,
+      persistMetadata,
+    );
 
+    if (fallbackPlan) {
+      return applyPlanDefaults(fallbackPlan, options);
+    }
+
+    throw new Error('Unexpected state: empty output handler did not exit or return fallback plan');
+  }
+
+  let plan: ResponsePlan;
+  try {
+    plan = parseResponsePlan(rawOutput, prNumber);
+  } catch (parseError) {
+    const fallbackPlan = await handleParseError(
+      parseError as Error,
+      metadataManager,
+      prNumber,
+      comments,
+      persistMetadata,
+    );
+
+    if (fallbackPlan) {
+      return applyPlanDefaults(fallbackPlan, options);
+    }
+
+    throw new Error('Unexpected state: parse error handler did not exit or return fallback plan');
+  }
+
+  return applyPlanDefaults(plan, options);
+}
+
+async function promptUserConfirmation(message: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`${message} (y/N): `, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === 'y');
+    });
+  });
+}
+
+async function handleAgentError(
+  errorMessage: string,
+  errorType: AnalyzerErrorType,
+  metadataManager: PRCommentMetadataManager,
+  prNumber: number,
+  comments: CommentMetadata[],
+  persistMetadata: boolean,
+): Promise<ResponsePlan | null> {
+  logger.error(`Analyze phase failed: ${errorMessage}`);
+
+  if (persistMetadata) {
+    await metadataManager.setAnalyzerError(errorMessage, errorType);
+  }
+
+  if (config.isCI()) {
+    logger.error('CI environment detected. Exiting with error.');
+    process.exit(1);
+  }
+
+  logger.warn(`[WARNING] Analyze phase failed: ${errorMessage}`);
+  logger.warn('');
+  logger.warn('A fallback plan has been generated (all comments marked as "discussion").');
+  logger.warn('This may result in inaccurate processing.');
+  logger.warn('');
+
+  const proceed = await promptUserConfirmation('Do you want to continue with the fallback plan?');
+
+  if (!proceed) {
+    logger.info('User cancelled workflow due to analyze failure.');
+    process.exit(1);
+  }
+
+  logger.info('Continuing with fallback plan...');
+
+  return buildFallbackPlan(prNumber, comments);
+}
+
+async function handleEmptyOutputError(
+  metadataManager: PRCommentMetadataManager,
+  prNumber: number,
+  comments: CommentMetadata[],
+  persistMetadata: boolean,
+): Promise<ResponsePlan | null> {
+  return handleAgentError(
+    'Agent returned empty output',
+    'agent_empty_output',
+    metadataManager,
+    prNumber,
+    comments,
+    persistMetadata,
+  );
+}
+
+async function handleParseError(
+  parseError: Error,
+  metadataManager: PRCommentMetadataManager,
+  prNumber: number,
+  comments: CommentMetadata[],
+  persistMetadata: boolean,
+): Promise<ResponsePlan | null> {
+  const errorMessage = `JSON parsing failed: ${parseError.message}`;
+  return handleAgentError(
+    errorMessage,
+    'json_parse_error',
+    metadataManager,
+    prNumber,
+    comments,
+    persistMetadata,
+  );
+}
+
+function applyPlanDefaults(
+  plan: ResponsePlan,
+  options: PRCommentAnalyzeOptions,
+): ResponsePlan {
   return {
     ...plan,
     analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
@@ -293,7 +455,7 @@ async function setupAgent(
   const { codexClient, claudeClient } = setupAgentClients(agentMode, repoRoot, credentials);
 
   if (!codexClient && !claudeClient) {
-    logger.warn('No agent client available. Falling back to heuristic plan.');
+    logger.warn('No agent client available. Analyze will use a fallback plan or exit based on environment.');
   }
 
   return codexClient ?? claudeClient;

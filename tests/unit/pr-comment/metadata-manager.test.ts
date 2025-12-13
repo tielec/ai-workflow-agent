@@ -191,6 +191,60 @@ describe('PRCommentMetadataManager', () => {
     expect(removeSpy).toHaveBeenCalledWith(path.dirname(metadataPath));
   });
 
+  it('records analyzer error details and sets fallback agent when none is set', async () => {
+    // Given metadata without analyzer agent, when error is recorded, then error fields and fallback agent are saved
+    (manager as any).metadata = buildBaseMetadata();
+
+    await manager.setAnalyzerError('API timeout after 60s', 'agent_execution_error');
+
+    const metadata = (manager as any).metadata as CommentResolutionMetadata;
+    expect(metadata.analyzer_error).toBe('API timeout after 60s');
+    expect(metadata.analyzer_error_type).toBe('agent_execution_error');
+    expect(metadata.analyzer_agent).toBe('fallback');
+    expect(writeFileSpy).toHaveBeenCalled();
+  });
+
+  it('returns stored analyzer error info via getAnalyzerError', async () => {
+    // Given analyzer error data is stored, when retrieved, then the same values are returned
+    const metadata = buildBaseMetadata();
+    metadata.analyzer_error = 'JSON parsing failed';
+    metadata.analyzer_error_type = 'json_parse_error';
+    (manager as any).metadata = metadata;
+
+    const result = await manager.getAnalyzerError();
+
+    expect(result).toEqual({
+      error: 'JSON parsing failed',
+      errorType: 'json_parse_error',
+    });
+  });
+
+  it('returns undefined analyzer error info for legacy metadata without fields', async () => {
+    // Given legacy metadata lacking analyzer fields, when retrieving error, then undefined values are returned
+    (manager as any).metadata = buildBaseMetadata();
+    delete (manager as any).metadata.analyzer_error;
+    delete (manager as any).metadata.analyzer_error_type;
+
+    const result = await manager.getAnalyzerError();
+
+    expect(result).toEqual({ error: undefined, errorType: undefined });
+  });
+
+  it('clears analyzer error fields', async () => {
+    // Given analyzer error data exists, when cleared, then fields become null and are persisted
+    const metadata = buildBaseMetadata();
+    metadata.analyzer_error = 'Agent returned empty output';
+    metadata.analyzer_error_type = 'agent_empty_output';
+    (manager as any).metadata = metadata;
+
+    await manager.clearAnalyzerError();
+
+    const updated = (manager as any).metadata as CommentResolutionMetadata;
+    expect(updated.analyzer_error).toBeNull();
+    expect(updated.analyzer_error_type).toBeNull();
+    expect(writeFileSpy).toHaveBeenCalled();
+  });
+
   function buildBaseMetadata(): CommentResolutionMetadata {
     return {
       version: '1.0.0',
