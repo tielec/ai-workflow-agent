@@ -120,6 +120,41 @@ describe('response plan parsing and formatting', () => {
     expect(markdown).toContain('## Comment #1');
     expect(markdown).toContain('[modify] src/a.ts 10-12: add guard');
   });
+
+  it('parses JSON Lines output by selecting the last valid response object', () => {
+    // Given streaming-style output, when parsing, then the final ResponsePlan-shaped JSON line is chosen
+    const streamed = [
+      '{"event":"progress","step":1}',
+      '',
+      '{"pr_number": 111, "comments": []}',
+      '{"pr_number":123,"comments":[{"comment_id":"200","type":"discussion","confidence":"medium","reply_message":"Noted"}]}',
+    ].join('\n');
+
+    const plan = parseResponsePlan(streamed, 555);
+
+    expect(plan.pr_number).toBe(123);
+    expect(plan.comments).toHaveLength(1);
+    expect(plan.comments[0]).toMatchObject({ comment_id: '200', type: 'discussion', reply_message: 'Noted' });
+  });
+
+  it('prefers markdown code block JSON even when plain JSON follows later', () => {
+    // Given both a markdown block and trailing plain JSON, when parsing, then markdown content has priority
+    const output = [
+      'Analysis complete.',
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        comments: [{ comment_id: '300', type: 'reply', confidence: 'high', reply_message: 'OK' }],
+      }),
+      '```',
+      'Trailing: {"pr_number": 999, "comments": []}',
+    ].join('\n');
+
+    const plan = parseResponsePlan(output, 0);
+
+    expect(plan.pr_number).toBe(123);
+    expect(plan.comments[0]).toMatchObject({ comment_id: '300', type: 'reply' });
+  });
 });
 
 describe('execution result parsing and formatting', () => {

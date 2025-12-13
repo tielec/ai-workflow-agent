@@ -360,82 +360,188 @@ async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Prom
 }
 
 function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
-  try {
-    // Step 1: Extract JSON from markdown code block
-    const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
-    const jsonString = jsonMatch ? jsonMatch[1] : rawOutput;
+  logger.debug(`Parsing agent response (${rawOutput.length} chars)`);
 
-    logger.debug(`Attempting to parse response plan (${jsonString.length} chars)`);
-
-    // Step 2: Parse JSON
-    const parsed = JSON.parse(jsonString) as ResponsePlan;
-
-    if (!parsed.pr_number) {
-      parsed.pr_number = prNumber;
-    }
-
-    parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
-    return parsed;
-  } catch (error) {
-    logger.error(`Failed to parse response plan: ${getErrorMessage(error)}`);
-    logger.debug(`Raw output preview (first 500 chars): ${rawOutput.substring(0, 500)}`);
-
-    // Try alternative parsing strategies
-    logger.warn('Attempting alternative JSON extraction strategies...');
-
-    // Strategy 1: Extract from JSON Lines format (Codex event stream)
-    // Look for the last complete JSON object that contains "comments" field
-    try {
-      logger.debug('Strategy 1: Searching for JSON in event stream...');
-      const lines = rawOutput.split('\n');
-
-      // Search backwards for a line containing valid JSON with "comments" field
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const line = lines[i].trim();
-        if (line.length === 0) continue;
-
-        try {
-          const parsed = JSON.parse(line);
-          if (parsed.comments && Array.isArray(parsed.comments)) {
-            logger.debug(`Found valid response plan JSON at line ${i + 1}`);
-            if (!parsed.pr_number) {
-              parsed.pr_number = prNumber;
-            }
-            parsed.comments = (parsed.comments ?? []).map((c: ResponsePlanComment) => normalizePlanComment(c));
-            return parsed;
-          }
-        } catch {
-          // Skip invalid JSON lines
-          continue;
-        }
-      }
-      logger.debug('Strategy 1 failed: No valid JSON with "comments" field found in lines');
-    } catch (altError) {
-      logger.debug(`Strategy 1 failed: ${getErrorMessage(altError)}`);
-    }
-
-    // Strategy 2: Search for plain JSON object (no code block)
-    try {
-      logger.debug('Strategy 2: Searching for plain JSON object...');
-      const plainJsonMatch = rawOutput.match(/\{[\s\S]*"comments"[\s\S]*\}/);
-      if (plainJsonMatch) {
-        logger.debug('Found plain JSON pattern');
-        const parsed = JSON.parse(plainJsonMatch[0]) as ResponsePlan;
-        if (!parsed.pr_number) {
-          parsed.pr_number = prNumber;
-        }
-        parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
-        return parsed;
-      }
-      logger.debug('Strategy 2 failed: No plain JSON pattern found');
-    } catch (altError) {
-      logger.debug(`Strategy 2 failed: ${getErrorMessage(altError)}`);
-    }
-
-    // All strategies failed
-    logger.error('All parsing strategies failed. Using fallback plan.');
-    throw new Error(`Failed to parse agent response: ${getErrorMessage(error)}`);
+  const markdownResult = tryParseMarkdownCodeBlock(rawOutput, prNumber);
+  if (markdownResult) {
+    logger.debug('Strategy 1 (Markdown Code Block) successful');
+    return markdownResult;
   }
+
+  const jsonLinesResult = tryParseJsonLines(rawOutput, prNumber);
+  if (jsonLinesResult) {
+    logger.debug('Strategy 2 (JSON Lines) successful');
+    return jsonLinesResult;
+  }
+
+  const plainJsonResult = tryParsePlainJson(rawOutput, prNumber);
+  if (plainJsonResult) {
+    logger.debug('Strategy 3 (Plain JSON) successful');
+    return plainJsonResult;
+  }
+
+  logger.error('All parsing strategies failed.');
+  logger.debug(`Raw output preview (first 500 chars): ${rawOutput.substring(0, 500)}`);
+  throw new Error('Failed to parse agent response: Markdown, JSON Lines, and plain JSON strategies exhausted');
+}
+
+function tryParseMarkdownCodeBlock(rawOutput: string, prNumber: number): ResponsePlan | null {
+  logger.debug('Strategy 1: Attempting markdown code block extraction...');
+
+  const jsonMatch = rawOutput.match(/```json\s*([\s\S]*?)```/);
+  if (!jsonMatch) {
+    logger.debug('Strategy 1 failed: No markdown code block found');
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(jsonMatch[1]) as ResponsePlan;
+    return normalizeResponsePlan(parsed, prNumber);
+  } catch (error) {
+    logger.debug(`Strategy 1 failed: JSON parse error - ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
+function tryParseJsonLines(rawOutput: string, prNumber: number): ResponsePlan | null {
+  logger.debug('Strategy 2: Attempting JSON Lines extraction...');
+
+  const lines = rawOutput.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.length === 0) continue;
+
+    try {
+      const parsed = JSON.parse(line);
+      if (isValidResponsePlanCandidate(parsed)) {
+        logger.debug(`Strategy 2 successful: Found valid JSON at line ${i + 1}`);
+        return normalizeResponsePlan(parsed, prNumber);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  const multiLine = parseFromBoundaryCandidates(rawOutput, prNumber, 'Strategy 2 (multi-line)');
+  if (multiLine) {
+    return multiLine;
+  }
+
+  logger.debug('Strategy 2 failed: No valid JSON with "comments" field found');
+  return null;
+}
+
+function tryParsePlainJson(rawOutput: string, prNumber: number): ResponsePlan | null {
+  logger.debug('Strategy 3: Attempting plain JSON extraction...');
+  const result = parseFromBoundaryCandidates(rawOutput, prNumber, 'Strategy 3');
+
+  if (!result) {
+    logger.debug('Strategy 3 failed: No valid ResponsePlan found in candidates');
+  }
+
+  return result;
+}
+
+function parseFromBoundaryCandidates(
+  rawOutput: string,
+  prNumber: number,
+  context: string,
+): ResponsePlan | null {
+  const candidates = findAllJsonObjectBoundaries(rawOutput);
+  if (candidates.length === 0) {
+    logger.debug(`${context}: No JSON object boundaries found`);
+    return null;
+  }
+
+  logger.debug(`${context}: Found ${candidates.length} JSON object candidate(s)`);
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const { start, end } = candidates[i];
+    const candidateStr = rawOutput.substring(start, end + 1);
+
+    try {
+      const parsed = JSON.parse(candidateStr);
+      if (isValidResponsePlanCandidate(parsed)) {
+        logger.debug(`${context}: Valid JSON at position ${start}-${end}`);
+        return normalizeResponsePlan(parsed, prNumber);
+      }
+    } catch (error) {
+      logger.debug(`${context}: Candidate at ${start}-${end} parse failed - ${getErrorMessage(error)}`);
+    }
+  }
+
+  return null;
+}
+
+function findAllJsonObjectBoundaries(text: string): Array<{ start: number; end: number }> {
+  const boundaries: Array<{ start: number; end: number }> = [];
+  let depth = 0;
+  let startIndex = -1;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === '{') {
+      if (depth === 0) {
+        startIndex = i;
+      }
+      depth++;
+    } else if (char === '}') {
+      if (depth > 0) {
+        depth--;
+      }
+      if (depth === 0 && startIndex !== -1) {
+        boundaries.push({ start: startIndex, end: i });
+        startIndex = -1;
+      }
+    }
+  }
+
+  return boundaries;
+}
+
+function isValidResponsePlanCandidate(obj: unknown): obj is ResponsePlan {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+
+  const candidate = obj as Record<string, unknown>;
+
+  if (!('comments' in candidate)) {
+    return false;
+  }
+
+  if (!Array.isArray(candidate.comments)) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeResponsePlan(parsed: ResponsePlan, prNumber: number): ResponsePlan {
+  if (!parsed.pr_number) {
+    parsed.pr_number = prNumber;
+  }
+  parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
+  return parsed;
 }
 
 function normalizePlanComment(comment: ResponsePlanComment): ResponsePlanComment {
@@ -610,4 +716,7 @@ function resolvePrInfo(options: PRCommentAnalyzeOptions): {
 export const __testables = {
   parseResponsePlan,
   buildResponsePlanMarkdown,
+  findAllJsonObjectBoundaries,
+  isValidResponsePlanCandidate,
+  normalizePlanComment,
 };
