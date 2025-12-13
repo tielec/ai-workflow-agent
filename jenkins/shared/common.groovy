@@ -245,14 +245,16 @@ def setupEnvironment() {
             echo "Fetching remote branches..."
             git fetch origin
 
+            # BASE_BRANCH を取得（デフォルト: main）
+            BASE_BRANCH="\${BASE_BRANCH:-main}"
+            echo "Base branch: \${BASE_BRANCH}"
+
             if git rev-parse --verify origin/${targetBranch} >/dev/null 2>&1; then
                 echo "Branch ${targetBranch} exists on remote. Checking out..."
                 git checkout -B ${targetBranch} origin/${targetBranch}
             else
-                echo "Branch ${targetBranch} does not exist on remote. Creating from main/develop..."
-                git checkout -B ${targetBranch} origin/main 2>/dev/null || \
-                git checkout -B ${targetBranch} origin/develop 2>/dev/null || \
-                git checkout -B ${targetBranch}
+                echo "Branch ${targetBranch} does not exist on remote. Creating from \${BASE_BRANCH}..."
+                git checkout -B ${targetBranch} origin/\${BASE_BRANCH}
             fi
 
             echo "Target repository: \${TARGET_REPO_PATH}"
