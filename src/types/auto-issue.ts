@@ -205,7 +205,93 @@ export interface AutoIssueOptions {
    * true の場合、より実験的・創造的な提案を含める
    * enhancement カテゴリでのみ有効
    */
+ creativeMode?: boolean;
+
+  /**
+   * カスタム指示（解析の重点を示す任意入力、最大500文字）
+   */
+  customInstruction?: string;
+}
+
+/**
+ * CLIオプション（生の入力）
+ *
+ * commander から受け取る文字列中心のオプションを表します。
+ */
+export interface RawAutoIssueOptions {
+  category?: string;
+  limit?: string;
+  outputFile?: string;
+  dryRun?: boolean;
+  similarityThreshold?: string;
+  agent?: 'auto' | 'codex' | 'claude';
   creativeMode?: boolean;
+
+  /**
+   * カスタム指示（オプション）
+   * エージェントへ追加の検出指示を伝えるための文字列
+   */
+  customInstruction?: string;
+}
+
+/**
+ * カスタム指示の検証結果
+ */
+export interface ValidationResult {
+  /** 安全な指示かどうか */
+  isValid: boolean;
+
+  /** 判定の信頼度 */
+  confidence: 'high' | 'medium' | 'low';
+
+  /** 判定理由（具体的） */
+  reason: string;
+
+  /** 指示の分類 */
+  category: 'analysis' | 'execution';
+
+  /** isValid=false の場合のエラーメッセージ */
+  errorMessage?: string;
+
+  /** フォールバック時の検出パターン */
+  detectedPattern?: string;
+
+  /** 検証方法 */
+  validationMethod: 'llm' | 'pattern';
+
+  /** 検証日時（ISO8601形式） */
+  validatedAt: string;
+}
+
+/**
+ * LLMからの検証応答
+ */
+export interface LLMValidationResponse {
+  /** 安全な指示かどうか（LLM判定） */
+  isSafe: boolean;
+
+  /** 判定理由 */
+  reason: string;
+
+  /** 指示の分類 */
+  category: 'analysis' | 'execution';
+
+  /** 判定の信頼度 */
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * 検証結果のキャッシュエントリ
+ */
+export interface ValidationCacheEntry {
+  /** キャッシュされた検証結果 */
+  result: ValidationResult;
+
+  /** キャッシュ作成時刻（Unix timestamp） */
+  timestamp: number;
+
+  /** 最終アクセス時刻（LRU用） */
+  lastAccessed: number;
 }
 
 /**

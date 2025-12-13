@@ -82,6 +82,7 @@ node dist/index.js execute --phase all --issue 123
 ai-workflow init \
   --issue-url <URL> \
   [--branch <name>] \
+  [--base-branch <branch>] \
   [--auto-model-selection]
 
 ai-workflow execute \
@@ -115,7 +116,8 @@ ai-workflow auto-issue \
   [--similarity-threshold <0.0-1.0>] \
   [--agent auto|codex|claude] \
   [--creative-mode] \
-  [--output-file <path>]
+  [--output-file <path>] \
+  [--custom-instruction <text>]
 
 ai-workflow review \
   --phase <name> \
@@ -204,6 +206,38 @@ Git 命名規則に従わないブランチ名はエラーになります：
 - 不正文字（`~`, `^`, `:`, `?`, `*`, `[`, `\`, `@{`）を含まない
 - `/` で始まらない、終わらない
 - `.` で終わらない
+
+### ベースブランチの指定
+
+`init` コマンドで `--base-branch` オプションを使用すると、新規ブランチの分岐元となるベースブランチを明示的に指定できます（v0.5.0、Issue #391 で追加）：
+
+```bash
+# main ブランチから新規ブランチを作成
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 \
+  --base-branch main
+
+# develop ブランチから新規ブランチを作成
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123 \
+  --base-branch develop
+
+# 未指定時は現在のブランチから分岐（従来動作）
+node dist/index.js init \
+  --issue-url https://github.com/tielec/ai-workflow-agent/issues/123
+```
+
+**動作仕様**:
+
+- `--base-branch` 指定時: 指定されたブランチにチェックアウト後、新規ブランチを作成
+- `--base-branch` 未指定時: 現在チェックアウトされているブランチから分岐（従来動作）
+- リモートブランチが既に存在する場合: `--base-branch` は無視され、既存ブランチをチェックアウト
+- ローカルブランチが既に存在する場合: `--base-branch` は無視され、既存ブランチをチェックアウト
+- 存在しないベースブランチを指定した場合: エラーメッセージを表示して終了
+
+**Jenkins 連携**:
+
+Jenkins Job DSL に `BASE_BRANCH` パラメータが追加されており、`Initialize Workflow` ステージで `--base-branch` オプションとして渡されます。
 
 ### エージェントモード
 
@@ -1139,6 +1173,13 @@ ai-workflow auto-issue \
   - 指定しない場合はファイル出力なし（後方互換性維持）
   - CI環境（Jenkins）でのアーティファクト収集に有用
   - dry-runモードでも出力可能
+- `--custom-instruction <text>`: カスタム指示を追加（Issue #422で追加）
+  - 検出時に特定の観点を重視するよう指示を追加可能
+  - **安全な指示の例**: 「重複関数を重点的に検出してください」「SQLインジェクションを優先的に検出してください」
+  - **ブロックされる指示**: ファイル削除、コード変更、Git操作などの実行指示は自動的にブロック
+  - LLMベースの文脈理解型検証により、「分析指示」と「実行指示」を正確に区別
+  - LLM検証失敗時は静的パターンマッチングにフォールバック
+  - 検証結果の信頼度（confidence: high/medium/low）が低い場合は警告を表示
 
 **環境変数**:
 
@@ -1192,6 +1233,16 @@ ai-workflow auto-issue --category enhancement --creative-mode --limit 10
 ai-workflow auto-issue --category bug --limit 5 --output-file ./results/auto-issue.json
 # → 検出結果とIssue生成結果をJSONファイルに保存
 # → Jenkins等のCIでアーティファクトとして収集可能
+
+# ケース10: カスタム指示で特定の観点を重視（Issue #422で追加）
+ai-workflow auto-issue --category refactor \
+  --custom-instruction "重複関数や類似ロジックを重点的に検出してください"
+# → LLMベースの検証で安全性を確認後、指示をプロンプトに注入して分析
+
+# ケース11: セキュリティ観点に焦点を当てる
+ai-workflow auto-issue --category bug \
+  --custom-instruction "SQLインジェクションやXSS脆弱性を優先的に検出してください"
+# → セキュリティ関連のバグを優先的に検出
 ```
 
 **出力例（--dry-runモード）**:

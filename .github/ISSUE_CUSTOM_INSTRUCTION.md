@@ -2,6 +2,8 @@
 
 `auto-issue` コマンドに `--custom-instruction` オプションを追加し、ユーザーがバグ検出・リファクタリング検出時に追加指示を与えられるようにする。同時に、破壊的操作を含む危険な指示をブロックする安全性検証機能を実装する。
 
+> **✅ 実装完了（Issue #422）**: LLMベースのカスタム指示検証機能が実装されました。従来の静的パターンマッチング方式から、OpenAI API（gpt-4o-mini）を使用した文脈理解型検証に移行しました。
+
 ## 背景
 
 現在、`auto-issue` コマンドは以下の3つのカテゴリをサポートしています：
@@ -88,8 +90,14 @@ program
 
 ### 2. 安全性検証モジュール
 
-#### `src/core/safety/instruction-validator.ts` (新規作成)
+#### `src/core/instruction-validator.ts` (Issue #422で実装)
 
+**LLMベース検証（プライマリ）**:
+- OpenAI API（gpt-4o-mini）を使用した文脈理解型検証
+- 「分析指示」と「実行指示」を文脈から正確に区別
+- JSON形式の応答（`isSafe`, `reason`, `category`, `confidence`）
+
+**静的パターンマッチング（フォールバック）**:
 危険なパターンとして以下をブロック：
 - ファイル操作: 削除、上書き、書き換え
 - Git操作: commit、push、reset、rebase、merge、delete
@@ -104,6 +112,14 @@ program
 - 調査、analyze、investigate、examine
 - 優先、prioritize、prefer
 - 詳細、detailed、thorough
+
+**キャッシュ機構**:
+- インメモリMap-basedキャッシュ（TTL: 1時間、最大1000エントリ）
+- 同一指示の重複LLM呼び出しを防止
+
+**リトライ機構**:
+- 最大3回のリトライ（指数バックオフ: 1秒、2秒、4秒）
+- LLM呼び出し失敗時は静的パターンマッチングにフォールバック
 
 ### 3. プロンプトへの統合
 
@@ -130,29 +146,23 @@ program
 ## 実装手順
 
 ### Step 1: 安全性検証モジュールの作成
-- [ ] `src/core/safety/` ディレクトリを作成
-- [ ] `instruction-validator.ts` を実装
-- [ ] ユニットテストを作成
+- [x] `src/core/instruction-validator.ts` を実装（LLMベース検証、フォールバック、キャッシュ）
+- [x] `src/prompts/validation/validate-instruction.txt` を作成
+- [x] ユニットテストを作成（`tests/unit/core/instruction-validator.test.ts`）
 
 ### Step 2: CLI オプションの追加
-- [ ] `src/types/commands.ts` に型定義を追加
-- [ ] `src/main.ts` にオプションを追加
-- [ ] `src/commands/auto-issue.ts` を更新
+- [x] `src/types/auto-issue.ts` に型定義を追加（`ValidationResult`, `LLMValidationResponse` 等）
+- [x] `src/main.ts` にオプションを追加（`--custom-instruction`）
+- [x] `src/commands/auto-issue.ts` を更新（InstructionValidator呼び出し追加）
 
-### Step 3: RepositoryAnalyzer への統合
-- [ ] カスタム指示パラメータを追加
-- [ ] `injectCustomInstruction()` メソッドを実装
-- [ ] 検証ロジックを統合
+### Step 3: auto-issue コマンドへの統合
+- [x] カスタム指示パラメータを追加
+- [x] 検証ロジックを統合（検証失敗時はエラー、confidence: low時は警告）
 
-### Step 4: プロンプトテンプレートの更新
-- [ ] `detect-bugs.txt` を更新
-- [ ] `detect-refactoring.txt` を更新
-- [ ] `detect-enhancements.txt` を更新
-
-### Step 5: テスト
-- [ ] ユニットテスト実装
-- [ ] 統合テスト実装
-- [ ] 安全性テスト実装
+### Step 4: テスト
+- [x] ユニットテスト実装（21ケース）
+- [x] 統合テスト実装（8ケース）
+- [x] 全テストPASS（29件成功）
 
 ## セキュリティ考慮事項
 

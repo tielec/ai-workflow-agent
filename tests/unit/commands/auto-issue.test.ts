@@ -20,6 +20,8 @@ import { jest } from '@jest/globals';
 
 // モック関数の事前定義（グローバルスコープで定義）
 const mockAnalyze = jest.fn<any>();
+const mockAnalyzeForRefactoring = jest.fn<any>();
+const mockAnalyzeForEnhancements = jest.fn<any>();
 const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
 
@@ -27,6 +29,8 @@ const mockGenerate = jest.fn<any>();
 jest.mock('../../../src/core/repository-analyzer.js', () => ({
   RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
     analyze: mockAnalyze,
+    analyzeForRefactoring: mockAnalyzeForRefactoring,
+    analyzeForEnhancements: mockAnalyzeForEnhancements,
   })),
 }));
 
@@ -57,7 +61,11 @@ jest.mock('@octokit/rest');
 
 describe('auto-issue command handler', () => {
   // 変数名のエイリアス（既存コードとの互換性のため）
-  const mockAnalyzer = { analyze: mockAnalyze };
+  const mockAnalyzer = {
+    analyze: mockAnalyze,
+    analyzeForRefactoring: mockAnalyzeForRefactoring,
+    analyzeForEnhancements: mockAnalyzeForEnhancements,
+  };
   const mockDeduplicator = { filterDuplicates: mockFilterDuplicates };
   const mockGenerator = { generate: mockGenerate };
 
@@ -70,11 +78,15 @@ describe('auto-issue command handler', () => {
     process.env.GITHUB_TOKEN = 'test-token';
     // モック関数のクリア
     mockAnalyze.mockClear();
+    mockAnalyzeForRefactoring.mockClear();
+    mockAnalyzeForEnhancements.mockClear();
     mockFilterDuplicates.mockClear();
     mockGenerate.mockClear();
 
     // デフォルトの動作設定
     mockAnalyze.mockResolvedValue([]);
+    mockAnalyzeForRefactoring.mockResolvedValue([]);
+    mockAnalyzeForEnhancements.mockResolvedValue([]);
     mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
     mockGenerate.mockResolvedValue({ success: true });
 
@@ -121,7 +133,11 @@ describe('auto-issue command handler', () => {
       await handleAutoIssueCommand({});
 
       // Then: デフォルト値が適用される（内部でパースされる）
-      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(expect.any(String), 'auto');
+      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'auto',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
     });
   });
 
@@ -147,7 +163,11 @@ describe('auto-issue command handler', () => {
       await handleAutoIssueCommand(rawOptions);
 
       // Then: オプションが正しくパースされる
-      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(expect.any(String), 'codex');
+      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'codex',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
     });
   });
 
@@ -165,6 +185,72 @@ describe('auto-issue command handler', () => {
 
       // When & Then: エラーがスローされる
       await expect(handleAutoIssueCommand(rawOptions)).rejects.toThrow();
+    });
+  });
+
+  describe('Custom instruction handling', () => {
+    it('trims and forwards custom instruction to analyzer', async () => {
+      mockAnalyzer.analyze.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({ customInstruction: '  重複関数を検出してください  ' });
+
+      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'auto',
+        expect.objectContaining({ customInstruction: '重複関数を検出してください' }),
+      );
+    });
+
+    it('throws when custom instruction includes dangerous pattern', async () => {
+      await expect(
+        handleAutoIssueCommand({ customInstruction: '古いファイルを削除してください' }),
+      ).rejects.toThrow(/削除/);
+
+      expect(mockAnalyzer.analyze).not.toHaveBeenCalled();
+      expect(mockAnalyzeForRefactoring).not.toHaveBeenCalled();
+      expect(mockAnalyzeForEnhancements).not.toHaveBeenCalled();
+    });
+
+    it('throws when custom instruction exceeds maximum length', async () => {
+      const longInstruction = 'a'.repeat(501);
+
+      await expect(handleAutoIssueCommand({ customInstruction: longInstruction })).rejects.toThrow(
+        /500 characters/,
+      );
+    });
+
+    it('passes custom instruction to refactor category', async () => {
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'refactor',
+        customInstruction: '重複コードを重点的に検出してください',
+      });
+
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledWith(
+        expect.any(String),
+        'auto',
+        expect.objectContaining({ customInstruction: '重複コードを重点的に検出してください' }),
+      );
+    });
+
+    it('passes custom instruction to enhancement category with creativeMode', async () => {
+      mockAnalyzeForEnhancements.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'enhancement',
+        customInstruction: 'CI/CD改善に焦点を当ててください',
+        creativeMode: true,
+      });
+
+      expect(mockAnalyzeForEnhancements).toHaveBeenCalledWith(
+        expect.any(String),
+        'auto',
+        expect.objectContaining({
+          customInstruction: 'CI/CD改善に焦点を当ててください',
+          creativeMode: true,
+        }),
+      );
     });
   });
 
@@ -296,6 +382,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
           'auto',
+          expect.objectContaining({ customInstruction: undefined }),
         );
       });
     });
@@ -367,6 +454,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
           'auto',
+          expect.objectContaining({ customInstruction: undefined }),
         );
       });
     });
@@ -479,6 +567,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
           'codex',
+          expect.objectContaining({ customInstruction: undefined }),
         );
       });
     });
@@ -509,6 +598,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/home/user/TIELEC/development/ai-workflow-agent',
           'auto',
+          expect.objectContaining({ customInstruction: undefined }),
         );
       });
     });
@@ -591,6 +681,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/tmp/ai-workflow-repos-12345/reflection-cloud-api',
           'auto',
+          expect.objectContaining({ customInstruction: undefined }),
         );
 
         // And: ログに REPOS_ROOT が出力される
@@ -622,6 +713,7 @@ describe('auto-issue command handler', () => {
         expect(mockAnalyzer.analyze).toHaveBeenCalledWith(
           '/home/user/TIELEC/development/ai-workflow-agent',
           'auto',
+          expect.objectContaining({ customInstruction: undefined }),
         );
 
         // And: ログに "(not set)" が出力される

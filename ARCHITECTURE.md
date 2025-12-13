@@ -123,6 +123,19 @@ src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマン�
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
 
+src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加)
+ ├─ handlePRCommentAnalyzeCommand() … pr-comment analyze コマンドハンドラ（2段階ワークフロー対応）
+ ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
+ ├─ buildAnalyzePrompt() … 分析プロンプト構築
+ ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
+ └─ エラーハンドリング（Issue #428で強化）
+     ├─ handleAgentError() … エージェント実行失敗時の処理
+     ├─ handleEmptyOutputError() … 空出力エラーの処理
+     ├─ handleParseError() … JSONパースエラーの処理
+     ├─ promptUserConfirmation() … ローカル環境での確認プロンプト
+     └─ CI環境では即座にprocess.exit(1)、ローカル環境では確認後フォールバック
+
 src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ（--pr-url対応）
  ├─ processComments() … バッチ処理でコメントを順次処理
@@ -135,7 +148,7 @@ src/commands/pr-comment/finalize.ts (PRコメント自動対応: 完了コマン
  ├─ resolveCompletedThreads() … 完了スレッドを解決
  └─ PRCommentMetadataManager.cleanup() … メタデータクリーンアップ
 
-src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加)
+src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加、Issue #428で拡張)
  ├─ PRCommentMetadataManager クラス
  │   ├─ initialize() … メタデータ初期化
  │   ├─ load() … メタデータ読み込み
@@ -146,8 +159,11 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定
+ │   ├─ setAnalyzerError() … Analyzerエラー記録（Issue #428で追加）
+ │   ├─ getAnalyzerError() … Analyzerエラー取得（Issue #428で追加）
+ │   ├─ clearAnalyzerError() … Analyzerエラークリア（Issue #428で追加）
  │   └─ cleanup() … クリーンアップ
- └─ CommentResolutionMetadata 型
+ └─ CommentResolutionMetadata 型（analyzer_error、analyzer_error_typeフィールド追加）
 
 src/core/pr-comment/comment-analyzer.ts (PRコメント: コメント分析エンジン、Issue #383で追加)
  ├─ ReviewCommentAnalyzer クラス
@@ -165,11 +181,14 @@ src/core/pr-comment/change-applier.ts (PRコメント: コード変更適用エ�
  │   └─ applyModification() … ファイル変更適用
  └─ FileChange 型（modify | create | delete）
 
-src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加)
+src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加、Issue #428で拡張)
  ├─ PRCommentInitOptions … init コマンドオプション
  ├─ PRCommentExecuteOptions … execute コマンドオプション
  ├─ PRCommentFinalizeOptions … finalize コマンドオプション
- ├─ CommentResolutionMetadata … メタデータ構造
+ ├─ PRCommentAnalyzeOptions … analyze コマンドオプション（Issue #428で追加）
+ ├─ CommentResolutionMetadata … メタデータ構造（analyzer_error/analyzer_error_typeフィールド追加）
+ ├─ AnalyzerErrorType … Analyzerエラー種別（Issue #428で追加）
+ ├─ ResponsePlan … AI分析結果プラン（Issue #428で追加）
  ├─ CommentMetadata … コメントメタデータ
  ├─ ResolutionMetadata … 解決メタデータ
  ├─ CommentResolution … 解決結果
@@ -196,7 +215,7 @@ src/types/commands.ts (コマンド関連の型定義)
 |------------|------|
 | `src/main.ts` | `commander` による CLI 定義。コマンドルーティングのみを担当（約118行、v0.3.0でリファクタリング）。 |
 | `src/index.ts` | `ai-workflow-v2` 実行ファイルのエントリーポイント。`runCli` を呼び出す。 |
-| `src/commands/init.ts` | Issue初期化コマンド処理（約400行、Issue #363で拡張）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。**`--auto-model-selection` オプション追加**（Issue #363）: 指定時に `DifficultyAnalyzer` でIssue難易度を分析し、`ModelOptimizer` でモデル設定を生成、`metadata.json` に `difficulty_analysis` と `model_config` を保存。 |
+| `src/commands/init.ts` | Issue初期化コマンド処理（約400行、Issue #363で拡張、Issue #391で拡張）。ブランチ作成、メタデータ初期化、PR作成、PRタイトル自動生成（v0.3.0、Issue #73）を担当。`handleInitCommand()`, `validateBranchName()`, `resolveBranchName()` を提供。**`--auto-model-selection` オプション追加**（Issue #363）: 指定時に `DifficultyAnalyzer` でIssue難易度を分析し、`ModelOptimizer` でモデル設定を生成、`metadata.json` に `difficulty_analysis` と `model_config` を保存。**`--base-branch` オプション追加**（Issue #391）: 新規ブランチ作成時の分岐元ベースブランチを明示的に指定。未指定時は現在のブランチから分岐（従来動作）。リモート/ローカルブランチが既に存在する場合は無視。 |
 | `src/commands/execute.ts` | フェーズ実行コマンド処理（約497行、v0.3.1で27%削減、Issue #46）。ファサードパターンにより4つの専門モジュールに分離。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
 | `src/commands/execute/options-parser.ts` | CLIオプション解析とバリデーション（約151行、v0.3.1で追加、Issue #46）。`parseExecuteOptions()`, `validateExecuteOptions()` を提供。 |
 | `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46、v0.5.0でエージェント優先順位追加、Issue #306）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。**エージェント優先順位機能**: `AgentPriority` 型（`'codex-first' | 'claude-first'`）と `PHASE_AGENT_PRIORITY` 定数（10フェーズのエージェント優先順位マッピング）を提供。 |
@@ -217,6 +236,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
 | `src/core/model-optimizer.ts` | モデル最適化モジュール（約300行、Issue #363で追加）。難易度×フェーズ×ステップのマッピングに基づいて最適なモデルを自動選択。難易度別デフォルトマッピング（`simple`: 全軽量、`moderate`: 設計系フェーズは revise も軽量 / 実装系フェーズは revise 高品質 / ドキュメント系は全軽量、`complex`: execute/revise 高品質 + review 軽量）を提供。**review ステップは常に軽量モデルで、CLI/ENV オーバーライドは review には適用しない**。CLI/ENV 優先オーバーライドと metadata.json の既存設定を考慮。`resolveModel()`, `generateModelConfig()`, `applyOverrides()` を提供。型定義: `DifficultyLevel`, `StepModelConfig`, `PhaseModelConfig`, `ModelConfigByPhase`。 |
+| `src/core/safety/instruction-validator.ts` | カスタム指示の安全性検証モジュール（約170行、Issue #380で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定された指示の安全性を検証。`InstructionValidator.validate()` で文字数制限（500文字）と危険パターン検出を実施。`DANGEROUS_PATTERNS`（Git操作、ファイル操作、システムコマンド、設定変更、DB操作、自動修正）と `ALLOWED_PATTERNS`（分析・検出・調査系キーワード）を定義。単語境界マッチング（英語）と含有チェック（日本語）で誤検知を軽減。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持（約206行、Issue #26で23.7%削減）。 |
 | `src/core/helpers/agent-event-parser.ts` | Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）。`parseCodexEvent()`, `parseClaudeEvent()`, `determineCodexEventType()`, `determineClaudeEventType()` を提供。 |
@@ -261,6 +281,10 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
 | `src/prompts/difficulty/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
+| `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
+| `src/core/instruction-validator.ts` | LLMベースのカスタム指示検証エンジン（Issue #422で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定されたユーザー指示の安全性を検証。OpenAI API（gpt-4o-mini）による文脈理解型検証を実施し、「分析指示」と「実行指示」を区別。フォールバックとして静的パターンマッチングをサポート。インメモリキャッシュ（TTL: 1時間、最大1000エントリ）、リトライロジック（最大3回、指数バックオフ）を実装。`validate()`, `validateWithLLM()`, `validateWithPatterns()`, `parseResponse()` を提供。 |
+| `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
+| `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
 | `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
 

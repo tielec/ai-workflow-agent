@@ -543,7 +543,8 @@ export interface PRCommentInitOptions {
  * pr-comment analyze コマンドオプション
  */
 export interface PRCommentAnalyzeOptions {
-  pr: string;
+  pr?: string;
+  prUrl?: string;
   commentIds?: string;
   dryRun?: boolean;
   agent?: 'auto' | 'codex' | 'claude';

@@ -10,6 +10,7 @@ import {
   PRInfo,
   RepositoryInfo,
   ResolutionSummary,
+  AnalyzerErrorType,
 } from '../../types/pr-comment.js';
 
 /**
@@ -73,6 +74,9 @@ export class PRCommentMetadataManager {
       execute_completed_at: null,
       response_plan_path: null,
       execution_result_path: null,
+      analyzer_agent: null,
+      analyzer_error: null,
+      analyzer_error_type: null,
     };
 
     await this.save();
@@ -286,6 +290,50 @@ export class PRCommentMetadataManager {
   public async setExecutionResultPath(resultPath: string): Promise<void> {
     await this.ensureLoaded();
     this.metadata!.execution_result_path = resultPath;
+    await this.save();
+  }
+
+  /**
+   * analyzeに使用したエージェントを記録
+   */
+  public async setAnalyzerAgent(agent: string): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyzer_agent = agent;
+    await this.save();
+  }
+
+  /**
+   * analyzerのエラー情報を記録
+   */
+  public async setAnalyzerError(error: string, errorType: AnalyzerErrorType): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyzer_error = error;
+    this.metadata!.analyzer_error_type = errorType;
+    this.metadata!.analyzer_agent = this.metadata!.analyzer_agent ?? 'fallback';
+    await this.save();
+  }
+
+  /**
+   * analyzerのエラー情報を取得
+   */
+  public async getAnalyzerError(): Promise<{
+    error?: string | null;
+    errorType?: AnalyzerErrorType | null;
+  }> {
+    await this.ensureLoaded();
+    return {
+      error: this.metadata!.analyzer_error,
+      errorType: this.metadata!.analyzer_error_type,
+    };
+  }
+
+  /**
+   * analyzerのエラー情報をクリア
+   */
+  public async clearAnalyzerError(): Promise<void> {
+    await this.ensureLoaded();
+    this.metadata!.analyzer_error = null;
+    this.metadata!.analyzer_error_type = null;
     await this.save();
   }
 

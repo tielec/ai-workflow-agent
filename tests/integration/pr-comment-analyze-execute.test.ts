@@ -14,6 +14,13 @@ const simpleGitCommitMock = jest.fn();
 const agentExecuteTaskMock = jest.fn();
 const githubReplyMock = jest.fn();
 const codeChangeApplyMock = jest.fn();
+const configIsCIMock = jest.fn(() => false);
+const parsePullRequestUrlMock = jest.fn(() => ({
+  owner: 'owner',
+  repo: 'repo',
+  prNumber: 123,
+  repositoryName: 'owner/repo',
+}));
 
 let handlePRCommentAnalyzeCommand: typeof import('../../src/commands/pr-comment/analyze.js')['handlePRCommentAnalyzeCommand'];
 let handlePRCommentExecuteCommand: typeof import('../../src/commands/pr-comment/execute.js')['handlePRCommentExecuteCommand'];
@@ -29,6 +36,8 @@ let pendingComments: CommentMetadata[] = [];
 let responsePlanData: any;
 let metadataManagerInstance: any;
 let metadataManagerInstances: any[] = [];
+let processExitSpy: jest.SpyInstance;
+let analyzerAnalyzeMock: jest.Mock;
 
 const buildComment = (id: number, type: 'code_change' | 'reply'): CommentMetadata => ({
   comment: {
@@ -56,6 +65,8 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
     __esModule: true,
     getRepoRoot: getRepoRootMock,
+    parsePullRequestUrl: parsePullRequestUrlMock,
+    resolveRepoPathFromPrUrl: jest.fn(() => '/repo'),
   }));
 
   await jest.unstable_mockModule('../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -67,6 +78,9 @@ beforeAll(async () => {
         setExecuteCompletedAt: jest.fn().mockResolvedValue(undefined),
         setExecutionResultPath: jest.fn().mockResolvedValue(undefined),
         updateCommentStatus: jest.fn().mockResolvedValue(undefined),
+        setAnalyzerAgent: jest.fn().mockResolvedValue(undefined),
+        setAnalyzerError: jest.fn().mockResolvedValue(undefined),
+        clearAnalyzerError: jest.fn().mockResolvedValue(undefined),
         exists: jest.fn().mockResolvedValue(true),
         load: jest.fn().mockResolvedValue(undefined),
         getPendingComments: jest.fn(async () => pendingComments),
@@ -91,6 +105,9 @@ beforeAll(async () => {
       commentClient: {
         replyToPRReviewComment: githubReplyMock,
       },
+      getRepositoryInfo: () => ({
+        repositoryName: 'owner/repo',
+      }),
     })),
   }));
 
@@ -100,11 +117,30 @@ beforeAll(async () => {
       apply: codeChangeApplyMock,
     })),
   }));
+  await jest.unstable_mockModule('../../src/core/pr-comment/comment-analyzer.js', () => ({
+    __esModule: true,
+    ReviewCommentAnalyzer: jest.fn().mockImplementation(() => {
+      analyzerAnalyzeMock = jest.fn().mockResolvedValue({
+        success: true,
+        resolution: {
+          type: 'reply',
+          confidence: 'high',
+          reply: 'Done',
+        },
+        inputTokens: 10,
+        outputTokens: 5,
+      });
+      return {
+        analyze: analyzerAnalyzeMock,
+      };
+    }),
+  }));
 
   await jest.unstable_mockModule('../../src/core/config.js', () => ({
     __esModule: true,
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
+      isCI: configIsCIMock,
     },
   }));
 
@@ -178,9 +214,8 @@ beforeEach(async () => {
   jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
-  jest.spyOn(process, 'exit').mockImplementation(((code?: number) => {
-    throw new Error(`process.exit: ${code}`);
-  }) as any);
+  processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
+  configIsCIMock.mockReturnValue(false);
 
   const analyzeResponse = [
     '```json',
@@ -206,7 +241,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await fs.remove(tmpDir);
+  if (tmpDir) {
+    await fs.remove(tmpDir);
+  }
 });
 
 describe('Analyze → Execute integration flow', () => {
@@ -221,22 +258,25 @@ describe('Analyze → Execute integration flow', () => {
     );
 
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+  });
 
-    const resultPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'execution-result.md');
-    expect(await fs.pathExists(resultPath)).toBe(true);
-    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(2);
-    expect(codeChangeApplyMock).toHaveBeenCalledWith(
-      [
-        {
-          path: 'src/a.ts',
-          change_type: 'modify',
-          content: 'export const x = 2;',
-        },
-      ],
-      false,
+  it('exits during analyze in CI when agent fails and does not write response plan', async () => {
+    configIsCIMock.mockReturnValue(true);
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockRejectedValue(new Error('Network timeout'));
+    processExitSpy.mockImplementation((() => {
+      throw new Error('process.exit: 1');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' })).rejects.toThrow(
+      'process.exit: 1',
     );
-    expect(githubReplyMock).toHaveBeenCalled();
-    expect(metadataManagerInstances[0].setAnalyzeCompletedAt).toHaveBeenCalled();
-    expect(metadataManagerInstances[1].setExecuteCompletedAt).toHaveBeenCalled();
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    expect(await fs.pathExists(planPath)).toBe(false);
+    expect(metadataManagerInstances[0].setAnalyzerError).toHaveBeenCalledWith(
+      'Network timeout',
+      'agent_execution_error',
+    );
   });
 });

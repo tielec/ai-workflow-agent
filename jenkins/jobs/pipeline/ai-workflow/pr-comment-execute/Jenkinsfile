@@ -191,12 +191,33 @@ pipeline {
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
 
-                        sh """
-                            node dist/index.js pr-comment analyze \
-                                --pr-url ${params.PR_URL} \
-                                --agent ${params.AGENT_MODE ?: 'auto'} \
-                                ${dryRunFlag}
-                        """
+                        def analyzeResult = sh(
+                            script: """
+                                node dist/index.js pr-comment analyze \
+                                    --pr-url ${params.PR_URL} \
+                                    --agent ${params.AGENT_MODE ?: 'auto'} \
+                                    ${dryRunFlag}
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (analyzeResult != 0) {
+                            error("Analyze phase failed with exit code ${analyzeResult}. Execute stage will be skipped.")
+                        }
+
+                        def metadataPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+
+                        if (fileExists(metadataPath)) {
+                            def metadata = readJSON file: metadataPath
+
+                            if (metadata.analyzer_error != null) {
+                                echo "========================================="
+                                echo "[WARNING] Analyze phase encountered an error."
+                                echo "Error Type: ${metadata.analyzer_error_type ?: 'unknown'}"
+                                echo "Error: ${metadata.analyzer_error}"
+                                echo "========================================="
+                            }
+                        }
                     }
                 }
             }

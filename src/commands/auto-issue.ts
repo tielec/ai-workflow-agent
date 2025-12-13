@@ -19,21 +19,13 @@ import { IssueGenerator } from '../core/issue-generator.js';
 import { resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
-import type { AutoIssueOptions, IssueCreationResult } from '../types/auto-issue.js';
+import type {
+  AutoIssueOptions,
+  IssueCreationResult,
+  RawAutoIssueOptions,
+} from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
-
-/**
- * CLIオプションパース結果（生の入力）
- */
-interface RawAutoIssueOptions {
-  category?: string;
-  limit?: string;
-  outputFile?: string;
-  dryRun?: boolean;
-  similarityThreshold?: string;
-  agent?: 'auto' | 'codex' | 'claude';
-  creativeMode?: boolean;
-}
+import { InstructionValidator } from '../core/instruction-validator.js';
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -49,8 +41,29 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const options = parseOptions(rawOptions);
 
     logger.info(
-      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}`,
+      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
+    if (options.customInstruction) {
+      logger.info(`Using custom instruction: ${options.customInstruction}`);
+    }
+
+    if (options.customInstruction) {
+      logger.info('Validating custom instruction...');
+      const validationResult = await InstructionValidator.validate(options.customInstruction);
+
+      if (!validationResult.isValid) {
+        logger.error(`Unsafe custom instruction detected: ${validationResult.reason}`);
+        throw new Error(validationResult.errorMessage ?? 'Unsafe custom instruction detected.');
+      }
+
+      if (validationResult.confidence === 'low') {
+        logger.warn(`Low confidence validation: ${validationResult.reason}`);
+      }
+
+      logger.info(
+        `Custom instruction validated: category=${validationResult.category}, confidence=${validationResult.confidence}, method=${validationResult.validationMethod}`,
+      );
+    }
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
     const githubRepository = config.getGitHubRepository();
@@ -106,7 +119,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     if (options.category === 'bug') {
       logger.info('Analyzing repository for bugs...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const bugCandidates = await analyzer.analyze(repoPath, options.agent);
+      const bugCandidates = await analyzer.analyze(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${bugCandidates.length} bug candidates.`);
 
       if (bugCandidates.length === 0) {
@@ -125,7 +140,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     } else if (options.category === 'refactor') {
       logger.info('Analyzing repository for refactoring...');
       logger.info(`Analyzing repository: ${repoPath}`);
-      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent);
+      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
       logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
 
       if (refactorCandidates.length === 0) {
@@ -148,7 +165,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
       const enhancementProposals = await analyzer.analyzeForEnhancements(
         repoPath,
         options.agent,
-        { creativeMode: options.creativeMode },
+        { creativeMode: options.creativeMode, customInstruction: options.customInstruction },
       );
       logger.info(`Found ${enhancementProposals.length} enhancement proposals.`);
 
@@ -515,6 +532,17 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   // creativeMode（デフォルト: false）
   const creativeMode = rawOptions.creativeMode ?? false;
 
+  // customInstruction（オプション）
+  const customInstructionRaw = rawOptions.customInstruction;
+  let customInstruction: string | undefined;
+  if (typeof customInstructionRaw === 'string') {
+    const trimmed = customInstructionRaw.trim();
+    if (!trimmed) {
+      throw new Error('custom-instruction must not be empty.');
+    }
+    customInstruction = trimmed;
+  }
+
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
@@ -523,6 +551,7 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     similarityThreshold,
     agent: agent as 'auto' | 'codex' | 'claude',
     creativeMode,
+    customInstruction,
   };
 }
 

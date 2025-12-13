@@ -324,7 +324,45 @@ export CODEX_API_KEY="sk-..."
 export CLAUDE_CODE_CREDENTIALS_PATH="$HOME/.claude-code/credentials.json"
 ```
 
-#### 4. ファイル変更適用エラー
+#### 4. analyze フェーズでのエラー終了（Issue #428で改善）
+
+```
+Error: Failed to analyze PR comments: [エラー詳細]
+```
+
+**原因**: analyzeフェーズでAIエージェントによる分析が失敗した場合の動作が改善されました。
+
+**CI環境での動作**:
+- エラー発生時に即座に `exit(1)` で終了
+- executeステージには進まない
+- Jenkinsパイプラインで失敗として検知される
+
+**ローカル環境での動作**:
+- 確認プロンプトが表示される
+- ユーザーが継続を承認するとフォールバックプランで続行
+- ユーザーが拒否すると `exit(1)` で終了
+
+**対処法**:
+```bash
+# CI環境: ログを確認してエラー原因を修正後、再実行
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error'
+
+# ローカル環境: プロンプトで 'y' を入力してフォールバックで継続（推奨度低）
+# または 'N' で終了してエラー原因を修正
+```
+
+**エラー情報の確認**:
+```bash
+# メタデータからエラー詳細を確認
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error, .analyzer_error_type'
+
+# 一般的なエラー種別
+# - agent_execution_error: API認証エラー、タイムアウト等
+# - agent_empty_output: エージェントが空出力を返した
+# - json_parse_error: レスポンスのJSONパースに失敗
+```
+
+#### 5. ファイル変更適用エラー
 
 ```
 Error: Path validation failed: src/../../../etc/passwd

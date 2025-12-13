@@ -257,6 +257,53 @@ describe('RepositoryAnalyzer', () => {
     expect(result).toEqual([]);
   });
 
+  describe('custom instruction injection', () => {
+    it('injects custom instruction section into prompt', () => {
+      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
+      const result = (analyzer as unknown as { injectCustomInstruction: (p: string, c?: string) => string }).injectCustomInstruction(
+        prompt,
+        'セキュリティ脆弱性を重点的に検出してください',
+      );
+
+      expect(result).toContain('# カスタム指示');
+      expect(result).toContain('> セキュリティ脆弱性を重点的に検出してください');
+      expect(result).not.toContain('{custom_instruction}');
+    });
+
+    it('removes placeholder when custom instruction is not provided', () => {
+      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
+      const result = (analyzer as unknown as { injectCustomInstruction: (p: string, c?: string) => string }).injectCustomInstruction(
+        prompt,
+      );
+
+      expect(result).not.toContain('{custom_instruction}');
+      expect(result).not.toContain('# カスタム指示');
+    });
+
+    it('passes injected prompt to agent execution', async () => {
+      mockCodexSuccess('bugs', { bugs: [] });
+
+      await analyzer.analyze('/repo', 'codex', {
+        customInstruction: 'CI/CD改善に焦点を当ててください',
+      });
+
+      const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
+      expect(promptArg.prompt).toContain('# カスタム指示');
+      expect(promptArg.prompt).toContain('> CI/CD改善に焦点を当ててください');
+      expect(promptArg.prompt).not.toContain('{custom_instruction}');
+    });
+
+    it('omits custom section when custom instruction is undefined', async () => {
+      mockCodexSuccess('bugs', { bugs: [] });
+
+      await analyzer.analyze('/repo', 'codex');
+
+      const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
+      expect(promptArg.prompt).not.toContain('# カスタム指示');
+      expect(promptArg.prompt).not.toContain('{custom_instruction}');
+    });
+  });
+
   it('can analyze using Claude when Codex client is null', async () => {
     const claudeOnly = new RepositoryAnalyzer(null, mockClaudeClient, {
       outputFileFactory: (prefix: OutputPrefix) => outputPaths[prefix],

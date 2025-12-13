@@ -204,6 +204,11 @@ interface RepositoryAnalyzerOptions {
   outputFileFactory?: (prefix: OutputPrefix) => string;
 }
 
+interface AnalyzeOptions {
+  customInstruction?: string;
+  creativeMode?: boolean;
+}
+
 function generateOutputFilePath(prefix: OutputPrefix = 'bugs'): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
@@ -241,12 +246,14 @@ export class RepositoryAnalyzer {
    *
    * @param repoPath - リポジトリパス
    * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param options - カスタム指示などのオプション
    * @returns バグ候補のリスト
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   public async analyze(
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
+    options?: AnalyzeOptions,
   ): Promise<BugCandidate[]> {
     logger.info(`Analyzing repository: ${repoPath}`);
 
@@ -257,7 +264,7 @@ export class RepositoryAnalyzer {
 
     try {
       // 2. 共通エージェント実行メソッド呼び出し
-      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent);
+      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent, options);
 
       // 3. 出力ファイルからJSONを読み込み
       const candidates = this.readOutputFile(outputFilePath);
@@ -277,12 +284,14 @@ export class RepositoryAnalyzer {
    *
    * @param repoPath - リポジトリパス
    * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param options - カスタム指示などのオプション
    * @returns リファクタリング候補のリスト
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   public async analyzeForRefactoring(
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
+    options?: AnalyzeOptions,
   ): Promise<RefactorCandidate[]> {
     logger.info(`Analyzing repository for refactoring: ${repoPath}`);
 
@@ -293,7 +302,7 @@ export class RepositoryAnalyzer {
 
     try {
       // 2. 共通エージェント実行メソッド呼び出し
-      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent);
+      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent, options);
 
       // 3. 出力ファイルからJSONを読み込み
       const candidates = this.readRefactorOutputFile(outputFilePath);
@@ -315,13 +324,14 @@ export class RepositoryAnalyzer {
    * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
    * @param options - オプション設定
    * @param options.creativeMode - 創造的モードを有効化（より実験的な提案を含める）
+   * @param options.customInstruction - ユーザー指定のカスタム指示
    * @returns 機能拡張提案のリスト
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   public async analyzeForEnhancements(
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
-    options?: { creativeMode?: boolean },
+    options?: AnalyzeOptions,
   ): Promise<EnhancementProposal[]> {
     logger.info(`Analyzing repository for enhancement proposals: ${repoPath}`);
 
@@ -338,7 +348,7 @@ export class RepositoryAnalyzer {
         outputFilePath,
         repoPath,
         agent,
-        options?.creativeMode,
+        options,
       );
 
       // 3. 出力ファイルからJSONを読み込み
@@ -368,7 +378,7 @@ export class RepositoryAnalyzer {
    * @param outputFilePath - エージェントが結果を書き込むファイルのパス
    * @param repoPath - 解析対象のリポジトリパス
    * @param agent - 使用するエージェント（'auto' | 'codex' | 'claude'）
-   * @param creativeMode - 創造的モードフラグ（enhancement用）
+   * @param options - 追加オプション（creativeMode や customInstruction）
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   private async executeAgentWithFallback(
@@ -376,7 +386,7 @@ export class RepositoryAnalyzer {
     outputFilePath: string,
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
-    creativeMode?: boolean,
+    options?: AnalyzeOptions,
   ): Promise<void> {
     // 1. プロンプトテンプレート読み込み
     if (!fs.existsSync(promptPath)) {
@@ -390,10 +400,13 @@ export class RepositoryAnalyzer {
       .replace(/{output_file_path}/g, outputFilePath);
 
     // creative_mode変数の置換（enhancement用）
-    if (creativeMode !== undefined) {
-      const creativeModeValue = creativeMode ? 'enabled' : 'disabled';
-      prompt = prompt.replace(/{creative_mode}/g, creativeModeValue);
+    if (options?.creativeMode !== undefined) {
+      const creativeModeValue = options.creativeMode ? 'enabled' : 'disabled';
+      // creative_mode のフラグ名を残したまま状態を明示する
+      prompt = prompt.replace(/{creative_mode}/g, `creative_mode=${creativeModeValue}`);
     }
+
+    prompt = this.injectCustomInstruction(prompt, options?.customInstruction);
 
     // 3. エージェント選択（auto の場合は Codex → Claude フォールバック）
     let selectedAgent = agent;
@@ -430,6 +443,37 @@ export class RepositoryAnalyzer {
       logger.info('Using Claude agent for analysis.');
       await this.claudeClient.executeTask({ prompt });
     }
+  }
+
+  /**
+   * カスタム指示をプロンプトへ注入
+   *
+   * カスタム指示が指定されていない場合は、プレースホルダーを空文字で置換します。
+   *
+   * @param prompt - プロンプトテンプレート
+   * @param customInstruction - カスタム指示
+   * @returns 注入後のプロンプト
+   */
+  private injectCustomInstruction(prompt: string, customInstruction?: string): string {
+    if (!prompt.includes('{custom_instruction}')) {
+      return prompt;
+    }
+
+    if (!customInstruction) {
+      return prompt.replace('{custom_instruction}', '');
+    }
+
+    const injected = `# カスタム指示
+
+以下のユーザー指示を考慮して分析を行ってください：
+
+> ${customInstruction}
+
+この指示は分析の重点を示すものであり、基本的な検出ルールは維持してください。
+`;
+
+    logger.debug('Injecting custom instruction into prompt.');
+    return prompt.replace('{custom_instruction}', `${injected}\n`);
   }
 
   /**
