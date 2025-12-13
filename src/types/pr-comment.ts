@@ -24,6 +24,15 @@ export type ResolutionType = 'code_change' | 'reply' | 'discussion' | 'skip';
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 /**
+ * Analyzerエラー種別
+ */
+export type AnalyzerErrorType =
+  | 'agent_execution_error'
+  | 'agent_empty_output'
+  | 'json_parse_error'
+  | 'validation_error';
+
+/**
  * ファイル変更タイプ
  */
 export type FileChangeType = 'modify' | 'create' | 'delete';
@@ -274,6 +283,15 @@ export interface CommentResolutionMetadata {
 
   /** execution-result.md パス */
   execution_result_path?: string | null;
+
+  /** analyzeに使用したエージェント */
+  analyzer_agent?: string | null;
+
+  /** analyzerエラーメッセージ（フォールバック使用時など） */
+  analyzer_error?: string | null;
+
+  /** analyzerエラー種別（フォールバック使用時など） */
+  analyzer_error_type?: AnalyzerErrorType | null;
 }
 
 export interface PRCommentAnalyzeOptions {

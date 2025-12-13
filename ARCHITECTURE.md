@@ -123,6 +123,19 @@ src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマン�
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
 
+src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加)
+ ├─ handlePRCommentAnalyzeCommand() … pr-comment analyze コマンドハンドラ（2段階ワークフロー対応）
+ ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
+ ├─ buildAnalyzePrompt() … 分析プロンプト構築
+ ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
+ └─ エラーハンドリング（Issue #428で強化）
+     ├─ handleAgentError() … エージェント実行失敗時の処理
+     ├─ handleEmptyOutputError() … 空出力エラーの処理
+     ├─ handleParseError() … JSONパースエラーの処理
+     ├─ promptUserConfirmation() … ローカル環境での確認プロンプト
+     └─ CI環境では即座にprocess.exit(1)、ローカル環境では確認後フォールバック
+
 src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ（--pr-url対応）
  ├─ processComments() … バッチ処理でコメントを順次処理
@@ -135,7 +148,7 @@ src/commands/pr-comment/finalize.ts (PRコメント自動対応: 完了コマン
  ├─ resolveCompletedThreads() … 完了スレッドを解決
  └─ PRCommentMetadataManager.cleanup() … メタデータクリーンアップ
 
-src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加)
+src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加、Issue #428で拡張)
  ├─ PRCommentMetadataManager クラス
  │   ├─ initialize() … メタデータ初期化
  │   ├─ load() … メタデータ読み込み
@@ -146,8 +159,11 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定
+ │   ├─ setAnalyzerError() … Analyzerエラー記録（Issue #428で追加）
+ │   ├─ getAnalyzerError() … Analyzerエラー取得（Issue #428で追加）
+ │   ├─ clearAnalyzerError() … Analyzerエラークリア（Issue #428で追加）
  │   └─ cleanup() … クリーンアップ
- └─ CommentResolutionMetadata 型
+ └─ CommentResolutionMetadata 型（analyzer_error、analyzer_error_typeフィールド追加）
 
 src/core/pr-comment/comment-analyzer.ts (PRコメント: コメント分析エンジン、Issue #383で追加)
  ├─ ReviewCommentAnalyzer クラス
@@ -165,11 +181,14 @@ src/core/pr-comment/change-applier.ts (PRコメント: コード変更適用エ�
  │   └─ applyModification() … ファイル変更適用
  └─ FileChange 型（modify | create | delete）
 
-src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加)
+src/types/pr-comment.ts (PRコメント: 型定義、Issue #383で追加、Issue #428で拡張)
  ├─ PRCommentInitOptions … init コマンドオプション
  ├─ PRCommentExecuteOptions … execute コマンドオプション
  ├─ PRCommentFinalizeOptions … finalize コマンドオプション
- ├─ CommentResolutionMetadata … メタデータ構造
+ ├─ PRCommentAnalyzeOptions … analyze コマンドオプション（Issue #428で追加）
+ ├─ CommentResolutionMetadata … メタデータ構造（analyzer_error/analyzer_error_typeフィールド追加）
+ ├─ AnalyzerErrorType … Analyzerエラー種別（Issue #428で追加）
+ ├─ ResponsePlan … AI分析結果プラン（Issue #428で追加）
  ├─ CommentMetadata … コメントメタデータ
  ├─ ResolutionMetadata … 解決メタデータ
  ├─ CommentResolution … 解決結果
