@@ -1257,6 +1257,91 @@ ai-workflow pr-comment init --pr 123
 ai-workflow pr-comment analyze --pr 123
 ```
 
+### JSONパースエラーの詳細対処法（Issue #427で修正）
+
+**症状**:
+```
+Error: Failed to parse agent response: All parsing strategies exhausted
+```
+
+**原因**: エージェントがJSON Lines形式やプレーンJSONで応答した際に、既存のパース戦略では正常に抽出できない問題がありました。Issue #427でパース戦略が改善されました。
+
+**改善内容（v0.5.0以降）**:
+- **3つのパース戦略を順次試行**:
+  1. **Strategy 1**: Markdownコードブロック（```json ... ```）からの抽出
+  2. **Strategy 2**: JSON Lines形式からの後方探索（改善版）
+  3. **Strategy 3**: プレーンJSONパターンのマッチング（改善版）
+- **末尾優先探索**: 複数のJSONオブジェクトが存在する場合、最後の有効なオブジェクトを使用
+- **構造検証強化**: `comments`フィールドが配列であることを厳密にチェック
+- **詳細ログ出力**: 各パース戦略の試行結果を詳細に記録
+
+**対処法**:
+
+**1. エージェント出力の確認**:
+```bash
+# エージェントの生出力を確認
+cat .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# パース戦略のログを確認
+grep -A 5 -B 5 "Strategy [123]" .ai-workflow/pr-123/analyze/execute/agent_log.md
+```
+
+**2. パース失敗の詳細確認**:
+```bash
+# デバッグログでパース戦略の試行結果を確認
+grep -E "(Strategy [123]|parse|failed)" .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# 各戦略の失敗理由を確認
+# - Strategy 1 failed: No markdown code block found
+# - Strategy 2 failed: No valid JSON with "comments" field found
+# - Strategy 3 failed: No valid ResponsePlan found in candidates
+```
+
+**3. エージェント切り替えによる対処**:
+```bash
+# Codex から Claude に切り替え
+ai-workflow pr-comment analyze --pr 123 --agent claude
+
+# Claude から Codex に切り替え
+ai-workflow pr-comment analyze --pr 123 --agent codex
+```
+
+**4. プロンプト改善効果の確認**:
+
+v0.5.0以降では、プロンプトに以下の禁止事項が追加されており、パース成功率が向上しています：
+
+```
+**禁止事項**:
+- ファイル書き込みツールの使用
+- イベントストリーム形式での出力
+- Markdownコードブロック以外の追加テキスト
+- 複数のJSONオブジェクトの出力
+```
+
+**5. パース成功率の確認**:
+
+改善前後のパース成功率を確認できます：
+```bash
+# フォールバック使用の確認（改善前は頻発）
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
+# 出力: "codex" または "claude" → 正常パース成功
+# 出力: "fallback" → パース失敗（改善により大幅に減少）
+```
+
+**6. 完全リセット（最終手段）**:
+```bash
+# analyze フェーズをリセットして再実行
+rm -rf .ai-workflow/pr-123/analyze
+ai-workflow pr-comment analyze --pr 123 --agent claude
+
+# または、メタデータを完全削除して最初からやり直し
+rm -rf .ai-workflow/pr-123
+ai-workflow pr-comment init --pr 123
+ai-workflow pr-comment analyze --pr 123
+```
+
+**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
+
 ### フォールバックプランが使用されたときの対処
 
 ローカル環境でユーザーが継続（'y'）を選択した場合、フォールバックプランが使用されます。

@@ -9,6 +9,8 @@
  * - PRESET: プリセット名（必須、選択肢: review-requirements, review-design, review-test-scenario, quick-fix, implementation, testing, finalize）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
+ * - BRANCH_NAME: ブランチ名（オプション）
+ * - BASE_BRANCH: 分岐元ブランチ（デフォルト: main）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）

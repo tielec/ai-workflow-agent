@@ -360,7 +360,26 @@ cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error, 
 # - agent_execution_error: API認証エラー、タイムアウト等
 # - agent_empty_output: エージェントが空出力を返した
 # - json_parse_error: レスポンスのJSONパースに失敗
+# - validation_error: レスポンス構造の検証に失敗
 ```
+
+**JSONパースエラーの詳細（Issue #427で改善）**:
+
+```bash
+# パース戦略の試行結果を確認（v0.5.0以降）
+grep -E "(Strategy [123]|parse|failed)" .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# 改善内容の確認
+# Strategy 1: Markdownコードブロック抽出
+# Strategy 2: JSON Lines形式からの後方探索（改善版）
+# Strategy 3: プレーンJSONパターンのマッチング（改善版）
+
+# パース成功率の確認
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
+# "fallback" の場合はパース失敗、"codex"/"claude" の場合は成功
+```
+
+**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
 
 #### 5. ファイル変更適用エラー
 
