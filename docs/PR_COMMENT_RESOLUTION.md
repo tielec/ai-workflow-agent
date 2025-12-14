@@ -259,7 +259,7 @@ AIエージェントの分析結果に `confidence` レベルが含まれます:
 
 ## レジューム機能
 
-`pr-comment execute` は中断からの再開をサポートします。
+`pr-comment` コマンド群は中断からの再開をサポートします。
 
 ### 動作仕様
 
@@ -267,17 +267,51 @@ AIエージェントの分析結果に `confidence` レベルが含まれます:
 2. 中断後に再実行すると、`pending` または `in_progress` ステータスのコメントから再開
 3. `completed` または `skipped` ステータスのコメントはスキップ
 
+### initコマンドのスキップ機能（Issue #426で追加）
+
+既存のメタデータが存在する場合、`pr-comment init` は初期化をスキップし、既存データを保護します。
+
+**動作**:
+- メタデータファイルが存在する場合は警告ログを出力して正常終了
+- 既存メタデータの上書きを防止
+- リビルド時の安全な再開を実現
+
+**例**:
+```bash
+# 初回実行
+ai-workflow pr-comment init --pr 123
+# → メタデータを新規作成
+
+# リビルド時（既にメタデータが存在）
+ai-workflow pr-comment init --pr 123
+# → [WARNING] Metadata already exists. Skipping initialization.
+# → [INFO] Use "pr-comment analyze" or "pr-comment execute" to resume.
+```
+
 ### 使用例
 
 ```bash
 # 最初の実行（途中でCtrl+Cで中断）
+ai-workflow pr-comment init --pr 123
 ai-workflow pr-comment execute --pr 123
 # → 2件処理後に中断
 
-# 再実行（残りの3件を処理）
-ai-workflow pr-comment execute --pr 123
-# → 残りの3件を処理
+# リビルド時（initはスキップされ、残りの処理を継続）
+ai-workflow pr-comment init --pr 123     # → スキップ
+ai-workflow pr-comment execute --pr 123  # → 残りの3件を処理
 ```
+
+### Jenkinsでのリビルド対応
+
+Jenkins環境では、パイプラインのリビルド時に自動的にメタデータの有無を判定し、適切なステージから再開します。
+
+**ステージ構成**:
+1. Setup Environment
+2. Setup Node.js Environment
+3. **Check Resume**（新規追加） - メタデータの存在確認
+4. **PR Comment Init**（条件分岐追加） - メタデータがない場合のみ実行
+5. PR Comment Analyze
+6. PR Comment Execute
 
 ## トラブルシューティング
 
@@ -448,8 +482,15 @@ PRから未解決コメントを取得し、AIエージェントで分析・処�
 4. Validate Parameters
 5. Setup Environment
 6. Setup Node.js Environment
-7. PR Comment Init
-8. PR Comment Execute
+7. **Check Resume**（新規追加） - メタデータの存在確認、`SHOULD_INIT` 環境変数を設定
+8. **PR Comment Init**（条件分岐追加） - `SHOULD_INIT='true'` の場合のみ実行
+9. PR Comment Analyze
+10. PR Comment Execute
+
+**リビルド時の動作**:
+- **Check Resume** ステージでメタデータファイルの存在を確認
+- メタデータが存在する場合は `SHOULD_INIT='false'` を設定し、PR Comment Init をスキップ
+- メタデータが存在しない場合は `SHOULD_INIT='true'` を設定し、通常通り Init を実行
 
 ### PR Comment Finalize ジョブ
 
@@ -552,3 +593,4 @@ $REPOS_ROOT/
 |-----------|------|---------|
 | 1.0.0 | 2025-01-20 | 初版作成（Issue #383） |
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
+| 1.2.0 | 2025-12-14 | リビルド対応機能追加（Issue #426） - initスキップ機能、Jenkinsパイプラインのresume判定 |

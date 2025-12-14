@@ -1342,6 +1342,76 @@ ai-workflow pr-comment analyze --pr 123
 
 **注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
 
+#### 5. リビルド時にInitステージが重複実行される（Issue #426で修正）
+
+**症状**:
+```
+[WARNING] Metadata already exists. Skipping initialization.
+[INFO] Use "pr-comment analyze" or "pr-comment execute" to resume.
+```
+
+または、Jenkins環境でリビルド時に既存メタデータが上書きされる問題。
+
+**原因**: v0.5.0より前では、リビルド時にメタデータの存在確認が行われず、初期化処理が重複実行されていました。
+
+**改善内容（Issue #426で修正）**:
+
+**CLIレベルの改善**:
+- `pr-comment init` コマンドがメタデータ存在時に自動的にスキップ
+- 既存メタデータの上書きを防止
+- 警告ログと再開方法の案内を表示
+
+**Jenkinsパイプラインレベルの改善**:
+- **Check Resume** ステージを追加してメタデータファイルの存在を確認
+- **PR Comment Init** ステージに `when` 条件を追加（`SHOULD_INIT='true'` の場合のみ実行）
+- 環境変数 `SHOULD_INIT` でInitステージの実行制御
+
+**対処法**:
+
+**1. v0.5.0以降を使用する（推奨）**:
+```bash
+# v0.5.0以降では自動的に適切にスキップされます
+ai-workflow pr-comment init --pr 123  # → 既存メタデータがあればスキップ
+ai-workflow pr-comment execute --pr 123  # → 中断点から再開
+```
+
+**2. 手動でのリビルド対応**:
+```bash
+# メタデータが存在するかチェック
+ls -la .ai-workflow/pr-123/comment-resolution-metadata.json
+
+# メタデータが存在する場合はinitをスキップしてexecuteから実行
+ai-workflow pr-comment execute --pr 123
+
+# または、analyzeから実行
+ai-workflow pr-comment analyze --pr 123
+ai-workflow pr-comment execute --pr 123
+```
+
+**3. 破損したメタデータのリセット**:
+```bash
+# メタデータが破損している場合のみ削除
+rm -rf .ai-workflow/pr-123
+
+# 再初期化
+ai-workflow pr-comment init --pr 123
+```
+
+**4. Jenkins環境での確認**:
+```bash
+# Check Resumeステージのログを確認
+grep -i "Check Resume" jenkins-build.log
+grep -i "SHOULD_INIT" jenkins-build.log
+
+# PR Comment Initステージがスキップされているか確認
+grep -i "Stage 'PR Comment Init' skipped" jenkins-build.log
+```
+
+**予防策**:
+- 常に最新バージョン（v0.5.0以降）を使用する
+- Jenkins環境では改善されたパイプラインを使用する
+- 手動でメタデータを削除する前に、必要な情報（in_progressコメント等）を確認する
+
 ### フォールバックプランが使用されたときの対処
 
 ローカル環境でユーザーが継続（'y'）を選択した場合、フォールバックプランが使用されます。
