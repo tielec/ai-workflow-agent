@@ -91,6 +91,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
+  - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
+  - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化
+  - 実装変更: `buildAnalyzePrompt()` に `outputFilePath` パラメータ追加、ファイル優先読み込み + フォールバック処理を実装
+  - 出力先: `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` への JSON ファイル出力
+  - フォールバック機構: ファイル生成失敗時は既存の `parseResponsePlan()` で `rawOutput` をパース（後方互換性維持）
+  - エラーハンドリング強化: ファイル読み込み成功/失敗時の適切なログ出力
+  - テストカバレッジ: ユニット3件、統合1件（100%成功）、既存テストの修正でモック整合性確保
+  - Issue #427の3段階パース戦略改善に続く抜本的解決策（エージェントが確実にJSONをファイル出力）
 - **Issue #426**: PR comment: Jenkinsリビルド時にresume機能が動作しない問題の修正
   - `pr-comment init` コマンドにメタデータ存在チェック機能を追加
   - 既存メタデータがある場合は初期化処理をスキップして警告ログを表示

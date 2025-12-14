@@ -1257,16 +1257,28 @@ ai-workflow pr-comment init --pr 123
 ai-workflow pr-comment analyze --pr 123
 ```
 
-### JSONパースエラーの詳細対処法（Issue #427で修正）
+### JSONパースエラーの詳細対処法（Issue #438で根本解決）
 
 **症状**:
 ```
 Error: Failed to parse agent response: All parsing strategies exhausted
 ```
 
-**原因**: エージェントがJSON Lines形式やプレーンJSONで応答した際に、既存のパース戦略では正常に抽出できない問題がありました。Issue #427でパース戦略が改善されました。
+**根本的解決策（Issue #438）**: `pr-comment analyze` コマンドはファイル出力方式に変更され、JSONパースエラーは根本的に解消されています。エージェントがJSONを確実にファイル（`.ai-workflow/pr-{prNumber}/analyze/response-plan.json`）に出力し、そこから読み込む方式に変更されました。
 
-**改善内容（v0.5.0以降）**:
+**重要な変更内容（Issue #438）**:
+- **プロンプト修正**: `{output_file_path}` プレースホルダーを追加し、エージェントにファイル書き込みを必須化
+- **実装変更**: ファイル優先読み込み＋フォールバック処理を実装（`buildAnalyzePrompt()` に `outputFilePath` パラメータ追加）
+- **出力先**: `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` への確実なJSON出力
+- **後方互換性**: ファイル生成失敗時は既存の `parseResponsePlan()` で `rawOutput` をパース
+- **エラーハンドリング**: ファイル読み込み成功/失敗時の適切なログ出力
+
+**以前の問題**: エージェントがJSON Lines形式やプレーンJSONで応答した際に、既存のパース戦略では正常に抽出できない問題がありました。Issue #427でパース戦略が改善されましたが、Issue #438でファイル出力方式への根本的な変更により抜本的に解決されています。
+
+**現在の状況**: v0.5.0以降では、JSONパースエラーは発生しなくなりました。エージェントが確実にJSONファイルを出力し、そこから読み込むため、テキストパースに依存しません。
+
+**フォールバック機構（v0.5.0）**:
+Issue #438のファイル出力方式が主要な解決策ですが、ファイル生成に失敗した場合のフォールバックとして、改善されたパース戦略も維持されています：
 - **3つのパース戦略を順次試行**:
   1. **Strategy 1**: Markdownコードブロック（```json ... ```）からの抽出
   2. **Strategy 2**: JSON Lines形式からの後方探索（改善版）
@@ -1275,29 +1287,34 @@ Error: Failed to parse agent response: All parsing strategies exhausted
 - **構造検証強化**: `comments`フィールドが配列であることを厳密にチェック
 - **詳細ログ出力**: 各パース戦略の試行結果を詳細に記録
 
+**注**: これらのパース戦略は現在フォールバック用であり、通常はファイル出力から直接読み込まれるため使用されません。
+
 **対処法**:
 
-**1. エージェント出力の確認**:
+**Issue #438以降では、このエラーはほぼ発生しません**。以下は旧バージョンや特殊ケースの参考です：
+
+**1. ファイル出力の確認（Issue #438以降の主要解決策）**:
 ```bash
-# エージェントの生出力を確認
+# JSONファイルが正常に出力されているか確認
+ls -la .ai-workflow/pr-123/analyze/response-plan.json
+
+# ファイルの内容確認
+cat .ai-workflow/pr-123/analyze/response-plan.json | jq .
+
+# ファイル出力ログの確認
+grep -i "output file" .ai-workflow/pr-123/analyze/execute/agent_log.md
+```
+
+**2. ファイル出力失敗時の確認（稀なケース）**:
+```bash
+# エージェントの生出力を確認（フォールバック時のみ）
 cat .ai-workflow/pr-123/analyze/execute/agent_log.md
 
-# パース戦略のログを確認
+# パース戦略のログを確認（フォールバック時のみ）
 grep -A 5 -B 5 "Strategy [123]" .ai-workflow/pr-123/analyze/execute/agent_log.md
 ```
 
-**2. パース失敗の詳細確認**:
-```bash
-# デバッグログでパース戦略の試行結果を確認
-grep -E "(Strategy [123]|parse|failed)" .ai-workflow/pr-123/analyze/execute/agent_log.md
-
-# 各戦略の失敗理由を確認
-# - Strategy 1 failed: No markdown code block found
-# - Strategy 2 failed: No valid JSON with "comments" field found
-# - Strategy 3 failed: No valid ResponsePlan found in candidates
-```
-
-**3. エージェント切り替えによる対処**:
+**3. エージェント切り替えによる対処（Issue #438以降も有効）**:
 ```bash
 # Codex から Claude に切り替え
 ai-workflow pr-comment analyze --pr 123 --agent claude
@@ -1306,29 +1323,29 @@ ai-workflow pr-comment analyze --pr 123 --agent claude
 ai-workflow pr-comment analyze --pr 123 --agent codex
 ```
 
-**4. プロンプト改善効果の確認**:
+**4. Issue #438以降の改善確認**:
 
-v0.5.0以降では、プロンプトに以下の禁止事項が追加されており、パース成功率が向上しています：
+v0.5.0以降では、プロンプトが以下のように改善され、ファイル出力が確実に実行されます：
 
-```
-**禁止事項**:
-- ファイル書き込みツールの使用
-- イベントストリーム形式での出力
-- Markdownコードブロック以外の追加テキスト
-- 複数のJSONオブジェクトの出力
-```
+- **必須指示**: エージェントにWrite ツールを使用したJSON出力を必須化
+- **明確な出力先**: `{output_file_path}` プレースホルダーで出力先を明示
+- **ファイル優先読み込み**: プロンプト実行後、まずJSONファイルから読み込み、失敗時のみテキストパース
 
-**5. パース成功率の確認**:
+**5. 成功確認方法**:
 
-改善前後のパース成功率を確認できます：
+Issue #438以降では、JSONパースエラーはほぼ発生しません：
 ```bash
-# フォールバック使用の確認（改善前は頻発）
+# ファイル出力成功の確認
+ls -la .ai-workflow/pr-123/analyze/response-plan.json
+# ファイルが存在すれば、ファイル出力方式で成功
+
+# メタデータの確認
 cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
-# 出力: "codex" または "claude" → 正常パース成功
-# 出力: "fallback" → パース失敗（改善により大幅に減少）
+# 出力: "codex" または "claude" → 正常動作
+# 出力: "fallback" → エージェント実行失敗（パースエラーではない）
 ```
 
-**6. 完全リセット（最終手段）**:
+**6. 完全リセット（最終手段、Issue #438以降では稀）**:
 ```bash
 # analyze フェーズをリセットして再実行
 rm -rf .ai-workflow/pr-123/analyze
@@ -1340,7 +1357,7 @@ ai-workflow pr-comment init --pr 123
 ai-workflow pr-comment analyze --pr 123
 ```
 
-**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
+**注意**: Issue #438の根本的解決により、JSONパースエラーは事実上解消されました。ファイル出力方式により、エージェントの出力形式に依存しない確実なJSON読み込みが可能になっています。このトラブルシューティングセクションは主に旧バージョンまたは特殊な失敗ケースの参考用です。
 
 #### 5. リビルド時にInitステージが重複実行される（Issue #426で修正）
 

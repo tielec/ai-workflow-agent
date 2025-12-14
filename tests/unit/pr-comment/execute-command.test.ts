@@ -5,16 +5,38 @@ import { logger } from '../../../src/utils/logger.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
 import type { PRCommentExecuteOptions } from '../../../src/types/commands.js';
 
+const parsePlanFromMarkdown = (): { prNumber: number; comments: any[] } => {
+  try {
+    const match = planContent.match(/```json\s*([\s\S]*?)```/);
+    const jsonText = match ? match[1] : planContent;
+    const parsed = JSON.parse(jsonText);
+    const prNumber = parsed.pr_number ?? 123;
+    const comments = Array.isArray(parsed.comments) ? parsed.comments : [];
+    return { prNumber, comments };
+  } catch {
+    return { prNumber: 123, comments: [] };
+  }
+};
+
 const getRepoRootMock = jest.fn<() => Promise<string>>();
 const resolveAgentCredentialsMock = jest.fn();
 const setupAgentClientsMock = jest.fn();
 const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
+const simpleGitAddConfigMock = jest.fn();
+const simpleGitPushMock = jest.fn();
 const agentExecuteTaskMock = jest.fn();
 const reviewAnalyzerMock = jest.fn();
 const codeChangeApplyMock = jest.fn();
 const githubReplyMock = jest.fn();
+const parsePullRequestUrlMock = jest.fn(() => ({
+  owner: 'owner',
+  repo: 'repo',
+  prNumber: 123,
+  repositoryName: 'owner/repo',
+}));
+const resolveRepoPathFromPrUrlMock = jest.fn(() => '/repo');
 
 let handlePRCommentExecuteCommand: (options: PRCommentExecuteOptions) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
@@ -48,6 +70,8 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
     __esModule: true,
     getRepoRoot: getRepoRootMock,
+    parsePullRequestUrl: parsePullRequestUrlMock,
+    resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -55,7 +79,7 @@ beforeAll(async () => {
     PRCommentMetadataManager: jest.fn().mockImplementation(() => {
       currentMetadataManager = {
         exists: jest.fn().mockResolvedValue(true),
-        load: jest.fn().mockResolvedValue(undefined),
+        load: jest.fn().mockResolvedValue({ pr: { branch: 'feature/mock-branch' } }),
         getPendingComments: jest.fn(async () => pendingComments),
         getSummary: jest.fn().mockResolvedValue({
           by_status: { completed: 1, skipped: 0, failed: 0 },
@@ -64,6 +88,8 @@ beforeAll(async () => {
         setReplyCommentId: jest.fn().mockResolvedValue(undefined),
         setExecuteCompletedAt: jest.fn().mockResolvedValue(undefined),
         setExecutionResultPath: jest.fn().mockResolvedValue(undefined),
+        incrementRetryCount: jest.fn().mockResolvedValue(0),
+        updateCostTracking: jest.fn().mockResolvedValue(undefined),
       };
       return currentMetadataManager;
     }),
@@ -89,6 +115,7 @@ beforeAll(async () => {
       commentClient: {
         replyToPRReviewComment: githubReplyMock,
       },
+      getRepositoryInfo: () => ({ repositoryName: 'owner/repo' }),
     })),
   }));
 
@@ -102,6 +129,8 @@ beforeAll(async () => {
     __esModule: true,
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
+      getGitCommitUserName: jest.fn(() => 'Test User'),
+      getGitCommitUserEmail: jest.fn(() => 'test@example.com'),
     },
   }));
 
@@ -111,6 +140,8 @@ beforeAll(async () => {
       status: simpleGitStatusMock,
       add: simpleGitAddMock,
       commit: simpleGitCommitMock,
+      addConfig: simpleGitAddConfigMock,
+      push: simpleGitPushMock,
     })),
   }));
 
@@ -138,6 +169,8 @@ beforeEach(() => {
   simpleGitStatusMock.mockResolvedValue({ files: [{ path: '.ai-workflow/pr-123/output/execution-result.md' }] });
   simpleGitAddMock.mockResolvedValue(undefined);
   simpleGitCommitMock.mockResolvedValue(undefined);
+  simpleGitAddConfigMock.mockResolvedValue(undefined);
+  simpleGitPushMock.mockResolvedValue(undefined);
   processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {
     throw new Error('process.exit(1)');
   }) as any);
@@ -158,6 +191,54 @@ beforeEach(() => {
       return planContent;
     }
     return 'file content';
+  });
+
+  reviewAnalyzerMock.mockImplementation(async (commentMeta, ctx, agent) => {
+    const { prNumber, comments } = parsePlanFromMarkdown();
+    const planComment = comments.find((c) => String(c.comment_id) === String(commentMeta.comment.id));
+    if (!planComment) {
+      return { success: false, error: 'Plan comment not found' };
+    }
+
+    if (agent) {
+      await agent.executeTask({
+        prompt: [
+          `Execute ${prNumber} at ${ctx?.repoPath ?? '/repo'}`,
+          JSON.stringify(planComment),
+          `Output: ${path.join('/repo', '.ai-workflow', `pr-${prNumber}`, 'execute', 'execution-result.json')}`,
+        ].join('\n'),
+        maxTurns: 1,
+        verbose: false,
+        workingDirectory: ctx?.repoPath ?? '/repo',
+      });
+    }
+
+    const changes =
+      (planComment.proposed_changes ?? []).map((c: any) => ({
+        path: c.file,
+        change_type: c.action ?? c.change_type ?? 'modify',
+        content: c.changes ?? '',
+      })) ?? [];
+    const resolution =
+      planComment.type === 'code_change'
+        ? {
+            type: 'code_change',
+            changes,
+            reply: planComment.reply_message ?? 'Updated',
+            confidence: planComment.confidence ?? 'high',
+          }
+        : {
+            type: planComment.type ?? 'reply',
+            reply: planComment.reply_message ?? 'Acknowledged',
+            confidence: planComment.confidence ?? 'high',
+          };
+
+    return {
+      success: true,
+      resolution,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
   });
 });
 

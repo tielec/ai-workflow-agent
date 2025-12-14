@@ -118,7 +118,14 @@ async function analyzeComments(
   const persistMetadata = !options.dryRun;
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
-  const prompt = await buildAnalyzePrompt(prNumber, repoRoot, metadataManager, comments);
+  const outputFilePath = path.join(analyzeDir, 'response-plan.json');
+  const prompt = await buildAnalyzePrompt(
+    prNumber,
+    repoRoot,
+    metadataManager,
+    comments,
+    outputFilePath,
+  );
 
   if (!options.dryRun) {
     await fs.ensureDir(analyzeDir);
@@ -188,23 +195,46 @@ async function analyzeComments(
     throw new Error('Unexpected state: empty output handler did not exit or return fallback plan');
   }
 
-  let plan: ResponsePlan;
-  try {
-    plan = parseResponsePlan(rawOutput, prNumber);
-  } catch (parseError) {
-    const fallbackPlan = await handleParseError(
-      parseError as Error,
-      metadataManager,
-      prNumber,
-      comments,
-      persistMetadata,
-    );
+  const parseFromRawOutput = async (): Promise<ResponsePlan> => {
+    try {
+      return parseResponsePlan(rawOutput, prNumber);
+    } catch (parseError) {
+      const fallbackPlan = await handleParseError(
+        parseError as Error,
+        metadataManager,
+        prNumber,
+        comments,
+        persistMetadata,
+      );
 
-    if (fallbackPlan) {
-      return applyPlanDefaults(fallbackPlan, options);
+      if (fallbackPlan) {
+        return fallbackPlan;
+      }
+
+      throw new Error('Unexpected state: parse error handler did not exit or return fallback plan');
     }
+  };
 
-    throw new Error('Unexpected state: parse error handler did not exit or return fallback plan');
+  let plan: ResponsePlan;
+  const outputFileExists = await fs.pathExists(outputFilePath);
+  if (outputFileExists) {
+    try {
+      const fileContent = await fs.readFile(outputFilePath, 'utf-8');
+      const parsedPlan = JSON.parse(fileContent) as ResponsePlan;
+      const missingPrNumber = parsedPlan.pr_number === undefined || parsedPlan.pr_number === null;
+      plan = normalizeResponsePlan(parsedPlan, prNumber);
+      if (missingPrNumber) {
+        await fs.writeFile(outputFilePath, JSON.stringify(plan, null, 2), 'utf-8');
+      }
+      logger.info(`Reading response plan from file: ${outputFilePath}`);
+    } catch (fileError) {
+      logger.warn(`Failed to parse JSON from file: ${getErrorMessage(fileError)}`);
+      logger.warn('Falling back to raw output parsing.');
+      plan = await parseFromRawOutput();
+    }
+  } else {
+    logger.warn('Output file not found. Falling back to raw output parsing.');
+    plan = await parseFromRawOutput();
   }
 
   return applyPlanDefaults(plan, options);
@@ -306,11 +336,15 @@ function applyPlanDefaults(
   };
 }
 
+/**
+ * Build analyze prompt with context and output file path instructions.
+ */
 async function buildAnalyzePrompt(
   prNumber: number,
   repoRoot: string,
   metadataManager: PRCommentMetadataManager,
   comments: CommentMetadata[],
+  outputFilePath: string,
 ): Promise<string> {
   const template = await fs.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
   const metadata = await metadataManager.getMetadata();
@@ -324,7 +358,8 @@ async function buildAnalyzePrompt(
     .replace('{pr_number}', String(prNumber))
     .replace('{pr_title}', metadata.pr.title)
     .replace('{repo_path}', repoRoot)
-    .replace('{all_comments}', commentBlocks.join('\n\n'));
+    .replace('{all_comments}', commentBlocks.join('\n\n'))
+    .replace('{output_file_path}', outputFilePath);
 }
 
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {

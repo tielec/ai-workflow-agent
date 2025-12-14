@@ -397,7 +397,11 @@ cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error, 
 # - validation_error: レスポンス構造の検証に失敗
 ```
 
-**JSONパースエラーの詳細（Issue #427で改善）**:
+**JSONパースエラーの詳細（Issue #438で根本解決）**:
+
+Issue #438 により、`pr-comment analyze` は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` に JSON を書き出し、CLI はこのファイルを最優先で読み込むようになりました。ファイルが存在しない・正しくないケースでは、Issue #427 で改善された3段階のパース戦略（Markdown → JSON Lines → プレーンJSON）をフォールバックとして順番に試行します。
+
+ファイル生成に失敗したケースでは、以下のようにログやパース戦略を確認してフォールバックの試行履歴を追跡できます。
 
 ```bash
 # パース戦略の試行結果を確認（v0.5.0以降）
@@ -413,7 +417,7 @@ cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
 # "fallback" の場合はパース失敗、"codex"/"claude" の場合は成功
 ```
 
-**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
+**注意**: これらのパース戦略は現在フォールバック用途であり、通常は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` から直接読み込まれるため使用されません。Issue #427 で改善された成功率向上は、ファイル出力が失敗した稀なケースでの安全網として機能します。
 
 #### 5. ファイル変更適用エラー
 
