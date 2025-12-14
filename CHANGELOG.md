@@ -91,6 +91,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #426**: PR comment: Jenkinsリビルド時にresume機能が動作しない問題の修正
+  - `pr-comment init` コマンドにメタデータ存在チェック機能を追加
+  - 既存メタデータがある場合は初期化処理をスキップして警告ログを表示
+  - Jenkinsパイプラインに "Check Resume" ステージを追加してメタデータの有無を判定
+  - "PR Comment Init" ステージに `when` 条件を追加（`SHOULD_INIT` 環境変数による制御）
+  - リビルド時の既存データ保護とスムーズな再開を実現
+  - 実装ファイル: `src/commands/pr-comment/init.ts`、`jenkins/.../pr-comment-execute/Jenkinsfile`
+  - テスト追加: `tests/integration/pr-comment-workflow.test.ts` に3件のテストケース
 - **Issue #432**: Jenkins: アーティファクト保存が機能していない（REPOS_ROOT の絶対パス問題）
   - `jenkins/shared/common.groovy` の `archiveArtifacts` 関数を拡張し、REPOS_ROOT から WORKSPACE への一時コピー処理を追加
   - Issue番号のサニタイズ処理を追加してパストラバーサル攻撃を防止（英数字、ハイフン、アンダースコアのみ許可）
