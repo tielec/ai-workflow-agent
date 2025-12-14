@@ -9,6 +9,8 @@
  * - START_PHASE: 実行するフェーズ名（必須、選択肢: planning, requirements, design, test-scenario, implementation, test-implementation, testing, documentation, report, evaluation）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
+ * - BRANCH_NAME: ブランチ名（オプション）
+ * - BASE_BRANCH: 分岐元ブランチ（デフォルト: main）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）

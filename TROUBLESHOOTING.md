@@ -1257,6 +1257,161 @@ ai-workflow pr-comment init --pr 123
 ai-workflow pr-comment analyze --pr 123
 ```
 
+### JSONパースエラーの詳細対処法（Issue #427で修正）
+
+**症状**:
+```
+Error: Failed to parse agent response: All parsing strategies exhausted
+```
+
+**原因**: エージェントがJSON Lines形式やプレーンJSONで応答した際に、既存のパース戦略では正常に抽出できない問題がありました。Issue #427でパース戦略が改善されました。
+
+**改善内容（v0.5.0以降）**:
+- **3つのパース戦略を順次試行**:
+  1. **Strategy 1**: Markdownコードブロック（```json ... ```）からの抽出
+  2. **Strategy 2**: JSON Lines形式からの後方探索（改善版）
+  3. **Strategy 3**: プレーンJSONパターンのマッチング（改善版）
+- **末尾優先探索**: 複数のJSONオブジェクトが存在する場合、最後の有効なオブジェクトを使用
+- **構造検証強化**: `comments`フィールドが配列であることを厳密にチェック
+- **詳細ログ出力**: 各パース戦略の試行結果を詳細に記録
+
+**対処法**:
+
+**1. エージェント出力の確認**:
+```bash
+# エージェントの生出力を確認
+cat .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# パース戦略のログを確認
+grep -A 5 -B 5 "Strategy [123]" .ai-workflow/pr-123/analyze/execute/agent_log.md
+```
+
+**2. パース失敗の詳細確認**:
+```bash
+# デバッグログでパース戦略の試行結果を確認
+grep -E "(Strategy [123]|parse|failed)" .ai-workflow/pr-123/analyze/execute/agent_log.md
+
+# 各戦略の失敗理由を確認
+# - Strategy 1 failed: No markdown code block found
+# - Strategy 2 failed: No valid JSON with "comments" field found
+# - Strategy 3 failed: No valid ResponsePlan found in candidates
+```
+
+**3. エージェント切り替えによる対処**:
+```bash
+# Codex から Claude に切り替え
+ai-workflow pr-comment analyze --pr 123 --agent claude
+
+# Claude から Codex に切り替え
+ai-workflow pr-comment analyze --pr 123 --agent codex
+```
+
+**4. プロンプト改善効果の確認**:
+
+v0.5.0以降では、プロンプトに以下の禁止事項が追加されており、パース成功率が向上しています：
+
+```
+**禁止事項**:
+- ファイル書き込みツールの使用
+- イベントストリーム形式での出力
+- Markdownコードブロック以外の追加テキスト
+- 複数のJSONオブジェクトの出力
+```
+
+**5. パース成功率の確認**:
+
+改善前後のパース成功率を確認できます：
+```bash
+# フォールバック使用の確認（改善前は頻発）
+cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
+# 出力: "codex" または "claude" → 正常パース成功
+# 出力: "fallback" → パース失敗（改善により大幅に減少）
+```
+
+**6. 完全リセット（最終手段）**:
+```bash
+# analyze フェーズをリセットして再実行
+rm -rf .ai-workflow/pr-123/analyze
+ai-workflow pr-comment analyze --pr 123 --agent claude
+
+# または、メタデータを完全削除して最初からやり直し
+rm -rf .ai-workflow/pr-123
+ai-workflow pr-comment init --pr 123
+ai-workflow pr-comment analyze --pr 123
+```
+
+**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
+
+#### 5. リビルド時にInitステージが重複実行される（Issue #426で修正）
+
+**症状**:
+```
+[WARNING] Metadata already exists. Skipping initialization.
+[INFO] Use "pr-comment analyze" or "pr-comment execute" to resume.
+```
+
+または、Jenkins環境でリビルド時に既存メタデータが上書きされる問題。
+
+**原因**: v0.5.0より前では、リビルド時にメタデータの存在確認が行われず、初期化処理が重複実行されていました。
+
+**改善内容（Issue #426で修正）**:
+
+**CLIレベルの改善**:
+- `pr-comment init` コマンドがメタデータ存在時に自動的にスキップ
+- 既存メタデータの上書きを防止
+- 警告ログと再開方法の案内を表示
+
+**Jenkinsパイプラインレベルの改善**:
+- **Check Resume** ステージを追加してメタデータファイルの存在を確認
+- **PR Comment Init** ステージに `when` 条件を追加（`SHOULD_INIT='true'` の場合のみ実行）
+- 環境変数 `SHOULD_INIT` でInitステージの実行制御
+
+**対処法**:
+
+**1. v0.5.0以降を使用する（推奨）**:
+```bash
+# v0.5.0以降では自動的に適切にスキップされます
+ai-workflow pr-comment init --pr 123  # → 既存メタデータがあればスキップ
+ai-workflow pr-comment execute --pr 123  # → 中断点から再開
+```
+
+**2. 手動でのリビルド対応**:
+```bash
+# メタデータが存在するかチェック
+ls -la .ai-workflow/pr-123/comment-resolution-metadata.json
+
+# メタデータが存在する場合はinitをスキップしてexecuteから実行
+ai-workflow pr-comment execute --pr 123
+
+# または、analyzeから実行
+ai-workflow pr-comment analyze --pr 123
+ai-workflow pr-comment execute --pr 123
+```
+
+**3. 破損したメタデータのリセット**:
+```bash
+# メタデータが破損している場合のみ削除
+rm -rf .ai-workflow/pr-123
+
+# 再初期化
+ai-workflow pr-comment init --pr 123
+```
+
+**4. Jenkins環境での確認**:
+```bash
+# Check Resumeステージのログを確認
+grep -i "Check Resume" jenkins-build.log
+grep -i "SHOULD_INIT" jenkins-build.log
+
+# PR Comment Initステージがスキップされているか確認
+grep -i "Stage 'PR Comment Init' skipped" jenkins-build.log
+```
+
+**予防策**:
+- 常に最新バージョン（v0.5.0以降）を使用する
+- Jenkins環境では改善されたパイプラインを使用する
+- 手動でメタデータを削除する前に、必要な情報（in_progressコメント等）を確認する
+
 ### フォールバックプランが使用されたときの対処
 
 ローカル環境でユーザーが継続（'y'）を選択した場合、フォールバックプランが使用されます。

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, jest } from '@j
 import fs from 'fs-extra';
 import os from 'node:os';
 import path from 'node:path';
+import readline from 'node:readline';
 import { logger } from '../../src/utils/logger.js';
 import type { CommentMetadata } from '../../src/types/pr-comment.js';
 
@@ -200,6 +201,16 @@ beforeEach(async () => {
     path.join(tmpDir, 'src', 'prompts', 'pr-comment', 'execute.txt'),
     'Execute {pr_number}\nPlan:{response_plan}\nOutput:{output_file_path}',
   );
+  const distPromptsDir = path.join(process.cwd(), 'dist', 'prompts', 'pr-comment');
+  await fs.ensureDir(distPromptsDir);
+  await fs.writeFile(
+    path.join(distPromptsDir, 'analyze.txt'),
+    'Analyze {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}',
+  );
+  await fs.writeFile(
+    path.join(distPromptsDir, 'execute.txt'),
+    'Execute {pr_number}\nPlan:{response_plan}\nOutput:{output_file_path}',
+  );
   await fs.ensureDir(path.join(tmpDir, 'src'));
   await fs.writeFile(path.join(tmpDir, 'src', 'a.ts'), 'export const x = 1;');
 
@@ -277,6 +288,83 @@ describe('Analyze → Execute integration flow', () => {
     expect(metadataManagerInstances[0].setAnalyzerError).toHaveBeenCalledWith(
       'Network timeout',
       'agent_execution_error',
+    );
+  });
+
+  it('parses JSON Lines agent output end-to-end', async () => {
+    const jsonLines = [
+      '{"event":"start"}',
+      '{"event":"progress","data":"analyzing"}',
+      '{"pr_number":123,"analyzer_agent":"codex","comments":[{"comment_id":"100","type":"reply","confidence":"high","reply_message":"All good"}]}',
+    ];
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(jsonLines);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+
+    expect(planContent).toContain('Analyzer Agent: codex');
+    expect(planContent).toContain('Comment #100');
+    expect(metadataManagerInstances[0].setAnalyzerAgent).toHaveBeenCalledWith('codex');
+  });
+
+  it('exits in CI when parse fails on invalid agent output', async () => {
+    configIsCIMock.mockReturnValue(true);
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['{not-json']);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('process.exit: 1');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' })).rejects.toThrow(
+      'process.exit: 1',
+    );
+
+    expect(metadataManagerInstances[0].setAnalyzerError).toHaveBeenCalledWith(
+      expect.stringContaining('JSON parsing failed'),
+      'json_parse_error',
+    );
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    expect(await fs.pathExists(planPath)).toBe(false);
+  });
+
+  it('prompts and proceeds with fallback in local mode after parse failure', async () => {
+    configIsCIMock.mockReturnValue(false);
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['{not-json']);
+    const questionMock = jest.fn((_q, cb: (answer: string) => void) => cb('y'));
+    const closeMock = jest.fn();
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: questionMock,
+      close: closeMock,
+    } as any);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+    expect(planContent).toContain('Analyzer Agent: fallback');
+    expect(questionMock).toHaveBeenCalled();
+    expect(metadataManagerInstances[0].setAnalyzerAgent).toHaveBeenCalledWith('fallback');
+  });
+
+  it('exits in CI when agent returns empty output', async () => {
+    configIsCIMock.mockReturnValue(true);
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['   ']);
+    processExitSpy.mockImplementation((() => {
+      throw new Error('process.exit: 1');
+    }) as any);
+
+    await expect(handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' })).rejects.toThrow(
+      'process.exit: 1',
+    );
+
+    expect(metadataManagerInstances[0].setAnalyzerError).toHaveBeenCalledWith(
+      'Agent returned empty output',
+      'agent_empty_output',
     );
   });
 });

@@ -20,6 +20,7 @@
  * - AWS_SESSION_TOKEN: AWS Session Token（オプション）
  * - GITHUB_REPOSITORY: owner/repo形式（デフォルト: tielec/ai-workflow-agent）
  * - BRANCH_NAME: ブランチ名（オプション）
+ * - BASE_BRANCH: 分岐元ブランチ（デフォルト: main）
  * - FORCE_RESET: 強制リセット（デフォルト: false）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false）
  * - SQUASH_ON_COMPLETE: ワークフロー完了時にコミットをスカッシュ（デフォルト: false）

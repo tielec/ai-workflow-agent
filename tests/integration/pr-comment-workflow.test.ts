@@ -32,6 +32,7 @@ const githubClientMock = {
     resolveReviewThread: jest.fn(),
     getUnresolvedPRReviewComments: jest.fn(),
     getPRReviewComments: jest.fn(),
+    getPendingReviewComments: jest.fn(),
   },
 };
 const simpleGitMock = jest.fn();
@@ -94,7 +95,11 @@ describe('Integration: pr-comment workflow', () => {
 
     // Configure default mock implementations
     metadataManagerMock.exists.mockResolvedValue(true);
-    metadataManagerMock.load.mockResolvedValue(undefined);
+    metadataManagerMock.load.mockResolvedValue({
+      pr: {
+        branch: 'feature/branch',
+      },
+    });
     metadataManagerMock.getPendingComments.mockResolvedValue([]);
     metadataManagerMock.updateCommentStatus.mockResolvedValue(undefined);
     metadataManagerMock.incrementRetryCount.mockResolvedValue(0);
@@ -139,6 +144,7 @@ describe('Integration: pr-comment workflow', () => {
     });
     githubClientMock.commentClient.getUnresolvedPRReviewComments.mockResolvedValue([]);
     githubClientMock.commentClient.getPRReviewComments.mockResolvedValue([]);
+    githubClientMock.commentClient.getPendingReviewComments.mockResolvedValue([]);
   });
 
   it('processes pending comments, applies changes, and posts replies', async () => {
@@ -204,6 +210,65 @@ describe('Integration: pr-comment workflow', () => {
     expect(applierConstructorMock).toHaveBeenCalledWith('/repo');
   });
 
+  it('resumes in_progress comments during rebuild execute flow', async () => {
+    metadataManagerMock.load.mockResolvedValue({
+      pr: { branch: 'feature/resume' },
+    });
+    metadataManagerMock.getPendingComments.mockResolvedValue([
+      {
+        comment: {
+          id: 500,
+          node_id: 'N500',
+          path: 'src/core/resume.ts',
+          line: 15,
+          body: 'Resume this comment',
+          user: 'dave',
+          created_at: '2025-01-20T00:00:00Z',
+          updated_at: '2025-01-20T00:00:00Z',
+        },
+        status: 'in_progress',
+      },
+    ]);
+    metadataManagerMock.getSummary.mockResolvedValue({
+      total: 1,
+      by_status: { pending: 0, in_progress: 0, completed: 1, skipped: 0, failed: 0 },
+      by_type: { code_change: 1, reply: 0, discussion: 0, skip: 0 },
+    });
+
+    analyzerMock.analyze.mockResolvedValue({
+      success: true,
+      resolution: {
+        type: 'code_change',
+        confidence: 'high',
+        changes: [{ path: 'src/core/resume.ts', change_type: 'modify', content: 'export {}' }],
+        reply: 'Resumed and completed',
+      },
+      inputTokens: 10,
+      outputTokens: 5,
+    });
+    applierMock.apply.mockResolvedValue({ success: true, applied_files: [], skipped_files: [] });
+    githubClientMock.commentClient.replyToPRReviewComment.mockResolvedValue({
+      id: 905,
+      html_url: 'https://example.com/comment/905',
+    });
+
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    await handlePRCommentExecuteCommand({ pr: '123' } as any);
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('in_progress'));
+    expect(metadataManagerMock.updateCommentStatus).toHaveBeenCalledWith('500', 'in_progress');
+    expect(metadataManagerMock.updateCommentStatus).toHaveBeenCalledWith(
+      '500',
+      'completed',
+      expect.objectContaining({
+        reply: 'Resumed and completed',
+      }),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('finalizes completed comments and cleans up metadata', async () => {
     metadataManagerMock.getCompletedComments.mockResolvedValue([
       {
@@ -228,6 +293,7 @@ describe('Integration: pr-comment workflow', () => {
   });
 
   it('initializes metadata for unresolved review comments on a PR', async () => {
+    metadataManagerMock.exists.mockResolvedValue(false);
     githubClientMock.getPullRequestInfo.mockResolvedValue({
       number: 123,
       url: 'https://github.com/owner/repo/pull/123',
@@ -368,7 +434,29 @@ describe('Integration: pr-comment workflow', () => {
     expect(metadataManagerMock.getSummary).toHaveBeenCalledTimes(1);
   });
 
+  it('skips initialization when metadata already exists', async () => {
+    metadataManagerMock.exists.mockResolvedValue(true);
+    const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    const loggerInfoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+
+    await handlePRCommentInitCommand({ prUrl: 'https://github.com/owner/repo/pull/123' } as any);
+
+    const gitInstance = simpleGitMock.mock.results[0]?.value;
+
+    expect(metadataManagerMock.initialize).not.toHaveBeenCalled();
+    expect(metadataManagerMock.getSummary).not.toHaveBeenCalled();
+    expect(gitInstance?.add).not.toHaveBeenCalled();
+    expect(gitInstance?.commit).not.toHaveBeenCalled();
+    expect(gitInstance?.push).not.toHaveBeenCalled();
+    expect(loggerWarnSpy).toHaveBeenCalledWith('Metadata already exists. Skipping initialization.');
+    expect(loggerInfoSpy).toHaveBeenCalledWith('Use "pr-comment analyze" or "pr-comment execute" to resume.');
+
+    loggerWarnSpy.mockRestore();
+    loggerInfoSpy.mockRestore();
+  });
+
   it('initializes metadata using a repository path resolved from PR URL', async () => {
+    metadataManagerMock.exists.mockResolvedValue(false);
     const prUrl = 'https://github.com/owner/target-repo/pull/123';
     parsePullRequestUrlMock.mockReturnValue({
       owner: 'owner',
@@ -556,6 +644,21 @@ describe('Integration: pr-comment workflow', () => {
     expect(resolveRepoPathFromPrUrlMock).not.toHaveBeenCalled();
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid GitHub Pull Request URL'));
+
+    exitSpy.mockRestore();
+    loggerSpy.mockRestore();
+  });
+
+  it('handles I/O error during metadata existence check', async () => {
+    const ioError = new Error('EACCES: permission denied');
+    metadataManagerMock.exists.mockRejectedValue(ioError);
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const loggerSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+
+    await handlePRCommentInitCommand({ prUrl: 'https://github.com/owner/repo/pull/123' } as any);
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('permission denied'));
 
     exitSpy.mockRestore();
     loggerSpy.mockRestore();

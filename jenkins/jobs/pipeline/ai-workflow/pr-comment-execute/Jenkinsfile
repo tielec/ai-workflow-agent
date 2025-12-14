@@ -155,7 +155,34 @@ pipeline {
             }
         }
 
+        stage('Check Resume') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Check Resume"
+                    echo "========================================="
+
+                    def metadataPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+                    echo "Checking metadata at: ${metadataPath}"
+
+                    if (fileExists(metadataPath)) {
+                        echo "Metadata found. This is a rebuild scenario."
+                        echo "PR Comment Init will be skipped."
+                        env.SHOULD_INIT = 'false'
+                    } else {
+                        echo "No metadata found. This is a new execution."
+                        env.SHOULD_INIT = 'true'
+                    }
+
+                    echo "SHOULD_INIT: ${env.SHOULD_INIT}"
+                }
+            }
+        }
+
         stage('PR Comment Init') {
+            when {
+                expression { env.SHOULD_INIT == 'true' }
+            }
             steps {
                 script {
                     echo "========================================="
