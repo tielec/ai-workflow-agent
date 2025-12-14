@@ -337,13 +337,49 @@ def archiveArtifacts(String issueNumber) {
         return
     }
 
-    def artifactPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${issueNumber}/**/*"
-    echo "Archiving artifacts from: ${artifactPath}"
+    def safeIssueNumber = issueNumber.replaceAll('[^A-Za-z0-9_-]', '')
+    if (!safeIssueNumber) {
+        echo "[WARN] Issue number '${issueNumber}' is invalid after sanitization. Skipping artifact archiving."
+        return
+    }
+    if (safeIssueNumber != issueNumber) {
+        echo "[WARN] Issue number contains unsafe characters. Sanitized to '${safeIssueNumber}'."
+    }
+
+    def sourcePath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/issue-${safeIssueNumber}"
+    def destPath = "${env.WORKSPACE}/artifacts/.ai-workflow/issue-${safeIssueNumber}"
+
+    def sourceExists = sh(
+        script: "[ -d '${sourcePath}' ] && echo 'true' || echo 'false'",
+        returnStdout: true
+    ).trim()
+
+    if (sourceExists != 'true') {
+        echo "[WARN] Source directory not found: ${sourcePath}"
+        echo "[WARN] Skipping artifact archiving."
+        return
+    }
+
+    echo "Copying artifacts from REPOS_ROOT to WORKSPACE..."
+    echo "Source: ${sourcePath}"
+    echo "Destination: ${destPath}"
+
+    sh """
+        mkdir -p '${destPath}'
+        cp -r '${sourcePath}/.' '${destPath}/' || true
+    """
+
+    def artifactPath = "artifacts/.ai-workflow/issue-${safeIssueNumber}/**/*"
+    echo "Archiving artifacts: ${artifactPath}"
 
     archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
-    echo "Artifacts archived for Issue #${issueNumber}"
+    echo "Artifacts archived for Issue #${safeIssueNumber}"
+
+    sh """
+        rm -rf '${env.WORKSPACE}/artifacts' || true
+    """
+    echo "Temporary artifact copy cleaned up"
 }
 
 // Groovyスクリプトとして読み込み可能にするため、return this を末尾に追加
 return this
-

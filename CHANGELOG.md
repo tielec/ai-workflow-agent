@@ -91,6 +91,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #432**: Jenkins: アーティファクト保存が機能していない（REPOS_ROOT の絶対パス問題）
+  - `jenkins/shared/common.groovy` の `archiveArtifacts` 関数を拡張し、REPOS_ROOT から WORKSPACE への一時コピー処理を追加
+  - Issue番号のサニタイズ処理を追加してパストラバーサル攻撃を防止（英数字、ハイフン、アンダースコアのみ許可）
+  - ソースディレクトリの存在確認とエラーハンドリングを追加（存在しない場合は警告ログ出力してスキップ）
+  - ワークスペース相対パス（`artifacts/.ai-workflow/issue-*/**/*`）でのアーティファクト保存に変更
+  - アーカイブ後の一時ファイル自動クリーンアップ処理を追加（`${WORKSPACE}/artifacts` ディレクトリ削除）
+  - Jenkins の `archiveArtifacts` 制約（ワークスペース相対パスのみサポート）に対応
+  - テストカバレッジ: ユニット6件、統合7件（100%成功）
 - **Issue #388**: Documentation Phase でプロンプトが長すぎるエラーが発生する問題の対策
   - `src/prompts/documentation/execute.txt` にプロンプト長制限への対応ガイダンスセクションを追加
   - 自動コンテキストファイル（`CLAUDE.md`、`~/.claude/CLAUDE.md`）の二重読み込み警告を追加

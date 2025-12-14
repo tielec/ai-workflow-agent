@@ -108,6 +108,36 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 - AI_Workflowフォルダ構造
 - 各実行モード用のジョブ（8種類 × 10フォルダ = 80ジョブ）
 
+## 共通処理モジュール
+
+### shared/common.groovy
+
+すべてのJenkinsfileから利用される共通処理を提供します：
+
+#### 主要な機能
+
+| 関数名 | 説明 |
+|-------|------|
+| `prepareAgentCredentials()` | エージェント実行に必要な認証情報準備（GitHub、OpenAI、Codex、Claude、AWS） |
+| `prepareCodexAuthFile()` | CODEX_AUTH_JSONパラメータから一時的なauth.jsonを展開 |
+| `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
+| `setupNodeEnvironment()` | Node.js環境確認とnpm install & build実行 |
+| `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |
+
+#### archiveArtifacts関数の機能
+
+- **Issue番号サニタイズ**: パストラバーサル攻撃防止（英数字、ハイフン、アンダースコアのみ許可）
+- **ソースディレクトリ存在確認**: 存在しない場合は警告ログ出力してスキップ
+- **一時ファイルコピー**: REPOS_ROOTからWORKSPACEへのファイルコピー
+- **ワークスペース相対パスアーカイブ**: `artifacts/.ai-workflow/issue-*/**/*` パターンでアーティファクト保存
+- **自動クリーンアップ**: アーカイブ後に一時ファイルを削除
+
+使用例:
+```groovy
+def common = load 'jenkins/shared/common.groovy'
+common.archiveArtifacts(env.ISSUE_NUMBER)
+```
+
 ## 詳細ドキュメント
 
 各ジョブの詳細な使い方については、以下を参照してください：
