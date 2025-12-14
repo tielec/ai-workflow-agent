@@ -58,7 +58,7 @@ jenkins/
 | **preset** | プリセット実行（quick-fix, implementation等） | 22 |
 | **single_phase** | 単一フェーズ実行（デバッグ用） | 20 |
 | **rollback** | フェーズ差し戻し実行 | 19 |
-| **auto_issue** | 自動Issue作成 | 15 |
+| **auto_issue** | 自動Issue作成 | 16 |
 | **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 17 |
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 14 |
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 11 |
