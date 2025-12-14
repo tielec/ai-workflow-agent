@@ -25,6 +25,8 @@ import type {
   AnalyzerErrorType,
 } from '../../types/pr-comment.js';
 
+let gitConfigured = false; // Git設定済みフラグ
+
 /**
  * pr-comment analyze コマンドハンドラ
  */
@@ -676,6 +678,17 @@ async function commitIfNeeded(repoRoot: string, message: string): Promise<void> 
   const status = await git.status();
   if (status.files.length === 0) {
     return;
+  }
+
+  // Git設定（初回のみ）
+  if (!gitConfigured) {
+    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
+    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+
+    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
+    await git.addConfig('user.name', gitUserName);
+    await git.addConfig('user.email', gitUserEmail);
+    gitConfigured = true;
   }
 
   await git.add(status.files.map((f) => f.path));
