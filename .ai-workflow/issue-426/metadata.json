@@ -256,7 +256,9 @@
     }
   },
   "created_at": "2025-12-14T00:32:42.506Z",
-  "updated_at": "2025-12-14T00:32:57.368Z",
+  "updated_at": "2025-12-14T00:33:00.390Z",
   "branch_name": "ai-workflow/issue-426",
-  "base_commit": "4caeb6cc96c19f5068065d8fe9da4dc9df0d1109"
+  "base_commit": "4caeb6cc96c19f5068065d8fe9da4dc9df0d1109",
+  "pr_number": 431,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/431"
 }
