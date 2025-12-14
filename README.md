@@ -1382,10 +1382,12 @@ ai-workflow pr-comment analyze --pr 123 --dry-run
 ai-workflow pr-comment execute --pr 123 --dry-run
 
 # --pr-urlオプション: REPOS_ROOT配下のリポジトリを使用（Jenkins環境向け）
-ai-workflow pr-comment init --pr-url https://github.com/owner/repo/pull/123
-ai-workflow pr-comment execute --pr-url https://github.com/owner/repo/pull/123
-ai-workflow pr-comment finalize --pr-url https://github.com/owner/repo/pull/123
+-ai-workflow pr-comment init --pr-url https://github.com/owner/repo/pull/123
+-ai-workflow pr-comment execute --pr-url https://github.com/owner/repo/pull/123
+-ai-workflow pr-comment finalize --pr-url https://github.com/owner/repo/pull/123
 ```
+
+**分析フェーズの出力**: `pr-comment analyze` は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` に JSON を書き出し、CLI はこのファイルを最優先で読み込みます。ファイル生成に失敗した場合だけ、従来の生出力パース＋フォールバック戦略が動作します。
 
 **主な機能**:
 
@@ -1421,7 +1423,8 @@ ai-workflow pr-comment finalize --pr-url https://github.com/owner/repo/pull/123
 ├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
 ├── analyze/                          # 分析フェーズ成果物
 │   ├── agent_log.md
-│   └── prompt.txt
+│   ├── prompt.txt
+│   └── response-plan.json            # エージェントが書き出すJSON（primaryな解析結果）
 ├── execute/                          # 実行フェーズ成果物
 │   ├── agent_log.md
 │   └── prompt.txt
