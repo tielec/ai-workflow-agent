@@ -620,29 +620,32 @@ node dist/index.js execute --issue 123 --phase all
 2. 環境変数 `CODEX_MODEL`
 3. デフォルト値 `max`（`gpt-5.1-codex-max`）
 
-### PRコメント自動対応（Issue #383で追加）
+### PRコメント自動対応（Issue #383で追加、Issue #444でリファクタリング）
 
 ```bash
 # 1. PRから未解決コメントを取得してメタデータを初期化
 node dist/index.js pr-comment init --pr 123
 
-# 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+# 2. AIエージェントでコメントを分析し、response-plan.jsonを生成
+node dist/index.js pr-comment analyze --pr 123
+
+# 3. response-plan.jsonに基づいてコード修正・返信投稿を実行
 node dist/index.js pr-comment execute --pr 123
 
-# 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+# 4. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
 node dist/index.js pr-comment finalize --pr 123
 
 # プレビューモード（実際の変更を行わない）
 node dist/index.js pr-comment execute --pr 123 --dry-run
-
-# 使用するエージェントを指定
-node dist/index.js pr-comment execute --pr 123 --agent codex
 
 # バッチサイズを指定（一度に処理するコメント数）
 node dist/index.js pr-comment execute --pr 123 --batch-size 10
 ```
 
 **主な機能**:
+- **analyze/execute分離（Issue #444）**: analyzeでエージェント分析、executeで適用のみを実行
+  - エージェント実行回数が半減（コスト50%削減）
+  - 分析結果が正確に適用される（パース失敗によるフォールバック問題を解消）
 - **コメント分析エンジン**: AIエージェントがコメントを分析し、4種類の解決タイプを判定
   - `code_change`: コード修正が必要（ファイル変更を適用）
   - `reply`: 返信のみで対応（コメントを投稿）
@@ -658,24 +661,27 @@ node dist/index.js pr-comment execute --pr 123 --batch-size 10
 **オプション**:
 - `--pr <number>`: 対象のPR番号（必須）
 - `--dry-run`: プレビューモード（実際の変更を行わない）
-- `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`、デフォルト: `auto`）
-- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5）
+- `--batch-size <number>`: 一度に処理するコメント数（デフォルト: 5、executeのみ）
+- `--agent <mode>`: 使用するエージェント（`auto` | `codex` | `claude`、デフォルト: `auto`、**analyzeのみ**）
 
 **メタデータ構造**:
 ```
 .ai-workflow/pr-123/
 ├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
+├── output/
+│   └── response-plan.json            # analyze結果（executeで使用）
 └── execute/
-    └── agent_log.md                  # エージェント実行ログ
+    └── agent_log.md                  # エージェント実行ログ（analyzeのみ）
 ```
 
 **技術詳細**:
 - **実装モジュール**:
   - `src/commands/pr-comment/init.ts`: 初期化コマンド
-  - `src/commands/pr-comment/execute.ts`: 実行コマンド
+  - `src/commands/pr-comment/analyze.ts`: 分析コマンド（Issue #428で追加）
+  - `src/commands/pr-comment/execute.ts`: 実行コマンド（Issue #444でリファクタリング）
   - `src/commands/pr-comment/finalize.ts`: 完了コマンド
   - `src/core/pr-comment/metadata-manager.ts`: メタデータ管理
-  - `src/core/pr-comment/comment-analyzer.ts`: コメント分析エンジン
+  - `src/core/pr-comment/comment-analyzer.ts`: コメント分析エンジン（analyzeで使用）
   - `src/core/pr-comment/change-applier.ts`: コード変更適用エンジン
 - **型定義**: `src/types/pr-comment.ts`
 - **プロンプト**: `src/prompts/pr-comment/analyze.txt`

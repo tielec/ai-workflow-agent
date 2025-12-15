@@ -1,10 +1,10 @@
+import fs from 'fs-extra';
 import path from 'node:path';
 import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
-import { ReviewCommentAnalyzer } from '../../core/pr-comment/comment-analyzer.js';
 import { CodeChangeApplier } from '../../core/pr-comment/change-applier.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { PRCommentExecuteOptions } from '../../types/commands.js';
@@ -16,19 +16,14 @@ import {
   ResponsePlan,
   ResolutionSummary,
 } from '../../types/pr-comment.js';
-import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import { config } from '../../core/config.js';
 import {
   getRepoRoot,
   parsePullRequestUrl,
   resolveRepoPathFromPrUrl,
 } from '../../core/repository-utils.js';
-import type { CodexAgentClient } from '../../core/codex-agent-client.js';
-import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 
 let gitConfigured = false; // Git設定済みフラグ
-
-const MAX_RETRY_COUNT = 3;
 
 /**
  * pr-comment execute コマンドハンドラ
@@ -83,17 +78,28 @@ export async function handlePRCommentExecuteCommand(
     logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
 
     const githubClient = new GitHubClient(null, repositoryName);
-    const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
+    const responsePlanPath = path.join(
+      repoRoot,
+      '.ai-workflow',
+      `pr-${prNumber}`,
+      'output',
+      'response-plan.json',
+    );
 
-    // プロンプトディレクトリはai-workflow-agentリポジトリ内を使用
-    // Jenkins環境ではprocess.cwd()がWORKSPACE（ai-workflow-agent）を指す
-    const promptsDir = path.join(process.cwd(), 'dist', 'prompts');
-    const analysisDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analysis');
+    let responsePlan: ResponsePlan;
+    try {
+      const responsePlanContent = await fs.readFile(responsePlanPath, 'utf-8');
+      responsePlan = JSON.parse(responsePlanContent);
+      logger.info(`Loaded response plan with ${responsePlan.comments.length} comment(s)`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        logger.error('response-plan.json not found. Run "pr-comment analyze" first.');
+      } else {
+        logger.error(`Failed to parse response-plan.json: ${getErrorMessage(error)}`);
+      }
+      process.exit(1);
+    }
 
-    logger.debug(`Prompts directory: ${promptsDir}`);
-    logger.debug(`Analysis directory: ${analysisDir}`);
-
-    const analyzer = new ReviewCommentAnalyzer(promptsDir, analysisDir);
     const applier = new CodeChangeApplier(repoRoot);
     const dryRun = options.dryRun ?? false;
     const batchSize = Number.parseInt(options.batchSize ?? '3', 10);
@@ -107,10 +113,9 @@ export async function handlePRCommentExecuteCommand(
         await processComment(
           comment,
           metadataManager,
-          analyzer,
           applier,
           githubClient,
-          agent,
+          responsePlan,
           dryRun,
           prNumber,
           repoRoot,
@@ -138,13 +143,12 @@ export async function handlePRCommentExecuteCommand(
 async function processComment(
   commentMeta: CommentMetadata,
   metadataManager: PRCommentMetadataManager,
-  analyzer: ReviewCommentAnalyzer,
   applier: CodeChangeApplier,
   githubClient: GitHubClient,
-  agent: CodexAgentClient | ClaudeAgentClient | null,
+  responsePlan: ResponsePlan,
   dryRun: boolean,
   prNumber: number,
-  repoRoot: string,
+  _repoRoot: string,
 ): Promise<void> {
   const commentId = String(commentMeta.comment.id);
 
@@ -153,39 +157,35 @@ async function processComment(
       await metadataManager.updateCommentStatus(commentId, 'in_progress');
     }
 
-    logger.debug(`Analyzing comment #${commentId}...`);
-    const analysisResult = await analyzer.analyze(commentMeta, { repoPath: repoRoot }, agent);
-    logger.debug(`Analysis result for comment #${commentId}: success=${analysisResult.success}, hasResolution=${!!analysisResult.resolution}, error=${analysisResult.error || 'none'}`);
+    // response-plan から該当コメントを検索
+    const planComment = responsePlan.comments.find((c) => String(c.comment_id) === commentId);
 
-    if (!analysisResult.success || !analysisResult.resolution) {
-      logger.warn(`Analysis failed for comment #${commentId}: ${analysisResult.error ?? 'No resolution returned'}`);
+    if (!planComment) {
+      logger.warn(`Comment #${commentId} not found in response-plan`);
       if (!dryRun) {
-        const retryCount = await metadataManager.incrementRetryCount(commentId);
-        logger.debug(`Retry count for comment #${commentId}: ${retryCount}/${MAX_RETRY_COUNT}`);
-        if (retryCount >= MAX_RETRY_COUNT) {
-          await metadataManager.updateCommentStatus(
-            commentId,
-            'failed',
-            undefined,
-            analysisResult.error ?? 'Analysis failed',
-          );
-          logger.info(`Comment #${commentId} marked as failed after ${MAX_RETRY_COUNT} retries`);
-        }
+        await metadataManager.updateCommentStatus(
+          commentId,
+          'failed',
+          undefined,
+          'Comment not found in response-plan',
+        );
       }
       return;
     }
 
-    logger.debug(`Resolution type for comment #${commentId}: ${analysisResult.resolution.type}`);
+    logger.debug(`Processing comment #${commentId} (type: ${planComment.type})`);
 
-    const resolution = analysisResult.resolution;
-
-    if (analysisResult.inputTokens && analysisResult.outputTokens && !dryRun) {
-      await metadataManager.updateCostTracking(
-        analysisResult.inputTokens,
-        analysisResult.outputTokens,
-        calculateCost(analysisResult.inputTokens, analysisResult.outputTokens),
-      );
-    }
+    const resolution: CommentResolution = {
+      type: planComment.type,
+      confidence: planComment.confidence,
+      reply: planComment.reply_message,
+      changes: planComment.proposed_changes?.map((c) => ({
+        path: c.file,
+        change_type: c.action,
+        content: c.changes,
+      })),
+      analysis_notes: planComment.rationale,
+    };
 
     if (resolution.type === 'code_change' && resolution.changes?.length) {
       logger.debug(`Applying ${resolution.changes.length} code change(s) for comment #${commentId}...`);
@@ -243,21 +243,6 @@ async function processComment(
   }
 }
 
-async function setupAgent(
-  agentMode: 'auto' | 'codex' | 'claude',
-  repoRoot: string,
-): Promise<CodexAgentClient | ClaudeAgentClient | null> {
-  const homeDir = config.getHomeDir();
-  const credentials = resolveAgentCredentials(homeDir, repoRoot);
-  const { codexClient, claudeClient } = setupAgentClients(agentMode, repoRoot, credentials);
-
-  if (!codexClient && !claudeClient) {
-    logger.warn('No agent client available. Continuing with heuristic responses.');
-  }
-
-  return codexClient ?? claudeClient;
-}
-
 function parseCommentIds(value?: string): Set<number> {
   if (!value) {
     return new Set();
@@ -270,11 +255,6 @@ function parseCommentIds(value?: string): Set<number> {
       .filter((v) => v.length > 0)
       .map((v) => Number.parseInt(v, 10)),
   );
-}
-
-function calculateCost(inputTokens: number, outputTokens: number): number {
-  const rate = 0.000002;
-  return (inputTokens + outputTokens) * rate;
 }
 
 function formatReply(resolution: CommentResolution): string {
