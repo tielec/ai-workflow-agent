@@ -5,31 +5,7 @@ import { logger } from '../../../src/utils/logger.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
 import type { PRCommentExecuteOptions } from '../../../src/types/commands.js';
 
-const parsePlanFromMarkdown = (): { prNumber: number; comments: any[] } => {
-  try {
-    const match = planContent.match(/```json\s*([\s\S]*?)```/);
-    const jsonText = match ? match[1] : planContent;
-    const parsed = JSON.parse(jsonText);
-    const prNumber = parsed.pr_number ?? 123;
-    const comments = Array.isArray(parsed.comments) ? parsed.comments : [];
-    return { prNumber, comments };
-  } catch {
-    return { prNumber: 123, comments: [] };
-  }
-};
-
 const getRepoRootMock = jest.fn<() => Promise<string>>();
-const resolveAgentCredentialsMock = jest.fn();
-const setupAgentClientsMock = jest.fn();
-const simpleGitStatusMock = jest.fn();
-const simpleGitAddMock = jest.fn();
-const simpleGitCommitMock = jest.fn();
-const simpleGitAddConfigMock = jest.fn();
-const simpleGitPushMock = jest.fn();
-const agentExecuteTaskMock = jest.fn();
-const reviewAnalyzerMock = jest.fn();
-const codeChangeApplyMock = jest.fn();
-const githubReplyMock = jest.fn();
 const parsePullRequestUrlMock = jest.fn(() => ({
   owner: 'owner',
   repo: 'repo',
@@ -37,14 +13,25 @@ const parsePullRequestUrlMock = jest.fn(() => ({
   repositoryName: 'owner/repo',
 }));
 const resolveRepoPathFromPrUrlMock = jest.fn(() => '/repo');
+const simpleGitStatusMock = jest.fn();
+const simpleGitAddMock = jest.fn();
+const simpleGitCommitMock = jest.fn();
+const simpleGitAddConfigMock = jest.fn();
+const simpleGitPushMock = jest.fn();
+const codeChangeApplyMock = jest.fn();
+const githubReplyMock = jest.fn();
 
 let handlePRCommentExecuteCommand: (options: PRCommentExecuteOptions) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
 let currentMetadataManager: any;
-let planContent = '';
 let processExitSpy: jest.SpyInstance;
+let responsePlan: any;
 
-const buildComment = (id: number, body: string, type: 'code_change' | 'reply' = 'reply'): CommentMetadata => ({
+const buildComment = (
+  id: number,
+  type: 'code_change' | 'reply' | 'discussion' | 'skip' = 'reply',
+  body = 'Please address this',
+): CommentMetadata => ({
   comment: {
     id,
     node_id: `node-${id}`,
@@ -82,7 +69,7 @@ beforeAll(async () => {
         load: jest.fn().mockResolvedValue({ pr: { branch: 'feature/mock-branch' } }),
         getPendingComments: jest.fn(async () => pendingComments),
         getSummary: jest.fn().mockResolvedValue({
-          by_status: { completed: 1, skipped: 0, failed: 0 },
+          by_status: { completed: 0, skipped: 0, failed: 0 },
         }),
         updateCommentStatus: jest.fn().mockResolvedValue(undefined),
         setReplyCommentId: jest.fn().mockResolvedValue(undefined),
@@ -93,13 +80,6 @@ beforeAll(async () => {
       };
       return currentMetadataManager;
     }),
-  }));
-
-  await jest.unstable_mockModule('../../../src/core/pr-comment/comment-analyzer.js', () => ({
-    __esModule: true,
-    ReviewCommentAnalyzer: jest.fn().mockImplementation(() => ({
-      analyze: reviewAnalyzerMock,
-    })),
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/change-applier.js', () => ({
@@ -117,12 +97,6 @@ beforeAll(async () => {
       },
       getRepositoryInfo: () => ({ repositoryName: 'owner/repo' }),
     })),
-  }));
-
-  await jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', () => ({
-    __esModule: true,
-    resolveAgentCredentials: resolveAgentCredentialsMock,
-    setupAgentClients: setupAgentClientsMock,
   }));
 
   await jest.unstable_mockModule('../../../src/core/config.js', () => ({
@@ -152,21 +126,14 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
-  pendingComments = [buildComment(100, 'Fix logic', 'code_change'), buildComment(101, 'Explain more', 'reply')];
+  pendingComments = [buildComment(100, 'code_change'), buildComment(101, 'reply')];
   currentMetadataManager = null;
-  agentExecuteTaskMock.mockReset();
-  reviewAnalyzerMock.mockReset();
   codeChangeApplyMock.mockReset();
   githubReplyMock.mockReset();
   githubReplyMock.mockResolvedValue({ id: 9999 });
 
-  setupAgentClientsMock.mockReturnValue({
-    codexClient: { executeTask: agentExecuteTaskMock },
-    claudeClient: null,
-  });
-
   getRepoRootMock.mockResolvedValue('/repo');
-  simpleGitStatusMock.mockResolvedValue({ files: [{ path: '.ai-workflow/pr-123/output/execution-result.md' }] });
+  simpleGitStatusMock.mockResolvedValue({ files: [{ path: 'src/a.ts' }] });
   simpleGitAddMock.mockResolvedValue(undefined);
   simpleGitCommitMock.mockResolvedValue(undefined);
   simpleGitAddConfigMock.mockResolvedValue(undefined);
@@ -181,71 +148,24 @@ beforeEach(() => {
 
   jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
   jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
-  jest.spyOn(fs, 'pathExists').mockImplementation(async () => true);
   jest.spyOn(fs, 'readFile').mockImplementation(async (filePath: fs.PathLike) => {
     const file = String(filePath);
-    if (file.includes(path.join('prompts', 'pr-comment', 'execute.txt'))) {
-      return 'Execute {pr_number}\nPlan: {response_plan}\nOutput: {output_file_path}';
-    }
-    if (file.endsWith('response-plan.md')) {
-      return planContent;
+    if (file.endsWith(path.join('output', 'response-plan.json'))) {
+      return JSON.stringify(responsePlan ?? {});
     }
     return 'file content';
   });
 
-  reviewAnalyzerMock.mockImplementation(async (commentMeta, ctx, agent) => {
-    const { prNumber, comments } = parsePlanFromMarkdown();
-    const planComment = comments.find((c) => String(c.comment_id) === String(commentMeta.comment.id));
-    if (!planComment) {
-      return { success: false, error: 'Plan comment not found' };
-    }
-
-    if (agent) {
-      await agent.executeTask({
-        prompt: [
-          `Execute ${prNumber} at ${ctx?.repoPath ?? '/repo'}`,
-          JSON.stringify(planComment),
-          `Output: ${path.join('/repo', '.ai-workflow', `pr-${prNumber}`, 'execute', 'execution-result.json')}`,
-        ].join('\n'),
-        maxTurns: 1,
-        verbose: false,
-        workingDirectory: ctx?.repoPath ?? '/repo',
-      });
-    }
-
-    const changes =
-      (planComment.proposed_changes ?? []).map((c: any) => ({
-        path: c.file,
-        change_type: c.action ?? c.change_type ?? 'modify',
-        content: c.changes ?? '',
-      })) ?? [];
-    const resolution =
-      planComment.type === 'code_change'
-        ? {
-            type: 'code_change',
-            changes,
-            reply: planComment.reply_message ?? 'Updated',
-            confidence: planComment.confidence ?? 'high',
-          }
-        : {
-            type: planComment.type ?? 'reply',
-            reply: planComment.reply_message ?? 'Acknowledged',
-            confidence: planComment.confidence ?? 'high',
-          };
-
-    return {
-      success: true,
-      resolution,
-      inputTokens: 0,
-      outputTokens: 0,
-    };
-  });
+  responsePlan = {
+    pr_number: 123,
+    comments: [],
+  };
 });
 
-describe('handlePRCommentExecuteCommand - planned flow', () => {
-  it('applies response plan, writes execution result, and updates metadata', async () => {
-    // Given response-plan exists, when execute runs, then code changes and replies are applied and metadata updated
-    const responsePlan = {
+describe('handlePRCommentExecuteCommand - response plan flow', () => {
+  it('applies response plan code changes and replies, updating metadata', async () => {
+    // Given a valid response-plan.json with code_change and reply entries, execution should apply changes and reply
+    responsePlan = {
       pr_number: 123,
       comments: [
         {
@@ -259,306 +179,249 @@ describe('handlePRCommentExecuteCommand - planned flow', () => {
           comment_id: '101',
           type: 'reply',
           confidence: 'high',
-          proposed_changes: [],
-          reply_message: 'Explained',
-        },
-      ],
-    };
-    planContent = `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlan)}\n\`\`\``;
-
-    const executionOutput = [
-      '```json',
-      JSON.stringify({
-        pr_number: 123,
-        comments: [
-          { comment_id: '100', status: 'completed', actions: ['Changed code'] },
-          { comment_id: '101', status: 'completed', actions: ['Posted reply'], reply_comment_id: 4444 },
-        ],
-      }),
-      '```',
-    ].join('\n');
-    agentExecuteTaskMock.mockResolvedValue([executionOutput]);
-    codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/a.ts'], skipped_files: [] });
-
-    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
-
-    expect(agentExecuteTaskMock).toHaveBeenCalledTimes(1);
-    expect(codeChangeApplyMock).toHaveBeenCalledWith(
-      [
-        {
-          path: 'src/a.ts',
-          change_type: 'modify',
-          content: 'new code',
-        },
-      ],
-      false,
-    );
-    expect(githubReplyMock).toHaveBeenCalledTimes(2);
-    expect(currentMetadataManager.setExecuteCompletedAt).toHaveBeenCalled();
-    expect(currentMetadataManager.setExecutionResultPath).toHaveBeenCalledWith(
-      path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'execution-result.md'),
-    );
-    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
-      '100',
-      'completed',
-      expect.objectContaining({ type: 'code_change' }),
-      undefined,
-    );
-    const mdCall = (fs.writeFile as jest.Mock).mock.calls.find(
-      (call) => String(call[0]).endsWith('execution-result.md'),
-    );
-    expect(mdCall?.[1]).toContain('Execution Result');
-    expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Execute completed');
-  });
-
-  it('builds execute prompt with embedded plan JSON and paths', async () => {
-    // Given a plan, when execute constructs prompt, then it includes repo path, plan JSON, and output path
-    const responsePlan = {
-      pr_number: 123,
-      comments: [
-        {
-          comment_id: '201',
-          type: 'reply',
-          confidence: 'high',
-          proposed_changes: [],
           reply_message: 'Acknowledged',
         },
       ],
     };
-    planContent = `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlan)}\n\`\`\``;
-    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
-      const file = String(filePath);
-      if (file.includes(path.join('prompts', 'pr-comment', 'execute.txt'))) {
-        return 'Execute {pr_number} at {repo_path}\nPlan: {response_plan}\nOutput: {output_file_path}';
-      }
-      if (file.endsWith('response-plan.md')) {
-        return planContent;
-      }
-      return 'file content';
-    });
-    const executionOutput = [
-      '```json',
-      JSON.stringify({
-        pr_number: 123,
-        comments: [{ comment_id: '201', status: 'completed', actions: ['Posted reply'], reply_comment_id: 8080 }],
-      }),
-      '```',
-    ].join('\n');
-    agentExecuteTaskMock.mockResolvedValue([executionOutput]);
+    codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/a.ts'], skipped_files: [] });
+    githubReplyMock.mockResolvedValue({ id: 4444 });
 
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
 
-    const promptArg = agentExecuteTaskMock.mock.calls[0][0].prompt as string;
-    expect(promptArg).toContain('Execute 123');
-    expect(promptArg).toContain('/repo');
-    expect(promptArg).toContain('"comment_id": "201"');
-    expect(promptArg).toContain('/repo/.ai-workflow/pr-123/execute/execution-result.json');
-  });
-
-  it('writes failure output and stops when response-plan content is malformed', async () => {
-    // Given response-plan.md is malformed, when execute runs, then it exits without invoking legacy flow
-    planContent = 'not-json-plan';
-    processExitSpy.mockImplementation((() => {
-      throw new Error('exit called');
-    }) as any);
-
-    await expect(handlePRCommentExecuteCommand({ pr: '123' })).rejects.toThrow('exit called');
-    expect(processExitSpy).toHaveBeenCalledWith(1);
-    expect(reviewAnalyzerMock).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to execute'));
-  });
-
-  it('parses mixed execution statuses into markdown summary', async () => {
-    // Given agent returns completed, skipped, and failed statuses, when execute runs, then markdown reflects counts
-    const responsePlan = {
-      pr_number: 123,
-      comments: [
-        { comment_id: '100', type: 'reply', confidence: 'high', proposed_changes: [], reply_message: 'done' },
-        { comment_id: '101', type: 'discussion', confidence: 'medium', proposed_changes: [], reply_message: 'skip' },
-        { comment_id: '102', type: 'code_change', confidence: 'high', proposed_changes: [], reply_message: 'fail' },
-      ],
-    };
-    planContent = `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlan)}\n\`\`\``;
-    const executionOutput = [
-      '```json',
-      JSON.stringify({
-        pr_number: 123,
-        comments: [
-          { comment_id: '100', status: 'completed', actions: ['Posted reply'] },
-          { comment_id: '101', status: 'skipped', actions: ['Discuss later'] },
-          { comment_id: '102', status: 'failed', error: 'File not found' },
-        ],
-      }),
-      '```',
-    ].join('\n');
-    agentExecuteTaskMock.mockResolvedValue([executionOutput]);
-
-    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
-
-    const mdCall = (fs.writeFile as jest.Mock).mock.calls.find(
-      (call) => String(call[0]).endsWith('execution-result.md'),
+    expect(fs.readFile).toHaveBeenCalledWith(
+      path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'response-plan.json'),
+      'utf-8',
     );
-    expect(mdCall?.[1]).toContain('| Completed | 1 |');
-    expect(mdCall?.[1]).toContain('| Skipped | 1 |');
-    expect(mdCall?.[1]).toContain('| Failed | 1 |');
+    expect(codeChangeApplyMock).toHaveBeenCalledWith(
+      [{ path: 'src/a.ts', change_type: 'modify', content: 'new code' }],
+      false,
+    );
+    expect(githubReplyMock).toHaveBeenCalledTimes(2);
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith('100', 'in_progress');
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '100',
+      'completed',
+      expect.objectContaining({ type: 'code_change', reply: 'Updated' }),
+    );
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '101',
+      'completed',
+      expect.objectContaining({ type: 'reply', reply: 'Acknowledged' }),
+    );
+    expect(currentMetadataManager.setReplyCommentId).toHaveBeenCalledWith('101', 4444);
+    expect(simpleGitCommitMock).toHaveBeenCalled();
+    expect(simpleGitPushMock).toHaveBeenCalledWith('origin', 'HEAD:feature/mock-branch');
   });
 
-  it('runs planned flow in dry-run mode without writing artifacts', async () => {
-    // Given a plan and execution output, when dry-run is enabled, then no files or metadata are written
-    const responsePlan = {
+  it('translates create/delete proposed changes to FileChange payloads', async () => {
+    // Given mixed create/modify/delete proposals, all actions should be forwarded to the applier with matching change types
+    pendingComments = [buildComment(100, 'code_change')];
+    responsePlan = {
       pr_number: 123,
       comments: [
         {
           comment_id: '100',
           type: 'code_change',
-          confidence: 'high',
-          proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'new code' }],
-          reply_message: 'Updated',
+          confidence: 'medium',
+          proposed_changes: [
+            { action: 'create', file: 'src/new.ts', changes: 'new content' },
+            { action: 'modify', file: 'src/existing.ts', changes: 'patched content' },
+            { action: 'delete', file: 'src/old.ts', changes: '// remove' },
+          ],
+          reply_message: 'Mixed changes applied',
         },
       ],
     };
-    planContent = `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlan)}\n\`\`\``;
+    codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/new.ts'], skipped_files: [] });
 
-    const executionOutput = [
-      '```json',
-      JSON.stringify({
-        pr_number: 123,
-        comments: [{ comment_id: '100', status: 'completed', actions: ['Changed code'] }],
-      }),
-      '```',
-    ].join('\n');
-    agentExecuteTaskMock.mockResolvedValue([executionOutput]);
-    codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/a.ts'], skipped_files: [] });
-
-    await handlePRCommentExecuteCommand({ pr: '123', dryRun: true });
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
 
     expect(codeChangeApplyMock).toHaveBeenCalledWith(
       [
-        { path: 'src/a.ts', change_type: 'modify', content: 'new code' },
+        { path: 'src/new.ts', change_type: 'create', content: 'new content' },
+        { path: 'src/existing.ts', change_type: 'modify', content: 'patched content' },
+        { path: 'src/old.ts', change_type: 'delete', content: '// remove' },
       ],
-      true,
+      false,
     );
-    expect(githubReplyMock).not.toHaveBeenCalled();
-    expect(currentMetadataManager.setExecuteCompletedAt).not.toHaveBeenCalled();
-    expect(currentMetadataManager.setExecutionResultPath).not.toHaveBeenCalled();
-    expect(
-      (fs.writeFile as jest.Mock).mock.calls.some((call) => String(call[0]).endsWith('execution-result.md')),
-    ).toBe(false);
-    expect(simpleGitCommitMock).not.toHaveBeenCalled();
-  });
-
-  it('continues processing other comments when a code change application fails', async () => {
-    // Given multiple code_change comments, when one apply call fails, then execution continues and summary records failure
-    const responsePlan = {
-      pr_number: 123,
-      comments: [
-        {
-          comment_id: '100',
-          type: 'code_change',
-          confidence: 'high',
-          proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'change A' }],
-          reply_message: 'Done A',
-        },
-        {
-          comment_id: '101',
-          type: 'code_change',
-          confidence: 'high',
-          proposed_changes: [{ action: 'modify', file: 'src/b.ts', changes: 'change B' }],
-          reply_message: 'Done B',
-        },
-        {
-          comment_id: '102',
-          type: 'code_change',
-          confidence: 'high',
-          proposed_changes: [{ action: 'modify', file: 'src/c.ts', changes: 'change C' }],
-          reply_message: 'Done C',
-        },
-      ],
-    };
-    planContent = `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlan)}\n\`\`\``;
-    const executionOutput = [
-      '```json',
-      JSON.stringify({
-        pr_number: 123,
-        comments: [
-          { comment_id: '100', actions: ['Changed code'] },
-          { comment_id: '101', actions: ['Changed code'] },
-          { comment_id: '102', actions: ['Changed code'] },
-        ],
-      }),
-      '```',
-    ].join('\n');
-    agentExecuteTaskMock.mockResolvedValue([executionOutput]);
-    codeChangeApplyMock
-      .mockResolvedValueOnce({ success: true, applied_files: ['src/a.ts'], skipped_files: [] })
-      .mockResolvedValueOnce({ success: false, error: 'File missing', applied_files: [], skipped_files: [] })
-      .mockResolvedValueOnce({ success: true, applied_files: ['src/c.ts'], skipped_files: [] });
-
-    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
-
-    expect(codeChangeApplyMock).toHaveBeenCalledTimes(3);
-    expect(githubReplyMock).toHaveBeenCalledTimes(2);
     expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
       '100',
       'completed',
       expect.objectContaining({ type: 'code_change' }),
-      undefined,
     );
-    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
-      '101',
-      'failed',
-      expect.objectContaining({ type: 'code_change' }),
-      'File missing',
-    );
-    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
-      '102',
-      'completed',
-      expect.objectContaining({ type: 'code_change' }),
-      undefined,
-    );
-    const mdCall = (fs.writeFile as jest.Mock).mock.calls.find(
-      (call) => String(call[0]).endsWith('execution-result.md'),
-    );
-    expect(mdCall?.[1]).toContain('| Completed | 2 |');
-    expect(mdCall?.[1]).toContain('| Failed | 1 |');
-    expect(mdCall?.[1]).toContain('Comment #101 (code_change)');
-    expect(mdCall?.[1]).toContain('File missing');
   });
-});
 
-describe('handlePRCommentExecuteCommand - fallback flow', () => {
-  it('falls back to legacy flow when response-plan.md is missing', async () => {
-    // Given response-plan.md does not exist, when execute runs, then legacy analyzer path is used
-    (fs.pathExists as jest.Mock).mockResolvedValueOnce(false);
-    pendingComments = [buildComment(200, 'Legacy flow comment', 'code_change'), buildComment(201, 'Reply', 'reply')];
+  it('errors when response-plan.json is missing', async () => {
+    // When the plan file is absent, the command should surface a clear error and avoid side effects
+    (fs.readFile as jest.Mock).mockRejectedValueOnce(Object.assign(new Error('no file'), { code: 'ENOENT' }));
 
-    reviewAnalyzerMock
-      .mockResolvedValueOnce({
-        success: true,
-        resolution: {
+    await expect(handlePRCommentExecuteCommand({ pr: '123' })).rejects.toThrow('process.exit(1)');
+    expect(logger.error).toHaveBeenCalledWith(
+      'response-plan.json not found. Run "pr-comment analyze" first.',
+    );
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+    expect(githubReplyMock).not.toHaveBeenCalled();
+  });
+
+  it('errors when response-plan.json is malformed', async () => {
+    // When the plan cannot be parsed, execution should fail early and skip applying changes
+    (fs.readFile as jest.Mock).mockResolvedValueOnce('not-json');
+
+    await expect(handlePRCommentExecuteCommand({ pr: '123' })).rejects.toThrow('process.exit(1)');
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to parse response-plan.json'));
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+  });
+
+  it('marks comment as failed when it is absent from response-plan', async () => {
+    // If a pending comment is missing from the plan, it should be recorded as failed and no replies posted
+    responsePlan = {
+      pr_number: 123,
+      comments: [],
+    };
+    pendingComments = [buildComment(999, 'reply')];
+
+    await handlePRCommentExecuteCommand({ pr: '123' });
+
+    expect(logger.warn).toHaveBeenCalledWith('Comment #999 not found in response-plan');
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '999',
+      'failed',
+      undefined,
+      'Comment not found in response-plan',
+    );
+    expect(githubReplyMock).not.toHaveBeenCalled();
+  });
+
+  it('records failure when CodeChangeApplier returns an error', async () => {
+    // If applying code changes fails, the comment should be marked failed with the propagated error
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        {
+          comment_id: '100',
           type: 'code_change',
           confidence: 'high',
-          reply: 'Handled',
-          changes: [{ path: 'src/a.ts', change_type: 'modify', content: 'updated' }],
+          proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'broken' }],
+          reply_message: 'Will fail',
         },
-        inputTokens: 10,
-        outputTokens: 5,
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        resolution: { type: 'reply', confidence: 'high', reply: 'Acknowledged' },
-        inputTokens: 5,
-        outputTokens: 2,
-      });
+      ],
+    };
+    codeChangeApplyMock.mockResolvedValue({ success: false, error: 'Patch failed', applied_files: [], skipped_files: [] });
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
+
+    expect(codeChangeApplyMock).toHaveBeenCalledWith(
+      [{ path: 'src/a.ts', change_type: 'modify', content: 'broken' }],
+      false,
+    );
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '100',
+      'failed',
+      expect.objectContaining({ type: 'code_change' }),
+      'Patch failed',
+    );
+    expect(githubReplyMock).not.toHaveBeenCalled();
+  });
+
+  it('runs in dry-run mode without updating metadata or posting replies', async () => {
+    // Dry-run should apply changes without persisting metadata or replying on GitHub
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        {
+          comment_id: '100',
+          type: 'code_change',
+          confidence: 'high',
+          proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'dry content' }],
+          reply_message: 'Dry',
+        },
+      ],
+    };
     codeChangeApplyMock.mockResolvedValue({ success: true, applied_files: ['src/a.ts'], skipped_files: [] });
 
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: true });
 
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Run 'pr-comment analyze' first for optimized processing. Falling back to legacy flow.",
+    expect(currentMetadataManager.updateCommentStatus).not.toHaveBeenCalled();
+    expect(currentMetadataManager.setReplyCommentId).not.toHaveBeenCalled();
+    expect(githubReplyMock).not.toHaveBeenCalled();
+    expect(codeChangeApplyMock).toHaveBeenCalledWith(
+      [{ path: 'src/a.ts', change_type: 'modify', content: 'dry content' }],
+      true,
     );
-    expect(reviewAnalyzerMock).toHaveBeenCalledTimes(2);
-    expect(codeChangeApplyMock).toHaveBeenCalledTimes(1);
     expect(simpleGitCommitMock).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith('[DRY RUN COMPLETE] No metadata changes were saved.');
+  });
+
+  it('processes comments in batches and commits per batch', async () => {
+    // With batching enabled, commits and pushes should occur after each batch while all replies are posted
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Reply 1' },
+        { comment_id: '101', type: 'reply', confidence: 'high', reply_message: 'Reply 2' },
+        { comment_id: '102', type: 'reply', confidence: 'high', reply_message: 'Reply 3' },
+      ],
+    };
+    pendingComments = [buildComment(100, 'reply'), buildComment(101, 'reply'), buildComment(102, 'reply')];
+    simpleGitStatusMock
+      .mockResolvedValueOnce({ files: [{ path: 'f1' }] })
+      .mockResolvedValueOnce({ files: [{ path: 'f2' }] });
+    githubReplyMock.mockResolvedValue({ id: 7777 });
+
+    await handlePRCommentExecuteCommand({ pr: '123', batchSize: '2' });
+
+    expect(githubReplyMock).toHaveBeenCalledTimes(3);
+    expect(simpleGitCommitMock).toHaveBeenCalledTimes(2);
+    expect(simpleGitPushMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('completes discussion comments by replying without applying code changes', async () => {
+    // Discussion-type comments should only post a reply and mark completion without invoking the applier
+    pendingComments = [buildComment(200, 'discussion', 'Is this clear?')];
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '200', type: 'discussion', confidence: 'medium', reply_message: 'Discussed' },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
+
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+    expect(githubReplyMock).toHaveBeenCalledWith(123, 200, 'Discussed');
+    expect(currentMetadataManager.setReplyCommentId).toHaveBeenCalledWith('200', 9999);
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '200',
+      'completed',
+      expect.objectContaining({ type: 'discussion', reply: 'Discussed' }),
+    );
+  });
+
+  it('marks skip comments as skipped after replying', async () => {
+    // Skip-type comments should post a reply and persist the skipped status
+    pendingComments = [buildComment(300, 'skip', 'Please skip this')];
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '300', type: 'skip', confidence: 'low', reply_message: 'Skipping per plan' },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
+
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+    expect(githubReplyMock).toHaveBeenCalledWith(123, 300, 'Skipping per plan');
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith(
+      '300',
+      'skipped',
+      expect.objectContaining({ type: 'skip', reply: 'Skipping per plan' }),
+    );
+  });
+});
+
+describe.skip('handlePRCommentExecuteCommand - fallback flow (LEGACY)', () => {
+  it('legacy flow is no longer exercised', () => {
+    // Legacy flow is intentionally skipped
+    expect(true).toBe(true);
   });
 });

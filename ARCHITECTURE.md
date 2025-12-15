@@ -136,10 +136,11 @@ src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマン�
      ├─ promptUserConfirmation() … ローカル環境での確認プロンプト
      └─ CI環境では即座にprocess.exit(1)、ローカル環境では確認後フォールバック
 
-src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張)
+src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張、Issue #444でリファクタリング)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ（--pr-url対応）
- ├─ processComments() … バッチ処理でコメントを順次処理
- ├─ ReviewCommentAnalyzer.analyze() … コメント分析
+ │   └─ response-plan.json 読み込み（Issue #444で追加）
+ ├─ processComment() … response-plan からコメント解決情報を取得し処理
+ │   └─ ReviewCommentAnalyzer 使用を廃止（Issue #444）
  ├─ CodeChangeApplier.apply() … コード変更適用
  └─ CommentClient.replyToPRReviewComment() … 返信投稿
 
@@ -226,7 +227,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
 | `src/commands/pr-comment/init.ts` | PRコメント自動対応: 初期化コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentInitCommand()` でPRから未解決レビューコメントを収集し、メタデータを初期化。`--pr`, `--pr-url`, `--dry-run` オプションをサポート。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下のリポジトリパスを使用し、マルチリポジトリ対応を実現。`buildRepositoryInfo()` で条件分岐によりパス解決方法を切り替え。 |
-| `src/commands/pr-comment/execute.ts` | PRコメント自動対応: 実行コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentExecuteCommand()` でコメントをバッチ処理、AIエージェントで分析、コード修正適用、返信投稿を実行。`--pr`, `--pr-url`, `--dry-run`, `--agent`, `--batch-size` オプションをサポート。レジューム機能により中断からの再開が可能。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下で処理を実行。 |
+| `src/commands/pr-comment/execute.ts` | PRコメント自動対応: 実行コマンド処理（Issue #383で追加、Issue #407で拡張、Issue #444でリファクタリング）。`handlePRCommentExecuteCommand()` でresponse-plan.jsonを読み込み、コード修正適用、返信投稿を実行。`--pr`, `--pr-url`, `--dry-run`, `--batch-size` オプションをサポート。レジューム機能により中断からの再開が可能。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下で処理を実行。**Issue #444で変更**: エージェント実行を廃止しresponse-plan.jsonを直接使用、`--agent` オプション削除、analyze/execute責務分離によりコスト50%削減。 |
 | `src/commands/pr-comment/finalize.ts` | PRコメント自動対応: 完了コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentFinalizeCommand()` で完了したコメントスレッドをGraphQL mutationで解決し、メタデータをクリーンアップ。`--pr`, `--pr-url`, `--dry-run` オプションをサポート。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下のリポジトリを使用してfinalize処理を実行。 |
 | `src/core/pr-comment/metadata-manager.ts` | PRコメント: メタデータ管理（Issue #383で追加）。`PRCommentMetadataManager` クラスでコメントごとのステータス管理、サマリー計算、コスト追跡を実施。`initialize()`, `load()`, `save()`, `exists()`, `updateStatus()`, `incrementRetry()`, `getPendingComments()`, `addCost()`, `setResolved()`, `cleanup()` を提供。 |
 | `src/core/pr-comment/comment-analyzer.ts` | PRコメント: コメント分析エンジン（Issue #383で追加）。`ReviewCommentAnalyzer` クラスでAIエージェントを使用してコメントを分析し、4種類の解決タイプ（`code_change`, `reply`, `discussion`, `skip`）を判定。`analyze()`, `classifyComment()`, `buildPrompt()`, `parseResult()` を提供。confidence レベルによる自動スキップ機能付き。 |
