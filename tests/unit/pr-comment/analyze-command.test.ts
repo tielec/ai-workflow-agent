@@ -13,6 +13,13 @@ const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
 const configIsCIMock = jest.fn(() => false);
+const parsePullRequestUrlMock = jest.fn(() => ({
+  owner: 'owner',
+  repo: 'repo',
+  prNumber: 123,
+  repositoryName: 'owner/repo',
+}));
+const resolveRepoPathFromPrUrlMock = jest.fn(() => '/repo');
 
 let handlePRCommentAnalyzeCommand: (options: PRCommentAnalyzeOptions) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
@@ -21,6 +28,8 @@ let agentExecuteTaskMock: jest.Mock;
 let prTitle = 'Mock PR Title';
 let processExitSpy: jest.SpyInstance;
 let metadataExists = true;
+const analyzeOutputPath = path.join('/repo', '.ai-workflow', 'pr-123', 'analyze', 'response-plan.json');
+let outputFileExists = false;
 
 const buildComment = (id: number, body: string, file = 'src/a.ts'): CommentMetadata => ({
   comment: {
@@ -48,6 +57,8 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
     __esModule: true,
     getRepoRoot: getRepoRootMock,
+    parsePullRequestUrl: parsePullRequestUrlMock,
+    resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -66,6 +77,13 @@ beforeAll(async () => {
       };
       return currentMetadataManager;
     }),
+  }));
+
+  await jest.unstable_mockModule('../../../src/core/github-client.js', () => ({
+    __esModule: true,
+    GitHubClient: jest.fn().mockImplementation(() => ({
+      getRepositoryInfo: () => ({ repositoryName: 'owner/repo' }),
+    })),
   }));
 
   await jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', () => ({
@@ -104,6 +122,7 @@ beforeEach(() => {
   metadataExists = true;
   processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
   configIsCIMock.mockReturnValue(false);
+  outputFileExists = false;
 
   agentExecuteTaskMock = jest.fn();
   setupAgentClientsMock.mockReturnValue({
@@ -120,12 +139,27 @@ beforeEach(() => {
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
 
+  jest.spyOn(fs, 'pathExists').mockImplementation(async (filePath: fs.PathLike) => {
+    const file = String(filePath);
+    if (file === analyzeOutputPath) {
+      return outputFileExists;
+    }
+    return false;
+  });
   jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
   jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
   jest.spyOn(fs, 'readFile').mockImplementation(async (filePath: fs.PathLike) => {
     const file = String(filePath);
     if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
       return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
+    }
+    if (file === analyzeOutputPath && outputFileExists) {
+      return JSON.stringify({
+        analyzer_agent: 'codex',
+        comments: [
+          { comment_id: '100', type: 'code_change', confidence: 'low', reply_message: 'From file' },
+        ],
+      });
     }
     return 'console.log("example")';
   });
@@ -173,6 +207,79 @@ describe('handlePRCommentAnalyzeCommand', () => {
       path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'response-plan.md'),
     );
     expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed');
+  });
+
+  it('prefers file output when response-plan.json is present and normalizes missing fields', async () => {
+    // Given the agent writes a file, when analyze runs, then the file content is used instead of raw output
+    outputFileExists = true;
+    agentExecuteTaskMock.mockResolvedValue(['non-json-output']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: codex');
+    expect(markdownCall?.[1]).toContain('Type: discussion (confidence: low)'); // normalized from code_change + low
+    expect(logger.info).toHaveBeenCalledWith(`Reading response plan from file: ${analyzeOutputPath}`);
+    expect(currentMetadataManager.setAnalyzerAgent).toHaveBeenCalledWith('codex');
+  });
+
+  it('falls back to raw output parsing when output file is missing', async () => {
+    // Given no response-plan.json, when analyze runs, then raw output is parsed and a warning is logged
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        analyzer_agent: 'claude',
+        comments: [{ comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Done' }],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    expect(logger.warn).toHaveBeenCalledWith('Output file not found. Falling back to raw output parsing.');
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Analyzer Agent: claude');
+    expect(markdownCall?.[1]).toContain('Comment #100');
+  });
+
+  it('logs warning and uses raw output when file JSON is invalid', async () => {
+    // Given an unreadable response-plan.json, when parse fails, then fallback raw parsing is used
+    outputFileExists = true;
+    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
+      const file = String(filePath);
+      if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
+        return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
+      }
+      if (file === analyzeOutputPath) {
+        return '{ invalid json }';
+      }
+      return 'console.log("example")';
+    });
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        analyzer_agent: 'auto',
+        comments: [{ comment_id: '101', type: 'reply', confidence: 'medium', reply_message: 'Raw' }],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to parse JSON from file'));
+    expect(logger.warn).toHaveBeenCalledWith('Falling back to raw output parsing.');
+    const markdownCall = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('response-plan.md'),
+    );
+    expect(markdownCall?.[1]).toContain('Comment #101');
   });
 
   it('skips file writes and metadata updates in dry-run mode', async () => {

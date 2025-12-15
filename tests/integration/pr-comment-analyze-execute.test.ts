@@ -271,6 +271,34 @@ describe('Analyze → Execute integration flow', () => {
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
   });
 
+  it('reads agent-written response-plan.json and uses it preferentially', async () => {
+    const analyzeOutputPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'response-plan.json');
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockImplementationOnce(async () => {
+      await fs.ensureDir(path.dirname(analyzeOutputPath));
+      await fs.writeFile(
+        analyzeOutputPath,
+        JSON.stringify({
+          analyzer_agent: 'codex',
+          comments: [{ comment_id: '100', type: 'code_change', confidence: 'low', reply_message: 'From file' }],
+        }),
+      );
+      return ['non-json-ack'];
+    });
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const storedPlan = await fs.readJson(analyzeOutputPath);
+    expect(storedPlan.pr_number).toBe(123);
+    const markdown = await fs.readFile(
+      path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md'),
+      'utf-8',
+    );
+    expect(markdown).toContain('Analyzer Agent: codex');
+    expect(markdown).toContain('Type: discussion (confidence: low)');
+    expect(metadataManagerInstances[0].setAnalyzerAgent).toHaveBeenCalledWith('codex');
+  });
+
   it('exits during analyze in CI when agent fails and does not write response plan', async () => {
     configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockReset();

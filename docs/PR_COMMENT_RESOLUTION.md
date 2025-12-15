@@ -18,14 +18,18 @@
 # 1. PRから未解決コメントを取得してメタデータを初期化
 ai-workflow pr-comment init --pr 123
 
-# 2. 各コメントをAIエージェントで分析し、コード修正・返信投稿を実行
+# 2. AIエージェントでコメントを分析し、response-plan.jsonを生成
+ai-workflow pr-comment analyze --pr 123
+
+# 3. response-plan.jsonに基づいてコード修正・返信投稿を実行
 ai-workflow pr-comment execute --pr 123
 
-# 3. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
+# 4. 完了したコメントスレッドを解決し、メタデータをクリーンアップ
 ai-workflow pr-comment finalize --pr 123
 
 # Jenkins環境やマルチリポジトリ環境での使用例（--pr-urlオプション）
 ai-workflow pr-comment init --pr-url https://github.com/owner/target-repo/pull/123
+ai-workflow pr-comment analyze --pr-url https://github.com/owner/target-repo/pull/123
 ai-workflow pr-comment execute --pr-url https://github.com/owner/target-repo/pull/123
 ai-workflow pr-comment finalize --pr-url https://github.com/owner/target-repo/pull/123
 ```
@@ -68,12 +72,65 @@ ai-workflow pr-comment init --pr <number> | --pr-url <URL> [--dry-run]
 ✅ メタデータを初期化しました: .ai-workflow/pr-123/comment-resolution-metadata.json
 ```
 
-### `pr-comment execute`
+### `pr-comment analyze`
 
-各コメントをAIエージェントで分析し、コード修正・返信投稿を実行します。
+各コメントをAIエージェントで分析し、response-plan.jsonを生成します（Issue #428で追加）。
 
 ```bash
-ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--agent <mode>] [--batch-size <number>]
+ai-workflow pr-comment analyze --pr <number> | --pr-url <URL> [--dry-run] [--agent <mode>] [--comment-ids <ids>]
+```
+
+**オプション**:
+| オプション | 必須 | 説明 | デフォルト |
+|-----------|------|------|----------|
+| `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） | - |
+| `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） | - |
+| `--dry-run` | | プレビューモード（分析のみ、保存しない） | false |
+| `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
+| `--comment-ids <ids>` | | 分析対象のコメントID（カンマ区切り） | 全コメント |
+
+*`--pr` または `--pr-url` のいずれか一方が必須
+
+**実行内容**:
+1. メタデータから未処理のコメントを取得
+2. AIエージェントで全コメントを一括分析
+3. 各コメントの解決タイプ、返信メッセージ、提案するコード変更を決定
+4. `.ai-workflow/pr-{prNumber}/output/response-plan.json` に分析結果を保存
+
+**出力ファイル**:
+
+`response-plan.json` は以下の構造を持ちます:
+```json
+{
+  "pr_number": 123,
+  "analyzed_at": "2025-01-20T10:00:00Z",
+  "analyzer_agent": "codex",
+  "comments": [
+    {
+      "comment_id": "100",
+      "type": "code_change",
+      "confidence": "high",
+      "rationale": "エラーハンドリングの追加が必要",
+      "proposed_changes": [
+        {
+          "action": "modify",
+          "file": "src/app.ts",
+          "line_range": "10-20",
+          "changes": "// 修正後のファイル内容"
+        }
+      ],
+      "reply_message": "エラーハンドリングを追加しました。"
+    }
+  ]
+}
+```
+
+### `pr-comment execute`
+
+response-plan.jsonに基づいてコード修正・返信投稿を実行します（Issue #444でリファクタリング）。
+
+```bash
+ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--batch-size <number>]
 ```
 
 **オプション**:
@@ -82,20 +139,25 @@ ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--age
 | `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） | - |
 | `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） | - |
 | `--dry-run` | | プレビューモード（変更を適用しない） | false |
-| `--agent <mode>` | | 使用するエージェント（`auto` \| `codex` \| `claude`） | `auto` |
 | `--batch-size <number>` | | 一度に処理するコメント数 | 5 |
 
 *`--pr` または `--pr-url` のいずれか一方が必須
 
+**前提条件**:
+- `pr-comment analyze` が事前に実行されていること
+- `response-plan.json` が存在すること
+
 **実行内容**:
-1. メタデータから未処理のコメントを取得
-2. 各コメントをAIエージェントで分析し、解決タイプを判定
+1. `.ai-workflow/pr-{prNumber}/output/response-plan.json` を読み込み
+2. 各コメントの解決情報を取得（再分析は行わない）
 3. 解決タイプに応じた処理を実行:
-   - `code_change`: ファイル変更を適用し、返信を投稿
-   - `reply`: 返信のみを投稿
+   - `code_change`: proposed_changesに基づいてファイル変更を適用し、返信を投稿
+   - `reply`: reply_messageを返信投稿
    - `discussion`: スキップ（人間の判断を待つ）
    - `skip`: スキップ（対応不要）
 4. 処理結果をメタデータに保存
+
+**注意**: Issue #444でリファクタリングされ、executeコマンドはエージェント実行を行わなくなりました。これにより、analyzeフェーズで生成された分析結果が正確に適用され、実行コストが半減します。
 
 **解決タイプ**:
 
@@ -397,7 +459,11 @@ cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_error, 
 # - validation_error: レスポンス構造の検証に失敗
 ```
 
-**JSONパースエラーの詳細（Issue #427で改善）**:
+**JSONパースエラーの詳細（Issue #438で根本解決）**:
+
+Issue #438 により、`pr-comment analyze` は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` に JSON を書き出し、CLI はこのファイルを最優先で読み込むようになりました。ファイルが存在しない・正しくないケースでは、Issue #427 で改善された3段階のパース戦略（Markdown → JSON Lines → プレーンJSON）をフォールバックとして順番に試行します。
+
+ファイル生成に失敗したケースでは、以下のようにログやパース戦略を確認してフォールバックの試行履歴を追跡できます。
 
 ```bash
 # パース戦略の試行結果を確認（v0.5.0以降）
@@ -413,7 +479,7 @@ cat .ai-workflow/pr-123/comment-resolution-metadata.json | jq '.analyzer_agent'
 # "fallback" の場合はパース失敗、"codex"/"claude" の場合は成功
 ```
 
-**注意**: Issue #427の修正により、JSON Lines形式やイベントストリーム形式の出力に対するパース成功率が大幅に向上しています。v0.5.0より前のバージョンで頻発していた `json_parse_error` は現在ではまれです。
+**注意**: これらのパース戦略は現在フォールバック用途であり、通常は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` から直接読み込まれるため使用されません。Issue #427 で改善された成功率向上は、ファイル出力が失敗した稀なケースでの安全網として機能します。
 
 #### 5. ファイル変更適用エラー
 
@@ -594,3 +660,4 @@ $REPOS_ROOT/
 | 1.0.0 | 2025-01-20 | 初版作成（Issue #383） |
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
 | 1.2.0 | 2025-12-14 | リビルド対応機能追加（Issue #426） - initスキップ機能、Jenkinsパイプラインのresume判定 |
+| 1.3.0 | 2025-01-20 | analyze/execute分離（Issue #444） - executeがresponse-plan.jsonを使用、エージェント実行削除、コスト50%削減 |
