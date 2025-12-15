@@ -120,7 +120,8 @@ async function analyzeComments(
   const persistMetadata = !options.dryRun;
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
-  const outputFilePath = path.join(analyzeDir, 'response-plan.json');
+  const outputDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'output');
+  const outputFilePath = path.join(outputDir, 'response-plan.json');
   const prompt = await buildAnalyzePrompt(
     prNumber,
     repoRoot,
@@ -131,6 +132,7 @@ async function analyzeComments(
 
   if (!options.dryRun) {
     await fs.ensureDir(analyzeDir);
+    await fs.ensureDir(outputDir);
     await fs.writeFile(path.join(analyzeDir, 'prompt.txt'), prompt, 'utf-8');
   }
 
