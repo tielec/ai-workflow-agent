@@ -90,7 +90,7 @@
 pipeline {
     agent {
         dockerfile {
-            label 'ec2-fleet'
+            label 'ec2-fleet-micro'
             dir '.'
             filename 'Dockerfile'
             // 注意: シングルクォートではGroovy変数が展開されないため、ダブルクォートを使用

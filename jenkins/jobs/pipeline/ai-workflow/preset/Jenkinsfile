@@ -21,7 +21,7 @@ def common
 pipeline {
     agent {
         dockerfile {
-            label 'ec2-fleet'
+            label 'ec2-fleet-micro'
             dir '.'
             filename 'Dockerfile'
             args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
