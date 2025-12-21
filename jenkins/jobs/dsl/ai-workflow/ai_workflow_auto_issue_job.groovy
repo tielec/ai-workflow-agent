@@ -206,8 +206,7 @@ Claude実行モードで使用されます
 genericFolders.each { folder ->
     createJob(
         "AI_Workflow/${folder.name}/${jobConfig.name}",
-        "フォルダ: ${folder.displayName}
-ブランチ: ${folder.branch}",
+        "フォルダ: ${folder.displayName}\nブランチ: ${folder.branch}",
         folder.branch
     )
 }
