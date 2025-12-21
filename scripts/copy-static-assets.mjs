@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 
@@ -22,17 +22,19 @@ const assets = [
 ];
 
 async function copyAssets() {
-  await fs.ensureDir(distDir);
+  await fsp.mkdir(distDir, { recursive: true });
 
   for (const asset of assets) {
-    if (!(await fs.pathExists(asset.source))) {
+    try {
+      await fsp.access(asset.source);
+    } catch {
       console.warn(`[WARN] Asset not found: ${asset.source}`);
       continue;
     }
 
-    await fs.copy(asset.source, asset.target, {
-      overwrite: true,
+    await fsp.cp(asset.source, asset.target, {
       recursive: true,
+      force: true,
     });
     console.info(`[OK] Copied ${asset.source} -> ${asset.target}`);
   }
