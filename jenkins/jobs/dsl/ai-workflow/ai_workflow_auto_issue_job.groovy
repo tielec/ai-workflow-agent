@@ -43,7 +43,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |## 注意事項
             |- EXECUTION_MODEは内部的に'auto_issue'に固定されます
             |- ISSUE_URLは不要（リポジトリ探索により自動Issue作成）
-            |- コスト上限: デフォルト /$5.00 USD
+            |- コスト上限: デフォルト \$5.00 USD
             """.stripMargin())
 
         // パラメータ定義
