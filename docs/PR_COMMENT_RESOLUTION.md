@@ -213,10 +213,7 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 **実行内容**:
 1. メタデータから `completed` ステータスのコメントを取得
 2. GitHub GraphQL APIを使用してスレッドを解決（Resolve）
-3. メタデータをクリーンアップし、削除されたワークフロー生成物をGitにコミット・プッシュ（Issue #449で改善）
-   - `git add('.')` ですべての変更（削除を含む）を確実にステージング
-   - `git status` による変更確認で、変更なしの場合はコミット/プッシュをスキップ
-   - Git操作全体のエラーハンドリング強化
+3. メタデータをクリーンアップ
 
 **出力例**:
 ```
@@ -664,4 +661,3 @@ $REPOS_ROOT/
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
 | 1.2.0 | 2025-12-14 | リビルド対応機能追加（Issue #426） - initスキップ機能、Jenkinsパイプラインのresume判定 |
 | 1.3.0 | 2025-01-20 | analyze/execute分離（Issue #444） - executeがresponse-plan.jsonを使用、エージェント実行削除、コスト50%削減 |
-| 1.3.1 | 2025-01-21 | finalize Git操作改善（Issue #449） - 削除されたワークフロー生成物の確実なコミット・プッシュ。`git add('.')` ですべての変更を確実にステージング、`git status` による変更確認追加、エラーハンドリング強化 |

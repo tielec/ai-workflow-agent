@@ -13,11 +13,9 @@ import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
 import { IssueGenerator } from '../../../src/core/issue-generator.js';
 import * as autoIssueOutput from '../../../src/commands/auto-issue-output.js';
 import { config } from '../../../src/core/config.js';
-import { createOctokitClient } from '../../../src/commands/auto-issue.js';
 import { logger } from '../../../src/utils/logger.js';
 import * as agentSetup from '../../../src/commands/execute/agent-setup.js';
 import * as repositoryUtils from '../../../src/core/repository-utils.js';
-import { Octokit } from '@octokit/rest';
 import { jest } from '@jest/globals';
 
 // モック関数の事前定義（グローバルスコープで定義）
@@ -28,6 +26,39 @@ const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
 
 // モック設定
+jest.mock('../../../src/core/repository-analyzer.js', () => ({
+  RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
+    analyze: mockAnalyze,
+    analyzeForRefactoring: mockAnalyzeForRefactoring,
+    analyzeForEnhancements: mockAnalyzeForEnhancements,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-deduplicator.js', () => ({
+  IssueDeduplicator: jest.fn().mockImplementation(() => ({
+    filterDuplicates: mockFilterDuplicates,
+  })),
+}));
+
+jest.mock('../../../src/core/issue-generator.js', () => ({
+  IssueGenerator: jest.fn().mockImplementation(() => ({
+    generate: mockGenerate,
+  })),
+}));
+jest.mock('../../../src/commands/auto-issue-output.js', () => ({
+  buildAutoIssueJsonPayload: jest.fn(),
+  writeAutoIssueOutputFile: jest.fn(),
+}));
+
+jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
+  resolveAgentCredentials: jest.fn(),
+  setupAgentClients: jest.fn(),
+}));
+jest.mock('../../../src/core/repository-utils.js', () => ({
+  resolveLocalRepoPath: jest.fn(),
+}));
+jest.mock('@octokit/rest');
+
 describe('auto-issue command handler', () => {
   // 変数名のエイリアス（既存コードとの互換性のため）
   const mockAnalyzer = {
@@ -45,8 +76,6 @@ describe('auto-issue command handler', () => {
 
   beforeEach(async () => {
     process.env.GITHUB_TOKEN = 'test-token';
-    autoIssueOutput.buildAutoIssueJsonPayload.mockReset?.();
-    autoIssueOutput.writeAutoIssueOutputFile.mockReset?.();
     // モック関数のクリア
     mockAnalyze.mockClear();
     mockAnalyzeForRefactoring.mockClear();
@@ -61,34 +90,6 @@ describe('auto-issue command handler', () => {
     mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
     mockGenerate.mockResolvedValue({ success: true });
 
-    jest.spyOn(RepositoryAnalyzer.prototype, 'analyze').mockImplementation(mockAnalyze as any);
-    jest
-      .spyOn(RepositoryAnalyzer.prototype, 'analyzeForRefactoring')
-      .mockImplementation(mockAnalyzeForRefactoring as any);
-    jest
-      .spyOn(RepositoryAnalyzer.prototype, 'analyzeForEnhancements')
-      .mockImplementation(mockAnalyzeForEnhancements as any);
-    jest
-      .spyOn(IssueDeduplicator.prototype, 'filterDuplicates')
-      .mockImplementation(mockFilterDuplicates as any);
-    jest.spyOn(IssueGenerator.prototype, 'generate').mockImplementation(mockGenerate as any);
-    jest
-      .spyOn(IssueGenerator.prototype, 'generateRefactorIssue')
-      .mockImplementation(mockGenerate as any);
-    jest
-      .spyOn(IssueGenerator.prototype, 'generateEnhancementIssue')
-      .mockImplementation(mockGenerate as any);
-    jest
-      .spyOn(autoIssueOutput, 'buildAutoIssueJsonPayload')
-      .mockImplementation(jest.fn() as any);
-    jest
-      .spyOn(autoIssueOutput, 'writeAutoIssueOutputFile')
-      .mockImplementation(jest.fn() as any);
-    createOctokitClient.mockReset?.();
-    createOctokitClient.mockReturnValue({
-      issues: { listForRepo: jest.fn().mockResolvedValue({ data: [] }) },
-    } as any);
-
     // config のモック
     config.getGitHubToken = jest.fn().mockReturnValue('test-token');
     config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
@@ -100,16 +101,14 @@ describe('auto-issue command handler', () => {
     logger.error = jest.fn();
 
     // repositoryUtils.resolveLocalRepoPath のモック
-    jest
-      .spyOn(repositoryUtils, 'resolveLocalRepoPath')
-      .mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
+    jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
 
     // agent-setup のモック
-    jest.spyOn(agentSetup, 'resolveAgentCredentials').mockReturnValue({
+    jest.mocked(agentSetup.resolveAgentCredentials).mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     } as any);
-    jest.spyOn(agentSetup, 'setupAgentClients').mockReturnValue({
+    jest.mocked(agentSetup.setupAgentClients).mockReturnValue({
       codexClient: {},
       claudeClient: {},
     } as any);

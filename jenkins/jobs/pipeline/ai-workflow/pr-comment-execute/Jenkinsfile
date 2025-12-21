@@ -27,7 +27,7 @@ pipeline {
             label 'ec2-fleet-micro'
             dir '.'
             filename 'Dockerfile'
-            args "-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 
@@ -162,17 +162,19 @@ pipeline {
                     echo "Stage: Check Resume"
                     echo "========================================="
 
-                    env.SHOULD_INIT = 'true'
-                    def metadataRelPath = ".ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+                    def metadataPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+                    echo "Checking metadata at: ${metadataPath}"
 
-                    dir("${env.REPOS_ROOT}/${env.REPO_NAME}") {
-                        def metadataExists = fileExists(metadataRelPath)
-                        env.SHOULD_INIT = metadataExists ? 'false' : 'true'
-                        echo "Metadata path: ${metadataRelPath}"
-                        echo "Metadata exists: ${metadataExists}"
+                    if (fileExists(metadataPath)) {
+                        echo "Metadata found. This is a rebuild scenario."
+                        echo "PR Comment Init will be skipped."
+                        env.SHOULD_INIT = 'false'
+                    } else {
+                        echo "No metadata found. This is a new execution."
+                        env.SHOULD_INIT = 'true'
                     }
 
-                    echo "PR Comment Init will ${env.SHOULD_INIT == 'true' ? 'run' : 'be skipped'}"
+                    echo "SHOULD_INIT: ${env.SHOULD_INIT}"
                 }
             }
         }
@@ -210,15 +212,39 @@ pipeline {
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
 
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Analyze Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
 
-                        sh """
-                            node dist/index.js pr-comment analyze \
-                                --pr-url ${params.PR_URL} \
-                                --agent ${params.AGENT_MODE ?: 'auto'} \
-                                ${dryRunFlag}
-                        """
+                        def analyzeResult = sh(
+                            script: """
+                                node dist/index.js pr-comment analyze \
+                                    --pr-url ${params.PR_URL} \
+                                    --agent ${params.AGENT_MODE ?: 'auto'} \
+                                    ${dryRunFlag}
+                            """,
+                            returnStatus: true
+                        )
+
+                        if (analyzeResult != 0) {
+                            error("Analyze phase failed with exit code ${analyzeResult}. Execute stage will be skipped.")
+                        }
+
+                        def metadataPath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+
+                        if (fileExists(metadataPath)) {
+                            def metadata = readJSON file: metadataPath
+
+                            if (metadata.analyzer_error != null) {
+                                echo "========================================="
+                                echo "[WARNING] Analyze phase encountered an error."
+                                echo "Error Type: ${metadata.analyzer_error_type ?: 'unknown'}"
+                                echo "Error: ${metadata.analyzer_error}"
+                                echo "========================================="
+                            }
+                        }
                     }
                 }
             }

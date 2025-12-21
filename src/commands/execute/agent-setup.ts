@@ -6,7 +6,6 @@ import { logger } from '../../utils/logger.js';
 import { config } from '../../core/config.js';
 import { CodexAgentClient, resolveCodexModel, DEFAULT_CODEX_MODEL } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient, resolveClaudeModel, DEFAULT_CLAUDE_MODEL } from '../../core/claude-agent-client.js';
-import { createMockableFunction, type MockableFunction } from '../../utils/mockable-function.js';
 import {
   CODEX_MIN_API_KEY_LENGTH,
   detectCodexCliAuth,
@@ -120,7 +119,7 @@ export interface CredentialsResult {
  * @param repoRoot - リポジトリルート
  * @returns 認証情報解決結果
  */
-const resolveAgentCredentialsImpl = (homeDir: string, repoRoot: string): CredentialsResult => {
+export function resolveAgentCredentials(homeDir: string, repoRoot: string): CredentialsResult {
   // Codex API キーの解決
   const codexApiKey = config.getCodexApiKey();
 
@@ -174,10 +173,7 @@ const resolveAgentCredentialsImpl = (homeDir: string, repoRoot: string): Credent
     claudeCodeToken,
     claudeCredentialsPath,
   };
-};
-
-export const resolveAgentCredentials: MockableFunction<typeof resolveAgentCredentialsImpl> =
-  createMockableFunction(resolveAgentCredentialsImpl);
+}
 
 /**
  * エージェントセットアップオプション（Issue #301, #302）
@@ -213,12 +209,12 @@ export interface AgentSetupOptions {
  * @returns エージェント初期化結果
  * @throws {Error} 必須の認証情報が存在しない場合
  */
-const setupAgentClientsImpl = (
+export function setupAgentClients(
   agentMode: 'auto' | 'codex' | 'claude',
   workingDir: string,
   credentials: CredentialsResult,
   options: AgentSetupOptions = {},
-): AgentSetupResult => {
+): AgentSetupResult {
   const { codexApiKey, claudeCodeToken, claudeCredentialsPath } = credentials;
   let codexClient: CodexAgentClient | null = null;
   let claudeClient: ClaudeAgentClient | null = null;
@@ -335,7 +331,4 @@ const setupAgentClientsImpl = (
     codexClient,
     claudeClient,
   };
-};
-
-export const setupAgentClients: MockableFunction<typeof setupAgentClientsImpl> =
-  createMockableFunction(setupAgentClientsImpl);
+}
