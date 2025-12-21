@@ -1,0 +1,74 @@
+{
+  "version": "1.0.0",
+  "pr": {
+    "number": 464,
+    "url": "https://github.com/tielec/ai-workflow-agent/pull/464",
+    "title": "pr-comment finalize にコミットスカッシュ機能を追加",
+    "branch": "ai-workflow/issue-450",
+    "base_branch": "main",
+    "state": "open"
+  },
+  "repository": {
+    "owner": "tielec",
+    "repo": "ai-workflow-agent",
+    "path": "/tmp/ai-workflow-repos-56-921673b8/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git"
+  },
+  "comments": {
+    "2637761404": {
+      "comment": {
+        "id": 2637761404,
+        "node_id": "PRRC_kwDOQEEbbM6dOQt8",
+        "path": "src/main.ts",
+        "line": 341,
+        "start_line": null,
+        "end_line": null,
+        "body": "--squash　のオプションが使えるようにJenkinsfileの修正も必要です。対応してください。JobDSLの修正も必要です。デフォルトは--squashを使う形で問題ありません。",
+        "user": "yuto-takashi",
+        "created_at": "2025-12-21T11:28:38Z",
+        "updated_at": "2025-12-21T11:29:23Z",
+        "diff_hunk": "",
+        "thread_id": "PRRT_kwDOQEEbbM5m6KQE",
+        "pr_number": 464
+      },
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "resolution": null,
+      "reply_comment_id": null,
+      "resolved_at": null,
+      "error": null
+    }
+  },
+  "summary": {
+    "total": 1,
+    "by_status": {
+      "pending": 1,
+      "in_progress": 0,
+      "completed": 0,
+      "skipped": 0,
+      "failed": 0
+    },
+    "by_type": {
+      "code_change": 0,
+      "reply": 0,
+      "discussion": 0,
+      "skip": 0
+    }
+  },
+  "cost_tracking": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "total_cost_usd": 0
+  },
+  "created_at": "2025-12-21T11:34:40.971Z",
+  "updated_at": "2025-12-21T11:34:40.971Z",
+  "analyze_completed_at": null,
+  "execute_completed_at": null,
+  "response_plan_path": null,
+  "execution_result_path": null,
+  "analyzer_agent": null,
+  "analyzer_error": null,
+  "analyzer_error_type": null
+}
