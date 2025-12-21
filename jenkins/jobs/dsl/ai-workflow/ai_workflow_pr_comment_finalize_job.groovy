@@ -68,6 +68,10 @@ Pull Request URL（必須）
 ドライランモード（API呼び出しやGit操作を行わず動作確認のみ実施）
             '''.stripIndent().trim())
 
+            booleanParam('SQUASH', true, '''
+Finalize時にコミットをスカッシュするかどうか（デフォルト: 有効）
+            '''.stripIndent().trim())
+
             stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow Bot', '''
 Git コミットユーザー名
             '''.stripIndent().trim())

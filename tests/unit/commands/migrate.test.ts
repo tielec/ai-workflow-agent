@@ -20,7 +20,9 @@ import { sanitizeGitUrl } from '../../../src/utils/git-url-utils.js';
 // モックの設定
 jest.mock('fs-extra');
 jest.mock('glob', () => ({
+  __esModule: true,
   glob: jest.fn(),
+  default: jest.fn(),
 }));
 jest.mock('../../../src/utils/logger.js', () => ({
   logger: {

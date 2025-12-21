@@ -1,13 +1,23 @@
 import { jest, beforeAll } from '@jest/globals';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import path from 'node:path';
 import type * as FsExtra from 'fs-extra';
 import type { PhaseExecutionResult } from '../../../src/types.js';
 
 // jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
 // 重要: このモックは BasePhase インポート**より前**に定義する必要がある
-const mockFs: DeepMockProxy<typeof FsExtra> = mockDeep<typeof FsExtra>();
-jest.unstable_mockModule('fs-extra', () => mockFs);
+const mockFs: jest.Mocked<typeof FsExtra> = {
+  existsSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  lstatSync: jest.fn(),
+  pathExistsSync: jest.fn(),
+} as unknown as jest.Mocked<typeof FsExtra>;
+jest.unstable_mockModule('fs-extra', () => ({
+  __esModule: true,
+  default: mockFs,
+  ...mockFs,
+}));
 
 type BasePhaseConstructorParams = {
   phaseName: string;
@@ -120,7 +130,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: 変数が置換されたプロンプトでエージェントが実行される
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'Prompt template: value1 and value2',
-        { maxTurns: 30, verbose: undefined, logDir: undefined }
+        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される
@@ -151,7 +161,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: デフォルトの maxTurns: 30 が使用される
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'No variables',
-        { maxTurns: 30, verbose: undefined, logDir: undefined }
+        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される
@@ -220,7 +230,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: 全変数が置換される
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'Planning: @.ai-workflow/issue-47/00_planning/output/planning.md, Issue: Issue #47: Refactor phase template, Number: 47',
-        { maxTurns: 30, verbose: undefined, logDir: undefined }
+        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される
@@ -298,7 +308,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: 空文字列に置換される
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'Value: ',
-        { maxTurns: 30, verbose: undefined, logDir: undefined }
+        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される
@@ -329,7 +339,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: プロンプトは変更されない
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'No variables',
-        { maxTurns: 30, verbose: undefined, logDir: undefined }
+        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される
@@ -361,7 +371,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       // Then: maxTurns: 0 が使用される
       expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
         'No variables',
-        { maxTurns: 0, verbose: undefined, logDir: undefined }
+        { maxTurns: 0, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
       );
 
       // Then: 成功が返される

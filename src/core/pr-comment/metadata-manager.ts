@@ -258,6 +258,31 @@ export class PRCommentMetadataManager {
   }
 
   /**
+   * base_commit を設定
+   *
+   * init コマンド実行時に現在のHEADコミットハッシュを記録する。
+   * @param baseCommit - ベースコミットハッシュ
+   * @throws Error - メタデータが初期化されていない場合
+   */
+  public async setBaseCommit(baseCommit: string): Promise<void> {
+    if (!this.metadata) {
+      throw new Error('Metadata not initialized. Call initialize() first.');
+    }
+
+    this.metadata.base_commit = baseCommit;
+    await this.save();
+  }
+
+  /**
+   * base_commit を取得
+   *
+   * 旧バージョンのメタデータ（base_commit なし）では undefined を返す。
+   */
+  public getBaseCommit(): string | undefined {
+    return this.metadata?.base_commit;
+  }
+
+  /**
    * analyze完了タイムスタンプを設定
    */
   public async setAnalyzeCompletedAt(timestamp: string): Promise<void> {

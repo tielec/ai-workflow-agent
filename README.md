@@ -175,7 +175,8 @@ ai-workflow pr-comment execute \
 
 ai-workflow pr-comment finalize \
   --pr <number> | --pr-url <URL> \
-  [--dry-run]
+  [--dry-run] \
+  [--squash]
 ```
 
 ### ブランチ名のカスタマイズ

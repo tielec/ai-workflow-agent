@@ -44,6 +44,7 @@ async function createWorkingRepository(
   await fs.ensureDir(workingRepoPath);
   const git = simpleGit(workingRepoPath);
   await git.init();
+  await git.checkoutLocalBranch('main');
   await git.addConfig('user.name', 'Test User', false, 'local');
   await git.addConfig('user.email', 'test@example.com', false, 'local');
   await git.addRemote('origin', bareRepoPath);
@@ -193,6 +194,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
       await fs.remove(workflowDir);
       await git.checkout(branchName);
       await git.pull('origin', branchName, { '--no-rebase': null });
+      await git.checkout(['--', '.']); // ローカル削除をリセットしてリモート状態に同期
 
       // Then: ローカルのmetadata.jsonにpr_urlが存在する
       const localMetadata = await fs.readJson(metadataPath);
