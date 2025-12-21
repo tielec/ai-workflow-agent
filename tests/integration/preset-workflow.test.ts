@@ -16,8 +16,20 @@ import * as fs from 'fs-extra';
 import * as path from 'node:path';
 import type { PhaseName } from '../../src/types/phase.js';
 
+const fsMock = {
+  existsSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  readJsonSync: jest.fn(),
+  writeJsonSync: jest.fn(),
+};
+
 // fs-extraのモック
-jest.mock('fs-extra');
+jest.mock('fs-extra', () => ({
+  __esModule: true,
+  default: fsMock,
+  ...fsMock,
+}));
 
 describe('Preset workflow: review-design (Issue #248)', () => {
   let metadataManager: MetadataManager;
@@ -26,9 +38,48 @@ describe('Preset workflow: review-design (Issue #248)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
-    (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-    (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.ensureDirSync.mockImplementation(() => {});
+    fsMock.writeFileSync.mockImplementation(() => {});
+    fsMock.writeJsonSync.mockImplementation(() => {});
+
+    const basePhase = {
+      status: 'pending',
+      completed_steps: [],
+      current_step: null,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      retry_count: 0,
+      rollback_context: null,
+    };
+
+    fsMock.readJsonSync.mockReturnValue({
+      issue_number: '248',
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'planning',
+      phases: {
+        planning: { ...basePhase },
+        requirements: { ...basePhase },
+        design: { ...basePhase },
+        test_scenario: { ...basePhase },
+        implementation: { ...basePhase },
+        test_implementation: { ...basePhase },
+        testing: { ...basePhase },
+        documentation: { ...basePhase },
+        report: { ...basePhase },
+        evaluation: { ...basePhase },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    });
 
     metadataManager = new MetadataManager(testMetadataPath);
   });
@@ -210,19 +261,39 @@ describe('Preset workflow: review-design (Issue #248)', () => {
   });
 });
 
-describe('Preset workflow: Status transition validation (Issue #248)', () => {
-  let metadataManager: MetadataManager;
-  const testWorkflowDir = '/test/.ai-workflow/issue-248';
-  const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
+  describe('Preset workflow: Status transition validation (Issue #248)', () => {
+    let metadataManager: MetadataManager;
+    const testWorkflowDir = '/test/.ai-workflow/issue-248';
+    const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
-    (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-    (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+    beforeEach(() => {
+      jest.clearAllMocks();
+      fsMock.existsSync.mockReturnValue(true);
+      fsMock.ensureDirSync.mockImplementation(() => {});
+      fsMock.writeFileSync.mockImplementation(() => {});
+      fsMock.writeJsonSync.mockImplementation(() => {});
+      fsMock.readJsonSync.mockReturnValue({
+        issue_number: '248',
+        issue_url: '',
+        issue_title: '',
+        created_at: '',
+        updated_at: '',
+        current_phase: 'planning',
+        phases: {
+          planning: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          requirements: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          design: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        },
+        github_integration: { progress_comment_url: null },
+        costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+        design_decisions: {},
+        model_config: null,
+        difficulty_analysis: null,
+        rollback_history: [],
+      });
 
-    metadataManager = new MetadataManager(testMetadataPath);
-  });
+      metadataManager = new MetadataManager(testMetadataPath);
+    });
 
   // =============================================================================
   // ステータス遷移パターンの検証

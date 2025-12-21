@@ -15,6 +15,9 @@ const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
 const simpleGitPushMock = jest.fn();
 const simpleGitAddConfigMock = jest.fn();
+const simpleGitRevparseMock = jest.fn();
+const simpleGitLogMock = jest.fn();
+const simpleGitResetMock = jest.fn();
 const resolveReviewThreadMock = jest.fn();
 const configGetGitCommitUserNameMock = jest.fn(() => 'Configured Bot');
 const configGetGitCommitUserEmailMock = jest.fn(() => 'configured@example.com');
@@ -24,10 +27,13 @@ const metadataManagerLoadMock = jest.fn();
 const metadataManagerGetCompletedCommentsMock = jest.fn();
 const metadataManagerCleanupMock = jest.fn();
 const metadataManagerSetResolvedMock = jest.fn();
+const metadataManagerGetBaseCommitMock = jest.fn();
+const metadataManagerGetMetadataMock = jest.fn();
 
 let handlePRCommentFinalizeCommand: (options: PRCommentFinalizeOptions) => Promise<void>;
 let infoSpy: jest.SpyInstance<unknown, unknown>;
 let errorSpy: jest.SpyInstance<unknown, unknown>;
+let warnSpy: jest.SpyInstance<unknown, unknown>;
 
 beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
@@ -45,6 +51,8 @@ beforeAll(async () => {
       getCompletedComments: metadataManagerGetCompletedCommentsMock,
       cleanup: metadataManagerCleanupMock,
       setResolved: metadataManagerSetResolvedMock,
+      getBaseCommit: metadataManagerGetBaseCommitMock,
+      getMetadata: metadataManagerGetMetadataMock,
     })),
   }));
 
@@ -73,6 +81,9 @@ beforeAll(async () => {
       commit: simpleGitCommitMock,
       push: simpleGitPushMock,
       addConfig: simpleGitAddConfigMock,
+      revparse: simpleGitRevparseMock,
+      log: simpleGitLogMock,
+      reset: simpleGitResetMock,
     })),
   }));
 
@@ -96,6 +107,15 @@ beforeEach(() => {
   ]);
   metadataManagerCleanupMock.mockResolvedValue(undefined);
   metadataManagerSetResolvedMock.mockResolvedValue(undefined);
+  metadataManagerGetBaseCommitMock.mockReturnValue(undefined);
+  metadataManagerGetMetadataMock.mockResolvedValue({
+    summary: {
+      total: 1,
+      by_status: { completed: 1 },
+      by_type: { code_change: 0, reply: 1 },
+    },
+    pr: { branch: 'feature/mock-branch' },
+  });
 
   resolveReviewThreadMock.mockResolvedValue(undefined);
 
@@ -106,6 +126,9 @@ beforeEach(() => {
   simpleGitCommitMock.mockResolvedValue(undefined);
   simpleGitPushMock.mockResolvedValue(undefined);
   simpleGitAddConfigMock.mockResolvedValue(undefined);
+  simpleGitRevparseMock.mockResolvedValue('feature/mock-branch');
+  simpleGitLogMock.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] });
+  simpleGitResetMock.mockResolvedValue(undefined);
 
   parsePullRequestUrlMock.mockReturnValue({
     owner: 'owner',
@@ -117,6 +140,7 @@ beforeEach(() => {
 
   infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
   errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
+  warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   configGetGitCommitUserNameMock.mockImplementation(() => 'Configured Bot');
   configGetGitCommitUserEmailMock.mockImplementation(() => 'configured@example.com');
 });
@@ -237,5 +261,41 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
 
     expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'AI Workflow Bot');
     expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'ai-workflow@example.com');
+  });
+
+  it('squashes commits and force-pushes when --squash is enabled', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+    metadataManagerGetMetadataMock.mockResolvedValue({
+      summary: {
+        total: 4,
+        by_status: { completed: 4 },
+        by_type: { code_change: 3, reply: 1 },
+      },
+      pr: { branch: 'feature/mock-branch' },
+    });
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    expect(simpleGitResetMock).toHaveBeenCalledWith(['--soft', 'abc123def456789012345678901234567890abcd']);
+    expect(simpleGitCommitMock).toHaveBeenCalledWith(
+      expect.stringContaining('[pr-comment] Resolve PR #123 review comments'),
+    );
+    expect(simpleGitPushMock).toHaveBeenCalledWith(['--force-with-lease', 'origin', 'HEAD:feature/mock-branch']);
+    expect(metadataManagerCleanupMock).toHaveBeenCalled();
+    expect(simpleGitAddMock).not.toHaveBeenCalled();
+    expect(simpleGitStatusMock).not.toHaveBeenCalled();
+  });
+
+  it('warns and falls back to standard finalize flow when base_commit is missing with --squash', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue(undefined);
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    expect(warnSpy).toHaveBeenCalledWith('base_commit not found in metadata. Skipping squash.');
+    expect(simpleGitAddMock).toHaveBeenCalledWith('.');
+    expect(simpleGitCommitMock).toHaveBeenCalledWith(
+      '[pr-comment] Finalize PR #123: Clean up workflow artifacts (1 threads resolved)',
+    );
+    expect(simpleGitPushMock).toHaveBeenCalledWith('origin', 'HEAD:feature/mock-branch');
   });
 });

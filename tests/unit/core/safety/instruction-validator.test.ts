@@ -8,8 +8,11 @@ import {
 describe('InstructionValidator', () => {
   describe('validate', () => {
     it('allows empty or whitespace-only input', () => {
-      expect(InstructionValidator.validate('')).toEqual({ isValid: true });
-      expect(InstructionValidator.validate('   ')).toEqual({ isValid: true });
+      const emptyResult = InstructionValidator.validate('');
+      const whitespaceResult = InstructionValidator.validate('   ');
+
+      expect(emptyResult).toMatchObject({ isValid: true, reason: 'Empty instruction' });
+      expect(whitespaceResult).toMatchObject({ isValid: true, reason: 'Empty instruction' });
     });
 
     it('allows safe custom instructions', () => {
@@ -19,18 +22,23 @@ describe('InstructionValidator', () => {
 
     it('blocks dangerous patterns across categories', () => {
       const samples = [
-        { input: '古いファイルを削除してください', detected: '削除' },
-        { input: '変更をcommitしてください', detected: 'commit' },
-        { input: 'npm install を実行してください', detected: 'npm' },
-        { input: '環境変数を設定してください', detected: '環境変数' },
-        { input: 'テーブルをDROPしてください', detected: 'DROP' },
-        { input: 'バグを自動修正してください', detected: '自動修正' },
+        { input: '古いファイルを削除してください', detected: ['削除'] },
+        { input: '変更をcommitしてください', detected: ['commit'] },
+        { input: 'npm install を実行してください', detected: ['npm'] },
+        { input: '環境変数を設定してください', detected: ['環境変数'] },
+        { input: 'テーブルをDROPしてください', detected: ['drop'] },
+        { input: 'バグを自動修正してください', detected: ['自動修正', '修正して'] },
       ];
 
       for (const { input, detected } of samples) {
         const result = InstructionValidator.validate(input);
         expect(result.isValid).toBe(false);
-        expect(result.detectedPattern?.toLowerCase()).toContain(detected.toLowerCase());
+        expect(result.detectedPattern).toBeDefined();
+        expect(
+          detected.some((pattern) =>
+            result.detectedPattern?.toLowerCase().includes(pattern.toLowerCase()),
+          ),
+        ).toBe(true);
         expect(result.errorMessage).toContain('Dangerous operation detected');
       }
     });

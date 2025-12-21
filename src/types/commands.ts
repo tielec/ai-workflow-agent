@@ -570,4 +570,5 @@ export interface PRCommentFinalizeOptions {
   prUrl?: string;
   skipCleanup?: boolean;
   dryRun?: boolean;
+  squash?: boolean;
 }

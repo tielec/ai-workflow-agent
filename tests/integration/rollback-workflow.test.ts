@@ -17,13 +17,59 @@ import type { RollbackCommandOptions } from '../../src/types/commands.js';
 import type { PhaseName } from '../../src/types.js';
 import * as path from 'node:path';
 
-// fs-extraのモック - モック化してからインポート
-jest.mock('fs-extra', () => ({
+const fsMock = {
   existsSync: jest.fn(),
   ensureDirSync: jest.fn(),
   writeFileSync: jest.fn(),
   readFileSync: jest.fn(),
   statSync: jest.fn(),
+  readJsonSync: jest.fn(),
+  writeJsonSync: jest.fn(),
+};
+
+const basePhaseState = {
+  status: 'pending',
+  completed_steps: [],
+  current_step: null,
+  started_at: null,
+  completed_at: null,
+  review_result: null,
+  retry_count: 0,
+  rollback_context: null,
+};
+
+const buildMetadata = (issue: string) => ({
+  issue_number: issue,
+  issue_url: '',
+  issue_title: '',
+  created_at: '',
+  updated_at: '',
+  current_phase: 'planning',
+  phases: {
+    planning: { ...basePhaseState },
+    requirements: { ...basePhaseState },
+    design: { ...basePhaseState },
+    test_scenario: { ...basePhaseState },
+    implementation: { ...basePhaseState },
+    test_implementation: { ...basePhaseState },
+    testing: { ...basePhaseState },
+    documentation: { ...basePhaseState },
+    report: { ...basePhaseState },
+    evaluation: { ...basePhaseState },
+  },
+  github_integration: { progress_comment_url: null },
+  costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+  design_decisions: {},
+  model_config: null,
+  difficulty_analysis: null,
+  rollback_history: [],
+});
+
+// fs-extraのモック - モック化してからインポート
+jest.mock('fs-extra', () => ({
+  __esModule: true,
+  default: fsMock,
+  ...fsMock,
 }));
 
 import * as fs from 'fs-extra';
@@ -35,9 +81,11 @@ describe('Integration: Rollback Workflow', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.ensureDirSync.mockImplementation(() => undefined as any);
+    fsMock.writeFileSync.mockImplementation(() => undefined);
+    fsMock.writeJsonSync.mockImplementation(() => undefined);
+    fsMock.readJsonSync.mockImplementation(() => buildMetadata('90'));
 
     metadataManager = new MetadataManager(testMetadataPath);
 
@@ -198,7 +246,9 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.writeJsonSync.mockImplementation(() => undefined);
+    fsMock.readJsonSync.mockImplementation(() => buildMetadata('90'));
     metadataManager = new MetadataManager(testMetadataPath);
   });
 
@@ -280,7 +330,9 @@ describe('Integration: Rollback Workflow - 後方互換性', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.writeJsonSync.mockImplementation(() => undefined);
+    fsMock.readJsonSync.mockImplementation(() => buildMetadata('90'));
     metadataManager = new MetadataManager(testMetadataPath);
   });
 

@@ -75,6 +75,8 @@ function createMockMetadataManager(): any {
       report: 'pending',
       evaluation: 'pending'
     }),
+    getCurrentStep: jest.fn<any>(() => null),
+    getCompletedSteps: jest.fn<any>(() => []),
   };
 }
 

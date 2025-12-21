@@ -254,6 +254,13 @@ export interface CommentResolutionMetadata {
   /** リポジトリ情報 */
   repository: RepositoryInfo;
 
+  /**
+   * コミットスカッシュ用のベースコミットハッシュ
+   * init コマンド実行時のHEADコミットを記録
+   * @since Issue #450
+   */
+  base_commit?: string;
+
   /** 関連Issue番号（オプション） */
   issue_number?: number;
 

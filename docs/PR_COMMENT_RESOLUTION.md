@@ -198,7 +198,7 @@ ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--bat
 完了したコメントスレッドを解決し、メタデータをクリーンアップします。
 
 ```bash
-ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
+ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run] [--squash]
 ```
 
 **オプション**:
@@ -207,6 +207,7 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 | `--pr <number>` | ✓* | 対象のPR番号（GITHUB_REPOSITORYから自動解決） |
 | `--pr-url <URL>` | ✓* | 対象のPR URL（マルチリポジトリ対応、REPOS_ROOT配下を使用） |
 | `--dry-run` | | プレビューモード（実際に解決しない） |
+| `--squash` | | ワークフローで作成されたコミットを1つにまとめる（Issue #450で追加） |
 
 *`--pr` または `--pr-url` のいずれか一方が必須
 
@@ -218,6 +219,10 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
    - `git add .` ですべての変更（削除を含む）をステージング
    - `git.status()` の `files.length > 0` を確認し、変更があれば `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット、変更がなければ `No changes to commit.` を出力してコミット・プッシュ処理をスキップ
    - `metadata.pr.branch` で判別した PR の head ブランチに `git push('origin', 'HEAD:<branch>')` してリモートへ反映
+5. `--squash` オプション指定時:
+   - `base_commit`（init時に記録）から現在のHEADまでのコミットを1つにまとめる
+   - コミットメッセージ: `[pr-comment] Resolve PR #XXX review comments (N comments)`
+   - `git push --force-with-lease` で安全に強制プッシュ
 
 **出力例**:
 ```
@@ -237,6 +242,56 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 ```
 
 > `No changes to commit.` は変更がない場合に表示されるログで、コミット・プッシュはスキップされます。
+
+#### コミットスカッシュ機能（Issue #450で追加）
+
+`--squash` オプションを指定すると、ワークフローで作成された複数のコミットを1つにまとめます。
+
+**動作要件**:
+- `pr-comment init` が最新バージョンで実行されていること（`base_commit` が記録されている必要あり）
+- 現在のブランチが `main` または `master` でないこと（ブランチ保護）
+- スカッシュ対象のコミットが2件以上存在すること
+
+**スカッシュの流れ**:
+1. `base_commit`（init時に記録）をメタデータから取得
+2. `base_commit` がない場合は警告を表示してスカッシュをスキップ（他の処理は継続）
+3. 現在のブランチが `main`/`master` でないことを確認
+4. `git reset --soft <base_commit>` でコミットをリセット
+5. 以下のフォーマットでコミットメッセージを生成:
+   ```
+   [pr-comment] Resolve PR #XXX review comments (N comments)
+
+   - Addressed N review comments
+   - Applied N code changes
+   - Posted N replies
+
+   🤖 Generated with Claude Code
+   Co-Authored-By: Claude <noreply@anthropic.com>
+   ```
+6. `git commit -m "<message>"` で新しいコミットを作成
+7. `git push --force-with-lease origin <branch>` で安全に強制プッシュ
+
+**使用例**:
+```bash
+# 通常の finalize（スカッシュなし）
+ai-workflow pr-comment finalize --pr 123
+
+# スカッシュ付き finalize
+ai-workflow pr-comment finalize --pr 123 --squash
+
+# プレビューモードでスカッシュ内容を確認
+ai-workflow pr-comment finalize --pr 123 --squash --dry-run
+```
+
+**後方互換性**:
+- `base_commit` がメタデータにない場合（旧バージョンでinitした場合）は、スカッシュ処理のみスキップされます
+- スレッド解決やクリーンアップなど他の処理は正常に実行されます
+- 警告メッセージ: `base_commit not found in metadata. Skipping squash.`
+
+**安全機能**:
+- `main`/`master` ブランチへの強制プッシュを禁止
+- `--force-with-lease` を使用（リモートの変更を上書きしない）
+- `--dry-run` でスカッシュ内容を事前確認可能
 
 ## メタデータ構造
 
@@ -673,3 +728,4 @@ $REPOS_ROOT/
 | 1.2.0 | 2025-12-14 | リビルド対応機能追加（Issue #426） - initスキップ機能、Jenkinsパイプラインのresume判定 |
 | 1.3.0 | 2025-01-20 | analyze/execute分離（Issue #444） - executeがresponse-plan.jsonを使用、エージェント実行削除、コスト50%削減 |
 | 1.4.0 | 2025-12-21 | finalize Git commit改善（Issue #458） - `.ai-workflow/pr-{number}/` の削除を `git add .` でステージし、`git status()` で空コミットを回避したうえで `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット・プッシュ |
+| 1.5.0 | 2025-01-21 | コミットスカッシュ機能追加（Issue #450） - `--squash` オプションで複数コミットを1つにまとめる機能、`init` で `base_commit` を記録、`--force-with-lease` による安全な強制プッシュ |

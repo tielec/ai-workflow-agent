@@ -338,6 +338,7 @@ export async function runCli(): Promise<void> {
     .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--skip-cleanup', 'Skip metadata cleanup', false)
     .option('--dry-run', 'Preview mode (do not resolve threads)', false)
+    .option('--squash', 'Squash commits into a single commit', false)
     .action(async (options) => {
       try {
         await handlePRCommentFinalizeCommand(options);

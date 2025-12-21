@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #450**: pr-comment finalize にコミットスカッシュ機能を追加
+  - `pr-comment finalize` コマンドに `--squash` オプションを追加
+  - ワークフローで作成された複数のコミット（init → analyze → execute → finalize）を1つにまとめる機能
+  - `pr-comment init` 実行時に `base_commit`（HEADコミットハッシュ）をメタデータに記録
+  - スカッシュ後のコミットメッセージ形式: `[pr-comment] Resolve PR #XXX review comments (N comments)`
+  - `--force-with-lease` による安全な強制プッシュ
+  - main/master ブランチへの強制プッシュを禁止（ブランチ保護）
+  - 後方互換性: `base_commit` がない旧メタデータでは警告を出してスカッシュをスキップし、他の処理は継続
+  - `--dry-run` モードでスカッシュ内容を事前確認可能
+  - 修正ファイル: `src/types/pr-comment.ts`, `src/types/commands.ts`, `src/core/pr-comment/metadata-manager.ts`, `src/commands/pr-comment/init.ts`, `src/commands/pr-comment/finalize.ts`, `src/main.ts`
+  - テストカバレッジ: 32件のテスト（ユニット28件、統合4件）（100%成功）
+
 - **Issue #435**: Jenkins: auto-issue ジョブで --custom-instruction パラメータが渡せない
   - Jenkins の auto-issue ジョブに `CUSTOM_INSTRUCTION` パラメータを追加
   - パラメータが設定されている場合、CLIの `--custom-instruction` オプションとして渡される
