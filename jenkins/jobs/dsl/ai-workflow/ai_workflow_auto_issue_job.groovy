@@ -3,7 +3,7 @@
  *
  * AIによる自動Issue作成用ジョブ
  * EXECUTION_MODE: auto_issue（固定値、パラメータとして表示しない）
- * パラメータ数: 14個（8個 + APIキー6個）
+ * パラメータ数: 15個（9個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -23,8 +23,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
     pipelineJob(jobName) {
         displayName(jobConfig.displayName)
 
-        description("""\
-            |# AI Workflow - Auto Issue Creation
+        description("""            |# AI Workflow - Auto Issue Creation
             |
             |${descriptionHeader}
             |
@@ -44,7 +43,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |## 注意事項
             |- EXECUTION_MODEは内部的に'auto_issue'に固定されます
             |- ISSUE_URLは不要（リポジトリ探索により自動Issue作成）
-            |- コスト上限: デフォルト \$5.00 USD
+            |- コスト上限: デフォルト $5.00 USD
             """.stripMargin())
 
         // パラメータ定義
@@ -95,6 +94,12 @@ Issue検出カテゴリ
 
 0.0〜1.0の範囲で指定してください。
 値が高いほど厳密に重複判定します（デフォルト: 0.8）。
+            '''.stripIndent().trim())
+
+            textParam('CUSTOM_INSTRUCTION', '', '''
+カスタム指示（任意、最大500文字程度）
+
+エージェントへの追加ガイダンスを指定します。空欄の場合はデフォルト挙動で実行します。
             '''.stripIndent().trim())
 
             // ========================================
@@ -201,7 +206,8 @@ Claude実行モードで使用されます
 genericFolders.each { folder ->
     createJob(
         "AI_Workflow/${folder.name}/${jobConfig.name}",
-        "フォルダ: ${folder.displayName}\nブランチ: ${folder.branch}",
+        "フォルダ: ${folder.displayName}
+ブランチ: ${folder.branch}",
         folder.branch
     )
 }
