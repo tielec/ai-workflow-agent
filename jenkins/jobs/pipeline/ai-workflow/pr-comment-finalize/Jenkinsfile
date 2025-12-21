@@ -109,6 +109,8 @@ pipeline {
                     echo "Repository Name: ${env.REPO_NAME}"
                     echo "GitHub Repository: ${env.GITHUB_REPOSITORY}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    def squashEnabled = (params.SQUASH == null || params.SQUASH)
+                    echo "Squash Commits: ${squashEnabled}"
                 }
             }
         }
@@ -143,10 +145,12 @@ pipeline {
 
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def squashFlag = (params.SQUASH == null || params.SQUASH) ? '--squash' : ''
 
                         sh """
                             node dist/index.js pr-comment finalize \
                                 --pr-url ${params.PR_URL} \
+                                ${squashFlag} \
                                 ${dryRunFlag}
                         """
                     }
