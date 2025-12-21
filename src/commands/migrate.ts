@@ -8,7 +8,8 @@
  *   ai-workflow migrate --sanitize-tokens [--dry-run] [--issue <number>] [--repo <path>]
  */
 
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
 import { logger } from '../utils/logger.js';
@@ -103,13 +104,13 @@ async function loadMetadataFile(
 ): Promise<MetadataFile | null> {
   try {
     // Symlink attack prevention
-    const stats = await fs.lstat(filePath);
+    const stats = await fsp.lstat(filePath);
     if (stats.isSymbolicLink()) {
       logger.warn(`Skipping symbolic link: ${filePath}`);
       return null;
     }
 
-    const content = await fs.readJSON(filePath);
+    const content = JSON.parse(await fsp.readFile(filePath, 'utf-8'));
     const remoteUrl = content?.target_repository?.remote_url;
 
     if (!remoteUrl) {
@@ -162,14 +163,14 @@ async function sanitizeMetadataFile(
   try {
     // Create backup
     const backupPath = `${metadata.filePath}.bak`;
-    await fs.copy(metadata.filePath, backupPath);
+    await fsp.cp(metadata.filePath, backupPath);
     logger.debug(`Backup created: ${backupPath}`);
 
     // Update metadata
     metadata.content.target_repository.remote_url = metadata.sanitizedUrl;
 
     // Save file
-    await fs.writeJSON(metadata.filePath, metadata.content, { spaces: 2 });
+    await fsp.writeFile(metadata.filePath, JSON.stringify(metadata.content, null, 2), 'utf-8');
     logger.info(`  Sanitized and saved: ${metadata.filePath}`);
 
     return true;

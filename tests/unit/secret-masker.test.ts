@@ -9,7 +9,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { SecretMasker } from '../../src/core/secret-masker.js';
 import { logger } from '../../src/utils/logger.js';

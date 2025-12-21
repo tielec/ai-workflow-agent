@@ -10,7 +10,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { simpleGit, SimpleGit } from 'simple-git';
 import { logger } from '../../src/utils/logger.js';
 

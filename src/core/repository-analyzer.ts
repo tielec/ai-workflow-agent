@@ -10,7 +10,8 @@
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
@@ -560,7 +561,7 @@ export class RepositoryAnalyzer {
     const codeFiles: string[] = [];
 
     const collectFiles = async (dir: string): Promise<void> => {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const entries = await fsp.readdir(dir, { withFileTypes: true });
 
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
@@ -595,7 +596,7 @@ export class RepositoryAnalyzer {
               ].includes(ext)
             ) {
               try {
-                const content = await fs.readFile(fullPath, 'utf-8');
+                const content = await fsp.readFile(fullPath, 'utf-8');
                 codeFiles.push(`\n// File: ${relativePath}\n${content}`);
               } catch (error) {
                 logger.warn(`Failed to read file ${relativePath}: ${getErrorMessage(error)}`);
@@ -776,7 +777,7 @@ export class RepositoryAnalyzer {
   private cleanupOutputFile(filePath: string): void {
     try {
       if (fs.existsSync(filePath)) {
-        fs.removeSync(filePath);
+        fs.rmSync(filePath, { force: true });
         logger.debug(`Cleaned up output file: ${filePath}`);
       }
     } catch (error) {

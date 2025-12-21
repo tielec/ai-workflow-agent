@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
@@ -89,7 +89,7 @@ export class ArtifactCleaner {
       }
 
       // 削除実行
-      fs.removeSync(workflowDir);
+      fs.rmSync(workflowDir, { recursive: true, force: true });
       logger.info('Workflow artifacts deleted successfully.');
     } catch (error) {
       const message = getErrorMessage(error);
@@ -177,7 +177,7 @@ export class ArtifactCleaner {
           const dirPath = path.join(phasePath, dir);
           if (fs.existsSync(dirPath)) {
             try {
-              fs.removeSync(dirPath);
+              fs.rmSync(dirPath, { recursive: true, force: true });
               logger.debug(`Removed directory: ${dirPath}`);
             } catch (error) {
               const message = getErrorMessage(error);

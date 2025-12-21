@@ -1,4 +1,5 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import {
@@ -90,7 +91,7 @@ export class PRCommentMetadataManager {
       return this.metadata;
     }
 
-    const content = await fs.readFile(this.metadataPath, 'utf-8');
+    const content = await fsp.readFile(this.metadataPath, 'utf-8');
     this.metadata = JSON.parse(content) as CommentResolutionMetadata;
     return this.metadata;
   }
@@ -99,7 +100,12 @@ export class PRCommentMetadataManager {
    * メタデータが存在するか確認
    */
   public async exists(): Promise<boolean> {
-    return fs.pathExists(this.metadataPath);
+    try {
+      await fsp.access(this.metadataPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -114,8 +120,8 @@ export class PRCommentMetadataManager {
     this.metadata.summary = this.calculateSummary(this.metadata.comments);
 
     const dir = path.dirname(this.metadataPath);
-    await fs.ensureDir(dir);
-    await fs.writeFile(this.metadataPath, JSON.stringify(this.metadata, null, 2), 'utf-8');
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(this.metadataPath, JSON.stringify(this.metadata, null, 2), 'utf-8');
   }
 
   /**
@@ -374,7 +380,7 @@ export class PRCommentMetadataManager {
    */
   public async cleanup(): Promise<void> {
     const dir = path.dirname(this.metadataPath);
-    await fs.remove(dir);
+    await fsp.rm(dir, { recursive: true, force: true });
   }
 
   /**

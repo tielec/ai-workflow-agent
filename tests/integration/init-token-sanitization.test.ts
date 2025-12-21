@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { sanitizeGitUrl } from '../../src/utils/git-url-utils.js';

@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { dirname, join } from 'node:path';
 import { WorkflowState } from './workflow-state.js';
@@ -230,7 +230,7 @@ export class MetadataManager {
   public clear(): void {
     if (fs.existsSync(this.metadataPath)) {
       logger.info(`Clearing metadata: ${this.metadataPath}`);
-      fs.removeSync(this.metadataPath);
+      fs.rmSync(this.metadataPath, { force: true });
     }
 
     removeWorkflowDirectory(this.workflowDir);

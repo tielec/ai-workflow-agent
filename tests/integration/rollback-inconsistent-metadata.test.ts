@@ -34,7 +34,7 @@ jest.mock('fs-extra', () => ({
   ...fsMock,
 }));
 
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 
 describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-208';

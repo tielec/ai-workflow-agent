@@ -15,7 +15,7 @@
 import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { BasePhase } from '../../../src/phases/base-phase.js';
 import type { PhaseExecutionResult } from '../../../src/types.js';
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 
 // fs-extra をモック
 jest.mock('fs-extra');

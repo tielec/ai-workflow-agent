@@ -16,7 +16,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import simpleGit, { type SimpleGit } from 'simple-git';

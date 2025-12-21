@@ -15,7 +15,7 @@
 import { describe, test, expect, jest, afterEach } from '@jest/globals';
 import path from 'node:path';
 import process from 'node:process';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import {
   parseIssueUrl,
   parsePullRequestUrl,

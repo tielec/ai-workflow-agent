@@ -1,4 +1,5 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
@@ -78,10 +79,10 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     const baseDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
     const analyzeDir = path.join(baseDir, 'analyze');
     const outputDir = path.join(baseDir, 'output');
-    await fs.ensureDir(analyzeDir);
-    await fs.ensureDir(outputDir);
+    await fsp.mkdir(analyzeDir, { recursive: true });
+    await fsp.mkdir(outputDir, { recursive: true });
 
-    await fs.writeFile(path.join(outputDir, 'response-plan.md'), markdown, 'utf-8');
+    await fsp.writeFile(path.join(outputDir, 'response-plan.md'), markdown, 'utf-8');
     if (plan.analyzer_agent !== 'fallback') {
       await metadataManager.clearAnalyzerError();
     }
@@ -100,9 +101,12 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     if (repoRoot && prNumber) {
       const baseDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
       const logPath = path.join(baseDir, 'analyze', 'agent_log.md');
-      if (await fs.pathExists(logPath)) {
+      try {
+        await fsp.access(logPath);
         logger.info(`Agent log saved to: ${logPath}`);
         logger.info('Please check the agent log for detailed error information.');
+      } catch {
+        // Log file doesn't exist, skip
       }
     }
 
@@ -131,9 +135,9 @@ async function analyzeComments(
   );
 
   if (!options.dryRun) {
-    await fs.ensureDir(analyzeDir);
-    await fs.ensureDir(outputDir);
-    await fs.writeFile(path.join(analyzeDir, 'prompt.txt'), prompt, 'utf-8');
+    await fsp.mkdir(analyzeDir, { recursive: true });
+    await fsp.mkdir(outputDir, { recursive: true });
+    await fsp.writeFile(path.join(analyzeDir, 'prompt.txt'), prompt, 'utf-8');
   }
 
   if (!agent) {
@@ -165,7 +169,7 @@ async function analyzeComments(
     rawOutput = messages.join('\n');
 
     if (!options.dryRun) {
-      await fs.writeFile(path.join(analyzeDir, 'agent_log.md'), rawOutput, 'utf-8');
+      await fsp.writeFile(path.join(analyzeDir, 'agent_log.md'), rawOutput, 'utf-8');
     }
   } catch (agentError) {
     const fallbackPlan = await handleAgentError(
@@ -220,15 +224,22 @@ async function analyzeComments(
   };
 
   let plan: ResponsePlan;
-  const outputFileExists = await fs.pathExists(outputFilePath);
+  let outputFileExists = false;
+  try {
+    await fsp.access(outputFilePath);
+    outputFileExists = true;
+  } catch {
+    outputFileExists = false;
+  }
+
   if (outputFileExists) {
     try {
-      const fileContent = await fs.readFile(outputFilePath, 'utf-8');
+      const fileContent = await fsp.readFile(outputFilePath, 'utf-8');
       const parsedPlan = JSON.parse(fileContent) as ResponsePlan;
       const missingPrNumber = parsedPlan.pr_number === undefined || parsedPlan.pr_number === null;
       plan = normalizeResponsePlan(parsedPlan, prNumber);
       if (missingPrNumber) {
-        await fs.writeFile(outputFilePath, JSON.stringify(plan, null, 2), 'utf-8');
+        await fsp.writeFile(outputFilePath, JSON.stringify(plan, null, 2), 'utf-8');
       }
       logger.info(`Reading response plan from file: ${outputFilePath}`);
     } catch (fileError) {
@@ -350,7 +361,7 @@ async function buildAnalyzePrompt(
   comments: CommentMetadata[],
   outputFilePath: string,
 ): Promise<string> {
-  const template = await fs.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
+  const template = await fsp.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
   const metadata = await metadataManager.getMetadata();
 
   const commentBlocks: string[] = [];
@@ -372,7 +383,7 @@ async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Prom
   let fileContent = '(No file content)';
   if (filePath) {
     try {
-      fileContent = await fs.readFile(filePath, 'utf-8');
+      fileContent = await fsp.readFile(filePath, 'utf-8');
     } catch {
       fileContent = '(File not found)';
     }

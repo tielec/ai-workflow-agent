@@ -10,7 +10,7 @@
  *   npm run monitor:tokens
  */
 
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'path';
 import { glob } from 'glob';
 import logger from '../src/utils/logger.js';

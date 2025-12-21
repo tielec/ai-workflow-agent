@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { MetadataManager } from './metadata-manager.js';
 import { PhaseName, PhaseStatus } from '../types.js';

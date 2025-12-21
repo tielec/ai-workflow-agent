@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
 import process from 'node:process';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 
 import { WorkflowState } from '../core/workflow-state.js';
 import { getRepoRoot } from '../core/repository-utils.js';

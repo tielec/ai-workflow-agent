@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
