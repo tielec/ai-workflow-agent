@@ -213,7 +213,11 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
 **実行内容**:
 1. メタデータから `completed` ステータスのコメントを取得
 2. GitHub GraphQL APIを使用してスレッドを解決（Resolve）
-3. メタデータをクリーンアップ
+3. ワークフロー成果物（`.ai-workflow/pr-{number}/`ディレクトリ）をクリーンアップ
+4. 削除された成果物をGit操作で反映
+   - `git add .` ですべての変更（削除を含む）をステージング
+   - `git.status()` の `files.length > 0` を確認し、変更があれば `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット、変更がなければ `No changes to commit.` を出力してコミット・プッシュ処理をスキップ
+   - `metadata.pr.branch` で判別した PR の head ブランチに `git push('origin', 'HEAD:<branch>')` してリモートへ反映
 
 **出力例**:
 ```
@@ -225,7 +229,14 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run]
   - tests/parser.test.ts:15 (reply)
 
 🧹 メタデータをクリーンアップしました
+📝 ワークフロー成果物の削除をステージ・コミット・プッシュしました
+📋 Git status: 3 件の変更が検出されました
+✍️ コミット: `[pr-comment] Finalize PR #123: Clean up workflow artifacts (3 threads resolved)`
+🔁 `origin HEAD:feature/test-feature` に push しました
+
 ```
+
+> `No changes to commit.` は変更がない場合に表示されるログで、コミット・プッシュはスキップされます。
 
 ## メタデータ構造
 
@@ -661,3 +672,4 @@ $REPOS_ROOT/
 | 1.1.0 | 2025-01-20 | Jenkins統合セクション追加（Issue #393） |
 | 1.2.0 | 2025-12-14 | リビルド対応機能追加（Issue #426） - initスキップ機能、Jenkinsパイプラインのresume判定 |
 | 1.3.0 | 2025-01-20 | analyze/execute分離（Issue #444） - executeがresponse-plan.jsonを使用、エージェント実行削除、コスト50%削減 |
+| 1.4.0 | 2025-12-21 | finalize Git commit改善（Issue #458） - `.ai-workflow/pr-{number}/` の削除を `git add .` でステージし、`git status()` で空コミットを回避したうえで `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット・プッシュ |
