@@ -97,22 +97,32 @@ export async function handlePRCommentFinalizeCommand(
       await git.addConfig('user.name', gitUserName);
       await git.addConfig('user.email', gitUserEmail);
 
-      // メタデータファイルをコミット
-      const metadataPath = metadataManager.getMetadataPath();
-      const relativePath = metadataPath.replace(`${repoRoot}/`, '').replace(/\\/g, '/');
-
       logger.info('Committing PR comment finalization...');
-      await git.add(relativePath);
-      await git.commit(`[pr-comment] Finalize PR #${prNumber} comment resolution (${resolvedCount} threads resolved)`);
+      // すべての変更をステージ（削除されたファイルを含む）
+      await git.add('.');
+      const status = await git.status();
+      logger.debug(`Git status reports ${status.files.length} tracked changes.`);
+      if (status.files.length > 0) {
+        await git.commit(
+          `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)`,
+        );
 
-      // PRのheadブランチにプッシュ
-      const metadata = await metadataManager.load();
-      const prBranch = metadata.pr.branch;
+        // PRのheadブランチにプッシュ
+        const metadata = await metadataManager.load();
+        const prBranch = metadata.pr.branch;
 
-      logger.debug(`Pushing to PR branch: ${prBranch}`);
-      // 現在のHEADをリモートのprBranchにpush
-      await git.push('origin', `HEAD:${prBranch}`);
-      logger.info('Finalization committed and pushed to remote.');
+        if (!prBranch) {
+          logger.error('PR branch information is missing; cannot push finalized changes.');
+          return;
+        }
+
+        logger.debug(`Pushing to PR branch: ${prBranch}`);
+        // 現在のHEADをリモートのprBranchにpush
+        await git.push('origin', `HEAD:${prBranch}`);
+        logger.info('Finalization committed and pushed to remote.');
+      } else {
+        logger.info('No changes to commit.');
+      }
     }
   } catch (error) {
     logger.error(`Failed to finalize: ${getErrorMessage(error)}`);
