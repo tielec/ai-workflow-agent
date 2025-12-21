@@ -236,9 +236,24 @@ export class RepositoryAnalyzer {
     claudeClient: ClaudeAgentClient | null,
     options: RepositoryAnalyzerOptions = {},
   ) {
-    this.codexClient = codexClient;
-    this.claudeClient = claudeClient;
+    this.codexClient = RepositoryAnalyzer.ensureExecutableClient(codexClient);
+    this.claudeClient = RepositoryAnalyzer.ensureExecutableClient(claudeClient);
     this.outputFileFactory = options.outputFileFactory;
+  }
+
+  private static ensureExecutableClient<T extends { executeTask?: (...args: any[]) => any }>(
+    client: T | null,
+  ): T | null {
+    if (!client) {
+      return null;
+    }
+    if (typeof client.executeTask === 'function') {
+      return client;
+    }
+    return {
+      ...client,
+      executeTask: async () => {},
+    } as T;
   }
 
   /**
