@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import crypto from 'node:crypto';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';

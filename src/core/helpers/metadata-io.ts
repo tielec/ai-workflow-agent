@@ -4,7 +4,7 @@
  * メタデータファイルI/O操作を提供するヘルパーモジュール
  */
 
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
 import { logger } from '../../utils/logger.js';
@@ -54,7 +54,7 @@ export function backupMetadataFile(metadataPath: string): string {
 export function removeWorkflowDirectory(workflowDir: string): void {
   if (fs.existsSync(workflowDir)) {
     logger.info(`Removing workflow directory: ${workflowDir}`);
-    fs.removeSync(workflowDir);
+    fs.rmSync(workflowDir, { recursive: true, force: true });
   }
 }
 
