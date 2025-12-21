@@ -8,7 +8,7 @@
  * - 利用量メトリクスの抽出・記録
  */
 
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
@@ -215,7 +215,7 @@ export class AgentExecutor {
     const agentLogFile = path.join(logDir, 'agent_log.md');
 
     // ディレクトリ確保
-    fs.ensureDirSync(logDir);
+    fs.mkdirSync(logDir, { recursive: true });
 
     // プロンプトファイルの保存
     fs.writeFileSync(promptFile, prompt, 'utf-8');
