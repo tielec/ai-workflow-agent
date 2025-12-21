@@ -1,7 +1,7 @@
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import type { WorkflowMetadata } from '../../src/types.js';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 

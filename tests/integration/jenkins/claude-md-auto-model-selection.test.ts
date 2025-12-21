@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it, beforeAll } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'path';
 
 describe('Integration: CLAUDE.md AUTO_MODEL_SELECTION documentation (Issue #379)', () => {

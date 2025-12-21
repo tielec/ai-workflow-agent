@@ -15,7 +15,7 @@ import { TestingPhase } from '../../src/phases/testing.js';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 import { mockDeep } from 'jest-mock-extended';
-import type * as FsExtra from 'fs-extra';
+import type * as FsExtra from 'node:fs';
 
 // jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
 const mockFs = mockDeep<typeof FsExtra>();

@@ -18,17 +18,17 @@ import type { CleanupCommandOptions } from '../../../src/commands/cleanup.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
 
-// fs-extraのモック - モック化してからインポート
-jest.mock('fs-extra', () => ({
+// node:fs のモック - モック化してからインポート
+jest.mock('node:fs', () => ({
   existsSync: jest.fn(),
-  ensureDirSync: jest.fn(),
+  mkdirSync: jest.fn(),
   writeFileSync: jest.fn(),
   readFileSync: jest.fn(),
   statSync: jest.fn(),
   readdirSync: jest.fn(),
 }));
 
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 
 describe('Cleanup コマンド - parsePhaseRange() 正常系', () => {
   // =============================================================================

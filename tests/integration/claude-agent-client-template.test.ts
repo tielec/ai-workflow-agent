@@ -1,5 +1,5 @@
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import * as path from 'path';
 import { jest } from '@jest/globals';
 

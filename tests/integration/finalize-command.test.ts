@@ -78,7 +78,7 @@ jest.mock('../../src/core/github-client.js', () => ({
   })),
 }));
 
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { findWorkflowMetadata } from '../../src/core/repository-utils.js';
 import { GitManager } from '../../src/core/git-manager.js';
 import { ArtifactCleaner } from '../../src/phases/cleanup/artifact-cleaner.js';

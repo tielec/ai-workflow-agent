@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../../src/utils/logger.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
