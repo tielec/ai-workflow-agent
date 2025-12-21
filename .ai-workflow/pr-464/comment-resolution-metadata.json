@@ -63,12 +63,12 @@
     "total_cost_usd": 0
   },
   "created_at": "2025-12-21T11:34:40.971Z",
-  "updated_at": "2025-12-21T11:34:40.971Z",
-  "analyze_completed_at": null,
+  "updated_at": "2025-12-21T11:39:05.583Z",
+  "analyze_completed_at": "2025-12-21T11:39:05.579Z",
   "execute_completed_at": null,
-  "response_plan_path": null,
+  "response_plan_path": "/tmp/ai-workflow-repos-56-921673b8/ai-workflow-agent/.ai-workflow/pr-464/output/response-plan.md",
   "execution_result_path": null,
-  "analyzer_agent": null,
+  "analyzer_agent": "codex",
   "analyzer_error": null,
   "analyzer_error_type": null
 }
