@@ -23,8 +23,8 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
     pipelineJob(jobName) {
         displayName(jobConfig.displayName)
 
-        description("""            |# AI Workflow - Auto Issue Creation
-            |
+        description("""\
+            |# AI Workflow - Auto Issue Creation
             |${descriptionHeader}
             |
             |## 概要
