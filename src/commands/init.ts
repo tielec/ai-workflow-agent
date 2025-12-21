@@ -1,6 +1,6 @@
 import path from 'node:path';
 import process from 'node:process';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import simpleGit from 'simple-git';
 
 import { logger } from '../utils/logger.js';
@@ -295,7 +295,7 @@ export async function handleInitCommand(
     await git.pull('origin', branchName, { '--no-rebase': null });
     logger.info('Successfully pulled latest changes.');
 
-    fs.ensureDirSync(workflowDir);
+    fs.mkdirSync(workflowDir, { recursive: true });
 
     if (fs.existsSync(metadataPath)) {
       logger.info('Workflow already exists. Migrating metadata schema if required...');
@@ -398,7 +398,7 @@ export async function handleInitCommand(
       logger.info(`Created and switched to new branch: ${branchName}`);
     }
 
-    fs.ensureDirSync(workflowDir);
+    fs.mkdirSync(workflowDir, { recursive: true });
     logger.info('Creating metadata...');
   }
 

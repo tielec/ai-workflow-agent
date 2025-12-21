@@ -1,4 +1,5 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import simpleGit from 'simple-git';
@@ -88,7 +89,7 @@ export async function handlePRCommentExecuteCommand(
 
     let responsePlan: ResponsePlan;
     try {
-      const responsePlanContent = await fs.readFile(responsePlanPath, 'utf-8');
+      const responsePlanContent = await fsp.readFile(responsePlanPath, 'utf-8');
       responsePlan = JSON.parse(responsePlanContent);
       logger.info(`Loaded response plan with ${responsePlan.comments.length} comment(s)`);
     } catch (error) {
