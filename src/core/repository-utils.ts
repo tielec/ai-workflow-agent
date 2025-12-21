@@ -5,7 +5,6 @@ import process from 'node:process';
 import os from 'node:os';
 import fs from 'fs-extra';
 import simpleGit from 'simple-git';
-import { createMockableFunction, type MockableFunction } from '../utils/mockable-function.js';
 
 import type { IssueInfo } from '../types/commands.js';
 
@@ -81,38 +80,6 @@ export function parsePullRequestUrl(prUrl: string): PullRequestInfo {
  * @returns ローカルリポジトリパス
  * @throws URL形式が不正、またはリポジトリが見つからない場合はエラー
  */
-const resolveLocalRepoPathImpl = (repoName: string): string => {
-  const candidatePaths: string[] = [];
-
-  const reposRoot = config.getReposRoot();
-  if (reposRoot) {
-    candidatePaths.push(path.join(reposRoot, repoName));
-  }
-
-  const homeDir = config.getHomeDir();
-  candidatePaths.push(
-    path.join(homeDir, 'TIELEC', 'development', repoName),
-    path.join(homeDir, 'projects', repoName),
-    path.join(process.cwd(), '..', repoName),
-  );
-
-  for (const candidatePath of candidatePaths) {
-    const resolvedPath = path.resolve(candidatePath);
-    const gitPath = path.join(resolvedPath, '.git');
-
-    if (fs.existsSync(resolvedPath) && fs.existsSync(gitPath)) {
-      return resolvedPath;
-    }
-  }
-
-  throw new Error(
-    `Repository '${repoName}' not found.\nPlease set REPOS_ROOT environment variable or clone the repository.`,
-  );
-};
-
-export const resolveLocalRepoPath: MockableFunction<typeof resolveLocalRepoPathImpl> =
-  createMockableFunction(resolveLocalRepoPathImpl);
-
 export function resolveRepoPathFromPrUrl(prUrl: string): string {
   const prInfo = parsePullRequestUrl(prUrl);
   return resolveLocalRepoPath(prInfo.repo);
@@ -124,6 +91,39 @@ export function resolveRepoPathFromPrUrl(prUrl: string): string {
  * @returns ローカルリポジトリパス
  * @throws リポジトリが見つからない場合はエラー
  */
+export function resolveLocalRepoPath(repoName: string): string {
+  const candidatePaths: string[] = [];
+
+  // 1. 環境変数REPOS_ROOTが設定されている場合は優先的に使用
+  const reposRoot = config.getReposRoot();
+  if (reposRoot) {
+    candidatePaths.push(path.join(reposRoot, repoName));
+  }
+
+  // 2. フォールバック候補パス
+  const homeDir = config.getHomeDir();
+  candidatePaths.push(
+    path.join(homeDir, 'TIELEC', 'development', repoName),
+    path.join(homeDir, 'projects', repoName),
+    path.join(process.cwd(), '..', repoName),
+  );
+
+  // 3. 各候補パスを順番に確認
+  for (const candidatePath of candidatePaths) {
+    const resolvedPath = path.resolve(candidatePath);
+    const gitPath = path.join(resolvedPath, '.git');
+
+    if (fs.existsSync(resolvedPath) && fs.existsSync(gitPath)) {
+      return resolvedPath;
+    }
+  }
+
+  // 4. すべての候補で見つからない場合はエラー
+  throw new Error(
+    `Repository '${repoName}' not found.\nPlease set REPOS_ROOT environment variable or clone the repository.`,
+  );
+}
+
 /**
  * Issue番号から対応するメタデータを探索
  * @param issueNumber - Issue番号（例: "123"）

@@ -316,8 +316,6 @@ export interface ResponsePlanComment {
   body?: string;
   type: ResolutionType;
   confidence: ConfidenceLevel;
-  input_tokens?: number;
-  output_tokens?: number;
   rationale?: string;
   proposed_changes?: ProposedChange[];
   reply_message: string;

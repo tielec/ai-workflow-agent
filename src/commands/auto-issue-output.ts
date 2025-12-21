@@ -3,7 +3,6 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
-import { createMockableFunction, type MockableFunction } from '../utils/mockable-function.js';
 import type {
   AutoIssueExecutionInfo,
   AutoIssueIssueEntry,
@@ -19,10 +18,10 @@ interface BuildPayloadParams {
 /**
  * auto-issueコマンドの結果からJSONペイロードを構築
  */
-const buildAutoIssueJsonPayloadImpl = ({
+export function buildAutoIssueJsonPayload({
   execution,
   results,
-}: BuildPayloadParams): AutoIssueJsonOutput => {
+}: BuildPayloadParams): AutoIssueJsonOutput {
   const issues: AutoIssueIssueEntry[] = results.map((result) => ({
     success: result.success,
     title: result.title ?? 'Unknown title',
@@ -44,18 +43,15 @@ const buildAutoIssueJsonPayloadImpl = ({
     summary,
     issues,
   };
-};
-
-export const buildAutoIssueJsonPayload: MockableFunction<typeof buildAutoIssueJsonPayloadImpl> =
-  createMockableFunction(buildAutoIssueJsonPayloadImpl);
+}
 
 /**
  * JSONペイロードをファイルへ書き出し
  */
-const writeAutoIssueOutputFileImpl = async (
+export async function writeAutoIssueOutputFile(
   filePath: string,
   payload: AutoIssueJsonOutput,
-): Promise<void> => {
+): Promise<void> {
   const directory = path.dirname(filePath);
   const serialized = `${JSON.stringify(payload, null, 2)}\n`;
 
@@ -68,7 +64,4 @@ const writeAutoIssueOutputFileImpl = async (
     logger.error(`Failed to write auto-issue results to ${filePath}: ${message}`);
     throw new Error(`Failed to write auto-issue output file (${filePath}): ${message}`);
   }
-};
-
-export const writeAutoIssueOutputFile: MockableFunction<typeof writeAutoIssueOutputFileImpl> =
-  createMockableFunction(writeAutoIssueOutputFileImpl);
+}

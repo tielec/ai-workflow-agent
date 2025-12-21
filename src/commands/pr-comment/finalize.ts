@@ -97,29 +97,22 @@ export async function handlePRCommentFinalizeCommand(
       await git.addConfig('user.name', gitUserName);
       await git.addConfig('user.email', gitUserEmail);
 
-      try {
-        logger.info('Committing PR comment finalization...');
-        await git.add('.');
+      // メタデータファイルをコミット
+      const metadataPath = metadataManager.getMetadataPath();
+      const relativePath = metadataPath.replace(`${repoRoot}/`, '').replace(/\\/g, '/');
 
-        const status = await git.status();
-        if (status.files.length === 0) {
-          logger.info('No changes to commit.');
-          return;
-        }
+      logger.info('Committing PR comment finalization...');
+      await git.add(relativePath);
+      await git.commit(`[pr-comment] Finalize PR #${prNumber} comment resolution (${resolvedCount} threads resolved)`);
 
-        const commitMessage = `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)`;
-        await git.commit(commitMessage);
+      // PRのheadブランチにプッシュ
+      const metadata = await metadataManager.load();
+      const prBranch = metadata.pr.branch;
 
-        const metadata = await metadataManager.load();
-        const prBranch = metadata.pr.branch;
-
-        logger.debug(`Pushing to PR branch: ${prBranch}`);
-        await git.push('origin', `HEAD:${prBranch}`);
-        logger.info('Finalization committed and pushed to remote.');
-      } catch (error) {
-        logger.error(`Git operation failed: ${getErrorMessage(error)}`);
-        logger.error('Finalization may be incomplete. Please check Git status manually.');
-      }
+      logger.debug(`Pushing to PR branch: ${prBranch}`);
+      // 現在のHEADをリモートのprBranchにpush
+      await git.push('origin', `HEAD:${prBranch}`);
+      logger.info('Finalization committed and pushed to remote.');
     }
   } catch (error) {
     logger.error(`Failed to finalize: ${getErrorMessage(error)}`);

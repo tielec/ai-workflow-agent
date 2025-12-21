@@ -63,19 +63,6 @@ function createMockMetadataManager(completedSteps: StepName[] = [], retryCount =
       metadata.phases[phase].retry_count = currentRetryCount;
       return currentRetryCount;
     }),
-    getRollbackContext: jest.fn<any>((phase: PhaseName) => {
-      return metadata.phases[phase]?.rollback_context ?? null;
-    }),
-    clearRollbackContext: jest.fn<any>((phase: PhaseName) => {
-      if (metadata.phases[phase]) {
-        metadata.phases[phase]!.rollback_context = null;
-      }
-    }),
-    updatePhaseStatus: jest.fn<any>((phase: PhaseName, status: PhaseStatus) => {
-      if (metadata.phases[phase]) {
-        metadata.phases[phase]!.status = status;
-      }
-    }),
   };
 }
 

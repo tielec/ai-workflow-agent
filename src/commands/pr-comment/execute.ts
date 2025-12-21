@@ -91,19 +91,6 @@ export async function handlePRCommentExecuteCommand(
       const responsePlanContent = await fs.readFile(responsePlanPath, 'utf-8');
       responsePlan = JSON.parse(responsePlanContent);
       logger.info(`Loaded response plan with ${responsePlan.comments.length} comment(s)`);
-      const planInputTokens = responsePlan.comments.reduce(
-        (sum, comment) => sum + (comment.input_tokens ?? 0),
-        0,
-      );
-      const planOutputTokens = responsePlan.comments.reduce(
-        (sum, comment) => sum + (comment.output_tokens ?? 0),
-        0,
-      );
-      await metadataManager.updateCostTracking(
-        planInputTokens,
-        planOutputTokens,
-        (planInputTokens + planOutputTokens) * 0.0000025,
-      );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         logger.error('response-plan.json not found. Run "pr-comment analyze" first.');
