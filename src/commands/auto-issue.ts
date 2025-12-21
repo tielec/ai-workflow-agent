@@ -24,8 +24,13 @@ import type {
   IssueCreationResult,
   RawAutoIssueOptions,
 } from '../types/auto-issue.js';
-import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
+import * as autoIssueOutput from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
+import { createMockableFunction } from '../utils/mockable-function.js';
+
+export const createOctokitClient = createMockableFunction(
+  (githubToken: string | null | undefined) => new Octokit({ auth: githubToken ?? undefined }),
+);
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -67,7 +72,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
     const githubRepository = config.getGitHubRepository();
-    if (!githubRepository) {
+    if (githubRepository == null) {
       throw new Error('GITHUB_REPOSITORY environment variable is required.');
     }
     logger.info(`GitHub repository: ${githubRepository}`);
@@ -110,7 +115,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
     // 8. GitHubクライアントを初期化
     const githubToken = config.getGitHubToken();
-    const octokit = new Octokit({ auth: githubToken });
+    const octokit = createOctokitClient(githubToken);
 
     // 9. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
     const analyzer = new RepositoryAnalyzer(codexClient, claudeClient);
@@ -391,8 +396,8 @@ async function exportJsonIfRequested(
   };
 
   try {
-    const payload = buildAutoIssueJsonPayload({ execution, results });
-    await writeAutoIssueOutputFile(options.outputFile, payload);
+    const payload = autoIssueOutput.buildAutoIssueJsonPayload({ execution, results });
+    await autoIssueOutput.writeAutoIssueOutputFile(options.outputFile, payload);
     logger.info(`auto-issue JSON output written to ${options.outputFile}`);
   } catch (error) {
     logger.error(`Failed to write auto-issue JSON output: ${getErrorMessage(error)}`);
@@ -539,6 +544,9 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     const trimmed = customInstructionRaw.trim();
     if (!trimmed) {
       throw new Error('custom-instruction must not be empty.');
+    }
+    if (trimmed.length > 500) {
+      throw new Error('custom-instruction must be 500 characters or fewer.');
     }
     customInstruction = trimmed;
   }

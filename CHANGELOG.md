@@ -91,6 +91,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #449**: PR comment finalize: Git削除処理の修正で中間生成物が確実にコミット・プッシュされるよう改善
+  - `pr-comment finalize` コマンドが中間生成物の削除をGitにコミットしない問題を修正
+  - `src/commands/pr-comment/finalize.ts` のGit操作フローを強化：
+    - `git add('.')` ですべての変更（削除を含む）を確実にステージング
+    - `git status` による変更確認を追加、変更なしの場合はコミット/プッシュをスキップ
+    - コミットメッセージに「Clean up workflow artifacts」を含めて削除処理を明記
+  - Git操作全体を try/catch で包み、失敗時は詳細なエラーメッセージを出力してプロセス継続
+  - テストカバレッジ: ユニット3件、統合1件（100%成功）
+  - 修正により、`.ai-workflow/pr-{NUM}/` ディレクトリの削除がPRから確実に反映されるよう改善
 - **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
   - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
   - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化

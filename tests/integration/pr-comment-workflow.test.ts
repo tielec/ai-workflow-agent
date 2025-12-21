@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import fs from 'fs-extra';
+import type { ResponsePlan } from '../../src/types/pr-comment.js';
 import { logger } from '../../src/utils/logger.js';
 
 // Define mock objects first
@@ -39,6 +41,8 @@ const simpleGitMock = jest.fn();
 const mockGetRepoRoot = jest.fn();
 const resolveRepoPathFromPrUrlMock = jest.fn();
 const parsePullRequestUrlMock = jest.fn();
+let responsePlan: ResponsePlan;
+let readFileSpy: jest.SpyInstance;
 
 // Use unstable_mockModule for ESM compatibility
 jest.unstable_mockModule('../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -73,7 +77,14 @@ const { handlePRCommentFinalizeCommand } = await import('../../src/commands/pr-c
 const { handlePRCommentInitCommand } = await import('../../src/commands/pr-comment/init.js');
 
 describe('Integration: pr-comment workflow', () => {
+  let processExitSpy: jest.SpyInstance;
+
   beforeEach(() => {
+    // Mock process.exit to prevent test termination
+    processExitSpy = jest.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit() called');
+    });
+
     // Reset all mocks
     metadataManagerConstructorMock.mockReset();
     metadataManagerConstructorMock.mockImplementation(() => metadataManagerMock);
@@ -145,6 +156,25 @@ describe('Integration: pr-comment workflow', () => {
     githubClientMock.commentClient.getUnresolvedPRReviewComments.mockResolvedValue([]);
     githubClientMock.commentClient.getPRReviewComments.mockResolvedValue([]);
     githubClientMock.commentClient.getPendingReviewComments.mockResolvedValue([]);
+
+    responsePlan = {
+      pr_number: 123,
+      analyzed_at: '2025-01-20T00:00:00Z',
+      analyzer_agent: 'test-agent',
+      comments: [],
+    };
+    readFileSpy = jest.spyOn(fs, 'readFile').mockImplementation(async (filePath) => {
+      const file = String(filePath);
+      if (file.endsWith('response-plan.json')) {
+        return JSON.stringify(responsePlan);
+      }
+      throw new Error(`Unexpected fs.readFile call: ${file}`);
+    });
+  });
+
+  afterEach(() => {
+    readFileSpy.mockRestore();
+    processExitSpy.mockRestore();
   });
 
   it('processes pending comments, applies changes, and posts replies', async () => {
@@ -187,6 +217,25 @@ describe('Integration: pr-comment workflow', () => {
       id: 900,
       html_url: 'https://example.com/comment/900',
     });
+
+    responsePlan = {
+      pr_number: 123,
+      analyzed_at: '2025-01-20T00:00:00Z',
+      analyzer_agent: 'test-agent',
+      comments: [
+        {
+          comment_id: '100',
+          type: 'code_change',
+          confidence: 'high',
+          input_tokens: 100,
+          output_tokens: 50,
+          proposed_changes: [
+            { action: 'modify', file: 'src/core/config.ts', changes: 'export {}' },
+          ],
+          reply_message: 'Resolved',
+        },
+      ],
+    };
 
     await handlePRCommentExecuteCommand({ pr: '123' } as any);
 
@@ -252,6 +301,25 @@ describe('Integration: pr-comment workflow', () => {
       html_url: 'https://example.com/comment/905',
     });
 
+    responsePlan = {
+      pr_number: 123,
+      analyzed_at: '2025-01-20T00:00:00Z',
+      analyzer_agent: 'test-agent',
+      comments: [
+        {
+          comment_id: '500',
+          type: 'code_change',
+          confidence: 'high',
+          input_tokens: 10,
+          output_tokens: 5,
+          proposed_changes: [
+            { action: 'modify', file: 'src/core/resume.ts', changes: 'export {}' },
+          ],
+          reply_message: 'Resumed and completed',
+        },
+      ],
+    };
+
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
 
     await handlePRCommentExecuteCommand({ pr: '123' } as any);
@@ -269,6 +337,7 @@ describe('Integration: pr-comment workflow', () => {
     warnSpy.mockRestore();
   });
 
+  // Verifies the finalize workflow resolves completed comments and commits/pushes cleanup metadata.
   it('finalizes completed comments and cleans up metadata', async () => {
     metadataManagerMock.getCompletedComments.mockResolvedValue([
       {
@@ -281,12 +350,30 @@ describe('Integration: pr-comment workflow', () => {
     ]);
 
     githubClientMock.commentClient.resolveReviewThread.mockResolvedValue(true);
+    const gitInstance = {
+      add: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValue({ files: [{ path: '.ai-workflow/pr-123/metadata.json', working_dir: 'D' }] }),
+      commit: jest.fn().mockResolvedValue(undefined),
+      push: jest.fn().mockResolvedValue(undefined),
+      addConfig: jest.fn().mockResolvedValue(undefined),
+    };
+    simpleGitMock.mockReturnValue(gitInstance);
 
     await handlePRCommentFinalizeCommand({ pr: '123', skipCleanup: false } as any);
 
     expect(githubClientMock.commentClient.resolveReviewThread).toHaveBeenCalledWith('PRRT_abc');
     expect(metadataManagerMock.setResolved).toHaveBeenCalledWith('200');
     expect(metadataManagerMock.cleanup).toHaveBeenCalledTimes(1);
+    expect(gitInstance.add).toHaveBeenCalledWith('.');
+    expect(gitInstance.status).toHaveBeenCalled();
+    expect(gitInstance.commit).toHaveBeenCalledWith(
+      expect.stringContaining('Clean up workflow artifacts'),
+    );
+    expect(gitInstance.push).toHaveBeenCalledWith('origin', 'HEAD:feature/branch');
+    expect(gitInstance.addConfig).toHaveBeenCalledWith('user.name', expect.any(String));
+    expect(gitInstance.addConfig).toHaveBeenCalledWith('user.email', expect.any(String));
     expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repo', 123);
     expect(mockGetRepoRoot).toHaveBeenCalledTimes(1);
     expect(resolveRepoPathFromPrUrlMock).not.toHaveBeenCalled();
