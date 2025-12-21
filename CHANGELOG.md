@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #435**: Jenkins: auto-issue ジョブで --custom-instruction パラメータが渡せない
+  - Jenkins の auto-issue ジョブに `CUSTOM_INSTRUCTION` パラメータを追加
+  - パラメータが設定されている場合、CLIの `--custom-instruction` オプションとして渡される
+  - パラメータが空の場合、オプション自体は渡されない（後方互換性を維持）
+  - Validate Parameters ステージでパラメータ値をログ出力
+  - シェルインジェクション対策としてダブルクォートでエスケープ処理
+  - 文字数制限（500文字）はCLI側のInstructionValidatorで処理
+  - 修正ファイル: `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile`
+  - テストカバレッジ: 8件の統合テスト（100%成功）
+
 - **Issue #383**: PRコメント自動対応機能の実装
   - 新規 `pr-comment` CLIコマンド群で、PRレビューコメントを検出し、AIエージェントが自動対応
   - **3つの新規コマンド**:

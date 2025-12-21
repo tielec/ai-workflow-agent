@@ -3,7 +3,7 @@
  *
  * AIによる自動Issue作成用ジョブ
  * EXECUTION_MODE: auto_issue（固定値、パラメータとして表示しない）
- * パラメータ数: 14個（8個 + APIキー6個）
+ * パラメータ数: 15個（9個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -25,7 +25,6 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
 
         description("""\
             |# AI Workflow - Auto Issue Creation
-            |
             |${descriptionHeader}
             |
             |## 概要
@@ -95,6 +94,12 @@ Issue検出カテゴリ
 
 0.0〜1.0の範囲で指定してください。
 値が高いほど厳密に重複判定します（デフォルト: 0.8）。
+            '''.stripIndent().trim())
+
+            textParam('CUSTOM_INSTRUCTION', '', '''
+カスタム指示（任意、最大500文字程度）
+
+エージェントへの追加ガイダンスを指定します。空欄の場合はデフォルト挙動で実行します。
             '''.stripIndent().trim())
 
             // ========================================
