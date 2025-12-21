@@ -27,7 +27,7 @@ pipeline {
             label 'ec2-fleet'
             dir '.'
             filename 'Dockerfile'
-            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+            args "-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 
@@ -155,7 +155,32 @@ pipeline {
             }
         }
 
+        stage('Check Resume') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Check Resume"
+                    echo "========================================="
+
+                    env.SHOULD_INIT = 'true'
+                    def metadataRelPath = ".ai-workflow/pr-${env.PR_NUMBER}/comment-resolution-metadata.json"
+
+                    dir("${env.REPOS_ROOT}/${env.REPO_NAME}") {
+                        def metadataExists = fileExists(metadataRelPath)
+                        env.SHOULD_INIT = metadataExists ? 'false' : 'true'
+                        echo "Metadata path: ${metadataRelPath}"
+                        echo "Metadata exists: ${metadataExists}"
+                    }
+
+                    echo "PR Comment Init will ${env.SHOULD_INIT == 'true' ? 'run' : 'be skipped'}"
+                }
+            }
+        }
+
         stage('PR Comment Init') {
+            when {
+                expression { env.SHOULD_INIT == 'true' }
+            }
             steps {
                 script {
                     echo "========================================="
@@ -168,6 +193,30 @@ pipeline {
                         sh """
                             node dist/index.js pr-comment init \
                                 --pr-url ${params.PR_URL} \
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('PR Comment Analyze') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: PR Comment Analyze"
+                    echo "========================================="
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+
+                        sh """
+                            node dist/index.js pr-comment analyze \
+                                --pr-url ${params.PR_URL} \
+                                --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag}
                         """
                     }
