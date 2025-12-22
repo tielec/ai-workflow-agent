@@ -9,7 +9,20 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+
+// Mock fs-extra before importing
+jest.mock('fs-extra', () => ({
+  ...jest.requireActual('fs-extra'),
+  existsSync: jest.fn(() => false),
+  mkdirSync: jest.fn(),
+  removeSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  readFileSync: jest.fn(() => ''),
+  ensureDirSync: jest.fn(),
+  chmodSync: jest.fn(),
+}));
+
+import * as fs from 'fs-extra';
 import path from 'node:path';
 import { BasePhase } from '../../../src/phases/base-phase.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
@@ -59,6 +72,12 @@ class TestPhase extends BasePhase {
   }
 }
 
+function ensureDirectory(dir: string): void {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
 /**
  * Setup file system mock with limited scope.
  *
@@ -86,7 +105,7 @@ describe('BasePhase Fallback Mechanism (Issue #113)', () => {
   beforeEach(() => {
     // Setup test working directory
     testWorkingDir = path.join(process.cwd(), '.test-tmp', 'base-phase-fallback');
-    fs.ensureDirSync(testWorkingDir);
+    ensureDirectory(testWorkingDir);
 
     // Mock MetadataManager
     mockMetadata = {
@@ -465,8 +484,8 @@ Additional content to meet validation requirements.
         // Given: Agent log exists with valid content
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
         const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
-        fs.ensureDirSync(executeDir);
-        fs.ensureDirSync(outputDir);
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
 
         const validLog = `
 # プロジェクト計画書 - Issue #113
@@ -501,7 +520,7 @@ Additional content to meet validation requirements.
       it('should return error when agent log does not exist', async () => {
         // Given: Agent log does not exist
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
-        fs.ensureDirSync(executeDir);
+        ensureDirectory(executeDir);
         // Note: agent_log.md is NOT created
 
         // When: Handling missing output file
@@ -519,7 +538,7 @@ Additional content to meet validation requirements.
       it('should call revise() when log extraction fails', async () => {
         // Given: Agent log exists but contains invalid content
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
-        fs.ensureDirSync(executeDir);
+        ensureDirectory(executeDir);
 
         const invalidLog = `
 Agent execution started.
@@ -546,7 +565,7 @@ Agent finished.
       it('should return error when revise() method is not implemented', async () => {
         // Given: Agent log with invalid content and no revise() method
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
-        fs.ensureDirSync(executeDir);
+        ensureDirectory(executeDir);
 
         const invalidLog = `Agent output without valid content`;
         fs.writeFileSync(path.join(executeDir, 'agent_log.md'), invalidLog, 'utf-8');
@@ -567,21 +586,22 @@ Agent finished.
       it('should handle file read exceptions gracefully', async () => {
         // Given: Agent log path exists but reading throws error
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
-        fs.ensureDirSync(executeDir);
-        fs.writeFileSync(path.join(executeDir, 'agent_log.md'), 'content', 'utf-8');
+        ensureDirectory(executeDir);
+        const agentLogPath = path.join(executeDir, 'agent_log.md');
+        fs.writeFileSync(agentLogPath, 'content', 'utf-8');
+        fs.chmodSync(agentLogPath, 0o000);
 
-        // Mock fs.readFileSync to throw error
-        jest.spyOn(fs, 'readFileSync').mockImplementation(() => {
-          throw new Error('EACCES: permission denied');
-        });
+        try {
+          // When: Handling missing output file
+          const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
 
-        // When: Handling missing output file
-        const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
-
-        // Then: Error is handled gracefully
-        expect(result.success).toBe(false);
-        expect(result.error).toContain('フォールバック処理中にエラーが発生しました');
-        expect(result.error).toContain('EACCES');
+          // Then: Error is handled gracefully
+          expect(result.success).toBe(false);
+          expect(result.error).toContain('フォールバック処理中にエラーが発生しました');
+          expect(result.error).toContain('EACCES');
+        } finally {
+          fs.chmodSync(agentLogPath, 0o644);
+        }
       });
     });
   });
@@ -591,7 +611,7 @@ Agent finished.
       it('should return success when output file exists', async () => {
         // Given: Output file exists
         const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
-        fs.ensureDirSync(outputDir);
+        ensureDirectory(outputDir);
         fs.writeFileSync(path.join(outputDir, 'planning.md'), 'content', 'utf-8');
 
         // Mock executeWithAgent
@@ -618,8 +638,8 @@ Agent finished.
         // Given: Output file does not exist, agent log has valid content
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
         const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
-        fs.ensureDirSync(executeDir);
-        fs.ensureDirSync(outputDir);
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
 
         const validLog = `
 # プロジェクト計画書 - Issue #113
@@ -660,7 +680,7 @@ Agent finished.
       it('should return error when file is missing and enableFallback is false', async () => {
         // Given: Output file does not exist, enableFallback is false
         const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
-        fs.ensureDirSync(outputDir);
+        ensureDirectory(outputDir);
 
         // Mock executeWithAgent
         jest.spyOn(testPhase as any, 'executeWithAgent').mockResolvedValue([]);
@@ -685,7 +705,7 @@ Agent finished.
       it('should return error when enableFallback is not specified (default: false)', async () => {
         // Given: Output file does not exist, enableFallback not specified
         const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
-        fs.ensureDirSync(outputDir);
+        ensureDirectory(outputDir);
 
         // Mock executeWithAgent
         jest.spyOn(testPhase as any, 'executeWithAgent').mockResolvedValue([]);

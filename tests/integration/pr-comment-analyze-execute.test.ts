@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -394,5 +394,75 @@ describe('Analyze → Execute integration flow', () => {
       'Agent returned empty output',
       'agent_empty_output',
     );
+  });
+
+  it('writes a Markdown agent log file after analyze runs', async () => {
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const agentLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'agent_log.md');
+    expect(await fs.pathExists(agentLogPath)).toBe(true);
+
+    const logContent = await fs.readFile(agentLogPath, 'utf-8');
+    expect(logContent).toMatch(/# (Codex|Claude) Agent/);
+    expect(logContent).toContain('**開始**');
+    expect(logContent).toContain('**終了**');
+    expect(logContent).toContain('**経過時間**');
+  });
+
+  it('does not persist agent_log.md in dry-run mode but shows preview', async () => {
+    const infoSpy = logger.info as jest.SpyInstance;
+    infoSpy.mockClear();
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: true, agent: 'auto' });
+
+    const agentLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'agent_log.md');
+    expect(await fs.pathExists(agentLogPath)).toBe(false);
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[DRY-RUN] response-plan.md preview:\n# Response Plan'),
+    );
+  });
+
+  it('generates agent_log.md in execute directory during execution flow', async () => {
+    // First run analyze to create response plan
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Prepare response plan for execution
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    expect(await fs.pathExists(planPath)).toBe(true);
+    await fs.writeFile(
+      planPath,
+      `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlanData)}\n\`\`\`\n`,
+    );
+
+    // Run execute command
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Verify execute directory's agent_log.md exists and has Markdown format
+    const executeLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'execute', 'agent_log.md');
+    expect(await fs.pathExists(executeLogPath)).toBe(true);
+
+    const executeLogContent = await fs.readFile(executeLogPath, 'utf-8');
+    expect(executeLogContent).toMatch(/# Execute Agent/);
+    expect(executeLogContent).toContain('**開始**');
+    expect(executeLogContent).toContain('**終了**');
+    expect(executeLogContent).toContain('**経過時間**');
+  });
+
+  it('does not create agent_log.md in execute directory during dry-run execution', async () => {
+    // First run analyze to create response plan
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    await fs.writeFile(
+      planPath,
+      `# Response Plan\n\`\`\`json\n${JSON.stringify(responsePlanData)}\n\`\`\`\n`,
+    );
+
+    // Run execute command in dry-run mode
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: true, agent: 'auto' });
+
+    // Verify execute directory's agent_log.md does NOT exist in dry-run
+    const executeLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'execute', 'agent_log.md');
+    expect(await fs.pathExists(executeLogPath)).toBe(false);
   });
 });

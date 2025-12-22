@@ -1390,6 +1390,8 @@ ai-workflow pr-comment execute --pr 123 --dry-run
 
 **分析フェーズの出力**: `pr-comment analyze` は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` に JSON を書き出し、CLI はこのファイルを最優先で読み込みます。ファイル生成に失敗した場合だけ、従来の生出力パース＋フォールバック戦略が動作します。
 
+`pr-comment analyze` を実行する直前に `refreshComments()` が GitHub から現在の未解決コメントを再取得し、`comment-resolution-metadata.json` の `comment_id` を基準に差分を判定したうえで `pending` 状態でメタデータに追加するため、`pr-comment init` 実行後や中断再開後に投稿された新規コメントも漏れなく分析対象となり、追加された件数はログ（例: `Found 3 new comment(s)`）に出力されます。
+
 **主な機能**:
 
 - **2段階フェーズ分離**（Issue #409）:
@@ -1423,11 +1425,11 @@ ai-workflow pr-comment execute --pr 123 --dry-run
 .ai-workflow/pr-123/
 ├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
 ├── analyze/                          # 分析フェーズ成果物
-│   ├── agent_log.md
+│   ├── agent_log.md                  # Markdownフォーマットのエージェント実行ログ
 │   ├── prompt.txt
 │   └── response-plan.json            # エージェントが書き出すJSON（primaryな解析結果）
 ├── execute/                          # 実行フェーズ成果物
-│   ├── agent_log.md
+│   ├── agent_log.md                  # Markdownフォーマットのエージェント実行ログ
 │   └── prompt.txt
 └── output/                           # 成果物ファイル
     ├── response-plan.md              # 分析結果

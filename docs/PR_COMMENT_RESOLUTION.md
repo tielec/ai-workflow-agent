@@ -97,6 +97,8 @@ ai-workflow pr-comment analyze --pr <number> | --pr-url <URL> [--dry-run] [--age
 3. 各コメントの解決タイプ、返信メッセージ、提案するコード変更を決定
 4. `.ai-workflow/pr-{prNumber}/output/response-plan.json` に分析結果を保存
 
+`pr-comment analyze` は実行直前に `refreshComments()` を呼び出し、GitHub から未解決コメントを再取得した上で既存メタデータにない `comment_id` だけを `pending` 状態で追加する `PRCommentMetadataManager.addComments()` を実行するため、`pr-comment init` 実行後や中断再開後に投稿された新規コメントも漏れなく分析対象になります（重複は metadata 内の ID で除外されます）。
+
 **出力ファイル**:
 
 `response-plan.json` は以下の構造を持ちます:
@@ -557,12 +559,20 @@ Error: Path validation failed: src/../../../etc/passwd
 
 ### ログの確認
 
-詳細なログは `.ai-workflow/pr-<number>/execute/agent_log.md` に保存されます:
+詳細なログは Markdownフォーマットで以下の場所に保存されます:
+
+- 分析フェーズ: `.ai-workflow/pr-<number>/analyze/agent_log.md`
+- 実行フェーズ: `.ai-workflow/pr-<number>/execute/agent_log.md`
 
 ```bash
-# ログを確認
+# 分析ログを確認
+cat .ai-workflow/pr-123/analyze/agent_log.md
+
+# 実行ログを確認
 cat .ai-workflow/pr-123/execute/agent_log.md
 ```
+
+これらのログはIssue #441により統一的なMarkdown形式で出力され、読みやすい構造化された情報を提供します。
 
 ### メタデータのリセット
 
@@ -731,3 +741,4 @@ $REPOS_ROOT/
 | 1.3.0 | 2025-01-20 | analyze/execute分離（Issue #444） - executeがresponse-plan.jsonを使用、エージェント実行削除、コスト50%削減 |
 | 1.4.0 | 2025-12-21 | finalize Git commit改善（Issue #458） - `.ai-workflow/pr-{number}/` の削除を `git add .` でステージし、`git status()` で空コミットを回避したうえで `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット・プッシュ |
 | 1.5.0 | 2025-01-21 | コミットスカッシュ機能追加（Issue #450） - `--squash` オプションで複数コミットを1つにまとめる機能、`init` で `base_commit` を記録、`--force-with-lease` による安全な強制プッシュ |
+| 1.6.0 | 2025-01-22 | agent_log.mdのMarkdown化（Issue #441） - LogFormatterによる統一的なMarkdown形式でログ出力、可読性向上とフォーマット統一 |

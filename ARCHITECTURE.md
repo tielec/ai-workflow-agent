@@ -128,6 +128,7 @@ src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマン�
  ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
  ├─ buildAnalyzePrompt() … 分析プロンプト構築
  ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得し、`metadataManager.addComments()` で新規 `comment_id` だけを `pending` として追加することで init 実行後に投稿されたコメントも取り込む（Issue #475）
  ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
  └─ エラーハンドリング（Issue #428で強化）
      ├─ handleAgentError() … エージェント実行失敗時の処理
@@ -157,6 +158,7 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ exists() … メタデータ存在確認
  │   ├─ updateStatus() … コメントステータス更新
  │   ├─ incrementRetry() … リトライ回数増加
+ │   ├─ addComments() … GitHub から取得したコメントを既存 metadata の `comment_id` で重複チェックし、新規のコメントだけを `pending` として追加・サマリー再計算・保存（Issue #475）
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定
@@ -428,7 +430,7 @@ BasePhase クラスは1420行から676行へリファクタリングされ（約
 
 **フォーマッターモジュール**:
 - **ProgressFormatter** (`src/phases/formatters/progress-formatter.ts`): 進捗表示フォーマットを担当。フェーズステータスに応じた絵文字表示、全フェーズの進捗状況リスト、現在のフェーズ詳細、完了したフェーズの詳細（折りたたみ表示）を生成。
-- **LogFormatter** (`src/phases/formatters/log-formatter.ts`): ログフォーマットを担当。Codex/Claude の生ログを Markdown 形式に変換、JSON イベントストリームの解析、4000文字を超える出力の切り詰め処理を実施。
+- **LogFormatter** (`src/phases/formatters/log-formatter.ts`): ログフォーマットを担当。Codex/Claude の生ログを Markdown 形式に変換、JSON イベントストリームの解析、4000文字を超える出力の切り詰め処理を実施。`pr-comment` コマンドでも利用され、`agent_log.md` の統一的なMarkdown形式を提供。
 
 **オーケストレーション**:
 BasePhase クラスは各モジュールを依存性注入により統合し、フェーズライフサイクル（execute → review → revise）のオーケストレーションのみを担当します。各モジュールは単一の責務を持ち（Single Responsibility Principle）、独立してテスト可能です。

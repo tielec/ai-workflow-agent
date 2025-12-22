@@ -16,14 +16,16 @@ import {
   resolveRepoPathFromPrUrl,
 } from '../../core/repository-utils.js';
 import type { PRCommentAnalyzeOptions } from '../../types/commands.js';
-import type { CodexAgentClient } from '../../core/codex-agent-client.js';
-import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { CodexAgentClient } from '../../core/codex-agent-client.js';
+import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 import type {
   CommentMetadata,
   ProposedChange,
   ResponsePlan,
   ResponsePlanComment,
   AnalyzerErrorType,
+  ReviewComment,
 } from '../../types/pr-comment.js';
 
 let gitConfigured = false; // Git設定済みフラグ
@@ -57,6 +59,7 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     }
 
     await metadataManager.load();
+    await refreshComments(prNumber, prInfo.repositoryName, metadataManager);
     let pendingComments = await metadataManager.getPendingComments();
     const targetIds = parseCommentIds(options.commentIds);
     if (targetIds.size > 0) {
@@ -114,6 +117,90 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
   }
 }
 
+async function refreshComments(
+  prNumber: number,
+  repositoryName: string,
+  metadataManager: PRCommentMetadataManager,
+): Promise<void> {
+  try {
+    const githubClient = new GitHubClient(null, repositoryName);
+    const latestComments = await fetchLatestUnresolvedComments(githubClient, prNumber);
+    const metadata = await metadataManager.getMetadata();
+    const existingIds = new Set(Object.keys(metadata.comments));
+    const newComments = latestComments.filter((c) => !existingIds.has(String(c.id)));
+
+    if (newComments.length === 0) {
+      logger.debug('No new comments found.');
+      return;
+    }
+
+    logger.info(`Found ${newComments.length} new comment(s). Adding to metadata...`);
+    await metadataManager.addComments(newComments);
+  } catch (error) {
+    logger.warn(`Failed to fetch latest comments: ${getErrorMessage(error)}`);
+    logger.warn('Proceeding with existing metadata.');
+  }
+}
+
+async function fetchLatestUnresolvedComments(
+  githubClient: GitHubClient,
+  prNumber: number,
+): Promise<ReviewComment[]> {
+  const unresolvedThreads = await githubClient.commentClient.getUnresolvedPRReviewComments(prNumber);
+  logger.debug(`Found ${unresolvedThreads.length} unresolved threads from API`);
+
+  const comments: ReviewComment[] = [];
+
+  for (const thread of unresolvedThreads) {
+    for (const comment of thread.comments.nodes) {
+      if (comment.databaseId === undefined || comment.databaseId === null) {
+        continue;
+      }
+
+      comments.push({
+        id: comment.databaseId,
+        node_id: comment.id,
+        path: comment.path ?? '',
+        line: comment.line ?? null,
+        start_line: comment.startLine ?? null,
+        end_line: null,
+        body: comment.body ?? '',
+        user: comment.author.login ?? 'unknown',
+        created_at: comment.createdAt ?? '',
+        updated_at: comment.updatedAt ?? '',
+        diff_hunk: '',
+        in_reply_to_id: undefined,
+        thread_id: thread.id,
+        pr_number: prNumber,
+      });
+    }
+  }
+
+  if (comments.length === 0) {
+    logger.debug('No unresolved threads from GraphQL, falling back to REST API');
+    const restComments = await githubClient.commentClient.getPRReviewComments(prNumber);
+
+    return restComments.map((c) => ({
+      id: c.id,
+      node_id: c.node_id,
+      path: c.path ?? '',
+      line: c.line ?? null,
+      start_line: c.start_line ?? null,
+      end_line: null,
+      body: c.body ?? '',
+      user: c.user?.login ?? 'unknown',
+      created_at: c.created_at ?? '',
+      updated_at: c.updated_at ?? '',
+      diff_hunk: c.diff_hunk ?? '',
+      in_reply_to_id: c.in_reply_to_id ?? undefined,
+      thread_id: undefined,
+      pr_number: prNumber,
+    }));
+  }
+
+  return comments;
+}
+
 async function analyzeComments(
   prNumber: number,
   repoRoot: string,
@@ -157,21 +244,56 @@ async function analyzeComments(
     throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
   }
 
+  const logFormatter = new LogFormatter();
+  const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
   let rawOutput = '';
+  let messages: string[] = [];
+  const startTime = Date.now();
+  let endTime = startTime;
 
   try {
-    const messages = await agent.executeTask({
+    messages = await agent.executeTask({
       prompt,
       maxTurns: 1,
       verbose: false,
       workingDirectory: repoRoot,
     });
+    endTime = Date.now();
     rawOutput = messages.join('\n');
 
-    if (!options.dryRun) {
-      await fsp.writeFile(path.join(analyzeDir, 'agent_log.md'), rawOutput, 'utf-8');
-    }
+    await persistAgentLog(
+      {
+        messages,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        agentName,
+        error: null,
+      },
+      analyzeDir,
+      options,
+      logFormatter,
+    );
   } catch (agentError) {
+    endTime = Date.now();
+    const duration = endTime - startTime;
+    const normalizedError =
+      agentError instanceof Error ? agentError : new Error(getErrorMessage(agentError));
+
+    await persistAgentLog(
+      {
+        messages,
+        startTime,
+        endTime,
+        duration,
+        agentName,
+        error: normalizedError,
+      },
+      analyzeDir,
+      options,
+      logFormatter,
+    );
+
     const fallbackPlan = await handleAgentError(
       getErrorMessage(agentError),
       'agent_execution_error',
@@ -724,6 +846,43 @@ async function setupAgent(
   return codexClient ?? claudeClient;
 }
 
+interface AgentLogContext {
+  messages: string[];
+  startTime: number;
+  endTime: number;
+  duration: number;
+  agentName: string;
+  error: Error | null;
+}
+
+async function persistAgentLog(
+  context: AgentLogContext,
+  analyzeDir: string,
+  options: PRCommentAnalyzeOptions,
+  logFormatter: LogFormatter,
+): Promise<void> {
+  if (options.dryRun) {
+    return;
+  }
+
+  const agentLogPath = path.join(analyzeDir, 'agent_log.md');
+
+  try {
+    const content = logFormatter.formatAgentLog(
+      context.messages,
+      context.startTime,
+      context.endTime,
+      context.duration,
+      context.error,
+      context.agentName,
+    );
+    await fsp.writeFile(agentLogPath, content, 'utf-8');
+  } catch (formatError) {
+    logger.warn(`LogFormatter failed: ${getErrorMessage(formatError)}. Falling back to raw output.`);
+    await fsp.writeFile(agentLogPath, context.messages.join('\n'), 'utf-8');
+  }
+}
+
 function parseCommentIds(value?: string): Set<number> {
   if (!value) {
     return new Set();
@@ -780,4 +939,7 @@ export const __testables = {
   findAllJsonObjectBoundaries,
   isValidResponsePlanCandidate,
   normalizePlanComment,
+  persistAgentLog,
+  refreshComments,
+  fetchLatestUnresolvedComments,
 };

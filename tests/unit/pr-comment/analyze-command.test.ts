@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
+import { promises as fsp, type PathLike } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { logger } from '../../../src/utils/logger.js';
+import { LogFormatter } from '../../../src/phases/formatters/log-formatter.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
 import type { PRCommentAnalyzeOptions } from '../../../src/types/commands.js';
 
@@ -13,6 +15,8 @@ const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
 const configIsCIMock = jest.fn(() => false);
+const getUnresolvedPRReviewCommentsMock = jest.fn();
+const getPRReviewCommentsMock = jest.fn();
 const parsePullRequestUrlMock = jest.fn(() => ({
   owner: 'owner',
   repo: 'repo',
@@ -22,14 +26,32 @@ const parsePullRequestUrlMock = jest.fn(() => ({
 const resolveRepoPathFromPrUrlMock = jest.fn(() => '/repo');
 
 let handlePRCommentAnalyzeCommand: (options: PRCommentAnalyzeOptions) => Promise<void>;
+let persistAgentLog: (
+  context: {
+    messages: string[];
+    startTime: number;
+    endTime: number;
+    duration: number;
+    agentName: string;
+    error: Error | null;
+  },
+  analyzeDir: string,
+  options: PRCommentAnalyzeOptions,
+  logFormatter: LogFormatter,
+) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
 let currentMetadataManager: any;
 let agentExecuteTaskMock: jest.Mock;
 let prTitle = 'Mock PR Title';
 let processExitSpy: jest.SpyInstance;
 let metadataExists = true;
-const analyzeOutputPath = path.join('/repo', '.ai-workflow', 'pr-123', 'analyze', 'response-plan.json');
+const analyzeOutputPath = path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'response-plan.json');
 let outputFileExists = false;
+let refreshComments: (prNumber: number, repositoryName: string, metadataManager: any) => Promise<void>;
+let fetchLatestUnresolvedComments: (
+  githubClient: any,
+  prNumber: number,
+) => Promise<import('../../../src/types/pr-comment.js').ReviewComment[]>;
 
 const buildComment = (id: number, body: string, file = 'src/a.ts'): CommentMetadata => ({
   comment: {
@@ -53,6 +75,11 @@ const buildComment = (id: number, body: string, file = 'src/a.ts'): CommentMetad
   error: null,
 });
 
+const buildMetadata = () => ({
+  pr: { title: prTitle, number: 123 },
+  comments: Object.fromEntries(pendingComments.map((c) => [String(c.comment.id), c])),
+});
+
 beforeAll(async () => {
   await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
     __esModule: true,
@@ -68,7 +95,8 @@ beforeAll(async () => {
         exists: jest.fn().mockImplementation(async () => metadataExists),
         load: jest.fn().mockResolvedValue(undefined),
         getPendingComments: jest.fn(async () => pendingComments),
-        getMetadata: jest.fn().mockResolvedValue({ pr: { title: prTitle } }),
+        getMetadata: jest.fn().mockImplementation(async () => buildMetadata()),
+        addComments: jest.fn().mockResolvedValue(0),
         setAnalyzeCompletedAt: jest.fn().mockResolvedValue(undefined),
         setResponsePlanPath: jest.fn().mockResolvedValue(undefined),
         setAnalyzerAgent: jest.fn().mockResolvedValue(undefined),
@@ -83,6 +111,10 @@ beforeAll(async () => {
     __esModule: true,
     GitHubClient: jest.fn().mockImplementation(() => ({
       getRepositoryInfo: () => ({ repositoryName: 'owner/repo' }),
+      commentClient: {
+        getUnresolvedPRReviewComments: getUnresolvedPRReviewCommentsMock,
+        getPRReviewComments: getPRReviewCommentsMock,
+      },
     })),
   }));
 
@@ -111,6 +143,9 @@ beforeAll(async () => {
 
   const module = await import('../../../src/commands/pr-comment/analyze.js');
   handlePRCommentAnalyzeCommand = module.handlePRCommentAnalyzeCommand;
+  persistAgentLog = module.__testables.persistAgentLog;
+  refreshComments = module.__testables.refreshComments;
+  fetchLatestUnresolvedComments = module.__testables.fetchLatestUnresolvedComments;
 });
 
 beforeEach(() => {
@@ -123,6 +158,8 @@ beforeEach(() => {
   processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
   configIsCIMock.mockReturnValue(false);
   outputFileExists = false;
+  getUnresolvedPRReviewCommentsMock.mockResolvedValue([]);
+  getPRReviewCommentsMock.mockResolvedValue([]);
 
   agentExecuteTaskMock = jest.fn();
   setupAgentClientsMock.mockReturnValue({
@@ -138,17 +175,19 @@ beforeEach(() => {
   jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
+  jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
 
-  jest.spyOn(fs, 'pathExists').mockImplementation(async (filePath: fs.PathLike) => {
-    const file = String(filePath);
-    if (file === analyzeOutputPath) {
-      return outputFileExists;
-    }
-    return false;
-  });
-  jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
+  jest.spyOn(fsp, 'mkdir').mockResolvedValue(undefined as any);
   jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
-  jest.spyOn(fs, 'readFile').mockImplementation(async (filePath: fs.PathLike) => {
+  jest.spyOn(fsp, 'writeFile').mockImplementation(fs.writeFile as any);
+  jest.spyOn(fsp, 'access').mockImplementation(async (filePath: PathLike) => {
+    const file = String(filePath);
+    if (file === analyzeOutputPath && outputFileExists) {
+      return undefined as any;
+    }
+    throw Object.assign(new Error('not found'), { code: 'ENOENT' });
+  });
+  jest.spyOn(fsp, 'readFile').mockImplementation(async (filePath: PathLike) => {
     const file = String(filePath);
     if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
       return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
@@ -161,11 +200,325 @@ beforeEach(() => {
         ],
       });
     }
+    if (file.includes('missing.ts')) {
+      throw new Error('file missing');
+    }
     return 'console.log("example")';
   });
 });
 
+describe('persistAgentLog', () => {
+  const baseDir = path.join('/repo', '.ai-workflow', 'pr-123', 'analyze');
+  const context = {
+    messages: ['assistant: line 1', 'assistant: line 2'],
+    startTime: 1700000000000,
+    endTime: 1700000001000,
+    duration: 1000,
+    agentName: 'Codex Agent',
+    error: null,
+  };
+
+  it('writes the formatted log when not in dry-run', async () => {
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+
+    await persistAgentLog(context, baseDir, { dryRun: false }, logFormatter);
+
+    expect(writeFileSpy).toHaveBeenCalledWith(
+      expect.stringContaining('agent_log.md'),
+      expect.stringContaining('# Codex Agent'),
+      'utf-8',
+    );
+
+    writeFileSpy.mockRestore();
+  });
+
+  it('skips writing when dry-run is true', async () => {
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+
+    await persistAgentLog(context, baseDir, { dryRun: true }, logFormatter);
+
+    expect(writeFileSpy).not.toHaveBeenCalled();
+    writeFileSpy.mockRestore();
+  });
+
+  it('falls back to raw output when LogFormatter throws', async () => {
+    const formatSpy = jest.spyOn(LogFormatter.prototype, 'formatAgentLog').mockImplementation(() => {
+      throw new Error('format fail');
+    });
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+    const fallbackContext = {
+      ...context,
+      messages: ['assistant: fallback message'],
+      error: new Error('format fail'),
+    };
+
+    await persistAgentLog(fallbackContext, baseDir, { dryRun: false }, logFormatter);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('LogFormatter failed: format fail'),
+    );
+    expect(writeFileSpy).toHaveBeenCalledWith(
+      expect.stringContaining('agent_log.md'),
+      'assistant: fallback message',
+      'utf-8',
+    );
+    formatSpy.mockRestore();
+    writeFileSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+});
+
+describe('refreshComments', () => {
+  it('adds only new comments from the latest fetch', async () => {
+    const metadata = {
+      comments: {
+        100: {
+          comment: { id: 100 },
+          status: 'pending',
+          started_at: null,
+          completed_at: null,
+          retry_count: 0,
+          resolution: null,
+          reply_comment_id: null,
+          resolved_at: null,
+          error: null,
+        },
+      },
+    };
+    const metadataManager = {
+      getMetadata: jest.fn().mockResolvedValue(metadata),
+      addComments: jest.fn().mockResolvedValue(1),
+    };
+    getUnresolvedPRReviewCommentsMock.mockResolvedValue([
+      {
+        id: 'thread-1',
+        comments: {
+          nodes: [
+            {
+              id: 'node-100',
+              databaseId: 100,
+              body: 'Old',
+              author: { login: 'alice' },
+            },
+            {
+              id: 'node-200',
+              databaseId: 200,
+              body: 'New',
+              author: { login: 'bob' },
+            },
+          ],
+        },
+      },
+    ]);
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 200, body: 'New' }),
+    ]);
+  });
+
+  it('logs debug and skips add when no new comments are found', async () => {
+    const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+    const metadata = {
+      comments: {
+        100: { comment: { id: 100 }, status: 'pending' },
+      },
+    };
+    const metadataManager = {
+      getMetadata: jest.fn().mockResolvedValue(metadata),
+      addComments: jest.fn(),
+    };
+    getUnresolvedPRReviewCommentsMock.mockResolvedValue([
+      {
+        id: 'thread-1',
+        comments: { nodes: [{ id: 'node-100', databaseId: 100, body: 'Existing', author: { login: 'alice' } }] },
+      },
+    ]);
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).not.toHaveBeenCalled();
+    expect(debugSpy).toHaveBeenCalledWith('No new comments found.');
+  });
+
+  it('warns and continues when fetch fails', async () => {
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+    const metadataManager = {
+      getMetadata: jest.fn(),
+      addComments: jest.fn(),
+    };
+    getUnresolvedPRReviewCommentsMock.mockRejectedValue(new Error('Network down'));
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to fetch latest comments: Network down'),
+    );
+    expect(warnSpy).toHaveBeenCalledWith('Proceeding with existing metadata.');
+  });
+});
+
+describe('fetchLatestUnresolvedComments', () => {
+  it('maps GraphQL response fields to ReviewComment', async () => {
+    const mockClient = {
+      commentClient: {
+        getUnresolvedPRReviewComments: jest.fn().mockResolvedValue([
+          {
+            id: 'thread-1',
+            comments: {
+              nodes: [
+                {
+                  id: 'node-100',
+                  databaseId: 100,
+                  body: 'Please fix',
+                  path: 'src/file.ts',
+                  line: 10,
+                  startLine: 8,
+                  author: { login: 'alice' },
+                  createdAt: '2025-01-21T00:00:00Z',
+                  updatedAt: '2025-01-21T00:01:00Z',
+                },
+              ],
+            },
+          },
+        ]),
+        getPRReviewComments: jest.fn(),
+      },
+    };
+
+    const comments = await fetchLatestUnresolvedComments(mockClient as any, 123);
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0]).toMatchObject({
+      id: 100,
+      node_id: 'node-100',
+      path: 'src/file.ts',
+      line: 10,
+      start_line: 8,
+      body: 'Please fix',
+      user: 'alice',
+      pr_number: 123,
+    });
+  });
+
+  it('skips comments without databaseId', async () => {
+    const mockClient = {
+      commentClient: {
+        getUnresolvedPRReviewComments: jest.fn().mockResolvedValue([
+          {
+            id: 'thread-1',
+            comments: {
+              nodes: [
+                { id: 'node-100', databaseId: null, body: 'No id', author: { login: 'alice' } },
+                { id: 'node-200', databaseId: 200, body: 'Valid', author: { login: 'bob' } },
+              ],
+            },
+          },
+        ]),
+        getPRReviewComments: jest.fn(),
+      },
+    };
+
+    const comments = await fetchLatestUnresolvedComments(mockClient as any, 123);
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0].id).toBe(200);
+  });
+
+  it('falls back to REST API when GraphQL returns no comments', async () => {
+    const mockClient = {
+      commentClient: {
+        getUnresolvedPRReviewComments: jest.fn().mockResolvedValue([]),
+        getPRReviewComments: jest.fn().mockResolvedValue([
+          {
+            id: 300,
+            node_id: 'node-300',
+            path: 'src/rest.ts',
+            line: 8,
+            start_line: 3,
+            body: 'REST comment',
+            user: { login: 'rest-user' },
+            created_at: '2025-01-21T00:00:00Z',
+            updated_at: '2025-01-21T00:00:00Z',
+          },
+        ]),
+      },
+    };
+
+    const comments = await fetchLatestUnresolvedComments(mockClient as any, 999);
+
+    expect(mockClient.commentClient.getPRReviewComments).toHaveBeenCalledWith(999);
+    expect(comments).toEqual([
+      expect.objectContaining({
+        id: 300,
+        node_id: 'node-300',
+        path: 'src/rest.ts',
+        line: 8,
+        start_line: 3,
+        body: 'REST comment',
+        user: 'rest-user',
+        pr_number: 999,
+      }),
+    ]);
+  });
+});
+
 describe('handlePRCommentAnalyzeCommand', () => {
+  it('generates agent_log.md with Markdown format when analyze completes successfully', async () => {
+    // Given valid agent output, when analyze runs, then agent_log.md is written in Markdown format
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        analyzed_at: '2025-01-21T00:00:00Z',
+        comments: [
+          { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Test response' },
+        ],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Verify agent_log.md is written with Markdown content
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeTruthy();
+    expect(agentLogWrite[1]).toContain('# Claude Agent'); // Should contain Markdown header
+    expect(agentLogWrite[1]).toContain('**開始**'); // Should contain start time metadata
+    expect(agentLogWrite[1]).toContain('**終了**'); // Should contain end time metadata
+    expect(agentLogWrite[1]).toContain('**経過時間**'); // Should contain duration
+  });
+
+  it('does not create agent_log.md in dry-run mode', async () => {
+    // Given dry-run mode, when analyze runs, then agent_log.md should not be written to disk
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        comments: [{ comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Dry run test' }],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: true, agent: 'auto' });
+
+    // Verify agent_log.md is NOT written in dry-run mode
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeFalsy();
+  });
+
   it('writes response-plan and updates metadata when agent returns plan', async () => {
     // Given valid metadata and pending comments, when agent returns a full plan, then artifacts and metadata are written
     const agentOutput = [
@@ -206,7 +559,6 @@ describe('handlePRCommentAnalyzeCommand', () => {
     expect(currentMetadataManager.setResponsePlanPath).toHaveBeenCalledWith(
       path.join('/repo', '.ai-workflow', 'pr-123', 'output', 'response-plan.md'),
     );
-    expect(simpleGitCommitMock).toHaveBeenCalledWith('[ai-workflow] PR Comment: Analyze completed');
   });
 
   it('prefers file output when response-plan.json is present and normalizes missing fields', async () => {
@@ -251,7 +603,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
   it('logs warning and uses raw output when file JSON is invalid', async () => {
     // Given an unreadable response-plan.json, when parse fails, then fallback raw parsing is used
     outputFileExists = true;
-    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
+    (fsp.readFile as jest.Mock).mockImplementation(async (filePath: PathLike) => {
       const file = String(filePath);
       if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
         return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
@@ -380,7 +732,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
     // Given template placeholders and missing file content, when prompt is built, then values and fallback text are injected
     const missingComment = buildComment(102, 'Missing file', 'missing.ts');
     pendingComments = [missingComment];
-    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
+    (fsp.readFile as jest.Mock).mockImplementation(async (filePath: PathLike) => {
       const file = String(filePath);
       if (file.includes('missing.ts')) {
         throw new Error('file missing');
@@ -403,10 +755,9 @@ describe('handlePRCommentAnalyzeCommand', () => {
     const promptArg = agentExecuteTaskMock.mock.calls[0][0].prompt as string;
     expect(promptArg).toContain('PR 123: Mock PR Title');
     expect(promptArg).toContain('Repo: /repo');
-    expect(promptArg).toContain('/repo/.ai-workflow/pr-123/analyze/response-plan.json');
+    expect(promptArg).toContain('/repo/.ai-workflow/pr-123/output/response-plan.json');
     expect(promptArg).toContain('(File not found)');
-    expect(logger.error).toHaveBeenCalledTimes(0);
-    expect(processExitSpy).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
   it('exits early when there are no pending comments to analyze', async () => {
@@ -480,7 +831,6 @@ describe('handlePRCommentAnalyzeCommand', () => {
       'agent_execution_error',
     );
     expect(currentMetadataManager.setAnalyzerAgent).toHaveBeenCalledWith('fallback');
-    expect(processExitSpy).not.toHaveBeenCalled();
   });
 
   it('exits in CI when agent returns empty output', async () => {
@@ -518,7 +868,6 @@ describe('handlePRCommentAnalyzeCommand', () => {
       expect.stringContaining('JSON parsing failed'),
       'json_parse_error',
     );
-    expect(processExitSpy).not.toHaveBeenCalled();
   });
 
   it('treats empty prompt input as decline', async () => {

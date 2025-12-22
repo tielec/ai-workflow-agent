@@ -1,5 +1,33 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { logger } from '../../src/utils/logger.js';
+import path from 'node:path';
+import { promises as fsp } from 'node:fs';
+
+const TMP_WORKFLOW_ROOT = path.join(process.cwd(), '.tmp', 'pr-comment-workflow');
+const CURRENT_REPO_ROOT = path.join(TMP_WORKFLOW_ROOT, 'repo');
+const REPOS_ROOT_BASE = path.join(TMP_WORKFLOW_ROOT, 'repos');
+const TARGET_REPO_ROOT = path.join(REPOS_ROOT_BASE, 'target-repo');
+const FINALIZE_REPO_ROOT = path.join(REPOS_ROOT_BASE, 'finalize-repo');
+const RESPONSE_PLAN_RELATIVE_PATH = path.join('.ai-workflow', 'pr-123', 'output', 'response-plan.json');
+
+type ResponsePlanEntry = {
+  comment_id: number;
+  type: 'code_change' | 'reply' | 'skip';
+  confidence: 'high' | 'medium' | 'low';
+  reply_message: string;
+  rationale?: string;
+  proposed_changes?: Array<{ file: string; action: string; changes: string }>;
+};
+
+async function cleanupTmpWorkspace(): Promise<void> {
+  await fsp.rm(TMP_WORKFLOW_ROOT, { recursive: true, force: true });
+}
+
+async function writeResponsePlan(root: string, comments: ResponsePlanEntry[]): Promise<void> {
+  const planPath = path.join(root, RESPONSE_PLAN_RELATIVE_PATH);
+  await fsp.mkdir(path.dirname(planPath), { recursive: true });
+  await fsp.writeFile(planPath, JSON.stringify({ comments }), 'utf-8');
+}
 
 // Define mock objects first
 const metadataManagerMock = {
@@ -73,7 +101,11 @@ const { handlePRCommentFinalizeCommand } = await import('../../src/commands/pr-c
 const { handlePRCommentInitCommand } = await import('../../src/commands/pr-comment/init.js');
 
 describe('Integration: pr-comment workflow', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await cleanupTmpWorkspace();
+    await fsp.mkdir(path.join(CURRENT_REPO_ROOT, '.ai-workflow', 'pr-123'), { recursive: true });
+    await fsp.mkdir(path.join(CURRENT_REPO_ROOT, '.ai-workflow', 'pr-123', 'output'), { recursive: true });
+
     // Reset all mocks
     metadataManagerConstructorMock.mockReset();
     metadataManagerConstructorMock.mockImplementation(() => metadataManagerMock);
@@ -109,7 +141,9 @@ describe('Integration: pr-comment workflow', () => {
     metadataManagerMock.getCompletedComments.mockResolvedValue([]);
     metadataManagerMock.setResolved.mockResolvedValue(undefined);
     metadataManagerMock.cleanup.mockResolvedValue(undefined);
-    metadataManagerMock.getMetadataPath.mockReturnValue('/repo/.ai-workflow/pr-123/metadata.json');
+    metadataManagerMock.getMetadataPath.mockReturnValue(
+      path.join(CURRENT_REPO_ROOT, '.ai-workflow', 'pr-123', 'metadata.json'),
+    );
 
     simpleGitMock.mockReturnValue({
       status: jest.fn().mockResolvedValue({ files: [] }),
@@ -120,8 +154,8 @@ describe('Integration: pr-comment workflow', () => {
       branch: jest.fn().mockResolvedValue({ current: 'main' }),
       push: jest.fn().mockResolvedValue(undefined),
     });
-    mockGetRepoRoot.mockResolvedValue('/repo');
-    resolveRepoPathFromPrUrlMock.mockReturnValue('/repo');
+    mockGetRepoRoot.mockResolvedValue(CURRENT_REPO_ROOT);
+    resolveRepoPathFromPrUrlMock.mockReturnValue(CURRENT_REPO_ROOT);
     parsePullRequestUrlMock.mockImplementation((url: string) => ({
       owner: 'owner',
       repo: 'repo',
@@ -147,12 +181,17 @@ describe('Integration: pr-comment workflow', () => {
     githubClientMock.commentClient.getPendingReviewComments.mockResolvedValue([]);
   });
 
+  afterEach(async () => {
+    await cleanupTmpWorkspace();
+  });
+
   it('processes pending comments, applies changes, and posts replies', async () => {
     const resolution = {
       type: 'code_change' as const,
       confidence: 'high' as const,
       changes: [{ path: 'src/core/config.ts', change_type: 'modify', content: 'export {}' }],
       reply: 'Resolved',
+      analysis_notes: 'Apply fix for config',
     };
 
     metadataManagerMock.getPendingComments.mockResolvedValue([
@@ -188,6 +227,26 @@ describe('Integration: pr-comment workflow', () => {
       html_url: 'https://example.com/comment/900',
     });
 
+    await writeResponsePlan(CURRENT_REPO_ROOT, [
+      {
+        comment_id: 100,
+        type: 'code_change',
+        confidence: 'high',
+        reply_message: 'Resolved',
+        input_tokens: 100,
+        output_tokens: 50,
+        cost_usd: 0.05,
+        rationale: 'Apply fix for config',
+        proposed_changes: [
+          {
+            file: 'src/core/config.ts',
+            action: 'modify',
+            changes: 'export {}',
+          },
+        ],
+      },
+    ]);
+
     await handlePRCommentExecuteCommand({ pr: '123' } as any);
 
     expect(metadataManagerMock.updateCommentStatus).toHaveBeenCalledWith('100', 'in_progress');
@@ -204,10 +263,10 @@ describe('Integration: pr-comment workflow', () => {
       'completed',
       resolution,
     );
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repo', 123);
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(CURRENT_REPO_ROOT, 123);
     expect(mockGetRepoRoot).toHaveBeenCalledTimes(1);
     expect(resolveRepoPathFromPrUrlMock).not.toHaveBeenCalled();
-    expect(applierConstructorMock).toHaveBeenCalledWith('/repo');
+    expect(applierConstructorMock).toHaveBeenCalledWith(CURRENT_REPO_ROOT);
   });
 
   it('resumes in_progress comments during rebuild execute flow', async () => {
@@ -254,6 +313,26 @@ describe('Integration: pr-comment workflow', () => {
 
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
 
+    await writeResponsePlan(CURRENT_REPO_ROOT, [
+      {
+        comment_id: 500,
+        type: 'code_change',
+        confidence: 'high',
+        reply_message: 'Resumed and completed',
+        input_tokens: 80,
+        output_tokens: 40,
+        cost_usd: 0.04,
+        rationale: 'Resume fix for resume.ts',
+        proposed_changes: [
+          {
+            file: 'src/core/resume.ts',
+            action: 'modify',
+            changes: 'export {}',
+          },
+        ],
+      },
+    ]);
+
     await handlePRCommentExecuteCommand({ pr: '123' } as any);
 
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('in_progress'));
@@ -287,7 +366,7 @@ describe('Integration: pr-comment workflow', () => {
     expect(githubClientMock.commentClient.resolveReviewThread).toHaveBeenCalledWith('PRRT_abc');
     expect(metadataManagerMock.setResolved).toHaveBeenCalledWith('200');
     expect(metadataManagerMock.cleanup).toHaveBeenCalledTimes(1);
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repo', 123);
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(CURRENT_REPO_ROOT, 123);
     expect(mockGetRepoRoot).toHaveBeenCalledTimes(1);
     expect(resolveRepoPathFromPrUrlMock).not.toHaveBeenCalled();
   });
@@ -404,7 +483,7 @@ describe('Integration: pr-comment workflow', () => {
       by_type: { code_change: 0, reply: 0, discussion: 0, skip: 0 },
     });
     metadataManagerMock.getMetadataPath.mockReturnValue(
-      '/repo/.ai-workflow/pr-123/comment-resolution-metadata.json',
+      path.join(CURRENT_REPO_ROOT, '.ai-workflow', 'pr-123', 'comment-resolution-metadata.json'),
     );
 
     await handlePRCommentInitCommand({ pr: '123' } as any);
@@ -421,7 +500,7 @@ describe('Integration: pr-comment workflow', () => {
       {
         owner: 'owner',
         repo: 'repo',
-        path: '/repo',
+        path: CURRENT_REPO_ROOT,
         remote_url: 'https://github.com/owner/repo.git',
       },
       expect.arrayContaining([
@@ -464,14 +543,14 @@ describe('Integration: pr-comment workflow', () => {
       prNumber: 123,
       repositoryName: 'owner/target-repo',
     });
-    resolveRepoPathFromPrUrlMock.mockReturnValue('/repos/target-repo');
+    resolveRepoPathFromPrUrlMock.mockReturnValue(TARGET_REPO_ROOT);
     githubClientMock.getRepositoryInfo.mockReturnValue({
       owner: 'owner',
       repo: 'target-repo',
       repositoryName: 'owner/target-repo',
     });
     metadataManagerMock.getMetadataPath.mockReturnValue(
-      '/repos/target-repo/.ai-workflow/pr-123/comment-resolution-metadata.json',
+      path.join(TARGET_REPO_ROOT, '.ai-workflow', 'pr-123', 'comment-resolution-metadata.json'),
     );
     metadataManagerMock.getSummary.mockResolvedValue({
       total: 0,
@@ -483,14 +562,14 @@ describe('Integration: pr-comment workflow', () => {
 
     expect(resolveRepoPathFromPrUrlMock).toHaveBeenCalledWith(prUrl);
     expect(mockGetRepoRoot).not.toHaveBeenCalled();
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repos/target-repo', 123);
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(TARGET_REPO_ROOT, 123);
     expect(metadataManagerMock.initialize).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ path: '/repos/target-repo' }),
+      expect.objectContaining({ path: TARGET_REPO_ROOT }),
       expect.any(Array),
       undefined,
     );
-    expect(simpleGitMock).toHaveBeenCalledWith('/repos/target-repo');
+    expect(simpleGitMock).toHaveBeenCalledWith(TARGET_REPO_ROOT);
   });
 
   it('uses REPOS_ROOT-based path for execute when prUrl is provided', async () => {
@@ -501,7 +580,7 @@ describe('Integration: pr-comment workflow', () => {
       prNumber: 123,
       repositoryName: 'owner/target-repo',
     });
-    resolveRepoPathFromPrUrlMock.mockReturnValue('/repos/target-repo');
+    resolveRepoPathFromPrUrlMock.mockReturnValue(TARGET_REPO_ROOT);
     metadataManagerMock.getPendingComments.mockResolvedValue([
       {
         comment: {
@@ -539,13 +618,33 @@ describe('Integration: pr-comment workflow', () => {
       by_type: { code_change: 1, reply: 0, discussion: 0, skip: 0 },
     });
 
+    await writeResponsePlan(TARGET_REPO_ROOT, [
+      {
+        comment_id: 300,
+        type: 'code_change',
+        confidence: 'high',
+        reply_message: 'Resolved via REPOS_ROOT',
+        input_tokens: 120,
+        output_tokens: 60,
+        cost_usd: 0.06,
+        rationale: 'Apply change for target repo',
+        proposed_changes: [
+          {
+            file: 'src/core/config.ts',
+            action: 'modify',
+            changes: 'export {}',
+          },
+        ],
+      },
+    ]);
+
     await handlePRCommentExecuteCommand({ prUrl } as any);
 
     expect(resolveRepoPathFromPrUrlMock).toHaveBeenCalledWith(prUrl);
     expect(mockGetRepoRoot).not.toHaveBeenCalled();
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repos/target-repo', 123);
-    expect(applierConstructorMock).toHaveBeenCalledWith('/repos/target-repo');
-    expect(simpleGitMock).toHaveBeenCalledWith('/repos/target-repo');
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(TARGET_REPO_ROOT, 123);
+    expect(applierConstructorMock).toHaveBeenCalledWith(TARGET_REPO_ROOT);
+    expect(simpleGitMock).toHaveBeenCalledWith(TARGET_REPO_ROOT);
   });
 
   it('finalizes using REPOS_ROOT-based path when prUrl is provided', async () => {
@@ -556,7 +655,7 @@ describe('Integration: pr-comment workflow', () => {
       prNumber: 123,
       repositoryName: 'owner/finalize-repo',
     });
-    resolveRepoPathFromPrUrlMock.mockReturnValue('/repos/finalize-repo');
+    resolveRepoPathFromPrUrlMock.mockReturnValue(FINALIZE_REPO_ROOT);
     metadataManagerMock.getCompletedComments.mockResolvedValue([
       {
         comment: { id: 400, thread_id: 'PRRT_final' },
@@ -564,7 +663,7 @@ describe('Integration: pr-comment workflow', () => {
       },
     ]);
     metadataManagerMock.getMetadataPath.mockReturnValue(
-      '/repos/finalize-repo/.ai-workflow/pr-123/comment-resolution-metadata.json',
+      path.join(FINALIZE_REPO_ROOT, '.ai-workflow', 'pr-123', 'comment-resolution-metadata.json'),
     );
     githubClientMock.commentClient.resolveReviewThread.mockResolvedValue(true);
 
@@ -572,9 +671,9 @@ describe('Integration: pr-comment workflow', () => {
 
     expect(resolveRepoPathFromPrUrlMock).toHaveBeenCalledWith(prUrl);
     expect(mockGetRepoRoot).not.toHaveBeenCalled();
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repos/finalize-repo', 123);
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(FINALIZE_REPO_ROOT, 123);
     expect(metadataManagerMock.setResolved).toHaveBeenCalledWith('400');
-    expect(simpleGitMock).toHaveBeenCalledWith('/repos/finalize-repo');
+    expect(simpleGitMock).toHaveBeenCalledWith(FINALIZE_REPO_ROOT);
   });
 
   it('resolves PR number from issue option and uses current repository path', async () => {
@@ -589,7 +688,7 @@ describe('Integration: pr-comment workflow', () => {
       node_id: `PR${prNumber}`,
     }));
     metadataManagerMock.getMetadataPath.mockReturnValue(
-      '/repo/.ai-workflow/pr-321/comment-resolution-metadata.json',
+      path.join(CURRENT_REPO_ROOT, '.ai-workflow', 'pr-321', 'comment-resolution-metadata.json'),
     );
 
     await handlePRCommentInitCommand({ issue: '789' } as any);
@@ -597,7 +696,7 @@ describe('Integration: pr-comment workflow', () => {
     expect(githubClientMock.getPullRequestNumber).toHaveBeenCalledWith(789);
     expect(mockGetRepoRoot).toHaveBeenCalledTimes(1);
     expect(resolveRepoPathFromPrUrlMock).not.toHaveBeenCalled();
-    expect(metadataManagerConstructorMock).toHaveBeenCalledWith('/repo', 321);
+    expect(metadataManagerConstructorMock).toHaveBeenCalledWith(CURRENT_REPO_ROOT, 321);
   });
 
   it('reports a missing repository under REPOS_ROOT when resolving prUrl', async () => {
