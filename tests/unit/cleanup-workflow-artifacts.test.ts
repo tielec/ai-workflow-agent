@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { EvaluationPhase } from '../../src/phases/evaluation.js';

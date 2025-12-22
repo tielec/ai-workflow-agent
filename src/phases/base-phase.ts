@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -640,10 +640,10 @@ export abstract class BasePhase {
   }
 
   private ensureDirectories() {
-    fs.ensureDirSync(this.outputDir);
-    fs.ensureDirSync(this.executeDir);
-    fs.ensureDirSync(this.reviewDir);
-    fs.ensureDirSync(this.reviseDir);
+    fs.mkdirSync(this.outputDir, { recursive: true });
+    fs.mkdirSync(this.executeDir, { recursive: true });
+    fs.mkdirSync(this.reviewDir, { recursive: true });
+    fs.mkdirSync(this.reviseDir, { recursive: true });
   }
 
   /**

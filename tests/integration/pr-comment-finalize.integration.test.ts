@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import simpleGit from 'simple-git';
 import { logger } from '../../src/utils/logger.js';
@@ -82,7 +82,7 @@ describe('Integration: pr-comment finalize command', () => {
 
   const setupTestRepo = async (
     repoName: string,
-    options: { branch?: string; prNumber?: number; commentsCount?: number } = {},
+    options: { branch?: string; prNumber?: number; commentsCount?: number; recordBaseCommit?: boolean } = {},
   ) => {
     const branch = options.branch ?? 'feature/pr-comment-finalize';
     const prNumber = options.prNumber ?? 123;
@@ -99,6 +99,8 @@ describe('Integration: pr-comment finalize command', () => {
     await fs.writeFile(path.join(repoDir, 'README.md'), '# PR Comment Finalize Integration');
     await git.add('README.md');
     await git.commit('Initial commit');
+    const baseCommit =
+      options.recordBaseCommit === true ? (await git.log({ maxCount: 1 })).latest?.hash : undefined;
     await git.checkoutLocalBranch(branch);
 
     const metadataDir = path.join(repoDir, '.ai-workflow', `pr-${prNumber}`);
@@ -133,6 +135,10 @@ describe('Integration: pr-comment finalize command', () => {
       await metadataManager.updateCommentStatus(String(comment.id), 'completed');
     }
 
+    if (baseCommit) {
+      await metadataManager.setBaseCommit(baseCommit);
+    }
+
     await git.add('.ai-workflow');
     await git.commit('Add PR comment artifacts');
 
@@ -151,6 +157,7 @@ describe('Integration: pr-comment finalize command', () => {
       branch,
       prNumber,
       comments,
+      baseCommit,
     };
   };
 
@@ -226,5 +233,47 @@ describe('Integration: pr-comment finalize command', () => {
 
     exitSpy.mockRestore();
     errorSpy.mockRestore();
+  });
+
+  test('squashes workflow commits into a single commit when --squash is provided', async () => {
+    const repoName = 'pr-comment-finalize-squash';
+    const { repoDir, metadataDir, remoteDir, branch, prNumber, baseCommit } = await setupTestRepo(repoName, {
+      commentsCount: 2,
+      recordBaseCommit: true,
+    });
+    if (!baseCommit) {
+      throw new Error('baseCommit not recorded for squash test setup.');
+    }
+    const git = simpleGit(repoDir);
+
+    await fs.writeFile(path.join(repoDir, 'file1.ts'), 'change 1');
+    await git.add('.').commit('[ai-workflow] PR Comment: Analyze completed');
+
+    await fs.writeFile(path.join(repoDir, 'file2.ts'), 'change 2');
+    await git.add('.').commit('[ai-workflow] PR Comment: Resolve batch 1');
+
+    const beforeLog = await git.log({ from: baseCommit, to: 'HEAD' });
+    expect(beforeLog.all.length).toBeGreaterThan(1);
+
+    const commandOptions: PRCommentFinalizeOptions = {
+      prUrl: `https://github.com/owner/${repoName}/pull/${prNumber}`,
+      squash: true,
+    };
+
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    expect(await fs.pathExists(metadataDir)).toBe(false);
+
+    const afterLog = await git.log({ from: baseCommit, to: 'HEAD' });
+    expect(afterLog.all.length).toBe(1);
+    expect(afterLog.latest?.message).toContain('[pr-comment] Resolve PR #');
+    const commitBody = await git.show(['-s', '--format=%B', 'HEAD']);
+    expect(commitBody).toContain('Co-Authored-By: Claude <noreply@anthropic.com>');
+
+    const cloneDir = path.join(CLONES_ROOT, `${repoName}-clone-squash`);
+    await fs.remove(cloneDir);
+    await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
+    const cloneLog = await simpleGit(cloneDir).log({ maxCount: 1 });
+    expect(cloneLog.latest?.message).toContain('[pr-comment] Resolve PR #');
   });
 });

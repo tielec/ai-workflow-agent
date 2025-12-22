@@ -29,6 +29,7 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     const prInfo = await fetchPrInfo(githubClient, prNumber);
     const repoInfo = await buildRepositoryInfo(githubClient, options.prUrl);
     const metadataManager = new PRCommentMetadataManager(repoInfo.path, prNumber);
+    const git = simpleGit(repoInfo.path);
 
     if (await metadataManager.exists()) {
       logger.warn('Metadata already exists. Skipping initialization.');
@@ -49,13 +50,25 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
       options.issue ? Number.parseInt(options.issue, 10) : undefined,
     );
 
+    try {
+      const log = await git.log(['-1']);
+      const baseCommit = log.latest?.hash;
+      if (baseCommit) {
+        await metadataManager.setBaseCommit(baseCommit);
+        logger.debug(`Recording base commit: ${baseCommit.substring(0, 8)}`);
+      } else {
+        logger.warn('Could not determine current HEAD commit. Squash may not work.');
+      }
+    } catch (error) {
+      logger.warn(`Failed to record base commit: ${getErrorMessage(error)}`);
+    }
+
     const summary = await metadataManager.getSummary();
     displaySummary(summary);
 
     logger.info(`Initialization completed. Metadata saved to: ${metadataManager.getMetadataPath()}`);
 
     // Git コミット & プッシュ
-    const git = simpleGit(repoInfo.path);
     const metadataPath = metadataManager.getMetadataPath();
     const relativePath = metadataPath.replace(`${repoInfo.path}/`, '').replace(/\\/g, '/');
 

@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { ContextBuilder } from '../../../../src/phases/context/context-builder.js';
 import { PhaseName } from '../../../../src/types.js';

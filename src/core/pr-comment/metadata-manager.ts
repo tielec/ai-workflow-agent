@@ -1,4 +1,5 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import {
@@ -90,7 +91,7 @@ export class PRCommentMetadataManager {
       return this.metadata;
     }
 
-    const content = await fs.readFile(this.metadataPath, 'utf-8');
+    const content = await fsp.readFile(this.metadataPath, 'utf-8');
     this.metadata = JSON.parse(content) as CommentResolutionMetadata;
     return this.metadata;
   }
@@ -99,7 +100,12 @@ export class PRCommentMetadataManager {
    * メタデータが存在するか確認
    */
   public async exists(): Promise<boolean> {
-    return fs.pathExists(this.metadataPath);
+    try {
+      await fsp.access(this.metadataPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -114,8 +120,8 @@ export class PRCommentMetadataManager {
     this.metadata.summary = this.calculateSummary(this.metadata.comments);
 
     const dir = path.dirname(this.metadataPath);
-    await fs.ensureDir(dir);
-    await fs.writeFile(this.metadataPath, JSON.stringify(this.metadata, null, 2), 'utf-8');
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(this.metadataPath, JSON.stringify(this.metadata, null, 2), 'utf-8');
   }
 
   /**
@@ -258,6 +264,31 @@ export class PRCommentMetadataManager {
   }
 
   /**
+   * base_commit を設定
+   *
+   * init コマンド実行時に現在のHEADコミットハッシュを記録する。
+   * @param baseCommit - ベースコミットハッシュ
+   * @throws Error - メタデータが初期化されていない場合
+   */
+  public async setBaseCommit(baseCommit: string): Promise<void> {
+    if (!this.metadata) {
+      throw new Error('Metadata not initialized. Call initialize() first.');
+    }
+
+    this.metadata.base_commit = baseCommit;
+    await this.save();
+  }
+
+  /**
+   * base_commit を取得
+   *
+   * 旧バージョンのメタデータ（base_commit なし）では undefined を返す。
+   */
+  public getBaseCommit(): string | undefined {
+    return this.metadata?.base_commit;
+  }
+
+  /**
    * analyze完了タイムスタンプを設定
    */
   public async setAnalyzeCompletedAt(timestamp: string): Promise<void> {
@@ -349,7 +380,7 @@ export class PRCommentMetadataManager {
    */
   public async cleanup(): Promise<void> {
     const dir = path.dirname(this.metadataPath);
-    await fs.remove(dir);
+    await fsp.rm(dir, { recursive: true, force: true });
   }
 
   /**

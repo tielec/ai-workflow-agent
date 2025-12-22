@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { PRCommentMetadataManager } from '../../../src/core/pr-comment/metadata-manager.js';
 import type { CommentResolution, CommentResolutionMetadata } from '../../../src/types/pr-comment.js';
@@ -243,6 +243,35 @@ describe('PRCommentMetadataManager', () => {
     expect(updated.analyzer_error).toBeNull();
     expect(updated.analyzer_error_type).toBeNull();
     expect(writeFileSpy).toHaveBeenCalled();
+  });
+
+  it('records base_commit when metadata is initialized', async () => {
+    await manager.initialize(prInfo, repoInfo, comments, 456);
+    const baseCommit = 'abc123def456789012345678901234567890abcd';
+
+    await manager.setBaseCommit(baseCommit);
+
+    const saved = JSON.parse(writeFileSpy.mock.calls[1][1] as string);
+    expect(saved.base_commit).toBe(baseCommit);
+    expect((manager as any).metadata.base_commit).toBe(baseCommit);
+  });
+
+  it('throws when setBaseCommit is called before initialization', async () => {
+    const freshManager = new PRCommentMetadataManager(repoPath, prNumber);
+
+    await expect(freshManager.setBaseCommit('abc123def456789012345678901234567890abcd')).rejects.toThrow(
+      'Metadata not initialized. Call initialize() first.',
+    );
+  });
+
+  it('returns base_commit when present and undefined when missing', async () => {
+    await manager.initialize(prInfo, repoInfo, comments, 456);
+    expect(manager.getBaseCommit()).toBeUndefined();
+
+    const baseCommit = 'abc123def456789012345678901234567890abcd';
+    await manager.setBaseCommit(baseCommit);
+
+    expect(manager.getBaseCommit()).toBe(baseCommit);
   });
 
   function buildBaseMetadata(): CommentResolutionMetadata {

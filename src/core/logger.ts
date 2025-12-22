@@ -70,24 +70,29 @@ export class ConsoleLogger implements ILogger {
    * @returns LogLevel enum value
    */
   private parseLogLevelFromEnv(): LogLevel {
-    const levelStr = config.getLogLevel().toUpperCase();
+    const rawLevel = process.env.LOG_LEVEL;
+    const levelStr = rawLevel?.toUpperCase();
+    const mapping: Record<string, LogLevel> = {
+      DEBUG: LogLevel.DEBUG,
+      INFO: LogLevel.INFO,
+      WARN: LogLevel.WARN,
+      WARNING: LogLevel.WARN,
+      ERROR: LogLevel.ERROR,
+    };
 
-    switch (levelStr) {
-      case 'DEBUG':
-        return LogLevel.DEBUG;
-      case 'INFO':
-        return LogLevel.INFO;
-      case 'WARN':
-      case 'WARNING':
-        return LogLevel.WARN;
-      case 'ERROR':
-        return LogLevel.ERROR;
-      default:
-        console.warn(
-          `[WARNING] Invalid LOG_LEVEL: ${levelStr}. Falling back to INFO.`,
-        );
-        return LogLevel.INFO;
+    if (levelStr && mapping[levelStr] !== undefined) {
+      return mapping[levelStr];
     }
+
+    if (levelStr && mapping[levelStr] === undefined) {
+      console.warn(
+        `[WARNING] Invalid LOG_LEVEL: ${levelStr}. Falling back to INFO.`,
+      );
+    }
+
+    // Fallback to sanitized config (defaults to INFO)
+    const fallback = config.getLogLevel().toUpperCase();
+    return mapping[fallback] ?? LogLevel.INFO;
   }
 
   /**

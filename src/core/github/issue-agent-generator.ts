@@ -10,7 +10,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import type { CodexAgentClient } from '../codex-agent-client.js';
@@ -329,7 +329,7 @@ export class IssueAgentGenerator {
   private cleanupOutputFile(filePath: string): void {
     try {
       if (fs.existsSync(filePath)) {
-        fs.removeSync(filePath);
+        fs.rmSync(filePath, { force: true });
         logger.debug(`Cleaned up output file: ${filePath}`);
       }
     } catch (error) {

@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import {
   PHASE_PRESETS,

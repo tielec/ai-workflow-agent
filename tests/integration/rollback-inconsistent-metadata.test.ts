@@ -16,17 +16,25 @@ import { MetadataManager } from '../../src/core/metadata-manager.js';
 import type { RollbackCommandOptions } from '../../src/types/commands.js';
 import * as path from 'node:path';
 
-// fs-extraのモック
-jest.mock('fs-extra', () => ({
+const fsMock = {
   existsSync: jest.fn(),
   ensureDirSync: jest.fn(),
   writeFileSync: jest.fn(),
   readFileSync: jest.fn(),
   statSync: jest.fn(),
   copyFileSync: jest.fn(),
+  readJsonSync: jest.fn(),
+  writeJsonSync: jest.fn(),
+};
+
+// fs-extraのモック
+jest.mock('fs-extra', () => ({
+  __esModule: true,
+  default: fsMock,
+  ...fsMock,
 }));
 
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 
 describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-208';
@@ -35,10 +43,49 @@ describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => 
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
-    (fs.copyFileSync as jest.Mock).mockImplementation(() => undefined);
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.ensureDirSync.mockImplementation(() => undefined as any);
+    fsMock.writeFileSync.mockImplementation(() => undefined);
+    fsMock.writeJsonSync.mockImplementation(() => undefined);
+    fsMock.copyFileSync.mockImplementation(() => undefined);
+
+    const basePhase = {
+      status: 'pending',
+      completed_steps: [],
+      current_step: null,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      retry_count: 0,
+      rollback_context: null,
+    };
+
+    fsMock.readJsonSync.mockReturnValue({
+      issue_number: '208',
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'planning',
+      phases: {
+        planning: { ...basePhase },
+        requirements: { ...basePhase },
+        design: { ...basePhase },
+        test_scenario: { ...basePhase },
+        implementation: { ...basePhase },
+        test_implementation: { ...basePhase },
+        testing: { ...basePhase },
+        documentation: { ...basePhase },
+        report: { ...basePhase },
+        evaluation: { ...basePhase },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    });
 
     metadataManager = new MetadataManager(testMetadataPath);
   });

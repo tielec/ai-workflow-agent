@@ -1,20 +1,52 @@
 import { MetadataManager } from '../../src/core/metadata-manager.js';
-import * as fs from 'fs-extra';
+import { WorkflowState } from '../../src/core/workflow-state.js';
+import type { WorkflowMetadata } from '../../src/types.js';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 
-// fs-extraのモック
-jest.mock('fs-extra');
+let templateMetadata: WorkflowMetadata;
+let workflowState: WorkflowState;
+let existsSyncSpy: jest.SpyInstance;
+let removeSyncSpy: jest.SpyInstance;
+let copyFileSyncSpy: jest.SpyInstance;
+let ensureDirSyncSpy: jest.SpyInstance;
+let writeJsonSyncSpy: jest.SpyInstance;
 
 describe('MetadataManager', () => {
   let metadataManager: MetadataManager;
   const testWorkflowDir = '/test/.ai-workflow/issue-26';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
+  beforeAll(() => {
+    templateMetadata = fs.readJsonSync(
+      path.resolve('metadata.json.template'),
+    ) as WorkflowMetadata;
+  });
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    (fs.existsSync as any) = jest.fn().mockReturnValue(false);
+    jest.restoreAllMocks();
+
+    // Prepare in-memory workflow state based on template
+    const metadataCopy = JSON.parse(JSON.stringify(templateMetadata)) as WorkflowMetadata;
+    metadataCopy.issue_number = '26';
+    metadataCopy.issue_url = 'https://example.com/issues/26';
+    metadataCopy.issue_title = 'Test Issue 26';
+    workflowState = new (WorkflowState as any)(testMetadataPath, metadataCopy);
+
+    jest.spyOn(WorkflowState as any, 'load').mockReturnValue(workflowState);
+    existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    jest.spyOn(fs, 'readJsonSync').mockReturnValue(metadataCopy);
+    writeJsonSyncSpy = jest.spyOn(fs, 'writeJsonSync').mockImplementation(() => {});
+    ensureDirSyncSpy = jest.spyOn(fs, 'ensureDirSync').mockImplementation(() => {});
+    removeSyncSpy = jest.spyOn(fs, 'removeSync').mockImplementation(() => {});
+    copyFileSyncSpy = jest.spyOn(fs, 'copyFileSync').mockImplementation(() => {});
+
     metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('updatePhaseStatus', () => {
@@ -53,8 +85,8 @@ describe('MetadataManager', () => {
   describe('backupMetadata', () => {
     it('正常系: バックアップファイルが作成される（ヘルパー関数使用）', () => {
       // Given: メタデータファイルが存在する
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.copyFileSync as any) = jest.fn().mockImplementation(() => {});
+      existsSyncSpy.mockReturnValue(true);
+      copyFileSyncSpy.mockImplementation(() => {});
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
       // When: backupMetadata関数を呼び出す
@@ -70,8 +102,8 @@ describe('MetadataManager', () => {
   describe('clear', () => {
     it('正常系: メタデータとワークフローディレクトリが削除される（ヘルパー関数使用）', () => {
       // Given: メタデータファイルとワークフローディレクトリが存在する
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.removeSync as any) = jest.fn().mockImplementation(() => {});
+      existsSyncSpy.mockReturnValue(true);
+      removeSyncSpy.mockImplementation(() => {});
       const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -89,14 +121,14 @@ describe('MetadataManager', () => {
   describe('save', () => {
     it('正常系: メタデータが保存される', () => {
       // Given: メタデータマネージャー
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
 
       // When: save関数を呼び出す
       metadataManager.save();
 
       // Then: ファイルが書き込まれる
-      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(fs.writeJsonSync).toHaveBeenCalled();
     });
   });
 
@@ -106,8 +138,8 @@ describe('MetadataManager', () => {
     it('should set and get base_commit correctly', () => {
       // Given: base_commitの値
       const commit = 'abc123def456789012345678901234567890abcd';
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
 
       // When: setBaseCommit を呼び出す
       metadataManager.setBaseCommit(commit);
@@ -137,8 +169,8 @@ describe('MetadataManager', () => {
         'commit2hash000000000000000000000000000',
         'commit3hash000000000000000000000000000',
       ];
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
 
       // When: setPreSquashCommits を呼び出す
       metadataManager.setPreSquashCommits(commits);
@@ -164,8 +196,8 @@ describe('MetadataManager', () => {
     it('should set and get squashed_at correctly', () => {
       // Given: ISO 8601形式のタイムスタンプ
       const timestamp = '2025-01-30T12:34:56.789Z';
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
 
       // When: setSquashedAt を呼び出す
       metadataManager.setSquashedAt(timestamp);
@@ -191,8 +223,8 @@ describe('MetadataManager', () => {
   // =============================================================================
   describe('validatePhaseConsistency (Issue #208)', () => {
     beforeEach(() => {
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
     });
 
     // TC-VM-001: 正常系 - status と completed_steps が整合
@@ -264,10 +296,10 @@ describe('MetadataManager', () => {
   // =============================================================================
   describe('rollbackToPhase (Issue #208)', () => {
     beforeEach(() => {
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.existsSync as any) = jest.fn().mockReturnValue(true);
-      (fs.copyFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
+      existsSyncSpy.mockReturnValue(true);
+      copyFileSyncSpy.mockImplementation(() => {});
     });
 
     // TC-RP-001: 正常系 - completed_steps と current_step が正しくリセットされる
@@ -301,8 +333,8 @@ describe('MetadataManager', () => {
   // =============================================================================
   describe('updatePhaseStatus (Issue #248)', () => {
     beforeEach(() => {
-      (fs.ensureDirSync as any) = jest.fn().mockImplementation(() => {});
-      (fs.writeFileSync as any) = jest.fn().mockImplementation(() => {});
+      ensureDirSyncSpy.mockImplementation(() => {});
+      writeJsonSyncSpy.mockImplementation(() => {});
     });
 
     // テストケース 2.1.1: 冪等性チェック - 同じステータスへの重複更新
@@ -311,7 +343,7 @@ describe('MetadataManager', () => {
       metadataManager.data.phases.design.status = 'completed';
       metadataManager.data.phases.design.completed_at = '2025-01-30T11:00:00Z';
 
-      const writeFileSpy = jest.spyOn(fs, 'writeFileSync');
+      const writeFileSpy = jest.spyOn(fs, 'writeJsonSync');
 
       // When: 同じステータス completed に更新しようとする
       metadataManager.updatePhaseStatus('design', 'completed');

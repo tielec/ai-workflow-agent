@@ -10,7 +10,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
@@ -274,7 +274,7 @@ ${candidate.suggestedFix}
   private cleanupOutputFile(filePath: string): void {
     try {
       if (fs.existsSync(filePath)) {
-        fs.removeSync(filePath);
+        fs.rmSync(filePath, { force: true });
         logger.debug(`Cleaned up output file: ${filePath}`);
       }
     } catch (error) {

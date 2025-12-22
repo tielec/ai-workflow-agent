@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { ClaudeAgentClient, resolveClaudeModel } from './claude-agent-client.js';
 import { CodexAgentClient, resolveCodexModel } from './codex-agent-client.js';

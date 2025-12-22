@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { BasePhase } from '../../../src/phases/base-phase.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';

@@ -8,7 +8,7 @@
  * - Git コミット＆プッシュ
  */
 
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';

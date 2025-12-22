@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 
 export const CODEX_MIN_API_KEY_LENGTH = 20;

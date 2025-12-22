@@ -1,4 +1,4 @@
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { basename, dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';
@@ -45,8 +45,8 @@ export class WorkflowState {
       );
     }
 
-    const initialData = fs.readJsonSync(
-      METADATA_TEMPLATE_PATH,
+    const initialData = JSON.parse(
+      fs.readFileSync(METADATA_TEMPLATE_PATH, 'utf-8')
     ) as WorkflowMetadata;
 
     const nowIso = new Date().toISOString();
@@ -56,8 +56,8 @@ export class WorkflowState {
     initialData.created_at = nowIso;
     initialData.updated_at = nowIso;
 
-    fs.ensureDirSync(dirname(metadataPath));
-    fs.writeJsonSync(metadataPath, initialData, { spaces: 2 });
+    fs.mkdirSync(dirname(metadataPath), { recursive: true });
+    fs.writeFileSync(metadataPath, JSON.stringify(initialData, null, 2), 'utf-8');
 
     return new WorkflowState(metadataPath, initialData);
   }
@@ -67,13 +67,13 @@ export class WorkflowState {
       throw new Error(`metadata.json not found: ${metadataPath}`);
     }
 
-    const data = fs.readJsonSync(metadataPath) as WorkflowMetadata;
+    const data = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')) as WorkflowMetadata;
     return new WorkflowState(metadataPath, data);
   }
 
   public save(): void {
     this.data.updated_at = new Date().toISOString();
-    fs.writeJsonSync(this.metadataPath, this.data, { spaces: 2 });
+    fs.writeFileSync(this.metadataPath, JSON.stringify(this.data, null, 2), 'utf-8');
   }
 
   public updatePhaseStatus(phase: PhaseName, status: PhaseStatus): void {
@@ -133,8 +133,8 @@ export class WorkflowState {
       return false;
     }
 
-    const template = fs.readJsonSync(
-      METADATA_TEMPLATE_PATH,
+    const template = JSON.parse(
+      fs.readFileSync(METADATA_TEMPLATE_PATH, 'utf-8')
     ) as WorkflowMetadata;
     const phases = this.data.phases as PhasesMetadata;
     let migrated = false;

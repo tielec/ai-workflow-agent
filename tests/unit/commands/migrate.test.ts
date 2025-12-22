@@ -6,7 +6,7 @@
  */
 
 import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
-import fs from 'fs-extra';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
 import type { SpiedFunction } from 'jest-mock';
@@ -20,7 +20,9 @@ import { sanitizeGitUrl } from '../../../src/utils/git-url-utils.js';
 // モックの設定
 jest.mock('fs-extra');
 jest.mock('glob', () => ({
+  __esModule: true,
   glob: jest.fn(),
+  default: jest.fn(),
 }));
 jest.mock('../../../src/utils/logger.js', () => ({
   logger: {

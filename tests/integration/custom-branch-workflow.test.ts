@@ -19,7 +19,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import * as fs from 'node:fs';
 import * as fsNode from 'fs';
 import { simpleGit, SimpleGit } from 'simple-git';
 import { execSync } from 'child_process';
