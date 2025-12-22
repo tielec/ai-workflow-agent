@@ -4,16 +4,9 @@ import {
   removeWorkflowDirectory,
   getPhaseOutputFilePath,
 } from '../../../src/core/helpers/metadata-io.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { jest } from '@jest/globals';
-jest.mock('node:fs', () => ({
-  __esModule: true,
-  copyFileSync: jest.fn(),
-  existsSync: jest.fn(),
-  rmSync: jest.fn(),
-  readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
-}));
+jest.mock('fs-extra');
 
 describe('metadata-io', () => {
   beforeEach(() => {

@@ -21,6 +21,14 @@ import * as path from 'node:path';
 
 // fs-extraのモック
 jest.mock('fs-extra');
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  ...jest.requireActual('node:fs'),
+  existsSync: jest.fn(),
+  rmSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+}));
 
 import * as fs from 'node:fs';
 const { existsSync } = fs as jest.Mocked<typeof fs>;

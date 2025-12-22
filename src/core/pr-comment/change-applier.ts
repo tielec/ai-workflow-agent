@@ -1,6 +1,5 @@
-import * as fs from 'node:fs';
-import { promises as fsp } from 'node:fs';
 import path from 'node:path';
+import fs from 'fs-extra';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { FileChange, ChangeApplyResult } from '../../types/pr-comment.js';
@@ -101,14 +100,14 @@ export class CodeChangeApplier {
 
   private async createFile(fullPath: string, content: string): Promise<void> {
     const dir = path.dirname(fullPath);
-    await fsp.mkdir(dir, { recursive: true });
-    await fsp.writeFile(fullPath, content, 'utf-8');
+    await fs.ensureDir(dir);
+    await fs.writeFile(fullPath, content, 'utf-8');
   }
 
   private async modifyFile(fullPath: string, change: FileChange): Promise<void> {
     if (change.content !== undefined) {
-      await fsp.mkdir(path.dirname(fullPath), { recursive: true });
-      await fsp.writeFile(fullPath, change.content, 'utf-8');
+      await fs.ensureDir(path.dirname(fullPath));
+      await fs.writeFile(fullPath, change.content, 'utf-8');
       return;
     }
 
@@ -120,12 +119,12 @@ export class CodeChangeApplier {
   }
 
   private async deleteFile(fullPath: string): Promise<void> {
-    try {
-      await fsp.access(fullPath);
-      await fsp.rm(fullPath, { force: true });
-    } catch {
-      // File doesn't exist, nothing to delete
+    const exists = await fs.pathExists(fullPath);
+    if (!exists) {
+      return;
     }
+
+    await fs.remove(fullPath);
   }
 
   /**

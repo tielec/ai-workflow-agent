@@ -29,6 +29,7 @@ const fsExtra = {
   remove: jest.fn(async () => {}),
   removeSync: jest.fn(() => {}),
   rm: jest.fn(async () => {}),
+  rmSync: jest.fn(() => {}),
   mkdirs: jest.fn(async () => {}),
   mkdtemp: jest.fn(async (prefix: string) => `${prefix}${Math.random().toString(16).slice(2, 8)}`),
   statSync: jest.fn(() => ({

@@ -26,6 +26,7 @@ const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
 const mockResolveAgentCredentials = jest.fn();
 const mockSetupAgentClients = jest.fn();
+const resolveLocalRepoPathMock = jest.fn();
 
 // モック設定
 jest.mock('../../../src/core/repository-analyzer.js', () => ({
@@ -58,7 +59,8 @@ jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
 }));
 jest.mock('../../../src/core/repository-utils.js', () => ({
   __esModule: true,
-  resolveLocalRepoPath: jest.fn(),
+  ...jest.requireActual('../../../src/core/repository-utils.js'),
+  resolveLocalRepoPath: resolveLocalRepoPathMock,
 }));
 jest.mock('@octokit/rest');
 
@@ -71,8 +73,6 @@ describe('auto-issue command handler', () => {
   };
   const mockDeduplicator = { filterDuplicates: mockFilterDuplicates };
   const mockGenerator = { generate: mockGenerate };
-  const resolveLocalRepoPathMock = repositoryUtils
-    .resolveLocalRepoPath as jest.MockedFunction<typeof repositoryUtils.resolveLocalRepoPath>;
 
   beforeAll(() => {
     process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? 'test-github-token';

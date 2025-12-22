@@ -15,7 +15,7 @@
 import { describe, test, expect, jest, afterEach } from '@jest/globals';
 import path from 'node:path';
 import process from 'node:process';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import {
   parseIssueUrl,
   parsePullRequestUrl,
@@ -25,12 +25,21 @@ import {
   getRepoRoot,
 } from '../../../src/core/repository-utils.js';
 import { config } from '../../../src/core/config.js';
-jest.mock('node:fs', () => ({
+jest.mock('fs-extra');
+jest.mock('simple-git', () => ({
   __esModule: true,
-  existsSync: jest.fn(),
-  readFileSync: jest.fn(),
-  lstatSync: jest.fn(),
+  default: jest.fn(() => ({
+    revparse: jest.fn().mockResolvedValue(path.resolve('/workspace/ai-workflow-agent')),
+  })),
 }));
+// Ensure fs-extra mock functions are writable jest mocks for ESM
+(fs as any).existsSync = jest.fn();
+(fs as any).readFileSync = jest.fn();
+(fs as any).lstatSync = jest.fn();
+let existsSyncMock = fs.existsSync as jest.MockedFunction<typeof fs.existsSync>;
+let readFileSyncMock = fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>;
+let lstatSyncMock = fs.lstatSync as jest.MockedFunction<typeof fs.lstatSync>;
+existsSyncMock.mockReturnValue(false);
 
 // =============================================================================
 // parseIssueUrl() のテスト
@@ -294,6 +303,9 @@ describe('resolveLocalRepoPath', () => {
 
 describe('resolveRepoPathFromPrUrl', () => {
   afterEach(() => {
+    (fs as any).existsSync = jest.fn();
+    existsSyncMock = fs.existsSync as jest.MockedFunction<typeof fs.existsSync>;
+    existsSyncMock.mockReturnValue(false);
     jest.restoreAllMocks();
   });
 
@@ -305,7 +317,7 @@ describe('resolveRepoPathFromPrUrl', () => {
     jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/user');
     jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
 
-    const existsSpy = jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
+    existsSyncMock.mockImplementation((targetPath: string) => {
       const normalized = path.resolve(targetPath);
       return (
         normalized === path.resolve('/repos/my-app') ||
@@ -318,8 +330,8 @@ describe('resolveRepoPathFromPrUrl', () => {
 
     // Then
     expect(repoPath).toBe(path.resolve('/repos/my-app'));
-    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app'));
-    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app/.git'));
+    expect(existsSyncMock).toHaveBeenCalledWith(path.resolve('/repos/my-app'));
+    expect(existsSyncMock).toHaveBeenCalledWith(path.resolve('/repos/my-app/.git'));
   });
 
   test('REPOS_ROOT未設定時はフォールバックパスを探索する', () => {
@@ -330,7 +342,7 @@ describe('resolveRepoPathFromPrUrl', () => {
     jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/tester');
     jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
 
-    jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
+    existsSyncMock.mockImplementation((targetPath: string) => {
       const normalized = path.resolve(targetPath);
       return (
         normalized === path.resolve('/home/tester/TIELEC/development/fallback-repo') ||
@@ -351,7 +363,7 @@ describe('resolveRepoPathFromPrUrl', () => {
     jest.spyOn(config, 'getReposRoot').mockReturnValue('/repos');
     jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/tester');
     jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
-    jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+    existsSyncMock.mockReturnValue(false);
 
     // When & Then
     expect(() => resolveRepoPathFromPrUrl(prUrl)).toThrow(

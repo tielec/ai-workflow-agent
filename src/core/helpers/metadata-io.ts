@@ -4,7 +4,7 @@
  * メタデータファイルI/O操作を提供するヘルパーモジュール
  */
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import type { PhaseName } from '../../types.js';
 import { logger } from '../../utils/logger.js';
