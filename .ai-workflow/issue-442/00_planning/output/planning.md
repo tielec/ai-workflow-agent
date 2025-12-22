@@ -173,12 +173,12 @@
 
 ### Phase 4: 実装 (見積もり: 1h)
 
-- [ ] Task 4-1: `ReviewCommentAnalyzer` クラスの拡張 (0.5h)
+- [x] Task 4-1: `ReviewCommentAnalyzer` クラスの拡張 (0.5h)
   - `LogFormatter` のインポート追加
   - コンストラクタで `LogFormatter` インスタンス化
   - `runAgent()` メソッドに `commentId` パラメータ追加
 
-- [ ] Task 4-2: ログ保存処理の実装 (0.5h)
+- [x] Task 4-2: ログ保存処理の実装 (0.5h)
   - 成功時のログ保存処理
   - 失敗時（catch句）のログ保存処理
   - `analyze()` メソッドからの呼び出し修正
