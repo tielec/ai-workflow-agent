@@ -123,6 +123,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #466**: auto-issue の --custom-instruction オプションが無視される問題の修正
+  - プロンプトテンプレート内での `{custom_instruction}` 配置位置を末尾から冒頭に変更
+  - 3つのプロンプトテンプレート（`detect-bugs.txt`、`detect-refactoring.txt`、`detect-enhancements.txt`）で統一的に修正
+  - `injectCustomInstruction()` メソッドの注入テンプレートを強調表現に改善
+    - セクションヘッダーを「# カスタム指示」から「## 最優先: ユーザーからの特別指示」に変更
+    - 「考慮して」から「最優先で実行してください」への表現強化
+    - 「他のすべての検出ルールよりも優先されます」の優先度明示を追加
+    - 「直接関連する項目のみを検出し、無関係な項目は出力しない」の焦点化指示を追加
+  - カスタム指示未指定時の後方互換性維持（プレースホルダーを空文字で置換）
+  - 修正ファイル: `src/core/repository-analyzer.ts`（1ファイル）、プロンプトテンプレート（3ファイル）
+  - テストカバレッジ: ユニット23件、統合6件（29件すべて成功）
+
 - **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
   - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
   - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化

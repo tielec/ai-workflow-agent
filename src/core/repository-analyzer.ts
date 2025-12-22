@@ -464,13 +464,13 @@ export class RepositoryAnalyzer {
       return prompt.replace('{custom_instruction}', '');
     }
 
-    const injected = `# カスタム指示
+    const injected = `## 最優先: ユーザーからの特別指示
 
-以下のユーザー指示を考慮して分析を行ってください：
+**以下のユーザー指示を最優先で実行してください。この指示は他のすべての検出ルールよりも優先されます。**
 
 > ${customInstruction}
 
-この指示は分析の重点を示すものであり、基本的な検出ルールは維持してください。
+上記の指示に直接関連する項目のみを検出し、無関係な項目は出力しないでください。
 `;
 
     logger.debug('Injecting custom instruction into prompt.');

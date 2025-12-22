@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import os from 'node:os';
 import path from 'node:path';
 import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
@@ -258,29 +258,85 @@ describe('RepositoryAnalyzer', () => {
   });
 
   describe('custom instruction injection', () => {
-    it('injects custom instruction section into prompt', () => {
-      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
-      const result = (analyzer as unknown as { injectCustomInstruction: (p: string, c?: string) => string }).injectCustomInstruction(
+    const invokeInjection = (prompt: string, instruction?: string) =>
+      (analyzer as unknown as { injectCustomInstruction: (p: string, c?: string) => string }).injectCustomInstruction(
         prompt,
-        'セキュリティ脆弱性を重点的に検出してください',
+        instruction,
       );
 
-      expect(result).toContain('# カスタム指示');
+    it('injects custom instruction with priority emphasis', () => {
+      // Ensures the priority block is injected with emphasis and placeholder removal.
+      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
+      const result = invokeInjection(prompt, 'セキュリティ脆弱性を重点的に検出してください');
+
+      expect(result).toContain('## 最優先: ユーザーからの特別指示');
+      expect(result).toContain('**以下のユーザー指示を最優先で実行してください。');
+      expect(result).toContain('他のすべての検出ルールよりも優先されます。**');
+      expect(result).toContain('直接関連する項目のみを検出');
       expect(result).toContain('> セキュリティ脆弱性を重点的に検出してください');
       expect(result).not.toContain('{custom_instruction}');
     });
 
-    it('removes placeholder when custom instruction is not provided', () => {
-      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
-      const result = (analyzer as unknown as { injectCustomInstruction: (p: string, c?: string) => string }).injectCustomInstruction(
-        prompt,
-      );
+    it('injects long custom instruction correctly', () => {
+      // Verifies a 500-character instruction stays intact inside the quoted block.
+      const prompt = 'Header\n{custom_instruction}\n# 検出対象パターン';
+      const longInstruction = 'テ'.repeat(500);
+      const result = invokeInjection(prompt, longInstruction);
 
-      expect(result).not.toContain('{custom_instruction}');
-      expect(result).not.toContain('# カスタム指示');
+      expect(result).toContain('## 最優先: ユーザーからの特別指示');
+      expect(result).toContain(`> ${longInstruction}`);
     });
 
-    it('passes injected prompt to agent execution', async () => {
+    it('injects custom instruction with special characters', () => {
+      // Confirms multi-line instructions with bullet-like lines remain preserved.
+      const prompt = 'Header\n{custom_instruction}\n# 検出対象パターン';
+      const specialInstruction = 'テスト指示\n- 項目1\n- 項目2';
+      const result = invokeInjection(prompt, specialInstruction);
+
+      expect(result).toContain('## 最優先: ユーザーからの特別指示');
+      expect(result).toContain(`> ${specialInstruction}`);
+    });
+
+    it('contains all priority keywords in custom instruction section', () => {
+      // Checks that all emphasis phrases remain in the injected section.
+      const prompt = 'Header\n{custom_instruction}\n# パターン';
+      const result = invokeInjection(prompt, 'テスト指示');
+
+      expect(result).toContain('最優先');
+      expect(result).toContain('最優先で実行してください');
+      expect(result).toContain('他のすべての検出ルールよりも優先されます。');
+      expect(result).toContain('直接関連する項目のみを検出');
+      expect(result).toContain('無関係な項目は出力しないでください。');
+    });
+
+    it('removes placeholder when custom instruction is not provided', () => {
+      // Treats undefined instruction as removal of the placeholder block.
+      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
+      const result = invokeInjection(prompt);
+
+      expect(result).toBe('Header\n\n# 重要な注意事項');
+      expect(result).not.toContain('## 最優先');
+    });
+
+    it('treats empty string instruction as no instruction', () => {
+      // Ensures empty string behaves the same as undefined.
+      const prompt = 'Header\n{custom_instruction}\n# 重要な注意事項';
+      const result = invokeInjection(prompt, '');
+
+      expect(result).toBe('Header\n\n# 重要な注意事項');
+      expect(result).not.toContain('## 最優先');
+    });
+
+    it('leaves prompt unchanged when placeholder is missing', () => {
+      // Confirms prompts without a placeholder are returned untouched.
+      const prompt = 'Header\n# 重要な注意事項';
+      const result = invokeInjection(prompt, 'テスト指示');
+
+      expect(result).toBe(prompt);
+    });
+
+    it('passes injected prompt to bug analysis and places it before detection patterns', async () => {
+      // Validates bug prompt includes the injected section before detection patterns.
       mockCodexSuccess('bugs', { bugs: [] });
 
       await analyzer.analyze('/repo', 'codex', {
@@ -288,19 +344,81 @@ describe('RepositoryAnalyzer', () => {
       });
 
       const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
-      expect(promptArg.prompt).toContain('# カスタム指示');
+      expect(promptArg.prompt).toContain('## 最優先: ユーザーからの特別指示');
       expect(promptArg.prompt).toContain('> CI/CD改善に焦点を当ててください');
       expect(promptArg.prompt).not.toContain('{custom_instruction}');
+
+      const customInstructionIndex = promptArg.prompt.indexOf('## 最優先');
+      const detectionPatternsIndex = promptArg.prompt.indexOf('# 検出対象パターン');
+      expect(customInstructionIndex).toBeGreaterThan(-1);
+      expect(detectionPatternsIndex).toBeGreaterThan(-1);
+      expect(customInstructionIndex).toBeLessThan(detectionPatternsIndex);
+    });
+
+    it('places custom instruction before detection patterns in refactor analysis', async () => {
+      // Checks refactor prompts place the custom block ahead of detection patterns.
+      jest
+        .spyOn(
+          analyzer as unknown as { collectRepositoryCode: () => Promise<string> },
+          'collectRepositoryCode',
+        )
+        .mockResolvedValue('mock repo code');
+      mockCodexSuccess('refactor', []);
+
+      await analyzer.analyzeForRefactoring('/repo', 'codex', {
+        customInstruction: 'コード重複を検出',
+      });
+
+      const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
+      expect(promptArg.prompt).toContain('## 最優先: ユーザーからの特別指示');
+      const customInstructionIndex = promptArg.prompt.indexOf('## 最優先');
+      const detectionPatternsIndex = promptArg.prompt.indexOf('## 検出対象パターン');
+      expect(customInstructionIndex).toBeGreaterThan(-1);
+      expect(detectionPatternsIndex).toBeGreaterThan(-1);
+      expect(customInstructionIndex).toBeLessThan(detectionPatternsIndex);
+    });
+
+    it('places custom instruction before task description in enhancement analysis', async () => {
+      // Ensures enhancement prompts show the custom block ahead of task description.
+      mockCodexSuccess('enhancements', []);
+
+      await analyzer.analyzeForEnhancements('/repo', 'codex', {
+        customInstruction: 'CI/CD改善を提案',
+      });
+
+      const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
+      expect(promptArg.prompt).toContain('## 最優先: ユーザーからの特別指示');
+      const customInstructionIndex = promptArg.prompt.indexOf('## 最優先');
+      const taskDescriptionIndex = promptArg.prompt.indexOf('## タスク');
+      expect(customInstructionIndex).toBeGreaterThan(-1);
+      expect(taskDescriptionIndex).toBeGreaterThan(-1);
+      expect(customInstructionIndex).toBeLessThan(taskDescriptionIndex);
     });
 
     it('omits custom section when custom instruction is undefined', async () => {
+      // Confirms no custom section is included when instruction is absent.
       mockCodexSuccess('bugs', { bugs: [] });
 
       await analyzer.analyze('/repo', 'codex');
 
       const promptArg = mockCodexClient.executeTask.mock.calls[0][0];
-      expect(promptArg.prompt).not.toContain('# カスタム指示');
+      expect(promptArg.prompt).not.toContain('## 最優先');
       expect(promptArg.prompt).not.toContain('{custom_instruction}');
+    });
+
+    it('preserves custom instruction when falling back from Codex to Claude', async () => {
+      // Ensures fallback flow still receives the injected custom instruction block.
+      mockCodexClient.executeTask.mockRejectedValue(new Error('Codex offline'));
+      mockClaudeSuccess('bugs', { bugs: [] });
+
+      await analyzer.analyze('/repo', 'auto', {
+        customInstruction: 'ネットワーク周辺の不具合を優先',
+      });
+
+      expect(mockClaudeClient.executeTask).toHaveBeenCalledTimes(1);
+      const promptArg = mockClaudeClient.executeTask.mock.calls[0][0];
+      expect(promptArg.prompt).toContain('## 最優先: ユーザーからの特別指示');
+      expect(promptArg.prompt).toContain('> ネットワーク周辺の不具合を優先');
     });
   });
 
