@@ -127,11 +127,14 @@ Codex API キー（任意）
 OPENAI_API_KEYの代替として使用可能
             '''.stripIndent().trim())
 
-            textParam('CODEX_AUTH_JSON', '', '''
+            nonStoredPasswordParam('CODEX_AUTH_JSON', '''
 Codex auth.json の内容（任意）
 
 Codex CLI 用の ~/.codex/auth.json を貼り付けます。ジョブ実行中のみ workspace/.codex/auth.json として展開され、完了後にクリーンアップされます。
-空欄の場合はファイルを作成しません。※ 入力内容はログに出力されません。
+空欄の場合はファイルを作成しません。
+
+注意: 入力フィールドが単一行のパスワード形式に変更されます。
+auth.json の内容を1行に整形するか、改行なしで貼り付けてください。
             '''.stripIndent().trim())
 
             nonStoredPasswordParam('CLAUDE_CODE_OAUTH_TOKEN', '''

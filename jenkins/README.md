@@ -63,6 +63,20 @@ jenkins/
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 14 |
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 11 |
 
+### セキュリティ強化（Issue #462）
+
+**機密情報パラメータの保護**:
+以下のパラメータは、個人情報・機密情報の保護のためNon-Stored Password Parameterに変更されています：
+- `ISSUE_URL`, `PR_URL` - リポジトリ情報を含むURL
+- `BRANCH_NAME`, `BASE_BRANCH` - ブランチ名（作業内容を特定可能）
+- `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL` - ユーザー個人情報
+- `CODEX_AUTH_JSON` - 認証情報
+
+**UI変更点**:
+- 対象パラメータは Jenkins UI でパスワード入力フィールド（マスク表示）になります
+- パラメータ値はビルド履歴に保存されません
+- `CODEX_AUTH_JSON` は複数行入力から単一行入力に変更されます
+
 ### フォルダ構成
 
 ジョブは以下のフォルダ構成で配置されます：

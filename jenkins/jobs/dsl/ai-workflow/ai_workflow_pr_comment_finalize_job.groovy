@@ -58,7 +58,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 基本設定
             // ========================================
-            stringParam('PR_URL', '', '''
+            nonStoredPasswordParam('PR_URL', '''
 Pull Request URL（必須）
 
 例: https://github.com/tielec/ai-workflow-agent/pull/123
@@ -72,12 +72,16 @@ Pull Request URL（必須）
 Finalize時にコミットをスカッシュするかどうか（デフォルト: 有効）
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow Bot', '''
+            nonStoredPasswordParam('GIT_COMMIT_USER_NAME', '''
 Git コミットユーザー名
+
+デフォルト値: AI Workflow Bot
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@example.com', '''
+            nonStoredPasswordParam('GIT_COMMIT_USER_EMAIL', '''
 Git コミットメールアドレス
+
+デフォルト値: ai-workflow@example.com
             '''.stripIndent().trim())
 
             choiceParam('LOG_LEVEL', ['INFO', 'DEBUG', 'WARNING', 'ERROR'], '''
@@ -106,9 +110,12 @@ Codex API キー（任意）
 OPENAI_API_KEYの代替として使用可能（Finalizeでは未使用）
             '''.stripIndent().trim())
 
-            textParam('CODEX_AUTH_JSON', '', '''
+            nonStoredPasswordParam('CODEX_AUTH_JSON', '''
 Codex auth.json の内容（任意）
 互換性のため定義（Finalizeでは未使用）
+
+注意: 入力フィールドが単一行のパスワード形式に変更されます。
+auth.json の内容を1行に整形するか、改行なしで貼り付けてください。
             '''.stripIndent().trim())
 
             nonStoredPasswordParam('CLAUDE_CODE_OAUTH_TOKEN', '''

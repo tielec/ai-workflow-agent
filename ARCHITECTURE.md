@@ -683,6 +683,17 @@ Jenkinsfileは実行モード別に分割され、保守性と可読性が大幅
   - Jenkinsfile の `Prepare Agent Credentials` ステージで処理
   - Base64エンコードされたファイルとして保存・デコード
 
+**セキュリティ強化（Issue #462）**:
+
+個人情報・機密情報を含むパラメータは `nonStoredPasswordParam` として定義され、Jenkins UIでパスワード入力フィールド（マスク表示）として表示され、ビルド履歴に保存されません：
+
+- `ISSUE_URL`, `PR_URL` - リポジトリ情報を含むURL
+- `BRANCH_NAME`, `BASE_BRANCH` - ブランチ名（作業内容を特定可能）
+- `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL` - ユーザー個人情報
+- `CODEX_AUTH_JSON` - 認証情報（`textParam`から単一行入力に変更）
+
+この変更により、セキュリティが強化され、個人情報保護規制（GDPR等）への準拠が向上しました。パラメータ値は実行時の環境変数として従来どおりワークフローに渡され、機能継続性は維持されています。
+
 ## ビルドパイプライン
 
 ```

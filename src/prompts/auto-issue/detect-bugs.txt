@@ -1,5 +1,7 @@
 あなたはコードレビューの専門家です。以下のリポジトリからバグや問題点を検出してください。
 
+{custom_instruction}
+
 # 検出対象パターン
 
 以下の5つのパターンを検出対象とします（言語非依存）：
@@ -106,8 +108,6 @@
 - CI/CD設定: `Jenkinsfile`, `Dockerfile`, `Makefile`
 - 設定ファイル: `.yml`, `.yaml`, `.json`, `.toml`, `.xml`
 - IaC: `.tf`, `.template`
-
-{custom_instruction}
 
 # 重要な注意事項
 
