@@ -36,12 +36,17 @@ export async function handlePRCommentExecuteCommand(
   const startTime = Date.now();
   const messages: string[] = [];
   let error: Error | null = null;
+  let prNumber: number | undefined;
+  let repoRoot: string | undefined;
 
   try {
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
-    const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
+    const prInfo = resolvePrInfo(options);
+    const repositoryName = prInfo.repositoryName;
+    prNumber = prInfo.prNumber;
+    const prUrl = prInfo.prUrl;
 
-    const repoRoot = prUrl
+    repoRoot = prUrl
       ? resolveRepoPathFromPrUrl(prUrl)
       : await getRepoRoot();
     logger.debug(
@@ -164,7 +169,10 @@ export async function handlePRCommentExecuteCommand(
     logger.error(`Failed to execute: ${getErrorMessage(error)}`);
     messages.push(`system: Failed to execute: ${getErrorMessage(error)}`);
 
-    await persistExecuteLog({ messages, startTime, endTime, prNumber, repoRoot, options, error: execError });
+    // prNumber と repoRoot が初期化されている場合のみログを永続化
+    if (prNumber !== undefined && repoRoot !== undefined) {
+      await persistExecuteLog({ messages, startTime, endTime, prNumber, repoRoot, options, error: execError });
+    }
     process.exit(1);
   }
 }
