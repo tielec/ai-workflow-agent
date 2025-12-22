@@ -5,6 +5,9 @@
 **Test Execution**: Manual testing in Jenkins environment
 **Last Updated**: 2025-01-17
 
+**Security Enhancement (Issue #462)**:
+Job DSL パラメータが Non-Stored Password Parameter に変更され、個人情報・機密情報の保護が強化されました。詳細は [Issue #462](https://github.com/tielec/ai-workflow-agent/issues/462) を参照。
+
 ---
 
 ## テスト概要

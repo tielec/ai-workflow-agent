@@ -60,7 +60,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 基本設定
             // ========================================
-            stringParam('PR_URL', '', '''
+            nonStoredPasswordParam('PR_URL', '''
 Pull Request URL（必須）
 
 例: https://github.com/tielec/ai-workflow-agent/pull/123
@@ -81,12 +81,16 @@ Pull Request URL（必須）
 一度に処理するコメント数（デフォルト: 5）
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow Bot', '''
+            nonStoredPasswordParam('GIT_COMMIT_USER_NAME', '''
 Git コミットユーザー名
+
+デフォルト値: AI Workflow Bot
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@example.com', '''
+            nonStoredPasswordParam('GIT_COMMIT_USER_EMAIL', '''
 Git コミットメールアドレス
+
+デフォルト値: ai-workflow@example.com
             '''.stripIndent().trim())
 
             choiceParam('LOG_LEVEL', ['INFO', 'DEBUG', 'WARNING', 'ERROR'], '''
@@ -115,11 +119,14 @@ Codex API キー（任意）
 OPENAI_API_KEYの代替として使用可能
             '''.stripIndent().trim())
 
-            textParam('CODEX_AUTH_JSON', '', '''
+            nonStoredPasswordParam('CODEX_AUTH_JSON', '''
 Codex auth.json の内容（任意）
 
 Codex CLI 用の ~/.codex/auth.json を貼り付けます。ジョブ実行中のみ workspace/.codex/auth.json として展開され、完了後にクリーンアップされます。
-空欄の場合はファイルを作成しません。※ 入力内容はログに出力されません。
+空欄の場合はファイルを作成しません。
+
+注意: 入力フィールドが単一行のパスワード形式に変更されます。
+auth.json の内容を1行に整形するか、改行なしで貼り付けてください。
             '''.stripIndent().trim())
 
             nonStoredPasswordParam('CLAUDE_CODE_OAUTH_TOKEN', '''
