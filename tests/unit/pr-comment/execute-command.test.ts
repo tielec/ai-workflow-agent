@@ -417,6 +417,46 @@ describe('handlePRCommentExecuteCommand - response plan flow', () => {
       expect.objectContaining({ type: 'skip', reply: 'Skipping per plan' }),
     );
   });
+
+  it('generates agent_log.md with Markdown format during execution', async () => {
+    // Given successful execution, when execute runs, then agent_log.md is written in Markdown format
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Execute test reply' },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false });
+
+    // Verify agent_log.md is written with Markdown content
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeTruthy();
+    expect(agentLogWrite[1]).toContain('# Execute Agent'); // Should contain Markdown header
+    expect(agentLogWrite[1]).toContain('**開始**'); // Should contain start time metadata
+    expect(agentLogWrite[1]).toContain('**終了**'); // Should contain end time metadata
+    expect(agentLogWrite[1]).toContain('**経過時間**'); // Should contain duration
+  });
+
+  it('does not create agent_log.md in dry-run mode during execution', async () => {
+    // Given dry-run mode, when execute runs, then agent_log.md should not be written to disk
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Dry run execute test' },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: true });
+
+    // Verify agent_log.md is NOT written in dry-run mode
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeFalsy();
+  });
 });
 
 describe.skip('handlePRCommentExecuteCommand - fallback flow (LEGACY)', () => {

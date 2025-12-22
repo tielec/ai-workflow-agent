@@ -1423,11 +1423,11 @@ ai-workflow pr-comment execute --pr 123 --dry-run
 .ai-workflow/pr-123/
 ├── comment-resolution-metadata.json  # コメントごとのステータス、サマリー、コスト追跡
 ├── analyze/                          # 分析フェーズ成果物
-│   ├── agent_log.md
+│   ├── agent_log.md                  # Markdownフォーマットのエージェント実行ログ
 │   ├── prompt.txt
 │   └── response-plan.json            # エージェントが書き出すJSON（primaryな解析結果）
 ├── execute/                          # 実行フェーズ成果物
-│   ├── agent_log.md
+│   ├── agent_log.md                  # Markdownフォーマットのエージェント実行ログ
 │   └── prompt.txt
 └── output/                           # 成果物ファイル
     ├── response-plan.md              # 分析結果

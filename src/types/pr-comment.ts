@@ -326,6 +326,9 @@ export interface ResponsePlanComment {
   rationale?: string;
   proposed_changes?: ProposedChange[];
   reply_message: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  cost_usd?: number;
 }
 
 export interface ResponsePlan {

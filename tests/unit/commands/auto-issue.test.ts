@@ -24,6 +24,9 @@ const mockAnalyzeForRefactoring = jest.fn<any>();
 const mockAnalyzeForEnhancements = jest.fn<any>();
 const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
+const mockResolveLocalRepoPath = jest.fn();
+const mockResolveAgentCredentials = jest.fn();
+const mockSetupAgentClients = jest.fn();
 
 // モック設定
 jest.mock('../../../src/core/repository-analyzer.js', () => ({
@@ -51,11 +54,11 @@ jest.mock('../../../src/commands/auto-issue-output.js', () => ({
 }));
 
 jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
-  resolveAgentCredentials: jest.fn(),
-  setupAgentClients: jest.fn(),
+  resolveAgentCredentials: mockResolveAgentCredentials,
+  setupAgentClients: mockSetupAgentClients,
 }));
 jest.mock('../../../src/core/repository-utils.js', () => ({
-  resolveLocalRepoPath: jest.fn(),
+  resolveLocalRepoPath: mockResolveLocalRepoPath,
 }));
 jest.mock('@octokit/rest');
 
@@ -82,6 +85,8 @@ describe('auto-issue command handler', () => {
     mockAnalyzeForEnhancements.mockClear();
     mockFilterDuplicates.mockClear();
     mockGenerate.mockClear();
+    mockResolveAgentCredentials.mockClear();
+    mockSetupAgentClients.mockClear();
 
     // デフォルトの動作設定
     mockAnalyze.mockResolvedValue([]);
@@ -101,14 +106,14 @@ describe('auto-issue command handler', () => {
     logger.error = jest.fn();
 
     // repositoryUtils.resolveLocalRepoPath のモック
-    jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
+    mockResolveLocalRepoPath.mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
 
     // agent-setup のモック
-    jest.mocked(agentSetup.resolveAgentCredentials).mockReturnValue({
+    mockResolveAgentCredentials.mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     } as any);
-    jest.mocked(agentSetup.setupAgentClients).mockReturnValue({
+    mockSetupAgentClients.mockReturnValue({
       codexClient: {},
       claudeClient: {},
     } as any);
@@ -730,7 +735,7 @@ describe('auto-issue command handler', () => {
   describe('TC-CLI-007: handleAutoIssueCommand without agent configuration', () => {
     it('should throw error when no agent is configured', async () => {
       // Given: エージェントが両方とも null
-      jest.mocked(agentSetup.setupAgentClients).mockReturnValue({
+        mockSetupAgentClients.mockReturnValue({
         codexClient: null,
         claudeClient: null,
       });
