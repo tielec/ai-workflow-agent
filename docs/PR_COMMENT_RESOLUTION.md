@@ -636,6 +636,8 @@ PRから未解決コメントを取得し、AIエージェントで分析・処�
 | `DRY_RUN` | プレビューモード | | `false` |
 | `GITHUB_TOKEN` | GitHub Personal Access Token | ✓ | - |
 
+Issue #462 により `PR_URL` パラメータは Jenkins の `nonStoredPasswordParam`（非保持パスワード）として定義されています。Jenkins UI 上ではマスク表示され、ビルド履歴にも値が残りませんので、Execute / Finalize ジョブを実行するたびに再入力してください。`nonStoredPasswordParam` のため、値自体は従来どおり実行時の環境変数として各ステージに渡されます。
+
 **非推奨パラメータ（後方互換性のみ）**:
 | パラメータ | 説明 | 置き換え先 |
 |-----------|------|-----------|

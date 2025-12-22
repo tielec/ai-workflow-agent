@@ -1594,6 +1594,15 @@ DRY_RUN: false
 - **Job DSLパラメータ経由**: `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）
 - **Jenkins Credentials経由**: `claude-code-oauth-token`
 
+### セキュリティ強化 (Issue #462)
+
+以下のパラメータは Jenkins の `nonStoredPasswordParam` に変更され、Jenkins UI 上ではパスワード入力フィールドとしてマスク表示され、ビルド履歴にも保存されません。ジョブを再実行するたびに値を再入力する必要はありますが、値自体は実行時の環境変数として従来どおりワークフローに渡されます。
+
+- `ISSUE_URL`, `PR_URL` — 対象の Issue/PR URL
+- `BRANCH_NAME`, `BASE_BRANCH` — 作業ブランチおよびマージ先ブランチ名
+- `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL` — Git コミット作成者名・メールアドレス
+- `CODEX_AUTH_JSON` — Codex 認証情報（`textParam` から単一行のパスワード入力に切り替わったため、JSON を1行で入力してください）
+
 詳細な設定方法とJob DSL定義については、[ARCHITECTURE.md](ARCHITECTURE.md) の「Jenkins での利用」セクションを参照してください。
 
 ## 開発フロー

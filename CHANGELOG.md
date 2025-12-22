@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #462**: Jenkinsジョブパラメータのセキュリティ強化（非破壊的変更）
+  - 個人情報・機密情報を含むパラメータをNon-Stored Password Parameterに変更
+  - 対象パラメータ（7種類）: `ISSUE_URL`, `PR_URL`, `BRANCH_NAME`, `BASE_BRANCH`, `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL`, `CODEX_AUTH_JSON`
+  - 対象ジョブ（8ファイル）: ai-workflowの全Job DSLファイルを修正
+  - **セキュリティ向上**: パラメータ値がビルド履歴に保存されない、Jenkins UIでマスク表示される
+  - **UI変更**: 対象パラメータがパスワード入力フィールドに変更、`CODEX_AUTH_JSON`は複数行→単一行入力
+  - **機能継続性**: パラメータ参照方法は変わらず、後方互換性を維持
+  - 修正ファイル: 8つのJob DSLファイル（`ai_workflow_*_job.groovy`）
+  - テストカバレッジ: 56件の統合テスト（100%成功）
+
 - **Issue #450**: pr-comment finalize にコミットスカッシュ機能を追加
   - `pr-comment finalize` コマンドに `--squash` オプションを追加
   - ワークフローで作成された複数のコミット（init → analyze → execute → finalize）を1つにまとめる機能
