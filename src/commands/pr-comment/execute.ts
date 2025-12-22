@@ -23,6 +23,7 @@ import {
   parsePullRequestUrl,
   resolveRepoPathFromPrUrl,
 } from '../../core/repository-utils.js';
+import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 
 let gitConfigured = false; // Git設定済みフラグ
 
@@ -32,6 +33,10 @@ let gitConfigured = false; // Git設定済みフラグ
 export async function handlePRCommentExecuteCommand(
   options: PRCommentExecuteOptions,
 ): Promise<void> {
+  const startTime = Date.now();
+  const messages: string[] = [];
+  let error: Error | null = null;
+
   try {
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
     const { repositoryName, prNumber, prUrl } = resolvePrInfo(options);
@@ -73,10 +78,13 @@ export async function handlePRCommentExecuteCommand(
 
     if (pendingComments.length === 0) {
       logger.info('No pending comments to process.');
+      messages.push('system: No pending comments to process.');
+      await persistExecuteLog({ messages, startTime, endTime: Date.now(), prNumber, repoRoot, options, error: null });
       return;
     }
 
     logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
+    messages.push(`system: Processing ${pendingComments.length} pending comment(s)...`);
 
     const githubClient = new GitHubClient(null, repositoryName);
     const responsePlanPath = path.join(
@@ -107,11 +115,17 @@ export async function handlePRCommentExecuteCommand(
 
     for (let i = 0; i < pendingComments.length; i += batchSize) {
       const batch = pendingComments.slice(i, i + batchSize);
-      logger.debug(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(pendingComments.length / batchSize)}: ${batch.length} comment(s)`);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(pendingComments.length / batchSize);
+
+      logger.debug(`Processing batch ${batchNum}/${totalBatches}: ${batch.length} comment(s)`);
+      messages.push(`system: Processing batch ${batchNum}/${totalBatches}: ${batch.length} comment(s)`);
 
       for (const comment of batch) {
         logger.debug(`Processing comment #${comment.comment.id}...`);
-        await processComment(
+        messages.push(`system: Processing comment #${comment.comment.id}...`);
+
+        const result = await processComment(
           comment,
           metadataManager,
           applier,
@@ -121,22 +135,36 @@ export async function handlePRCommentExecuteCommand(
           prNumber,
           repoRoot,
         );
+
+        messages.push(`system: Comment #${comment.comment.id} ${result.status}`);
       }
 
       if (!dryRun) {
-        logger.debug(`Committing batch ${Math.floor(i / batchSize) + 1}...`);
-        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${Math.floor(i / batchSize) + 1}`, prBranch);
+        logger.debug(`Committing batch ${batchNum}...`);
+        messages.push(`system: Committing batch ${batchNum}...`);
+        await commitIfNeeded(repoRoot, `[ai-workflow] PR Comment: Resolve batch ${batchNum}`, prBranch);
+        messages.push(`system: Batch ${batchNum} committed successfully`);
       }
     }
 
     const summary = await metadataManager.getSummary();
     displayExecutionSummary(summary, dryRun);
+    messages.push(`system: Execution summary: completed=${summary.by_status.completed}, skipped=${summary.by_status.skipped}, failed=${summary.by_status.failed}`);
 
     if (dryRun) {
       logger.info('[DRY RUN COMPLETE] No metadata changes were saved.');
+      messages.push('system: [DRY RUN COMPLETE] No metadata changes were saved.');
     }
+
+    const endTime = Date.now();
+    await persistExecuteLog({ messages, startTime, endTime, prNumber, repoRoot, options, error: null });
   } catch (error) {
+    const endTime = Date.now();
+    const execError = error instanceof Error ? error : new Error(String(error));
     logger.error(`Failed to execute: ${getErrorMessage(error)}`);
+    messages.push(`system: Failed to execute: ${getErrorMessage(error)}`);
+
+    await persistExecuteLog({ messages, startTime, endTime, prNumber, repoRoot, options, error: execError });
     process.exit(1);
   }
 }
@@ -150,7 +178,7 @@ async function processComment(
   dryRun: boolean,
   prNumber: number,
   _repoRoot: string,
-): Promise<void> {
+): Promise<{ status: string; error?: string }> {
   const commentId = String(commentMeta.comment.id);
 
   try {
@@ -171,10 +199,16 @@ async function processComment(
           'Comment not found in response-plan',
         );
       }
-      return;
+      return { status: 'failed', error: 'Comment not found in response-plan' };
     }
 
     logger.debug(`Processing comment #${commentId} (type: ${planComment.type})`);
+
+    const costTracking = {
+      inputTokens: planComment.input_tokens ?? 0,
+      outputTokens: planComment.output_tokens ?? 0,
+      costUsd: planComment.cost_usd ?? 0,
+    };
 
     const resolution: CommentResolution = {
       type: planComment.type,
@@ -201,7 +235,7 @@ async function processComment(
             applyResult.error ?? 'Failed to apply changes',
           );
         }
-        return;
+        return { status: 'failed', error: applyResult.error ?? 'Failed to apply changes' };
       }
       logger.debug(`Code changes applied successfully for comment #${commentId}`);
     }
@@ -210,7 +244,7 @@ async function processComment(
       logger.info(
         `[DRY-RUN] Comment #${commentMeta.comment.id}: ${resolution.type} — ${resolution.reply.slice(0, 80)}`,
       );
-      return;
+      return { status: 'completed (dry-run)' };
     }
 
     logger.debug(`Posting reply to comment #${commentId}...`);
@@ -219,6 +253,13 @@ async function processComment(
       commentMeta.comment.id,
       formatReply(resolution),
     );
+    if (!dryRun) {
+      await metadataManager.updateCostTracking(
+        costTracking.inputTokens,
+        costTracking.outputTokens,
+        costTracking.costUsd,
+      );
+    }
     await metadataManager.setReplyCommentId(commentId, reply.id);
     logger.debug(`Reply posted for comment #${commentId}: reply ID ${reply.id}`);
 
@@ -227,7 +268,9 @@ async function processComment(
       resolution.type === 'skip' ? 'skipped' : 'completed',
       resolution,
     );
-    logger.info(`Comment #${commentId} marked as ${resolution.type === 'skip' ? 'skipped' : 'completed'}`);
+    const status = resolution.type === 'skip' ? 'skipped' : 'completed';
+    logger.info(`Comment #${commentId} marked as ${status}`);
+    return { status };
   } catch (error) {
     logger.error(`Exception while processing comment #${commentId}: ${getErrorMessage(error)}`);
     if (!dryRun) {
@@ -241,6 +284,7 @@ async function processComment(
     } else {
       logger.warn(`[DRY-RUN] Failed to process comment #${commentId}: ${getErrorMessage(error)}`);
     }
+    return { status: 'failed', error: getErrorMessage(error) };
   }
 }
 
@@ -424,6 +468,61 @@ function resolvePrInfo(options: PRCommentExecuteOptions): {
   }
 
   throw new Error('Either --pr-url or --pr option is required.');
+}
+
+/**
+ * Execute Log Context（agent_log.md の記録用）
+ */
+interface ExecuteLogContext {
+  messages: string[];
+  startTime: number;
+  endTime: number;
+  prNumber: number;
+  repoRoot: string;
+  options: PRCommentExecuteOptions;
+  error: Error | null;
+}
+
+/**
+ * execute フロー用のエージェントログを永続化
+ *
+ * @param context - 実行コンテキスト
+ */
+async function persistExecuteLog(context: ExecuteLogContext) {
+  if (context.options.dryRun) {
+    return;
+  }
+
+  const executeDir = path.join(
+    context.repoRoot,
+    '.ai-workflow',
+    `pr-${context.prNumber}`,
+    'execute',
+  );
+
+  const agentLogPath = path.join(executeDir, 'agent_log.md');
+
+  // ディレクトリを作成
+  await fsp.mkdir(executeDir, { recursive: true });
+
+  const logFormatter = new LogFormatter();
+  const duration = context.endTime - context.startTime;
+
+  try {
+    const content = logFormatter.formatAgentLog(
+      context.messages,
+      context.startTime,
+      context.endTime,
+      duration,
+      context.error,
+      'Execute Agent', // execute フローのため固定
+    );
+    await fsp.writeFile(agentLogPath, content, 'utf-8');
+    logger.info(`Execute log saved to: ${agentLogPath}`);
+  } catch (formatError) {
+    logger.warn(`LogFormatter failed: ${getErrorMessage(formatError)}. Falling back to raw output.`);
+    await fsp.writeFile(agentLogPath, context.messages.join('\n'), 'utf-8');
+  }
 }
 
 export const __testables = {

@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
+import { promises as fsp, type PathLike } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { logger } from '../../../src/utils/logger.js';
+import { LogFormatter } from '../../../src/phases/formatters/log-formatter.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
 import type { PRCommentAnalyzeOptions } from '../../../src/types/commands.js';
 
@@ -22,6 +24,19 @@ const parsePullRequestUrlMock = jest.fn(() => ({
 const resolveRepoPathFromPrUrlMock = jest.fn(() => '/repo');
 
 let handlePRCommentAnalyzeCommand: (options: PRCommentAnalyzeOptions) => Promise<void>;
+let persistAgentLog: (
+  context: {
+    messages: string[];
+    startTime: number;
+    endTime: number;
+    duration: number;
+    agentName: string;
+    error: Error | null;
+  },
+  analyzeDir: string,
+  options: PRCommentAnalyzeOptions,
+  logFormatter: LogFormatter,
+) => Promise<void>;
 let pendingComments: CommentMetadata[] = [];
 let currentMetadataManager: any;
 let agentExecuteTaskMock: jest.Mock;
@@ -111,6 +126,7 @@ beforeAll(async () => {
 
   const module = await import('../../../src/commands/pr-comment/analyze.js');
   handlePRCommentAnalyzeCommand = module.handlePRCommentAnalyzeCommand;
+  persistAgentLog = module.__testables.persistAgentLog;
 });
 
 beforeEach(() => {
@@ -139,7 +155,7 @@ beforeEach(() => {
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
 
-  jest.spyOn(fs, 'pathExists').mockImplementation(async (filePath: fs.PathLike) => {
+  jest.spyOn(fs, 'pathExists').mockImplementation(async (filePath: PathLike) => {
     const file = String(filePath);
     if (file === analyzeOutputPath) {
       return outputFileExists;
@@ -148,7 +164,7 @@ beforeEach(() => {
   });
   jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
   jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
-  jest.spyOn(fs, 'readFile').mockImplementation(async (filePath: fs.PathLike) => {
+  jest.spyOn(fs, 'readFile').mockImplementation(async (filePath: PathLike) => {
     const file = String(filePath);
     if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
       return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
@@ -165,7 +181,121 @@ beforeEach(() => {
   });
 });
 
+describe('persistAgentLog', () => {
+  const baseDir = path.join('/repo', '.ai-workflow', 'pr-123', 'analyze');
+  const context = {
+    messages: ['assistant: line 1', 'assistant: line 2'],
+    startTime: 1700000000000,
+    endTime: 1700000001000,
+    duration: 1000,
+    agentName: 'Codex Agent',
+    error: null,
+  };
+
+  it('writes the formatted log when not in dry-run', async () => {
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+
+    await persistAgentLog(context, baseDir, { dryRun: false }, logFormatter);
+
+    expect(writeFileSpy).toHaveBeenCalledWith(
+      expect.stringContaining('agent_log.md'),
+      expect.stringContaining('# Codex Agent'),
+      'utf-8',
+    );
+
+    writeFileSpy.mockRestore();
+  });
+
+  it('skips writing when dry-run is true', async () => {
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+
+    await persistAgentLog(context, baseDir, { dryRun: true }, logFormatter);
+
+    expect(writeFileSpy).not.toHaveBeenCalled();
+    writeFileSpy.mockRestore();
+  });
+
+  it('falls back to raw output when LogFormatter throws', async () => {
+    const formatSpy = jest.spyOn(LogFormatter.prototype, 'formatAgentLog').mockImplementation(() => {
+      throw new Error('format fail');
+    });
+    const logFormatter = new LogFormatter();
+    const writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+    const fallbackContext = {
+      ...context,
+      messages: ['assistant: fallback message'],
+      error: new Error('format fail'),
+    };
+
+    await persistAgentLog(fallbackContext, baseDir, { dryRun: false }, logFormatter);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('LogFormatter failed: format fail'),
+    );
+    expect(writeFileSpy).toHaveBeenCalledWith(
+      expect.stringContaining('agent_log.md'),
+      'assistant: fallback message',
+      'utf-8',
+    );
+    formatSpy.mockRestore();
+    writeFileSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+});
+
 describe('handlePRCommentAnalyzeCommand', () => {
+  it('generates agent_log.md with Markdown format when analyze completes successfully', async () => {
+    // Given valid agent output, when analyze runs, then agent_log.md is written in Markdown format
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        analyzed_at: '2025-01-21T00:00:00Z',
+        comments: [
+          { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Test response' },
+        ],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Verify agent_log.md is written with Markdown content
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeTruthy();
+    expect(agentLogWrite[1]).toContain('# Codex Agent'); // Should contain Markdown header
+    expect(agentLogWrite[1]).toContain('**開始**'); // Should contain start time metadata
+    expect(agentLogWrite[1]).toContain('**終了**'); // Should contain end time metadata
+    expect(agentLogWrite[1]).toContain('**経過時間**'); // Should contain duration
+  });
+
+  it('does not create agent_log.md in dry-run mode', async () => {
+    // Given dry-run mode, when analyze runs, then agent_log.md should not be written to disk
+    const agentOutput = [
+      '```json',
+      JSON.stringify({
+        pr_number: 123,
+        comments: [{ comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'Dry run test' }],
+      }),
+      '```',
+    ].join('\n');
+    agentExecuteTaskMock.mockResolvedValue([agentOutput]);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: true, agent: 'auto' });
+
+    // Verify agent_log.md is NOT written in dry-run mode
+    const agentLogWrite = (fs.writeFile as jest.Mock).mock.calls.find(
+      (call) => String(call[0]).endsWith('agent_log.md'),
+    );
+    expect(agentLogWrite).toBeFalsy();
+  });
+
   it('writes response-plan and updates metadata when agent returns plan', async () => {
     // Given valid metadata and pending comments, when agent returns a full plan, then artifacts and metadata are written
     const agentOutput = [
@@ -251,7 +381,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
   it('logs warning and uses raw output when file JSON is invalid', async () => {
     // Given an unreadable response-plan.json, when parse fails, then fallback raw parsing is used
     outputFileExists = true;
-    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
+    (fs.readFile as jest.Mock).mockImplementation(async (filePath: PathLike) => {
       const file = String(filePath);
       if (file.includes(path.join('prompts', 'pr-comment', 'analyze.txt'))) {
         return 'PR {pr_number}: {pr_title}\n{all_comments}\nOutput: {output_file_path}';
@@ -380,7 +510,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
     // Given template placeholders and missing file content, when prompt is built, then values and fallback text are injected
     const missingComment = buildComment(102, 'Missing file', 'missing.ts');
     pendingComments = [missingComment];
-    (fs.readFile as jest.Mock).mockImplementation(async (filePath: fs.PathLike) => {
+    (fs.readFile as jest.Mock).mockImplementation(async (filePath: PathLike) => {
       const file = String(filePath);
       if (file.includes('missing.ts')) {
         throw new Error('file missing');

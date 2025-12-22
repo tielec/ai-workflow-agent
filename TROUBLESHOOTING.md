@@ -247,7 +247,7 @@ git push
 ### Codex ログが空になる
 
 - Jenkins 側で `stdout` が途中で切れていないか確認します。
-- TypeScript 版では `agent_log_raw.txt`（JSON）と Markdown の両方に書き込みます。Markdown が空の場合は、`.ai-workflow/.../execute/` の書き込み権限やディスク残量を確認してください。
+- TypeScript 版では `agent_log_raw.txt`（JSON）と Markdown 形式の `agent_log.md` の両方に書き込みます（Issue #441によりMarkdown形式が統一）。Markdown が空の場合は、`.ai-workflow/.../execute/` の書き込み権限やディスク残量を確認してください。
 
 ### `spawn codex ENOENT`
 

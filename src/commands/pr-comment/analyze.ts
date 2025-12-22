@@ -16,8 +16,9 @@ import {
   resolveRepoPathFromPrUrl,
 } from '../../core/repository-utils.js';
 import type { PRCommentAnalyzeOptions } from '../../types/commands.js';
-import type { CodexAgentClient } from '../../core/codex-agent-client.js';
-import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { CodexAgentClient } from '../../core/codex-agent-client.js';
+import { ClaudeAgentClient } from '../../core/claude-agent-client.js';
+import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 import type {
   CommentMetadata,
   ProposedChange,
@@ -157,21 +158,56 @@ async function analyzeComments(
     throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
   }
 
+  const logFormatter = new LogFormatter();
+  const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
   let rawOutput = '';
+  let messages: string[] = [];
+  const startTime = Date.now();
+  let endTime = startTime;
 
   try {
-    const messages = await agent.executeTask({
+    messages = await agent.executeTask({
       prompt,
       maxTurns: 1,
       verbose: false,
       workingDirectory: repoRoot,
     });
+    endTime = Date.now();
     rawOutput = messages.join('\n');
 
-    if (!options.dryRun) {
-      await fsp.writeFile(path.join(analyzeDir, 'agent_log.md'), rawOutput, 'utf-8');
-    }
+    await persistAgentLog(
+      {
+        messages,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        agentName,
+        error: null,
+      },
+      analyzeDir,
+      options,
+      logFormatter,
+    );
   } catch (agentError) {
+    endTime = Date.now();
+    const duration = endTime - startTime;
+    const normalizedError =
+      agentError instanceof Error ? agentError : new Error(getErrorMessage(agentError));
+
+    await persistAgentLog(
+      {
+        messages,
+        startTime,
+        endTime,
+        duration,
+        agentName,
+        error: normalizedError,
+      },
+      analyzeDir,
+      options,
+      logFormatter,
+    );
+
     const fallbackPlan = await handleAgentError(
       getErrorMessage(agentError),
       'agent_execution_error',
@@ -724,6 +760,43 @@ async function setupAgent(
   return codexClient ?? claudeClient;
 }
 
+interface AgentLogContext {
+  messages: string[];
+  startTime: number;
+  endTime: number;
+  duration: number;
+  agentName: string;
+  error: Error | null;
+}
+
+async function persistAgentLog(
+  context: AgentLogContext,
+  analyzeDir: string,
+  options: PRCommentAnalyzeOptions,
+  logFormatter: LogFormatter,
+): Promise<void> {
+  if (options.dryRun) {
+    return;
+  }
+
+  const agentLogPath = path.join(analyzeDir, 'agent_log.md');
+
+  try {
+    const content = logFormatter.formatAgentLog(
+      context.messages,
+      context.startTime,
+      context.endTime,
+      context.duration,
+      context.error,
+      context.agentName,
+    );
+    await fsp.writeFile(agentLogPath, content, 'utf-8');
+  } catch (formatError) {
+    logger.warn(`LogFormatter failed: ${getErrorMessage(formatError)}. Falling back to raw output.`);
+    await fsp.writeFile(agentLogPath, context.messages.join('\n'), 'utf-8');
+  }
+}
+
 function parseCommentIds(value?: string): Set<number> {
   if (!value) {
     return new Set();
@@ -780,4 +853,5 @@ export const __testables = {
   findAllJsonObjectBoundaries,
   isValidResponsePlanCandidate,
   normalizePlanComment,
+  persistAgentLog,
 };
