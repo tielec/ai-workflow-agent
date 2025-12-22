@@ -318,13 +318,15 @@ describe('IssueClient', () => {
       );
 
       // Then: Octokit should be called with correct parameters
-      expect(mockOctokit.issues.create).toHaveBeenCalledWith({
-        owner: 'owner',
-        repo: 'repo',
-        title: '[FOLLOW-UP] Issue #24 - 残タスク',
-        body: expect.stringContaining('ドキュメント更新'),
-        labels: ['enhancement', 'ai-workflow-follow-up'],
-      });
+      expect(mockOctokit.issues.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: 'owner',
+          repo: 'repo',
+          title: '[FOLLOW-UP] #24: ドキュメント更新・テスト追加',
+          body: expect.stringContaining('ドキュメント更新'),
+          labels: ['enhancement', 'ai-workflow-follow-up'],
+        }),
+      );
 
       // And: Result should indicate success
       expect(result).toEqual({

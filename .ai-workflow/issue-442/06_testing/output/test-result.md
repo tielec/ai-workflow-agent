@@ -1,78 +1,16 @@
 # テスト実行結果
 
-## テスト結果サマリー
-- 総テスト数: 1551件
-- 成功: 1135件
-- 失敗: 415件
-- 成功率: 73.18%
+## 再実行結果
 
-### `tests/unit/commands/auto-issue.test.ts::TC-CLI-001: parseOptions with default values`
-- **エラー**: Repository 'repo' not found locally. Please ensure REPOS_ROOT is set correctly...
-- **スタックトレース**:
-  ```
-  handleAutoIssueCommand (src/commands/auto-issue.ts:88:13)
-  Object.<anonymous> (tests/unit/commands/auto-issue.test.ts:138:13)
-  ```
+### 再実行1: 2025-12-22 13:28:27
+- **修正内容**: fs関連のモック整理（fs-extra利用への置換、node:fsモック追加）、auto-issueのリポジトリ解決モック調整、execute系テストのESM対応などを実施。
+- **成功**: 1191件
+- **失敗**: 406件
+- **変更**: 前回415件失敗から減少したものの、fsモック不足とリポジトリ解決モック不備で主要シナリオが依然失敗。
+- **主な失敗原因**:
+  - auto-issue系: `resolveLocalRepoPathMock` が `jest.fn` にならず `mockReset` 不可。`jest.mock` の定義を`jest.fn()`返却に修正する必要あり。
+  - fs依存テスト: `fs.ensureDir`/`remove` 未定義のまま (git-manager-issue16系、metadata-manager-rollback、change-applier等)。対象テストでfs-extraを利用するか、モックを拡充してPromise版の実装を差し込む必要あり。
+  - metadata-io/metadata-manager: node:fsモックが`jest.fn`化されておらず `existsSync.mockReturnValue` などが未定義。モックの初期化を見直す必要あり。
+  - claude-agent-client: `test-prompt.md` 読み込みで ENOENT。`readFileSync` のモックを固定値返却にするなどでファイル依存を排除する必要あり。
 
-### `tests/unit/commands/auto-issue.test.ts::Issue #153: GITHUB_REPOSITORY is set correctly`
-- **エラー**: TypeError: jest.mocked(...).mockReturnValue is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/commands/auto-issue.test.ts:376:59)
-  ```
-
-### `tests/unit/commands/init-auto-model-selection.test.ts::TC-INIT-002 runs difficulty analysis...`
-- **エラー**: TypeError: fs.ensureDir is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/commands/init-auto-model-selection.test.ts:168:14)
-  ```
-
-### `tests/unit/commands/init-auto-model-selection.test.ts::TC-INIT-001 skips difficulty analysis when disabled`
-- **エラー**: TypeError: fs.removeSync is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/commands/init-auto-model-selection.test.ts:161:6)
-  ```
-
-### `tests/unit/phase-dependencies.test.ts::1.4.1: 全依存関係が満たされている場合`
-- **エラー**: TypeError: fs.ensureDir is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/phase-dependencies.test.ts:72:14)
-  ```
-
-### `tests/unit/base-phase-optional-context.test.ts::1.3.1: ファイル存在時の参照生成`
-- **エラー**: TypeError: fs.ensureDir is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/base-phase-optional-context.test.ts:31:14)
-  ```
-
-### `tests/unit/base-phase-optional-context.test.ts::afterAll cleanup`
-- **エラー**: TypeError: fs.remove is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/base-phase-optional-context.test.ts:71:14)
-  ```
-
-### `tests/unit/helpers/metadata-io.test.ts`
-- **エラー**: TypeError: Cannot assign to read only property 'copyFileSync' of object '[object Module]'
-- **スタックトレース**:
-  ```
-  node_modules/jest-mock/build/index.js:622:31
-  ```
-
-### `tests/unit/pr-comment/change-applier.test.ts::CodeChangeApplier rejects absolute and traversal paths`
-- **エラー**: Property `ensureDir` does not exist in the provided object
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/pr-comment/change-applier.test.ts:15:10)
-  ```
-
-### `tests/unit/core/issue-deduplicator.test.ts::Issue #153 end-to-end flow`
-- **エラー**: TypeError: jest.mocked(...).mockReturnValue is not a function
-- **スタックトレース**:
-  ```
-  Object.<anonymous> (tests/unit/core/issue-deduplicator.test.ts:335:50)
-  ```
+現在も主要テストが環境モック不足で失敗しているため、モック実装とfs依存箇所の整備を優先して修正が必要です。

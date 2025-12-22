@@ -122,6 +122,10 @@ beforeAll(async () => {
 
 import * as fs from 'node:fs';
 import { logger } from '../../../../src/utils/logger.js';
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  existsSync: jest.fn(),
+}));
 
 const existsSyncSpy = jest.spyOn(fs, 'existsSync');
 jest.spyOn(logger, 'debug').mockImplementation(() => {});

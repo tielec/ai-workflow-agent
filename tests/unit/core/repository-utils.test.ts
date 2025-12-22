@@ -25,6 +25,12 @@ import {
   getRepoRoot,
 } from '../../../src/core/repository-utils.js';
 import { config } from '../../../src/core/config.js';
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+  lstatSync: jest.fn(),
+}));
 
 // =============================================================================
 // parseIssueUrl() のテスト

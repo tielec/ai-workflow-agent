@@ -1,26 +1,30 @@
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import * as fs from 'node:fs';
 import { jest } from '@jest/globals';
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+}));
 
 describe('ClaudeAgentClient', () => {
   let client: ClaudeAgentClient;
-  let existsSyncMock: jest.SpiedFunction<typeof fs.existsSync>;
-  let readFileSyncMock: jest.SpiedFunction<typeof fs.readFileSync>;
+  const existsSyncMock = jest.mocked(fs.existsSync);
+  const readFileSyncMock = jest.mocked(fs.readFileSync);
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CLAUDE_CODE_OAUTH_TOKEN = 'test-token';
-    existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-    readFileSyncMock = jest
-      .spyOn(fs, 'readFileSync')
-      .mockReturnValue(JSON.stringify({ oauth: { access_token: 'test-token' } }));
+    existsSyncMock.mockReturnValue(true);
+    readFileSyncMock.mockReturnValue(
+      JSON.stringify({ oauth: { access_token: 'test-token' } }) as unknown as Buffer,
+    );
 
     client = new ClaudeAgentClient({ workingDir: '/test/workspace' });
   });
 
   afterEach(() => {
-    existsSyncMock.mockRestore();
-    readFileSyncMock.mockRestore();
+    jest.clearAllMocks();
   });
 
   describe('executeTask', () => {

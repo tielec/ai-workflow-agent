@@ -6,6 +6,14 @@ import {
 } from '../../../src/core/helpers/metadata-io.js';
 import * as fs from 'node:fs';
 import { jest } from '@jest/globals';
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  copyFileSync: jest.fn(),
+  existsSync: jest.fn(),
+  rmSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+}));
 
 describe('metadata-io', () => {
   beforeEach(() => {
@@ -56,9 +64,8 @@ describe('metadata-io', () => {
     it('正常系: バックアップファイルが作成される', () => {
       // Given: テスト用metadata.jsonファイルパス
       const metadataPath = '/path/to/metadata.json';
-      const copyFileSyncSpy = jest
-        .spyOn(fs, 'copyFileSync')
-        .mockImplementation(() => undefined);
+      const copyFileSyncSpy = jest.mocked(fs.copyFileSync);
+      copyFileSyncSpy.mockImplementation(() => undefined);
       const consoleInfoSpy = jest
         .spyOn(console, 'info')
         .mockImplementation(() => undefined);
@@ -80,7 +87,7 @@ describe('metadata-io', () => {
 
     it('正常系: 元のファイル名を維持したバックアップが作成される', () => {
       const metadataPath = '/path/to/custom-metadata.json';
-      jest.spyOn(fs, 'copyFileSync').mockImplementation(() => undefined);
+      jest.mocked(fs.copyFileSync).mockImplementation(() => undefined);
 
       const result = backupMetadataFile(metadataPath);
 
@@ -90,7 +97,7 @@ describe('metadata-io', () => {
     it('異常系: ファイルが存在しない場合、例外がスローされる', () => {
       // Given: 存在しないファイルパス
       const nonexistentPath = '/path/to/nonexistent.json';
-      jest.spyOn(fs, 'copyFileSync').mockImplementation(() => {
+      jest.mocked(fs.copyFileSync).mockImplementation(() => {
         throw new Error('ENOENT: no such file or directory');
       });
 
@@ -109,12 +116,10 @@ describe('metadata-io', () => {
     it('正常系: ディレクトリが削除される', () => {
       // Given: テスト用ディレクトリパス
       const workflowDir = '/path/to/.ai-workflow/issue-26';
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockReturnValue(true);
-      const removeSyncSpy = jest
-        .spyOn(fs, 'removeSync')
-        .mockImplementation(() => undefined);
+      const existsSyncSpy = jest.mocked(fs.existsSync);
+      existsSyncSpy.mockReturnValue(true);
+      const rmSyncSpy = jest.mocked(fs.rmSync);
+      rmSyncSpy.mockImplementation(() => undefined as any);
       const consoleInfoSpy = jest
         .spyOn(console, 'info')
         .mockImplementation(() => undefined);
@@ -124,8 +129,8 @@ describe('metadata-io', () => {
 
       // Then: fs.existsSync()が呼ばれる
       expect(existsSyncSpy).toHaveBeenCalledWith(workflowDir);
-      // fs.removeSync()が呼ばれる
-      expect(removeSyncSpy).toHaveBeenCalledWith(workflowDir);
+      // fs.rmSync()が呼ばれる
+      expect(rmSyncSpy).toHaveBeenCalledWith(workflowDir, { recursive: true, force: true });
       // コンソールログ出力がある
       expect(consoleInfoSpy).toHaveBeenCalledWith(
         expect.stringContaining('[INFO] Removing workflow directory:')
@@ -137,20 +142,18 @@ describe('metadata-io', () => {
     it('正常系: ディレクトリが存在しない場合、削除処理がスキップされる', () => {
       // Given: 存在しないディレクトリパス
       const nonexistentDir = '/path/to/.ai-workflow/issue-99';
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockReturnValue(false);
-      const removeSyncSpy = jest
-        .spyOn(fs, 'removeSync')
-        .mockImplementation(() => undefined);
+      const existsSyncSpy = jest.mocked(fs.existsSync);
+      existsSyncSpy.mockReturnValue(false);
+      const rmSyncSpy = jest.mocked(fs.rmSync);
+      rmSyncSpy.mockImplementation(() => undefined as any);
 
       // When: removeWorkflowDirectory関数を呼び出す
       removeWorkflowDirectory(nonexistentDir);
 
       // Then: fs.existsSync()が呼ばれる
       expect(existsSyncSpy).toHaveBeenCalledWith(nonexistentDir);
-      // fs.removeSync()は呼ばれない
-      expect(removeSyncSpy).not.toHaveBeenCalled();
+      // fs.rmSync()は呼ばれない
+      expect(rmSyncSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -186,9 +189,8 @@ describe('metadata-io', () => {
     it('正常系: testingフェーズでreview/result.mdが存在すればそのパスを返す', () => {
       const workflowDir = '/path/to/.ai-workflow/issue-38';
       const reviewPath = `${workflowDir}/06_testing/review/result.md`;
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockImplementation((targetPath) => targetPath === reviewPath);
+      const existsSyncSpy = jest.mocked(fs.existsSync);
+      existsSyncSpy.mockImplementation((targetPath) => targetPath === reviewPath);
 
       const result = getPhaseOutputFilePath('testing' as any, workflowDir);
 
@@ -200,9 +202,8 @@ describe('metadata-io', () => {
       const workflowDir = '/path/to/.ai-workflow/issue-26';
       const reviewPath = `${workflowDir}/06_testing/review/result.md`;
       const legacyPath = `${workflowDir}/06_testing/output/test-result.md`;
-      const existsSyncSpy = jest
-        .spyOn(fs, 'existsSync')
-        .mockImplementation(() => false);
+      const existsSyncSpy = jest.mocked(fs.existsSync);
+      existsSyncSpy.mockImplementation(() => false);
 
       const result = getPhaseOutputFilePath('testing' as any, workflowDir);
 
