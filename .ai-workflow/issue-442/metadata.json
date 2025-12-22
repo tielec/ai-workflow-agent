@@ -18,9 +18,9 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 21349968,
-    "total_output_tokens": 229213,
-    "total_cost_usd": 16.869675299999997
+    "total_input_tokens": 21349985,
+    "total_output_tokens": 231702,
+    "total_cost_usd": 17.21067135
   },
   "difficulty_analysis": {
     "level": "moderate",
@@ -282,7 +282,10 @@
       "started_at": "2025-12-22T14:00:50.490Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "evaluation": {
       "status": "pending",
@@ -298,7 +301,7 @@
     }
   },
   "created_at": "2025-12-22T12:29:19.768Z",
-  "updated_at": "2025-12-22T14:02:53.718Z",
+  "updated_at": "2025-12-22T14:03:55.711Z",
   "branch_name": "ai-workflow/issue-442",
   "base_commit": "e5d76ea73f29043a8d1859f1992b652ef29f34ae",
   "pr_number": 479,
