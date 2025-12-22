@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { PRCommentMetadataManager } from '../../../src/core/pr-comment/metadata-manager.js';
 import type { CommentResolution, CommentResolutionMetadata } from '../../../src/types/pr-comment.js';
+import { logger } from '../../../src/utils/logger.js';
 
 describe('PRCommentMetadataManager', () => {
   const repoPath = '/repo';
@@ -56,22 +57,22 @@ describe('PRCommentMetadataManager', () => {
   ];
 
   let manager: PRCommentMetadataManager;
-  let ensureDirSpy: jest.SpiedFunction<typeof fs.ensureDir>;
-  let writeFileSpy: jest.SpiedFunction<typeof fs.writeFile>;
-  let pathExistsSpy: jest.SpiedFunction<typeof fs.pathExists>;
-  let removeSpy: jest.SpiedFunction<typeof fs.remove>;
-  let readFileSpy: jest.SpiedFunction<typeof fs.readFile>;
+  let mkdirSpy: jest.SpiedFunction<typeof fsp.mkdir>;
+  let writeFileSpy: jest.SpiedFunction<typeof fsp.writeFile>;
+  let accessSpy: jest.SpiedFunction<typeof fsp.access>;
+  let removeSpy: jest.SpiedFunction<typeof fsp.rm>;
+  let readFileSpy: jest.SpiedFunction<typeof fsp.readFile>;
 
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
     jest.useFakeTimers().setSystemTime(new Date('2025-01-20T12:00:00Z'));
 
-    ensureDirSpy = jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
-    writeFileSpy = jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
-    pathExistsSpy = jest.spyOn(fs, 'pathExists').mockResolvedValue(true as any);
-    removeSpy = jest.spyOn(fs, 'remove').mockResolvedValue(undefined);
-    readFileSpy = jest.spyOn(fs, 'readFile');
+    mkdirSpy = jest.spyOn(fsp, 'mkdir').mockResolvedValue(undefined as any);
+    writeFileSpy = jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+    accessSpy = jest.spyOn(fsp, 'access').mockResolvedValue(undefined as any);
+    removeSpy = jest.spyOn(fsp, 'rm').mockResolvedValue(undefined as any);
+    readFileSpy = jest.spyOn(fsp, 'readFile');
 
     manager = new PRCommentMetadataManager(repoPath, prNumber);
   });
@@ -83,7 +84,7 @@ describe('PRCommentMetadataManager', () => {
   it('initializes metadata with pending comments and summary', async () => {
     await manager.initialize(prInfo, repoInfo, comments, 456);
 
-    expect(ensureDirSpy).toHaveBeenCalledWith(path.dirname(metadataPath));
+    expect(mkdirSpy).toHaveBeenCalledWith(path.dirname(metadataPath), { recursive: true });
     const saved = JSON.parse(writeFileSpy.mock.calls[0][1] as string);
     expect(saved.pr.number).toBe(prNumber);
     expect(saved.issue_number).toBe(456);
@@ -144,21 +145,95 @@ describe('PRCommentMetadataManager', () => {
     expect(pending.map((c) => c.comment.id)).toEqual([100, 101]);
   });
 
+  describe('addComments', () => {
+    it('adds new comments with pending status and recalculates summary', async () => {
+      const metadata = buildBaseMetadata();
+      (manager as any).metadata = metadata;
+      const saveSpy = jest.spyOn(manager as any, 'save');
+      const newComment = {
+        id: 200,
+        node_id: 'N200',
+        path: 'src/new.ts',
+        line: 5,
+        body: 'New feedback',
+        user: 'carol',
+        created_at: '2025-01-21T00:00:00Z',
+        updated_at: '2025-01-21T00:00:00Z',
+        diff_hunk: '',
+      };
+
+      const added = await manager.addComments([newComment as any]);
+
+      const stored = (manager as any).metadata as CommentResolutionMetadata;
+      expect(added).toBe(1);
+      expect(saveSpy).toHaveBeenCalled();
+      expect(stored.comments['200'].status).toBe('pending');
+      expect(stored.comments['200'].comment.pr_number).toBe(prNumber);
+      expect(stored.summary.total).toBe(3);
+      expect(stored.summary.by_status.pending).toBe(3);
+    });
+
+    it('skips duplicates by ID and only saves when new entries exist', async () => {
+      const metadata = buildBaseMetadata();
+      (manager as any).metadata = metadata;
+      const saveSpy = jest.spyOn(manager as any, 'save');
+      const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+      const duplicate = { ...comments[0] };
+      const fresh = { ...comments[0], id: 300, node_id: 'N300', body: 'Another' };
+
+      const added = await manager.addComments([duplicate as any, fresh as any]);
+
+      const stored = (manager as any).metadata as CommentResolutionMetadata;
+      expect(added).toBe(1);
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      expect(debugSpy).toHaveBeenCalledWith('Comment 100 already exists, skipping.');
+      expect(stored.comments['300'].status).toBe('pending');
+      expect(stored.summary.total).toBe(3);
+    });
+
+    it('does not call save when all comments are duplicates or input is empty', async () => {
+      const metadata = buildBaseMetadata();
+      (manager as any).metadata = metadata;
+      const saveSpy = jest.spyOn(manager as any, 'save');
+
+      const duplicateCount = await manager.addComments([comments[0] as any, comments[1] as any]);
+      const emptyCount = await manager.addComments([]);
+
+      expect(duplicateCount).toBe(0);
+      expect(emptyCount).toBe(0);
+      expect(saveSpy).not.toHaveBeenCalled();
+      expect((manager as any).metadata.summary.total).toBe(2);
+    });
+
+    it('ensures metadata is loaded before processing', async () => {
+      const base = buildBaseMetadata();
+      jest.spyOn(manager as any, 'load').mockImplementation(async () => {
+        (manager as any).metadata = base;
+        return base;
+      });
+      (manager as any).metadata = null;
+
+      await manager.addComments([{ ...comments[0], id: 400 } as any]);
+
+      expect((manager as any).metadata?.comments['400']).toBeDefined();
+    });
+  });
+
   it('checks existence of metadata file', async () => {
-    pathExistsSpy.mockResolvedValueOnce(true as any);
+    accessSpy.mockResolvedValueOnce(undefined as any);
 
     const exists = await manager.exists();
 
-    expect(pathExistsSpy).toHaveBeenCalledWith(metadataPath);
+    expect(accessSpy).toHaveBeenCalledWith(metadataPath);
     expect(exists).toBe(true);
   });
 
   it('returns false when metadata file does not exist', async () => {
-    pathExistsSpy.mockResolvedValueOnce(false as any);
+    accessSpy.mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
 
     const exists = await manager.exists();
 
-    expect(pathExistsSpy).toHaveBeenCalledWith(metadataPath);
+    expect(accessSpy).toHaveBeenCalledWith(metadataPath);
     expect(exists).toBe(false);
   });
 
@@ -188,7 +263,7 @@ describe('PRCommentMetadataManager', () => {
   it('removes metadata directory during cleanup', async () => {
     await manager.cleanup();
 
-    expect(removeSpy).toHaveBeenCalledWith(path.dirname(metadataPath));
+    expect(removeSpy).toHaveBeenCalledWith(path.dirname(metadataPath), { recursive: true, force: true });
   });
 
   it('records analyzer error details and sets fallback agent when none is set', async () => {

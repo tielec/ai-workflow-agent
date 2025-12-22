@@ -144,6 +144,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - エラーハンドリング強化: ファイル読み込み成功/失敗時の適切なログ出力
   - テストカバレッジ: ユニット3件、統合1件（100%成功）、既存テストの修正でモック整合性確保
   - Issue #427の3段階パース戦略改善に続く抜本的解決策（エージェントが確実にJSONをファイル出力）
+- **Issue #475**: `pr-comment analyze` が `pr-comment init` 実行後に追加されたコメントを検出するように改善
+  - `refreshComments()` で GitHub（GraphQL優先→RESTフォールバック）から最新の未解決コメントを再取得し、既存メタデータに存在しない `comment_id` だけを `pending` として追加する
+  - `PRCommentMetadataManager.addComments()` は差分のコメントを重複排除して pending 状態で登録し、サマリーを再計算して保存するため、init 実行後や再開後に追加されたコメントも漏れなく分析対象になる
+  - テスト: `npm test -- tests/unit/pr-comment/analyze-command.test.ts --runInBand`、`npm test -- tests/unit/pr-comment/metadata-manager.test.ts tests/integration/pr-comment-refresh.integration.test.ts --runInBand`（51件すべて成功）
 - **Issue #426**: PR comment: Jenkinsリビルド時にresume機能が動作しない問題の修正
   - `pr-comment init` コマンドにメタデータ存在チェック機能を追加
   - 既存メタデータがある場合は初期化処理をスキップして警告ログを表示

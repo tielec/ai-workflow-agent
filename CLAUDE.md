@@ -657,6 +657,7 @@ node dist/index.js pr-comment execute --pr 123 --batch-size 10
   - 機密ファイル除外（`.env`, `credentials.json`, `*.pem`, `*.key` 等）
   - `confidence: low` のコード変更は自動的に `discussion` に変更
 - **レジューム機能**: 中断からの再開、部分的成功時の継続処理
+- **最新コメントの再取得**: `pr-comment analyze` は GitHub から未解決コメントを再取得し、metadata に存在しない `comment_id` を `pending` へ追加するため、`init` 実行後や再開後に投稿された新規コメントも自動的に分析対象となり、追加件数はログで確認できます。
 
 **オプション**:
 - `--pr <number>`: 対象のPR番号（必須）
