@@ -128,6 +128,7 @@ src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマン�
  ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
  ├─ buildAnalyzePrompt() … 分析プロンプト構築
  ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得し、`metadataManager.addComments()` で新規 `comment_id` だけを `pending` として追加することで init 実行後に投稿されたコメントも取り込む（Issue #475）
  ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
  └─ エラーハンドリング（Issue #428で強化）
      ├─ handleAgentError() … エージェント実行失敗時の処理
@@ -157,6 +158,7 @@ src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理�
  │   ├─ exists() … メタデータ存在確認
  │   ├─ updateStatus() … コメントステータス更新
  │   ├─ incrementRetry() … リトライ回数増加
+ │   ├─ addComments() … GitHub から取得したコメントを既存 metadata の `comment_id` で重複チェックし、新規のコメントだけを `pending` として追加・サマリー再計算・保存（Issue #475）
  │   ├─ getPendingComments() … 未処理コメント取得
  │   ├─ addCost() … コスト追跡
  │   ├─ setResolved() … 解決日時設定

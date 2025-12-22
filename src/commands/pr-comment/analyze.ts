@@ -25,6 +25,7 @@ import type {
   ResponsePlan,
   ResponsePlanComment,
   AnalyzerErrorType,
+  ReviewComment,
 } from '../../types/pr-comment.js';
 
 let gitConfigured = false; // Git設定済みフラグ
@@ -58,6 +59,7 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
     }
 
     await metadataManager.load();
+    await refreshComments(prNumber, prInfo.repositoryName, metadataManager);
     let pendingComments = await metadataManager.getPendingComments();
     const targetIds = parseCommentIds(options.commentIds);
     if (targetIds.size > 0) {
@@ -113,6 +115,90 @@ export async function handlePRCommentAnalyzeCommand(options: PRCommentAnalyzeOpt
 
     process.exit(1);
   }
+}
+
+async function refreshComments(
+  prNumber: number,
+  repositoryName: string,
+  metadataManager: PRCommentMetadataManager,
+): Promise<void> {
+  try {
+    const githubClient = new GitHubClient(null, repositoryName);
+    const latestComments = await fetchLatestUnresolvedComments(githubClient, prNumber);
+    const metadata = await metadataManager.getMetadata();
+    const existingIds = new Set(Object.keys(metadata.comments));
+    const newComments = latestComments.filter((c) => !existingIds.has(String(c.id)));
+
+    if (newComments.length === 0) {
+      logger.debug('No new comments found.');
+      return;
+    }
+
+    logger.info(`Found ${newComments.length} new comment(s). Adding to metadata...`);
+    await metadataManager.addComments(newComments);
+  } catch (error) {
+    logger.warn(`Failed to fetch latest comments: ${getErrorMessage(error)}`);
+    logger.warn('Proceeding with existing metadata.');
+  }
+}
+
+async function fetchLatestUnresolvedComments(
+  githubClient: GitHubClient,
+  prNumber: number,
+): Promise<ReviewComment[]> {
+  const unresolvedThreads = await githubClient.commentClient.getUnresolvedPRReviewComments(prNumber);
+  logger.debug(`Found ${unresolvedThreads.length} unresolved threads from API`);
+
+  const comments: ReviewComment[] = [];
+
+  for (const thread of unresolvedThreads) {
+    for (const comment of thread.comments.nodes) {
+      if (comment.databaseId === undefined || comment.databaseId === null) {
+        continue;
+      }
+
+      comments.push({
+        id: comment.databaseId,
+        node_id: comment.id,
+        path: comment.path ?? '',
+        line: comment.line ?? null,
+        start_line: comment.startLine ?? null,
+        end_line: null,
+        body: comment.body ?? '',
+        user: comment.author.login ?? 'unknown',
+        created_at: comment.createdAt ?? '',
+        updated_at: comment.updatedAt ?? '',
+        diff_hunk: '',
+        in_reply_to_id: undefined,
+        thread_id: thread.id,
+        pr_number: prNumber,
+      });
+    }
+  }
+
+  if (comments.length === 0) {
+    logger.debug('No unresolved threads from GraphQL, falling back to REST API');
+    const restComments = await githubClient.commentClient.getPRReviewComments(prNumber);
+
+    return restComments.map((c) => ({
+      id: c.id,
+      node_id: c.node_id,
+      path: c.path ?? '',
+      line: c.line ?? null,
+      start_line: c.start_line ?? null,
+      end_line: null,
+      body: c.body ?? '',
+      user: c.user?.login ?? 'unknown',
+      created_at: c.created_at ?? '',
+      updated_at: c.updated_at ?? '',
+      diff_hunk: c.diff_hunk ?? '',
+      in_reply_to_id: c.in_reply_to_id ?? undefined,
+      thread_id: undefined,
+      pr_number: prNumber,
+    }));
+  }
+
+  return comments;
 }
 
 async function analyzeComments(
@@ -854,4 +940,6 @@ export const __testables = {
   isValidResponsePlanCandidate,
   normalizePlanComment,
   persistAgentLog,
+  refreshComments,
+  fetchLatestUnresolvedComments,
 };

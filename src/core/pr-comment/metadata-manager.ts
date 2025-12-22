@@ -125,6 +125,47 @@ export class PRCommentMetadataManager {
   }
 
   /**
+   * 新規コメントをメタデータへ追加
+   *
+   * @param comments - 追加するレビューコメント
+   * @returns 追加されたコメント数
+   */
+  public async addComments(comments: ReviewComment[]): Promise<number> {
+    await this.ensureLoaded();
+
+    const prNumber = this.metadata!.pr.number;
+    let addedCount = 0;
+
+    for (const comment of comments) {
+      const commentId = String(comment.id);
+
+      if (this.metadata!.comments[commentId]) {
+        logger.debug(`Comment ${commentId} already exists, skipping.`);
+        continue;
+      }
+
+      this.metadata!.comments[commentId] = {
+        comment: { ...comment, pr_number: comment.pr_number ?? prNumber },
+        status: 'pending',
+        started_at: null,
+        completed_at: null,
+        retry_count: 0,
+        resolution: null,
+        reply_comment_id: null,
+        resolved_at: null,
+        error: null,
+      };
+      addedCount += 1;
+    }
+
+    if (addedCount > 0) {
+      await this.save();
+    }
+
+    return addedCount;
+  }
+
+  /**
    * コメントステータスを更新
    */
   public async updateCommentStatus(
