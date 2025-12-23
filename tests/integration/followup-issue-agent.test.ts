@@ -31,6 +31,10 @@ function createClaudeMock(): ClaudeMock {
   } as unknown as ClaudeMock;
 }
 
+const FOLLOWUP_OUTPUT_PATH_REGEX = /[/\\]tmp[/\\]followup-issue-\d+-\w+\.md/;
+const extractFollowupOutputPath = (prompt: string): string | null =>
+  prompt.match(FOLLOWUP_OUTPUT_PATH_REGEX)?.[0] ?? null;
+
 // Test data
 const NORMAL_REMAINING_TASKS: RemainingTask[] = [
   {
@@ -137,9 +141,9 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
     it('E2E_エージェント生成成功_FOLLOWUP_Issue作成', async () => {
       // Given: Codex agent writes valid Issue body to file
       codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-        const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-        if (match) {
-          tempFilePath = match[1];
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
           fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
         }
         return [];
@@ -196,6 +200,121 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
     });
   });
 
+  describe('Integration: Model propagation to Codex agent', () => {
+    it('Integration_agentモード_model指定時にCodexへ伝播', async () => {
+      // Given: Codex agent writes valid Issue body to file
+      codexClient.executeTask.mockImplementation(async (options: { prompt: string; model?: string }) => {
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
+          fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
+        }
+        return [];
+      });
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+        model: 'gpt-5.1-codex-mini',
+      };
+
+      // When: Create follow-up issue with a specific model
+      await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT,
+        options,
+      );
+
+      // Then: Codex receives the provided model
+      expect(codexClient.executeTask).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+      );
+      expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('Integration_agentモード_model未指定時はデフォルトを使用', async () => {
+      codexClient.executeTask.mockImplementation(async (options: { prompt: string; model?: string }) => {
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
+          fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
+        }
+        return [];
+      });
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+      };
+
+      await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT,
+        options,
+      );
+
+      expect(codexClient.executeTask).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+      );
+      expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('Integration_agentモード_modelエイリアスをCodexで解決', async () => {
+      codexClient.executeTask.mockImplementation(async (options: { prompt: string; model?: string }) => {
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
+          fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
+        }
+        return [];
+      });
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+        model: 'mini',
+      };
+
+      await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT,
+        options,
+      );
+
+      expect(codexClient.executeTask).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+      );
+      expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('E2E: Agent failure → Fallback success', () => {
     it('E2E_エージェント失敗_フォールバック成功', async () => {
       // Given: Codex agent fails (doesn't create file)
@@ -247,9 +366,9 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       codexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
 
       claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-        const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-        if (match) {
-          tempFilePath = match[1];
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
           fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
         }
         return [];
@@ -292,13 +411,16 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
     it('Integration_一時ファイルクリーンアップ', async () => {
       // Given: Agent creates output file
       let createdFilePath = '';
-      codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-        const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-        if (match) {
-          createdFilePath = match[1];
-          tempFilePath = createdFilePath;
-          fs.writeFileSync(createdFilePath, VALID_ISSUE_BODY);
-        }
+      const outputFilePath = path.join(os.tmpdir(), `followup-issue-${Date.now()}-cleanup.md`);
+      const outputPathSpy = jest
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .spyOn(agentGenerator as any, 'generateOutputFilePath')
+        .mockReturnValue(outputFilePath);
+
+      codexClient.executeTask.mockImplementation(async () => {
+        createdFilePath = outputFilePath;
+        tempFilePath = createdFilePath;
+        fs.writeFileSync(createdFilePath, VALID_ISSUE_BODY);
         return [];
       });
 
@@ -329,6 +451,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // File should be cleaned up (but we don't assert this strictly as cleanup is best-effort)
+      outputPathSpy.mockRestore();
     });
   });
 
@@ -338,9 +461,9 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       const invalidBody = `## 背景\n\nテキスト\n\n## 目的\n\nテキスト`;
 
       codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-        const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-        if (match) {
-          tempFilePath = match[1];
+        const outputPath = extractFollowupOutputPath(options.prompt);
+        if (outputPath) {
+          tempFilePath = outputPath;
           fs.writeFileSync(tempFilePath, invalidBody);
         }
         return [];

@@ -135,6 +135,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 修正ファイル: `src/core/repository-analyzer.ts`（1ファイル）、プロンプトテンプレート（3ファイル）
   - テストカバレッジ: ユニット23件、統合6件（29件すべて成功）
 
+- **Issue #480**: `--followup-llm-mode agent` で指定したモデルが無視される不具合を修正
+  - `IssueAgentGenerator.generate()` に model 引数を追加し、`resolveCodexModel` 経由で Codex エージェントに正しいモデル名を渡すようにした
+  - `IssueClient` の agent モードで `generationOptions.model` を伝播し、`gpt-5.1-codex-max`（`max`）、`gpt-5.1-codex-mini`（`mini`）、`gpt-5.1`（`5.1`）といったエイリアスが正しく適用されることを確認した
+  - README/TROUBLESHOOTING で agent モードのモデル指定方法を明記し、v0.5.0 以降の挙動を説明した
+
 - **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
   - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
   - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化
