@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import process from 'node:process';
 import os from 'node:os';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import simpleGit from 'simple-git';
 
 import type { IssueInfo } from '../types/commands.js';

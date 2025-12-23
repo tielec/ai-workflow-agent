@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
-import { getErrorMessage } from '../../utils/error-utils.js';
+import { getErrorMessage, isError } from '../../utils/error-utils.js';
 import {
   CommentMetadata,
   CommentResolution,
@@ -13,6 +13,7 @@ import {
 import { CodexAgentClient } from '../codex-agent-client.js';
 import { ClaudeAgentClient } from '../claude-agent-client.js';
 import { parseCodexEvent, determineCodexEventType } from '../helpers/agent-event-parser.js';
+import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 
 export interface AnalysisContext {
   repoPath: string;
@@ -34,10 +35,12 @@ export interface AnalysisResult {
 export class ReviewCommentAnalyzer {
   private readonly promptTemplatePath: string;
   private readonly outputDir: string;
+  private readonly logFormatter: LogFormatter;
 
   constructor(promptsDir: string, outputDir: string) {
     this.promptTemplatePath = path.join(promptsDir, 'pr-comment', 'analyze.txt');
     this.outputDir = outputDir;
+    this.logFormatter = new LogFormatter();
   }
 
   /**
@@ -57,7 +60,7 @@ export class ReviewCommentAnalyzer {
       let rawContent: string | null = null;
 
       if (agent) {
-        rawContent = await this.runAgent(agent, prompt, context.repoPath);
+        rawContent = await this.runAgent(agent, prompt, context.repoPath, commentMeta.comment.id);
       }
 
       // フォールバック: エージェント未設定または結果が得られない場合は簡易推論
@@ -132,16 +135,25 @@ export class ReviewCommentAnalyzer {
     agent: CodexAgentClient | ClaudeAgentClient,
     prompt: string,
     repoPath: string,
+    commentId: number,
   ): Promise<string | null> {
+    const startTime = Date.now();
+    let messages: string[] = [];
+    const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
+
     try {
       logger.debug(`Running agent for PR comment analysis...`);
-      const messages = await agent.executeTask({
+      messages = await agent.executeTask({
         prompt,
         maxTurns: 1,
         verbose: true,
         workingDirectory: repoPath,
       });
+      const endTime = Date.now();
+      const duration = endTime - startTime;
       logger.debug(`Agent execution completed, processing response...`);
+
+      await this.saveAgentLog(messages, startTime, endTime, duration, null, agentName, commentId);
 
       if (agent instanceof CodexAgentClient) {
         return this.extractFromCodexMessages(messages);
@@ -149,8 +161,42 @@ export class ReviewCommentAnalyzer {
 
       return this.extractFromClaudeMessages(messages);
     } catch (error) {
+      const endTime = Date.now();
+      const duration = endTime - startTime;
       logger.warn(`Agent execution failed: ${getErrorMessage(error)}`);
+      const formattedError = isError(error) ? error : new Error(getErrorMessage(error));
+      await this.saveAgentLog(messages, startTime, endTime, duration, formattedError, agentName, commentId);
       return null;
+    }
+  }
+
+  /**
+   * エージェント実行ログを Markdown で保存
+   */
+  private async saveAgentLog(
+    messages: string[],
+    startTime: number,
+    endTime: number,
+    duration: number,
+    error: Error | null,
+    agentName: string,
+    commentId: number,
+  ): Promise<void> {
+    try {
+      const agentLogContent = this.logFormatter.formatAgentLog(
+        messages,
+        startTime,
+        endTime,
+        duration,
+        error,
+        agentName,
+      );
+
+      const logFile = path.join(this.outputDir, `agent_log_comment_${commentId}.md`);
+      await fsp.writeFile(logFile, agentLogContent, 'utf-8');
+      logger.debug(`Agent log saved to: ${logFile}`);
+    } catch (logError) {
+      logger.warn(`Failed to save agent log: ${getErrorMessage(logError)}`);
     }
   }
 

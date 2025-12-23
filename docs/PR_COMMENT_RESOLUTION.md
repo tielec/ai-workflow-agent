@@ -157,7 +157,12 @@ ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--bat
    - `reply`: reply_messageを返信投稿
    - `discussion`: スキップ（人間の判断を待つ）
    - `skip`: スキップ（対応不要）
-4. 処理結果をメタデータに保存
+4. **AIエージェント実行ログの保存** (Issue #442で追加):
+   - 各コメント処理時のエージェント実行ログを保存
+   - ファイル名: `agent_log_comment_{commentId}.md`
+   - 保存場所: `.ai-workflow/pr-{prNumber}/execute/`
+   - LogFormatterにより統一されたMarkdown形式で出力
+5. 処理結果をメタデータに保存
 
 **注意**: Issue #444でリファクタリングされ、executeコマンドはエージェント実行を行わなくなりました。これにより、analyzeフェーズで生成された分析結果が正確に適用され、実行コストが半減します。
 
@@ -562,17 +567,21 @@ Error: Path validation failed: src/../../../etc/passwd
 詳細なログは Markdownフォーマットで以下の場所に保存されます:
 
 - 分析フェーズ: `.ai-workflow/pr-<number>/analyze/agent_log.md`
-- 実行フェーズ: `.ai-workflow/pr-<number>/execute/agent_log.md`
+- 実行フェーズ（全体）: `.ai-workflow/pr-<number>/execute/agent_log.md`
+- 実行フェーズ（各コメント）: `.ai-workflow/pr-<number>/execute/agent_log_comment_{commentId}.md` *(Issue #442で追加)*
 
 ```bash
 # 分析ログを確認
 cat .ai-workflow/pr-123/analyze/agent_log.md
 
-# 実行ログを確認
+# 実行ログ（全体）を確認
 cat .ai-workflow/pr-123/execute/agent_log.md
+
+# 特定のコメントの実行ログを確認（Issue #442で追加）
+cat .ai-workflow/pr-123/execute/agent_log_comment_456.md
 ```
 
-これらのログはIssue #441により統一的なMarkdown形式で出力され、読みやすい構造化された情報を提供します。
+これらのログはIssue #441により統一的なMarkdown形式で出力され、読みやすい構造化された情報を提供します。特に、Issue #442で追加された各コメント個別のログファイルにより、特定のコメント処理のトラブルシューティングが容易になりました。
 
 ### メタデータのリセット
 
@@ -742,3 +751,4 @@ $REPOS_ROOT/
 | 1.4.0 | 2025-12-21 | finalize Git commit改善（Issue #458） - `.ai-workflow/pr-{number}/` の削除を `git add .` でステージし、`git status()` で空コミットを回避したうえで `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)` というメッセージでコミット・プッシュ |
 | 1.5.0 | 2025-01-21 | コミットスカッシュ機能追加（Issue #450） - `--squash` オプションで複数コミットを1つにまとめる機能、`init` で `base_commit` を記録、`--force-with-lease` による安全な強制プッシュ |
 | 1.6.0 | 2025-01-22 | agent_log.mdのMarkdown化（Issue #441） - LogFormatterによる統一的なMarkdown形式でログ出力、可読性向上とフォーマット統一 |
+| 1.7.0 | 2025-01-22 | 個別コメントエージェントログ保存機能（Issue #442） - pr-comment executeコマンドで各コメント処理時のエージェント実行ログを `agent_log_comment_{commentId}.md` として保存、デバッグとトラブルシューティングの向上 |

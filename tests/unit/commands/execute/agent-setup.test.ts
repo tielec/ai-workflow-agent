@@ -120,10 +120,14 @@ beforeAll(async () => {
   PHASE_AGENT_PRIORITY = module.PHASE_AGENT_PRIORITY;
 });
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { logger } from '../../../../src/utils/logger.js';
+jest.mock('fs-extra');
 
-const existsSyncSpy = jest.spyOn(fs, 'existsSync');
+// Ensure fs.existsSync is a writable jest mock
+(fs as any).existsSync = jest.fn();
+let existsSyncMock = fs.existsSync as jest.MockedFunction<typeof fs.existsSync>;
+existsSyncMock.mockReturnValue(false);
 jest.spyOn(logger, 'debug').mockImplementation(() => {});
 jest.spyOn(logger, 'info').mockImplementation(() => {});
 jest.spyOn(logger, 'warn').mockImplementation(() => {});
@@ -145,8 +149,9 @@ beforeEach(() => {
 
   // モックをリセット
   jest.clearAllMocks();
-  existsSyncSpy.mockReset();
-  existsSyncSpy.mockReturnValue(false);
+  (fs as any).existsSync = jest.fn();
+  existsSyncMock = fs.existsSync as jest.MockedFunction<typeof fs.existsSync>;
+  existsSyncMock.mockReturnValue(false);
   mockDetectCodexCliAuth.mockReturnValue({ authFilePath: null, candidates: [] });
 });
 
@@ -171,7 +176,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
     process.env.CODEX_API_KEY = 'test-codex-key';
-    existsSyncSpy.mockReturnValue(false);
+    existsSyncMock.mockReturnValue(false);
 
     // When: 認証情報を解決
     const result: CredentialsResult = resolveAgentCredentials(homeDir, repoRoot);
@@ -187,7 +192,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const repoRoot = '/workspace/repo';
     const claudeCredentialsPath = '/custom/path/credentials.json';
     process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
-    existsSyncSpy.mockImplementation((path: unknown) => {
+    existsSyncMock.mockImplementation((path: unknown) => {
       return path === claudeCredentialsPath;
     });
 
@@ -204,7 +209,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
     const expectedPath = `${homeDir}/.claude-code/credentials.json`;
-    existsSyncSpy.mockImplementation((path: unknown) => {
+    existsSyncMock.mockImplementation((path: unknown) => {
       return path === expectedPath;
     });
 
@@ -220,7 +225,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
     const expectedPath = `${repoRoot}/.claude-code/credentials.json`;
-    existsSyncSpy.mockImplementation((path: unknown) => {
+    existsSyncMock.mockImplementation((path: unknown) => {
       return path === expectedPath;
     });
 
@@ -238,7 +243,7 @@ describe('resolveAgentCredentials - 正常系', () => {
     const claudeCredentialsPath = '/custom/path/credentials.json';
     process.env.CODEX_API_KEY = 'test-codex-key';
     process.env.CLAUDE_CODE_CREDENTIALS_PATH = claudeCredentialsPath;
-    existsSyncSpy.mockReturnValue(true);
+    existsSyncMock.mockReturnValue(true);
 
     // When: 認証情報を解決
     const result: CredentialsResult = resolveAgentCredentials(homeDir, repoRoot);
@@ -258,7 +263,7 @@ describe('resolveAgentCredentials - 異常系', () => {
     // Given: すべての認証情報が存在しない
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
-    existsSyncSpy.mockReturnValue(false);
+    existsSyncMock.mockReturnValue(false);
 
     // When: 認証情報を解決
     const result: CredentialsResult = resolveAgentCredentials(homeDir, repoRoot);
@@ -274,7 +279,7 @@ describe('resolveAgentCredentials - 異常系', () => {
     const repoRoot = '/workspace/repo';
     const shortApiKey = 'short-key'; // 20文字未満
     process.env.CODEX_API_KEY = shortApiKey;
-    existsSyncSpy.mockReturnValue(false);
+    existsSyncMock.mockReturnValue(false);
 
     // When: 認証情報を解決
     const result: CredentialsResult = resolveAgentCredentials(homeDir, repoRoot);

@@ -24,9 +24,9 @@ const mockAnalyzeForRefactoring = jest.fn<any>();
 const mockAnalyzeForEnhancements = jest.fn<any>();
 const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
-const mockResolveLocalRepoPath = jest.fn();
 const mockResolveAgentCredentials = jest.fn();
 const mockSetupAgentClients = jest.fn();
+const resolveLocalRepoPathMock = jest.fn();
 
 // モック設定
 jest.mock('../../../src/core/repository-analyzer.js', () => ({
@@ -58,7 +58,9 @@ jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
   setupAgentClients: mockSetupAgentClients,
 }));
 jest.mock('../../../src/core/repository-utils.js', () => ({
-  resolveLocalRepoPath: mockResolveLocalRepoPath,
+  __esModule: true,
+  ...jest.requireActual('../../../src/core/repository-utils.js'),
+  resolveLocalRepoPath: resolveLocalRepoPathMock,
 }));
 jest.mock('@octokit/rest');
 
@@ -106,7 +108,8 @@ describe('auto-issue command handler', () => {
     logger.error = jest.fn();
 
     // repositoryUtils.resolveLocalRepoPath のモック
-    mockResolveLocalRepoPath.mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
+    resolveLocalRepoPathMock.mockReset();
+    resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
 
     // agent-setup のモック
     mockResolveAgentCredentials.mockReturnValue({
@@ -373,7 +376,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+        resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
 
         mockAnalyzer.analyze.mockResolvedValue([]);
 
@@ -445,7 +448,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+        resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
 
         mockAnalyzer.analyze.mockResolvedValue([]);
 
@@ -475,7 +478,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/non-existent-repo');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockImplementation(() => {
+        resolveLocalRepoPathMock.mockImplementation(() => {
           throw new Error("Repository 'non-existent-repo' not found.");
         });
 
@@ -500,7 +503,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+        resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
 
         logger.info = jest.fn();
 
@@ -532,7 +535,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
         config.getReposRoot.mockReturnValue(null);
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+        resolveLocalRepoPathMock.mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
 
         logger.info = jest.fn();
 
@@ -558,7 +561,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+        resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
 
         mockAnalyzer.analyze.mockResolvedValue([]);
 
@@ -589,7 +592,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
         config.getReposRoot.mockReturnValue(null);
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+        resolveLocalRepoPathMock.mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
 
         mockAnalyzer.analyze.mockResolvedValue([]);
 
@@ -620,7 +623,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/non-existent-repo');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockImplementation(() => {
+        resolveLocalRepoPathMock.mockImplementation(() => {
           throw new Error(
             "Repository 'non-existent-repo' not found.\nPlease set REPOS_ROOT environment variable or clone the repository.",
           );
@@ -673,7 +676,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/reflection-cloud-api');
         config.getReposRoot.mockReturnValue('/tmp/ai-workflow-repos-12345');
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
+        resolveLocalRepoPathMock.mockReturnValue('/tmp/ai-workflow-repos-12345/reflection-cloud-api');
 
         logger.info = jest.fn();
 
@@ -705,7 +708,7 @@ describe('auto-issue command handler', () => {
         config.getGitHubRepository.mockReturnValue('tielec/ai-workflow-agent');
         config.getReposRoot.mockReturnValue(null);
 
-        jest.mocked(repositoryUtils.resolveLocalRepoPath).mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
+        resolveLocalRepoPathMock.mockReturnValue('/home/user/TIELEC/development/ai-workflow-agent');
 
         logger.info = jest.fn();
 
