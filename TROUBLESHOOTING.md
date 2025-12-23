@@ -1581,7 +1581,78 @@ git checkout <commit-hash> -- .ai-workflow/pr-123/comment-resolution-metadata.js
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 - **コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。
 
-## 17. `Prompt is too long` エラー（Documentation Phase）
+## 17. フォローアップIssue生成関連（v0.5.0、Issue #480）
+
+### `--followup-llm-mode agent` でモデル指定が無効になる（ChatGPT アカウント対応）
+
+`--followup-llm-mode agent` を指定した場合に `--followup-llm-model` オプションで指定したモデルが無視され、デフォルトのgpt-4oが使用される問題の対処法です。
+
+**症状**:
+```
+[ERROR] http 400 Bad Request: The model is not supported
+```
+
+**原因**:
+- ChatGPT アカウントではgpt-4oモデルがサポートされていない
+- v0.5.0より前では、`IssueAgentGenerator` が `--followup-llm-model` で指定されたモデルを受け取れず、Codex CLI のデフォルト（gpt-4o）が使用されていた
+
+**対処法（v0.5.0 以降）**:
+
+v0.5.0以降では、Issue #480の修正により、モデル指定が正常に伝播されます：
+
+```bash
+# ChatGPT アカウント対応モデルを指定
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode agent --followup-llm-model gpt-5.1-codex-mini
+
+# エイリアスでの指定も可能
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode agent --followup-llm-model mini
+```
+
+**対処法（v0.4.x 以前）**:
+
+古いバージョンでは、以下の回避策を使用してください：
+
+```bash
+# 方法1: 環境変数でデフォルトモデルを設定
+export CODEX_MODEL=gpt-5.1-codex-mini
+node dist/index.js execute --issue 123 --phase evaluation --followup-llm-mode agent
+
+# 方法2: agent モード以外を使用
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode openai --followup-llm-model gpt-4o-mini
+
+# 方法3: claude モードを使用（Anthropic API キーが必要）
+node dist/index.js execute --issue 123 --phase evaluation \
+  --followup-llm-mode claude --followup-llm-model claude-3-sonnet-20240229
+```
+
+**確認方法**:
+```bash
+# フォローアップIssue生成時に使用されたモデルを確認
+grep -i "Using model" .ai-workflow/issue-123/09_evaluation/execute/agent_log.md
+
+# メタデータでフォールバック状況を確認
+cat .ai-workflow/issue-123/metadata.json | jq '.followup_issue_generation'
+```
+
+**ChatGPT アカウントで推奨されるモデル**:
+
+| モデル | 用途 | 指定方法 |
+|--------|------|----------|
+| `gpt-5.1-codex-mini` | 軽量・経済的なフォローアップIssue生成 | `--followup-llm-model mini` |
+| `gpt-5.1-codex-max` | 高精度なフォローアップIssue生成（デフォルト） | `--followup-llm-model max` |
+| `gpt-5.1` | 汎用モデル | `--followup-llm-model 5.1` |
+
+**注意事項**:
+- v0.5.0以降へのアップグレードを推奨します（根本的解決）
+- agent モード以外（openai, claude）では元々モデル指定が正常に動作します
+- エージェント失敗時は自動的にLLM APIモードへフォールバックされます
+
+**関連Issue**: Issue #480 - followup-llm-mode agent で gpt-4o モデルがChatGPTアカウントで非対応エラー
+
+## 18. `Prompt is too long` エラー（Documentation Phase）
 
 ### 症状
 - Documentation Phase の execute/review/revise で `Prompt is too long` や `context length exceeded` が発生する

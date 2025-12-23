@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { DEFAULT_CODEX_MODEL, resolveCodexModel } from '../codex-agent-client.js';
 import type { CodexAgentClient } from '../codex-agent-client.js';
 import type { ClaudeAgentClient } from '../claude-agent-client.js';
 import type { RemainingTask, IssueContext } from '../../types.js';
@@ -63,11 +64,13 @@ export class IssueAgentGenerator {
    *
    * @param context - FOLLOW-UP Issue生成コンテキスト
    * @param agent - 使用エージェント（'auto' | 'codex' | 'claude'）
+   * @param model - 使用モデル（未指定時は DEFAULT_CODEX_MODEL を使用）
    * @returns 生成されたIssue
    */
   public async generate(
     context: FollowUpContext,
     agent: 'auto' | 'codex' | 'claude',
+    model?: string,
   ): Promise<GeneratedIssue> {
     logger.info(`Generating follow-up issue for #${context.issueNumber} with agent mode`);
 
@@ -112,7 +115,9 @@ export class IssueAgentGenerator {
       } else {
         try {
           logger.info('Using Codex agent for follow-up issue generation.');
-          await this.codexClient.executeTask({ prompt });
+          const resolvedModel = model ? resolveCodexModel(model) : DEFAULT_CODEX_MODEL;
+          logger.debug(`Using model for Codex agent: ${resolvedModel}`);
+          await this.codexClient.executeTask({ prompt, model: resolvedModel });
         } catch (error) {
           if (agent === 'codex') {
             return {

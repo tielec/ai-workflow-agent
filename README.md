@@ -450,7 +450,7 @@ ai-workflow execute --issue 385 --phase all --no-squash-on-complete
 
 フォローアップIssue生成時にLLM (OpenAI/Anthropic) を利用してタイトルと本文の品質を向上できます。LLM失敗時は既存テンプレートへ自動的にフォールバックします。
 
-- `--followup-llm-mode <mode>` … LLMモード選択（`auto`（既定）、`openai`、`claude`、`off`）
+- `--followup-llm-mode <mode>` … LLMモード選択（`auto`（既定）、`openai`、`claude`、`agent`、`off`）
 - `--followup-llm-model <model>` … モデル指定（例: `gpt-4o-mini`、`claude-3-sonnet-20240229`）
 - `--followup-llm-timeout <ms>` … タイムアウト時間（ミリ秒、既定: 25000）
 - `--followup-llm-max-retries <count>` … 最大リトライ回数（既定: 3）
@@ -482,6 +482,8 @@ node dist/index.js execute --issue 123 --phase evaluation --followup-llm-mode of
 ```
 
 **注意**: デフォルトは無効（`enabled=false`）です。CLIオプションまたは環境変数で明示的に有効化してください。
+
+**Agentモードの補足**: `--followup-llm-mode agent` は Codex エージェントを使ってモデルを生成します。`--followup-llm-model` を `mini`/`max`/`5.1` といったエイリアスや `gpt-5.1-codex-mini`/`gpt-5.1-codex-max` などのフルネームで指定すれば `resolveCodexModel` 経由で Codex に正しく伝わります。ChatGPT アカウントでも `gpt-5.1-codex-mini` のような ChatGPT 対応モデルを使えるようになり、v0.5.0 以降はこの仕組みが agent モードにも反映されています。詳細やトラブルシュートは `TROUBLESHOOTING.md` の「17. フォローアップIssue生成関連」をご覧ください。
 
 ### 依存関係チェックのフラグ
 
