@@ -470,6 +470,7 @@ node dist/index.js auto-issue \
   - **バグIssue**（`generate`）: エージェント生成の詳細な説明と修正提案
   - **リファクタリングIssue**（`generateRefactorIssue`）: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
   - **機能拡張Issue**（`generateEnhancementIssue`）: エージェント生成の詳細な提案（根拠、実装ヒント、期待される効果、工数見積もり）
+    - `auto-issue --category enhancement` の Issue #485 修正により、Writeツールで `{output_file_path}` に JSON を書き出すようになり、バグ/リファクタリング検出と同様に Jenkins 等から JSON を収集できます
 
 **リポジトリパス解決**（Issue #153で修正）:
 - `GITHUB_REPOSITORY` 環境変数から対象リポジトリを自動解決
