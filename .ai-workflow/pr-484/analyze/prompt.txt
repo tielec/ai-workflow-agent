@@ -1,0 +1,83 @@
+# PRレビューコメント — 分析フェーズ
+
+PRレビューコメントのトリアージを支援します。提供された**すべて**のコメントを一括で分析し、単一の対応計画を提案してください。
+
+## 目標
+- 各コメントを以下のいずれかに分類: `code_change`, `reply`, `discussion`, `skip`
+- 信頼度を提供: `high` | `medium` | `low`
+- `code_change` の場合、最小限で安全な変更を提案（機密ファイルは避ける）
+- 各コメントへの返信メッセージを作成
+
+## 入力コンテキスト
+- PR番号: 484
+- PRタイトル: fix: Testing Phase revise ステップで test-result.md が更新されない問題
+- 対象リポジトリ: /tmp/ai-workflow-repos-58-b601fcfa/ai-workflow-agent
+- コメント（一括）:
+### Comment #2644844006
+- File: tmp/workspace/.ai-workflow/issue-47/06_testing/output/test-result.md
+- Line: 1
+- Author: yuto-takashi
+- Body:
+```
+このファイルのコミットはなんですか？いらないと思います。
+```
+- Diff:
+```diff
+
+```
+- File Content:
+```
+test content 4
+```
+
+## セキュリティ・安全ガードレール
+- 以下のファイルは絶対に変更・提案しない: `.env`, `.env.*`, `credentials.*`, `secrets.*`, `*.pem`, `*.key`
+- リポジトリ相対パスのみ使用（絶対パスやパストラバーサル `..` は禁止）
+- `code_change` の信頼度が `low` になる場合は、`discussion` にダウングレード
+- 返信は簡潔で、プロフェッショナルで、実行可能な内容にする
+
+## 出力
+**出力先**: `/tmp/ai-workflow-repos-58-b601fcfa/ai-workflow-agent/.ai-workflow/pr-484/output/response-plan.json`
+
+**重要**: 必ず指定されたファイルパス（`{output_file_path}`）にJSONを書き出してください。  
+ファイル書き込みツールを使用して、以下の構造のJSONファイルを作成してください。
+
+```json
+{
+  "pr_number": 123,
+  "analyzer_agent": "codex|claude|auto",
+  "comments": [
+    {
+      "comment_id": "c001",
+      "file": "src/app.ts",
+      "line": 42,
+      "author": "reviewer",
+      "body": "...コメントテキスト...",
+      "type": "code_change|reply|discussion|skip",
+      "confidence": "high|medium|low",
+      "rationale": "この選択の理由",
+      "proposed_changes": [
+        {
+          "action": "modify|create|delete",
+          "file": "src/app.ts",
+          "line_range": "40-55",
+          "changes": "modify/createの場合、新しいファイルの完全な内容をここに記載。deleteの場合は空文字列。"
+        }
+      ],
+      "reply_message": "GitHubに投稿する返信メッセージ"
+    }
+  ]
+}
+```
+
+禁止事項:
+- イベントストリーム（JSON Lines）形式での出力
+- Markdownコードブロック以外の場所への説明テキスト追加
+- 複数のJSONオブジェクトや前後のコメントを出力すること
+
+注意事項:
+- JSON形式は上記の構造に厳密に従ってください
+- ファイルが正常に書き込まれたことを確認してください
+- 入力された全てのコメントを1回ずつ含める
+- `proposed_changes` は `code_change` 以外のタイプでは空配列でよい
+- ファイルが見つからない場合は、`proposed_changes` を空配列にし、`discussion` または `reply` を選択

@@ -1,0 +1,25 @@
+{
+  "pr_number": 484,
+  "analyzer_agent": "codex",
+  "comments": [
+    {
+      "comment_id": "2644844006",
+      "file": "tmp/workspace/.ai-workflow/issue-47/06_testing/output/test-result.md",
+      "line": 1,
+      "author": "yuto-takashi",
+      "body": "このファイルのコミットはなんですか？いらないと思います。",
+      "type": "code_change",
+      "confidence": "high",
+      "rationale": "Reviewer wants to remove a committed test artifact; safe to delete the generated test-result file from the PR.",
+      "proposed_changes": [
+        {
+          "action": "delete",
+          "file": "tmp/workspace/.ai-workflow/issue-47/06_testing/output/test-result.md",
+          "line_range": "1-1",
+          "changes": ""
+        }
+      ],
+      "reply_message": "テスト生成物が誤ってコミットされていました。PRから削除します。"
+    }
+  ]
+}
