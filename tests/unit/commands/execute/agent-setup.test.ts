@@ -120,7 +120,7 @@ beforeAll(async () => {
   PHASE_AGENT_PRIORITY = module.PHASE_AGENT_PRIORITY;
 });
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { logger } from '../../../../src/utils/logger.js';
 
 const existsSyncSpy = jest.spyOn(fs, 'existsSync');

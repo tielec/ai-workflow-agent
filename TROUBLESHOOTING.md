@@ -161,6 +161,21 @@ ai-workflow migrate --sanitize-tokens --issue 123
    ```
 3. 変更をコミット＆プッシュ
 
+**自動シークレットマスキング機能（Issue #488で拡張）**:
+
+v0.5.1以降では、SecretMaskerクラスが拡張され、ワークフローファイル内のシークレット情報を自動的に検出・マスキングし、GitHub Push Protectionによるプッシュブロックを防ぎます：
+
+- **自動マスキング対象**:
+  - GitHub Personal Access Token (`ghp_*`)
+  - GitHub Fine-grained Token (`github_pat_*`)
+  - Email アドレス
+  - 汎用トークン（20文字以上）
+  - Bearer トークン
+  - token= 形式
+
+- **処理タイミング**: コミット作成時に `.ai-workflow/issue-*/` 内のファイル（agent_log_raw.txt, agent_log.md, prompt.txt, metadata.json）を自動スキャン
+- **マスキング方式**: 環境変数マッチング + 汎用パターンマッチングの2段階処理
+
 **予防策**:
 - SSH形式でリポジトリをクローンする（推奨）:
   ```bash

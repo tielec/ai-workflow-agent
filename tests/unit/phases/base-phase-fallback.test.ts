@@ -9,20 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-
-// Mock fs-extra before importing
-jest.mock('fs-extra', () => ({
-  ...jest.requireActual('fs-extra'),
-  existsSync: jest.fn(() => false),
-  mkdirSync: jest.fn(),
-  removeSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(() => ''),
-  ensureDirSync: jest.fn(),
-  chmodSync: jest.fn(),
-}));
-
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { BasePhase } from '../../../src/phases/base-phase.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';

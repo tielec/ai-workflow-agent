@@ -9,7 +9,7 @@
  */
 
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { AgentExecutor } from '../../../../src/phases/core/agent-executor.js';
 import { PhaseName } from '../../../../src/types.js';

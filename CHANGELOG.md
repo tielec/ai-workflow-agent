@@ -123,6 +123,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #488**: SecretMasker汎用パターンマスキング対応（GitHub Push Protection対策）
+  - `maskSecretsInFile()` メソッドに汎用パターンマスキング機能を追加
+  - GitHub トークンパターン（`ghp_*`, `github_pat_*`）の検出・マスキング対応
+  - `maskString()` メソッドを抽出し、`maskObject()` と `maskSecretsInFile()` で共有化
+  - 環境変数マッチング + 汎用パターンマッチングの2段階マスキング処理を実装
+  - GitHub Push Protection によるプッシュブロック問題を解決
+  - 対応パターン: GitHub PAT、GitHub Fine-grained Token、Email、汎用トークン（20文字以上）、Bearer Token、token=形式
+  - マスキング順序の最適化（GitHub Token パターンを汎用パターンより優先）
+  - 修正ファイル: `src/core/secret-masker.ts`
+  - テストカバレッジ: 27件の新規テスト（maskString()、maskSecretsInFile()統合、既存回帰テスト）
+
 - **Issue #485**: auto-issue enhancementカテゴリでJSONファイル出力されない問題の修正
   - `src/prompts/auto-issue/detect-enhancements.txt`にファイル書き込み指示を追加
   - 出力形式セクションに「必ずJSONファイルに書き出してください」の明示的指示を追加

@@ -31,7 +31,7 @@ jest.mock('../../../src/core/repository-utils.js', () => ({
   findWorkflowMetadata: jest.fn(),
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { findWorkflowMetadata } from '../../../src/core/repository-utils.js';
 
 describe('Finalize コマンド - バリデーション（validateFinalizeOptions）', () => {

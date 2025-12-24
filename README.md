@@ -516,6 +516,26 @@ ai-workflow migrate --sanitize-tokens --repo /path/to/repo
 
 **注意**: v0.3.1以降、`init` コマンド実行時に自動的にトークンが除去されるため、新規ワークフローでは不要です。既存ワークフロー（v0.3.1より前に作成）のメタデータ修正に使用してください。
 
+### SecretMasker（シークレット保護機能）
+
+AI Workflow Agent は、ワークフローファイルに含まれるシークレット情報を自動的に検出・マスキングし、GitHub Push Protection によるプッシュブロックを防ぎます（Issue #488で拡張）。
+
+**自動マスキング対象**:
+- **GitHub Personal Access Token**: `ghp_*` 形式 → `[REDACTED_GITHUB_TOKEN]`
+- **GitHub Fine-grained Token**: `github_pat_*` 形式 → `[REDACTED_GITHUB_TOKEN]`
+- **Email アドレス**: `user@example.com` → `[REDACTED_EMAIL]`
+- **汎用トークン**: 20文字以上の英数字文字列 → `[REDACTED_TOKEN]`
+- **Bearer トークン**: `Bearer token_value` → `Bearer [REDACTED_TOKEN]`
+- **token= 形式**: `token=value` → `token=[REDACTED_TOKEN]`
+- **環境変数値**: 設定された環境変数の値 → `[REDACTED_{変数名}]`
+
+**処理タイミング**:
+- コミット作成時に `.ai-workflow/issue-*/` 内のファイルを自動スキャン
+- 環境変数マッチング + 汎用パターンマッチングの2段階処理
+- GitHub Token パターンを優先して適切なラベルでマスキング
+
+**対象ファイル**: `agent_log_raw.txt`, `agent_log.md`, `prompt.txt`, `metadata.json`
+
 ### Rollbackコマンド（フェーズ差し戻し）
 
 `rollback` コマンドは、ワークフローを前のフェーズに差し戻し、修正作業を行うための機能です（v0.4.0、Issue #90で追加）。レビューで問題が発見された場合や、実装方針の変更が必要な場合に使用します。

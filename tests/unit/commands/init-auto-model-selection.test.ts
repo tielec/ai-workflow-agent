@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 
 const gitMock = {

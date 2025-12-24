@@ -257,6 +257,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
 | `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。 |
 | `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput等）、FileSelector/CommitMessageBuilderへの委譲、SecretMasker統合を担当。 |
+| `src/core/secret-masker.ts` | シークレット検出・マスキング専門モジュール（約295行、Issue #488で拡張）。ワークフローファイル内のシークレット情報を検出し、GitHub Push Protection によるプッシュブロックを防ぐ。`maskObject()`, `maskSecretsInFile()`, `maskSecretsInWorkflowDir()` を提供。**Issue #488で拡張**: 汎用パターンマスキング対応（GitHub Token, Email, Bearer Token等）、`maskString()` メソッド抽出による `maskObject()` との一貫性確保、環境変数マッチング + 汎用パターンマッチングの2段階処理を実装。対応パターン: `ghp_*`, `github_pat_*`, Email, 20文字以上汎用トークン, Bearer, token=形式。 |
 | `src/core/git/file-selector.ts` | ファイル選択・フィルタリングの専門モジュール（約160行、Issue #52で追加）。変更ファイル検出、Issue番号フィルタリング、フェーズ固有パターンマッチング、@tmp除外を担当。 |
 | `src/core/git/commit-message-builder.ts` | コミットメッセージ構築の専門モジュール（約151行、Issue #52で追加）。フェーズ完了、ステップ完了、初期化、クリーンアップのメッセージ生成を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |

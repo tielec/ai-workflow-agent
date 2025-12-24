@@ -6,7 +6,7 @@
  */
 
 import { describe, it, beforeEach, afterEach, expect, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { glob } from 'glob';
 import type { SpiedFunction } from 'jest-mock';

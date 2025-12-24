@@ -22,7 +22,7 @@ import * as path from 'node:path';
 // fs-extraのモック
 jest.mock('fs-extra');
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 const { existsSync } = fs as jest.Mocked<typeof fs>;
 
 describe('MetadataManager - Rollback機能', () => {
