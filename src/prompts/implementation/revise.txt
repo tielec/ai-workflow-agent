@@ -1,14 +1,9 @@
 # 実装フェーズ - 修正プロンプト
 
-## ⚠️ 最重要：必須アクション
-
-**Write ツールまたは Edit ツールを使用して、実装ログを以下のパスに必ず保存してください：**
-
-```
-.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
-```
-
-**このファイルが存在しない場合、Implementation Phase は失敗します。**
+## ⚠️ 必須タスク
+**実装ログの更新は最優先で実施してください。**
+Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` を**上書き保存**し、古い内容は完全に置き換えて最新の実装記録のみを残してください。
+このファイルが存在しない場合、Implementation Phase は失敗します。
 
 ---
 
@@ -41,6 +36,9 @@
 **{implementation_strategy}**
 
 ## 修正指示
+
+### ⚠️ 最重要: 実装ログの上書き
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` を最優先で更新してください。内容は最新の実装内容と変更履歴のみとし、余分な追記は避けてください。
 
 ### ケース A: 実装ログファイルが未作成の場合
 
@@ -116,6 +114,13 @@
 - ブロッカー解消に必要な修正のみ実施
 - 不必要な変更は避ける
 - 動作している部分は維持する
+
+## 修正手順（チェックリスト）
+- [ ] 1. レビュー結果と設計戦略を確認して修正方針を定める
+- [ ] 2. ブロッカーと改善提案を順次対応する
+- [ ] 3. 出力すべき実装ログと変更箇所を整理する
+- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` を上書き保存**（必須）
+- [ ] 5. 品質ゲート（設計遵守・規約・エラーハンドリング・テスト・バグ無し）を確認
 
 ## 修正後の確認事項
 

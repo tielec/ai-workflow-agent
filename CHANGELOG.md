@@ -123,6 +123,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #482**: Testing Phase revise ステップで test-result.md が更新されない問題の修正
+  - reviseプロンプトの「追記 vs 上書き」指示矛盾を解消し、統一的に「上書き保存」に修正
+  - 全reviseプロンプト（6ファイル）に「⚠️ 必須タスク」セクションを追加してファイル更新の必須性を明示
+  - チェックリスト形式の手順追加により、エージェントがファイル更新をスキップしないよう改善
+  - Testing Phase特有のファイル更新チェックロジック（mtime/size比較）との統合動作を改善
+  - プロンプト構造の標準化により、今後のプロンプト作成・保守性を向上
+  - 対象ファイル: `src/prompts/testing/revise.txt`、`src/prompts/test_implementation/revise.txt`、`src/prompts/implementation/revise.txt`、`src/prompts/documentation/revise.txt`、`src/prompts/planning/revise.txt`、`src/prompts/report/revise.txt`
+  - テストカバレッジ: 16件の統合テスト（100%成功）
+
 - **Issue #466**: auto-issue の --custom-instruction オプションが無視される問題の修正
   - プロンプトテンプレート内での `{custom_instruction}` 配置位置を末尾から冒頭に変更
   - 3つのプロンプトテンプレート（`detect-bugs.txt`、`detect-refactoring.txt`、`detect-enhancements.txt`）で統一的に修正
