@@ -17,7 +17,7 @@ type ClaudeMock = jest.Mocked<ClaudeAgentClient>;
 
 function createCodexMock(): CodexMock {
   return {
-    executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
+    executeTask: jest.fn<(options: { prompt: string; model?: string }) => Promise<string[]>>(),
   } as unknown as CodexMock;
 }
 
@@ -26,6 +26,10 @@ function createClaudeMock(): ClaudeMock {
     executeTask: jest.fn<(options: { prompt: string }) => Promise<string[]>>(),
   } as unknown as ClaudeMock;
 }
+
+const FOLLOWUP_OUTPUT_PATH_REGEX = /[/\\]tmp[/\\]followup-issue-\d+-\w+\.md/;
+const extractFollowupOutputPath = (prompt: string): string | null =>
+  prompt.match(FOLLOWUP_OUTPUT_PATH_REGEX)?.[0] ?? null;
 
 // Test data
 const NORMAL_REMAINING_TASKS: RemainingTask[] = [
@@ -144,9 +148,9 @@ describe('IssueAgentGenerator.generate - Codex success', () => {
 
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
       // Extract output file path from prompt
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        tempFilePath = match[1];
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        tempFilePath = outputPath;
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
       return [];
@@ -201,9 +205,9 @@ describe('IssueAgentGenerator.generate - Claude success', () => {
 
     claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
       // Extract output file path from prompt
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        tempFilePath = match[1];
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        tempFilePath = outputPath;
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
       return [];
@@ -255,9 +259,9 @@ describe('IssueAgentGenerator.generate - auto mode with Codex priority', () => {
     };
 
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        tempFilePath = match[1];
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        tempFilePath = outputPath;
         fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
       }
       return [];
@@ -269,6 +273,78 @@ describe('IssueAgentGenerator.generate - auto mode with Codex priority', () => {
     // Then: Codex is used (prioritized)
     expect(result.success).toBe(true);
     expect(codexClient.executeTask).toHaveBeenCalledTimes(1);
+    expect(claudeClient.executeTask).not.toHaveBeenCalled();
+  });
+});
+
+describe('IssueAgentGenerator.generate - model propagation', () => {
+  let codexClient: CodexMock;
+  let claudeClient: ClaudeMock;
+  let generator: IssueAgentGenerator;
+
+  const context: FollowUpContext = {
+    remainingTasks: NORMAL_REMAINING_TASKS,
+    issueContext: ISSUE_CONTEXT_NORMAL,
+    issueNumber: 123,
+    evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+  };
+
+  beforeEach(() => {
+    codexClient = createCodexMock();
+    claudeClient = createClaudeMock();
+    generator = new IssueAgentGenerator(codexClient, claudeClient);
+  });
+
+  it('IssueAgentGenerator_generate_正常系_model指定時にCodexへ伝播', async () => {
+    codexClient.executeTask.mockResolvedValue([]);
+
+    const result = await generator.generate(context, 'codex', 'gpt-5.1-codex-mini');
+
+    expect(result.success).toBe(true);
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+    );
+  });
+
+  it('IssueAgentGenerator_generate_正常系_modelエイリアスを解決', async () => {
+    codexClient.executeTask.mockResolvedValue([]);
+
+    await generator.generate(context, 'codex', 'mini');
+
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+    );
+  });
+
+  it('IssueAgentGenerator_generate_正常系_maxエイリアスを解決', async () => {
+    codexClient.executeTask.mockResolvedValue([]);
+
+    await generator.generate(context, 'codex', 'max');
+
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+    );
+  });
+
+  it('IssueAgentGenerator_generate_正常系_model未指定時はデフォルト', async () => {
+    codexClient.executeTask.mockResolvedValue([]);
+
+    await generator.generate(context, 'codex');
+
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+    );
+  });
+
+  it('IssueAgentGenerator_generate_正常系_autoモードでもmodelを優先', async () => {
+    codexClient.executeTask.mockResolvedValue([]);
+
+    await generator.generate(context, 'auto', 'gpt-5.1-codex-mini');
+
+    expect(codexClient.executeTask).toHaveBeenCalledTimes(1);
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+    );
     expect(claudeClient.executeTask).not.toHaveBeenCalled();
   });
 });
@@ -296,10 +372,9 @@ describe('IssueAgentGenerator.generate - error handling', () => {
     codexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
     claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
       // Extract output file path from prompt
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        const tempFilePath = match[1];
-        fs.writeFileSync(tempFilePath, VALID_ISSUE_BODY);
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        fs.writeFileSync(outputPath, VALID_ISSUE_BODY);
       }
       return [];
     });
@@ -369,9 +444,9 @@ describe('IssueAgentGenerator.generate - error handling', () => {
 
     let tempFilePath = '';
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        tempFilePath = match[1];
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        tempFilePath = outputPath;
         fs.writeFileSync(tempFilePath, ''); // Empty file
       }
       return [];
@@ -403,9 +478,9 @@ describe('IssueAgentGenerator.generate - error handling', () => {
 
     let tempFilePath = '';
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
-      const match = options.prompt.match(/output_file_path[^\n]*?([/\\]tmp[/\\]followup-issue-\d+-\w+\.md)/);
-      if (match) {
-        tempFilePath = match[1];
+      const outputPath = extractFollowupOutputPath(options.prompt);
+      if (outputPath) {
+        tempFilePath = outputPath;
         fs.writeFileSync(tempFilePath, invalidBody);
       }
       return [];

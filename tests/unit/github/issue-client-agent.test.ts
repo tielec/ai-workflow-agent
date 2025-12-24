@@ -110,6 +110,78 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       });
     });
 
+    it('IssueClient_createIssueFromEvaluation_正常系_agentモード_modelを伝播', async () => {
+      const mockGeneratedIssue: GeneratedIssue = {
+        success: true,
+        title: '[FOLLOW-UP] #123: ユニットテスト追加',
+        body: '## 背景\n\nIssue本文\n\n## 目的\n\n詳細\n\n## 実行内容\n\nタスク\n\n## 受け入れ基準\n\n基準\n\n## 参考情報\n\n情報',
+      };
+
+      mockAgentGenerator.generate.mockResolvedValue(mockGeneratedIssue);
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+        model: 'gpt-5.1-codex-mini',
+      };
+
+      const result = await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT_NORMAL,
+        options,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockAgentGenerator.generate).toHaveBeenCalledTimes(1);
+      const [, agentArg, modelArg] = mockAgentGenerator.generate.mock.calls[0];
+      expect(agentArg).toBe('auto');
+      expect(modelArg).toBe('gpt-5.1-codex-mini');
+    });
+
+    it('IssueClient_createIssueFromEvaluation_正常系_agentモード_model未指定時はundefinedを引き渡し', async () => {
+      const mockGeneratedIssue: GeneratedIssue = {
+        success: true,
+        title: '[FOLLOW-UP] #123: ユニットテスト追加',
+        body: '## 背景\n\nIssue本文\n\n## 目的\n\n詳細\n\n## 実行内容\n\nタスク\n\n## 受け入れ基準\n\n基準\n\n## 参考情報\n\n情報',
+      };
+
+      mockAgentGenerator.generate.mockResolvedValue(mockGeneratedIssue);
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+      };
+
+      await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT_NORMAL,
+        options,
+      );
+
+      expect(mockAgentGenerator.generate).toHaveBeenCalledTimes(1);
+      const [, agentArg, modelArg] = mockAgentGenerator.generate.mock.calls[0];
+      expect(agentArg).toBe('auto');
+      expect(modelArg).toBeUndefined();
+    });
+
     it('IssueClient_createIssueFromEvaluation_正常系_agentフォールバック', async () => {
       // Given: Agent generation fails
       const mockGeneratedIssue: GeneratedIssue = {

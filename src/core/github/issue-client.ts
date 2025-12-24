@@ -359,6 +359,7 @@ export class IssueClient {
           remainingTasks,
           evaluationReportPath,
           issueContext,
+          generationOptions.model,
         );
 
         if (agentResult.success) {
@@ -617,6 +618,7 @@ export class IssueClient {
    * @param tasks - 残タスクのリスト
    * @param evaluationReportPath - Evaluation Reportのパス
    * @param issueContext - Issueコンテキスト
+   * @param model - 使用モデル（オプショナル）
    * @returns 生成されたIssue
    */
   private async tryGenerateWithAgent(
@@ -624,6 +626,7 @@ export class IssueClient {
     tasks: RemainingTask[],
     evaluationReportPath: string,
     issueContext: IssueContext | undefined,
+    model?: string,
   ): Promise<GeneratedIssue> {
     if (!this.issueAgentGenerator) {
       logger.warn('IssueAgentGenerator is not configured. Skipping agent generation.');
@@ -648,7 +651,7 @@ export class IssueClient {
 
     try {
       const agent = 'auto'; // デフォルトはauto（Codex優先）
-      const result = await this.issueAgentGenerator.generate(context, agent);
+      const result = await this.issueAgentGenerator.generate(context, agent, model);
 
       if (result.success) {
         logger.info('Agent-based follow-up issue generation succeeded.');
