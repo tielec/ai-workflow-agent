@@ -1,5 +1,9 @@
 # ドキュメント更新フェーズ - 修正プロンプト
 
+## ⚠️ 必須タスク
+**documentation-update-log の更新を最優先で行ってください。**
+Write ツールまたは Edit ツールを使って `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` を**上書き保存**し、最新の更新ログのみを記録してください。
+
 ## タスク概要
 レビューで指摘された問題を修正し、ドキュメント更新を改善してください。
 
@@ -23,6 +27,9 @@
 - 追加で読むファイルは **3-5件以内** に絞り、大きなファイルは `limit: 1000-2000` を指定して必要な箇所だけ部分読みする
 
 ## 修正指示
+
+### ⚠️ 最重要: 更新ログの上書き
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` を必ず上書き保存してください。調査・更新内容のみを記録し、過去ログの不要な追記は避けてください。
 
 ### ブロッカー（BLOCKER）の解消
 
@@ -103,6 +110,13 @@ documentation-update-log.mdに以下を記載：
 - ...
 ```
 
+## 修正手順（チェックリスト）
+- [ ] 1. ブロッカーと改善提案を確認し、更新対象を整理する
+- [ ] 2. 対象ドキュメントの調査と修正を完了する
+- [ ] 3. 更新内容・参照箇所をログにまとめる
+- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` を上書き保存**（必須）
+- [ ] 5. 整合性とユーザー視点を再確認する
+
 ## 修正後の確認事項
 
 修正完了後、以下を確認してください：
@@ -121,7 +135,7 @@ documentation-update-log.mdに以下を記載：
 ## ドキュメント更新
 
 1. 修正が必要なプロジェクトドキュメントを直接更新
-2. 更新ログを `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` として**上書き保存**
+2. Write ツールまたは Edit ツールを使って、更新ログを `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` として**上書き保存**
 
 ## 修正開始
 

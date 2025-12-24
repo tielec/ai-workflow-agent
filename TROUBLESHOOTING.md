@@ -664,6 +664,50 @@ Evaluation Phase（Issue #5）で修正された問題と同様、エージェ�
 3. ファイルが作成されることを確認
 4. 複数回実行して再現性を検証（推奨: 3回連続実行で100%成功率）
 
+### Testing Phase revise で test-result.md が更新されない（Issue #482で修正）
+
+**症状**:
+```
+[ERROR] test-result.md が更新されていません
+```
+
+Testing Phase の revise ステップで、エージェントが正常に動作しているのにファイル更新チェックが失敗する場合。
+
+**原因**:
+- revise プロンプト内の指示の矛盾（「追記 vs 上書き保存」）
+- エージェントが混乱してファイル更新をスキップ
+- Testing Phase特有のファイル更新チェックロジック（mtime/size比較）で失敗
+
+**対処法（Issue #482で修正済み、v0.5.0以降）**:
+
+v0.5.0以降では、以下の改善により自動的に解決されます：
+
+1. **プロンプト矛盾の解消**: 「追記」指示を削除し、「上書き保存」に統一
+2. **必須タスクの明示**: 「⚠️ 必須タスク」セクションでファイル更新を最優先に配置
+3. **チェックリスト化**: ステップ形式でファイル更新手順を明確化
+4. **統一フォーマット**: 全reviseプロンプトで一貫した指示形式を採用
+
+**手動確認方法**:
+```bash
+# 修正後のプロンプト構造を確認
+grep -A 10 "⚠️ 必須タスク" src/prompts/testing/revise.txt
+
+# エージェントログでファイル更新確認
+grep -i "write" .ai-workflow/issue-*/06_testing/revise/agent_log.md
+
+# ファイル更新チェックの成功確認
+grep -i "file updated successfully" .ai-workflow/issue-*/06_testing/revise/agent_log.md
+```
+
+**予防策**:
+- v0.5.0以降を使用する（根本的解決が含まれる）
+- プロンプト設計時は矛盾した指示を避ける
+- ファイル更新指示は明確で一貫性を保つ
+
+**関連修正**:
+- **対象ファイル**: testing, test_implementation, implementation, documentation, planning, report の全reviseプロンプト
+- **テスト検証**: 16件の統合テスト（100%成功）により修正効果を確認
+
 ## 13. フォールバック機構関連（Issue #113、v0.4.0）
 
 ### エージェントが成果物ファイルを生成しないがフォールバックも失敗する

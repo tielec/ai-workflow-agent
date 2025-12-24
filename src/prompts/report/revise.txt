@@ -1,14 +1,8 @@
 # レポート作成フェーズ - 修正プロンプト
 
-## ⚠️ 最重要：必須アクション
-
-**Write ツールまたは Edit ツールを使用して、最終レポートを以下のパスに必ず保存してください：**
-
-```
-.ai-workflow/issue-{issue_number}/08_report/output/report.md
-```
-
-**このファイルが存在しない場合、Report Phase は失敗します。**
+## ⚠️ 必須タスク
+**レポートの更新は最優先です。**
+Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を**上書き保存**し、最新のレポートのみを残してください。ファイルが存在しない場合は Write ツールで新規作成してください。
 
 ---
 
@@ -81,6 +75,9 @@
 
 ## 修正方針
 
+### ⚠️ 最重要: レポートの上書き
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を最優先で更新してください。要点を簡潔に記載し、不要な追記は避けてください。
+
 ### 1. 必須情報の確認
 
 以下の情報が必ず含まれているか確認してください：
@@ -143,6 +140,13 @@
 - **データに基づく評価**（例: テスト成功率95%）
 - **リスクを正直に記載**（隠さない）
 
+## 修正手順（チェックリスト）
+- [ ] 1. 必須情報と改善提案を整理する
+- [ ] 2. 各フェーズ成果物の要点を抽出して記載する
+- [ ] 3. レポート全体の構成と整合性を確認する
+- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を上書き保存**（必須）
+- [ ] 5. リスク・マージ判断・次ステップの記載を再確認する
+
 ## 修正後の確認事項
 
 修正完了後、以下を確認してください：
@@ -160,7 +164,7 @@
 
 ## レポート更新
 
-修正したレポートを `.ai-workflow/issue-{issue_number}/07_report/output/report.md` として**上書き保存**してください。
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を**上書き保存**してください。
 
 ## 修正開始
 
