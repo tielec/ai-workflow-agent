@@ -123,6 +123,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #485**: auto-issue enhancementカテゴリでJSONファイル出力されない問題の修正
+  - `src/prompts/auto-issue/detect-enhancements.txt`にファイル書き込み指示を追加
+  - 出力形式セクションに「必ずJSONファイルに書き出してください」の明示的指示を追加
+  - 注意事項にファイル出力必須・標準出力禁止の強調メッセージを追加
+  - 他カテゴリ（bugs、refactoring）と一貫したプロンプトパターンを適用
+  - enhancementカテゴリで`auto-issue --category enhancement`コマンドが正常動作するようになった
+  - エージェントがWriteツールを使用してJSONファイルを確実に生成し、機能拡張提案のIssue自動生成が可能になった
+- **Issue #482**: Testing Phase revise ステップで test-result.md が更新されない問題の修正
+  - reviseプロンプトの「追記 vs 上書き」指示矛盾を解消し、統一的に「上書き保存」に修正
+  - 全reviseプロンプト（6ファイル）に「⚠️ 必須タスク」セクションを追加してファイル更新の必須性を明示
+  - チェックリスト形式の手順追加により、エージェントがファイル更新をスキップしないよう改善
+  - Testing Phase特有のファイル更新チェックロジック（mtime/size比較）との統合動作を改善
+  - プロンプト構造の標準化により、今後のプロンプト作成・保守性を向上
+  - 対象ファイル: `src/prompts/testing/revise.txt`、`src/prompts/test_implementation/revise.txt`、`src/prompts/implementation/revise.txt`、`src/prompts/documentation/revise.txt`、`src/prompts/planning/revise.txt`、`src/prompts/report/revise.txt`
+  - テストカバレッジ: 16件の統合テスト（100%成功）
+
 - **Issue #466**: auto-issue の --custom-instruction オプションが無視される問題の修正
   - プロンプトテンプレート内での `{custom_instruction}` 配置位置を末尾から冒頭に変更
   - 3つのプロンプトテンプレート（`detect-bugs.txt`、`detect-refactoring.txt`、`detect-enhancements.txt`）で統一的に修正

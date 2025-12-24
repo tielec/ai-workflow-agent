@@ -1,5 +1,9 @@
 # テストコード実装フェーズ - 修正プロンプト
 
+## ⚠️ 必須タスク
+**テスト実装ログの更新は最優先です。**
+Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` を**上書き保存**し、古い内容は完全に置き換えて最新の実装記録のみを残してください。
+
 ## タスク概要
 レビューで指摘された問題を修正し、改善されたテストコードを実装してください。
 
@@ -21,6 +25,9 @@
 **{test_strategy}**
 
 ## 修正指示
+
+### ⚠️ 最重要: テスト実装ログの上書き
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` を最優先で更新してください。内容は最新のテスト実装結果のみとし、過去ログの追記は不要です。
 
 ### ブロッカー（BLOCKER）の解消
 
@@ -79,6 +86,13 @@
 - ブロッカー解消に必要な修正のみ実施
 - 不必要な変更は避ける
 - 動作しているテストは維持する
+
+## 修正手順（チェックリスト）
+- [ ] 1. レビュー結果を確認し、ブロッカー/改善提案を整理する
+- [ ] 2. テスト実装に必要な修正を優先順位付けする
+- [ ] 3. 実装ログに記録すべき内容を整理する
+- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` を上書き保存**（必須）
+- [ ] 5. 品質ゲート（テストシナリオ実装・実行・コメント）を再確認する
 
 ## 修正後の確認事項
 

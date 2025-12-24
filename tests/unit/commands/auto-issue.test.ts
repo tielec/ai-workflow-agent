@@ -6,17 +6,8 @@
  */
 
 import path from 'node:path';
-import { handleAutoIssueCommand } from '../../../src/commands/auto-issue.js';
-import type { AutoIssueOptions, IssueCreationResult } from '../../../src/types/auto-issue.js';
-import { RepositoryAnalyzer } from '../../../src/core/repository-analyzer.js';
-import { IssueDeduplicator } from '../../../src/core/issue-deduplicator.js';
-import { IssueGenerator } from '../../../src/core/issue-generator.js';
-import * as autoIssueOutput from '../../../src/commands/auto-issue-output.js';
-import { config } from '../../../src/core/config.js';
-import { logger } from '../../../src/utils/logger.js';
-import * as agentSetup from '../../../src/commands/execute/agent-setup.js';
-import * as repositoryUtils from '../../../src/core/repository-utils.js';
 import { jest } from '@jest/globals';
+import type { AutoIssueOptions, IssueCreationResult } from '../../../src/types/auto-issue.js';
 
 // モック関数の事前定義（グローバルスコープで定義）
 const mockAnalyze = jest.fn<any>();
@@ -24,12 +15,16 @@ const mockAnalyzeForRefactoring = jest.fn<any>();
 const mockAnalyzeForEnhancements = jest.fn<any>();
 const mockFilterDuplicates = jest.fn<any>();
 const mockGenerate = jest.fn<any>();
+const mockGenerateRefactorIssue = jest.fn<any>();
+const mockGenerateEnhancementIssue = jest.fn<any>();
 const mockResolveLocalRepoPath = jest.fn();
 const mockResolveAgentCredentials = jest.fn();
 const mockSetupAgentClients = jest.fn();
+const mockOctokitListForRepo = jest.fn().mockResolvedValue({ data: [] });
 
-// モック設定
-jest.mock('../../../src/core/repository-analyzer.js', () => ({
+// モジュールの ESM モック
+await jest.unstable_mockModule('../../../src/core/repository-analyzer.js', () => ({
+  __esModule: true,
   RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
     analyze: mockAnalyze,
     analyzeForRefactoring: mockAnalyzeForRefactoring,
@@ -37,30 +32,51 @@ jest.mock('../../../src/core/repository-analyzer.js', () => ({
   })),
 }));
 
-jest.mock('../../../src/core/issue-deduplicator.js', () => ({
+await jest.unstable_mockModule('../../../src/core/issue-deduplicator.js', () => ({
+  __esModule: true,
   IssueDeduplicator: jest.fn().mockImplementation(() => ({
     filterDuplicates: mockFilterDuplicates,
   })),
 }));
 
-jest.mock('../../../src/core/issue-generator.js', () => ({
+await jest.unstable_mockModule('../../../src/core/issue-generator.js', () => ({
+  __esModule: true,
   IssueGenerator: jest.fn().mockImplementation(() => ({
     generate: mockGenerate,
+    generateRefactorIssue: mockGenerateRefactorIssue,
+    generateEnhancementIssue: mockGenerateEnhancementIssue,
   })),
 }));
-jest.mock('../../../src/commands/auto-issue-output.js', () => ({
+
+await jest.unstable_mockModule('../../../src/commands/auto-issue-output.js', () => ({
+  __esModule: true,
   buildAutoIssueJsonPayload: jest.fn(),
   writeAutoIssueOutputFile: jest.fn(),
 }));
 
-jest.mock('../../../src/commands/execute/agent-setup.js', () => ({
+await jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', () => ({
+  __esModule: true,
   resolveAgentCredentials: mockResolveAgentCredentials,
   setupAgentClients: mockSetupAgentClients,
 }));
-jest.mock('../../../src/core/repository-utils.js', () => ({
+
+await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
+  __esModule: true,
   resolveLocalRepoPath: mockResolveLocalRepoPath,
 }));
-jest.mock('@octokit/rest');
+
+await jest.unstable_mockModule('@octokit/rest', () => ({
+  __esModule: true,
+  Octokit: class {
+    issues = { listForRepo: mockOctokitListForRepo };
+  },
+}));
+
+const { handleAutoIssueCommand } = await import('../../../src/commands/auto-issue.js');
+const repositoryUtils = await import('../../../src/core/repository-utils.js');
+const autoIssueOutput = await import('../../../src/commands/auto-issue-output.js');
+const { config } = await import('../../../src/core/config.js');
+const { logger } = await import('../../../src/utils/logger.js');
 
 describe('auto-issue command handler', () => {
   // 変数名のエイリアス（既存コードとの互換性のため）
@@ -85,6 +101,8 @@ describe('auto-issue command handler', () => {
     mockAnalyzeForEnhancements.mockClear();
     mockFilterDuplicates.mockClear();
     mockGenerate.mockClear();
+    mockGenerateRefactorIssue.mockClear();
+    mockGenerateEnhancementIssue.mockClear();
     mockResolveAgentCredentials.mockClear();
     mockSetupAgentClients.mockClear();
 
@@ -94,6 +112,8 @@ describe('auto-issue command handler', () => {
     mockAnalyzeForEnhancements.mockResolvedValue([]);
     mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
     mockGenerate.mockResolvedValue({ success: true });
+    mockGenerateRefactorIssue.mockResolvedValue({ success: true });
+    mockGenerateEnhancementIssue.mockResolvedValue({ success: true });
 
     // config のモック
     config.getGitHubToken = jest.fn().mockReturnValue('test-token');
@@ -1538,6 +1558,189 @@ describe('auto-issue command handler', () => {
           }),
         ],
       });
+    });
+  });
+
+  describe('Issue #485: enhancement integration coverage', () => {
+    const dryRunOutput = './tmp/auto-issue/enhancement-dry-run.json';
+    const liveOutput = './tmp/auto-issue/enhancement-live.json';
+
+    const createEnhancementProposals = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        type: 'integration' as const,
+        title: `Enhancement proposal ${index + 1}`,
+        description: `Description for proposal ${index + 1}`,
+        rationale: `Rationale ${index + 1}`,
+        implementation_hints: ['hint'],
+        expected_impact: 'medium' as const,
+        effort_estimate: 'small' as const,
+        related_files: ['src/index.ts'],
+      }));
+
+    beforeEach(() => {
+      jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload).mockReset();
+      jest.mocked(autoIssueOutput.writeAutoIssueOutputFile).mockReset();
+    });
+
+    it('should generate JSON file for enhancement category with dry-run', async () => {
+      const proposals = createEnhancementProposals(3);
+      mockAnalyzeForEnhancements.mockResolvedValue(proposals);
+      mockGenerateEnhancementIssue.mockImplementation(async (proposal, _agent, dryRun) => ({
+        success: true,
+        issueUrl: `https://github.com/owner/repo/issues/${proposal.title.split(' ').pop()}`,
+        issueNumber: Number(proposal.title.split(' ').pop()) ?? 1,
+        title: proposal.title,
+        skippedReason: dryRun ? 'dry-run' : undefined,
+      }));
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      buildSpy.mockImplementation(({ execution, results }) => ({
+        execution,
+        summary: {
+          total: results.length,
+          success: results.filter((r) => r.success && !r.skippedReason).length,
+          failed: results.filter((r) => !r.success).length,
+          skipped: results.filter((r) => Boolean(r.skippedReason)).length,
+        },
+        issues: results,
+      }));
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      writeSpy.mockResolvedValue(undefined);
+
+      const expectedPath = path.resolve(process.cwd(), dryRunOutput);
+
+      await handleAutoIssueCommand({
+        category: 'enhancement',
+        limit: '3',
+        dryRun: true,
+        agent: 'auto',
+        outputFile: dryRunOutput,
+      });
+
+      expect(mockGenerateEnhancementIssue).toHaveBeenCalledTimes(3);
+      expect(buildSpy.mock.calls[0][0].results).toHaveLength(3);
+      expect(writeSpy).toHaveBeenCalledWith(
+        expectedPath,
+        expect.objectContaining({
+          issues: expect.any(Array),
+        }),
+      );
+      expect(writeSpy.mock.calls[0][1].issues).toHaveLength(3);
+    });
+
+    it('should create enhancement issue when not in dry-run', async () => {
+      const [proposal] = createEnhancementProposals(1);
+      mockAnalyzeForEnhancements.mockResolvedValue([proposal]);
+      mockGenerateEnhancementIssue.mockResolvedValue({
+        success: true,
+        issueUrl: 'https://github.com/owner/repo/issues/42',
+        issueNumber: 42,
+        title: proposal.title,
+      });
+
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      buildSpy.mockImplementation(({ execution, results }) => ({
+        execution,
+        summary: {
+          total: results.length,
+          success: results.filter((r) => r.success && !r.skippedReason).length,
+          failed: results.filter((r) => !r.success).length,
+          skipped: results.filter((r) => Boolean(r.skippedReason)).length,
+        },
+        issues: results,
+      }));
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      writeSpy.mockResolvedValue(undefined);
+
+      const expectedPath = path.resolve(process.cwd(), liveOutput);
+
+      await handleAutoIssueCommand({
+        category: 'enhancement',
+        limit: '1',
+        dryRun: false,
+        agent: 'auto',
+        outputFile: liveOutput,
+      });
+
+      expect(mockGenerateEnhancementIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ title: proposal.title }),
+        'auto',
+        false,
+      );
+      expect(writeSpy).toHaveBeenCalledWith(
+        expectedPath,
+        expect.objectContaining({
+          issues: [
+            expect.objectContaining({
+              issueUrl: 'https://github.com/owner/repo/issues/42',
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('should handle empty enhancement proposals gracefully', async () => {
+      mockAnalyzeForEnhancements.mockResolvedValue([]);
+      const buildSpy = jest.mocked(autoIssueOutput.buildAutoIssueJsonPayload);
+      buildSpy.mockImplementation(({ execution, results }) => ({
+        execution,
+        summary: {
+          total: results.length,
+          success: 0,
+          failed: 0,
+          skipped: 0,
+        },
+        issues: results,
+      }));
+      const writeSpy = jest.mocked(autoIssueOutput.writeAutoIssueOutputFile);
+      writeSpy.mockResolvedValue(undefined);
+
+      const emptyOutput = path.resolve(process.cwd(), './tmp/auto-issue/enhancement-empty.json');
+
+      await handleAutoIssueCommand({
+        category: 'enhancement',
+        limit: '5',
+        dryRun: true,
+        agent: 'auto',
+        outputFile: './tmp/auto-issue/enhancement-empty.json',
+      });
+
+      expect(mockGenerateEnhancementIssue).not.toHaveBeenCalled();
+      expect(buildSpy.mock.calls[0][0].results).toHaveLength(0);
+      expect(writeSpy).toHaveBeenCalledWith(
+        emptyOutput,
+        expect.objectContaining({
+          issues: [],
+        }),
+      );
+    });
+
+    it('should not change bugs category functionality', async () => {
+      mockAnalyze.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        limit: '1',
+        dryRun: true,
+        agent: 'auto',
+      });
+
+      expect(mockAnalyze).toHaveBeenCalled();
+      expect(mockGenerate).not.toHaveBeenCalled();
+    });
+
+    it('should not change refactoring category functionality', async () => {
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'refactor',
+        limit: '1',
+        dryRun: true,
+        agent: 'auto',
+      });
+
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalled();
+      expect(mockGenerateRefactorIssue).not.toHaveBeenCalled();
     });
   });
 });
