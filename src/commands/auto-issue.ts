@@ -67,7 +67,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
 
     // 2. GITHUB_REPOSITORY から owner/repo を取得
     const githubRepository = config.getGitHubRepository();
-    if (!githubRepository) {
+    if (githubRepository === undefined || githubRepository === null) {
       throw new Error('GITHUB_REPOSITORY environment variable is required.');
     }
     logger.info(`GitHub repository: ${githubRepository}`);
@@ -480,6 +480,8 @@ async function processLegacyBugFlow(
  * @returns パース済みオプション
  * @throws オプションバリデーションエラー
  */
+const MAX_CUSTOM_INSTRUCTION_LENGTH = 500;
+
 function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
   // category（デフォルト: 'bug'）
   const category = rawOptions.category ?? 'bug';
@@ -539,6 +541,11 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     const trimmed = customInstructionRaw.trim();
     if (!trimmed) {
       throw new Error('custom-instruction must not be empty.');
+    }
+    if (trimmed.length > MAX_CUSTOM_INSTRUCTION_LENGTH) {
+      throw new Error(
+        `Custom instruction exceeds maximum length (${MAX_CUSTOM_INSTRUCTION_LENGTH} characters).`,
+      );
     }
     customInstruction = trimmed;
   }

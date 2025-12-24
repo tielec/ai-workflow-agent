@@ -123,6 +123,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #485**: auto-issue enhancementカテゴリでJSONファイル出力されない問題の修正
+  - `src/prompts/auto-issue/detect-enhancements.txt`にファイル書き込み指示を追加
+  - 出力形式セクションに「必ずJSONファイルに書き出してください」の明示的指示を追加
+  - 注意事項にファイル出力必須・標準出力禁止の強調メッセージを追加
+  - 他カテゴリ（bugs、refactoring）と一貫したプロンプトパターンを適用
+  - enhancementカテゴリで`auto-issue --category enhancement`コマンドが正常動作するようになった
+  - エージェントがWriteツールを使用してJSONファイルを確実に生成し、機能拡張提案のIssue自動生成が可能になった
 - **Issue #482**: Testing Phase revise ステップで test-result.md が更新されない問題の修正
   - reviseプロンプトの「追記 vs 上書き」指示矛盾を解消し、統一的に「上書き保存」に修正
   - 全reviseプロンプト（6ファイル）に「⚠️ 必須タスク」セクションを追加してファイル更新の必須性を明示

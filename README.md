@@ -1139,7 +1139,8 @@ ai-workflow auto-issue \
    - タイトル、説明、ラベル、優先度を自動設定
    - **バグIssue**: エージェント生成の詳細な説明と修正提案
    - **リファクタリングIssue**: テンプレートベースの定型Issue（概要、推奨改善策、アクションアイテム）
-   - **機能拡張Issue**: エージェント生成の詳細な提案（根拠、実装ヒント、期待される効果、工数見積もり）
+  - **機能拡張Issue**: エージェント生成の詳細な提案（根拠、実装ヒント、期待される効果、工数見積もり）
+    - `auto-issue --category enhancement` に追加された Issue #485 のプロンプト指示により、Writeツールで `{output_file_path}` に JSON を書き出すようになり、バグ/リファクタリング検出と同様に Jenkins などから JSON を収集できます
    - `--dry-run` モードで事前確認が可能
 
 **オプション**:
@@ -1176,6 +1177,7 @@ ai-workflow auto-issue \
   - 指定しない場合はファイル出力なし（後方互換性維持）
   - CI環境（Jenkins）でのアーティファクト収集に有用
   - dry-runモードでも出力可能
+  - `detect-enhancements.txt` のファイル出力指示 (Issue #485) により、`--category enhancement` でも Writeツール/`--output-file` で指定した JSON ファイルが確実に生成されます
 - `--custom-instruction <text>`: カスタム指示を追加（Issue #422で追加）
   - 検出時に特定の観点を重視するよう指示を追加可能
   - **安全な指示の例**: 「重複関数を重点的に検出してください」「SQLインジェクションを優先的に検出してください」
