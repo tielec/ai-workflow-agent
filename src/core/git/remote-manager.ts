@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { sanitizeGitUrl } from '../../utils/git-url-utils.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
 
@@ -290,7 +291,7 @@ export class RemoteManager {
 
       if (!currentUrl.startsWith('https://github.com/')) {
         logger.info(
-          `Git remote URL is not HTTPS, skipping token configuration: ${currentUrl}`,
+          `Git remote URL is not HTTPS, skipping token configuration: ${sanitizeGitUrl(currentUrl)}`,
         );
         return;
       }
