@@ -1,5 +1,4 @@
-import * as fs from 'node:fs';
-import { promises as fsp } from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -52,7 +51,7 @@ export class ReviewCommentAnalyzer {
 
     try {
       const prompt = await this.buildPrompt(commentMeta, context, outputFile);
-      await fsp.mkdir(this.outputDir, { recursive: true });
+      await fs.ensureDir(this.outputDir);
 
       let rawContent: string | null = null;
 
@@ -63,12 +62,12 @@ export class ReviewCommentAnalyzer {
       // フォールバック: エージェント未設定または結果が得られない場合は簡易推論
       if (!rawContent || rawContent.trim().length === 0) {
         const fallback = this.buildFallbackResolution(commentMeta);
-        await fsp.writeFile(outputFile, JSON.stringify(fallback, null, 2), 'utf-8');
+        await fs.writeFile(outputFile, JSON.stringify(fallback, null, 2), 'utf-8');
         this.validateResult(fallback);
         return { success: true, resolution: this.toResolution(fallback) };
       }
 
-      await fsp.writeFile(outputFile, rawContent, 'utf-8');
+      await fs.writeFile(outputFile, rawContent, 'utf-8');
 
       try {
         const resolution = await this.parseResult(outputFile);
@@ -76,7 +75,7 @@ export class ReviewCommentAnalyzer {
       } catch (error) {
         logger.warn(`Failed to parse agent output, using fallback: ${getErrorMessage(error)}`);
         const fallback = this.buildFallbackResolution(commentMeta);
-        await fsp.writeFile(outputFile, JSON.stringify(fallback, null, 2), 'utf-8');
+        await fs.writeFile(outputFile, JSON.stringify(fallback, null, 2), 'utf-8');
         this.validateResult(fallback);
         return { success: true, resolution: this.toResolution(fallback) };
       }
@@ -96,7 +95,7 @@ export class ReviewCommentAnalyzer {
     context: AnalysisContext,
     outputFile: string,
   ): Promise<string> {
-    const template = await fsp.readFile(this.promptTemplatePath, 'utf-8');
+    const template = await fs.readFile(this.promptTemplatePath, 'utf-8');
     const comment = commentMeta.comment;
 
     let fileContext = '';
@@ -105,7 +104,7 @@ export class ReviewCommentAnalyzer {
     } else if (comment.path) {
       try {
         const filePath = path.join(context.repoPath, comment.path);
-        fileContext = await fsp.readFile(filePath, 'utf-8');
+        fileContext = await fs.readFile(filePath, 'utf-8');
       } catch {
         fileContext = '(File not found)';
       }
@@ -219,7 +218,7 @@ export class ReviewCommentAnalyzer {
    * 結果をパース
    */
   private async parseResult(outputFile: string): Promise<CommentResolution> {
-    const content = await fsp.readFile(outputFile, 'utf-8');
+    const content = await fs.readFile(outputFile, 'utf-8');
 
     let jsonStr = content.trim();
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);

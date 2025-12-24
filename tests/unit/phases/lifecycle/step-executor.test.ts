@@ -12,7 +12,7 @@
  */
 
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { StepExecutor } from '../../../../src/phases/lifecycle/step-executor.js';
 import { PhaseName, PhaseExecutionResult } from '../../../../src/types.js';

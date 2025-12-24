@@ -31,7 +31,7 @@ jest.mock('node:fs', () => ({
   statSync: jest.fn(),
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 
 describe('Rollback コマンド - バリデーション', () => {
   let metadataManager: MetadataManager;

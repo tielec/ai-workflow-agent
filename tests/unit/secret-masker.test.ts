@@ -9,13 +9,123 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { SecretMasker } from '../../src/core/secret-masker.js';
 import { logger } from '../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'secret-masker-test');
+
+describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
+  const baseEnv = { ...process.env };
+  let masker: SecretMasker;
+
+  beforeEach(() => {
+    process.env = { ...baseEnv };
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.CODEX_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.AWS_SESSION_TOKEN;
+    masker = new SecretMasker();
+  });
+
+  afterAll(() => {
+    process.env = baseEnv;
+  });
+
+  test('2.1.x: GitHubトークンは汎用トークンより優先してマスキングされる', () => {
+    // Given: ghp_ と github_pat_ を含む文字列
+    const input =
+      'Push tokens ghp_1234567890123456789012345 and github_pat_1234567890123456789012345';
+
+    // When: オブジェクトマスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 両方とも [REDACTED_GITHUB_TOKEN] でマスクされ、汎用トークン扱いされない
+    const matches = masked.match(/\[REDACTED_GITHUB_TOKEN\]/g) ?? [];
+    expect(matches.length).toBe(2);
+    expect(masked).not.toContain('ghp_1234567890123456789012345');
+    expect(masked).not.toContain('github_pat_1234567890123456789012345');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('2.1.x: メールアドレスはマスクされ、無効な形式は保持される', () => {
+    // Given: 有効と無効のメールアドレスを含む文字列
+    const input = 'Contact user@example.com or admin@localhost for access';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 有効なメールのみマスキングされる
+    expect(masked).toContain('[REDACTED_EMAIL]');
+    expect(masked).toContain('admin@localhost');
+  });
+
+  test('2.1.x: 20文字以上の汎用トークンのみマスキングされる', () => {
+    // Given: 長さ違いのトークンを含む文字列
+    const input = 'Valid AKIAIOSFODNN7EXAMPLE vs short_token_12345';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 20文字以上のみマスキングされる
+    expect(masked).toContain('[REDACTED_TOKEN]');
+    expect(masked).toContain('short_token_12345');
+  });
+
+  test('2.1.x: Bearerトークンは大文字小文字を問わずマスキングされる', () => {
+    // Given: 大文字・小文字混在のBearerトークン
+    const input = 'Authorization: BEARER Jwt.Token.Value';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: トークン部分のみマスキングされる
+    expect(masked).toContain('BEARER [REDACTED_TOKEN]');
+    expect(masked).not.toContain('Jwt.Token.Value');
+  });
+
+  test('2.1.x: token= 形式のトークンをマスキングする', () => {
+    // Given: token= 形式を含む文字列
+    const input = 'URL param token=abc123def456 and access_token=value';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: token= とそのバリアントがマスキングされる
+    expect(masked).toContain('token=[REDACTED_TOKEN]');
+    expect(masked).toContain('access_token=[REDACTED_TOKEN]');
+  });
+
+  test('2.1.x: 複数パターンを含んでもすべてマスキングされる', () => {
+    // Given: GitHubトークン、メール、Bearerが混在する文字列
+    const input =
+      'ghp_12345678901234567890 user@example.com Bearer abc123 should all be hidden';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 全てのパターンがマスキングされる
+    expect(masked).toContain('[REDACTED_GITHUB_TOKEN]');
+    expect(masked).toContain('[REDACTED_EMAIL]');
+    expect(masked).toContain('Bearer [REDACTED_TOKEN]');
+  });
+
+  test('2.1.x: マッチしない場合は文字列が変更されない', () => {
+    // Given: マスキング対象を含まない文字列
+    const input = 'Hello, World! This is a normal message.';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 文字列はそのまま
+    expect(masked).toBe(input);
+  });
+});
 
 describe('SecretMasker環境変数検出テスト', () => {
   const originalEnv = { ...process.env };
@@ -26,7 +136,10 @@ describe('SecretMasker環境変数検出テスト', () => {
     delete process.env.GITHUB_TOKEN;
     delete process.env.OPENAI_API_KEY;
     delete process.env.CODEX_API_KEY;
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.AWS_SESSION_TOKEN;
   });
 
   afterAll(() => {
@@ -318,6 +431,108 @@ describe('SecretMaskerファイル処理テスト', () => {
     // Then: エラーなく完了
     expect(result.errors.length).toBe(0);
   });
+
+  test('2.2.10: 汎用パターンでGitHubトークンをファイル内マスキング', async () => {
+    // Given: ghp_ と github_pat_ が含まれるファイル（環境変数値とは異なる）
+    process.env.OPENAI_API_KEY = 'sk-proj-dummy-1234567890abcdef';
+    const testFile = path.join(workflowDir, '07_generic', 'execute', 'agent_log_raw.txt');
+    await fs.ensureDir(path.dirname(testFile));
+    await fs.writeFile(
+      testFile,
+      'Found ghp_abcdef123456789012345678 and github_pat_1234567890abcdefghij in logs',
+    );
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: 汎用パターンでマスキングされ、ファイルが処理されたと判定される
+    expect(result.filesProcessed).toBe(1);
+    expect(result.secretsMasked).toBe(0); // 環境変数一致はない
+
+    const content = await fs.readFile(testFile, 'utf-8');
+    const matches = content.match(/\[REDACTED_GITHUB_TOKEN]/g) ?? [];
+    expect(matches.length).toBe(2);
+    expect(content).not.toContain('ghp_abcdef123456789012345678');
+    expect(content).not.toContain('github_pat_1234567890abcdefghij');
+  });
+
+  test('2.2.11: 環境変数マッチと汎用パターンを併用してマスキング', async () => {
+    // Given: 環境変数と別の汎用パターンを含むファイル
+    process.env.GITHUB_TOKEN = 'ghp_envvar1234567890abc';
+    const testFile = path.join(workflowDir, '08_combined', 'execute', 'agent_log_raw.txt');
+    await fs.ensureDir(path.dirname(testFile));
+    await fs.writeFile(
+      testFile,
+      `
+Using env token: ghp_envvar1234567890abc
+Another token: ghp_different9876543210xyz
+Email: test@example.com
+`,
+    );
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: 環境変数一致と汎用パターンの両方がマスクされる
+    expect(result.filesProcessed).toBe(1);
+    expect(result.secretsMasked).toBe(1);
+
+    const content = await fs.readFile(testFile, 'utf-8');
+    expect(content.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
+    expect(content.includes('[REDACTED_EMAIL]')).toBeTruthy();
+    expect(content).not.toContain('ghp_envvar1234567890abc');
+    expect(content).not.toContain('ghp_different9876543210xyz');
+    expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+  });
+
+  test('2.2.12: Email と 20文字以上のトークンをファイルでマスキング', async () => {
+    // Given: メールと汎用トークンを含むファイル
+    process.env.OPENAI_API_KEY = 'sk-proj-dummy-1234567890abcdef';
+    const testFile = path.join(workflowDir, '09_email_token', 'execute', 'agent_log_raw.txt');
+    await fs.ensureDir(path.dirname(testFile));
+    await fs.writeFile(
+      testFile,
+      'Contact user@example.com with key AKIAIOSFODNN7EXAMPLE and short short_token_12345',
+    );
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: メールと長いトークンのみマスキングされる
+    expect(result.filesProcessed).toBe(1);
+    expect(result.secretsMasked).toBe(0);
+
+    const content = await fs.readFile(testFile, 'utf-8');
+    expect(content).toContain('[REDACTED_EMAIL]');
+    expect(content).toContain('[REDACTED_TOKEN]');
+    expect(content).toContain('short_token_12345');
+  });
+
+  test('2.2.13: Bearer と token= 形式をファイル内でマスキング', async () => {
+    // Given: Bearer と token= 形式を含むファイル
+    process.env.OPENAI_API_KEY = 'sk-proj-dummy-1234567890abcdef';
+    const testFile = path.join(workflowDir, '10_bearer_token', 'execute', 'agent_log_raw.txt');
+    await fs.ensureDir(path.dirname(testFile));
+    await fs.writeFile(
+      testFile,
+      'Authorization: Bearer abc123\nURL: https://api.example.com?token=XYZ789',
+    );
+
+    // When: シークレットマスキングを実行
+    const masker = new SecretMasker();
+    const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+    // Then: 両方の形式がマスキングされる
+    expect(result.filesProcessed).toBe(1);
+    expect(result.secretsMasked).toBe(0);
+
+    const content = await fs.readFile(testFile, 'utf-8');
+    expect(content).toContain('Bearer [REDACTED_TOKEN]');
+    expect(content).toContain('token=[REDACTED_TOKEN]');
+  });
 });
 
 describe('SecretMasker.maskObject 再帰コピー', () => {
@@ -378,7 +593,8 @@ describe('SecretMasker.maskObject 再帰コピー', () => {
     // And: マスキング結果が期待通り
     expect(masked).not.toBe(source);
     expect(masked.tasks[0].description).toContain('[REDACTED_TOKEN]');
-    expect(masked.tasks[0].meta.apiKey).toContain('[REDACTED_TOKEN]');
+    // apiKey は環境変数と一致するため [REDACTED_OPENAI_API_KEY] でマスクされる
+    expect(masked.tasks[0].meta.apiKey).toContain('[REDACTED_OPENAI_API_KEY]');
     expect(masked.tasks[0].meta.note).toContain('Bearer [REDACTED_TOKEN]');
 
     // ignoredPaths に指定した箇所はマスクされない

@@ -50,6 +50,7 @@ src/
 │   ├── codex-agent-client.ts   # Codex agent wrapper
 │   ├── claude-agent-client.ts  # Claude agent wrapper
 │   ├── github-client.ts        # GitHub facade
+│   ├── secret-masker.ts        # Secret detection & masking (Issue #488)
 │   └── helpers/                # Utilities
 │       ├── metadata-io.ts
 │       ├── validation.ts

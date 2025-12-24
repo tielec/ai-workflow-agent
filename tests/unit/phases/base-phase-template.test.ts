@@ -1,6 +1,6 @@
 import { jest, beforeAll } from '@jest/globals';
 import path from 'node:path';
-import type * as FsExtra from 'node:fs';
+import type * as FsExtra from 'fs-extra';
 import type { PhaseExecutionResult } from '../../../src/types.js';
 
 // jest-mock-extended を使用した fs-extra のモック（Jest v30.x 互換）
