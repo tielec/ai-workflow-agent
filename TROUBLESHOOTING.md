@@ -1233,6 +1233,38 @@ node dist/index.js init --issue-url <URL> --force
 
 **注意**: スカッシュはオプショナル機能であり、失敗してもワークフローの成功には影響しません。
 
+### finalize コマンドでスカッシュが失敗する（Issue #510で修正済み）
+
+**症状**:
+```
+[INFO] Only 0 commit(s) found. Skipping squash.
+```
+
+**原因**:
+finalize コマンドの Step 2 で non-fast-forward エラーが発生し、pullLatest() によって HEAD が更新されたため、Step 3 のスカッシュ範囲（base_commit..HEAD）が 0 コミットと判定される問題。
+
+**修正内容（v0.5.0以降、Issue #510）**:
+v0.5.0以降では、この問題は根本的に解決されています：
+
+- Step 1 で Step 2 実行直前の HEAD を `headBeforeCleanup` として保存
+- Step 3 でスカッシュ範囲の終点に `headBeforeCleanup` を使用
+- pull による HEAD 更新の影響を完全に回避
+
+**対処法**:
+- **v0.5.0以降**: 自動的に修正済みのため対処不要
+- **v0.4.x以前**: プロジェクトを最新バージョンにアップグレードしてください
+
+**確認方法**:
+```bash
+# バージョン確認
+node dist/index.js --version
+
+# finalize実行ログでスカッシュ成功を確認
+grep -i "commits squashed" .ai-workflow/issue-*/finalize.log
+```
+
+**関連Issue**: Issue #510 - finalize コマンドで Step 2 の push 時に pull が実行されると HEAD が更新されスカッシュが失敗する
+
 ## 16. PRコメント自動対応関連（v0.5.0、Issue #428）
 
 ### pr-comment analyze フェーズのエラー終了

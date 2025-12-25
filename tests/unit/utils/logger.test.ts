@@ -16,8 +16,11 @@ import chalk from 'chalk';
 
 describe('Logger Module', () => {
   let originalEnv: NodeJS.ProcessEnv;
-  let consoleLogSpy: jest.SpiedFunction<typeof console.log>;
+  let consoleLogSpy: jest.Mock;
   let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+  let consoleInfoSpy: jest.SpyInstance;
+  let consoleWarnSpy: jest.SpyInstance;
+  let consoleDebugSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // Save original environment
@@ -29,7 +32,11 @@ describe('Logger Module', () => {
     chalk.level = 3;
 
     // Mock console methods
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    consoleLogSpy = jest.fn();
+    jest.spyOn(console, 'log').mockImplementation(consoleLogSpy);
+    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(consoleLogSpy);
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(consoleLogSpy);
+    consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation(consoleLogSpy);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -38,7 +45,10 @@ describe('Logger Module', () => {
     process.env = originalEnv;
 
     // Restore console methods
-    consoleLogSpy.mockRestore();
+    (console.log as any).mockRestore();
+    consoleInfoSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleDebugSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
 

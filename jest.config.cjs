@@ -26,13 +26,13 @@ const config = {
     }],
   },
   extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
   // ESMパッケージ（chalk、strip-ansi、ansi-regex、#ansi-styles）を変換対象に含める
   transformIgnorePatterns: [
     '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
   ],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
 };
 
 module.exports = config;

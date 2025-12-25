@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import { dirname, join } from 'node:path';
 import { WorkflowState } from './workflow-state.js';

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
-import { config } from '../../core/config.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 
 /**
@@ -241,8 +241,11 @@ export class ArtifactCleaner {
    * ```
    */
   private isCIEnvironment(): boolean {
-    // 環境変数 CI が設定されている場合は CI 環境と判定
-    return config.isCI();
+    const ciValue = process.env.CI;
+    if (ciValue !== undefined) {
+      return ciValue === 'true' || ciValue === '1';
+    }
+    return false;
   }
 
   /**

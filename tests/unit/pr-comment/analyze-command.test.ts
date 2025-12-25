@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
 import fs from 'fs-extra';
-import { promises as fsp, type PathLike } from 'fs-extra';
+import { promises as fsp, type PathLike } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { logger } from '../../../src/utils/logger.js';
@@ -15,6 +15,7 @@ const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
 const configIsCIMock = jest.fn(() => false);
+const findWorkflowMetadataMock = jest.fn();
 const getUnresolvedPRReviewCommentsMock = jest.fn();
 const getPRReviewCommentsMock = jest.fn();
 const parsePullRequestUrlMock = jest.fn(() => ({
@@ -86,6 +87,7 @@ beforeAll(async () => {
     getRepoRoot: getRepoRootMock,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+    findWorkflowMetadata: findWorkflowMetadataMock,
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/metadata-manager.js', () => ({

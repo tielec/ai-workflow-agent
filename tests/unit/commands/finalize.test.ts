@@ -17,17 +17,26 @@ import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
 
 // node:fs のモック - モック化してからインポート
-jest.mock('node:fs', () => ({
+const fsMock = {
   existsSync: jest.fn(),
   mkdirSync: jest.fn(),
   writeFileSync: jest.fn(),
   readFileSync: jest.fn(),
   statSync: jest.fn(),
   readdirSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  removeSync: jest.fn(),
+};
+
+jest.mock('fs-extra', () => ({
+  __esModule: true,
+  default: fsMock,
+  ...fsMock,
 }));
 
 // repository-utilsのモック
 jest.mock('../../../src/core/repository-utils.js', () => ({
+  __esModule: true,
   findWorkflowMetadata: jest.fn(),
 }));
 

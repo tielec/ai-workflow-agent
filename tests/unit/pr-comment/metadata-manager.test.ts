@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { promises as fsp } from 'fs-extra';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { PRCommentMetadataManager } from '../../../src/core/pr-comment/metadata-manager.js';
 import type { CommentResolution, CommentResolutionMetadata } from '../../../src/types/pr-comment.js';

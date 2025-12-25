@@ -12,7 +12,7 @@ import { RequirementsPhase } from '../../src/phases/requirements.js';
 import { DesignPhase } from '../../src/phases/design.js';
 import { ImplementationPhase } from '../../src/phases/implementation.js';
 import { TestingPhase } from '../../src/phases/testing.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import * as path from 'node:path';
 import { jest } from '@jest/globals';
 

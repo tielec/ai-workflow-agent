@@ -12,7 +12,7 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { parseRollbackDecision, validateRollbackDecision } from '../../src/commands/rollback.js';
 import type { RollbackDecision } from '../../src/types/commands.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import * as path from 'node:path';
 
 // =============================================================================

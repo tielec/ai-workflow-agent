@@ -48,6 +48,7 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   test('UC-AC-01: cleanupWorkflowLogs() - phases 00-09 の execute/review/revise が削除され、metadata.json と output/*.md が保持される', async () => {
@@ -115,6 +116,7 @@ describe('ArtifactCleaner - cleanupWorkflowArtifacts() 正常系', () => {
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   test('UC-AC-03: cleanupWorkflowArtifacts() - force=true の場合、確認プロンプトなしで削除される', async () => {
@@ -132,7 +134,7 @@ describe('ArtifactCleaner - cleanupWorkflowArtifacts() 正常系', () => {
 
   test('UC-AC-04: cleanupWorkflowArtifacts() - CI環境の場合、確認プロンプトなしで削除される', async () => {
     // Given: CI環境
-    (config.isCI as jest.MockedFunction<any>).mockReturnValue(true);
+    process.env.CI = 'true';
     await fs.writeFile(path.join(testWorkflowDir, 'test.txt'), 'test');
     const mockMetadata = createMockMetadataManager(testWorkflowDir);
     const artifactCleaner = new ArtifactCleaner(mockMetadata);
@@ -156,6 +158,7 @@ describe('ArtifactCleaner - パス検証（セキュリティ）', () => {
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   test('UC-AC-06: cleanupWorkflowArtifacts() - 不正なパスでパス検証エラーがスローされる', async () => {
@@ -198,6 +201,7 @@ describe('ArtifactCleaner - シンボリックリンクチェック（セキュ�
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   test('UC-AC-07: cleanupWorkflowArtifacts() - シンボリックリンクを検出した場合、エラーがスローされる', async () => {
@@ -233,11 +237,12 @@ describe('ArtifactCleaner - promptUserConfirmation() 確認プロンプト', () 
     await fs.ensureDir(testWorkflowDir);
     jest.clearAllMocks();
     // 非CI環境に設定
-    (config.isCI as jest.MockedFunction<any>).mockReturnValue(false);
+    process.env.CI = 'false';
   });
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   // 注意: promptUserConfirmation() は readline を使用するため、
@@ -268,6 +273,7 @@ describe('ArtifactCleaner - エラーハンドリング', () => {
 
   afterEach(async () => {
     await fs.remove(TEST_DIR);
+    delete process.env.CI;
   });
 
   test('UC-AC-09: cleanupWorkflowArtifacts() - ディレクトリが存在しない場合、警告ログが出力される', async () => {
