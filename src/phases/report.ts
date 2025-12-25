@@ -333,6 +333,6 @@ export class ReportPhase extends BasePhase {
       'report',
       'evaluation',
     ];
-    await this.artifactCleaner.cleanupWorkflowLogs(targetPhases);
+    await super.cleanupWorkflowLogs(targetPhases);
   }
 }
