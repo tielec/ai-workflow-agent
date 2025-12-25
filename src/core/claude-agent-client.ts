@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -84,6 +85,17 @@ export class ClaudeAgentClient {
     // CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 の場合、すべての操作を自動承認
     const skipPermissions = config.getClaudeDangerouslySkipPermissions();
     const permissionMode = skipPermissions ? 'bypassPermissions' : 'acceptEdits';
+
+    // Issue #494: Docker 環境で node が PATH にない場合に備えて、
+    // process.execPath のディレクトリを PATH に追加
+    // Claude Agent SDK は内部で node を spawn するため、PATH に node が必要
+    const nodePath = process.execPath;
+    const nodeDir = path.dirname(nodePath);
+    const currentPath = process.env.PATH || '';
+    if (!currentPath.split(path.delimiter).includes(nodeDir)) {
+      process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
+      logger.debug(`Added node directory to PATH: ${nodeDir}`);
+    }
 
     const stream = query({
       prompt,
