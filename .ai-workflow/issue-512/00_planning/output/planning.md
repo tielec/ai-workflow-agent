@@ -129,12 +129,12 @@
 
 ### Phase 2: 設計 (見積もり: 1〜2h)
 
-- [ ] Task 2-1: API設計 (1h)
+- [x] Task 2-1: API設計 (1h)
   - `sendWebhook(Map config)`の新シグネチャ設計
   - configマップのキー・値仕様の定義
   - オプショナルフィールドの条件付き追加ロジック設計
 
-- [ ] Task 2-2: 実装パターン設計 (0.5〜1h)
+- [x] Task 2-2: 実装パターン設計 (0.5〜1h)
   - 各Jenkinsfileでの呼び出しパターン統一
   - PR URL取得方法（metadata.jsonから読み取り）の設計
   - タイムスタンプ生成ロジックの設計（ISO 8601形式）
@@ -275,11 +275,11 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略（EXTEND）の判断根拠が明記されている
-- [ ] テスト戦略（INTEGRATION_ONLY）の判断根拠が明記されている
-- [ ] テストコード戦略（EXTEND_TEST）の判断根拠が明記されている
-- [ ] `sendWebhook(Map config)`のAPI仕様が定義されている
-- [ ] 各Jenkinsfileでの呼び出しパターンが統一されている
+- [x] 実装戦略（EXTEND）の判断根拠が明記されている
+- [x] テスト戦略（INTEGRATION_ONLY）の判断根拠が明記されている
+- [x] テストコード戦略（EXTEND_TEST）の判断根拠が明記されている
+- [x] `sendWebhook(Map config)`のAPI仕様が定義されている
+- [x] 各Jenkinsfileでの呼び出しパターンが統一されている
 
 ### Phase 3: テストシナリオ
 
