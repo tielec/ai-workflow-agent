@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "report",
+  "current_phase": "evaluation",
   "design_decisions": {
     "[REDACTED_TOKEN]": null,
     "test_strategy": null,
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 35025012,
-    "total_output_tokens": 271558,
-    "total_cost_usd": 22.058312899999997
+    "total_input_tokens": 35025014,
+    "total_output_tokens": 275173,
+    "total_cost_usd": 23.715883399999996
   },
   "difficulty_analysis": {
     "level": "moderate",
@@ -289,26 +289,38 @@
       ]
     },
     "evaluation": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-12-25T06:59:04.175Z",
       "completed_at": null,
       "review_result": null,
-      "decision": null,
+      "decision": "PASS_WITH_ISSUES",
       "failed_phase": null,
-      "remaining_tasks": [],
-      "created_issue_url": null,
-      "abort_reason": null
+      "remaining_tasks": [
+        {
+          "task": "finalize-command.test.ts の ESM モック問題を別 Issue で修正",
+          "phase": "general",
+          "priority": "Medium"
+        },
+        {
+          "task": "Jest モックの一貫したパターンをテストファイル全体で確立",
+          "phase": "general",
+          "priority": "Medium"
+        }
+      ],
+      "created_issue_url": "https://github.com/tielec/ai-workflow-agent/issues/518",
+      "abort_reason": null,
+      "current_step": "execute"
     }
   },
   "created_at": "2025-12-25T04:58:43.125Z",
-  "updated_at": "2025-12-25T06:59:03.019Z",
+  "updated_at": "2025-12-25T07:00:50.904Z",
   "branch_name": "ai-workflow/issue-510",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 511,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/511",
   "github_integration": {
     "progress_comment_id": 3690885487,
-    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/510#issuecomment-3690885487"
+    "[REDACTED_TOKEN]": "https://github.com/tielec/ai-workflow-agent/issues/510#[REDACTED_TOKEN]"
   }
 }
