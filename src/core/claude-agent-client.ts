@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
+import { resolveWorkingDirectory } from './helpers/working-directory-resolver.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -81,11 +82,13 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
-    // Issue #494: cwd が存在しない場合は process.cwd() にフォールバック
-    // Docker 環境で workingDir の解決に失敗した場合の対策
+    // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
+    // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
     if (!fs.existsSync(cwd)) {
-      logger.warn(`Working directory does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
-      return this.executeTask({ ...options, workingDirectory: process.cwd() });
+      logger.warn(`Working directory does not exist: ${cwd}`);
+      const resolvedCwd = await resolveWorkingDirectory(cwd);
+      logger.info(`Resolved working directory: ${resolvedCwd}`);
+      return this.executeTask({ ...options, workingDirectory: resolvedCwd });
     }
 
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
