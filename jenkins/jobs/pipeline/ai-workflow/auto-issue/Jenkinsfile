@@ -75,6 +75,13 @@ pipeline {
 
                     common = load 'jenkins/shared/common.groovy'
                     echo "Common library loaded successfully"
+
+                    common.sendWebhook(
+                        params.JOB_ID,
+                        params.WEBHOOK_URL,
+                        params.WEBHOOK_TOKEN,
+                        'running'
+                    )
                 }
             }
         }
@@ -235,6 +242,13 @@ pipeline {
                 echo "Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
                 def dryRunNote = params.DRY_RUN ? ' (dry run mode, no issues created)' : ''
                 echo "Result: Auto issue detection completed${dryRunNote}"
+
+                common.sendWebhook(
+                    params.JOB_ID,
+                    params.WEBHOOK_URL,
+                    params.WEBHOOK_TOKEN,
+                    'success'
+                )
             }
         }
 
@@ -246,6 +260,15 @@ pipeline {
                 echo "Repository: ${params.GITHUB_REPOSITORY}"
                 echo "Category: ${params.AUTO_ISSUE_CATEGORY ?: 'bug'}"
                 echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook(
+                    params.JOB_ID,
+                    params.WEBHOOK_URL,
+                    params.WEBHOOK_TOKEN,
+                    'failed',
+                    errorMessage
+                )
             }
         }
     }

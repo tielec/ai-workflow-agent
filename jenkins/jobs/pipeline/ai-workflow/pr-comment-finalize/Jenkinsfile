@@ -70,6 +70,13 @@ pipeline {
 
                     common = load 'jenkins/shared/common.groovy'
                     echo "Common library loaded successfully"
+
+                    common.sendWebhook(
+                        params.JOB_ID,
+                        params.WEBHOOK_URL,
+                        params.WEBHOOK_TOKEN,
+                        'running'
+                    )
                 }
             }
         }
@@ -203,6 +210,13 @@ pipeline {
                 echo "========================================="
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                common.sendWebhook(
+                    params.JOB_ID,
+                    params.WEBHOOK_URL,
+                    params.WEBHOOK_TOKEN,
+                    'success'
+                )
             }
         }
 
@@ -214,6 +228,15 @@ pipeline {
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
                 echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook(
+                    params.JOB_ID,
+                    params.WEBHOOK_URL,
+                    params.WEBHOOK_TOKEN,
+                    'failed',
+                    errorMessage
+                )
             }
         }
     }

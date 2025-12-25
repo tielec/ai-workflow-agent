@@ -54,14 +54,23 @@ jenkins/
 
 | ジョブ名 | 説明 | パラメータ数 |
 |---------|------|-------------|
-| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 21 |
-| **preset** | プリセット実行（quick-fix, implementation等） | 22 |
-| **single_phase** | 単一フェーズ実行（デバッグ用） | 20 |
-| **rollback** | フェーズ差し戻し実行 | 19 |
-| **auto_issue** | 自動Issue作成 | 16 |
-| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 17 |
-| **pr_comment_execute** | PRコメント自動対応（init + execute） | 14 |
-| **pr_comment_finalize** | PRコメント解決処理（finalize） | 11 |
+| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 29 |
+| **preset** | プリセット実行（quick-fix, implementation等） | 30 |
+| **single_phase** | 単一フェーズ実行（デバッグ用） | 28 |
+| **rollback** | フェーズ差し戻し実行 | 26 |
+| **auto_issue** | 自動Issue作成 | 19 |
+| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 23 |
+| **pr_comment_execute** | PRコメント自動対応（init + execute） | 18 |
+| **pr_comment_finalize** | PRコメント解決処理（finalize） | 17 |
+
+### Webhook通知
+
+- すべてのジョブに以下のオプションパラメータを追加しました（Lavable通知向け）:
+  - `JOB_ID`: Lavable Job ID
+  - `WEBHOOK_URL`: webhookエンドポイント URL（nonStoredPasswordParam）
+  - `WEBHOOK_TOKEN`: webhook認証トークン（nonStoredPasswordParam、`X-Webhook-Token`ヘッダーで送信）
+- 通知タイミング: ジョブ開始 (`running`)、成功 (`success`)、失敗 (`failed`, `error`付き)
+- HTTP Request Plugin が Jenkins にインストールされていることが前提です。未インストールの場合はログ出力のみでスキップされます。
 
 ### セキュリティ強化（Issue #462）
 
@@ -137,6 +146,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 | `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
 | `setupNodeEnvironment()` | Node.js環境確認とnpm install & build実行 |
 | `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |
+| `sendWebhook(jobId, webhookUrl, webhookToken, status, errorMessage = '')` | Lavableにジョブステータスを通知（HTTP POST, タイムアウト30秒） |
 
 #### archiveArtifacts関数の機能
 
