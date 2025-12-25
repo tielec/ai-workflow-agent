@@ -1,10 +1,10 @@
 {
   "issue_number": "512",
-  "issue_url": "https://__GITHUB_URL_0__/issues/512",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/512",
   "issue_title": "Issue #512",
   "repository": "tielec/ai-workflow-agent",
   "target_repository": {
-    "path": "/tmp/ai-workflow-repos-3-a92d3d08/ai-workflow-agent",
+    "path": "/tmp/[REDACTED_TOKEN]/ai-workflow-agent",
     "github_name": "tielec/ai-workflow-agent",
     "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
     "owner": "tielec",
@@ -15,8 +15,7 @@
   "design_decisions": {
     "[REDACTED_TOKEN]": null,
     "test_strategy": null,
-    "test_code_strategy": null,
-    "[REDACTED_TOKEN]": null
+    "test_code_strategy": null
   },
   "cost_tracking": {
     "total_input_tokens": 9706111,
@@ -307,13 +306,13 @@
     }
   },
   "created_at": "2025-12-25T05:19:33.267Z",
-  "updated_at": "2025-12-25T06:30:08.532Z",
+  "updated_at": "2025-12-25T06:23:17.898Z",
   "branch_name": "ai-workflow/issue-512",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 513,
-  "pr_url": "https://__GITHUB_URL_2__/pull/513",
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/513",
   "github_integration": {
     "progress_comment_id": 3690942707,
-    "[REDACTED_TOKEN]": "https://__GITHUB_URL_3__/issues/512#[REDACTED_TOKEN]"
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/512#issuecomment-3690942707"
   }
 }
