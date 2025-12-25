@@ -35,6 +35,14 @@ export interface FinalizeContext {
 
   /** マージ先ブランチ（デフォルト: main） */
   targetBranch: string;
+
+  /**
+   * スカッシュ範囲の終点コミットハッシュ（オプショナル）
+   *
+   * Step 2 で pull が発生し HEAD が更新された場合でも、
+   * pull 前の HEAD を使用してスカッシュ範囲を固定するために使用。
+   */
+  headCommit?: string;
 }
 
 /**
@@ -144,15 +152,21 @@ export class SquashManager {
    * スカッシュ対象のコミット範囲を特定
    *
    * @param baseCommit - ワークフロー開始時のコミットハッシュ
+   * @param targetHead - スカッシュ範囲の終点（デフォルト: HEAD）
    * @returns コミットハッシュの配列（古い順）
    * @throws Error - Gitコマンド失敗時
    */
-  private async getCommitsToSquash(baseCommit: string): Promise<string[]> {
+  private async getCommitsToSquash(baseCommit: string, targetHead: string = 'HEAD'): Promise<string[]> {
     try {
-      // git log <base_commit>..HEAD --format=%H --reverse
+      logger.debug(
+        `getCommitsToSquash: base_commit=${baseCommit.slice(0, 7)}, ` +
+          `targetHead=${targetHead === 'HEAD' ? 'HEAD' : targetHead.slice(0, 7)}`,
+      );
+
+      // git log <base_commit>..<targetHead> --format=%H --reverse
       const result = await this.git.log({
         from: baseCommit,
-        to: 'HEAD',
+        to: targetHead,
         format: { hash: '%H' },
       });
 
@@ -403,7 +417,12 @@ Fixes #${issueNumber}`;
       }
 
       // 2. コミット範囲の特定
-      const commits = await this.getCommitsToSquash(baseCommit);
+      const targetHead = context.headCommit ?? 'HEAD';
+      logger.debug(
+        `Squash range (finalize): ${baseCommit.slice(0, 7)}..${targetHead === 'HEAD' ? 'HEAD' : targetHead.slice(0, 7)}`,
+      );
+
+      const commits = await this.getCommitsToSquash(baseCommit, targetHead);
       if (commits.length <= 1) {
         logger.info(`Only ${commits.length} commit(s) found. Skipping squash.`);
         return;
