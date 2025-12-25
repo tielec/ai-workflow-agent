@@ -81,16 +81,11 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
-    // Issue #494: cwd の存在確認
-    logger.debug(`[Issue #494 Debug] cwd: ${cwd}`);
-    logger.debug(`[Issue #494 Debug] cwd exists: ${fs.existsSync(cwd)}`);
-    logger.debug(`[Issue #494 Debug] process.cwd(): ${process.cwd()}`);
-
     // Issue #494: cwd が存在しない場合は process.cwd() にフォールバック
+    // Docker 環境で workingDir の解決に失敗した場合の対策
     if (!fs.existsSync(cwd)) {
-      logger.warn(`[Issue #494] cwd does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
-      const fallbackCwd = process.cwd();
-      return this.executeTask({ ...options, workingDirectory: fallbackCwd });
+      logger.warn(`Working directory does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
+      return this.executeTask({ ...options, workingDirectory: process.cwd() });
     }
 
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
@@ -101,59 +96,12 @@ export class ClaudeAgentClient {
     // Issue #494: Docker 環境で node が PATH にない場合に備えて、
     // process.execPath のディレクトリを PATH に追加
     // Claude Agent SDK は内部で node を spawn するため、PATH に node が必要
-
-    // シンボリックリンクの場合は実体のパスを取得
-    let nodePath = process.execPath;
-    try {
-      nodePath = fs.realpathSync(nodePath);
-      logger.debug(`[Issue #494 Debug] Resolved symlink: ${process.execPath} -> ${nodePath}`);
-    } catch (error) {
-      logger.warn(`[Issue #494] Failed to resolve symlink for ${process.execPath}: ${error}`);
-    }
-
-    const nodeDir = path.dirname(nodePath);
+    const nodeDir = path.dirname(process.execPath);
     const currentPath = process.env.PATH || '';
-
-    // デバッグ: PATH の状態をログ出力
-    logger.debug(`[Issue #494 Debug] process.execPath: ${nodePath}`);
-    logger.debug(`[Issue #494 Debug] nodeDir: ${nodeDir}`);
-    logger.debug(`[Issue #494 Debug] path.delimiter: ${path.delimiter}`);
-    logger.debug(`[Issue #494 Debug] currentPath includes nodeDir: ${currentPath.split(path.delimiter).includes(nodeDir)}`);
-    logger.debug(`[Issue #494 Debug] node file exists: ${fs.existsSync(nodePath)}`);
-    if (fs.existsSync(nodePath)) {
-      const stats = fs.statSync(nodePath);
-      logger.debug(`[Issue #494 Debug] node file stats: size=${stats.size}, mode=${stats.mode.toString(8)}, isFile=${stats.isFile()}`);
-    }
-
-    // Issue #494: 修正案 - PATH に含まれていても、先頭に追加することで優先順位を上げる
-    // Claude Agent SDK が spawn する際に確実に見つかるようにする
     const pathParts = currentPath.split(path.delimiter).filter(Boolean);
-    const nodeDirIndex = pathParts.indexOf(nodeDir);
 
-    if (nodeDirIndex !== 0) {
-      // nodeDir が PATH の先頭にない場合、または含まれていない場合
-      const newPathParts = nodeDirIndex > 0
-        ? [nodeDir, ...pathParts.filter(p => p !== nodeDir)] // 含まれている場合は先頭に移動
-        : [nodeDir, ...pathParts]; // 含まれていない場合は先頭に追加
-
-      process.env.PATH = newPathParts.join(path.delimiter);
-      logger.debug(`[Issue #494] Moved/Added node directory to front of PATH: ${nodeDir}`);
-      logger.debug(`[Issue #494] New PATH: ${process.env.PATH?.substring(0, 200)}...`);
-    } else {
-      logger.debug(`[Issue #494] Node directory already at front of PATH: ${nodeDir}`);
-    }
-
-    // Issue #494: env を明示的に構築して渡す
-    const envForQuery = { ...process.env };
-    logger.debug(`[Issue #494 Debug] envForQuery.PATH: ${envForQuery.PATH?.substring(0, 200)}...`);
-
-    // which node を実行して PATH から見つかるか確認
-    const { execSync } = await import('node:child_process');
-    try {
-      const whichNodeResult = execSync('which node', { env: envForQuery, encoding: 'utf-8' }).trim();
-      logger.debug(`[Issue #494 Debug] which node result: ${whichNodeResult}`);
-    } catch (error) {
-      logger.error(`[Issue #494 Error] which node failed: ${error}`);
+    if (!pathParts.includes(nodeDir)) {
+      process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
     }
 
     const stream = query({
@@ -164,10 +112,6 @@ export class ClaudeAgentClient {
         maxTurns,
         model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
-        // Issue #494: 変更した PATH を含む env を明示的に渡す
-        env: envForQuery,
-        // Issue #494: executable はデフォルトの "node" を使用し、PATH で解決させる
-        executable: 'node',
       },
     });
 
