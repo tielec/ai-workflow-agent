@@ -128,7 +128,7 @@ Issue #510 の修正後のインテグレーションテスト `tests/integratio
 
 ### Phase 4: 実装 (見積もり: 4〜5h)
 
-- [ ] Task 4-1: `finalize-command.test.ts` の ESM モック修正 (2h)
+- [x] Task 4-1: `finalize-command.test.ts` の ESM モック修正 (2h)
   - `jest.mock('fs-extra', ...)` を `jest.unstable_mockModule` パターンに変更
   - `jest.mock('simple-git', ...)` の修正
   - `jest.mock('../../src/core/repository-utils.js', ...)` の修正
@@ -137,11 +137,11 @@ Issue #510 の修正後のインテグレーションテスト `tests/integratio
   - `jest.mock('../../src/core/github-client.js', ...)` の修正
   - モジュールインポートを `beforeAll` 内の動的インポートに変更
 
-- [ ] Task 4-2: `__mocks__/fs-extra.ts` の確認・修正 (0.5h)
+- [x] Task 4-2: `__mocks__/fs-extra.ts` の確認・修正 (0.5h)
   - ESM 互換性の確認
   - 必要に応じて `__esModule: true` の追加
 
-- [ ] Task 4-3: 代表的なテストファイルのパターン統一 (1.5〜2h)
+- [x] Task 4-3: 代表的なテストファイルのパターン統一 (1.5〜2h)
   - `tests/integration/cleanup-command.test.ts` の修正
   - `tests/unit/commands/finalize.test.ts` の確認・統一
   - その他影響度の高いテストファイルの修正
