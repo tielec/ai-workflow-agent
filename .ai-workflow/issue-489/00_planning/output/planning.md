@@ -138,27 +138,27 @@
 
 ### Phase 4: 実装 (見積もり: 5~6h)
 
-- [ ] Task 4-1: 型定義の拡張 (0.5h)
+- [x] Task 4-1: 型定義の拡張 (0.5h)
   - `src/types.ts` の `WorkflowMetadata` に `language` フィールド追加
   - `src/types/commands.ts` の各オプションインターフェースに `language` 追加
   - `src/types/commands.ts` の `PhaseContext` に `language` 追加
-- [ ] Task 4-2: 設定管理の拡張 (1h)
+- [x] Task 4-2: 設定管理の拡張 (1h)
   - `src/core/config.ts` に `getWorkflowLanguage()` メソッド追加
   - 環境変数 `AI_WORKFLOW_LANGUAGE` の取得とバリデーション
   - IConfig インターフェースの更新
-- [ ] Task 4-3: オプションパーサーの拡張 (1h)
+- [x] Task 4-3: オプションパーサーの拡張 (1h)
   - `src/commands/execute/options-parser.ts` に言語パース処理追加
   - `ParsedExecuteOptions` に `language` フィールド追加
   - `validateExecuteOptions()` に言語バリデーション追加
-- [ ] Task 4-4: CLIコマンド定義の拡張 (1h)
+- [x] Task 4-4: CLIコマンド定義の拡張 (1h)
   - `src/main.ts` の `init` コマンドに `--language` オプション追加
   - `src/main.ts` の `execute` コマンドに `--language` オプション追加
   - `src/main.ts` の `auto-issue` コマンドに `--language` オプション追加
   - `src/main.ts` の `pr-comment` サブコマンドに `--language` オプション追加
-- [ ] Task 4-5: メタデータ管理の拡張 (1h)
+- [x] Task 4-5: メタデータ管理の拡張 (1h)
   - `src/core/metadata-manager.ts` に `setLanguage()`, `getLanguage()` メソッド追加
   - 後方互換性のためのデフォルト値 (`ja`) ハンドリング
-- [ ] Task 4-6: コマンドハンドラの更新 (0.5~1h)
+- [x] Task 4-6: コマンドハンドラの更新 (0.5~1h)
   - `src/commands/init.ts` で言語をメタデータに保存
   - `src/commands/execute.ts` で言語を取得してコンテキストに渡す
 
