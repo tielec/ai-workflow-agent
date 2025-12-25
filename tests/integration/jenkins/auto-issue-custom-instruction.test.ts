@@ -6,7 +6,7 @@
  */
 
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import * as fs from 'node:fs';
+import { promises as fs } from 'node:fs';
 import path from 'path';
 import { InstructionValidator } from '../../../src/core/safety/instruction-validator.js';
 
