@@ -1,5 +1,6 @@
 // Jest manual mock for fs-extra (ESM)
 const fsExtra = {
+  __esModule: true,
   ensureDir: jest.fn(async () => {}),
   ensureDirSync: jest.fn(() => {}),
   ensureFile: jest.fn(async () => {}),

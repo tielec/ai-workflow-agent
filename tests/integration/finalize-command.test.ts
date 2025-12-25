@@ -11,67 +11,191 @@
  * テスト戦略: UNIT_INTEGRATION - インテグレーション部分
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { handleFinalizeCommand } from '../../src/commands/finalize.js';
-import { MetadataManager } from '../../src/core/metadata-manager.js';
+import { describe, test, expect, beforeAll, beforeEach, afterEach, jest } from '@jest/globals';
+import type { MetadataManager as MetadataManagerType } from '../../src/core/metadata-manager.js';
 import type { FinalizeCommandOptions } from '../../src/commands/finalize.js';
 import * as path from 'node:path';
 
-const mockRevparse = jest.fn();
+const mockRevparse = jest.fn<() => Promise<string>>();
 
-// simple-git のモック（Step 1 で HEAD を取得するため）
-jest.mock('simple-git', () => {
-  return jest.fn(() => ({
-    revparse: mockRevparse,
+const mockExistsSync = jest.fn<() => boolean>();
+const mockEnsureDirSync = jest.fn<() => void>();
+const mockWriteFileSync = jest.fn<() => void>();
+const mockReadFileSync = jest.fn<() => string>();
+const mockStatSync = jest.fn();
+const mockReaddirSync = jest.fn<() => string[]>();
+const mockRemoveSync = jest.fn<() => void>();
+const mockMkdirSync = jest.fn<() => void>();
+
+const mockFindWorkflowMetadata = jest.fn<
+  (issueNumber: string) => Promise<{ repoRoot: string; metadataPath: string }>
+>();
+
+const mockCommitWorkflowDeletion = jest.fn();
+const mockPushToRemote = jest.fn();
+const mockSquashCommitsForFinalize = jest.fn();
+const mockGetSquashManager = jest.fn();
+
+const mockCleanupWorkflowArtifacts = jest.fn();
+
+const mockGetPullRequestNumber = jest.fn();
+const mockUpdatePullRequest = jest.fn();
+const mockUpdateBaseBranch = jest.fn();
+const mockMarkPRReady = jest.fn();
+const mockGetPullRequestClient = jest.fn();
+
+let handleFinalizeCommand: typeof import('../../src/commands/finalize.js').handleFinalizeCommand;
+let findWorkflowMetadata: typeof import('../../src/core/repository-utils.js').findWorkflowMetadata;
+let GitManager: typeof import('../../src/core/git-manager.js').GitManager;
+let ArtifactCleaner: typeof import('../../src/phases/cleanup/artifact-cleaner.js').ArtifactCleaner;
+let GitHubClient: typeof import('../../src/core/github-client.js').GitHubClient;
+let MetadataManager: typeof import('../../src/core/metadata-manager.js').MetadataManager;
+
+const resetCommonMocks = () => {
+  jest.clearAllMocks();
+
+  mockRevparse.mockReset();
+  mockExistsSync.mockReset();
+  mockEnsureDirSync.mockReset();
+  mockWriteFileSync.mockReset();
+  mockReadFileSync.mockReset();
+  mockStatSync.mockReset();
+  mockReaddirSync.mockReset();
+  mockRemoveSync.mockReset();
+  mockMkdirSync.mockReset();
+
+  mockFindWorkflowMetadata.mockReset();
+
+  mockCommitWorkflowDeletion.mockReset();
+  mockPushToRemote.mockReset();
+  mockSquashCommitsForFinalize.mockReset();
+  mockGetSquashManager.mockReset();
+
+  mockCleanupWorkflowArtifacts.mockReset();
+
+  mockGetPullRequestNumber.mockReset();
+  mockUpdatePullRequest.mockReset();
+  mockUpdateBaseBranch.mockReset();
+  mockMarkPRReady.mockReset();
+  mockGetPullRequestClient.mockReset();
+
+  (GitManager as jest.MockedClass<typeof GitManager>).mockReset();
+  (GitManager as jest.MockedClass<typeof GitManager>).mockImplementation(() => ({
+    commitWorkflowDeletion: mockCommitWorkflowDeletion,
+    pushToRemote: mockPushToRemote,
+    getSquashManager: mockGetSquashManager,
   }));
+
+  (ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>).mockReset();
+  (ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>).mockImplementation(() => ({
+    cleanupWorkflowArtifacts: mockCleanupWorkflowArtifacts,
+  }));
+
+  (GitHubClient as jest.MockedClass<typeof GitHubClient>).mockReset();
+  (GitHubClient as jest.MockedClass<typeof GitHubClient>).mockImplementation(() => ({
+    getPullRequestClient: mockGetPullRequestClient,
+  }));
+
+  mockRevparse.mockResolvedValue('head-before-cleanup\n');
+
+  mockExistsSync.mockReturnValue(true);
+  mockEnsureDirSync.mockImplementation(() => undefined);
+  mockWriteFileSync.mockImplementation(() => undefined);
+  mockReadFileSync.mockReturnValue(JSON.stringify(baseMetadata));
+  mockStatSync.mockReturnValue({
+    isDirectory: () => false,
+    isFile: () => true,
+  });
+  mockReaddirSync.mockReturnValue([]);
+  mockRemoveSync.mockImplementation(() => undefined);
+  mockMkdirSync.mockImplementation(() => undefined);
+
+  mockCommitWorkflowDeletion.mockResolvedValue({ success: true, commit_hash: 'abc123' });
+  mockPushToRemote.mockResolvedValue({ success: true });
+  mockSquashCommitsForFinalize.mockResolvedValue(undefined);
+  mockGetSquashManager.mockReturnValue({ squashCommitsForFinalize: mockSquashCommitsForFinalize });
+
+  mockCleanupWorkflowArtifacts.mockResolvedValue(undefined);
+
+  mockGetPullRequestNumber.mockResolvedValue(456);
+  mockUpdatePullRequest.mockResolvedValue({ success: true });
+  mockUpdateBaseBranch.mockResolvedValue({ success: true });
+  mockMarkPRReady.mockResolvedValue({ success: true });
+  mockGetPullRequestClient.mockReturnValue({
+    getPullRequestNumber: mockGetPullRequestNumber,
+    updatePullRequest: mockUpdatePullRequest,
+    updateBaseBranch: mockUpdateBaseBranch,
+    markPRReady: mockMarkPRReady,
+  });
+};
+
+beforeAll(async () => {
+  await jest.unstable_mockModule('simple-git', () => ({
+    __esModule: true,
+    default: jest.fn(() => ({
+      revparse: mockRevparse,
+    })),
+  }));
+
+  await jest.unstable_mockModule('fs-extra', () => ({
+    __esModule: true,
+    default: {
+      existsSync: mockExistsSync,
+      ensureDirSync: mockEnsureDirSync,
+      writeFileSync: mockWriteFileSync,
+      readFileSync: mockReadFileSync,
+      statSync: mockStatSync,
+      readdirSync: mockReaddirSync,
+      removeSync: mockRemoveSync,
+      mkdirSync: mockMkdirSync,
+    },
+    existsSync: mockExistsSync,
+    ensureDirSync: mockEnsureDirSync,
+    writeFileSync: mockWriteFileSync,
+    readFileSync: mockReadFileSync,
+    statSync: mockStatSync,
+    readdirSync: mockReaddirSync,
+    removeSync: mockRemoveSync,
+    mkdirSync: mockMkdirSync,
+  }));
+
+  await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
+    __esModule: true,
+    findWorkflowMetadata: mockFindWorkflowMetadata,
+  }));
+
+  await jest.unstable_mockModule('../../src/core/git-manager.js', () => ({
+    __esModule: true,
+    GitManager: jest.fn().mockImplementation(() => ({
+      commitWorkflowDeletion: mockCommitWorkflowDeletion,
+      pushToRemote: mockPushToRemote,
+      getSquashManager: mockGetSquashManager,
+    })),
+  }));
+
+  await jest.unstable_mockModule('../../src/phases/cleanup/artifact-cleaner.js', () => ({
+    __esModule: true,
+    ArtifactCleaner: jest.fn().mockImplementation(() => ({
+      cleanupWorkflowArtifacts: mockCleanupWorkflowArtifacts,
+    })),
+  }));
+
+  await jest.unstable_mockModule('../../src/core/github-client.js', () => ({
+    __esModule: true,
+    GitHubClient: jest.fn().mockImplementation(() => ({
+      getPullRequestClient: mockGetPullRequestClient,
+    })),
+  }));
+
+  const finalizeModule = await import('../../src/commands/finalize.js');
+  handleFinalizeCommand = finalizeModule.handleFinalizeCommand;
+
+  findWorkflowMetadata = (await import('../../src/core/repository-utils.js')).findWorkflowMetadata;
+  GitManager = (await import('../../src/core/git-manager.js')).GitManager;
+  ArtifactCleaner = (await import('../../src/phases/cleanup/artifact-cleaner.js')).ArtifactCleaner;
+  GitHubClient = (await import('../../src/core/github-client.js')).GitHubClient;
+  MetadataManager = (await import('../../src/core/metadata-manager.js')).MetadataManager;
 });
-
-// fs-extraのモック - モック化してからインポート
-jest.mock('fs-extra', () => ({
-  existsSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  readdirSync: jest.fn(),
-  removeSync: jest.fn(),
-  mkdirSync: jest.fn(),
-}));
-
-// repository-utilsのモック
-jest.mock('../../src/core/repository-utils.js', () => ({
-  findWorkflowMetadata: jest.fn(),
-}));
-
-// GitManagerのモック
-import type { GitCommandResult } from '../../src/types.js';
-
-jest.mock('../../src/core/git-manager.js', () => ({
-  GitManager: jest.fn().mockImplementation(() => ({
-    commitWorkflowDeletion: jest.fn()
-      .mockResolvedValue({ success: true, commit_hash: 'abc123' }),
-    pushToRemote: jest.fn()
-      .mockResolvedValue({ success: true }),
-    getSquashManager: jest.fn().mockReturnValue({
-      squashCommitsForFinalize: jest.fn()
-        .mockResolvedValue(undefined),
-    }),
-  })),
-}));
-
-// ArtifactCleanerのモック
-jest.mock('../../src/phases/cleanup/artifact-cleaner.js', () => ({
-  ArtifactCleaner: jest.fn().mockImplementation(() => ({
-    cleanupWorkflowArtifacts: jest.fn()
-      .mockResolvedValue(undefined),
-  })),
-}));
-
-// GitHubClientのモック
-interface GitHubActionResult {
-  success: boolean;
-  error?: string;
-}
 
 const baseMetadata = {
   issue_number: '123',
@@ -118,43 +242,16 @@ const baseMetadata = {
   updated_at: '',
 };
 
-jest.mock('../../src/core/github-client.js', () => ({
-  GitHubClient: jest.fn().mockImplementation(() => ({
-    getPullRequestClient: jest.fn().mockReturnValue({
-      getPullRequestNumber: jest.fn()
-        .mockResolvedValue(456),
-      updatePullRequest: jest.fn()
-        .mockResolvedValue({ success: true }),
-      updateBaseBranch: jest.fn()
-        .mockResolvedValue({ success: true }),
-      markPRReady: jest.fn()
-        .mockResolvedValue({ success: true }),
-    }),
-  })),
-}));
-
-import fs from 'fs-extra';
-import { findWorkflowMetadata } from '../../src/core/repository-utils.js';
-import { GitManager } from '../../src/core/git-manager.js';
-import { ArtifactCleaner } from '../../src/phases/cleanup/artifact-cleaner.js';
-import { GitHubClient } from '../../src/core/github-client.js';
-
 describe('Integration: Finalize Command - エンドツーエンドフロー', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
-  let metadataManager: MetadataManager;
+  let metadataManager: MetadataManagerType;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
-    (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(baseMetadata));
-    (fs.mkdirSync as jest.Mock).mockImplementation(() => undefined as any);
+    resetCommonMocks();
+    mockReadFileSync.mockReturnValue(JSON.stringify(baseMetadata));
 
     // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
     mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
@@ -186,9 +283,7 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
     metadataManager.data.phases.evaluation.status = 'completed';
 
     // fs.readFileSyncでメタデータを返す
-    (fs.readFileSync as jest.Mock).mockReturnValue(
-      JSON.stringify(metadataManager.data)
-    );
+    mockReadFileSync.mockReturnValue(JSON.stringify(metadataManager.data));
   });
 
   afterEach(() => {
@@ -527,11 +622,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    resetCommonMocks();
   });
 
   // =============================================================================
@@ -540,12 +631,12 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
   describe('IT-05: 統合テスト_異常系_base_commit不在でエラー終了', () => {
     test('base_commit 不在時にエラーで終了する', async () => {
       // Given: base_commit が存在しない
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockReadFileSync.mockReturnValue(
         JSON.stringify({
           issue_number: '123',  // string型
           // base_commit が存在しない
@@ -569,7 +660,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
   describe('IT-06: 統合テスト_異常系_PR不在でエラー終了', () => {
     test('PR 不在時にエラーで終了する', async () => {
       // Given: PR が存在しない
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
@@ -584,7 +675,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
         remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
       };
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockReadFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data) as any
       );
 
@@ -613,7 +704,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
   describe('IT-07: 統合テスト_異常系_GitHub_API権限不足', () => {
     test('GitHub API 権限不足時にエラーで終了する', async () => {
       // Given: GitHub API が権限不足で失敗する
-      (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+      mockFindWorkflowMetadata.mockResolvedValue({
         repoRoot: '/test/repo',
         metadataPath: testMetadataPath,
       });
@@ -628,7 +719,7 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
         remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
       };
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      mockReadFileSync.mockReturnValue(
         JSON.stringify(metadataManager.data) as any
       );
 
@@ -660,16 +751,11 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
 describe('Integration: Finalize Command - モジュール連携テスト', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
-  let metadataManager: MetadataManager;
+  let metadataManager: MetadataManagerType;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    resetCommonMocks();
 
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
     mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
@@ -686,9 +772,7 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
     };
     metadataManager.data.phases.planning.status = 'completed';
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(
-      JSON.stringify(metadataManager.data)
-    );
+    mockReadFileSync.mockReturnValue(JSON.stringify(metadataManager.data));
   });
 
   // =============================================================================
@@ -789,16 +873,12 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
 describe('Integration: Finalize Command - Git操作エラーハンドリング', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
-  let metadataManager: MetadataManager;
+  let metadataManager: MetadataManagerType;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
-    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    resetCommonMocks();
 
-    (findWorkflowMetadata as jest.Mock).mockResolvedValue({
+    mockFindWorkflowMetadata.mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -813,9 +893,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
     };
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(
-      JSON.stringify(metadataManager.data)
-    );
+    mockReadFileSync.mockReturnValue(JSON.stringify(metadataManager.data));
   });
 
   // =============================================================================
