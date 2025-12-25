@@ -158,24 +158,24 @@
 
 ### Phase 4: 実装 (見積もり: 3〜4h)
 
-- [ ] Task 4-1: FinalizeContext 型の拡張 (0.5h)
+- [x] Task 4-1: FinalizeContext 型の拡張 (0.5h)
   - `src/core/git/squash-manager.ts` の `FinalizeContext` に `headCommit?: string` 追加
   - JSDoc コメント追加
 
-- [ ] Task 4-2: executeStep1() の修正 (1h)
+- [x] Task 4-2: executeStep1() の修正 (1h)
   - Step 2 実行直前の HEAD を `git.revparse(['HEAD'])` で取得
   - 戻り値を `{ baseCommit, headBeforeCleanup }` に拡張
   - ログ出力の追加
 
-- [ ] Task 4-3: executeStep3() の修正 (0.5h)
+- [x] Task 4-3: executeStep3() の修正 (0.5h)
   - `headBeforeCleanup` を `FinalizeContext.headCommit` に設定
   - `squashCommitsForFinalize()` 呼び出しの修正
 
-- [ ] Task 4-4: squashCommitsForFinalize() の修正 (0.5h)
+- [x] Task 4-4: squashCommitsForFinalize() の修正 (0.5h)
   - `context.headCommit` が指定されている場合の処理追加
   - `getCommitsToSquash()` への引数渡し
 
-- [ ] Task 4-5: getCommitsToSquash() の修正 (0.5h)
+- [x] Task 4-5: getCommitsToSquash() の修正 (0.5h)
   - `targetHead` パラメータ追加（デフォルト: `'HEAD'`）
   - `git.log()` の `to` パラメータを `targetHead` に変更
   - デバッグログの追加
