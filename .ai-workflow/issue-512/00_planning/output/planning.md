@@ -149,13 +149,13 @@
 
 ### Phase 4: 実装 (見積もり: 2〜3h)
 
-- [ ] Task 4-1: common.groovy sendWebhook()の拡張 (1〜1.5h)
+- [x] Task 4-1: common.groovy sendWebhook()の拡張 (1〜1.5h)
   - 既存の位置引数シグネチャをMap型config引数に変更
   - 新規フィールド（build_url, branch_name, pr_url, finished_at, logs_url）の追加
   - オプショナルフィールドの条件付きペイロード構築
   - groovy.json.JsonOutputを使用したJSON生成
 
-- [ ] Task 4-2: 8つのJenkinsfileの更新 (1〜1.5h)
+- [x] Task 4-2: 8つのJenkinsfileの更新 (1〜1.5h)
   - all-phases/Jenkinsfile: running/success/failed呼び出しの更新
   - preset/Jenkinsfile: running/success/failed呼び出しの更新
   - single-phase/Jenkinsfile: running/success/failed呼び出しの更新
