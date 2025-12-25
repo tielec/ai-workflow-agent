@@ -125,6 +125,8 @@ export class ClaudeAgentClient {
         maxTurns,
         model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
+        // Issue #494: process.env を明示的に渡して、変更した PATH を確実に継承する
+        env: process.env,
       },
     });
 
