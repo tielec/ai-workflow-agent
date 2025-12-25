@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #505**: Jenkins Pipelineからのwebhook送信機能を追加（Lavable通知向け）
+  - 全8つのJenkinsジョブに webhook 通知機能を追加
+  - **新規パラメータ（全ジョブ共通）**:
+    - `JOB_ID`: Lavable Job ID（string型）
+    - `WEBHOOK_URL`: webhookエンドポイント URL（nonStoredPasswordParam型）
+    - `WEBHOOK_TOKEN`: webhook認証トークン（nonStoredPasswordParam型、`X-Webhook-Token`ヘッダーで送信）
+  - **通知タイミング**: ジョブ開始時（`running`）、成功時（`success`）、失敗時（`failed` + エラーメッセージ）
+  - **共通関数**: `jenkins/shared/common.groovy` に `sendWebhook()` 関数を追加
+  - **セキュリティ**: 機密パラメータは `nonStoredPasswordParam` で保護（ビルドログ非表示）
+  - **障害耐性**: webhook送信失敗時もビルドは継続（ログ出力のみ）
+  - **オプショナル機能**: パラメータ未指定時はwebhook送信をスキップ（既存ワークフローに影響なし）
+  - **前提条件**: HTTP Request Plugin が Jenkins にインストール済みであること
+  - 修正ファイル: Job DSL 8ファイル、Jenkinsfile 8ファイル、`jenkins/shared/common.groovy`
+  - テストカバレッジ: 18件の統合テスト（100%成功）
+
 - **Issue #487**: pr-comment execute コマンドでエージェントログをファイル保存
   - 各コメント分析時のエージェント実行ログを個別ファイルとして保存
   - ファイル名形式: `agent_log_comment_{comment_id}.md`
