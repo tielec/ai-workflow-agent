@@ -153,6 +153,11 @@ pipeline {
                     currentBuild.description = "PR #${env.PR_NUMBER}${dryRunLabel} | Finalize Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
+                        // PR URL を finalize 実行前に取得（メタデータがクリーンアップされる前）
+                        // params.PR_URL を直接使用するため、メタデータから取得する必要はない
+                        env.PR_URL_CACHED = params.PR_URL ?: ''
+                        echo "Cached PR URL: ${env.PR_URL_CACHED}"
+
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
                         def squashFlag = (params.SQUASH == null || params.SQUASH) ? '--squash' : ''
 
@@ -213,14 +218,10 @@ pipeline {
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
 
-                def prUrl = ''
-                try {
-                    prUrl = sh(
-                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                        returnStdout: true
-                    ).trim()
-                } catch (Exception e) {
-                    echo "Could not retrieve PR URL: ${e.message}"
+                // PR URL は PR Comment Finalize ステージでキャッシュ済み（環境変数に保存）
+                def prUrl = env.PR_URL_CACHED ?: ''
+                if (prUrl) {
+                    echo "PR URL: ${prUrl}"
                 }
 
                 common.sendWebhook([
