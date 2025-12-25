@@ -1,10 +1,10 @@
 import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import * as path from 'path';
 import { jest } from '@jest/globals';
 
-let existsSyncMock: jest.SpiedFunction<typeof fs.existsSync>;
-let readFileSyncMock: jest.SpiedFunction<typeof fs.readFileSync>;
+let existsSyncMock: jest.SpyInstance;
+let readFileSyncMock: jest.SpyInstance;
 
 /**
  * Issue #140: ReDoS脆弱性修正のインテグレーションテスト
@@ -16,7 +16,7 @@ let readFileSyncMock: jest.SpiedFunction<typeof fs.readFileSync>;
  */
 describe('ClaudeAgentClient - Template Processing Integration Tests', () => {
   let client: ClaudeAgentClient;
-  const testWorkspaceDir = '/test/integration/workspace';
+  const testWorkspaceDir = path.join(process.cwd(), 'tmp', 'integration', 'claude-agent-workspace');
 
   beforeEach(() => {
     jest.clearAllMocks();

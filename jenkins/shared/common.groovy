@@ -384,33 +384,59 @@ def archiveArtifacts(String issueNumber) {
 /**
  * Lavableにジョブステータスを通知するWebhook送信
  *
- * @param jobId Lavable Job ID
- * @param webhookUrl Webhookエンドポイント URL
- * @param webhookToken Webhook認証トークン
- * @param status ジョブステータス（running|success|failed）
- * @param errorMessage エラーメッセージ（failed時のみ使用）
+ * @param config Webhook送信の設定をまとめたMap
+ *   - webhookUrl: Webhookエンドポイント URL（必須）
+ *   - webhookToken: Webhook認証トークン（必須）
+ *   - jobId: Lavable Job ID（必須）
+ *   - status: ジョブステータス（running|success|failed）（必須）
+ *   - errorMessage: エラーメッセージ（failed時のみ使用）
+ *   - buildUrl: JenkinsビルドURL
+ *   - branchName: ブランチ名
+ *   - prUrl: Pull Request URL
+ *   - finishedAt: 完了日時（ISO 8601形式、UTC）
+ *   - logsUrl: ログURL（console）
  */
-def sendWebhook(String jobId, String webhookUrl, String webhookToken, String status, String errorMessage = '') {
-    if (!webhookUrl?.trim() || !webhookToken?.trim() || !jobId?.trim()) {
+def sendWebhook(Map config) {
+    if (!config?.status?.trim() || !config.webhookUrl?.trim() || !config.webhookToken?.trim() || !config.jobId?.trim()) {
         echo "Webhook parameters not provided, skipping notification"
         return
     }
 
-    def requestBody = errorMessage?.trim()
-        ? """{"job_id": "${jobId}", "status": "${status}", "error": "${errorMessage}"}"""
-        : """{"job_id": "${jobId}", "status": "${status}"}"""
+    def payload = [
+        job_id: config.jobId,
+        status: config.status
+    ]
+
+    if (config.errorMessage?.trim()) {
+        payload.error = config.errorMessage
+    }
+    if (config.buildUrl?.trim()) {
+        payload.build_url = config.buildUrl
+    }
+    if (config.branchName?.trim()) {
+        payload.branch_name = config.branchName
+    }
+    if (config.prUrl?.trim()) {
+        payload.pr_url = config.prUrl
+    }
+    if (config.finishedAt?.trim()) {
+        payload.finished_at = config.finishedAt
+    }
+    if (config.logsUrl?.trim()) {
+        payload.logs_url = config.logsUrl
+    }
 
     try {
         httpRequest(
-            url: webhookUrl,
+            url: config.webhookUrl,
             httpMode: 'POST',
             contentType: 'APPLICATION_JSON',
-            customHeaders: [[name: 'X-Webhook-Token', value: webhookToken]],
-            requestBody: requestBody,
+            customHeaders: [[name: 'X-Webhook-Token', value: config.webhookToken]],
+            requestBody: groovy.json.JsonOutput.toJson(payload),
             validResponseCodes: '200:299',
             timeout: 30
         )
-        echo "Webhook sent successfully: ${status}"
+        echo "Webhook sent successfully: ${config.status}"
     } catch (Exception e) {
         echo "Failed to send webhook: ${e.message}"
     }

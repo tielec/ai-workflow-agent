@@ -12,6 +12,7 @@
 
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
+import { WorkflowState } from '../../src/core/workflow-state.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { PhaseName } from '../../src/types/phase.js';
@@ -33,7 +34,7 @@ jest.mock('fs-extra', () => ({
 
 describe('Preset workflow: review-design (Issue #248)', () => {
   let metadataManager: MetadataManager;
-  const testWorkflowDir = '/test/.ai-workflow/issue-248';
+  const testWorkflowDir = path.join(process.cwd(), 'tmp', 'preset-workflow', 'issue-248');
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
@@ -42,6 +43,13 @@ describe('Preset workflow: review-design (Issue #248)', () => {
     fsMock.ensureDirSync.mockImplementation(() => {});
     fsMock.writeFileSync.mockImplementation(() => {});
     fsMock.writeJsonSync.mockImplementation(() => {});
+    fs.mkdirSync(testWorkflowDir, { recursive: true });
+    WorkflowState.createNew(
+      testMetadataPath,
+      '248',
+      'https://example.com/issues/248',
+      'Preset workflow integration',
+    );
 
     const basePhase = {
       status: 'pending',

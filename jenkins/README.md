@@ -70,6 +70,19 @@ jenkins/
   - `WEBHOOK_URL`: webhookエンドポイント URL（nonStoredPasswordParam）
   - `WEBHOOK_TOKEN`: webhook認証トークン（nonStoredPasswordParam、`X-Webhook-Token`ヘッダーで送信）
 - 通知タイミング: ジョブ開始 (`running`)、成功 (`success`)、失敗 (`failed`, `error`付き)
+- Webhookペイロード（status別）:
+
+| フィールド | running | success | failed | 備考 |
+|-----------|:-------:|:-------:|:------:|------|
+| `job_id` | ✓ | ✓ | ✓ | Lavable Job ID |
+| `status` | ✓ | ✓ | ✓ | `running` / `success` / `failed` |
+| `error` | - | - | ✓ | 失敗時のエラーメッセージ |
+| `build_url` | ✓ | ✓ | ✓ | JenkinsビルドURL |
+| `branch_name` | ✓ | ✓ | - | ブランチ名（空の場合は非送信） |
+| `pr_url` | - | ✓ | - | `.ai-workflow/issue-*/metadata.json` から取得（空の場合は非送信） |
+| `finished_at` | - | ✓ | ✓ | `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`（UTC） |
+| `logs_url` | - | ✓ | ✓ | `${env.BUILD_URL}console` |
+- オプショナルフィールドは空文字/未設定時はペイロードに含めません。
 - HTTP Request Plugin が Jenkins にインストールされていることが前提です。未インストールの場合はログ出力のみでスキップされます。
 
 ### セキュリティ強化（Issue #462）
@@ -146,7 +159,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 | `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
 | `setupNodeEnvironment()` | Node.js環境確認とnpm install & build実行 |
 | `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |
-| `sendWebhook(jobId, webhookUrl, webhookToken, status, errorMessage = '')` | Lavableにジョブステータスを通知（HTTP POST, タイムアウト30秒） |
+| `sendWebhook(Map config)` | Lavableにジョブステータスを通知（HTTP POST, タイムアウト30秒、build_url / branch_name / pr_url / finished_at / logs_urlをオプション送信） |
 
 #### archiveArtifacts関数の機能
 
