@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { parseCodexEvent, determineCodexEventType } from './helpers/agent-event-parser.js';
 import { formatCodexLog } from './helpers/log-formatter.js';
 import { setupCodexEnvironment } from './helpers/env-setup.js';
+import { resolveWorkingDirectory } from './helpers/working-directory-resolver.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -84,7 +85,16 @@ export class CodexAgentClient {
   }
 
   public async executeTask(options: ExecuteTaskOptions): Promise<string[]> {
-    const cwd = options.workingDirectory ?? this.workingDir;
+    let cwd = options.workingDirectory ?? this.workingDir;
+
+    // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
+    // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
+    if (!fs.existsSync(cwd)) {
+      logger.warn(`Working directory does not exist: ${cwd}`);
+      cwd = await resolveWorkingDirectory(cwd);
+      logger.info(`Resolved working directory: ${cwd}`);
+    }
+
     const args: string[] = [
       'exec',
       '--json',
