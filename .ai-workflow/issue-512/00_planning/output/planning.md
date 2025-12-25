@@ -167,7 +167,7 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2〜3h)
 
-- [ ] Task 5-1: 統合テストの拡張 (2〜3h)
+- [x] Task 5-1: 統合テストの拡張 (2〜3h)
   - webhook-notifications.test.tsに新規describeブロック追加
   - Map型シグネチャの検証テスト
   - 新規フィールド（build_url等）の存在確認テスト
