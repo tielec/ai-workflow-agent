@@ -119,10 +119,23 @@ const baseMetadata = {
 };
 
 // fs-extraのモック
-jest.mock('fs-extra');
+const fsMock = {
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  ensureDirSync: jest.fn(),
+  readJsonSync: jest.fn(),
+  writeJsonSync: jest.fn(),
+};
+
+jest.mock('fs-extra', () => ({
+  __esModule: true,
+  default: fsMock,
+  ...fsMock,
+}));
 
 import fs from 'fs-extra';
-const { existsSync } = fs as jest.Mocked<typeof fs>;
+const fsMocked = fs as jest.Mocked<typeof fs>;
 
 describe('MetadataManager - Rollback機能', () => {
   let metadataManager: MetadataManager;
@@ -131,7 +144,7 @@ describe('MetadataManager - Rollback機能', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    existsSync.mockReturnValue(true);
+    fsMocked.existsSync.mockReturnValue(true);
     (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
       JSON.stringify(baseMetadata),
     );

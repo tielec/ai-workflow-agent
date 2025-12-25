@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
 import { BasePhase, type PhaseInitializationParams, type PhaseRunOptions } from './base-phase.js';
-import { PhaseExecutionResult } from '../types.js';
+import { PhaseExecutionResult, type PhaseName } from '../types.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 
 type PhaseOutputInfo = {
@@ -318,4 +318,21 @@ export class ReportPhase extends BasePhase {
     }
   }
 
+  /**
+   * Report Phase では planning のログを保持するため、実行フェーズのみをクリーンアップする
+   */
+  protected async cleanupWorkflowLogs(): Promise<void> {
+    const targetPhases: PhaseName[] = [
+      'requirements',
+      'design',
+      'test_scenario',
+      'implementation',
+      'test_implementation',
+      'testing',
+      'documentation',
+      'report',
+      'evaluation',
+    ];
+    await this.artifactCleaner.cleanupWorkflowLogs(targetPhases);
+  }
 }

@@ -15,6 +15,7 @@ const simpleGitStatusMock = jest.fn();
 const simpleGitAddMock = jest.fn();
 const simpleGitCommitMock = jest.fn();
 const configIsCIMock = jest.fn(() => false);
+const findWorkflowMetadataMock = jest.fn();
 const getUnresolvedPRReviewCommentsMock = jest.fn();
 const getPRReviewCommentsMock = jest.fn();
 const parsePullRequestUrlMock = jest.fn(() => ({
@@ -86,6 +87,7 @@ beforeAll(async () => {
     getRepoRoot: getRepoRootMock,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+    findWorkflowMetadata: findWorkflowMetadataMock,
   }));
 
   await jest.unstable_mockModule('../../../src/core/pr-comment/metadata-manager.js', () => ({

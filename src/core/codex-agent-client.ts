@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { spawn } from 'node:child_process';

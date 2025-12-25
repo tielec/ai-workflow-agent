@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { PlanningPhase } from '../../../src/phases/planning.js';
 import { RequirementsPhase } from '../../../src/phases/requirements.js';

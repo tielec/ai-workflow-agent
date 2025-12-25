@@ -6,7 +6,7 @@
  */
 
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'path';
 import yaml from 'yaml';
 

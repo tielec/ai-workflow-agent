@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it, beforeAll } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'path';
 
 // Jenkinsfile paths relative to project root

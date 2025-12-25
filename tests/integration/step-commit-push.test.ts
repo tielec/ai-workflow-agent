@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { GitManager } from '../../src/core/git-manager.js';

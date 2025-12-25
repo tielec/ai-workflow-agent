@@ -661,6 +661,17 @@ export abstract class BasePhase {
   }
 
   /**
+   * CI 環境かどうかを判定（ArtifactCleaner の判定をラップ）
+   */
+  protected isCIEnvironment(): boolean {
+    const ciValue = process.env.CI;
+    if (ciValue !== undefined) {
+      return ciValue === 'true' || ciValue === '1';
+    }
+    return false;
+  }
+
+  /**
    * ワークフローログをクリーンアップ（Issue #2）
    *
    * Report Phase 完了後に実行され、phases 00-08 の execute/review/revise ディレクトリを削除します。

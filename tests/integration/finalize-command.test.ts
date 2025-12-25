@@ -48,7 +48,7 @@ import type { GitCommandResult } from '../../src/types.js';
 
 jest.mock('../../src/core/git-manager.js', () => ({
   GitManager: jest.fn().mockImplementation(() => ({
-    commitCleanupLogs: jest.fn()
+    commitWorkflowDeletion: jest.fn()
       .mockResolvedValue({ success: true, commit_hash: 'abc123' }),
     pushToRemote: jest.fn()
       .mockResolvedValue({ success: true }),
@@ -147,11 +147,11 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
   beforeEach(() => {
     jest.clearAllMocks();
     mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    jest.mocked(fs.existsSync).mockReturnValue(true);
-    jest.mocked(fs.ensureDirSync).mockImplementation(() => undefined as any);
-    jest.mocked(fs.writeFileSync).mockImplementation(() => undefined);
-    jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(baseMetadata));
-    jest.mocked(fs.mkdirSync).mockImplementation(() => undefined as any);
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(baseMetadata));
+    (fs.mkdirSync as jest.Mock).mockImplementation(() => undefined as any);
 
     // findWorkflowMetadataのモック設定
     const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
@@ -217,7 +217,7 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       // Git コミット＆プッシュが実行される
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-      expect(gitManagerInstance?.commitCleanupLogs).toHaveBeenCalledWith(123, 'finalize');
+      expect(gitManagerInstance?.commitWorkflowDeletion).toHaveBeenCalledWith(123);
       expect(gitManagerInstance?.pushToRemote).toHaveBeenCalled();
 
       // Step 3: スカッシュが実行される
@@ -529,7 +529,9 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    jest.mocked(fs.existsSync).mockReturnValue(true);
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
   });
 
   // =============================================================================
@@ -787,18 +789,21 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
 describe('Integration: Finalize Command - Git操作エラーハンドリング', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
+  let metadataManager: MetadataManager;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    jest.mocked(fs.existsSync).mockReturnValue(true);
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
 
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
-    const metadataManager = new MetadataManager(testMetadataPath);
+    metadataManager = new MetadataManager(testMetadataPath);
     metadataManager.data.base_commit = 'abc123';
     metadataManager.data.target_repository = {
       owner: 'owner',
@@ -821,7 +826,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       // Given: Git コミットが失敗する
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       mockGitManager.mockImplementation(() => ({
-        commitCleanupLogs: jest.fn()
+        commitWorkflowDeletion: jest.fn()
           .mockResolvedValue({
             success: false,
             error: 'Commit failed: Permission denied'
@@ -846,23 +851,11 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
   describe('IT-GIT-ERR-02: Git プッシュ失敗時のエラー', () => {
     test('Git プッシュ失敗時にエラーがスローされる', async () => {
       // Given: Git プッシュが失敗する
-      const metadataManager = new MetadataManager(testMetadataPath);
-      metadataManager.data.base_commit = 'abc123';
-      metadataManager.data.target_repository = {
-        owner: 'owner',
-        repo: 'repo',
-        path: '/test/repo',
-        github_name: 'owner/repo',  // 必須フィールド
-        remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
-      };
-
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify(metadataManager.data) as any
-      );
+      // Note: metadataManager は beforeEach で初期化済み
 
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       mockGitManager.mockImplementation(() => ({
-        commitCleanupLogs: jest.fn()
+        commitWorkflowDeletion: jest.fn()
           .mockResolvedValue({
             success: true,
             commit_hash: 'abc123'

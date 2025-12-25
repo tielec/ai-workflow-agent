@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import simpleGit, { SimpleGit } from 'simple-git';
 import { GitManager } from '../../src/core/git-manager.js';

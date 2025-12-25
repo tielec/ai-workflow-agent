@@ -185,14 +185,13 @@ export class ContextBuilder {
     const phaseNumber = this.getPhaseNumber(targetPhase);
 
     // Issue #274: workflowBaseDir を使用（REPOS_ROOT 対応済み）
-    // workflowBaseDir が .ai-workflow/issue-{NUM}/... を指している場合は issue-{NUM} 部分まで切り出す
+    // workflowBaseDir が .ai-workflow/issue-{NUM}/... を指している場合は .ai-workflow 直下を基準に再解決
     const normalizedBase = path.resolve(this.workflowBaseDir);
-    const marker = `issue-${issueIdentifier}`;
-    const markerIndex = normalizedBase.lastIndexOf(marker);
-    const issueDir =
-      markerIndex >= 0
-        ? normalizedBase.slice(0, markerIndex + marker.length)
-        : path.join(normalizedBase, `issue-${issueIdentifier}`);
+    const parts = normalizedBase.split(path.sep);
+    const aiWorkflowIndex = parts.lastIndexOf('.ai-workflow');
+    const workflowRoot =
+      aiWorkflowIndex >= 0 ? parts.slice(0, aiWorkflowIndex + 1).join(path.sep) : path.dirname(normalizedBase);
+    const issueDir = path.join(workflowRoot, `issue-${issueIdentifier}`);
 
     const filePath = path.join(issueDir, `${phaseNumber}_${targetPhase}`, 'output', fileName);
 
