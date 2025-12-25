@@ -1639,6 +1639,7 @@ git checkout <commit-hash> -- .ai-workflow/pr-123/comment-resolution-metadata.js
 - **カラーリングテスト関連**: `chalk.level` の強制設定と `LOG_NO_COLOR` 環境変数を確認してください。
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 - **コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。
+- **PRコメント自動対応関連**: 個別コメントのデバッグには `.ai-workflow/pr-{number}/execute/agent_log_comment_{comment_id}.md` を確認してください（Issue #487で追加、ドライランモード時は生成されません）。
 
 ## 17. フォローアップIssue生成関連（v0.5.0、Issue #480）
 
