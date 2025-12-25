@@ -12,6 +12,7 @@ let removeSyncSpy: jest.SpyInstance;
 let copyFileSyncSpy: jest.SpyInstance;
 let ensureDirSyncSpy: jest.SpyInstance;
 let writeJsonSyncSpy: jest.SpyInstance;
+let writeFileSyncSpy: jest.SpyInstance;
 
 describe('MetadataManager', () => {
   let metadataManager: MetadataManager;
@@ -38,6 +39,7 @@ describe('MetadataManager', () => {
     existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
     jest.spyOn(fs, 'readJsonSync').mockReturnValue(metadataCopy);
     writeJsonSyncSpy = jest.spyOn(fs, 'writeJsonSync').mockImplementation(() => {});
+    writeFileSyncSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
     ensureDirSyncSpy = jest.spyOn(fs, 'ensureDirSync').mockImplementation(() => {});
     removeSyncSpy = jest.spyOn(fs, 'removeSync').mockImplementation(() => {});
     copyFileSyncSpy = jest.spyOn(fs, 'copyFileSync').mockImplementation(() => {});
@@ -128,7 +130,34 @@ describe('MetadataManager', () => {
       metadataManager.save();
 
       // Then: ファイルが書き込まれる
-      expect(fs.writeJsonSync).toHaveBeenCalled();
+      expect(writeFileSyncSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('language (Issue #489)', () => {
+    it('setLanguage で保存された値が getLanguage で取得できる', () => {
+      const saveSpy = jest.spyOn(workflowState as any, 'save').mockImplementation(() => {});
+
+      metadataManager.setLanguage('en');
+
+      expect(metadataManager.getLanguage()).toBe('en');
+      expect(saveSpy).toHaveBeenCalled();
+    });
+
+    it('language が未設定の場合は null を返す', () => {
+      metadataManager.data.language = undefined as any;
+
+      const result = metadataManager.getLanguage();
+
+      expect(result).toBeNull();
+    });
+
+    it('許可されていない値が保存されている場合は null を返す', () => {
+      metadataManager.data.language = 'fr' as any;
+
+      const result = metadataManager.getLanguage();
+
+      expect(result).toBeNull();
     });
   });
 

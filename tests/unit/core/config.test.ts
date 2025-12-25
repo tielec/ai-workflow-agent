@@ -351,6 +351,62 @@ describe('Config - エージェント関連メソッド', () => {
     });
   });
 
+  describe('getWorkflowLanguage()', () => {
+    test('AI_WORKFLOW_LANGUAGE=ja の場合、ja が返る', () => {
+      process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBe('ja');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE=en の場合、en が返る', () => {
+      process.env.AI_WORKFLOW_LANGUAGE = 'en';
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBe('en');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が未設定の場合、null が返る', () => {
+      delete process.env.AI_WORKFLOW_LANGUAGE;
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBeNull();
+    });
+
+    test('大文字や空白が含まれている場合でも正規化される', () => {
+      process.env.AI_WORKFLOW_LANGUAGE = ' EN ';
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBe('en');
+    });
+
+    test('許可されていない値の場合は null が返る', () => {
+      process.env.AI_WORKFLOW_LANGUAGE = 'fr';
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBeNull();
+    });
+
+    test('空文字や空白のみの場合は null が返る', () => {
+      process.env.AI_WORKFLOW_LANGUAGE = '   ';
+      const testConfig = new Config();
+
+      const result = testConfig.getWorkflowLanguage();
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('getClaudeDangerouslySkipPermissions()', () => {
     test('2.2.9: getClaudeDangerouslySkipPermissions_正常系_フラグが1の場合', () => {
       // Given: CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS が '1'

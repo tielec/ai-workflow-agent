@@ -221,6 +221,51 @@ describe('parseExecuteOptions - 正常系', () => {
   });
 });
 
+describe('parseExecuteOptions - 言語オプション（Issue #489）', () => {
+  test('language=ja の場合は ja に正規化される', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+      language: 'ja',
+    };
+
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    expect(result.language).toBe('ja');
+  });
+
+  test('language=en（大文字混在・空白あり）は en に正規化される', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+      language: ' En ',
+    };
+
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    expect(result.language).toBe('en');
+  });
+
+  test('language が未指定の場合は undefined', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+    };
+
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    expect(result.language).toBeUndefined();
+  });
+
+  test('許可されない値は language から除外される', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+      language: 'fr',
+    };
+
+    const result: ParsedExecuteOptions = parseExecuteOptions(options);
+
+    expect(result.language).toBeUndefined();
+  });
+});
+
 // =============================================================================
 // validateExecuteOptions() - 正常系
 // =============================================================================
@@ -284,6 +329,19 @@ describe('validateExecuteOptions - 正常系', () => {
     const result: ValidationResult = validateExecuteOptions(options);
 
     // Then: 検証成功
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  test('language=ja を指定しても検証は成功する', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+      phase: 'planning',
+      language: 'ja',
+    };
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -364,6 +422,19 @@ describe('validateExecuteOptions - 異常系', () => {
     expect(result.errors).toContain(
       "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
     );
+  });
+
+  test('language に許可されない値を指定するとエラーになる', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '489',
+      phase: 'planning',
+      language: 'de',
+    } as any;
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Option '--language' must be one of: ja, en.");
   });
 });
 
