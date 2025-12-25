@@ -381,5 +381,40 @@ def archiveArtifacts(String issueNumber) {
     echo "Temporary artifact copy cleaned up"
 }
 
+/**
+ * Lavableにジョブステータスを通知するWebhook送信
+ *
+ * @param jobId Lavable Job ID
+ * @param webhookUrl Webhookエンドポイント URL
+ * @param webhookToken Webhook認証トークン
+ * @param status ジョブステータス（running|success|failed）
+ * @param errorMessage エラーメッセージ（failed時のみ使用）
+ */
+def sendWebhook(String jobId, String webhookUrl, String webhookToken, String status, String errorMessage = '') {
+    if (!webhookUrl?.trim() || !webhookToken?.trim() || !jobId?.trim()) {
+        echo "Webhook parameters not provided, skipping notification"
+        return
+    }
+
+    def requestBody = errorMessage?.trim()
+        ? """{"job_id": "${jobId}", "status": "${status}", "error": "${errorMessage}"}"""
+        : """{"job_id": "${jobId}", "status": "${status}"}"""
+
+    try {
+        httpRequest(
+            url: webhookUrl,
+            httpMode: 'POST',
+            contentType: 'APPLICATION_JSON',
+            customHeaders: [[name: 'X-Webhook-Token', value: webhookToken]],
+            requestBody: requestBody,
+            validResponseCodes: '200:299',
+            timeout: 30
+        )
+        echo "Webhook sent successfully: ${status}"
+    } catch (Exception e) {
+        echo "Failed to send webhook: ${e.message}"
+    }
+}
+
 // Groovyスクリプトとして読み込み可能にするため、return this を末尾に追加
 return this

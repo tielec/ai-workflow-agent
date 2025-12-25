@@ -93,6 +93,29 @@ Git コミットメールアドレス
             '''.stripIndent().trim())
 
             // ========================================
+            // Webhook通知設定
+            // ========================================
+            stringParam('JOB_ID', '', '''
+Lavable Job ID（任意）
+
+ジョブ実行状況をLavableに通知する際のジョブ識別子。
+WEBHOOK_URL, WEBHOOK_TOKEN と合わせて指定してください。
+            '''.stripIndent().trim())
+
+            nonStoredPasswordParam('WEBHOOK_URL', '''
+Webhookエンドポイント URL（任意）
+
+Lavableの通知受信エンドポイント。
+HTTPSプロトコルを推奨します。
+            '''.stripIndent().trim())
+
+            nonStoredPasswordParam('WEBHOOK_TOKEN', '''
+Webhook認証トークン（任意）
+
+X-Webhook-Tokenヘッダーとして送信されます。
+            '''.stripIndent().trim())
+
+            // ========================================
             // APIキー設定
             // ========================================
             nonStoredPasswordParam('GITHUB_TOKEN', '''
