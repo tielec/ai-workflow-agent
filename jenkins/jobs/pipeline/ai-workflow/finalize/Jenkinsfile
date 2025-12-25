@@ -85,6 +85,15 @@ pipeline {
 
                     common = load 'jenkins/shared/common.groovy'
                     echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
                 }
             }
         }
@@ -323,6 +332,18 @@ pipeline {
                 echo "========================================="
                 echo "Issue: ${params.ISSUE_URL}"
                 echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
             }
         }
     }

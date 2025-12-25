@@ -70,6 +70,15 @@ pipeline {
 
                     common = load 'jenkins/shared/common.groovy'
                     echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
                 }
             }
         }
@@ -203,6 +212,28 @@ pipeline {
                 echo "========================================="
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                def prUrl = ''
+                try {
+                    prUrl = sh(
+                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
+                        returnStdout: true
+                    ).trim()
+                } catch (Exception e) {
+                    echo "Could not retrieve PR URL: ${e.message}"
+                }
+
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'success',
+                    buildUrl: env.BUILD_URL,
+                    branchName: env.BRANCH_NAME ?: '',
+                    prUrl: prUrl,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
             }
         }
 
@@ -214,6 +245,18 @@ pipeline {
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
                 echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
             }
         }
     }

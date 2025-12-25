@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #512**: Jenkins Webhook仕様拡張（Issue #505の拡張）
+  - DevLoop Runner仕様に合わせて追加フィールドでペイロード拡張（build_url, branch_name, pr_url, finished_at, logs_url）
+  - **シグネチャ変更**: `sendWebhook()`を位置引数からMap型config引数に変更（後方互換性あり）
+  - **新規フィールド（5項目）**:
+    - `build_url`: JenkinsビルドURL（全ステータスで送信）
+    - `branch_name`: ブランチ名（running・successで送信）
+    - `pr_url`: PR URL（successのみ、metadata.jsonから取得）
+    - `finished_at`: 完了日時（success・failed、ISO 8601形式UTC）
+    - `logs_url`: ログURL（success・failed、`${env.BUILD_URL}console`）
+  - **オプショナル設計**: 値が存在する場合のみペイロードに追加（`?.trim()`チェック）
+  - **全Jenkinsfile更新**: 8つのJenkinsfileで新Map型呼び出しパターンを統一適用
+  - **JSON生成安全性**: `groovy.json.JsonOutput.toJson()`でペイロード生成
+  - 修正ファイル: `jenkins/shared/common.groovy`、8つのJenkinsfile、`jenkins/README.md`
+  - テストカバレッジ: 30件の統合テスト（IT-019〜IT-035追加、100%成功）
+
+- **Issue #505**: Jenkins Pipelineからのwebhook送信機能を追加（Lavable通知向け）
+  - 全8つのJenkinsジョブに webhook 通知機能を追加
+  - **新規パラメータ（全ジョブ共通）**:
+    - `JOB_ID`: Lavable Job ID（string型）
+    - `WEBHOOK_URL`: webhookエンドポイント URL（nonStoredPasswordParam型）
+    - `WEBHOOK_TOKEN`: webhook認証トークン（nonStoredPasswordParam型、`X-Webhook-Token`ヘッダーで送信）
+  - **通知タイミング**: ジョブ開始時（`running`）、成功時（`success`）、失敗時（`failed` + エラーメッセージ）
+  - **共通関数**: `jenkins/shared/common.groovy` に `sendWebhook()` 関数を追加
+  - **セキュリティ**: 機密パラメータは `nonStoredPasswordParam` で保護（ビルドログ非表示）
+  - **障害耐性**: webhook送信失敗時もビルドは継続（ログ出力のみ）
+  - **オプショナル機能**: パラメータ未指定時はwebhook送信をスキップ（既存ワークフローに影響なし）
+  - **前提条件**: HTTP Request Plugin が Jenkins にインストール済みであること
+  - 修正ファイル: Job DSL 8ファイル、Jenkinsfile 8ファイル、`jenkins/shared/common.groovy`
+  - テストカバレッジ: 18件の統合テスト（100%成功）
+
 - **Issue #487**: pr-comment execute コマンドでエージェントログをファイル保存
   - 各コメント分析時のエージェント実行ログを個別ファイルとして保存
   - ファイル名形式: `agent_log_comment_{comment_id}.md`

@@ -1,5 +1,7 @@
 import { SquashManager } from '../../src/core/git/squash-manager.js';
 import { jest } from '@jest/globals';
+import * as path from 'node:path';
+import os from 'node:os';
 import type { PhaseContext } from '../../src/types/commands.js';
 
 // Mock fs module before importing
@@ -25,10 +27,15 @@ describe('スカッシュワークフロー統合テスト', () => {
   let mockRemoteManager: any;
   let mockCodexAgent: any;
   let mockClaudeAgent: any;
-  const testWorkingDir = '/test/working-dir';
+  let testWorkingDir: string;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    testWorkingDir = path.join(
+      os.tmpdir(),
+      'ai-workflow-squash-tests',
+      `run-${Date.now()}`,
+    );
 
     // Create mock objects
     mockGit = {

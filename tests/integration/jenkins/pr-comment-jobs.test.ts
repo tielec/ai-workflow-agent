@@ -6,7 +6,7 @@
  */
 
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'path';
 import yaml from 'yaml';
 
@@ -160,7 +160,9 @@ describe('Integration: PR Comment Jenkins jobs (Issue #393)', () => {
         'Validate Parameters',
         'Setup Environment',
         'Setup Node.js Environment',
+        'Check Resume',
         'PR Comment Init',
+        'PR Comment Analyze',
         'PR Comment Execute',
       ];
 
