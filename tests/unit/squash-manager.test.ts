@@ -77,6 +77,10 @@ describe('SquashManager', () => {
     );
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('getCommitsToSquash', () => {
     // テストケース 2.1.1: 正常系_複数コミット
     it('should return multiple commits from base_commit to HEAD', async () => {
@@ -119,6 +123,23 @@ describe('SquashManager', () => {
       expect(result).toEqual(['commit1hash000000000000000000000000000']);
     });
 
+    it('should use provided targetHead when specified', async () => {
+      // Given: targetHead が明示的に指定される
+      const baseCommit = 'abc123def456';
+      const targetHead = 'def456789012345678901234567890abcd1234';
+      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }] } as any);
+
+      // When
+      await (squashManager as any).getCommitsToSquash(baseCommit, targetHead);
+
+      // Then: targetHead が to パラメータに渡される
+      expect(mockGit.log).toHaveBeenCalledWith({
+        from: baseCommit,
+        to: targetHead,
+        format: { hash: '%H' },
+      });
+    });
+
     // テストケース 2.1.3: 異常系_無効なbase_commit
     it('should throw error when base_commit is invalid', async () => {
       // Given: 無効なbase_commitが指定される
@@ -142,6 +163,51 @@ describe('SquashManager', () => {
 
       // Then: 空配列が返される
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('squashCommitsForFinalize', () => {
+    it('should pass headCommit to getCommitsToSquash when provided', async () => {
+      // Given: headCommit が指定されている FinalizeContext
+      const context = {
+        issueNumber: 510,
+        baseCommit: 'abc123',
+        targetBranch: 'main',
+        headCommit: 'def456',
+      };
+
+      const getCommitsSpy = jest
+        .spyOn(squashManager as any, 'getCommitsToSquash')
+        .mockResolvedValue(['c1', 'c2']);
+      jest.spyOn(squashManager as any, 'validateBranchProtection').mockResolvedValue(undefined);
+      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+
+      // When
+      await squashManager.squashCommitsForFinalize(context as any);
+
+      // Then: headCommit が終端として渡される
+      expect(getCommitsSpy).toHaveBeenCalledWith('abc123', 'def456');
+    });
+
+    it('should fallback to HEAD when headCommit is not provided', async () => {
+      // Given: headCommit 未指定の FinalizeContext
+      const context = {
+        issueNumber: 510,
+        baseCommit: 'abc123',
+        targetBranch: 'main',
+      };
+
+      const getCommitsSpy = jest
+        .spyOn(squashManager as any, 'getCommitsToSquash')
+        .mockResolvedValue(['c1', 'c2']);
+      jest.spyOn(squashManager as any, 'validateBranchProtection').mockResolvedValue(undefined);
+      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+
+      // When
+      await squashManager.squashCommitsForFinalize(context as any);
+
+      // Then: デフォルトで HEAD が使用される
+      expect(getCommitsSpy).toHaveBeenCalledWith('abc123', 'HEAD');
     });
   });
 
