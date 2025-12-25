@@ -117,6 +117,11 @@ export class ClaudeAgentClient {
       logger.debug(`[Issue #494] Node directory already at front of PATH: ${nodeDir}`);
     }
 
+    // Issue #494: env を明示的に構築して渡す
+    const envForQuery = { ...process.env };
+    logger.debug(`[Issue #494 Debug] envForQuery.PATH: ${envForQuery.PATH?.substring(0, 200)}...`);
+    logger.debug(`[Issue #494 Debug] process.execPath: ${nodePath}`);
+
     const stream = query({
       prompt,
       options: {
@@ -125,8 +130,11 @@ export class ClaudeAgentClient {
         maxTurns,
         model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
-        // Issue #494: process.env を明示的に渡して、変更した PATH を確実に継承する
-        env: process.env,
+        // Issue #494: 変更した PATH を含む env を明示的に渡す
+        env: envForQuery,
+        // Issue #494: executable を絶対パスで指定して PATH 依存を回避
+        // 型定義は 'bun' | 'deno' | 'node' だが、実際には絶対パスも受け付ける
+        executable: nodePath as any,
       },
     });
 
