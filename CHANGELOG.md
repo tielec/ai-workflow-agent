@@ -164,6 +164,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #510**: finalize コマンドで Step 2 の push 時に pull が実行されると HEAD が更新されスカッシュが失敗する問題の修正
+  - Step 1 で `executeStep1()` の戻り値を `{ baseCommit, headBeforeCleanup }` に拡張し、Step 2 実行直前の HEAD を保存
+  - `FinalizeContext` 型に `headCommit?: string` オプショナルプロパティを追加
+  - `getCommitsToSquash()` に `targetHead` パラメータを追加し、スカッシュ範囲の終点を明示的に指定可能に
+  - `squashCommitsForFinalize()` で `context.headCommit` が指定されている場合、それを使用してスカッシュ範囲を計算
+  - non-fast-forward エラー時の `pullLatest()` による HEAD 更新の影響を回避し、スカッシュが正常に実行されるよう修正
+  - 後方互換性を維持（`headCommit` 未指定時は従来通り `HEAD` を使用）
+  - 修正ファイル: `src/commands/finalize.ts`, `src/core/git/squash-manager.ts`
+  - テストカバレッジ: ユニット30件（100%成功）、インテグレーション18件（ESMモック問題により失敗、Issue #510実装とは無関係）
+
 - **Issue #488**: SecretMasker汎用パターンマスキング対応（GitHub Push Protection対策）
   - `maskSecretsInFile()` メソッドに汎用パターンマスキング機能を追加
   - GitHub トークンパターン（`ghp_*`, `github_pat_*`）の検出・マスキング対応

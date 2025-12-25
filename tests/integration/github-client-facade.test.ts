@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { GitHubClient } from '../../src/core/github-client.js';
 import { IssueClient } from '../../src/core/github/issue-client.js';
 import { PullRequestClient } from '../../src/core/github/pull-request-client.js';

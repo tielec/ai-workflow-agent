@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, afterAll, jest } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
 import { handleMigrateCommand } from '../../src/commands/migrate.js';

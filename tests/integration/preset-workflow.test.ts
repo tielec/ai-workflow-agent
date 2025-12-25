@@ -13,7 +13,7 @@
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import * as path from 'node:path';
 import type { PhaseName } from '../../src/types/phase.js';
 

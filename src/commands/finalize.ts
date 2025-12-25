@@ -8,6 +8,7 @@
  */
 
 import path from 'node:path';
+import simpleGit from 'simple-git';
 import { logger } from '../utils/logger.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
@@ -57,14 +58,14 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
   }
 
   // 4. Step 1: base_commit 取得・一時保存
-  const baseCommit = await executeStep1(metadataManager);
+  const { baseCommit, headBeforeCleanup } = await executeStep1(metadataManager, repoDir);
 
   // 5. Step 2: .ai-workflow 削除 + コミット
   await executeStep2(metadataManager, repoDir, options);
 
   // 6. Step 3: コミットスカッシュ（--skip-squash でスキップ可能）
   if (!options.skipSquash) {
-    await executeStep3(metadataManager, repoDir, baseCommit, options);
+    await executeStep3(metadataManager, repoDir, baseCommit, headBeforeCleanup, options);
   } else {
     logger.info('Skipping commit squash (--skip-squash option)');
   }
@@ -121,14 +122,18 @@ function validateFinalizeOptions(options: FinalizeCommandOptions): void {
 }
 
 /**
- * executeStep1 - base_commit 取得・一時保存
+ * executeStep1 - base_commit 取得・headBeforeCleanup 保存
  *
  * @param metadataManager - メタデータマネージャー
- * @returns base_commit ハッシュ
+ * @param repoDir - リポジトリルートディレクトリパス
+ * @returns base_commit と headBeforeCleanup
  * @throws Error - base_commit が存在しない場合
  */
-async function executeStep1(metadataManager: MetadataManager): Promise<string> {
-  logger.info('Step 1: Retrieving base_commit...');
+async function executeStep1(
+  metadataManager: MetadataManager,
+  repoDir: string
+): Promise<{ baseCommit: string; headBeforeCleanup: string }> {
+  logger.info('Step 1: Retrieving base_commit and current HEAD...');
 
   const baseCommit = metadataManager.getBaseCommit();
   if (!baseCommit) {
@@ -138,8 +143,14 @@ async function executeStep1(metadataManager: MetadataManager): Promise<string> {
     );
   }
 
+  // pull による HEAD 更新の影響を避けるため、Step 2 実行直前の HEAD を保存
+  const git = simpleGit(repoDir);
+  const headBeforeCleanup = (await git.revparse(['HEAD'])).trim();
+
   logger.info(`base_commit: ${baseCommit}`);
-  return baseCommit;
+  logger.info(`HEAD (before cleanup): ${headBeforeCleanup}`);
+
+  return { baseCommit, headBeforeCleanup };
 }
 
 /**
@@ -191,12 +202,14 @@ async function executeStep2(
  * @param metadataManager - メタデータマネージャー
  * @param repoDir - リポジトリルートディレクトリパス
  * @param baseCommit - ワークフロー開始時のコミットハッシュ
+ * @param headBeforeCleanup - Step 2 実行直前の HEAD コミットハッシュ
  * @param options - CLI オプション
  */
 async function executeStep3(
   metadataManager: MetadataManager,
   repoDir: string,
   baseCommit: string,
+  headBeforeCleanup: string,
   options: FinalizeCommandOptions
 ): Promise<void> {
   logger.info('Step 3: Squashing commits...');
@@ -210,6 +223,7 @@ async function executeStep3(
     issueNumber: parseInt(options.issue, 10),
     baseCommit,
     targetBranch: 'main', // デフォルト
+    headCommit: headBeforeCleanup,
   };
 
   // SquashManager の新しいオーバーロードメソッドを呼び出し

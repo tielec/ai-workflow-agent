@@ -72,7 +72,7 @@ jest.mock('fs-extra', () => ({
   ...fsMock,
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 
 describe('Integration: Rollback Workflow', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-90';

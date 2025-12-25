@@ -13,6 +13,7 @@
 
 import { describe, test, expect } from '@jest/globals';
 import { resolvePresetName, getPresetPhases } from '../../../src/commands/execute.js';
+import * as executeModule from '../../../src/commands/execute.js';
 
 // =============================================================================
 // resolvePresetName() のテスト
@@ -250,7 +251,7 @@ describe('ファサード実装の検証', () => {
   test('executePhasesSequential が workflow-executor から再エクスポートされている', () => {
     // Given: execute.ts から executePhasesSequential をインポート
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const func = require('../../../src/commands/execute.js').executePhasesSequential;
+    const func = executeModule.executePhasesSequential;
 
     // Then: 関数として利用可能
     expect(typeof func).toBe('function');
@@ -259,7 +260,7 @@ describe('ファサード実装の検証', () => {
   test('executePhasesFrom が workflow-executor から再エクスポートされている', () => {
     // Given: execute.ts から executePhasesFrom をインポート
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const func = require('../../../src/commands/execute.js').executePhasesFrom;
+    const func = executeModule.executePhasesFrom;
 
     // Then: 関数として利用可能
     expect(typeof func).toBe('function');
@@ -268,7 +269,7 @@ describe('ファサード実装の検証', () => {
   test('createPhaseInstance が phase-factory から再エクスポートされている', () => {
     // Given: execute.ts から createPhaseInstance をインポート
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const func = require('../../../src/commands/execute.js').createPhaseInstance;
+    const func = executeModule.createPhaseInstance;
 
     // Then: 関数として利用可能
     expect(typeof func).toBe('function');
@@ -295,7 +296,7 @@ describe('ファサード実装の検証', () => {
   test('handleExecuteCommand がメインエントリーポイントとして利用可能', () => {
     // Given: execute.ts から handleExecuteCommand をインポート
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const func = require('../../../src/commands/execute.js').handleExecuteCommand;
+    const func = executeModule.handleExecuteCommand;
 
     // Then: 関数として利用可能
     expect(typeof func).toBe('function');
@@ -310,7 +311,7 @@ describe('モジュール分割後の後方互換性検証', () => {
   test('既存のインポート元（main.ts）から handleExecuteCommand が利用可能', () => {
     // Given: execute.ts から handleExecuteCommand をインポート
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const func = require('../../../src/commands/execute.js').handleExecuteCommand;
+    const func = executeModule.handleExecuteCommand;
 
     // Then: 関数として利用可能（後方互換性維持）
     expect(typeof func).toBe('function');
@@ -318,9 +319,6 @@ describe('モジュール分割後の後方互換性検証', () => {
 
   test('既存の公開API がすべて維持されている', () => {
     // Given: execute.ts の公開API
-    const executeModule = require('../../../src/commands/execute.js');
-
-    // Then: すべての公開関数が存在する
     expect(typeof executeModule.handleExecuteCommand).toBe('function');
     expect(typeof executeModule.executePhasesSequential).toBe('function');
     expect(typeof executeModule.executePhasesFrom).toBe('function');

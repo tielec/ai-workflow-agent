@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import { basename, dirname, join } from 'node:path';
 import { resolveProjectPath } from './path-utils.js';

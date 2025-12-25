@@ -17,6 +17,15 @@ import { MetadataManager } from '../../src/core/metadata-manager.js';
 import type { FinalizeCommandOptions } from '../../src/commands/finalize.js';
 import * as path from 'node:path';
 
+const mockRevparse = jest.fn();
+
+// simple-git のモック（Step 1 で HEAD を取得するため）
+jest.mock('simple-git', () => {
+  return jest.fn(() => ({
+    revparse: mockRevparse,
+  }));
+});
+
 // fs-extraのモック - モック化してからインポート
 jest.mock('fs-extra', () => ({
   existsSync: jest.fn(),
@@ -26,6 +35,7 @@ jest.mock('fs-extra', () => ({
   statSync: jest.fn(),
   readdirSync: jest.fn(),
   removeSync: jest.fn(),
+  mkdirSync: jest.fn(),
 }));
 
 // repository-utilsのモック
@@ -38,7 +48,7 @@ import type { GitCommandResult } from '../../src/types.js';
 
 jest.mock('../../src/core/git-manager.js', () => ({
   GitManager: jest.fn().mockImplementation(() => ({
-    commitCleanupLogs: jest.fn()
+    commitWorkflowDeletion: jest.fn()
       .mockResolvedValue({ success: true, commit_hash: 'abc123' }),
     pushToRemote: jest.fn()
       .mockResolvedValue({ success: true }),
@@ -63,6 +73,51 @@ interface GitHubActionResult {
   error?: string;
 }
 
+const baseMetadata = {
+  issue_number: '123',
+  issue_url: '',
+  issue_title: '',
+  repository: null,
+  target_repository: null,
+  workflow_version: '1.0.0',
+  current_phase: 'planning',
+  design_decisions: {
+    implementation_strategy: null,
+    test_strategy: null,
+    test_code_strategy: null,
+  },
+  cost_tracking: {
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    total_cost_usd: 0,
+  },
+  phases: {
+    planning: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    requirements: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    design: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    test_scenario: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    implementation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    test_implementation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    testing: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    documentation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    report: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    evaluation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      decision: null,
+      failed_phase: null,
+      remaining_tasks: [],
+      created_issue_url: null,
+      abort_reason: null,
+    },
+  },
+  created_at: '',
+  updated_at: '',
+};
+
 jest.mock('../../src/core/github-client.js', () => ({
   GitHubClient: jest.fn().mockImplementation(() => ({
     getPullRequestClient: jest.fn().mockReturnValue({
@@ -78,7 +133,7 @@ jest.mock('../../src/core/github-client.js', () => ({
   })),
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { findWorkflowMetadata } from '../../src/core/repository-utils.js';
 import { GitManager } from '../../src/core/git-manager.js';
 import { ArtifactCleaner } from '../../src/phases/cleanup/artifact-cleaner.js';
@@ -91,9 +146,12 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(fs.existsSync).mockReturnValue(true);
-    jest.mocked(fs.ensureDirSync).mockImplementation(() => undefined as any);
-    jest.mocked(fs.writeFileSync).mockImplementation(() => undefined);
+    mockRevparse.mockResolvedValue('head-before-cleanup\n');
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
+    (fs.readFileSync as jest.Mock).mockReturnValue(JSON.stringify(baseMetadata));
+    (fs.mkdirSync as jest.Mock).mockImplementation(() => undefined as any);
 
     // findWorkflowMetadataのモック設定
     const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
@@ -159,17 +217,20 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       // Git コミット＆プッシュが実行される
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-      expect(gitManagerInstance?.commitCleanupLogs).toHaveBeenCalledWith(123, 'finalize');
+      expect(gitManagerInstance?.commitWorkflowDeletion).toHaveBeenCalledWith(123);
       expect(gitManagerInstance?.pushToRemote).toHaveBeenCalled();
 
       // Step 3: スカッシュが実行される
       expect(gitManagerInstance?.getSquashManager).toHaveBeenCalled();
       const squashManager = gitManagerInstance?.getSquashManager();
-      expect(squashManager.squashCommitsForFinalize).toHaveBeenCalledWith({
-        issueNumber: 123,
-        baseCommit: 'abc123def456',
-        targetBranch: 'main',
-      });
+      expect(squashManager.squashCommitsForFinalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 123,
+          baseCommit: 'abc123def456',
+          targetBranch: 'main',
+          headCommit: 'head-before-cleanup',
+        }),
+      );
 
       // Step 4-5: PR更新とドラフト解除が実行される
       const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
@@ -271,6 +332,194 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       expect(squashManager.squashCommitsForFinalize).toHaveBeenCalled();
     });
   });
+
+  // =============================================================================
+  // IT-510: pull による HEAD 更新時もスカッシュ対象が固定される
+  // =============================================================================
+  describe('IT-510: non-fast-forward で HEAD が更新されてもスカッシュ対象を維持', () => {
+    test('IT-510-001: pull を挟んでも headBeforeCleanup でスカッシュする', async () => {
+      // Given: push が non-fast-forward で pullLatest が走るケースを再現
+      const pullLatest = jest.fn().mockResolvedValue({ success: true });
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+
+      // Step 2 用（cleanup + push）
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockImplementation(async () => {
+          await pullLatest('feature/issue-510');
+          return { success: true };
+        }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      // Step 3 用（squash）
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('head-before-cleanup');
+            expect(context.baseCommit).toBe('abc123def456');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: pull が実行され、headBeforeCleanup がそのまま終端として使われる
+      expect(pullLatest).toHaveBeenCalled();
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 510,
+          headCommit: 'head-before-cleanup',
+        }),
+      );
+    });
+
+    test('IT-510-002: headCommit 未指定時は HEAD を終点にする', async () => {
+      // Given: HEAD を明示的に取得できないケースを HEAD リテラルで代用
+      mockRevparse.mockResolvedValueOnce('HEAD\n');
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('HEAD');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: HEAD が終点として渡される
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseCommit: 'abc123def456',
+          headCommit: 'HEAD',
+        }),
+      );
+    });
+
+    test('IT-510-003: Step 1 の headBeforeCleanup を Step 3 に伝播する', async () => {
+      // Given: finalize --issue 510 を実行
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('head-before-cleanup');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: headBeforeCleanup が SquashManager に渡される
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 510,
+          baseCommit: 'abc123def456',
+          headCommit: 'head-before-cleanup',
+        }),
+      );
+    });
+
+    test('IT-510-004: 既存 IT-12 相当のコンテキストで後方互換を維持する', async () => {
+      // Given: 従来の finalize フロー（issue 123 相当）を再現
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.issueNumber).toBe(123);
+            expect(context.baseCommit).toBe('abc123def456');
+            expect(context.targetBranch).toBe('main');
+            expect(context.headCommit).toBe('head-before-cleanup');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '123',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: 既存の FinalizeContext 期待値が維持される
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 123,
+          baseCommit: 'abc123def456',
+          targetBranch: 'main',
+          headCommit: 'head-before-cleanup',
+        }),
+      );
+    });
+
+    test('IT-510-005: Step 1 で HEAD 取得に失敗した場合はエラーにする', async () => {
+      // Given: git.revparse が失敗する
+      mockRevparse.mockRejectedValueOnce(new Error('revparse failed'));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When & Then: エラーで終了する
+      await expect(handleFinalizeCommand(options)).rejects.toThrow(/revparse failed/i);
+    });
+  });
 });
 
 describe('Integration: Finalize Command - エラーハンドリング', () => {
@@ -279,7 +528,10 @@ describe('Integration: Finalize Command - エラーハンドリング', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(fs.existsSync).mockReturnValue(true);
+    mockRevparse.mockResolvedValue('head-before-cleanup\n');
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
   });
 
   // =============================================================================
@@ -412,6 +664,7 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRevparse.mockResolvedValue('head-before-cleanup\n');
     (fs.existsSync as jest.Mock).mockReturnValue(true);
     (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
     (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
@@ -494,11 +747,14 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
       const gitManagerInstance = mockGitManager.mock.results[0]?.value;
       const squashManager = gitManagerInstance?.getSquashManager();
 
-      expect(squashManager.squashCommitsForFinalize).toHaveBeenCalledWith({
-        issueNumber: 123,
-        baseCommit: 'abc123def456',
-        targetBranch: 'main',
-      });
+      expect(squashManager.squashCommitsForFinalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 123,
+          baseCommit: 'abc123def456',
+          targetBranch: 'main',
+          headCommit: 'head-before-cleanup',
+        }),
+      );
     });
   });
 
@@ -533,17 +789,21 @@ describe('Integration: Finalize Command - モジュール連携テスト', () =>
 describe('Integration: Finalize Command - Git操作エラーハンドリング', () => {
   const testWorkflowDir = '/test/.ai-workflow/issue-123';
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
+  let metadataManager: MetadataManager;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(fs.existsSync).mockReturnValue(true);
+    mockRevparse.mockResolvedValue('head-before-cleanup\n');
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (fs.ensureDirSync as jest.Mock).mockImplementation(() => undefined as any);
+    (fs.writeFileSync as jest.Mock).mockImplementation(() => undefined);
 
     (findWorkflowMetadata as jest.Mock).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
-    const metadataManager = new MetadataManager(testMetadataPath);
+    metadataManager = new MetadataManager(testMetadataPath);
     metadataManager.data.base_commit = 'abc123';
     metadataManager.data.target_repository = {
       owner: 'owner',
@@ -566,7 +826,7 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
       // Given: Git コミットが失敗する
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       mockGitManager.mockImplementation(() => ({
-        commitCleanupLogs: jest.fn()
+        commitWorkflowDeletion: jest.fn()
           .mockResolvedValue({
             success: false,
             error: 'Commit failed: Permission denied'
@@ -591,23 +851,11 @@ describe('Integration: Finalize Command - Git操作エラーハンドリング',
   describe('IT-GIT-ERR-02: Git プッシュ失敗時のエラー', () => {
     test('Git プッシュ失敗時にエラーがスローされる', async () => {
       // Given: Git プッシュが失敗する
-      const metadataManager = new MetadataManager(testMetadataPath);
-      metadataManager.data.base_commit = 'abc123';
-      metadataManager.data.target_repository = {
-        owner: 'owner',
-        repo: 'repo',
-        path: '/test/repo',
-        github_name: 'owner/repo',  // 必須フィールド
-        remote_url: 'https://github.com/owner/repo.git',  // 必須フィールド
-      };
-
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify(metadataManager.data) as any
-      );
+      // Note: metadataManager は beforeEach で初期化済み
 
       const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
       mockGitManager.mockImplementation(() => ({
-        commitCleanupLogs: jest.fn()
+        commitWorkflowDeletion: jest.fn()
           .mockResolvedValue({
             success: true,
             commit_hash: 'abc123'

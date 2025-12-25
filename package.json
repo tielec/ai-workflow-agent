@@ -32,10 +32,10 @@
     "build": "tsc -p tsconfig.json && node ./scripts/copy-static-assets.mjs",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest tests/unit",
-    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest tests/integration",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest",
+    "test:unit": "NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/unit",
+    "test:integration": "NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/integration",
+    "test:coverage": "NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest --coverage",
     "monitor:tokens": "tsx scripts/monitor-token-detection.ts"
   },
   "dependencies": {

@@ -661,14 +661,27 @@ export abstract class BasePhase {
   }
 
   /**
+   * CI 環境かどうかを判定（ArtifactCleaner の判定をラップ）
+   */
+  protected isCIEnvironment(): boolean {
+    const ciValue = process.env.CI;
+    if (ciValue !== undefined) {
+      return ciValue === 'true' || ciValue === '1';
+    }
+    return false;
+  }
+
+  /**
    * ワークフローログをクリーンアップ（Issue #2）
    *
    * Report Phase 完了後に実行され、phases 00-08 の execute/review/revise ディレクトリを削除します。
    * metadata.json と output/*.md は保持されます。
+   *
+   * @param phaseRange - クリーンアップ対象のフェーズ範囲（オプション、Issue #212）
    */
-  protected async cleanupWorkflowLogs(): Promise<void> {
+  protected async cleanupWorkflowLogs(phaseRange?: PhaseName[]): Promise<void> {
     // ArtifactCleaner に委譲（Issue #49）
-    await this.artifactCleaner.cleanupWorkflowLogs();
+    await this.artifactCleaner.cleanupWorkflowLogs(phaseRange);
   }
 
 
