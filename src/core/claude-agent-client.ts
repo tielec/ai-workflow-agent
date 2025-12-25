@@ -89,7 +89,16 @@ export class ClaudeAgentClient {
     // Issue #494: Docker 環境で node が PATH にない場合に備えて、
     // process.execPath のディレクトリを PATH に追加
     // Claude Agent SDK は内部で node を spawn するため、PATH に node が必要
-    const nodePath = process.execPath;
+
+    // シンボリックリンクの場合は実体のパスを取得
+    let nodePath = process.execPath;
+    try {
+      nodePath = fs.realpathSync(nodePath);
+      logger.debug(`[Issue #494 Debug] Resolved symlink: ${process.execPath} -> ${nodePath}`);
+    } catch (error) {
+      logger.warn(`[Issue #494] Failed to resolve symlink for ${process.execPath}: ${error}`);
+    }
+
     const nodeDir = path.dirname(nodePath);
     const currentPath = process.env.PATH || '';
 
@@ -98,6 +107,11 @@ export class ClaudeAgentClient {
     logger.debug(`[Issue #494 Debug] nodeDir: ${nodeDir}`);
     logger.debug(`[Issue #494 Debug] path.delimiter: ${path.delimiter}`);
     logger.debug(`[Issue #494 Debug] currentPath includes nodeDir: ${currentPath.split(path.delimiter).includes(nodeDir)}`);
+    logger.debug(`[Issue #494 Debug] node file exists: ${fs.existsSync(nodePath)}`);
+    if (fs.existsSync(nodePath)) {
+      const stats = fs.statSync(nodePath);
+      logger.debug(`[Issue #494 Debug] node file stats: size=${stats.size}, mode=${stats.mode.toString(8)}, isFile=${stats.isFile()}`);
+    }
 
     // Issue #494: 修正案 - PATH に含まれていても、先頭に追加することで優先順位を上げる
     // Claude Agent SDK が spawn する際に確実に見つかるようにする
