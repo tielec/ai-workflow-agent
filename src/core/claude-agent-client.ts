@@ -81,6 +81,18 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
+    // Issue #494: cwd の存在確認
+    logger.debug(`[Issue #494 Debug] cwd: ${cwd}`);
+    logger.debug(`[Issue #494 Debug] cwd exists: ${fs.existsSync(cwd)}`);
+    logger.debug(`[Issue #494 Debug] process.cwd(): ${process.cwd()}`);
+
+    // Issue #494: cwd が存在しない場合は process.cwd() にフォールバック
+    if (!fs.existsSync(cwd)) {
+      logger.warn(`[Issue #494] cwd does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
+      const fallbackCwd = process.cwd();
+      return this.executeTask({ ...options, workingDirectory: fallbackCwd });
+    }
+
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
     // CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 の場合、すべての操作を自動承認
     const skipPermissions = config.getClaudeDangerouslySkipPermissions();
@@ -134,7 +146,15 @@ export class ClaudeAgentClient {
     // Issue #494: env を明示的に構築して渡す
     const envForQuery = { ...process.env };
     logger.debug(`[Issue #494 Debug] envForQuery.PATH: ${envForQuery.PATH?.substring(0, 200)}...`);
-    logger.debug(`[Issue #494 Debug] process.execPath: ${nodePath}`);
+
+    // which node を実行して PATH から見つかるか確認
+    const { execSync } = await import('node:child_process');
+    try {
+      const whichNodeResult = execSync('which node', { env: envForQuery, encoding: 'utf-8' }).trim();
+      logger.debug(`[Issue #494 Debug] which node result: ${whichNodeResult}`);
+    } catch (error) {
+      logger.error(`[Issue #494 Error] which node failed: ${error}`);
+    }
 
     const stream = query({
       prompt,
@@ -146,9 +166,8 @@ export class ClaudeAgentClient {
         systemPrompt: systemPrompt ?? undefined,
         // Issue #494: 変更した PATH を含む env を明示的に渡す
         env: envForQuery,
-        // Issue #494: executable を絶対パスで指定して PATH 依存を回避
-        // 型定義は 'bun' | 'deno' | 'node' だが、実際には絶対パスも受け付ける
-        executable: nodePath as any,
+        // Issue #494: executable はデフォルトの "node" を使用し、PATH で解決させる
+        executable: 'node',
       },
     });
 
