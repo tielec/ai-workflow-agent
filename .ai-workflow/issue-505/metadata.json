@@ -18,9 +18,9 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 14637,
-    "total_output_tokens": 7954,
-    "total_cost_usd": 2.5660775000000005
+    "total_input_tokens": 14639,
+    "total_output_tokens": 9851,
+    "total_cost_usd": 2.6384566000000005
   },
   "difficulty_analysis": {
     "level": "complex",
@@ -184,7 +184,10 @@
       "started_at": "2025-12-25T02:47:54.396Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "requirements": {
       "status": "pending",
@@ -256,7 +259,7 @@
     }
   },
   "created_at": "2025-12-25T02:47:32.225Z",
-  "updated_at": "2025-12-25T02:51:30.612Z",
+  "updated_at": "2025-12-25T02:52:13.538Z",
   "branch_name": "ai-workflow/issue-505",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 506,
