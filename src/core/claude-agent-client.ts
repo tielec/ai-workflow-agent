@@ -5,6 +5,9 @@ import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
+import { findWorkflowMetadata } from './repository-utils.js';
+import type { WorkflowMetadata } from '../types.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -81,11 +84,13 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
-    // Issue #494: cwd が存在しない場合は process.cwd() にフォールバック
-    // Docker 環境で workingDir の解決に失敗した場合の対策
+    // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
+    // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
     if (!fs.existsSync(cwd)) {
-      logger.warn(`Working directory does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
-      return this.executeTask({ ...options, workingDirectory: process.cwd() });
+      logger.warn(`Working directory does not exist: ${cwd}`);
+      const resolvedCwd = await this.resolveWorkingDirectory(cwd);
+      logger.info(`Resolved working directory: ${resolvedCwd}`);
+      return this.executeTask({ ...options, workingDirectory: resolvedCwd });
     }
 
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
@@ -170,6 +175,86 @@ export class ClaudeAgentClient {
     if (formattedLog) {
       logger.info(formattedLog);
     }
+  }
+
+  /**
+   * Issue #507: 作業ディレクトリを解決する（メタデータから target_repository.path を優先）
+   *
+   * フォールバック順序:
+   * 1. メタデータの target_repository.path（最優先）
+   * 2. REPOS_ROOT 環境変数 + リポジトリ名
+   * 3. process.cwd()（最終手段）
+   *
+   * @param originalPath - 元の作業ディレクトリパス
+   * @returns 解決された作業ディレクトリパス
+   */
+  private async resolveWorkingDirectory(originalPath: string): Promise<string> {
+    try {
+      // パスから Issue 番号を抽出（例: /path/to/.ai-workflow/issue-123/... → "123"）
+      const issueMatch = originalPath.match(/\.ai-workflow[/\\]issue-(\d+)/);
+      if (!issueMatch) {
+        logger.warn(`Could not extract issue number from path: ${originalPath}`);
+        return this.fallbackToProcessCwd();
+      }
+
+      const issueNumber = issueMatch[1];
+      logger.info(`Attempting to resolve working directory for Issue #${issueNumber}`);
+
+      // 1. メタデータから target_repository.path を取得
+      try {
+        const { repoRoot, metadataPath } = await findWorkflowMetadata(issueNumber);
+        logger.info(`Found metadata at: ${metadataPath}`);
+
+        const metadataContent = fs.readFileSync(metadataPath, 'utf-8');
+        const metadata: WorkflowMetadata = JSON.parse(metadataContent);
+
+        if (metadata.target_repository?.path && fs.existsSync(metadata.target_repository.path)) {
+          logger.info(`Using target_repository.path from metadata: ${metadata.target_repository.path}`);
+          return metadata.target_repository.path;
+        }
+
+        logger.warn(`target_repository.path not found or does not exist in metadata`);
+      } catch (error) {
+        logger.warn(`Failed to load metadata for Issue #${issueNumber}: ${getErrorMessage(error)}`);
+      }
+
+      // 2. REPOS_ROOT 環境変数を試行
+      const reposRoot = config.getReposRoot();
+      if (reposRoot) {
+        // 元のパスからリポジトリ名を推測
+        const repoNameMatch = originalPath.match(/([^/\\]+)[/\\]\.ai-workflow/);
+        if (repoNameMatch) {
+          const repoName = repoNameMatch[1];
+          const fallbackPath = path.join(reposRoot, repoName);
+
+          if (fs.existsSync(fallbackPath)) {
+            logger.info(`Using REPOS_ROOT fallback: ${fallbackPath}`);
+            return fallbackPath;
+          }
+
+          logger.warn(`REPOS_ROOT fallback path does not exist: ${fallbackPath}`);
+        }
+      }
+
+      // 3. 最終手段: process.cwd()
+      return this.fallbackToProcessCwd();
+    } catch (error) {
+      logger.error(`Unexpected error in resolveWorkingDirectory: ${getErrorMessage(error)}`);
+      return this.fallbackToProcessCwd();
+    }
+  }
+
+  /**
+   * process.cwd() にフォールバック（最終手段）
+   */
+  private fallbackToProcessCwd(): string {
+    const cwd = process.cwd();
+    logger.warn(`Falling back to process.cwd(): ${cwd}`);
+    logger.warn(
+      'This may cause file path mismatches in multi-repository environments. ' +
+        'Ensure REPOS_ROOT is set correctly or run init command first.',
+    );
+    return cwd;
   }
 
   private ensureAuthToken(credentialsPath?: string): void {
