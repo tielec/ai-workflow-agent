@@ -1,61 +1,29 @@
-# テスト実行結果
+# テスト実行結果 (再実行)
 
-## テスト結果サマリー
-- 総テスト数: 2205件
-- 成功: 1638件
-- 失敗: 547件
-- 成功率: 74.3%
+- 実行コマンド: `NODE_OPTIONS="--experimental-vm-modules --max-old-space-size=4096" npx jest`
+- テストサマリー: 144 スイート中 51 失敗 / 93 成功 / 1 スキップ、2265 件中 532 件失敗
+- 判定: FAIL（主要統合テストが多数失敗）
 
-## 条件分岐
-以下のテストが失敗しました。
+## 主な失敗内容
+- `tests/integration/agent-client-execution.test.ts`
+  - CodexAgentClient/ClaudeAgentClient フローがタイムアウト・期待外の解決値で失敗。作業ディレクトリ `/test/workspace` 未作成のまま実行され、warn ログ大量発生。
+- `tests/integration/phases/fallback-mechanism.test.ts`
+  - `fs.ensureDirSync` が存在せず起動時に落下（`node:fs` を使用しており fs-extra 機能が無い）。
+- `tests/unit/pr-comment/analyze-command.test.ts`
+  - ダイナミックインポート時に `findWorkflowMetadata` が未エクスポートとして SyntaxError でスイート全滅（モック/インポート整理が必要）。
+- `tests/integration/claude-agent-client-template.test.ts`
+  - テンプレートファイル `/test/integration/workspace/test-*.md` が存在せず ENOENT 多発。
+- その他: fs-extra 機能を前提とするテストで `ensureDir*` 未定義エラー継続、Codex/Claude 実行フローでモックと実挙動が乖離。
 
-### `tests/integration/github-client-facade.test.ts::GitHubClient Facade Integration › Pull Request Operations Delegation › should delegate closePullRequest to PullRequestClient`
-- **エラー**: ReferenceError: jest is not defined
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/integration/github-client-facade.test.ts:228:27)
-  ```
+## 所見
+- ファイルシステム系テストが `node:fs` を参照しており、fs-extra 機能（ensureDir/remove 等）が不足して起動時に失敗。
+- エージェント系統合テストは実ファイル/ワーキングディレクトリの初期化不足とモック期待のずれが原因。
+- 現状のままでは品質ゲートを通過できないため、実装修正・テスト環境整備が必要。
 
-### `tests/unit/core/metadata-manager-rollback.test.ts::MetadataManager - Rollback機能 › UC-MM-01: setRollbackContext() - 正常系`
-- **エラー**: TypeError: existsSync.mockReturnValue is not a function
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/unit/core/metadata-manager-rollback.test.ts:35:16)
-  ```
+## 次に必要な対応（例）
+1. fs 操作を行うテスト/コードのインポートを `fs-extra` に統一し、ワークスペース作成を行う。
+2. `pr-comment/analyze` 周りのモックを整理し、`findWorkflowMetadata` のエクスポートを正しく扱う。
+3. `claude-agent-client-template` 用のテンプレートファイルをテスト前に配置またはモックする。
+4. CodexAgentClient の統合テストはタイムアウト延長・モックプロセスの出力調整で安定化させる。
 
-### `tests/integration/metadata-persistence.test.ts::メタデータ永続化の統合テスト › メタデータ永続化フロー`
-- **エラー**: Error: metadata.json not found: /test/.ai-workflow/issue-26/metadata.json
-- **スタックトレース**:
-  ```
-  at Function.load (src/core/workflow-state.ts:67:13)
-  at new MetadataManager (src/core/metadata-manager.ts:43:32)
-  at Object.<anonymous> (tests/integration/metadata-persistence.test.ts:42:23)
-  ```
-
-### `tests/integration/jenkins/auto-issue-custom-instruction.test.ts::Integration: auto-issue Jenkins Custom Instruction support (Issue #435) › documents the CUSTOM_INSTRUCTION parameter in the header comments`
-- **エラー**: TypeError: The "cb" argument must be of type function. Received type string ('utf-8')
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/integration/jenkins/auto-issue-custom-instruction.test.ts:23:35)
-  ```
-
-### `tests/integration/finalize-command.test.ts::Integration: Finalize Command - エンドツーエンドフロー › IT-510-001: pull を挟んでも headBeforeCleanup でスカッシュする`
-- **エラー**: TypeError: jest.mocked(...).mockReturnValue is not a function
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/integration/finalize-command.test.ts:104:32)
-  ```
-
-### `tests/integration/squash-workflow.test.ts::スカッシュワークフロー統合テスト › シナリオ 3.2.1: git reset → commit → push --force-with-lease の一連の流れ`
-- **エラー**: expect(received).toBeLessThan(expected) with expected value undefined
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/integration/squash-workflow.test.ts:244:28)
-  ```
-
-### `tests/unit/squash-manager.test.ts::SquashManager › Issue #216: ESM compatibility and forcePushToRemote › should load prompt template without __dirname error in ESM environment`
-- **エラー**: expect(jest.fn()).toHaveBeenCalled() – mockReadFile が呼ばれていない
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/unit/squash-manager.test.ts:591:28)
-  ```
+**現状の結果では Phase 6 を進行できないため、実装修正（Phase 4 に戻る）と環境整備が必要です。**

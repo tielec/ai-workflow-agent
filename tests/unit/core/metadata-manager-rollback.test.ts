@@ -19,6 +19,105 @@ import type { RollbackContext, RollbackHistoryEntry } from '../../../src/types/c
 import type { PhaseName } from '../../../src/types.js';
 import * as path from 'node:path';
 
+const baseMetadata = {
+  issue_number: '90',
+  issue_url: '',
+  issue_title: '',
+  repository: null,
+  target_repository: null,
+  workflow_version: '1.0.0',
+  current_phase: 'planning',
+  design_decisions: {
+    implementation_strategy: null,
+    test_strategy: null,
+    test_code_strategy: null,
+  },
+  cost_tracking: {
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    total_cost_usd: 0,
+  },
+  phases: {
+    planning: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    requirements: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    design: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    test_scenario: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    implementation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    test_implementation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    testing: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    documentation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    report: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
+    evaluation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      decision: null,
+      failed_phase: null,
+      remaining_tasks: [],
+      created_issue_url: null,
+      abort_reason: null,
+    },
+  },
+  created_at: '',
+  updated_at: '',
+};
+
 // fs-extraのモック
 jest.mock('fs-extra');
 
@@ -32,7 +131,11 @@ describe('MetadataManager - Rollback機能', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    existsSync.mockReturnValue(false);
+    existsSync.mockReturnValue(true);
+    (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
+      JSON.stringify(baseMetadata),
+    );
+    (fs.writeFileSync as jest.MockedFunction<typeof fs.writeFileSync>).mockImplementation(() => {});
     metadataManager = new MetadataManager(testMetadataPath);
 
     // メタデータの初期化（実装フェーズが完了している状態）

@@ -1,4 +1,3 @@
-import { SquashManager } from '../../src/core/git/squash-manager.js';
 import { jest } from '@jest/globals';
 import type { SimpleGit } from 'simple-git';
 import type { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -15,7 +14,7 @@ const mockReadFile = jest.fn<() => Promise<string>>();
 const mockRm = jest.fn<() => Promise<void>>();
 const mockAccess = jest.fn<() => Promise<void>>();
 
-jest.mock('node:fs', () => ({
+await jest.unstable_mockModule('node:fs', () => ({
   promises: {
     mkdir: mockMkdir,
     readFile: mockReadFile,
@@ -23,6 +22,8 @@ jest.mock('node:fs', () => ({
     access: mockAccess,
   },
 }));
+
+const { SquashManager } = await import('../../src/core/git/squash-manager.js');
 
 describe('SquashManager', () => {
   let squashManager: SquashManager;

@@ -35,6 +35,7 @@ jest.mock('fs-extra', () => ({
   statSync: jest.fn(),
   readdirSync: jest.fn(),
   removeSync: jest.fn(),
+  mkdirSync: jest.fn(),
 }));
 
 // repository-utilsのモック
@@ -72,6 +73,51 @@ interface GitHubActionResult {
   error?: string;
 }
 
+const baseMetadata = {
+  issue_number: '123',
+  issue_url: '',
+  issue_title: '',
+  repository: null,
+  target_repository: null,
+  workflow_version: '1.0.0',
+  current_phase: 'planning',
+  design_decisions: {
+    implementation_strategy: null,
+    test_strategy: null,
+    test_code_strategy: null,
+  },
+  cost_tracking: {
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    total_cost_usd: 0,
+  },
+  phases: {
+    planning: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    requirements: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    design: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    test_scenario: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    implementation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    test_implementation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    testing: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    documentation: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    report: { status: 'pending', retry_count: 0, started_at: null, completed_at: null, review_result: null },
+    evaluation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      decision: null,
+      failed_phase: null,
+      remaining_tasks: [],
+      created_issue_url: null,
+      abort_reason: null,
+    },
+  },
+  created_at: '',
+  updated_at: '',
+};
+
 jest.mock('../../src/core/github-client.js', () => ({
   GitHubClient: jest.fn().mockImplementation(() => ({
     getPullRequestClient: jest.fn().mockReturnValue({
@@ -87,7 +133,7 @@ jest.mock('../../src/core/github-client.js', () => ({
   })),
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { findWorkflowMetadata } from '../../src/core/repository-utils.js';
 import { GitManager } from '../../src/core/git-manager.js';
 import { ArtifactCleaner } from '../../src/phases/cleanup/artifact-cleaner.js';
@@ -104,6 +150,8 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
     jest.mocked(fs.existsSync).mockReturnValue(true);
     jest.mocked(fs.ensureDirSync).mockImplementation(() => undefined as any);
     jest.mocked(fs.writeFileSync).mockImplementation(() => undefined);
+    jest.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(baseMetadata));
+    jest.mocked(fs.mkdirSync).mockImplementation(() => undefined as any);
 
     // findWorkflowMetadataのモック設定
     const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;

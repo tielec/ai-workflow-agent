@@ -111,7 +111,7 @@ describe('スカッシュワークフロー統合テスト', () => {
       mockGit.diff.mockResolvedValue('5 files changed, 100 insertions(+), 10 deletions(-)');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'squashed-commit' } as any);
-      mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
 
       // Step 3: エージェント実行のモック設定
       mockMkdir.mockResolvedValue(undefined);
@@ -151,7 +151,7 @@ Fixes #194`,
       // 5. スカッシュが実行された
       expect(mockGit.reset).toHaveBeenCalledWith(['--soft', baseCommit]);
       expect(mockGit.commit).toHaveBeenCalled();
-      expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
+      expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
 
       // 6. squashed_atタイムスタンプが記録された
       expect(mockMetadataManager.setSquashedAt).toHaveBeenCalled();
@@ -225,7 +225,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
 
       mockMkdir.mockResolvedValue(undefined);
       mockAccess.mockRejectedValue(new Error('File not found'));
@@ -238,7 +238,7 @@ Fixes #194`,
       const callOrder = [
         mockGit.reset.mock.invocationCallOrder[0],
         mockGit.commit.mock.invocationCallOrder[0],
-        mockRemoteManager.pushToRemote.mock.invocationCallOrder[0],
+        mockRemoteManager.forcePushToRemote.mock.invocationCallOrder[0],
       ];
       expect(callOrder[0]).toBeLessThan(callOrder[1]);
       expect(callOrder[1]).toBeLessThan(callOrder[2]);
@@ -249,8 +249,8 @@ Fixes #194`,
       // git commit が呼ばれた
       expect(mockGit.commit).toHaveBeenCalled();
 
-      // pushToRemote（force-with-lease）が呼ばれた
-      expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
+      // forcePushToRemote（force-with-lease）が呼ばれた
+      expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
     });
   });
 
@@ -284,7 +284,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
 
       // エージェントが失敗
       mockCodexAgent.executeTask.mockRejectedValue(new Error('Agent failed'));
@@ -300,7 +300,7 @@ Fixes #194`,
       const commitMessage = (mockGit.commit as jest.Mock).mock.calls[0][0];
       expect(commitMessage).toContain('feat: Complete workflow for Issue #194');
       expect(commitMessage).toContain('Fixes #194');
-      expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
+      expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
     });
   });
 
@@ -334,7 +334,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
 
       // エージェントが無効なメッセージを生成
       mockMkdir.mockResolvedValue(undefined);
@@ -379,7 +379,7 @@ Fixes #194`,
 
       // スカッシュ処理は中断される
       expect(mockGit.reset).not.toHaveBeenCalled();
-      expect(mockRemoteManager.pushToRemote).not.toHaveBeenCalled();
+      expect(mockRemoteManager.forcePushToRemote).not.toHaveBeenCalled();
     });
   });
 
@@ -724,7 +724,7 @@ Fixes #216`,
         mockGit.diff.mockResolvedValue('4 files changed, 50 insertions(+), 5 deletions(-)');
         mockGit.reset.mockResolvedValue(undefined as any);
         mockGit.commit.mockResolvedValue({ commit: 'squashed-commit-hash' } as any);
-        mockRemoteManager.pushToRemote.mockResolvedValue(undefined);
+        mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
 
         // Step 3: エージェント実行のモック設定
         mockMkdir.mockResolvedValue(undefined);
@@ -762,7 +762,7 @@ Fixes #225`,
         // 4. スカッシュが実行された（base_commitまでreset）
         expect(mockGit.reset).toHaveBeenCalledWith(['--soft', baseCommit]);
         expect(mockGit.commit).toHaveBeenCalled();
-        expect(mockRemoteManager.pushToRemote).toHaveBeenCalled();
+        expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
 
         // 5. squashed_atタイムスタンプが記録された
         expect(mockMetadataManager.setSquashedAt).toHaveBeenCalled();

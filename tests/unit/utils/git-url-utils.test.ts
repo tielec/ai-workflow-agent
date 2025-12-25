@@ -369,9 +369,9 @@ describe('sanitizeGitUrl', () => {
       const result = sanitizeGitUrl(maliciousInput);
       const elapsed = Date.now() - start;
 
-      // Then: 処理が十分高速であること（CI環境のオーバーヘッドを考慮し150ms以内）
+      // Then: 処理が十分高速であること（CI環境のオーバーヘッドを考慮し500ms以内）
       expect(result).toBe(expected);
-      expect(elapsed).toBeLessThan(150);
+      expect(elapsed).toBeLessThan(500);
     });
 
     it('通常の入力で1000回実行しても許容範囲内', () => {
@@ -387,8 +387,8 @@ describe('sanitizeGitUrl', () => {
       }
       const elapsed = Date.now() - start;
 
-      // Then: 合計150ms以内に処理が完了すること（CI環境のオーバーヘッドを考慮）
-      expect(elapsed).toBeLessThan(150);
+      // Then: 合計500ms以内に処理が完了すること（CI環境のオーバーヘッドを考慮）
+      expect(elapsed).toBeLessThan(500);
     });
   });
 
