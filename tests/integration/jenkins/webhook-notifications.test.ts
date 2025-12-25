@@ -1,8 +1,8 @@
 /**
- * Integration tests for Issue #505: Jenkins webhook notifications to Lavable
+ * Integration tests for Issue #512: Jenkins webhook notifications to Lavable
  *
  * Test Strategy: INTEGRATION_ONLY (static validation of Jenkins DSL + Pipeline definitions)
- * Covered Scenarios: IT-001〜IT-018 (test-scenario.md)
+ * Covered Scenarios: IT-001〜IT-018 (existing) + IT-019〜IT-035 (test-scenario.md)
  */
 
 import { beforeAll, describe, expect, it } from '@jest/globals';
@@ -59,6 +59,15 @@ const getSendWebhookBlock = () => {
   return match ? match[0] : commonContent;
 };
 
+const extractInvocationBlock = (content: string, status: 'running' | 'success' | 'failed') => {
+  const invocations = Array.from(content.matchAll(/sendWebhook\s*\(\s*\[[\s\S]*?\]\s*\)/g));
+  const match = invocations.find(({ 0: block }) =>
+    new RegExp(`status:\\s*['"]${status}['"]`).test(block)
+  );
+
+  return match ? match[0] : '';
+};
+
 beforeAll(async () => {
   await Promise.all([
     ...Object.keys(JOB_DSL_PATHS).map((jobKey) => loadDsl(jobKey as JobKey)),
@@ -69,31 +78,96 @@ beforeAll(async () => {
   jenkinsReadme = await fs.readFile(path.join(projectRoot, 'jenkins/README.md'), 'utf8');
 });
 
-describe('Integration: Jenkins webhook notifications (Issue #505)', () => {
-  describe('IT-001〜IT-006: common.groovy sendWebhook implementation', () => {
-    it('defines sendWebhook with the expected signature', () => {
-      expect(commonContent).toMatch(
-        /def sendWebhook\(String jobId, String webhookUrl, String webhookToken, String status, String errorMessage = ''\)/
-      );
+describe('Integration: Jenkins webhook notifications (Issue #512)', () => {
+  describe('IT-019〜IT-026, IT-033: common.groovy sendWebhook implementation', () => {
+    it('defines sendWebhook with a Map config signature (IT-019) and removes the positional signature', () => {
+      expect(commonContent).toMatch(/def sendWebhook\s*\(\s*Map\s+config\s*\)/);
+      expect(commonContent).not.toMatch(/def sendWebhook\(String jobId/);
     });
 
-    it('skips when webhook parameters are missing and logs the reason', () => {
+    it('validates required webhook parameters before sending', () => {
       const sendWebhookBlock = getSendWebhookBlock();
 
       expect(sendWebhookBlock).toMatch(
-        /if \(!webhookUrl\?\.\s*trim\(\) \|\| !webhookToken\?\.\s*trim\(\) \|\| !jobId\?\.\s*trim\(\)\)/
+        /if\s*\(\s*!config\?\.\s*status\?\.\s*trim\(\)\s*\|\|\s*!config\.webhookUrl\?\.\s*trim\(\)\s*\|\|\s*!config\.webhookToken\?\.\s*trim\(\)\s*\|\|\s*!config\.jobId\?\.\s*trim\(\)\s*\)/
       );
       expect(sendWebhookBlock).toMatch(/Webhook parameters not provided, skipping notification/);
+    });
+
+    it('constructs payload as a Groovy Map literal with job_id and status (IT-033)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /def\s+payload\s*=\s*\[[\s\S]*job_id:\s*config\.jobId[\s\S]*status:\s*config\.status[\s\S]*\]/
+      );
+    });
+
+    it('conditionally adds build_url to the payload when provided (IT-020)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /if\s*\(\s*config\.buildUrl\?\.trim\(\)\s*\)\s*\{[\s\S]*payload\.build_url\s*=\s*config\.buildUrl/
+      );
+    });
+
+    it('conditionally adds branch_name to the payload when provided (IT-021)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /if\s*\(\s*config\.branchName\?\.trim\(\)\s*\)\s*\{[\s\S]*payload\.branch_name\s*=\s*config\.branchName/
+      );
+    });
+
+    it('conditionally adds pr_url to the payload when provided (IT-022)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /if\s*\(\s*config\.prUrl\?\.trim\(\)\s*\)\s*\{[\s\S]*payload\.pr_url\s*=\s*config\.prUrl/
+      );
+    });
+
+    it('conditionally adds finished_at to the payload when provided (IT-023)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /if\s*\(\s*config\.finishedAt\?\.trim\(\)\s*\)\s*\{[\s\S]*payload\.finished_at\s*=\s*config\.finishedAt/
+      );
+    });
+
+    it('conditionally adds logs_url to the payload when provided (IT-024)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(
+        /if\s*\(\s*config\.logsUrl\?\.trim\(\)\s*\)\s*\{[\s\S]*payload\.logs_url\s*=\s*config\.logsUrl/
+      );
+    });
+
+    it('guards all optional fields with trim checks before adding them (IT-025)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+      const optionalFields = ['errorMessage', 'buildUrl', 'branchName', 'prUrl', 'finishedAt', 'logsUrl'];
+
+      optionalFields.forEach((field) => {
+        expect(sendWebhookBlock).toMatch(
+          new RegExp(`if\\s*\\(\\s*config\\.${field}\\?\\.trim\\(\\)\\s*\\)`)
+        );
+      });
+    });
+
+    it('uses JsonOutput.toJson for payload serialization (IT-026)', () => {
+      const sendWebhookBlock = getSendWebhookBlock();
+
+      expect(sendWebhookBlock).toMatch(/groovy\.json\.JsonOutput\.toJson\s*\(\s*payload\s*\)/);
     });
 
     it('posts JSON payloads via HTTP Request Plugin with required settings', () => {
       const sendWebhookBlock = getSendWebhookBlock();
 
       expect(sendWebhookBlock).toContain('httpRequest');
+      expect(sendWebhookBlock).toMatch(/url:\s*config\.webhookUrl/);
       expect(sendWebhookBlock).toMatch(/httpMode:\s*'POST'/);
       expect(sendWebhookBlock).toMatch(/contentType:\s*'APPLICATION_JSON'/);
       expect(sendWebhookBlock).toMatch(
-        /customHeaders:\s*\[\[name:\s*'X-Webhook-Token',\s*value:\s*webhookToken\]\]/
+        /customHeaders:\s*\[\[name:\s*'X-Webhook-Token',\s*value:\s*config\.webhookToken\]\]/
       );
       expect(sendWebhookBlock).toMatch(/validResponseCodes:\s*'200:299'/);
       expect(sendWebhookBlock).toMatch(/timeout:\s*30/);
@@ -108,15 +182,8 @@ describe('Integration: Jenkins webhook notifications (Issue #505)', () => {
       expect(sendWebhookBlock).not.toMatch(/throw\s+e|error\s*\(/);
     });
 
-    it('constructs payloads with job_id, status, and optional error fields', () => {
-      const sendWebhookBlock = getSendWebhookBlock();
-
-      expect(sendWebhookBlock).toMatch(/\{"job_id": "\$\{jobId\}", "status": "\$\{status\}"\}/);
-      expect(sendWebhookBlock).toMatch(/"error": "\$\{errorMessage\}"/);
-    });
-
     it('logs successful webhook delivery with the status value', () => {
-      expect(getSendWebhookBlock()).toMatch(/Webhook sent successfully: \${status}/);
+      expect(getSendWebhookBlock()).toMatch(/Webhook sent successfully: \${config\.status}/);
     });
   });
 
@@ -169,37 +236,76 @@ describe('Integration: Jenkins webhook notifications (Issue #505)', () => {
     });
   });
 
-  describe('IT-011〜IT-015, IT-017: Jenkinsfile webhook integration', () => {
+  describe('IT-027〜IT-032: Jenkinsfile webhook integration', () => {
     it('loads the shared common.groovy library in every Jenkinsfile', () => {
       Object.values(pipelineContents).forEach((content) => {
         expect(content).toMatch(/load 'jenkins\/shared\/common.groovy'/);
       });
     });
 
-    it('sends running status after loading the common library', () => {
+    it('uses Map-style sendWebhook invocations and no positional signature (IT-032)', () => {
       Object.values(pipelineContents).forEach((content) => {
-        expect(content).toMatch(/sendWebhook\([\s\S]*'running'/);
-      });
-    });
-
-    it('sends success status inside post.success blocks', () => {
-      Object.values(pipelineContents).forEach((content) => {
-        expect(content).toMatch(/success\s*\{[\s\S]*sendWebhook\([\s\S]*'success'/);
-      });
-    });
-
-    it('sends failed status with an error payload inside post.failure blocks', () => {
-      Object.values(pipelineContents).forEach((content) => {
-        expect(content).toMatch(/failure\s*\{[\s\S]*sendWebhook\([\s\S]*'failed'/);
-        expect(content).toMatch(/sendWebhook\([\s\S]*'failed'[\s\S]*(errorMessage|currentBuild\.result)/);
+        expect(content).toMatch(/sendWebhook\s*\(\s*\[/);
+        expect(content).not.toMatch(/sendWebhook\s*\(\s*params\.JOB_ID\s*,\s*params\.WEBHOOK_URL/);
       });
     });
 
     it('passes webhook parameters from params.* for every invocation', () => {
       Object.values(pipelineContents).forEach((content) => {
-        expect(content).toMatch(/params\.JOB_ID/);
-        expect(content).toMatch(/params\.WEBHOOK_URL/);
-        expect(content).toMatch(/params\.WEBHOOK_TOKEN/);
+        expect(content).toMatch(/jobId:\s*params\.JOB_ID/);
+        expect(content).toMatch(/webhookUrl:\s*params\.WEBHOOK_URL/);
+        expect(content).toMatch(/webhookToken:\s*params\.WEBHOOK_TOKEN/);
+      });
+    });
+
+    it('sends running status with build_url and branch_name (IT-027)', () => {
+      Object.values(pipelineContents).forEach((content) => {
+        const runningBlock = extractInvocationBlock(content, 'running');
+        expect(runningBlock).toMatch(/status:\s*'running'/);
+        expect(runningBlock).toMatch(/buildUrl:\s*env\.BUILD_URL/);
+        expect(runningBlock).toMatch(/branchName:\s*env\.BRANCH_NAME/);
+      });
+    });
+
+    it('sends success status with all extended fields (IT-028)', () => {
+      Object.values(pipelineContents).forEach((content) => {
+        const successBlock = extractInvocationBlock(content, 'success');
+
+        expect(successBlock).toMatch(/buildUrl:\s*env\.BUILD_URL/);
+        expect(successBlock).toMatch(/branchName:\s*env\.BRANCH_NAME/);
+        expect(successBlock).toMatch(/prUrl:\s*prUrl/);
+        expect(successBlock).toMatch(/finishedAt:\s*new Date\(\)\.format/);
+        expect(successBlock).toContain('logsUrl: "${env.BUILD_URL}console"');
+      });
+    });
+
+    it('retrieves PR URL from metadata.json using jq with // empty fallback (IT-030)', () => {
+      Object.values(pipelineContents).forEach((content) => {
+        expect(content).toMatch(/metadata\.json/);
+        expect(content).toMatch(/jq\s+-r\s+['"]\.pr_url\s*\/\/\s*empty['"]/);
+      });
+    });
+
+    it('sends failed status with error, build_url, finished_at, logs_url and excludes branch/pr (IT-029)', () => {
+      Object.values(pipelineContents).forEach((content) => {
+        const failureBlock = extractInvocationBlock(content, 'failed');
+
+        expect(failureBlock).toMatch(/status:\s*'failed'/);
+        expect(failureBlock).toMatch(/errorMessage:/);
+        expect(failureBlock).toMatch(/buildUrl:\s*env\.BUILD_URL/);
+        expect(failureBlock).toMatch(/finishedAt:\s*new Date\(\)\.format/);
+        expect(failureBlock).toContain('logsUrl: "${env.BUILD_URL}console"');
+        expect(failureBlock).not.toMatch(/branchName:/);
+        expect(failureBlock).not.toMatch(/prUrl:/);
+      });
+    });
+
+    it('generates timestamps in ISO 8601 UTC format for success/failure (IT-031)', () => {
+      const iso8601Pattern =
+        /new Date\(\)\.format\s*\(\s*["']yyyy-MM-dd'T'HH:mm:ss\.SSS'Z'["']\s*,\s*TimeZone\.getTimeZone\s*\(\s*['"]UTC['"]\s*\)\s*\)/;
+
+      Object.values(pipelineContents).forEach((content) => {
+        expect(content).toMatch(iso8601Pattern);
       });
     });
 
@@ -226,6 +332,23 @@ describe('Integration: Jenkins webhook notifications (Issue #505)', () => {
       expect(jenkinsReadme).toMatch(/WEBHOOK_URL/);
       expect(jenkinsReadme).toMatch(/WEBHOOK_TOKEN/);
       expect(jenkinsReadme).toMatch(/HTTP Request Plugin/);
+    });
+
+    it('documents new webhook fields in jenkins/README.md (IT-034)', () => {
+      expect(jenkinsReadme).toMatch(/build_url/);
+      expect(jenkinsReadme).toMatch(/branch_name/);
+      expect(jenkinsReadme).toMatch(/pr_url/);
+      expect(jenkinsReadme).toMatch(/finished_at/);
+      expect(jenkinsReadme).toMatch(/logs_url/);
+    });
+
+    it('lists field coverage per status in the documentation (IT-035)', () => {
+      expect(jenkinsReadme).toMatch(/\|\s*`job_id`\s*\|\s*✓\s*\|\s*✓\s*\|\s*✓/);
+      expect(jenkinsReadme).toMatch(/\|\s*`build_url`\s*\|\s*✓\s*\|\s*✓\s*\|\s*✓/);
+      expect(jenkinsReadme).toMatch(/\|\s*`branch_name`\s*\|\s*✓\s*\|\s*✓\s*\|\s*-/);
+      expect(jenkinsReadme).toMatch(/\|\s*`pr_url`\s*\|\s*-\s*\|\s*✓\s*\|\s*-/);
+      expect(jenkinsReadme).toMatch(/\|\s*`finished_at`\s*\|\s*-\s*\|\s*✓\s*\|\s*✓/);
+      expect(jenkinsReadme).toMatch(/\|\s*`logs_url`\s*\|\s*-\s*\|\s*✓\s*\|\s*✓/);
     });
   });
 });
