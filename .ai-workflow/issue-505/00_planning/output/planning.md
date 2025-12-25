@@ -176,17 +176,17 @@
 
 ### Phase 4: 実装 (見積もり: 3-4h)
 
-- [ ] Task 4-1: sendWebhook共通関数の実装 (1h)
+- [x] Task 4-1: sendWebhook共通関数の実装 (1h)
   - `jenkins/shared/common.groovy` への関数追加
   - httpRequestステップの実装
   - エラーハンドリング実装
 
-- [ ] Task 4-2: Job DSLパラメータ追加（全8ファイル） (1h)
+- [x] Task 4-2: Job DSLパラメータ追加（全8ファイル） (1h)
   - JOB_ID パラメータ追加
   - WEBHOOK_URL パラメータ追加（nonStoredPasswordParam）
   - WEBHOOK_TOKEN パラメータ追加（nonStoredPasswordParam）
 
-- [ ] Task 4-3: Jenkinsfile更新（全8ファイル） (1.5-2h)
+- [x] Task 4-3: Jenkinsfile更新（全8ファイル） (1.5-2h)
   - ビルド開始時のwebhook送信追加
   - post.success時のwebhook送信追加
   - post.failure時のwebhook送信追加
@@ -309,11 +309,11 @@ graph TD
 
 ### Phase 4: 実装
 
-- [ ] sendWebhook関数が common.groovy に追加されている
-- [ ] 全8個のJob DSLファイルにパラメータが追加されている
-- [ ] 全8個のJenkinsfileにwebhook呼び出しが追加されている
-- [ ] エラーハンドリングが実装されている
-- [ ] コードスタイルが既存コードと一貫している
+- [x] sendWebhook関数が common.groovy に追加されている
+- [x] 全8個のJob DSLファイルにパラメータが追加されている
+- [x] 全8個のJenkinsfileにwebhook呼び出しが追加されている
+- [x] エラーハンドリングが実装されている
+- [x] コードスタイルが既存コードと一貫している
 
 ### Phase 5: テストコード実装
 
