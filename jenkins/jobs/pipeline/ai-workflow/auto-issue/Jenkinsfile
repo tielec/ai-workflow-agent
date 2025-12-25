@@ -245,15 +245,8 @@ pipeline {
                 def dryRunNote = params.DRY_RUN ? ' (dry run mode, no issues created)' : ''
                 echo "Result: Auto issue detection completed${dryRunNote}"
 
+                // auto-issue モードでは PR URL は存在しない（Issue URL ベースではないため）
                 def prUrl = ''
-                try {
-                    prUrl = sh(
-                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                        returnStdout: true
-                    ).trim()
-                } catch (Exception e) {
-                    echo "Could not retrieve PR URL: ${e.message}"
-                }
 
                 common.sendWebhook([
                     webhookUrl: params.WEBHOOK_URL,
