@@ -212,6 +212,18 @@ pipeline {
                     currentBuild.description = "Issue #${env.ISSUE_NUMBER} | Finalize Executing${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
+                        // PR URL を finalize 実行前に取得（.ai-workflow ディレクトリ削除前に実行）
+                        try {
+                            env.PR_URL = sh(
+                                script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
+                                returnStdout: true
+                            ).trim()
+                            echo "Retrieved PR URL: ${env.PR_URL}"
+                        } catch (Exception e) {
+                            echo "Could not retrieve PR URL: ${e.message}"
+                            env.PR_URL = ''
+                        }
+
                         // finalize コマンドのオプション構築
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
                         def skipSquashFlag = params.SKIP_SQUASH ? '--skip-squash' : ''
@@ -293,14 +305,10 @@ pipeline {
 
                 echo summary
 
-                def prUrl = ''
-                try {
-                    prUrl = sh(
-                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                        returnStdout: true
-                    ).trim()
-                } catch (Exception e) {
-                    echo "Could not retrieve PR URL: ${e.message}"
+                // PR URL は Execute Finalize ステージで取得済み（環境変数に保存）
+                def prUrl = env.PR_URL ?: ''
+                if (prUrl) {
+                    echo "PR URL: ${prUrl}"
                 }
 
                 common.sendWebhook([
