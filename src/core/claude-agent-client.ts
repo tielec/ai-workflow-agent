@@ -92,9 +92,18 @@ export class ClaudeAgentClient {
     const nodePath = process.execPath;
     const nodeDir = path.dirname(nodePath);
     const currentPath = process.env.PATH || '';
+
+    // デバッグ: PATH の状態をログ出力
+    logger.debug(`[Issue #494 Debug] process.execPath: ${nodePath}`);
+    logger.debug(`[Issue #494 Debug] nodeDir: ${nodeDir}`);
+    logger.debug(`[Issue #494 Debug] path.delimiter: ${path.delimiter}`);
+    logger.debug(`[Issue #494 Debug] currentPath includes nodeDir: ${currentPath.split(path.delimiter).includes(nodeDir)}`);
+
     if (!currentPath.split(path.delimiter).includes(nodeDir)) {
       process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
-      logger.debug(`Added node directory to PATH: ${nodeDir}`);
+      logger.debug(`[Issue #494] Added node directory to PATH: ${nodeDir}`);
+    } else {
+      logger.debug(`[Issue #494] Node directory already in PATH: ${nodeDir}`);
     }
 
     const stream = query({
