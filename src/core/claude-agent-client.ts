@@ -99,11 +99,22 @@ export class ClaudeAgentClient {
     logger.debug(`[Issue #494 Debug] path.delimiter: ${path.delimiter}`);
     logger.debug(`[Issue #494 Debug] currentPath includes nodeDir: ${currentPath.split(path.delimiter).includes(nodeDir)}`);
 
-    if (!currentPath.split(path.delimiter).includes(nodeDir)) {
-      process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
-      logger.debug(`[Issue #494] Added node directory to PATH: ${nodeDir}`);
+    // Issue #494: 修正案 - PATH に含まれていても、先頭に追加することで優先順位を上げる
+    // Claude Agent SDK が spawn する際に確実に見つかるようにする
+    const pathParts = currentPath.split(path.delimiter).filter(Boolean);
+    const nodeDirIndex = pathParts.indexOf(nodeDir);
+
+    if (nodeDirIndex !== 0) {
+      // nodeDir が PATH の先頭にない場合、または含まれていない場合
+      const newPathParts = nodeDirIndex > 0
+        ? [nodeDir, ...pathParts.filter(p => p !== nodeDir)] // 含まれている場合は先頭に移動
+        : [nodeDir, ...pathParts]; // 含まれていない場合は先頭に追加
+
+      process.env.PATH = newPathParts.join(path.delimiter);
+      logger.debug(`[Issue #494] Moved/Added node directory to front of PATH: ${nodeDir}`);
+      logger.debug(`[Issue #494] New PATH: ${process.env.PATH?.substring(0, 200)}...`);
     } else {
-      logger.debug(`[Issue #494] Node directory already in PATH: ${nodeDir}`);
+      logger.debug(`[Issue #494] Node directory already at front of PATH: ${nodeDir}`);
     }
 
     const stream = query({
