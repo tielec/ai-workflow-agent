@@ -26,10 +26,9 @@
     "level": "moderate",
     "confidence": 0.8,
     "factors": {
-      "[REDACTED_TOKEN]": 5,
+      "[REDACTED_TOKEN]": false,
       "scope": "single_module",
       "requires_tests": true,
-      "[REDACTED_TOKEN]": false,
       "complexity_score": 0.6
     },
     "analyzed_at": "2025-12-25T08:35:10.050Z",
@@ -256,7 +255,7 @@
     }
   },
   "created_at": "2025-12-25T08:35:05.029Z",
-  "updated_at": "2025-12-25T08:35:13.033Z",
+  "updated_at": "2025-12-25T08:35:17.616Z",
   "branch_name": "ai-workflow/issue-518",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 521,
