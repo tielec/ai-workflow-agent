@@ -150,17 +150,17 @@
 
 ### Phase 2: 設計 (見積もり: 1.5h)
 
-- [ ] Task 2-1: sendWebhook共通関数の詳細設計 (0.5h)
+- [x] Task 2-1: sendWebhook共通関数の詳細設計 (0.5h)
   - 関数シグネチャの確定
   - 引数バリデーションロジック
   - エラーハンドリングパターン
 
-- [ ] Task 2-2: Job DSLパラメータ設計 (0.5h)
+- [x] Task 2-2: Job DSLパラメータ設計 (0.5h)
   - パラメータ名・型・説明の確定
   - `nonStoredPasswordParam` の使用確認
   - 既存パラメータとの配置順序
 
-- [ ] Task 2-3: Jenkinsfileへの組み込み設計 (0.5h)
+- [x] Task 2-3: Jenkinsfileへの組み込み設計 (0.5h)
   - webhook呼び出し位置の特定（各Jenkinsfileのステージ構造に応じて）
   - try-catch構造の設計
   - 各実行モード固有の考慮事項
