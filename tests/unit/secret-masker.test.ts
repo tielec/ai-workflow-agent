@@ -125,6 +125,63 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     // Then: 文字列はそのまま
     expect(masked).toBe(input);
   });
+
+  test('Issue #514: GitHubリポジトリ名（owner/repo形式）は汎用トークンマスキングから除外される', () => {
+    // Given: GitHubリポジトリ名を含むメタデータJSON風の文字列
+    const input = `{
+      "target_repository": {
+        "github_name": "tielec/infrastructure-as-code",
+        "owner": "tielec",
+        "repo": "infrastructure-as-code"
+      }
+    }`;
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: リポジトリ名は保持され、[REDACTED_TOKEN]に置換されない
+    expect(masked).toContain('tielec/infrastructure-as-code');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('Issue #514: 複数のGitHubリポジトリ名が混在しても正しく保持される', () => {
+    // Given: 複数のリポジトリ名を含む文字列
+    const input = 'Repositories: tielec/ai-workflow-agent, tielec/infrastructure-as-code, owner/very-long-repository-name-that-exceeds-20-chars';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: すべてのリポジトリ名が保持される
+    expect(masked).toContain('tielec/ai-workflow-agent');
+    expect(masked).toContain('tielec/infrastructure-as-code');
+    expect(masked).toContain('owner/very-long-repository-name-that-exceeds-20-chars');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('Issue #514: GitHub URLに含まれるリポジトリ名も保持される', () => {
+    // Given: GitHub URLを含む文字列
+    const input = 'Remote URL: https://github.com/tielec/infrastructure-as-code.git';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: リポジトリ名が保持される
+    expect(masked).toContain('tielec/infrastructure-as-code');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('Issue #514: リポジトリ名とは無関係な20文字以上のトークンは依然としてマスキングされる', () => {
+    // Given: リポジトリ名と汎用トークンが混在する文字列
+    const input = 'Repository: tielec/infrastructure-as-code, Token: AKIAIOSFODNN7EXAMPLE1234567890';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: リポジトリ名は保持され、トークンのみマスキングされる
+    expect(masked).toContain('tielec/infrastructure-as-code');
+    expect(masked).toContain('[REDACTED_TOKEN]');
+    expect(masked).not.toContain('AKIAIOSFODNN7EXAMPLE1234567890');
+  });
 });
 
 describe('SecretMasker環境変数検出テスト', () => {
