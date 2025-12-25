@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #487**: pr-comment execute コマンドでエージェントログをファイル保存
+  - 各コメント分析時のエージェント実行ログを個別ファイルとして保存
+  - ファイル名形式: `agent_log_comment_{comment_id}.md`
+  - 保存先: `.ai-workflow/pr-{NUM}/execute/` ディレクトリ
+  - LogFormatterによる統一Markdown形式でのフォーマット出力
+  - ドライランモード時はログ保存をスキップ
+  - `ReviewCommentAnalyzer.runAgent()` メソッド拡張による実装
+  - `persistAgentLog()` 関数追加とエラー時のフォールバック処理
+  - 修正ファイル: `src/core/pr-comment/comment-analyzer.ts`
+  - テストカバレッジ: 17件のユニットテスト（100%成功）
+
 - **Issue #462**: Jenkinsジョブパラメータのセキュリティ強化（非破壊的変更）
   - 個人情報・機密情報を含むパラメータをNon-Stored Password Parameterに変更
   - 対象パラメータ（7種類）: `ISSUE_URL`, `PR_URL`, `BRANCH_NAME`, `BASE_BRANCH`, `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL`, `CODEX_AUTH_JSON`
