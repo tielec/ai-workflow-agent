@@ -102,7 +102,7 @@ Issue #510 の修正後のインテグレーションテスト `tests/integratio
 
 ### Phase 1: 要件定義 (見積もり: 0.5h)
 
-- [ ] Task 1-1: 現状のモックパターン調査 (0.5h)
+- [x] Task 1-1: 現状のモックパターン調査 (0.5h)
   - 既存の `jest.mock` パターンを分類（同期 vs 非同期、`__esModule` 有無）
   - ESM 互換パターン（`jest.unstable_mockModule`）の使用状況確認
   - 問題のあるパターンと正常なパターンの特定
