@@ -11,16 +11,16 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "design",
+  "current_phase": "test_scenario",
   "design_decisions": {
     "[REDACTED_TOKEN]": null,
     "test_strategy": null,
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 10208,
-    "total_output_tokens": 35484,
-    "total_cost_usd": 8.58373785
+    "total_input_tokens": 10210,
+    "total_output_tokens": 44067,
+    "total_cost_usd": 11.0552045
   },
   "difficulty_analysis": {
     "level": "moderate",
@@ -203,22 +203,24 @@
       ]
     },
     "design": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2025-12-25T08:44:28.410Z",
-      "completed_at": null,
+      "completed_at": "2025-12-25T08:50:53.491Z",
       "review_result": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     },
     "test_scenario": {
-      "status": "pending",
+      "status": "in_progress",
       "retry_count": 0,
-      "started_at": null,
+      "started_at": "2025-12-25T08:50:54.123Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "implementation": {
       "status": "pending",
@@ -269,7 +271,7 @@
     }
   },
   "created_at": "2025-12-25T08:35:05.029Z",
-  "updated_at": "2025-12-25T08:50:48.439Z",
+  "updated_at": "2025-12-25T08:55:14.534Z",
   "branch_name": "ai-workflow/issue-518",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 521,
