@@ -289,8 +289,116 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
   // IT-510: pull による HEAD 更新時もスカッシュ対象が固定される
   // =============================================================================
   describe('IT-510: non-fast-forward で HEAD が更新されてもスカッシュ対象を維持', () => {
-    test('Step1 で取得した HEAD を headCommit として伝播する', async () => {
+    test('IT-510-001: pull を挟んでも headBeforeCleanup でスカッシュする', async () => {
+      // Given: push が non-fast-forward で pullLatest が走るケースを再現
+      const pullLatest = jest.fn().mockResolvedValue({ success: true });
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+
+      // Step 2 用（cleanup + push）
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockImplementation(async () => {
+          await pullLatest('feature/issue-510');
+          return { success: true };
+        }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      // Step 3 用（squash）
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('head-before-cleanup');
+            expect(context.baseCommit).toBe('abc123def456');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: pull が実行され、headBeforeCleanup がそのまま終端として使われる
+      expect(pullLatest).toHaveBeenCalled();
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 510,
+          headCommit: 'head-before-cleanup',
+        }),
+      );
+    });
+
+    test('IT-510-002: headCommit 未指定時は HEAD を終点にする', async () => {
+      // Given: HEAD を明示的に取得できないケースを HEAD リテラルで代用
+      mockRevparse.mockResolvedValueOnce('HEAD\n');
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('HEAD');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: HEAD が終点として渡される
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseCommit: 'abc123def456',
+          headCommit: 'HEAD',
+        }),
+      );
+    });
+
+    test('IT-510-003: Step 1 の headBeforeCleanup を Step 3 に伝播する', async () => {
       // Given: finalize --issue 510 を実行
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.headCommit).toBe('head-before-cleanup');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
       const options: FinalizeCommandOptions = {
         issue: '510',
       };
@@ -299,17 +407,69 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
       await handleFinalizeCommand(options);
 
       // Then: headBeforeCleanup が SquashManager に渡される
-      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-      const squashManager = gitManagerInstance?.getSquashManager();
-
-      expect(squashManager.squashCommitsForFinalize).toHaveBeenCalledWith(
+      expect(squashSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           issueNumber: 510,
           baseCommit: 'abc123def456',
           headCommit: 'head-before-cleanup',
         }),
       );
+    });
+
+    test('IT-510-004: 既存 IT-12 相当のコンテキストで後方互換を維持する', async () => {
+      // Given: 従来の finalize フロー（issue 123 相当）を再現
+      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+      const squashSpy = jest.fn().mockResolvedValue(undefined);
+
+      mockGitManager.mockImplementationOnce(() => ({
+        commitWorkflowDeletion: jest.fn().mockResolvedValue({
+          success: true,
+          commit_hash: 'cleanup789',
+        }),
+        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+        getSquashManager: jest.fn(),
+      } as any));
+
+      mockGitManager.mockImplementationOnce(() => ({
+        getSquashManager: jest.fn().mockReturnValue({
+          squashCommitsForFinalize: jest.fn().mockImplementation(async (context) => {
+            expect(context.issueNumber).toBe(123);
+            expect(context.baseCommit).toBe('abc123def456');
+            expect(context.targetBranch).toBe('main');
+            expect(context.headCommit).toBe('head-before-cleanup');
+            return squashSpy(context);
+          }),
+        }),
+      } as any));
+
+      const options: FinalizeCommandOptions = {
+        issue: '123',
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: 既存の FinalizeContext 期待値が維持される
+      expect(squashSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issueNumber: 123,
+          baseCommit: 'abc123def456',
+          targetBranch: 'main',
+          headCommit: 'head-before-cleanup',
+        }),
+      );
+    });
+
+    test('IT-510-005: Step 1 で HEAD 取得に失敗した場合はエラーにする', async () => {
+      // Given: git.revparse が失敗する
+      mockRevparse.mockRejectedValueOnce(new Error('revparse failed'));
+
+      const options: FinalizeCommandOptions = {
+        issue: '510',
+      };
+
+      // When & Then: エラーで終了する
+      await expect(handleFinalizeCommand(options)).rejects.toThrow(/revparse failed/i);
     });
   });
 });

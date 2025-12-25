@@ -180,17 +180,17 @@
   - `git.log()` の `to` パラメータを `targetHead` に変更
   - デバッグログの追加
 
-### Phase 5: テストコード実装 (見積もり: 2〜2.5h)
+-### Phase 5: テストコード実装 (見積もり: 2〜2.5h)
 
-- [ ] Task 5-1: ユニットテスト実装 (1h)
+- [x] Task 5-1: ユニットテスト実装 (1h)
   - `squash-manager.test.ts` に新規テストケース追加
   - `getCommitsToSquash()` の `targetHead` パラメータテスト
 
-- [ ] Task 5-2: インテグレーションテスト実装 (1h)
+- [x] Task 5-2: インテグレーションテスト実装 (1h)
   - `finalize-command.test.ts` に Issue #510 シナリオ追加
   - non-fast-forward + pull 後のスカッシュ動作確認
 
-- [ ] Task 5-3: 後方互換性テスト (0.5h)
+- [x] Task 5-3: 後方互換性テスト (0.5h)
   - `headCommit` 未指定時の従来動作確認
   - 既存テストの修正（必要に応じて）
 

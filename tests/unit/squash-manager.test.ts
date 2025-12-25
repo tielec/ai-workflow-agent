@@ -7,6 +7,7 @@ import type { RemoteManager } from '../../src/core/git/remote-manager.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { PhaseContext } from '../../src/types/commands.js';
+import type { FinalizeContext } from '../../src/core/git/squash-manager.js';
 
 // Mock fs module before importing
 const mockMkdir = jest.fn<() => Promise<void>>();
@@ -140,6 +141,24 @@ describe('SquashManager', () => {
       });
     });
 
+    it('should surface an error when targetHead is an empty string', async () => {
+      // Given: targetHead が空文字列で指定される（Gitが失敗するケース）
+      const baseCommit = 'abc123def456';
+      mockGit.log.mockRejectedValue(new Error('Invalid revision'));
+
+      // When/Then: 失敗としてラップされたエラーが返る
+      await expect((squashManager as any).getCommitsToSquash(baseCommit, '')).rejects.toThrow(
+        'Failed to get commits to squash',
+      );
+
+      // to パラメータに空文字が渡されていることを確認
+      expect(mockGit.log).toHaveBeenCalledWith({
+        from: baseCommit,
+        to: '',
+        format: { hash: '%H' },
+      });
+    });
+
     // テストケース 2.1.3: 異常系_無効なbase_commit
     it('should throw error when base_commit is invalid', async () => {
       // Given: 無効なbase_commitが指定される
@@ -208,6 +227,52 @@ describe('SquashManager', () => {
 
       // Then: デフォルトで HEAD が使用される
       expect(getCommitsSpy).toHaveBeenCalledWith('abc123', 'HEAD');
+    });
+
+    it('should fallback to HEAD when headCommit is nullish', async () => {
+      // Given: headCommit が明示的に null として渡される
+      const context: FinalizeContext = {
+        issueNumber: 510,
+        baseCommit: 'abc123',
+        targetBranch: 'main',
+        headCommit: null as unknown as string | undefined,
+      };
+
+      const getCommitsSpy = jest
+        .spyOn(squashManager as any, 'getCommitsToSquash')
+        .mockResolvedValue(['c1']);
+      jest.spyOn(squashManager as any, 'validateBranchProtection').mockResolvedValue(undefined);
+      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+
+      // When
+      await squashManager.squashCommitsForFinalize(context);
+
+      // Then: nullish は HEAD にフォールバックする
+      expect(getCommitsSpy).toHaveBeenCalledWith('abc123', 'HEAD');
+    });
+  });
+
+  describe('FinalizeContext type compatibility', () => {
+    it('should allow FinalizeContext without headCommit', () => {
+      const context: FinalizeContext = {
+        issueNumber: 123,
+        baseCommit: 'abc123',
+        targetBranch: 'main',
+      };
+
+      expect(context.issueNumber).toBe(123);
+      expect(context.headCommit).toBeUndefined();
+    });
+
+    it('should allow FinalizeContext with headCommit', () => {
+      const context: FinalizeContext = {
+        issueNumber: 123,
+        baseCommit: 'abc123',
+        targetBranch: 'main',
+        headCommit: 'def456',
+      };
+
+      expect(context.headCommit).toBe('def456');
     });
   });
 
