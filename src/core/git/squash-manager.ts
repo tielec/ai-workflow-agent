@@ -149,6 +149,10 @@ export class SquashManager {
    */
   private async getCommitsToSquash(baseCommit: string): Promise<string[]> {
     try {
+      // Issue #507: デバッグログを追加
+      const currentHead = await this.git.revparse(['HEAD']);
+      logger.debug(`getCommitsToSquash: base_commit=${baseCommit.slice(0, 7)}, HEAD=${currentHead.trim().slice(0, 7)}`);
+
       // git log <base_commit>..HEAD --format=%H --reverse
       const result = await this.git.log({
         from: baseCommit,
@@ -156,7 +160,10 @@ export class SquashManager {
         format: { hash: '%H' },
       });
 
-      return result.all.map((commit) => commit.hash);
+      const commits = result.all.map((commit) => commit.hash);
+      logger.debug(`getCommitsToSquash: found ${commits.length} commit(s)`);
+
+      return commits;
     } catch (error) {
       throw new Error(`Failed to get commits to squash: ${getErrorMessage(error)}`);
     }
