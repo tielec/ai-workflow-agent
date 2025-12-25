@@ -5,7 +5,7 @@
   "repository": null,
   "target_repository": null,
   "workflow_version": "1.0.0",
-  "current_phase": "design",
+  "current_phase": "planning",
   "design_decisions": {
     "implementation_strategy": null,
     "test_strategy": null,
@@ -24,81 +24,63 @@
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "requirements": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "design": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-25T10:22:16.086Z",
-      "completed_at": "2025-12-25T10:22:16.086Z",
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null
     },
     "test_scenario": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "implementation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "test_implementation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "testing": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "documentation": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "report": {
       "status": "pending",
       "retry_count": 0,
       "started_at": null,
       "completed_at": null,
-      "review_result": null,
-      "current_step": null,
-      "completed_steps": []
+      "review_result": null
     },
     "evaluation": {
       "status": "pending",
@@ -110,11 +92,9 @@
       "failed_phase": null,
       "remaining_tasks": [],
       "created_issue_url": null,
-      "abort_reason": null,
-      "current_step": null,
-      "completed_steps": []
+      "abort_reason": null
     }
   },
-  "created_at": "2025-12-25T10:22:16.078Z",
-  "updated_at": "2025-12-25T10:22:16.086Z"
+  "created_at": "2025-12-25T09:50:59.550Z",
+  "updated_at": "2025-12-25T09:50:59.550Z"
 }

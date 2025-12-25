@@ -51,9 +51,13 @@ export class LogFormatter {
         .join('\n');
     }
 
-    // Claude Agent のログフォーマット
+    // Claude Agent のログフォーマット（その他の名前はそのまま見出しに利用）
     const lines: string[] = [];
-    lines.push('# Claude Agent 実行ログ\n');
+    const header =
+      agentName === 'Claude Agent'
+        ? '# Claude Agent 実行ログ\n'
+        : `# ${agentName}\n`;
+    lines.push(header);
     lines.push(`生成日時: ${new Date(startTime).toLocaleString('ja-JP')}\n`);
     lines.push('---\n');
 

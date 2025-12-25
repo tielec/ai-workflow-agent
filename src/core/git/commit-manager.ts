@@ -177,10 +177,27 @@ export class CommitManager {
     workingDir: string,
   ): Promise<CommitResult> {
     // 1. File selection (delegated to FileSelector)
-    const changedFiles = await this.fileSelector.getChangedFiles();
+    let changedFiles: string[];
+    try {
+      changedFiles = await this.fileSelector.getChangedFiles();
+    } catch (error) {
+      logger.error(`Failed to detect changed files for step commit: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: [],
+        error: `Step commit failed: ${getErrorMessage(error)}`,
+      };
+    }
+
     const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
 
-    if (filteredFiles.length === 0) {
+    const phasePrefix = `.${join('ai-workflow', `issue-${issueNumber}`, `${phaseNumber.toString().padStart(2, '0')}_${phaseName}`)}/`;
+    const stepPrefix = `${phasePrefix}${step}`;
+    const stepScopedFiles = filteredFiles.filter((file) => file.startsWith(stepPrefix));
+    const filesForStep = stepScopedFiles.length > 0 ? stepScopedFiles : filteredFiles;
+
+    if (filesForStep.length === 0) {
       logger.warn(`No files to commit for step: ${step}`);
       return {
         success: true,
@@ -190,7 +207,7 @@ export class CommitManager {
     }
 
     // Issue #234: Filter out non-existent files before git add
-    const targetFiles = this.filterExistingFiles(filteredFiles);
+    const targetFiles = this.filterExistingFiles(filesForStep);
 
     if (targetFiles.length === 0) {
       logger.warn(`No existing files to commit for step: ${step}`);
@@ -222,7 +239,18 @@ export class CommitManager {
     }
 
     // 3. Git staging
-    await this.git.add(targetFiles);
+    try {
+      await this.git.add(targetFiles);
+    } catch (error) {
+      logger.error(`Step commit staging failed: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: targetFiles,
+        error: `Step commit failed: ${getErrorMessage(error)}`,
+      };
+    }
+
     await this.ensureGitConfig();
 
     // 4. Commit message generation (delegated to CommitMessageBuilder)
@@ -419,6 +447,54 @@ export class CommitManager {
   }
 
   /**
+   * Build step commit message (public wrapper for backward compatibility)
+   */
+  public buildStepCommitMessage(
+    phaseName: string,
+    phaseNumber: number,
+    step: string,
+    issueNumber: number,
+  ): string {
+    return this.messageBuilder.buildStepCommitMessage(
+      phaseName,
+      phaseNumber,
+      step,
+      issueNumber,
+    );
+  }
+
+  /**
+   * Public wrapper for initialization commit message
+   */
+  public createInitCommitMessage(issueNumber: number, branchName: string): string {
+    return this.messageBuilder.createInitCommitMessage(issueNumber, branchName);
+  }
+
+  /**
+   * Public wrapper for cleanup commit message
+   */
+  public createCleanupCommitMessage(
+    issueNumber: number,
+    phase: 'report' | 'evaluation' | 'finalize',
+  ): string {
+    return this.messageBuilder.createCleanupCommitMessage(issueNumber, phase);
+  }
+
+  /**
+   * Expose changed-file detection for testing/compatibility
+   */
+  public async getChangedFiles(): Promise<string[]> {
+    return this.fileSelector.getChangedFiles();
+  }
+
+  /**
+   * Expose phase file filtering for testing/compatibility
+   */
+  public filterPhaseFiles(files: string[], issueNumber: string): string[] {
+    return this.fileSelector.filterPhaseFiles(files, issueNumber);
+  }
+
+  /**
    * Filter files that actually exist on the filesystem
    * This prevents "fatal: pathspec 'file' did not match any files" errors
    * when git status reports files that have been deleted or moved.
@@ -434,13 +510,15 @@ export class CommitManager {
       if (existsSync(fullPath)) {
         existingFiles.push(file);
       } else {
+        // Keep deleted files so git can stage removals
         missingFiles.push(file);
+        existingFiles.push(file);
       }
     }
 
     if (missingFiles.length > 0) {
-      logger.warn(
-        `Skipping ${missingFiles.length} non-existent file(s): ${missingFiles.slice(0, 3).join(', ')}${missingFiles.length > 3 ? '...' : ''}`,
+      logger.debug(
+        `Including ${missingFiles.length} missing file(s) for staging (likely deletions): ${missingFiles.slice(0, 3).join(', ')}${missingFiles.length > 3 ? '...' : ''}`,
       );
     }
 

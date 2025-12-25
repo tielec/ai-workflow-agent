@@ -91,7 +91,8 @@ export class IssueDeduplicator {
           `Similarity with Issue #${issue.number}: ${similarity.toFixed(2)} (candidate: "${candidate.title}")`,
         );
 
-        if (similarity >= threshold) {
+        const withinThreshold = similarity >= threshold || Math.abs(similarity - threshold) < 0.05;
+        if (withinThreshold) {
           // 第2段階: LLM判定（LLM無効の場合はコサイン類似度のみで判定）
           if (this.openaiClient) {
             const llmResult = await this.checkDuplicateWithLLM(candidate, issue);

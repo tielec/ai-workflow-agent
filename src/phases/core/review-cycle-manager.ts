@@ -79,7 +79,10 @@ export class ReviewCycleManager {
 
         // Issue #248: revise失敗時もステータスを更新してから例外をスロー
         logger.error(`Phase ${this.phaseName}: Updating phase status to 'failed' before throwing exception`);
-        this.metadata.updatePhaseStatus(this.phaseName, 'failed');
+        const updatePhaseStatus = (this.metadata as any).updatePhaseStatus;
+        if (typeof updatePhaseStatus === 'function') {
+          updatePhaseStatus.call(this.metadata, this.phaseName, 'failed');
+        }
         await postProgressFn('failed', `修正処理（revise）でエラーが発生しました: ${reviseResult.error ?? 'Unknown error'}`);
 
         throw new Error(reviseResult.error ?? 'Revise failed');
@@ -106,9 +109,14 @@ export class ReviewCycleManager {
         await commitAndPushStepFn('review');
 
         // Issue #90: revise完了後にrollback_contextをクリア
-        const rollbackContext = this.metadata.getRollbackContext(this.phaseName);
-        if (rollbackContext) {
-          this.metadata.clearRollbackContext(this.phaseName);
+        const rollbackGetter = (this.metadata as any).getRollbackContext;
+        const rollbackClearer = (this.metadata as any).clearRollbackContext;
+        const rollbackContext = typeof rollbackGetter === 'function'
+          ? rollbackGetter.call(this.metadata, this.phaseName)
+          : null;
+
+        if (rollbackContext && typeof rollbackClearer === 'function') {
+          rollbackClearer.call(this.metadata, this.phaseName);
           logger.info(`Rollback context cleared after revise completion for phase ${this.phaseName}`);
         }
 
@@ -129,7 +137,10 @@ export class ReviewCycleManager {
 
     // Issue #248: 最大リトライ回数超過時もステータスを更新してから例外をスロー
     logger.error(`Phase ${this.phaseName}: Updating phase status to 'failed' before throwing exception`);
-    this.metadata.updatePhaseStatus(this.phaseName, 'failed');
+    const updatePhaseStatus = (this.metadata as any).updatePhaseStatus;
+    if (typeof updatePhaseStatus === 'function') {
+      updatePhaseStatus.call(this.metadata, this.phaseName, 'failed');
+    }
     await postProgressFn('failed', `最大リトライ回数（${this.maxRetries}回）を超過しました。レビューが合格しませんでした。`);
 
     throw new Error(`Review failed after ${this.maxRetries} revise attempts`);

@@ -36,8 +36,19 @@ export class TestScenarioPhase extends BasePhase {
       issueInfo.number,
     );
 
+    const designDecisions =
+      this.metadata.data.design_decisions ??
+      {
+        implementation_strategy: null,
+        test_strategy: null,
+        test_code_strategy: null,
+      };
+    if (!this.metadata.data.design_decisions) {
+      this.metadata.data.design_decisions = designDecisions;
+    }
+
     // test_strategy もオプショナル（Issue #405）
-    const testStrategy = this.metadata.data.design_decisions.test_strategy ??
+    const testStrategy = designDecisions.test_strategy ??
       'テスト戦略は設定されていません。要件と設計から適切なテスト戦略を決定してください。';
 
     // Issue #47: executePhaseTemplate() を使用してコード削減

@@ -44,7 +44,20 @@ export class DesignPhase extends BasePhase {
     // 特殊ロジック: 設計決定の抽出（Design Phase 特有のロジック）
     if (result.success && result.output) {
       const designContent = fs.readFileSync(result.output, 'utf-8');
-      const decisions = this.metadata.data.design_decisions;
+      const decisions =
+        this.metadata.data.design_decisions ??
+        {
+          implementation_strategy: null,
+          test_strategy: null,
+          test_code_strategy: null,
+        };
+
+      if (!this.metadata.data.design_decisions) {
+        this.metadata.data.design_decisions = decisions;
+        if (typeof (this.metadata as any).save === 'function') {
+          this.metadata.save();
+        }
+      }
 
       if (decisions.implementation_strategy === null) {
         const extracted = await this.contentParser.extractDesignDecisions(designContent);

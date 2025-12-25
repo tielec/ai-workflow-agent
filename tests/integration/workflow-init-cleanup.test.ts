@@ -430,10 +430,10 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     expect(initResult.success).toBe(true);
 
     // 初期化コミットを確認
-    let log = await git.log(['-1', '--oneline']);
+    let log = await git.log(['-1']);
     const hash1 = log.latest?.hash.substring(0, 7) ?? '';
-    const msg1 = log.latest?.message.split('\n')[0] ?? '';
-    let commitOneLine = hash1 + ' ' + msg1;
+    const msg1 = log.latest?.message ?? '';
+    let commitOneLine = `${hash1} ${msg1}`;
     expect(commitOneLine).toContain('[ai-workflow] Initialize workflow for issue #21');
 
     // Step 2: Phase 1-8を順次実行（シミュレート）
@@ -466,10 +466,10 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     expect(cleanupResult.success).toBe(true);
 
     // クリーンアップコミットを確認
-    log = await git.log(['-1', '--oneline']);
+    log = await git.log(['-1']);
     const hash2 = log.latest?.hash.substring(0, 7) ?? '';
-    const msg2 = log.latest?.message.split('\n')[0] ?? '';
-    commitOneLine = hash2 + ' ' + msg2;
+    const msg2 = log.latest?.message ?? '';
+    commitOneLine = `${hash2} ${msg2}`;
     expect(commitOneLine).toContain('[ai-workflow] Clean up workflow execution logs');
 
     // Step 4: ファイルシステムを確認

@@ -136,7 +136,7 @@ export class WorkflowState {
     const template = JSON.parse(
       fs.readFileSync(METADATA_TEMPLATE_PATH, 'utf-8')
     ) as WorkflowMetadata;
-    const phases = this.data.phases as PhasesMetadata;
+    let phases = (this.data.phases ?? {}) as PhasesMetadata;
     let migrated = false;
 
     // Add missing phases preserving template order.
@@ -166,6 +166,7 @@ export class WorkflowState {
 
     if (phasesChanged) {
       this.data.phases = newPhases;
+      phases = this.data.phases as PhasesMetadata;
     }
 
     // Design decisions
@@ -259,8 +260,13 @@ export class WorkflowState {
         dirname(this.metadataPath),
         `${metadataFileName}.backup_${timestamp}`,
       );
-      fs.copyFileSync(this.metadataPath, backupPath);
-      logger.info(`Metadata backup created: ${backupPath}`);
+      const copyFile = (fs as any).copyFileSync ?? (fs as any).copySync ?? null;
+      if (typeof copyFile === 'function') {
+        copyFile(this.metadataPath, backupPath);
+        logger.info(`Metadata backup created: ${backupPath}`);
+      } else {
+        logger.warn('Metadata backup skipped: copyFileSync/copySync not available');
+      }
 
       this.save();
       logger.info('metadata.json migrated successfully');

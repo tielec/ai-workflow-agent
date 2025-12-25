@@ -158,11 +158,11 @@ Issue #510 の修正後のインテグレーションテスト `tests/integratio
 
 ### Phase 6: テスト実行 (見積もり: 1.5h)
 
-- [ ] Task 6-1: 対象テストの個別実行 (0.5h)
+- [x] Task 6-1: 対象テストの個別実行 (0.5h)
   - `npm test -- tests/integration/finalize-command.test.ts`
   - ESM モック関連の TypeError が発生しないことを確認
 
-- [ ] Task 6-2: 変更した代表テストの実行 (0.5h)
+- [x] Task 6-2: 変更した代表テストの実行 (0.5h)
   - 修正した各テストファイルの個別実行
   - モック初期化エラーがないことを確認
 
