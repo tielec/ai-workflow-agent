@@ -164,19 +164,19 @@
 
 ### Phase 5: テストコード実装 (見積もり: 2~3h)
 
-- [ ] Task 5-1: config.ts のユニットテスト追加 (0.5h)
+- [x] Task 5-1: config.ts のユニットテスト追加 (0.5h)
   - `tests/unit/core/config.test.ts` に `getWorkflowLanguage()` のテスト追加
   - 環境変数設定/未設定時の動作テスト
   - 不正値入力時のフォールバックテスト
-- [ ] Task 5-2: options-parser.ts のユニットテスト追加 (0.5h)
+- [x] Task 5-2: options-parser.ts のユニットテスト追加 (0.5h)
   - `tests/unit/commands/execute/options-parser.test.ts` に言語オプションテスト追加
   - 有効値 (`ja`, `en`) のパーステスト
   - 無効値入力時のバリデーションエラーテスト
-- [ ] Task 5-3: metadata-manager.ts のユニットテスト追加 (0.5h)
+- [x] Task 5-3: metadata-manager.ts のユニットテスト追加 (0.5h)
   - `tests/unit/metadata-manager.test.ts` に言語設定テスト追加
   - `setLanguage()`, `getLanguage()` の動作テスト
   - 後方互換性テスト（既存メタデータでの動作）
-- [ ] Task 5-4: インテグレーションテスト作成 (1~1.5h)
+- [x] Task 5-4: インテグレーションテスト作成 (1~1.5h)
   - 新規ファイル `tests/integration/language-setting.test.ts` 作成
   - CLI → メタデータ → 再読み込みのE2Eテスト
   - 環境変数優先順位テスト
