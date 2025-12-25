@@ -335,14 +335,10 @@ pipeline {
                 echo "PR: #${env.PR_NUMBER}"
                 echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
 
-                def prUrl = ''
-                try {
-                    prUrl = sh(
-                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                        returnStdout: true
-                    ).trim()
-                } catch (Exception e) {
-                    echo "Could not retrieve PR URL: ${e.message}"
+                // params.PR_URL を直接使用（SecretMasker の影響を回避）
+                def prUrl = params.PR_URL ?: ''
+                if (prUrl) {
+                    echo "PR URL: ${prUrl}"
                 }
 
                 common.sendWebhook([

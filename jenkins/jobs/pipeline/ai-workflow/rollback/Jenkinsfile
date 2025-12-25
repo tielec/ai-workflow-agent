@@ -312,12 +312,17 @@ pipeline {
                 echo "Rollback Target: ${targetLabel}"
                 echo "Workflow Directory: .ai-workflow/issue-${env.ISSUE_NUMBER}"
 
+                // metadata.json から PR URL を読み込み（readJSON を使用して SecretMasker を回避）
                 def prUrl = ''
                 try {
-                    prUrl = sh(
-                        script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                        returnStdout: true
-                    ).trim()
+                    def metadataFile = ".ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json"
+                    if (fileExists(metadataFile)) {
+                        def metadata = readJSON file: metadataFile
+                        prUrl = metadata.pr_url ?: ''
+                        if (prUrl) {
+                            echo "PR URL: ${prUrl}"
+                        }
+                    }
                 } catch (Exception e) {
                     echo "Could not retrieve PR URL: ${e.message}"
                 }
