@@ -13,7 +13,12 @@ import {
   validateExternalDocument,
 } from '../core/phase-dependencies.js';
 import { ResumeManager } from '../utils/resume.js';
-import { PhaseName, type IssueGenerationOptions } from '../types.js';
+import {
+  DEFAULT_WORKFLOW_LANGUAGE,
+  PhaseName,
+  type IssueGenerationOptions,
+  type WorkflowLanguage,
+} from '../types.js';
 import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { PhaseContext, ExecuteCommandOptions } from '../types/commands.js';
@@ -56,6 +61,27 @@ const DEFAULT_FOLLOWUP_LLM_OPTIONS: IssueGenerationOptions = {
   appendMetadata: false,
 };
 
+function resolveWorkflowLanguage(
+  cliLanguage: WorkflowLanguage | undefined,
+  metadataManager: MetadataManager
+): WorkflowLanguage {
+  if (cliLanguage) {
+    return cliLanguage;
+  }
+
+  const envLanguage = config.getWorkflowLanguage();
+  if (envLanguage) {
+    return envLanguage;
+  }
+
+  const metadataLanguage = metadataManager.getLanguage();
+  if (metadataLanguage) {
+    return metadataLanguage;
+  }
+
+  return DEFAULT_WORKFLOW_LANGUAGE;
+}
+
 /**
  * フェーズ実行コマンドハンドラ
  * @param options - CLI オプション
@@ -88,6 +114,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     followupLlmMaxRetries,
     followupLlmAppendMetadata,
     squashOnComplete,
+    language: parsedLanguage,
   } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
@@ -154,6 +181,10 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     logger.info('--force-reset specified. Restarting from Phase 1...');
     metadataManager = await resetMetadata(metadataManager, metadataPath, issueNumber);
   }
+
+  const resolvedLanguage = resolveWorkflowLanguage(parsedLanguage, metadataManager);
+  metadataManager.setLanguage(resolvedLanguage);
+  logger.info(`Workflow language: ${resolvedLanguage}`);
 
   // workingDirは対象リポジトリのパスを使用
   // Issue #234: REPOS_ROOTが設定されている場合は、そのパスを優先使用
@@ -346,6 +377,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     squashOnComplete,
     issueNumber: Number(issueNumber),
     issueInfo,
+    language: resolvedLanguage,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）

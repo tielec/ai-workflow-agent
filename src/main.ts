@@ -34,6 +34,7 @@ export async function runCli(): Promise<void> {
     .option('--branch <name>', 'Custom branch name (default: ai-workflow/issue-{issue_number})')
     .option('--base-branch <branch>', 'Base branch to branch from (default: current branch)')
     .option('--auto-model-selection', 'Analyze issue difficulty and select models automatically')
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handleInitCommand(
@@ -41,6 +42,7 @@ export async function runCli(): Promise<void> {
           options.branch,
           options.autoModelSelection,
           options.baseBranch,
+          options.language,
         );
       } catch (error) {
         reportFatalError(error);
@@ -129,6 +131,7 @@ export async function runCli(): Promise<void> {
       'Squash all commits into one after workflow completion (Issue #194)',
       false,
     )
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handleExecuteCommand(options);
@@ -179,6 +182,7 @@ export async function runCli(): Promise<void> {
     .option('--force', 'Skip confirmation prompt', false)
     .option('--dry-run', 'Preview changes without updating metadata', false)
     .option('--interactive', 'Interactive mode for entering rollback reason', false)
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handleRollbackCommand(options);
@@ -199,6 +203,7 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handleRollbackAutoCommand({
@@ -206,6 +211,7 @@ export async function runCli(): Promise<void> {
           dryRun: options.dryRun,
           force: options.force,
           agent: options.agent,
+          language: options.language,
         });
       } catch (error) {
         reportFatalError(error);
@@ -226,6 +232,7 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .option(
       '--creative-mode',
       'Enable creative mode for enhancement proposals (experimental ideas)',
@@ -268,6 +275,7 @@ export async function runCli(): Promise<void> {
     .option('--skip-squash', 'Skip commit squash step', false)
     .option('--skip-pr-update', 'Skip PR update and draft conversion steps', false)
     .option('--base-branch <branch>', 'PR base branch (default: main)', 'main')
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handleFinalizeCommand(options);
@@ -285,6 +293,7 @@ export async function runCli(): Promise<void> {
     .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--issue <number>', 'Issue number to resolve PR from')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handlePRCommentInitCommand(options);
@@ -304,6 +313,7 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handlePRCommentAnalyzeCommand(options);
@@ -324,6 +334,7 @@ export async function runCli(): Promise<void> {
         .default('auto'),
     )
     .option('--batch-size <number>', 'Batch size for processing comments', '3')
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handlePRCommentExecuteCommand(options);
@@ -339,6 +350,7 @@ export async function runCli(): Promise<void> {
     .option('--skip-cleanup', 'Skip metadata cleanup', false)
     .option('--dry-run', 'Preview mode (do not resolve threads)', false)
     .option('--squash', 'Squash commits into a single commit', false)
+    .option('--language <lang>', 'Workflow language (ja|en, default: ja)')
     .action(async (options) => {
       try {
         await handlePRCommentFinalizeCommand(options);

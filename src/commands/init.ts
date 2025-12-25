@@ -16,6 +16,7 @@ import type { BranchValidationResult } from '../types/commands.js';
 import { DifficultyAnalyzer } from '../core/difficulty-analyzer.js';
 import { ModelOptimizer } from '../core/model-optimizer.js';
 import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
+import { DEFAULT_WORKFLOW_LANGUAGE, type WorkflowLanguage } from '../types.js';
 
 /**
  * Gitブランチ名のバリデーション
@@ -193,7 +194,8 @@ export async function handleInitCommand(
   issueUrl: string,
   customBranch?: string,
   autoModelSelection?: boolean,
-  baseBranch?: string
+  baseBranch?: string,
+  language?: string
 ): Promise<void> {
   // Issue URLをパース
   let issueInfo;
@@ -329,6 +331,7 @@ export async function handleInitCommand(
         owner: owner,
         repo: repo,
       };
+      applyWorkflowLanguage(metadataManager, language);
       await performAutoModelSelection(
         metadataManager,
         repoRoot,
@@ -432,6 +435,7 @@ export async function handleInitCommand(
     owner: owner,
     repo: repo,
   };
+  applyWorkflowLanguage(metadataManager, language);
 
   // Issue #225: base_commitの記録（スカッシュ機能用）
   // コミット前に現在のHEADを記録することで、initコミットもスカッシュ対象に含める
@@ -547,4 +551,22 @@ export async function handleInitCommand(
   } catch (error) {
     logger.warn(`Failed to create PR automatically: ${getErrorMessage(error)}`);
   }
+}
+
+function applyWorkflowLanguage(metadataManager: MetadataManager, cliLanguage?: string): void {
+  let normalizedCli: WorkflowLanguage | undefined;
+  if (cliLanguage) {
+    const normalized = cliLanguage.trim().toLowerCase() as WorkflowLanguage;
+    if (normalized !== 'ja' && normalized !== 'en') {
+      throw new Error("Invalid language option. Allowed values are 'ja' or 'en'.");
+    }
+    normalizedCli = normalized;
+  }
+
+  const envLanguage = config.getWorkflowLanguage();
+  const resolvedLanguage =
+    normalizedCli ?? envLanguage ?? metadataManager.getLanguage() ?? DEFAULT_WORKFLOW_LANGUAGE;
+
+  metadataManager.setLanguage(resolvedLanguage);
+  logger.info(`Workflow language set to ${resolvedLanguage}`);
 }

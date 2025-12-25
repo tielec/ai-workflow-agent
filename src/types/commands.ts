@@ -1,4 +1,9 @@
-import type { PhaseName, PhaseExecutionResult, IssueGenerationOptions } from '../types.js';
+import type {
+  PhaseName,
+  PhaseExecutionResult,
+  IssueGenerationOptions,
+  WorkflowLanguage,
+} from '../types.js';
 import type { MetadataManager } from '../core/metadata-manager.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
@@ -22,6 +27,7 @@ export type PhaseContext = {
   squashOnComplete?: boolean; // ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
   issueNumber?: number; // Issue番号（Issue #194: スカッシュ時のメッセージ生成に使用）
   issueInfo?: { title?: string; body?: string }; // Issue情報（Issue #194: スカッシュ時のメッセージ生成に使用）
+  language?: WorkflowLanguage;
 };
 
 /**
@@ -247,6 +253,13 @@ export interface ExecuteCommandOptions {
    * デフォルト: max（gpt-5.1-codex-max）
    */
   codexModel?: string;
+
+  /**
+   * ワークフロー言語指定（Issue #489）
+   *
+   * 'ja' または 'en' を指定
+   */
+  language?: string;
 }
 
 /**
@@ -356,6 +369,11 @@ export interface RollbackCommandOptions {
    * 対話的入力モード（オプション、デフォルト: false）
    */
   interactive?: boolean;
+
+  /**
+   * ワークフロー言語（オプション）
+   */
+  language?: string;
 }
 
 /**
@@ -478,6 +496,11 @@ export interface RollbackAutoOptions {
    * - 'claude': Claude を強制使用（CLAUDE_CODE_CREDENTIALS_PATH が必要）
    */
   agent?: 'auto' | 'codex' | 'claude';
+
+  /**
+   * ワークフロー言語（オプション）
+   */
+  language?: string;
 }
 
 /**
@@ -537,6 +560,7 @@ export interface PRCommentInitOptions {
   prUrl?: string;
   issue?: string;
   commentIds?: string;
+  language?: string;
 }
 
 /**
@@ -548,6 +572,7 @@ export interface PRCommentAnalyzeOptions {
   commentIds?: string;
   dryRun?: boolean;
   agent?: 'auto' | 'codex' | 'claude';
+  language?: string;
 }
 
 /**
@@ -560,6 +585,7 @@ export interface PRCommentExecuteOptions {
   dryRun?: boolean;
   agent?: 'auto' | 'codex' | 'claude';
   batchSize?: string;
+  language?: string;
 }
 
 /**
@@ -571,4 +597,5 @@ export interface PRCommentFinalizeOptions {
   skipCleanup?: boolean;
   dryRun?: boolean;
   squash?: boolean;
+  language?: string;
 }

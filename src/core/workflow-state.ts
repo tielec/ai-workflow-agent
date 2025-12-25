@@ -192,6 +192,13 @@ export class WorkflowState {
       migrated = true;
     }
 
+    // Workflow language (Issue #489)
+    if (!('language' in this.data)) {
+      logger.info('Migrating metadata.json: Adding language field');
+      (this.data as WorkflowMetadata).language = null;
+      migrated = true;
+    }
+
     // Workflow version
     if (!this.data.workflow_version) {
       logger.info('Migrating metadata.json: Adding workflow_version');

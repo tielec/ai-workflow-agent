@@ -1,3 +1,4 @@
+import { VALID_WORKFLOW_LANGUAGES, type WorkflowLanguage } from '../../types.js';
 import type { ExecuteCommandOptions } from '../../types/commands.js';
 
 /**
@@ -90,6 +91,11 @@ export interface ParsedExecuteOptions {
    * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
    */
   codexModel?: string;
+
+  /**
+   * ワークフロー言語指定（Issue #489）
+   */
+  language?: WorkflowLanguage;
 }
 
 /**
@@ -174,6 +180,12 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
       ? options.codexModel.trim()
       : undefined;
 
+  const languageRaw =
+    typeof options.language === 'string' ? options.language.trim().toLowerCase() : undefined;
+  const language = languageRaw && VALID_WORKFLOW_LANGUAGES.includes(languageRaw as WorkflowLanguage)
+    ? (languageRaw as WorkflowLanguage)
+    : undefined;
+
   return {
     issueNumber,
     phaseOption,
@@ -192,6 +204,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     squashOnComplete,
     claudeModel,
     codexModel,
+    language,
   };
 }
 
@@ -256,6 +269,13 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
     const retries = Number(options.followupLlmMaxRetries);
     if (!Number.isInteger(retries) || retries < 0) {
       errors.push("Option '--followup-llm-max-retries' must be a non-negative integer.");
+    }
+  }
+
+  if (options.language !== undefined) {
+    const normalized = String(options.language).toLowerCase().trim();
+    if (!VALID_WORKFLOW_LANGUAGES.includes(normalized as WorkflowLanguage)) {
+      errors.push("Option '--language' must be one of: ja, en.");
     }
   }
 

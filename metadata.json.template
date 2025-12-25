@@ -6,6 +6,7 @@
   "target_repository": null,
   "workflow_version": "1.0.0",
   "current_phase": "planning",
+  "language": null,
   "design_decisions": {
     "implementation_strategy": null,
     "test_strategy": null,

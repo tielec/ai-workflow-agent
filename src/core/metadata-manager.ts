@@ -12,6 +12,7 @@ import {
   EvaluationPhaseMetadata,
   DifficultyAnalysisResult,
   ModelConfigByPhase,
+  WorkflowLanguage,
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
@@ -210,6 +211,17 @@ export class MetadataManager {
 
   public getModelConfig(): ModelConfigByPhase | null {
     return this.state.data.model_config ?? null;
+  }
+
+  public setLanguage(lang: WorkflowLanguage): void {
+    this.state.data.language = lang;
+    this.state.save();
+    logger.debug(`Workflow language set: ${lang}`);
+  }
+
+  public getLanguage(): WorkflowLanguage | null {
+    const lang = this.state.data.language;
+    return lang === 'ja' || lang === 'en' ? lang : null;
   }
 
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {

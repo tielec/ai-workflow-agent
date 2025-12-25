@@ -26,6 +26,11 @@ import type {
 } from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
+import {
+  DEFAULT_WORKFLOW_LANGUAGE,
+  VALID_WORKFLOW_LANGUAGES,
+  type WorkflowLanguage,
+} from '../types.js';
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -43,6 +48,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     logger.info(
       `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
+    logger.info(`Workflow language: ${resolveLanguage(options.language)}`);
     if (options.customInstruction) {
       logger.info(`Using custom instruction: ${options.customInstruction}`);
     }
@@ -550,6 +556,12 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     customInstruction = trimmed;
   }
 
+  const languageRaw =
+    typeof rawOptions.language === 'string' ? rawOptions.language.trim().toLowerCase() : undefined;
+  if (languageRaw && !VALID_WORKFLOW_LANGUAGES.includes(languageRaw as WorkflowLanguage)) {
+    throw new Error("Option '--language' must be one of: ja, en.");
+  }
+
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
@@ -559,7 +571,21 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     agent: agent as 'auto' | 'codex' | 'claude',
     creativeMode,
     customInstruction,
+    language: languageRaw as WorkflowLanguage | undefined,
   };
+}
+
+function resolveLanguage(cliLanguage?: WorkflowLanguage): WorkflowLanguage {
+  if (cliLanguage) {
+    return cliLanguage;
+  }
+
+  const envLanguage = config.getWorkflowLanguage();
+  if (envLanguage) {
+    return envLanguage;
+  }
+
+  return DEFAULT_WORKFLOW_LANGUAGE;
 }
 
 /**

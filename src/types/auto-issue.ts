@@ -6,6 +6,7 @@
  *
  * @module auto-issue-types
  */
+import type { WorkflowLanguage } from '../types.js';
 
 /**
  * バグ候補
@@ -211,6 +212,13 @@ export interface AutoIssueOptions {
    * カスタム指示（解析の重点を示す任意入力、最大500文字）
    */
   customInstruction?: string;
+
+  /**
+   * ワークフロー言語（Issue #489）
+   *
+   * 'ja' または 'en' を指定
+   */
+  language?: WorkflowLanguage;
 }
 
 /**
@@ -232,6 +240,11 @@ export interface RawAutoIssueOptions {
    * エージェントへ追加の検出指示を伝えるための文字列
    */
   customInstruction?: string;
+
+  /**
+   * ワークフロー言語（オプション）
+   */
+  language?: string;
 }
 
 /**

@@ -17,7 +17,8 @@ import { GitHubClient } from '../core/github-client.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { FinalizeContext } from '../core/git/squash-manager.js';
-import type { PhaseName } from '../types.js';
+import { config } from '../core/config.js';
+import { DEFAULT_WORKFLOW_LANGUAGE, type PhaseName, type WorkflowLanguage } from '../types.js';
 
 /**
  * FinalizeCommandOptions - CLIオプションの型定義
@@ -37,6 +38,9 @@ export interface FinalizeCommandOptions {
 
   /** PRのマージ先ブランチ（オプション、デフォルト: main） */
   baseBranch?: string;
+
+  /** ワークフロー言語（オプション） */
+  language?: string;
 }
 
 /**
@@ -50,6 +54,10 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
 
   // 2. メタデータ読み込み
   const { metadataManager, workflowDir, repoDir } = await loadWorkflowMetadata(options.issue);
+
+  const workflowLanguage = resolveWorkflowLanguage(options.language, metadataManager);
+  metadataManager.setLanguage(workflowLanguage);
+  logger.info(`Workflow language: ${workflowLanguage}`);
 
   // 3. ドライランモード判定
   if (options.dryRun) {
@@ -118,6 +126,13 @@ function validateFinalizeOptions(options: FinalizeCommandOptions): void {
   // baseBranch チェック（指定されている場合のみ）
   if (options.baseBranch && options.baseBranch.trim().length === 0) {
     throw new Error('Error: --base-branch cannot be empty');
+  }
+
+  if (options.language) {
+    const normalized = options.language.trim().toLowerCase();
+    if (normalized !== 'ja' && normalized !== 'en') {
+      throw new Error("Error: --language must be one of 'ja' or 'en'");
+    }
   }
 }
 
@@ -418,4 +433,35 @@ async function previewFinalize(
 
   logger.info('');
   logger.info('[DRY RUN] No changes were made. Remove --dry-run to execute.');
+}
+
+function normalizeWorkflowLanguage(value?: string): WorkflowLanguage | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase() as WorkflowLanguage;
+  return normalized === 'ja' || normalized === 'en' ? normalized : undefined;
+}
+
+function resolveWorkflowLanguage(
+  cliLanguage: string | undefined,
+  metadataManager: MetadataManager
+): WorkflowLanguage {
+  const normalizedCli = normalizeWorkflowLanguage(cliLanguage);
+  if (normalizedCli) {
+    return normalizedCli;
+  }
+
+  const envLanguage = config.getWorkflowLanguage();
+  if (envLanguage) {
+    return envLanguage;
+  }
+
+  const metadataLanguage = metadataManager.getLanguage();
+  if (metadataLanguage) {
+    return metadataLanguage;
+  }
+
+  return DEFAULT_WORKFLOW_LANGUAGE;
 }

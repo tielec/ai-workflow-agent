@@ -17,7 +17,7 @@ import { config } from '../core/config.js';
 import { MetadataManager } from '../core/metadata-manager.js';
 import { GitManager } from '../core/git-manager.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
-import { PhaseName, StepName } from '../types.js';
+import { DEFAULT_WORKFLOW_LANGUAGE, PhaseName, StepName, type WorkflowLanguage } from '../types.js';
 import type { RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision } from '../types/commands.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { CodexAgentClient } from '../core/codex-agent-client.js';
@@ -37,6 +37,10 @@ export async function handleRollbackCommand(options: RollbackCommandOptions): Pr
 
   // 2. バリデーション
   validateRollbackOptions(options, metadataManager);
+
+  const workflowLanguage = resolveWorkflowLanguageOption(options.language, metadataManager);
+  metadataManager.setLanguage(workflowLanguage);
+  logger.info(`Workflow language: ${workflowLanguage}`);
 
   // 3. 差し戻し理由の読み込み
   const reason = await loadRollbackReason(options, workflowDir);
@@ -543,6 +547,10 @@ export async function handleRollbackAutoCommand(options: RollbackAutoOptions): P
   // 1. メタデータ読み込み
   const { metadataManager, workflowDir } = await loadWorkflowMetadata(String(options.issueNumber));
 
+  const workflowLanguage = resolveWorkflowLanguageOption(options.language, metadataManager);
+  metadataManager.setLanguage(workflowLanguage);
+  logger.info(`Workflow language: ${workflowLanguage}`);
+
   // 2. エージェントクライアントの初期化
   const { codexClient, claudeClient } = initializeAgentClients(options.agent);
 
@@ -1005,4 +1013,40 @@ function generateRollbackOutputFilePath(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
   return path.join(os.tmpdir(), `rollback-auto-${timestamp}-${random}.json`);
+}
+
+function normalizeWorkflowLanguage(value?: string): WorkflowLanguage | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase() as WorkflowLanguage;
+  return normalized === 'ja' || normalized === 'en' ? normalized : undefined;
+}
+
+function resolveWorkflowLanguageOption(
+  cliLanguage: string | undefined,
+  metadataManager: MetadataManager
+): WorkflowLanguage {
+  const normalizedCli = cliLanguage ? normalizeWorkflowLanguage(cliLanguage) : undefined;
+
+  if (cliLanguage && !normalizedCli) {
+    throw new Error("Invalid language option. Allowed values are 'ja' or 'en'.");
+  }
+
+  if (normalizedCli) {
+    return normalizedCli;
+  }
+
+  const envLanguage = config.getWorkflowLanguage();
+  if (envLanguage) {
+    return envLanguage;
+  }
+
+  const metadataLanguage = metadataManager.getLanguage();
+  if (metadataLanguage) {
+    return metadataLanguage;
+  }
+
+  return DEFAULT_WORKFLOW_LANGUAGE;
 }

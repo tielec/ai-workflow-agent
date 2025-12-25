@@ -15,6 +15,18 @@ export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 // Issue #10: ステップ名の型定義
 export type StepName = 'execute' | 'review' | 'revise';
 
+/**
+ * ワークフロー言語設定
+ *
+ * - 'ja': 日本語（デフォルト）
+ * - 'en': 英語
+ */
+export type WorkflowLanguage = 'ja' | 'en';
+
+export const VALID_WORKFLOW_LANGUAGES: readonly WorkflowLanguage[] = ['ja', 'en'] as const;
+
+export const DEFAULT_WORKFLOW_LANGUAGE: WorkflowLanguage = 'ja';
+
 export type DifficultyLevel = 'simple' | 'moderate' | 'complex';
 
 export interface DifficultyAnalysisResult {
@@ -261,6 +273,14 @@ export interface WorkflowMetadata {
    * フェーズ別のモデル設定（auto-model-selection 有効時に設定）
    */
   model_config?: ModelConfigByPhase | null;
+  /**
+   * ワークフロー言語設定（Issue #489）
+   *
+   * - 'ja': 日本語
+   * - 'en': 英語
+   * - null: 未設定（デフォルト 'ja' にフォールバック）
+   */
+  language?: WorkflowLanguage | null;
 }
 
 export interface PhaseExecutionResult {

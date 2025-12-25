@@ -1,3 +1,4 @@
+import { VALID_WORKFLOW_LANGUAGES, type WorkflowLanguage } from '../types.js';
 /**
  * 環境変数アクセスを一元化する設定管理クラス
  *
@@ -93,6 +94,12 @@ export interface IConfig {
    * @returns モデル名またはエイリアス、または未設定の場合は null
    */
   getCodexModel(): string | null;
+
+  /**
+   * ワークフロー言語設定を取得
+   * @returns 'ja' | 'en' | null（未設定または無効値の場合は null）
+   */
+  getWorkflowLanguage(): WorkflowLanguage | null;
 
   // ========== Git関連 ==========
 
@@ -285,6 +292,16 @@ export class Config implements IConfig {
   public getCodexModel(): string | null {
     // CODEX_MODEL 環境変数（エイリアスまたはフルモデルID）
     return this.getEnv('CODEX_MODEL', false);
+  }
+
+  public getWorkflowLanguage(): WorkflowLanguage | null {
+    const value = this.getEnv('AI_WORKFLOW_LANGUAGE', false);
+    if (!value) {
+      return null;
+    }
+
+    const normalized = value.toLowerCase().trim() as WorkflowLanguage;
+    return VALID_WORKFLOW_LANGUAGES.includes(normalized) ? normalized : null;
   }
 
   // ========== Git関連 ==========
