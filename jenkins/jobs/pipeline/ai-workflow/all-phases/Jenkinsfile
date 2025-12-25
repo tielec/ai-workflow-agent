@@ -242,13 +242,17 @@ pipeline {
                                     ${squashFlag}
                             """
 
-                            // PR URL を execute 実行後に取得（--cleanup-on-complete で .ai-workflow が削除される前）
+                            // metadata.json から PR URL を直接読み込み（readJSON を使用して SecretMasker を回避）
                             try {
-                                env.PR_URL = sh(
-                                    script: "cat .ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json 2>/dev/null | jq -r '.pr_url // empty' 2>/dev/null || echo ''",
-                                    returnStdout: true
-                                ).trim()
-                                echo "Retrieved PR URL: ${env.PR_URL}"
+                                def metadataFile = ".ai-workflow/issue-${env.ISSUE_NUMBER}/metadata.json"
+                                if (fileExists(metadataFile)) {
+                                    def metadata = readJSON file: metadataFile
+                                    env.PR_URL = metadata.pr_url ?: ''
+                                    echo "Retrieved PR URL from metadata: ${env.PR_URL}"
+                                } else {
+                                    env.PR_URL = ''
+                                    echo "Metadata file not found"
+                                }
                             } catch (Exception e) {
                                 echo "Could not retrieve PR URL: ${e.message}"
                                 env.PR_URL = ''
