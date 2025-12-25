@@ -256,7 +256,9 @@
     }
   },
   "created_at": "2025-12-25T08:35:05.029Z",
-  "updated_at": "2025-12-25T08:35:10.052Z",
+  "updated_at": "2025-12-25T08:35:13.033Z",
   "branch_name": "ai-workflow/issue-518",
-  "base_commit": "[REDACTED_TOKEN]"
+  "base_commit": "[REDACTED_TOKEN]",
+  "pr_number": 521,
+  "pr_url": "https://__GITHUB_URL_2__/pull/521"
 }
