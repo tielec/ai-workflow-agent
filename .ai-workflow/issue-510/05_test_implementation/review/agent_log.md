@@ -1,6 +1,6 @@
 # Codex Agent 実行ログ
 
-開始日時: 2025/12/25 5:28:13
+開始日時: 2025/12/25 5:36:08
 
 ---
 
@@ -71,6 +71,21 @@ tsconfig.test.json
 **ステータス**: completed
 
 ## Turn 7: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "rg --files -g 'planning.md'"`
+**ステータス**: failed (exit_code=127)
+
+```text
+/bin/bash: line 1: rg: command not found
+```
+
+## Turn 8: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 9: ツール実行
 
 **種別**: コマンド実行
 **コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-510/00_planning/output/planning.md'`
@@ -260,41 +275,41 @@ tsconfig.test.json
 ... (truncated)
 ```
 
-## Turn 8: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 9: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-510/[REDACTED_TOKEN]/output/test-implementation.md'`
-**ステータス**: completed (exit_code=0)
-
-```text
-# テスト実装完了レポート
-
-## テストファイル一覧
-
-| ファイル | テスト数 | カバー対象 |
-| --- | --- | --- |
-| `tests/unit/squash-manager.test.ts` | 3件追加 | `getCommitsToSquash` の targetHead 指定/デフォルト、`[REDACTED_TOKEN]` の headCommit 伝播 |
-| `tests/integration/finalize-command.test.ts` | 1件追加（既存期待値更新あり） | finalize コマンドで headBeforeCleanup を headCommit として伝播するシナリオ（Issue #510） |
-
-## テストカバレッジ
-
-- ユニットテスト: 3件
-- 統合テスト: 1件
-- BDDテスト: 0件
-- カバレッジ率: 未計測（テスト実行は未実施）
-```
-
 ## Turn 10: ツール実行
 
 **種別**: reasoning
 **ステータス**: completed
 
 ## Turn 11: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-510/[REDACTED_TOKEN]/output/test-implementation.md'`
+**ステータス**: completed (exit_code=0)
+
+```text
+# テスト実装ログ (Issue #510)
+
+## 修正履歴
+
+### 修正1: Phase 3 シナリオの未実装を解消
+- **指摘内容**: UT-003（空 targetHead）、UT-006/UT-007（headCommit null/型互換）、IT-510-002〜IT-510-005（pull 後の挙動・HEAD 取得失敗など）が欠落し品質ゲート FAIL。
+- **修正内容**: ユニットテストに空 targetHead の例外パスと headCommit null フォールバック、FinalizeContext 型互換チェックを追加。インテグレーションテストで非 fast-forward → pullLatest を挟むシナリオ、headCommit 未指定時の HEAD 利用、headBeforeCleanup 伝播確認、既存 IT-12 互換性、revparse 失敗のエラー処理を実装。
+- **影響範囲**: `tests/unit/squash-manager.test.ts`、`tests/integration/finalize-command.test.ts`
+
+## 実装サマリ
+- ユニット: `getCommitsToSquash` の空文字エラー処理、`[REDACTED_TOKEN]` の nullish headCommit フォールバック、FinalizeContext の型互換性を追加。
+- インテグレーション: IT-510-001〜005 を追加し、non-fast-forward での pullLatest 呼び出し、HEAD へのフォールバック、headBeforeCleanup の伝播、既存コンテキスト互換性、HEAD 取得失敗時のエラーを検証。
+
+## テスト実行
+- コマンド未実行（依存モックのみ変更）。構文上の問題がないことを確認済み。
+```
+
+## Turn 12: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 13: ツール実行
 
 **種別**: コマンド実行
 **コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-510/03_test_scenario/output/test-scenario.md'`
@@ -439,47 +454,6 @@ describe('UT-003: getCommitsToSquash with empty targetHead'
 ... (truncated)
 ```
 
-## Turn 12: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 13: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'ls tests/unit'`
-**ステータス**: completed (exit_code=0)
-
-```text
-[REDACTED_TOKEN].test.ts
-branch-validation.test.ts
-claude-agent-client.test.ts
-[REDACTED_TOKEN].test.ts
-codex-agent-client.test.ts
-commands
-[REDACTED_TOKEN].test.ts
-core
-git
-git-manager-issue16.test.ts
-github
-helpers
-[REDACTED_TOKEN].test.ts
-[REDACTED_TOKEN].test.ts
-metadata-manager.test.ts
-phase-dependencies.test.ts
-phases
-pr-comment
-prompts
-report-cleanup.test.ts
-[REDACTED_TOKEN].test.ts
-secret-masker.test.ts
-squash-manager.test.ts
-step-management.test.ts
-types
-utils
-validators
-```
-
 ## Turn 14: ツール実行
 
 **種別**: reasoning
@@ -488,7 +462,7 @@ validators
 ## Turn 15: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' tests/unit/squash-manager.test.ts"`
+**コマンド**: `/bin/bash -lc 'cat tests/unit/squash-manager.test.ts'`
 **ステータス**: completed (exit_code=0)
 
 ```text
@@ -501,6 +475,7 @@ import type { RemoteManager } from '../../src/core/git/remote-manager.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { PhaseContext } from '../../src/types/commands.js';
+import type { FinalizeContext } from '../../src/core/git/squash-manager.js';
 
 // Mock fs module before importing
 const mockMkdir = jest.fn<() => Promise<void>>();
@@ -617,9 +592,7 @@ describe('SquashManager', () => {
       expect(result).toEqual(['[REDACTED_TOKEN]']);
     });
 
-    it('should use provided targetHead when specified', async () => {
-      // Given: targetHead が明示的に指定される
-      const baseC
+    it('should use provided targetHead when spec
 ... (truncated)
 ```
 
@@ -631,170 +604,7 @@ describe('SquashManager', () => {
 ## Turn 17: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '200,400p' tests/unit/squash-manager.test.ts"`
-**ステータス**: completed (exit_code=0)
-
-```text
-const getCommitsSpy = jest
-        .spyOn(squashManager as any, 'getCommitsToSquash')
-        .mockResolvedValue(['c1', 'c2']);
-      jest.spyOn(squashManager as any, '[REDACTED_TOKEN]').mockResolvedValue(undefined);
-      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
-
-      // When
-      await squashManager.[REDACTED_TOKEN](context as any);
-
-      // Then: デフォルトで HEAD が使用される
-      expect(getCommitsSpy).[REDACTED_TOKEN]('abc123', 'HEAD');
-    });
-  });
-
-  describe('[REDACTED_TOKEN]', () => {
-    // テストケース 2.2.1: 正常系_featureブランチ
-    it('should pass branch protection check for feature branch', async () => {
-      // Given: 現在のブランチが feature/issue-194
-      mockGit.revparse.mockResolvedValue('feature/issue-194\n');
-
-      // When: [REDACTED_TOKEN] を呼び出す
-      // Then: エラーがスローされない
-      await expect((squashManager as any).[REDACTED_TOKEN]()).resolves.not.toThrow();
-    });
-
-    // テストケース 2.2.2: 異常系_mainブランチ
-    it('should throw error for main branch', async () => {
-      // Given: 現在のブランチが main
-      mockGit.revparse.mockResolvedValue('main\n');
-
-      // When/Then: エラーがスローされる
-      await expect((squashManager as any).[REDACTED_TOKEN]()).rejects.toThrow(
-        'Cannot squash commits on protected branch: main',
-      );
-    });
-
-    // テストケース 2.2.3: 異常系_masterブランチ
-    it('should throw error for master branch', async () => {
-      // Given: 現在のブランチが master
-      mockGit.revparse.mockResolvedValue('master\n');
-
-      // When/Then: エラーがスローされる
-      await expect((squashManager as any).[REDACTED_TOKEN]()).rejects.toThrow(
-        'Cannot squash commits on protected branch: master',
-      );
-    });
-
-    // テストケース 2.2.4: 異常系_Git操作失敗
-    it('should throw error when git operation fails', async () => {
-      // Given: git revparse がエラーを返す
-      mockGit.revparse.mockRejectedValue(new Error('git command failed'));
-
-      // When/Then: エラーがスローされる
-      await expect((squashManager as any).[REDACTED_TOKEN]()).rejects.toThrow(
-        'Failed to check branch protection',
-      );
-    });
-  });
-
-  describe('[REDACTED_TOKEN]', () => {
-    // テストケース 2.3.1: 正常系_Conventional Commits形式
-    it('should validate correct Conventional Commits format', () => {
-      // Given: 有効なConventional Commits形式のメッセージ
-      const message = `feat(squash): add commit squashing feature
-
-This feature allows squashing workflow commits into one.
-
-Fixes #194`;
-
-      // When: [REDACTED_TOKEN] を呼び出す
-      const result = (squashManager as any).[REDACTED_TOKEN](message);
-
-      // Then: true が返される
-      expect(result).toBe(true);
-    });
-
-    // テストケース 2.3.2: 正常系_scopeなし
-    it('should validate message without scope', () => {
-      // Given: scope省略形式のメッセージ
-      const message = `fix: resolve squash error
-
-Fixes #194`;
-
-      // When: [REDACTED_TOKEN] を呼び出す
-      const result = (squashManager as any).[REDACTED_TOKEN](message);
-
-      // Then: true が返される
-      expect(result).toBe(true);
-    });
-
-    // テストケース 2.3.3: 異常系_無効なtype
-    it('should reject message with invalid type', () => {
-      // Given: 無効なtypeのメッセージ
-      const message = `invalid: bad commit message
-
-Fixes #194`;
-
-      // When: [REDACTED_TOKEN] を呼び出す
-      const result = (squashManager as any).[REDACTED_TOKEN](message);
-
-      // Then: false が返される
-      expect(result).toBe(false);
-    });
-
-    // テストケース 2.3.4: 異常系_subjectが長すぎる
-    it('should reject message with subject exceeding 50 characters', () => {
-      // Given: 50文字を超えるsubject
-      const message = `feat: this is a very long subject line that exceeds fifty characters limit
-
-Fixes #194`;
-
-      // When: [REDACTED_TOKEN] を呼び出す
-      const result = (squashManager as any).[REDACTED_TOKEN](message);
-
-      // Then: false が返される
-      expect(result).toBe(false);
-    });
-
-    // テストケース 2.3.5: 異常系_Issue参照なし
-    it('should reject message without issue reference', () => {
-      // Given: Issue参照がないメッセージ
-      const message = `feat:
-... (truncated)
-```
-
-## Turn 18: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 19: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'rg -n "Issue #510" -n tests/integration/finalize-command.test.ts'`
-**ステータス**: failed (exit_code=127)
-
-```text
-/bin/bash: line 1: rg: command not found
-```
-
-## Turn 20: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 21: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "Issue #510" tests/integration/finalize-command.test.ts'`
-**ステータス**: failed (exit_code=1)
-
-## Turn 22: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 23: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' tests/integration/finalize-command.test.ts"`
+**コマンド**: `/bin/bash -lc 'cat tests/integration/finalize-command.test.ts'`
 **ステータス**: completed (exit_code=0)
 
 ```text
@@ -923,6 +733,332 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 ... (truncated)
 ```
 
+## Turn 18: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 19: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "nl -ba tests/unit/squash-manager.test.ts | sed -n '1,200p'"`
+**ステータス**: completed (exit_code=0)
+
+```text
+1	import { SquashManager } from '../../src/core/git/squash-manager.js';
+     2	import { jest } from '@jest/globals';
+     3	import type { SimpleGit } from 'simple-git';
+     4	import type { MetadataManager } from '../../src/core/metadata-manager.js';
+     5	import type { CommitManager } from '../../src/core/git/commit-manager.js';
+     6	import type { RemoteManager } from '../../src/core/git/remote-manager.js';
+     7	import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
+     8	import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
+     9	import type { PhaseContext } from '../../src/types/commands.js';
+    10	import type { FinalizeContext } from '../../src/core/git/squash-manager.js';
+    11	
+    12	// Mock fs module before importing
+    13	const mockMkdir = jest.fn<() => Promise<void>>();
+    14	const mockReadFile = jest.fn<() => Promise<string>>();
+    15	const mockRm = jest.fn<() => Promise<void>>();
+    16	const mockAccess = jest.fn<() => Promise<void>>();
+    17	
+    18	jest.mock('node:fs', () => ({
+    19	  promises: {
+    20	    mkdir: mockMkdir,
+    21	    readFile: mockReadFile,
+    22	    rm: mockRm,
+    23	    access: mockAccess,
+    24	  },
+    25	}));
+    26	
+    27	describe('SquashManager', () => {
+    28	  let squashManager: SquashManager;
+    29	  let mockGit: any;
+    30	  let mockMetadataManager: any;
+    31	  let mockCommitManager: any;
+    32	  let mockRemoteManager: any;
+    33	  let mockCodexAgent: any;
+    34	  let mockClaudeAgent: any;
+    35	  const testWorkingDir = '/test/working-dir';
+    36	
+    37	  beforeEach(() => {
+    38	    jest.clearAllMocks();
+    39	
+    40	    // Create mock objects
+    41	    mockGit = {
+    42	      log: jest.fn(),
+    43	      revparse: jest.fn(),
+    44	      reset: jest.fn(),
+    45	      commit: jest.fn(),
+    46	      diff: jest.fn(),
+    47	    } as any;
+    48	
+    49	    mockMetadataManager = {
+    50	      getBaseCommit: jest.fn(),
+    51	      setPreSquashCommits: jest.fn(),
+    52	      setSquashedAt: jest.fn(),
+    53	    } as any;
+    54	
+    55	    mockCommitManager = {} as any;
+    56	
+    57	    mockRemoteManager = {
+    58	      pushToRemote: jest.fn(),
+    59	      forcePushToRemote: jest.fn(),
+    60	    } as any;
+    61	
+    62	    mockCodexAgent = {
+    63	      executeTask: jest.fn<any>().mockResolvedValue(undefined),
+    64	    };
+    65	
+    66	    mockClaudeAgent = {
+    67	      executeTask: jest.fn<any>().mockResolvedValue(undefined),
+    68	    };
+    69	
+    70	    squashManager = new SquashManager(
+    71	      mockGit,
+    72	      mockMetadataManager,
+    73	      mockCommitManager,
+    74	      mockRemoteManager,
+    75	      mockCodexAgent,
+    76	      mockClaudeAgent,
+    77	      testWorkingDir,
+    78	    );
+    79	  });
+    80	
+    81	  afterEach(() => {
+    82	    jest.restoreAllMocks();
+    83	  });
+    84	
+    85	  describe('getCommitsToSquash', () => {
+    86	    // テストケース 2.1.1: 正常系_複数コミット
+    87	    it('should return multiple commits from base_commit to HEAD', async () => {
+    88	      // Given: base_commit以降に3つのコミットが存在する
+    89	      const baseCommit = '[REDACTED_TOKEN]';
+    90	      const commits = [
+    91	        { hash: '[REDACTED_TOKEN]' },
+    92	        { hash: '[REDACTED_TOKEN]' },
+    93	        { hash: '[REDACTED_TOKEN]' },
+    94	      ];
+    95	      mockGit.log.mockResolvedValue({ all: commits } as any);
+    96	
+    97	      // When: getCommitsToSquash を呼び出す
+    98	      const result = await (squashManager as any).getCommitsToSquash(baseCommit);
+    99	
+   100	      // Then: 3つのコミットハッシュが配列で返される
+   101	      expect(result).toEqual([
+   102	        '[REDACTED_TOKEN]',
+   103	        '[REDACTED_TOKEN]',
+   104	        '[REDACTED_TOKEN]',
+   105	      ]);
+   106	      expect(mockGit.log).[REDACTED_TOKEN]({
+... (truncated)
+```
+
+## Turn 20: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 21: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "nl -ba tests/unit/squash-manager.test.ts | sed -n '200,400p'"`
+**ステータス**: completed (exit_code=0)
+
+```text
+200	        .mockResolvedValue(['c1', 'c2']);
+   201	      jest.spyOn(squashManager as any, '[REDACTED_TOKEN]').mockResolvedValue(undefined);
+   202	      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+   203	
+   204	      // When
+   205	      await squashManager.[REDACTED_TOKEN](context as any);
+   206	
+   207	      // Then: headCommit が終端として渡される
+   208	      expect(getCommitsSpy).[REDACTED_TOKEN]('abc123', 'def456');
+   209	    });
+   210	
+   211	    it('should fallback to HEAD when headCommit is not provided', async () => {
+   212	      // Given: headCommit 未指定の FinalizeContext
+   213	      const context = {
+   214	        issueNumber: 510,
+   215	        baseCommit: 'abc123',
+   216	        targetBranch: 'main',
+   217	      };
+   218	
+   219	      const getCommitsSpy = jest
+   220	        .spyOn(squashManager as any, 'getCommitsToSquash')
+   221	        .mockResolvedValue(['c1', 'c2']);
+   222	      jest.spyOn(squashManager as any, '[REDACTED_TOKEN]').mockResolvedValue(undefined);
+   223	      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+   224	
+   225	      // When
+   226	      await squashManager.[REDACTED_TOKEN](context as any);
+   227	
+   228	      // Then: デフォルトで HEAD が使用される
+   229	      expect(getCommitsSpy).[REDACTED_TOKEN]('abc123', 'HEAD');
+   230	    });
+   231	
+   232	    it('should fallback to HEAD when headCommit is nullish', async () => {
+   233	      // Given: headCommit が明示的に null として渡される
+   234	      const context: FinalizeContext = {
+   235	        issueNumber: 510,
+   236	        baseCommit: 'abc123',
+   237	        targetBranch: 'main',
+   238	        headCommit: null as unknown as string | undefined,
+   239	      };
+   240	
+   241	      const getCommitsSpy = jest
+   242	        .spyOn(squashManager as any, 'getCommitsToSquash')
+   243	        .mockResolvedValue(['c1']);
+   244	      jest.spyOn(squashManager as any, '[REDACTED_TOKEN]').mockResolvedValue(undefined);
+   245	      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
+   246	
+   247	      // When
+   248	      await squashManager.[REDACTED_TOKEN](context);
+   249	
+   250	      // Then: nullish は HEAD にフォールバックする
+   251	      expect(getCommitsSpy).[REDACTED_TOKEN]('abc123', 'HEAD');
+   252	    });
+   253	  });
+   254	
+   255	  describe('FinalizeContext type compatibility', () => {
+   256	    it('should allow FinalizeContext without headCommit', () => {
+   257	      const context: FinalizeContext = {
+   258	        issueNumber: 123,
+   259	        baseCommit: 'abc123',
+   260	        targetBranch: 'main',
+   261	      };
+   262	
+   263	      expect(context.issueNumber).toBe(123);
+   264	      expect(context.headCommit).toBeUndefined();
+   265	    });
+   266	
+   267	    it('should allow FinalizeContext with headCommit', () => {
+   268	      const context: FinalizeContext = {
+   269	        issueNumber: 123,
+   270	        baseCommit: 'abc123',
+   271	        targetBranch: 'main',
+   272	        headCommit: 'def456',
+   273	      };
+   274	
+   275	      expect(context.headCommit).toBe('def456');
+   276	    });
+   277	  });
+   278	
+   279	  describe('[REDACTED_TOKEN]', () => {
+   280	    // テストケース 2.2.1: 正常系_featureブランチ
+   281	    it('should pass branch protection check for feature branch', async () => {
+   282	      // Given: 現在のブランチが feature/issue-194
+   283	      mockGit.revparse.mockResolvedValue('feature/issue-194\n');
+   284	
+   285	      // When: [REDACTED_TOKEN] を呼び出す
+   286	      // Then: エラーがスローされない
+   287	      await expect((squashManager as any).[REDACTED_TOKEN]()).resolves.not.toThrow();
+   288	    });
+   289	
+   290	    // テストケース 2.2.2: 異常系_mainブランチ
+   291	    it('should throw error for main branch', async () => {
+   292	      // Given: 現在のブランチが main
+   293	      mockGit.revparse.mockResolvedValue('main\n');
+   294	
+   295	      // When/Then: エラーがスローされる
+   2
+... (truncated)
+```
+
+## Turn 22: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 23: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "nl -ba tests/integration/finalize-command.test.ts | sed -n '150,300p'"`
+**ステータス**: completed (exit_code=0)
+
+```text
+150	  // =============================================================================
+   151	  // IT-01: 統合テスト_正常系_全ステップ完全実行
+   152	  // =============================================================================
+   153	  describe('IT-01: 統合テスト_正常系_全ステップ完全実行', () => {
+   154	    test('finalize --issue 123 で全5ステップが順次実行される', async () => {
+   155	      // Given: ワークフローが完了している
+   156	      const options: [REDACTED_TOKEN] = {
+   157	        issue: '123',
+   158	      };
+   159	
+   160	      // When: finalize コマンドを実行
+   161	      await [REDACTED_TOKEN](options);
+   162	
+   163	      // Then:
+   164	      // Step 2: ArtifactCleaner.[REDACTED_TOKEN]()が呼ばれる
+   165	      const mockArtifactCleaner = ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>;
+   166	      const [REDACTED_TOKEN] = mockArtifactCleaner.mock.results[0]?.value;
+   167	      expect([REDACTED_TOKEN]?.[REDACTED_TOKEN]).[REDACTED_TOKEN](true);
+   168	
+   169	      // Git コミット＆プッシュが実行される
+   170	      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+   171	      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
+   172	      expect(gitManagerInstance?.commitCleanupLogs).[REDACTED_TOKEN](123, 'finalize');
+   173	      expect(gitManagerInstance?.pushToRemote).toHaveBeenCalled();
+   174	
+   175	      // Step 3: スカッシュが実行される
+   176	      expect(gitManagerInstance?.getSquashManager).toHaveBeenCalled();
+   177	      const squashManager = gitManagerInstance?.getSquashManager();
+   178	      expect(squashManager.[REDACTED_TOKEN]).[REDACTED_TOKEN](
+   179	        expect.objectContaining({
+   180	          issueNumber: 123,
+   181	          baseCommit: 'abc123def456',
+   182	          targetBranch: 'main',
+   183	          headCommit: 'head-before-cleanup',
+   184	        }),
+   185	      );
+   186	
+   187	      // Step 4-5: PR更新とドラフト解除が実行される
+   188	      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+   189	      const [REDACTED_TOKEN] = mockGitHubClient.mock.results[0]?.value;
+   190	      const prClient = [REDACTED_TOKEN]?.[REDACTED_TOKEN]();
+   191	
+   192	      expect(prClient.[REDACTED_TOKEN]).[REDACTED_TOKEN](123);
+   193	      expect(prClient.updatePullRequest).[REDACTED_TOKEN](456, expect.stringContaining('Issue番号: #123'));
+   194	      expect(prClient.markPRReady).[REDACTED_TOKEN](456);
+   195	    });
+   196	  });
+   197	
+   198	  // =============================================================================
+   199	  // IT-02: 統合テスト_正常系_develop指定
+   200	  // =============================================================================
+   201	  describe('IT-02: 統合テスト_正常系_develop指定', () => {
+   202	    test('finalize --issue 123 --base-branch develop でマージ先が変更される', async () => {
+   203	      // Given: base-branch オプション指定
+   204	      const options: [REDACTED_TOKEN] = {
+   205	        issue: '123',
+   206	        baseBranch: 'develop',
+   207	      };
+   208	
+   209	      // When: finalize コマンドを実行
+   210	      await [REDACTED_TOKEN](options);
+   211	
+   212	      // Then: updateBaseBranch が develop で呼ばれる
+   213	      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
+   214	      const [REDACTED_TOKEN] = mockGitHubClient.mock.results[0]?.value;
+   215	      const prClient = [REDACTED_TOKEN]?.[REDACTED_TOKEN]();
+   216	
+   217	      expect(prClient.updateBaseBranch).[REDACTED_TOKEN](456, 'develop');
+   218	    });
+   219	  });
+   220	
+   221	  // =============================================================================
+   222	  // IT-03: 統合テスト_正常系_skip-squash
+   223	  // =============================================================================
+   224	  describe('IT-03: 統合テスト_正常系_skip-squash', () => {
+   225	    test('finalize --issue 123 --skip-squash でスカッシュがスキップされる', async () => {
+   226	      // Given: skip-squash オプション
+   227	      const opt
+... (truncated)
+```
+
 ## Turn 24: ツール実行
 
 **種別**: reasoning
@@ -931,12 +1067,108 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 ## Turn 25: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "IT-510" tests/integration/finalize-command.test.ts'`
+**コマンド**: `/bin/bash -lc "nl -ba tests/integration/finalize-command.test.ts | sed -n '300,520p'"`
 **ステータス**: completed (exit_code=0)
 
 ```text
-289:  // IT-510: pull による HEAD 更新時もスカッシュ対象が固定される
-291:  describe('IT-510: non-fast-forward で HEAD が更新されてもスカッシュ対象を維持', () => {
+300	        [REDACTED_TOKEN]: jest.fn().mockResolvedValue({
+   301	          success: true,
+   302	          commit_hash: 'cleanup789',
+   303	        }),
+   304	        pushToRemote: jest.fn().mockImplementation(async () => {
+   305	          await pullLatest('feature/issue-510');
+   306	          return { success: true };
+   307	        }),
+   308	        getSquashManager: jest.fn(),
+   309	      } as any));
+   310	
+   311	      // Step 3 用（squash）
+   312	      mockGitManager.[REDACTED_TOKEN](() => ({
+   313	        getSquashManager: jest.fn().mockReturnValue({
+   314	          [REDACTED_TOKEN]: jest.fn().mockImplementation(async (context) => {
+   315	            expect(context.headCommit).toBe('head-before-cleanup');
+   316	            expect(context.baseCommit).toBe('abc123def456');
+   317	            return squashSpy(context);
+   318	          }),
+   319	        }),
+   320	      } as any));
+   321	
+   322	      const options: [REDACTED_TOKEN] = {
+   323	        issue: '510',
+   324	      };
+   325	
+   326	      // When
+   327	      await [REDACTED_TOKEN](options);
+   328	
+   329	      // Then: pull が実行され、headBeforeCleanup がそのまま終端として使われる
+   330	      expect(pullLatest).toHaveBeenCalled();
+   331	      expect(squashSpy).[REDACTED_TOKEN](
+   332	        expect.objectContaining({
+   333	          issueNumber: 510,
+   334	          headCommit: 'head-before-cleanup',
+   335	        }),
+   336	      );
+   337	    });
+   338	
+   339	    test('IT-510-002: headCommit 未指定時は HEAD を終点にする', async () => {
+   340	      // Given: HEAD を明示的に取得できないケースを HEAD リテラルで代用
+   341	      mockRevparse.[REDACTED_TOKEN]('HEAD\n');
+   342	      const squashSpy = jest.fn().mockResolvedValue(undefined);
+   343	      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+   344	
+   345	      mockGitManager.[REDACTED_TOKEN](() => ({
+   346	        [REDACTED_TOKEN]: jest.fn().mockResolvedValue({
+   347	          success: true,
+   348	          commit_hash: 'cleanup789',
+   349	        }),
+   350	        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+   351	        getSquashManager: jest.fn(),
+   352	      } as any));
+   353	
+   354	      mockGitManager.[REDACTED_TOKEN](() => ({
+   355	        getSquashManager: jest.fn().mockReturnValue({
+   356	          [REDACTED_TOKEN]: jest.fn().mockImplementation(async (context) => {
+   357	            expect(context.headCommit).toBe('HEAD');
+   358	            return squashSpy(context);
+   359	          }),
+   360	        }),
+   361	      } as any));
+   362	
+   363	      const options: [REDACTED_TOKEN] = {
+   364	        issue: '510',
+   365	      };
+   366	
+   367	      // When
+   368	      await [REDACTED_TOKEN](options);
+   369	
+   370	      // Then: HEAD が終点として渡される
+   371	      expect(squashSpy).[REDACTED_TOKEN](
+   372	        expect.objectContaining({
+   373	          baseCommit: 'abc123def456',
+   374	          headCommit: 'HEAD',
+   375	        }),
+   376	      );
+   377	    });
+   378	
+   379	    test('IT-510-003: Step 1 の headBeforeCleanup を Step 3 に伝播する', async () => {
+   380	      // Given: finalize --issue 510 を実行
+   381	      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
+   382	      const squashSpy = jest.fn().mockResolvedValue(undefined);
+   383	
+   384	      mockGitManager.[REDACTED_TOKEN](() => ({
+   385	        [REDACTED_TOKEN]: jest.fn().mockResolvedValue({
+   386	          success: true,
+   387	          commit_hash: 'cleanup789',
+   388	        }),
+   389	        pushToRemote: jest.fn().mockResolvedValue({ success: true }),
+   390	        getSquashManager: jest.fn(),
+   391	      } as any));
+   392	
+   393	      mockGitManager.[REDACTED_TOKEN](() => ({
+   394	        getSquashManager: jest.fn().mockReturnValue({
+   395	          [REDACTED_TOKEN]: jest.fn().mockImplementation(async (context) => {
+   396	            expect(context.head
+... (truncated)
 ```
 
 ## Turn 26: ツール実行
@@ -946,952 +1178,17 @@ describe('Integration: Finalize Command - エンドツーエンドフロー', ()
 
 ## Turn 27: ツール実行
 
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '260,380p' tests/integration/finalize-command.test.ts"`
-**ステータス**: completed (exit_code=0)
-
-```text
-describe('IT-04: 統合テスト_正常系_skip-pr-update', () => {
-    test('finalize --issue 123 --skip-pr-update でPR更新がスキップされる', async () => {
-      // Given: skip-pr-update オプション
-      const options: [REDACTED_TOKEN] = {
-        issue: '123',
-        skipPrUpdate: true,
-      };
-
-      // When: finalize コマンドを実行
-      await [REDACTED_TOKEN](options);
-
-      // Then: PR更新が実行されない
-      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
-      // skipPrUpdateの場合、GitHubClientは初期化されない
-      expect(mockGitHubClient).not.toHaveBeenCalled();
-
-      // 他のステップは実行される
-      const mockArtifactCleaner = ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>;
-      const [REDACTED_TOKEN] = mockArtifactCleaner.mock.results[0]?.value;
-      expect([REDACTED_TOKEN]?.[REDACTED_TOKEN]).toHaveBeenCalled();
-
-      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-      const squashManager = gitManagerInstance?.getSquashManager();
-      expect(squashManager.[REDACTED_TOKEN]).toHaveBeenCalled();
-    });
-  });
-
-  // =============================================================================
-  // IT-510: pull による HEAD 更新時もスカッシュ対象が固定される
-  // =============================================================================
-  describe('IT-510: non-fast-forward で HEAD が更新されてもスカッシュ対象を維持', () => {
-    test('Step1 で取得した HEAD を headCommit として伝播する', async () => {
-      // Given: finalize --issue 510 を実行
-      const options: [REDACTED_TOKEN] = {
-        issue: '510',
-      };
-
-      // When
-      await [REDACTED_TOKEN](options);
-
-      // Then: headBeforeCleanup が SquashManager に渡される
-      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-      const squashManager = gitManagerInstance?.getSquashManager();
-
-      expect(squashManager.[REDACTED_TOKEN]).[REDACTED_TOKEN](
-        expect.objectContaining({
-          issueNumber: 510,
-          baseCommit: 'abc123def456',
-          headCommit: 'head-before-cleanup',
-        }),
-      );
-    });
-  });
-});
-
-describe('Integration: Finalize Command - エラーハンドリング', () => {
-  const testWorkflowDir = '/test/.ai-workflow/issue-123';
-  const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-    jest.mocked(fs.existsSync).mockReturnValue(true);
-  });
-
-  // =============================================================================
-  // IT-05: 統合テスト_異常系_base_commit不在でエラー終了
-  // =============================================================================
-  describe('IT-05: 統合テスト_異常系_base_commit不在でエラー終了', () => {
-    test('base_commit 不在時にエラーで終了する', async () => {
-      // Given: base_commit が存在しない
-      ([REDACTED_TOKEN] as jest.Mock).mockResolvedValue({
-        repoRoot: '/test/repo',
-        metadataPath: testMetadataPath,
-      });
-
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify({
-          issue_number: '123',  // string型
-          // base_commit が存在しない
-          phases: {},
-        })
-      );
-
-      const options: [REDACTED_TOKEN] = {
-        issue: '123',
-      };
-
-      // When & Then: エラーがスローされる
-      await expect([REDACTED_TOKEN](options))
-        .rejects.toThrow(/base_commit not found in metadata/);
-    });
-  });
-
-  // =============================================================================
-  // IT-06: 統合テスト_異常系_PR不在でエラー終了
-  // =============================================================================
-  describe('IT-06: 統合テスト_異常系_PR不在でエラー終了', () => {
-    test('PR 不在時にエラーで終了する', async () => {
-      // Given: PR が存在しない
-      ([REDACTED_TOKEN] as jest.Mock).mockResolvedValue({
-        repoRoot: '/test/repo',
-        metadataPath: testMetadataPath,
-      });
-
-      const metad
-... (truncated)
-```
-
-## Turn 28: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 29: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "null headCommit" tests/unit/squash-manager.test.ts'`
-**ステータス**: failed (exit_code=1)
-
-## Turn 30: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 31: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '400,800p' tests/unit/squash-manager.test.ts"`
-**ステータス**: completed (exit_code=0)
-
-```text
-title: 'feat: Squash commits after workflow completion',
-          body: 'Test body',
-          number: 194,
-          html_url: 'https://github.com/test/repo/issues/194',
-          state: 'open',
-          created_at: '2025-01-30',
-          updated_at: '2025-01-30',
-          labels: [],
-          assignees: [],
-        },
-        workingDir: testWorkingDir,
-        metadataManager: mockMetadataManager,
-      } as any;
-    });
-
-    // 統合テスト: base_commit未記録時のスキップ
-    it('should skip squash when base_commit is not found', async () => {
-      // Given: base_commitが未記録
-      mockMetadataManager.getBaseCommit.mockReturnValue(null);
-
-      // When: squashCommits を呼び出す
-      await squashManager.squashCommits(context);
-
-      // Then: スカッシュがスキップされる
-      expect(mockMetadataManager.getBaseCommit).toHaveBeenCalled();
-      expect(mockGit.log).not.toHaveBeenCalled();
-    });
-
-    // 統合テスト: コミット数1以下の場合のスキップ
-    it('should skip squash when only one commit exists', async () => {
-      // Given: コミットが1つのみ
-      const baseCommit = 'abc123';
-      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
-      mockGit.log.mockResolvedValue({ all: [{ hash: 'commit1' }] } as any);
-
-      // When: squashCommits を呼び出す
-      await squashManager.squashCommits(context);
-
-      // Then: スカッシュがスキップされる
-      expect(mockGit.log).toHaveBeenCalled();
-      expect(mockGit.revparse).not.toHaveBeenCalled();
-    });
-
-    // 統合テスト: ブランチ保護チェック失敗
-    it('should throw error when on protected branch', async () => {
-      // Given: mainブランチでコミットが複数
-      const baseCommit = 'abc123';
-      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
-      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
-      mockGit.revparse.mockResolvedValue('main\n');
-
-      // When/Then: エラーがスローされる
-      await expect(squashManager.squashCommits(context)).rejects.toThrow('protected branch');
-    });
-
-    // 統合テスト: エージェント失敗時のフォールバック
-    it('should use fallback message when agent fails', async () => {
-      // Given: エージェントが失敗
-      const baseCommit = 'abc123';
-      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
-      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
-      mockGit.revparse.mockResolvedValue('feature/test\n');
-      mockGit.diff.mockResolvedValue('test diff');
-      mockCodexAgent.executeTask.mockRejectedValue(new Error('Agent failed'));
-      mockMkdir.mockResolvedValue(undefined);
-      mockAccess.mockRejectedValue(new Error('File not found'));
-      mockRm.mockResolvedValue(undefined);
-
-      // When: squashCommits を呼び出す
-      await squashManager.squashCommits(context);
-
-      // Then: フォールバックメッセージが使用される
-      expect(mockGit.commit).toHaveBeenCalled();
-      const commitMessage = (mockGit.commit as jest.Mock).mock.calls[0][0];
-      expect(commitMessage).toContain('feat: Complete workflow for Issue #194');
-    });
-  });
-
-  // Issue #216: ESM互換のパス解決とforcePushToRemote呼び出しのテスト
-  describe('Issue #216: ESM compatibility and forcePushToRemote', () => {
-    let context: PhaseContext;
-
-    beforeEach(() => {
-      context = {
-        issueNumber: 216,
-        issueInfo: {
-          title: 'bug: --squash-on-complete が正常に動作しない(複数の問題)',
-          body: 'Test body',
-          number: 216,
-          html_url: 'https://github.com/test/repo/issues/216',
-          state: 'open',
-          created_at: '2025-01-30',
-          updated_at: '2025-01-30',
-          labels: [],
-          assignees: [],
-        },
-        workingDir: testWorkingDir,
-        metadataManager: mockMetadataManager,
-      } as any;
-    });
-
-    // テストケース 2.1.1: ESM互換のパス解決_正常系
-    it('should load prompt template without __dirname error in ESM environment', async () => {
-      // Given: スカッシュに必要な条件が整っている
-      const baseCommit = 'abc123';
-      mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
-      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }, { hash: 'c2' }] } as any);
-      mockGit.revparse.mockResol
-... (truncated)
-```
-
-## Turn 32: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 33: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "FinalizeContext" -n tests/unit/squash-manager.test.ts'`
-**ステータス**: completed (exit_code=0)
-
-```text
-171:      // Given: headCommit が指定されている FinalizeContext
-193:      // Given: headCommit 未指定の FinalizeContext
-```
-
-## Turn 34: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 35: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 36: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "IT-510-002" tests/integration/finalize-command.test.ts'`
-**ステータス**: failed (exit_code=1)
-
-## Turn 37: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 38: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "targetHead" tests/unit/squash-manager.test.ts'`
-**ステータス**: completed (exit_code=0)
-
-```text
-126:    it('should use provided targetHead when specified', async () => {
-127:      // Given: targetHead が明示的に指定される
-129:      const targetHead = '[REDACTED_TOKEN]';
-133:      await (squashManager as any).getCommitsToSquash(baseCommit, targetHead);
-135:      // Then: targetHead が to パラメータに渡される
-138:        to: targetHead,
-```
-
-## Turn 39: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 40: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "null" tests/unit/squash-manager.test.ts'`
-**ステータス**: completed (exit_code=0)
-
-```text
-380:        issueInfo: null,
-418:      mockMetadataManager.getBaseCommit.mockReturnValue(null);
-```
-
-## Turn 41: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 42: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'grep -n "IT-510-" tests/integration/finalize-command.test.ts'`
-**ステータス**: failed (exit_code=1)
-
-## Turn 43: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 44: ツール実行
-
-**種別**: file_change
-**ステータス**: completed
-
-## Turn 45: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 46: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 47: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "nl -ba tests/unit/squash-manager.test.ts | sed -n '100,200p'"`
-**ステータス**: completed (exit_code=0)
-
-```text
-100	      expect(result).toEqual([
-   101	        '[REDACTED_TOKEN]',
-   102	        '[REDACTED_TOKEN]',
-   103	        '[REDACTED_TOKEN]',
-   104	      ]);
-   105	      expect(mockGit.log).[REDACTED_TOKEN]({
-   106	        from: baseCommit,
-   107	        to: 'HEAD',
-   108	        format: { hash: '%H' },
-   109	      });
-   110	    });
-   111	
-   112	    // テストケース 2.1.2: 正常系_1つのコミット
-   113	    it('should return single commit when only one commit exists after base_commit', async () => {
-   114	      // Given: base_commit以降に1つのコミットが存在する
-   115	      const baseCommit = 'abc123def456';
-   116	      const commits = [{ hash: '[REDACTED_TOKEN]' }];
-   117	      mockGit.log.mockResolvedValue({ all: commits } as any);
-   118	
-   119	      // When: getCommitsToSquash を呼び出す
-   120	      const result = await (squashManager as any).getCommitsToSquash(baseCommit);
-   121	
-   122	      // Then: 1つのコミットハッシュが配列で返される
-   123	      expect(result).toEqual(['[REDACTED_TOKEN]']);
-   124	    });
-   125	
-   126	    it('should use provided targetHead when specified', async () => {
-   127	      // Given: targetHead が明示的に指定される
-   128	      const baseCommit = 'abc123def456';
-   129	      const targetHead = '[REDACTED_TOKEN]';
-   130	      mockGit.log.mockResolvedValue({ all: [{ hash: 'c1' }] } as any);
-   131	
-   132	      // When
-   133	      await (squashManager as any).getCommitsToSquash(baseCommit, targetHead);
-   134	
-   135	      // Then: targetHead が to パラメータに渡される
-   136	      expect(mockGit.log).[REDACTED_TOKEN]({
-   137	        from: baseCommit,
-   138	        to: targetHead,
-   139	        format: { hash: '%H' },
-   140	      });
-   141	    });
-   142	
-   143	    // テストケース 2.1.3: 異常系_無効なbase_commit
-   144	    it('should throw error when base_commit is invalid', async () => {
-   145	      // Given: 無効なbase_commitが指定される
-   146	      const invalidCommit = 'invalid_commit_hash';
-   147	      mockGit.log.mockRejectedValue(new Error('invalid revision'));
-   148	
-   149	      // When/Then: エラーがスローされる
-   150	      await expect((squashManager as any).getCommitsToSquash(invalidCommit)).rejects.toThrow(
-   151	        'Failed to get commits to squash',
-   152	      );
-   153	    });
-   154	
-   155	    // テストケース 2.1.4: 境界値_0コミット
-   156	    it('should return empty array when base_commit equals HEAD', async () => {
-   157	      // Given: base_commitとHEADが同じ
-   158	      const baseCommit = '[REDACTED_TOKEN]';
-   159	      mockGit.log.mockResolvedValue({ all: [] } as any);
-   160	
-   161	      // When: getCommitsToSquash を呼び出す
-   162	      const result = await (squashManager as any).getCommitsToSquash(baseCommit);
-   163	
-   164	      // Then: 空配列が返される
-   165	      expect(result).toEqual([]);
-   166	    });
-   167	  });
-   168	
-   169	  describe('[REDACTED_TOKEN]', () => {
-   170	    it('should pass headCommit to getCommitsToSquash when provided', async () => {
-   171	      // Given: headCommit が指定されている FinalizeContext
-   172	      const context = {
-   173	        issueNumber: 510,
-   174	        baseCommit: 'abc123',
-   175	        targetBranch: 'main',
-   176	        headCommit: 'def456',
-   177	      };
-   178	
-   179	      const getCommitsSpy = jest
-   180	        .spyOn(squashManager as any, 'getCommitsToSquash')
-   181	        .mockResolvedValue(['c1', 'c2']);
-   182	      jest.spyOn(squashManager as any, '[REDACTED_TOKEN]').mockResolvedValue(undefined);
-   183	      jest.spyOn(squashManager as any, 'executeSquash').mockResolvedValue(undefined);
-   184	
-   185	      // When
-   186	      await squashManager.[REDACTED_TOKEN](context as any);
-   187	
-   188	      // Then: headCommit が終端として渡される
-   189	      expect(getCommitsSpy).[REDACTED_TOKEN]('abc123', 'def456');
-   190	    });
-   191	
-   192	    it('should fallback to HEAD when headCommit is not provided', async () => {
-... (truncated)
-```
-
-## Turn 48: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 49: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "nl -ba tests/integration/finalize-command.test.ts | sed -n '260,360p'"`
-**ステータス**: completed (exit_code=0)
-
-```text
-260	  describe('IT-04: 統合テスト_正常系_skip-pr-update', () => {
-   261	    test('finalize --issue 123 --skip-pr-update でPR更新がスキップされる', async () => {
-   262	      // Given: skip-pr-update オプション
-   263	      const options: [REDACTED_TOKEN] = {
-   264	        issue: '123',
-   265	        skipPrUpdate: true,
-   266	      };
-   267	
-   268	      // When: finalize コマンドを実行
-   269	      await [REDACTED_TOKEN](options);
-   270	
-   271	      // Then: PR更新が実行されない
-   272	      const mockGitHubClient = GitHubClient as jest.MockedClass<typeof GitHubClient>;
-   273	      // skipPrUpdateの場合、GitHubClientは初期化されない
-   274	      expect(mockGitHubClient).not.toHaveBeenCalled();
-   275	
-   276	      // 他のステップは実行される
-   277	      const mockArtifactCleaner = ArtifactCleaner as jest.MockedClass<typeof ArtifactCleaner>;
-   278	      const [REDACTED_TOKEN] = mockArtifactCleaner.mock.results[0]?.value;
-   279	      expect([REDACTED_TOKEN]?.[REDACTED_TOKEN]).toHaveBeenCalled();
-   280	
-   281	      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-   282	      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-   283	      const squashManager = gitManagerInstance?.getSquashManager();
-   284	      expect(squashManager.[REDACTED_TOKEN]).toHaveBeenCalled();
-   285	    });
-   286	  });
-   287	
-   288	  // =============================================================================
-   289	  // IT-510: pull による HEAD 更新時もスカッシュ対象が固定される
-   290	  // =============================================================================
-   291	  describe('IT-510: non-fast-forward で HEAD が更新されてもスカッシュ対象を維持', () => {
-   292	    test('Step1 で取得した HEAD を headCommit として伝播する', async () => {
-   293	      // Given: finalize --issue 510 を実行
-   294	      const options: [REDACTED_TOKEN] = {
-   295	        issue: '510',
-   296	      };
-   297	
-   298	      // When
-   299	      await [REDACTED_TOKEN](options);
-   300	
-   301	      // Then: headBeforeCleanup が SquashManager に渡される
-   302	      const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-   303	      const gitManagerInstance = mockGitManager.mock.results[0]?.value;
-   304	      const squashManager = gitManagerInstance?.getSquashManager();
-   305	
-   306	      expect(squashManager.[REDACTED_TOKEN]).[REDACTED_TOKEN](
-   307	        expect.objectContaining({
-   308	          issueNumber: 510,
-   309	          baseCommit: 'abc123def456',
-   310	          headCommit: 'head-before-cleanup',
-   311	        }),
-   312	      );
-   313	    });
-   314	  });
-   315	});
-   316	
-   317	describe('Integration: Finalize Command - エラーハンドリング', () => {
-   318	  const testWorkflowDir = '/test/.ai-workflow/issue-123';
-   319	  const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
-   320	
-   321	  beforeEach(() => {
-   322	    jest.clearAllMocks();
-   323	    mockRevparse.mockResolvedValue('head-before-cleanup\n');
-   324	    jest.mocked(fs.existsSync).mockReturnValue(true);
-   325	  });
-   326	
-   327	  // =============================================================================
-   328	  // IT-05: 統合テスト_異常系_base_commit不在でエラー終了
-   329	  // =============================================================================
-   330	  describe('IT-05: 統合テスト_異常系_base_commit不在でエラー終了', () => {
-   331	    test('base_commit 不在時にエラーで終了する', async () => {
-   332	      // Given: base_commit が存在しない
-   333	      ([REDACTED_TOKEN] as jest.Mock).mockResolvedValue({
-   334	        repoRoot: '/test/repo',
-   335	        metadataPath: testMetadataPath,
-   336	      });
-   337	
-   338	      (fs.readFileSync as jest.Mock).mockReturnValue(
-   339	        JSON.stringify({
-   340	          issue_number: '123',  // string型
-   341	          // base_commit が存在しない
-   342	          phases: {},
-   343	        })
-   344	      );
-   345	
-   346	      const options: [REDACTED_TOKEN] = {
-   347	        issue: '123',
-   348	      };
-   349	
-   350
-... (truncated)
-```
-
-## Turn 50: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 51: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "nl -ba .ai-workflow/issue-510/03_test_scenario/output/test-scenario.md | sed -n '60,220p'"`
-**ステータス**: completed (exit_code=0)
-
-```text
-60	```typescript
-    61	describe('UT-001: getCommitsToSquash with targetHead parameter', () => {
-    62	  it('should use specified targetHead instead of HEAD', async () => {
-    63	    // Given
-    64	    const baseCommit = 'abc123';
-    65	    const targetHead = 'def456';
-    66	    mockGit.log.mockResolvedValue({
-    67	      all: [{ hash: 'c1' }, { hash: 'c2' }, { hash: 'c3' }],
-    68	    });
-    69	
-    70	    // When
-    71	    const commits = await squashManager['getCommitsToSquash'](baseCommit, targetHead);
-    72	
-    73	    // Then
-    74	    expect(mockGit.log).[REDACTED_TOKEN]({
-    75	      from: baseCommit,
-    76	      to: targetHead,
-    77	      format: { hash: '%H' },
-    78	    });
-    79	    expect(commits).toHaveLength(3);
-    80	    expect(commits).toEqual(['c1', 'c2', 'c3']);
-    81	  });
-    82	});
-    83	```
-    84	
-    85	---
-    86	
-    87	#### UT-002: targetHead 省略時の後方互換性
-    88	
-    89	| 項目 | 内容 |
-    90	|------|------|
-    91	| **テストケース名** | `[REDACTED_TOKEN]未指定時_HEADを使用` |
-    92	| **目的** | `targetHead` を省略した場合、デフォルト値 `'HEAD'` が使用されることを検証（後方互換性） |
-    93	| **前提条件** | `SquashManager` インスタンスが初期化されている |
-    94	| **入力** | `baseCommit = 'abc123'`（`targetHead` は省略） |
-    95	| **期待結果** | `git.log()` が `{ from: 'abc123', to: 'HEAD', format: { hash: '%H' } }` で呼び出される |
-    96	| **テストデータ** | モック: `git.log()` → `{ all: [{ hash: 'c1' }, { hash: 'c2' }] }` |
-    97	
-    98	```typescript
-    99	describe('UT-002: getCommitsToSquash backward compatibility', () => {
-   100	  it('should use HEAD when targetHead is not specified', async () => {
-   101	    // Given
-   102	    const baseCommit = 'abc123';
-   103	    mockGit.log.mockResolvedValue({
-   104	      all: [{ hash: 'c1' }, { hash: 'c2' }],
-   105	    });
-   106	
-   107	    // When
-   108	    const commits = await squashManager['getCommitsToSquash'](baseCommit);
-   109	
-   110	    // Then
-   111	    expect(mockGit.log).[REDACTED_TOKEN]({
-   112	      from: baseCommit,
-   113	      to: 'HEAD',
-   114	      format: { hash: '%H' },
-   115	    });
-   116	    expect(commits).toHaveLength(2);
-   117	  });
-   118	});
-   119	```
-   120	
-   121	---
-   122	
-   123	#### UT-003: targetHead が空文字列の場合
-   124	
-   125	| 項目 | 内容 |
-   126	|------|------|
-   127	| **テストケース名** | `[REDACTED_TOKEN]空文字列_HEADにフォールバック` |
-   128	| **目的** | `targetHead` が空文字列の場合の動作を検証（エッジケース） |
-   129	| **前提条件** | `SquashManager` インスタンスが初期化されている |
-   130	| **入力** | `baseCommit = 'abc123'`, `targetHead = ''` |
-   131	| **期待結果** | 空文字列がそのまま渡される（または `'HEAD'` にフォールバック - 実装依存） |
-   132	| **テストデータ** | モック: `git.log()` → Git エラーまたは空結果 |
-   133	
-   134	```typescript
-   135	describe('UT-003: getCommitsToSquash with empty targetHead', () => {
-   136	  it('should handle empty targetHead gracefully', async () => {
-   137	    // Given
-   138	    const baseCommit = 'abc123';
-   139	    const targetHead = '';
-   140	
-   141	    // 空文字列の場合は Git コマンドがエラーになる可能性がある
-   142	    mockGit.log.mockRejectedValue(new Error('Invalid revision'));
-   143	
-   144	    // When & Then
-   145	    await expect(
-   146	      squashManager['getCommitsToSquash'](baseCommit, targetHead)
-   147	    ).rejects.toThrow(/Failed to get commits to squash/);
-   148	  });
-   149	});
-   150	```
-   151	
-   152	---
-   153	
-   154	### 1.2 [REDACTED_TOKEN]() のテスト
-   155	
-   156	#### UT-004: headCommit 指定時のスカッシュ範囲
-   157	
-   158	| 項目 | 内容 |
-   159	|------|------|
-   160	| **テストケース名** | `[REDACTED_TOKEN]指定時_指定されたHEADでスカッシュ` |
-   161	| **目的** | `FinalizeContext.headCommit` が指定されている場合、それが `getCommitsToSquash()` に渡されることを検証 |
-   162	| **前提条件** | `SquashManager` インスタンスが初期化されている、複数コミットが存在する |
-   163	| **入力** | `context = { issueNumber: 510, baseCommit: 'abc123', targetBranch: 'main', headCommit: 'def456' }` |
-   164	| **期待結果** | `getCommitsToSquash()` が `('abc123', 'def456')` で呼び出される |
-   165	| **テストデータ** | モック: 複数コミット、フィーチャーブランチ上 |
-   166	
-   167	```typescript
-   168	describe('UT-004: squashCommitsForFi
-... (truncated)
-```
-
-## Turn 52: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 53: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "nl -ba .ai-workflow/issue-510/03_test_scenario/output/test-scenario.md | sed -n '220,420p'"`
-**ステータス**: completed (exit_code=0)
-
-```text
-220	
-   221	    mockGit.log.mockResolvedValue({
-   222	      all: [{ hash: 'c1' }, { hash: 'c2' }],
-   223	    });
-   224	    mockGit.revparse.mockResolvedValue('feature/issue-510\n');
-   225	    mockGit.reset.mockResolvedValue(undefined);
-   226	    mockGit.commit.mockResolvedValue({ commit: 'squashed' });
-   227	    mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true });
-   228	
-   229	    // When
-   230	    await squashManager.[REDACTED_TOKEN](context);
-   231	
-   232	    // Then
-   233	    expect(mockGit.log).[REDACTED_TOKEN](
-   234	      expect.objectContaining({ to: 'HEAD' })
-   235	    );
-   236	  });
-   237	});
-   238	```
-   239	
-   240	---
-   241	
-   242	#### UT-006: headCommit が null の場合
-   243	
-   244	| 項目 | 内容 |
-   245	|------|------|
-   246	| **テストケース名** | `[REDACTED_TOKEN]がnull_HEADにフォールバック` |
-   247	| **目的** | `headCommit` が明示的に `null` または `undefined` の場合の動作を検証 |
-   248	| **前提条件** | `SquashManager` インスタンスが初期化されている |
-   249	| **入力** | `context = { ..., headCommit: null }` |
-   250	| **期待結果** | `'HEAD'` が使用される（null 合体演算子による） |
-   251	| **テストデータ** | モック: 複数コミット |
-   252	
-   253	```typescript
-   254	describe('UT-006: [REDACTED_TOKEN] with null headCommit', () => {
-   255	  it('should fallback to HEAD when headCommit is explicitly null', async () => {
-   256	    // Given
-   257	    const context: FinalizeContext = {
-   258	      issueNumber: 510,
-   259	      baseCommit: 'abc123',
-   260	      targetBranch: 'main',
-   261	      headCommit: undefined, // 明示的に undefined
-   262	    };
-   263	
-   264	    mockGit.log.mockResolvedValue({
-   265	      all: [{ hash: 'c1' }, { hash: 'c2' }],
-   266	    });
-   267	    mockGit.revparse.mockResolvedValue('feature/issue-510\n');
-   268	    mockGit.reset.mockResolvedValue(undefined);
-   269	    mockGit.commit.mockResolvedValue({ commit: 'squashed' });
-   270	    mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true });
-   271	
-   272	    // When
-   273	    await squashManager.[REDACTED_TOKEN](context);
-   274	
-   275	    // Then
-   276	    expect(mockGit.log).[REDACTED_TOKEN](
-   277	      expect.objectContaining({ to: 'HEAD' })
-   278	    );
-   279	  });
-   280	});
-   281	```
-   282	
-   283	---
-   284	
-   285	### 1.3 FinalizeContext 型の後方互換性テスト
-   286	
-   287	#### UT-007: 既存コードとの型互換性
-   288	
-   289	| 項目 | 内容 |
-   290	|------|------|
-   291	| **テストケース名** | `[REDACTED_TOKEN]未指定_コンパイルエラーなし` |
-   292	| **目的** | `headCommit` を省略した `FinalizeContext` オブジェクトがコンパイル可能であることを検証 |
-   293	| **前提条件** | TypeScript コンパイル環境 |
-   294	| **入力** | `{ issueNumber: 123, baseCommit: 'abc', targetBranch: 'main' }` |
-   295	| **期待結果** | コンパイルエラーなし、既存コードの動作に影響なし |
-   296	| **テストデータ** | N/A（型チェックテスト） |
-   297	
-   298	```typescript
-   299	describe('UT-007: FinalizeContext type compatibility', () => {
-   300	  it('should allow creating FinalizeContext without headCommit', () => {
-   301	    // Given & When
-   302	    const context: FinalizeContext = {
-   303	      issueNumber: 123,
-   304	      baseCommit: 'abc123',
-   305	      targetBranch: 'main',
-   306	      // headCommit は省略可能
-   307	    };
-   308	
-   309	    // Then: コンパイルが成功すればOK
-   310	    expect(context.issueNumber).toBe(123);
-   311	    expect(context.baseCommit).toBe('abc123');
-   312	    expect(context.targetBranch).toBe('main');
-   313	    expect(context.headCommit).toBeUndefined();
-   314	  });
-   315	
-   316	  it('should allow creating FinalizeContext with headCommit', () => {
-   317	    // Given & When
-   318	    const context: FinalizeContext = {
-   319	      issueNumber: 123,
-   320	      baseCommit: 'abc123',
-   321	      targetBranch: 'main',
-   322	      headCommit: 'def456',
-   323	    };
-   324	
-   325	    // Then
-   326	    expect(context.headCommit).toBe('def456');
-   327	  });
-   328	});
-   329	```
-   330	
-   331	---
-   332	
-   333	## 2. インテグレーションテストシナリオ
-   334	
-   335	### 2.1 Issue #510 シナリオ再現
-   336	
-   337	#### IT-510-001: non-fast-forwa
-... (truncated)
-```
-
-## Turn 54: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 55: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "nl -ba .ai-workflow/issue-510/03_test_scenario/output/test-scenario.md | sed -n '420,700p'"`
-**ステータス**: completed (exit_code=0)
-
-```text
-420	#### IT-510-002: headCommit 未指定時の後方互換性（インテグレーション）
-   421	
-   422	| 項目 | 内容 |
-   423	|------|------|
-   424	| **シナリオ名** | `後方互換性: headCommit 未指定でも正常動作` |
-   425	| **目的** | `headCommit` が未指定の場合でも、従来通り `HEAD` を使用してスカッシュが実行されることを検証 |
-   426	| **前提条件** | 既存のワークフローコード、`headCommit` を渡さない呼び出し |
-   427	| **テスト手順** | 1. `FinalizeContext` を `headCommit` なしで作成<br>2. `[REDACTED_TOKEN]()` を呼び出し |
-   428	| **期待結果** | `HEAD` を使用してスカッシュが実行される |
-   429	| **確認項目** | - `git.log()` の `to` パラメータが `'HEAD'`<br>- スカッシュが正常に実行される |
-   430	
-   431	```typescript
-   432	describe('IT-510-002: 後方互換性 - headCommit 未指定', () => {
-   433	  it('should use HEAD when headCommit is not specified in FinalizeContext', async () => {
-   434	    // Given: FinalizeContext に headCommit が設定されていない
-   435	    const baseCommit = 'abc123';
-   436	    mockMetadataManager.getBaseCommit.mockReturnValue(baseCommit);
-   437	
-   438	    mockGit.log.mockResolvedValue({
-   439	      all: [{ hash: 'c1' }, { hash: 'c2' }, { hash: 'c3' }],
-   440	    });
-   441	    mockGit.revparse.mockResolvedValue('feature/test\n');
-   442	    mockGit.reset.mockResolvedValue(undefined);
-   443	    mockGit.commit.mockResolvedValue({ commit: 'squashed' });
-   444	    mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true });
-   445	
-   446	    const context: FinalizeContext = {
-   447	      issueNumber: 123,
-   448	      baseCommit: 'abc123',
-   449	      targetBranch: 'main',
-   450	      // headCommit: undefined (未指定)
-   451	    };
-   452	
-   453	    // When: [REDACTED_TOKEN] が呼び出される
-   454	    await squashManager.[REDACTED_TOKEN](context);
-   455	
-   456	    // Then:
-   457	    // getCommitsToSquash() に 'HEAD' が渡される
-   458	    expect(mockGit.log).[REDACTED_TOKEN]({
-   459	      from: 'abc123',
-   460	      to: 'HEAD',
-   461	      format: { hash: '%H' },
-   462	    });
-   463	
-   464	    // スカッシュが正常に実行される
-   465	    expect(mockGit.reset).[REDACTED_TOKEN](['--soft', 'abc123']);
-   466	    expect(mockGit.commit).toHaveBeenCalled();
-   467	    expect(mockRemoteManager.forcePushToRemote).toHaveBeenCalled();
-   468	  });
-   469	});
-   470	```
-   471	
-   472	---
-   473	
-   474	### 2.2 Step 1 → Step 3 連携テスト
-   475	
-   476	#### IT-510-003: headBeforeCleanup の伝播確認
-   477	
-   478	| 項目 | 内容 |
-   479	|------|------|
-   480	| **シナリオ名** | `Step 1 → Step 3 連携: headBeforeCleanup が正しく伝播する` |
-   481	| **目的** | `executeStep1()` で取得した `headBeforeCleanup` が `executeStep3()` に正しく渡されることを検証 |
-   482	| **前提条件** | finalize コマンドが実行可能な状態 |
-   483	| **テスト手順** | 1. finalize コマンド実行<br>2. Step 1 で base_commit と headBeforeCleanup を取得<br>3. Step 3 で headBeforeCleanup を使用 |
-   484	| **期待結果** | Step 1 で取得した HEAD が Step 3 の `FinalizeContext.headCommit` に設定される |
-   485	| **確認項目** | - `executeStep1()` の戻り値に `headBeforeCleanup` が含まれる<br>- `[REDACTED_TOKEN]()` の引数に `headCommit` が含まれる |
-   486	
-   487	```typescript
-   488	describe('IT-510-003: Step 1 → Step 3 連携', () => {
-   489	  it('should pass headBeforeCleanup from Step 1 to Step 3', async () => {
-   490	    // Given: ワークフローが初期化されている
-   491	    const metadataManager = new MetadataManager(testMetadataPath);
-   492	    metadataManager.data.base_commit = 'base123';
-   493	    metadataManager.data.target_repository = {
-   494	      owner: 'owner',
-   495	      repo: 'repo',
-   496	      path: '/test/repo',
-   497	      github_name: 'owner/repo',
-   498	      remote_url: 'https://github.com/owner/repo.git',
-   499	    };
-   500	
-   501	    (fs.readFileSync as jest.Mock).mockReturnValue(
-   502	      JSON.stringify(metadataManager.data)
-   503	    );
-   504	
-   505	    // simple-git のモック（HEAD 取得用）
-   506	    // Step 1 で git.revparse(['HEAD']) が呼ばれる
-   507	    let capturedHeadCommit: string | undefined;
-   508	
-   509	    const mockGitManager = GitManager as jest.MockedClass<typeof GitManager>;
-   510	    mockGitManager.mockImplementation(() => ({
-   511	      [REDACTED_TOKEN]: jest.fn().mockResolvedValue({
-   512	        success: tr
-... (truncated)
-```
-
-## Turn 56: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 57: ツール実行
-
 **種別**: agent_message
 **ステータス**: completed
 
-## Turn 58: ツール実行
-
-**種別**: todo_list
-**ステータス**: completed
-
-## Turn 59: 実行完了
+## Turn 28: 実行完了
 
 **ステータス**: completed
-**所要時間**: 166897ms
+**所要時間**: 72259ms
 **ターン数**: N/A
 
 ---
 
-**経過時間**: 166897ms
-**開始**: 2025-12-25T05:28:13.115Z
-**終了**: 2025-12-25T05:31:00.012Z
+**経過時間**: 72259ms
+**開始**: 2025-12-25T05:36:08.742Z
+**終了**: 2025-12-25T05:37:21.001Z

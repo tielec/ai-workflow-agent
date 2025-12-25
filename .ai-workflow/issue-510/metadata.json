@@ -18,8 +18,8 @@
     "test_code_strategy": null
   },
   "cost_tracking": {
-    "total_input_tokens": 5106696,
-    "total_output_tokens": 113370,
+    "total_input_tokens": 5415733,
+    "total_output_tokens": 120794,
     "total_cost_usd": 11.78967725
   },
   "difficulty_analysis": {
@@ -244,9 +244,11 @@
       "started_at": "2025-12-25T05:23:05.794Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "revise",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "revise",
+        "review"
       ]
     },
     "testing": {
@@ -284,7 +286,7 @@
     }
   },
   "created_at": "2025-12-25T04:58:43.125Z",
-  "updated_at": "2025-12-25T05:36:07.351Z",
+  "updated_at": "2025-12-25T05:37:21.953Z",
   "branch_name": "ai-workflow/issue-510",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 511,
