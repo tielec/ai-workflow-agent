@@ -206,7 +206,7 @@
 
 ### Phase 7: ドキュメント (見積もり: 0.5h)
 
-- [ ] Task 7-1: ドキュメント更新 (0.5h)
+- [x] Task 7-1: ドキュメント更新 (0.5h)
   - `jenkins/README.md` の更新（webhook機能の説明追加）
   - 新規パラメータの説明追加
 
@@ -327,9 +327,9 @@ graph TD
 
 ### Phase 7: ドキュメント
 
-- [ ] README.mdが更新されている
-- [ ] 新規パラメータの説明が記載されている
-- [ ] 前提条件（HTTP Request Plugin）が記載されている
+- [x] README.mdが更新されている
+- [x] 新規パラメータの説明が記載されている
+- [x] 前提条件（HTTP Request Plugin）が記載されている
 
 ### Phase 8: レポート
 
