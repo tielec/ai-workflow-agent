@@ -26,10 +26,9 @@
     "level": "complex",
     "confidence": 0.85,
     "factors": {
-      "[REDACTED_TOKEN]": 12,
+      "[REDACTED_TOKEN]": true,
       "scope": "cross_cutting",
       "requires_tests": true,
-      "[REDACTED_TOKEN]": true,
       "complexity_score": 0.8
     },
     "analyzed_at": "2025-12-25T02:47:44.806Z",
@@ -256,7 +255,7 @@
     }
   },
   "created_at": "2025-12-25T02:47:32.225Z",
-  "updated_at": "2025-12-25T02:47:47.436Z",
+  "updated_at": "2025-12-25T02:47:52.257Z",
   "branch_name": "ai-workflow/issue-505",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 506,
