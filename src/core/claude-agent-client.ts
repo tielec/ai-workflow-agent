@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -80,10 +81,28 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
+    // Issue #494: cwd が存在しない場合は process.cwd() にフォールバック
+    // Docker 環境で workingDir の解決に失敗した場合の対策
+    if (!fs.existsSync(cwd)) {
+      logger.warn(`Working directory does not exist: ${cwd}. Falling back to process.cwd(): ${process.cwd()}`);
+      return this.executeTask({ ...options, workingDirectory: process.cwd() });
+    }
+
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
     // CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 の場合、すべての操作を自動承認
     const skipPermissions = config.getClaudeDangerouslySkipPermissions();
     const permissionMode = skipPermissions ? 'bypassPermissions' : 'acceptEdits';
+
+    // Issue #494: Docker 環境で node が PATH にない場合に備えて、
+    // process.execPath のディレクトリを PATH に追加
+    // Claude Agent SDK は内部で node を spawn するため、PATH に node が必要
+    const nodeDir = path.dirname(process.execPath);
+    const currentPath = process.env.PATH || '';
+    const pathParts = currentPath.split(path.delimiter).filter(Boolean);
+
+    if (!pathParts.includes(nodeDir)) {
+      process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
+    }
 
     const stream = query({
       prompt,

@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { DocumentationPhase } from '../../../src/phases/documentation.js';
 
 /**

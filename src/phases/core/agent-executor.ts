@@ -8,7 +8,7 @@
  * - 利用量メトリクスの抽出・記録
  */
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';

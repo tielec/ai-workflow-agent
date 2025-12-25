@@ -28,7 +28,7 @@ jest.mock('node:fs', () => ({
   readdirSync: jest.fn(),
 }));
 
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 
 describe('Cleanup コマンド - parsePhaseRange() 正常系', () => {
   // =============================================================================

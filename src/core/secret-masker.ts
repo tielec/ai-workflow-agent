@@ -67,18 +67,14 @@ export class SecretMasker {
     const ignoredPatterns = (options?.ignoredPaths ?? []).map((pattern) => pattern.split('.'));
     const visited = new WeakMap<object, unknown>();
 
-    const maskString = (value: string): string => {
+    const applyMasking = (value: string): string => {
       let masked = value;
       for (const [secretValue, replacement] of replacementMap) {
         if (secretValue) {
           masked = masked.split(secretValue).join(replacement);
         }
       }
-      masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
-      masked = masked.replace(/[A-Za-z0-9_-]{20,}/g, '[REDACTED_TOKEN]');
-      masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
-      masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
-      return masked;
+      return this.maskString(masked);
     };
 
     const matchesPattern = (path: string[], pattern: string[]): boolean => {
@@ -102,7 +98,7 @@ export class SecretMasker {
 
     const cloneAndMask = (value: unknown, path: string[]): unknown => {
       if (typeof value === 'string') {
-        return maskString(value);
+        return applyMasking(value);
       }
 
       if (!value || typeof value !== 'object') {
@@ -139,6 +135,24 @@ export class SecretMasker {
     };
 
     return cloneAndMask(input as unknown, []) as T;
+  }
+
+  /**
+   * Apply generic secret patterns to mask potential secrets in a string.
+   * GitHub token patterns are applied before generic token masking to preserve specificity.
+   */
+  private maskString(value: string): string {
+    let masked = value;
+
+    // Prefer GitHub token patterns first so they don't fall back to generic tokens
+    masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
+    masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
+    // Exclude REDACTED placeholders and ghp_/github_pat_ prefixes from generic token masking
+    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+    masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
+    masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
+
+    return masked;
   }
 
   /**
@@ -239,8 +253,8 @@ export class SecretMasker {
     secrets: Secret[],
   ): Promise<{ masked: boolean; count: number }> {
     let content = await fs.readFile(filePath, 'utf-8');
+    const originalContent = content;
     let maskedCount = 0;
-    let modified = false;
 
     for (const secret of secrets) {
       const replacement = `[REDACTED_${secret.name}]`;
@@ -249,10 +263,12 @@ export class SecretMasker {
       if (occurrences > 0) {
         content = this.replaceAll(content, secret.value, replacement);
         maskedCount += occurrences;
-        modified = true;
       }
     }
 
+    content = this.maskString(content);
+
+    const modified = content !== originalContent;
     if (modified) {
       await fs.writeFile(filePath, content, 'utf-8');
     }

@@ -4,7 +4,7 @@ import {
   removeWorkflowDirectory,
   getPhaseOutputFilePath,
 } from '../../../src/core/helpers/metadata-io.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import { jest } from '@jest/globals';
 
 describe('metadata-io', () => {

@@ -161,6 +161,21 @@ ai-workflow migrate --sanitize-tokens --issue 123
    ```
 3. 変更をコミット＆プッシュ
 
+**自動シークレットマスキング機能（Issue #488で拡張）**:
+
+v0.5.1以降では、SecretMaskerクラスが拡張され、ワークフローファイル内のシークレット情報を自動的に検出・マスキングし、GitHub Push Protectionによるプッシュブロックを防ぎます：
+
+- **自動マスキング対象**:
+  - GitHub Personal Access Token (`ghp_*`)
+  - GitHub Fine-grained Token (`github_pat_*`)
+  - Email アドレス
+  - 汎用トークン（20文字以上）
+  - Bearer トークン
+  - token= 形式
+
+- **処理タイミング**: コミット作成時に `.ai-workflow/issue-*/` 内のファイル（agent_log_raw.txt, agent_log.md, prompt.txt, metadata.json）を自動スキャン
+- **マスキング方式**: 環境変数マッチング + 汎用パターンマッチングの2段階処理
+
 **予防策**:
 - SSH形式でリポジトリをクローンする（推奨）:
   ```bash
@@ -1624,6 +1639,7 @@ git checkout <commit-hash> -- .ai-workflow/pr-123/comment-resolution-metadata.js
 - **カラーリングテスト関連**: `chalk.level` の強制設定と `LOG_NO_COLOR` 環境変数を確認してください。
 - **ロギング規約違反**: ESLintエラー発生時は統一loggerモジュール（`src/utils/logger.ts`）を使用してください。
 - **コミットスカッシュ関連**: `metadata.json` の `base_commit`, `pre_squash_commits`, `squashed_at` フィールドを確認してください。スカッシュログは Evaluation Phase の実行ログに記録されます。
+- **PRコメント自動対応関連**: 個別コメントのデバッグには `.ai-workflow/pr-{number}/execute/agent_log_comment_{comment_id}.md` を確認してください（Issue #487で追加、ドライランモード時は生成されません）。
 
 ## 17. フォローアップIssue生成関連（v0.5.0、Issue #480）
 

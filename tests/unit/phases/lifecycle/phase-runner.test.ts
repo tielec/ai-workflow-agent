@@ -19,7 +19,7 @@ jest.mock('../../../../src/core/phase-dependencies.js', () => ({
 }));
 
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { PhaseRunner } from '../../../../src/phases/lifecycle/phase-runner.js';
 import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../../../src/types.js';

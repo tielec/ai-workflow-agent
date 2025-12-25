@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #487**: pr-comment execute コマンドでエージェントログをファイル保存
+  - 各コメント分析時のエージェント実行ログを個別ファイルとして保存
+  - ファイル名形式: `agent_log_comment_{comment_id}.md`
+  - 保存先: `.ai-workflow/pr-{NUM}/execute/` ディレクトリ
+  - LogFormatterによる統一Markdown形式でのフォーマット出力
+  - ドライランモード時はログ保存をスキップ
+  - `ReviewCommentAnalyzer.runAgent()` メソッド拡張による実装
+  - `persistAgentLog()` 関数追加とエラー時のフォールバック処理
+  - 修正ファイル: `src/core/pr-comment/comment-analyzer.ts`
+  - テストカバレッジ: 17件のユニットテスト（100%成功）
+
 - **Issue #462**: Jenkinsジョブパラメータのセキュリティ強化（非破壊的変更）
   - 個人情報・機密情報を含むパラメータをNon-Stored Password Parameterに変更
   - 対象パラメータ（7種類）: `ISSUE_URL`, `PR_URL`, `BRANCH_NAME`, `BASE_BRANCH`, `GIT_COMMIT_USER_NAME`, `GIT_COMMIT_USER_EMAIL`, `CODEX_AUTH_JSON`
@@ -122,6 +133,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 柔軟な実行制御: `--skip-squash`, `--skip-pr-update` オプションで任意のステップをスキップ可能
 
 ### Fixed
+
+- **Issue #488**: SecretMasker汎用パターンマスキング対応（GitHub Push Protection対策）
+  - `maskSecretsInFile()` メソッドに汎用パターンマスキング機能を追加
+  - GitHub トークンパターン（`ghp_*`, `github_pat_*`）の検出・マスキング対応
+  - `maskString()` メソッドを抽出し、`maskObject()` と `maskSecretsInFile()` で共有化
+  - 環境変数マッチング + 汎用パターンマッチングの2段階マスキング処理を実装
+  - GitHub Push Protection によるプッシュブロック問題を解決
+  - 対応パターン: GitHub PAT、GitHub Fine-grained Token、Email、汎用トークン（20文字以上）、Bearer Token、token=形式
+  - マスキング順序の最適化（GitHub Token パターンを汎用パターンより優先）
+  - 修正ファイル: `src/core/secret-masker.ts`
+  - テストカバレッジ: 27件の新規テスト（maskString()、maskSecretsInFile()統合、既存回帰テスト）
 
 - **Issue #485**: auto-issue enhancementカテゴリでJSONファイル出力されない問題の修正
   - `src/prompts/auto-issue/detect-enhancements.txt`にファイル書き込み指示を追加

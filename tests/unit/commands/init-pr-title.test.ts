@@ -11,7 +11,7 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { GitHubClient } from '../../../src/core/github-client.js';
 import { logger } from '../../../src/utils/logger.js';
-import * as fs from 'node:fs';
+import fs from 'fs-extra';
 
 // =============================================================================
 // PR タイトル生成ロジックのモック化
