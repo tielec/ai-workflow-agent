@@ -10,7 +10,7 @@
  * 完全なE2Eテストは手動実行が必要です。
  */
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterAll, jest } from '@jest/globals';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import fs from 'fs-extra';
@@ -90,6 +90,14 @@ describe('Preset workflow: review-design (Issue #248)', () => {
     });
 
     metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterAll(async () => {
+    // Clean up temporary directory after all tests
+    const tmpDir = path.join(process.cwd(), 'tmp', 'preset-workflow');
+    if (fs.existsSync(tmpDir)) {
+      await fs.remove(tmpDir);
+    }
   });
 
   // =============================================================================

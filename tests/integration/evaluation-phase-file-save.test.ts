@@ -354,7 +354,7 @@ describe('EvaluationPhase - ファイルパス検証', () => {
     // Then: ファイルパスが正しく構築されている
     expect(evaluationFile).toBe(expectedPath);
     expect(path.basename(evaluationFile)).toBe('evaluation_report.md');
-    expect(path.dirname(evaluationFile)).toContain('09_evaluation/output');
+    expect(path.dirname(evaluationFile)).toContain(path.join('09_evaluation', 'output'));
   });
 
   test('4-2: エージェントログファイルパスの構築', () => {
@@ -369,6 +369,6 @@ describe('EvaluationPhase - ファイルパス検証', () => {
     // Then: ファイルパスが正しく構築されている
     expect(agentLogPath).toBe(expectedPath);
     expect(path.basename(agentLogPath)).toBe('agent_log.md');
-    expect(path.dirname(agentLogPath)).toContain('09_evaluation/execute');
+    expect(path.dirname(agentLogPath)).toContain(path.join('09_evaluation', 'execute'));
   });
 });

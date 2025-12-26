@@ -68,6 +68,7 @@ beforeAll(async () => {
     getRepoRoot: getRepoRootMock,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: jest.fn(() => '/repo'),
+    findWorkflowMetadata: jest.fn(() => Promise.resolve(null)), // Add missing export
   }));
 
   await jest.unstable_mockModule('../../src/core/pr-comment/metadata-manager.js', () => ({
