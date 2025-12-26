@@ -49,7 +49,7 @@ describe('CodeChangeApplier', () => {
 
     expect(result.success).toBe(true);
     expect(writeFileSpy).toHaveBeenCalledWith(
-      path.join(repoPath, 'src/config.ts'),
+      path.join(path.resolve(repoPath), 'src', 'config.ts'),
       'export {}',
       'utf-8',
     );
