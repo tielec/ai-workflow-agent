@@ -176,65 +176,65 @@ export class CommitManager {
     issueNumber: number,
     workingDir: string,
   ): Promise<CommitResult> {
-    // 1. File selection (delegated to FileSelector)
-    const changedFiles = await this.fileSelector.getChangedFiles();
-    const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
-
-    if (filteredFiles.length === 0) {
-      logger.warn(`No files to commit for step: ${step}`);
-      return {
-        success: true,
-        commit_hash: null,
-        files_committed: [],
-      };
-    }
-
-    // Issue #234: Filter out non-existent files before git add
-    const targetFiles = this.filterExistingFiles(filteredFiles);
-
-    if (targetFiles.length === 0) {
-      logger.warn(`No existing files to commit for step: ${step}`);
-      return {
-        success: true,
-        commit_hash: null,
-        files_committed: [],
-      };
-    }
-
-    // 2. Secret masking
-    // Issue #274: workingDir の代わりに this.repoPath を使用（REPOS_ROOT 対応）
-    const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
     try {
-      const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
-      if (maskingResult.filesProcessed > 0) {
-        logger.info(
-          `Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
-        );
+      // 1. File selection (delegated to FileSelector)
+      const changedFiles = await this.fileSelector.getChangedFiles();
+      const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
+
+      if (filteredFiles.length === 0) {
+        logger.warn(`No files to commit for step: ${step}`);
+        return {
+          success: true,
+          commit_hash: null,
+          files_committed: [],
+        };
       }
-      if (maskingResult.errors.length > 0) {
-        logger.warn(
-          `Secret masking encountered ${maskingResult.errors.length} error(s)`,
-        );
+
+      // Issue #234: Filter out non-existent files before git add
+      const targetFiles = this.filterExistingFiles(filteredFiles);
+
+      if (targetFiles.length === 0) {
+        logger.warn(`No existing files to commit for step: ${step}`);
+        return {
+          success: true,
+          commit_hash: null,
+          files_committed: [],
+        };
       }
-    } catch (error) {
-      logger.error(`Secret masking failed: ${getErrorMessage(error)}`);
-      // Continue with commit (don't block)
-    }
 
-    // 3. Git staging
-    await this.git.add(targetFiles);
-    await this.ensureGitConfig();
+      // 2. Secret masking
+      // Issue #274: workingDir の代わりに this.repoPath を使用（REPOS_ROOT 対応）
+      const workflowDir = join(this.repoPath, '.ai-workflow', `issue-${issueNumber}`);
+      try {
+        const maskingResult = await this.secretMasker.maskSecretsInWorkflowDir(workflowDir);
+        if (maskingResult.filesProcessed > 0) {
+          logger.info(
+            `Masked ${maskingResult.secretsMasked} secret(s) in ${maskingResult.filesProcessed} file(s)`,
+          );
+        }
+        if (maskingResult.errors.length > 0) {
+          logger.warn(
+            `Secret masking encountered ${maskingResult.errors.length} error(s)`,
+          );
+        }
+      } catch (error) {
+        logger.error(`Secret masking failed: ${getErrorMessage(error)}`);
+        // Continue with commit (don't block)
+      }
 
-    // 4. Commit message generation (delegated to CommitMessageBuilder)
-    const message = this.messageBuilder.buildStepCommitMessage(
-      phaseName,
-      phaseNumber,
-      step,
-      issueNumber,
-    );
+      // 3. Git staging
+      await this.git.add(targetFiles);
+      await this.ensureGitConfig();
 
-    // 5. Commit execution
-    try {
+      // 4. Commit message generation (delegated to CommitMessageBuilder)
+      const message = this.messageBuilder.buildStepCommitMessage(
+        phaseName,
+        phaseNumber,
+        step,
+        issueNumber,
+      );
+
+      // 5. Commit execution
       const commitResponse = await this.git.commit(message, targetFiles, {
         '--no-verify': null,
       });
@@ -251,7 +251,7 @@ export class CommitManager {
       return {
         success: false,
         commit_hash: null,
-        files_committed: targetFiles,
+        files_committed: [],
         error: `Step commit failed: ${getErrorMessage(error)}`,
       };
     }

@@ -59,6 +59,13 @@ async function createWorkingRepository(
   return git;
 }
 
+/**
+ * Git用のパスに変換（Windowsのバックスラッシュをフォワードスラッシュに変換）
+ */
+function toGitPath(relativePath: string): string {
+  return relativePath.replace(/\\/g, '/');
+}
+
 // =============================================================================
 // 統合テスト: init コマンド - PR URL 永続化
 // =============================================================================
@@ -126,7 +133,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
       expect(remoteBranchExists).toBe(true);
 
       // Then: リモートの metadata.json に pr_url が保存されている
-      const remoteMetadataContent = await git.show([`origin/${branchName}:${path.relative(workingRepoPath, metadataPath)}`]);
+      const remoteMetadataContent = await git.show([`origin/${branchName}:${toGitPath(path.relative(workingRepoPath, metadataPath))}`]);
       const remoteMetadata = JSON.parse(remoteMetadataContent);
       expect(remoteMetadata.pr_url).toBeDefined();
       expect(remoteMetadata.pr_url).toBe('https://github.com/tielec/ai-workflow-agent/pull/123');
@@ -153,7 +160,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
       await git.push('origin', branchName);
 
       // When: リモートの metadata.json を取得
-      const remoteMetadataContent = await git.show([`origin/${branchName}:${path.relative(workingRepoPath, metadataPath)}`]);
+      const remoteMetadataContent = await git.show([`origin/${branchName}:${toGitPath(path.relative(workingRepoPath, metadataPath))}`]);
       const remoteMetadata = JSON.parse(remoteMetadataContent);
 
       // Then: pr_url が正しい形式である
@@ -223,7 +230,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
 
       // When: リモートとローカルのmetadata.jsonを比較
       const localMetadata = await fs.readJson(metadataPath);
-      const remoteMetadataContent = await git.show([`origin/${branchName}:${path.relative(workingRepoPath, metadataPath)}`]);
+      const remoteMetadataContent = await git.show([`origin/${branchName}:${toGitPath(path.relative(workingRepoPath, metadataPath))}`]);
       const remoteMetadata = JSON.parse(remoteMetadataContent);
 
       // Then: ローカルとリモートのpr_urlが一致する
@@ -274,7 +281,7 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
       expect(log.all.length).toBeGreaterThanOrEqual(2);
 
       // Then: リモートのmetadata.jsonにpr_urlが含まれる
-      const remoteMetadataContent = await git.show([`origin/${branchName}:${path.relative(workingRepoPath, metadataPath)}`]);
+      const remoteMetadataContent = await git.show([`origin/${branchName}:${toGitPath(path.relative(workingRepoPath, metadataPath))}`]);
       const remoteMetadata = JSON.parse(remoteMetadataContent);
       expect(remoteMetadata.pr_url).toBe('https://github.com/tielec/ai-workflow-agent/pull/101');
       expect(remoteMetadata.pr_number).toBe(101);
