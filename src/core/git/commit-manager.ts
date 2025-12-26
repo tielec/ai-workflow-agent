@@ -349,42 +349,63 @@ export class CommitManager {
     issueNumber: number,
     phase: 'report' | 'evaluation' | 'finalize',
   ): Promise<CommitResult> {
-    // 1. File selection (delegated to FileSelector)
-    const changedFiles = await this.fileSelector.getChangedFiles();
-    const filteredFiles = this.fileSelector.filterPhaseFiles(changedFiles, issueNumber.toString());
-
-    // 2. No files to commit
-    if (filteredFiles.length === 0) {
-      logger.warn('No files to commit for cleanup');
-      return {
-        success: true,
-        commit_hash: null,
-        files_committed: [],
-      };
-    }
-
-    // Issue #234: Filter out non-existent files before git add
-    const targetFiles = this.filterExistingFiles(filteredFiles);
-
-    if (targetFiles.length === 0) {
-      logger.warn('No existing files to commit for cleanup');
-      return {
-        success: true,
-        commit_hash: null,
-        files_committed: [],
-      };
-    }
-
-    // 3. Git staging
-    await this.git.add(targetFiles);
-    await this.ensureGitConfig();
-
-    // 4. Commit message generation (delegated to CommitMessageBuilder)
-    const message = this.messageBuilder.createCleanupCommitMessage(issueNumber, phase);
-
-    // 5. Commit execution
     try {
-      const commitResponse = await this.git.commit(message, targetFiles, {
+      // 1. Get all changed files (including deleted files)
+      const status = await this.git.status();
+      const workflowPath = `.ai-workflow/issue-${issueNumber}`;
+
+      // Collect all changed files (modified, deleted, created) in the workflow directory
+      const allChangedFiles = new Set<string>();
+
+      // Add modified files
+      status.modified?.forEach((file) => {
+        if (file.startsWith(workflowPath) && !isSecuritySensitiveFile(file)) {
+          allChangedFiles.add(file);
+        }
+      });
+
+      // Add deleted files
+      status.deleted?.forEach((file) => {
+        if (file.startsWith(workflowPath) && !isSecuritySensitiveFile(file)) {
+          allChangedFiles.add(file);
+        }
+      });
+
+      // Add created files
+      status.created?.forEach((file) => {
+        if (file.startsWith(workflowPath) && !isSecuritySensitiveFile(file)) {
+          allChangedFiles.add(file);
+        }
+      });
+
+      // Add not_added files
+      status.not_added?.forEach((file) => {
+        if (file.startsWith(workflowPath) && !isSecuritySensitiveFile(file)) {
+          allChangedFiles.add(file);
+        }
+      });
+
+      if (allChangedFiles.size === 0) {
+        logger.warn('No files to commit for cleanup');
+        return {
+          success: true,
+          commit_hash: null,
+          files_committed: [],
+        };
+      }
+
+      const targetFiles = Array.from(allChangedFiles);
+      logger.info(`Staging ${targetFiles.length} file(s) for cleanup commit`);
+
+      // 2. Git staging (use -A to track deletions)
+      await this.git.add(['-A', workflowPath]);
+      await this.ensureGitConfig();
+
+      // 3. Commit message generation (delegated to CommitMessageBuilder)
+      const message = this.messageBuilder.createCleanupCommitMessage(issueNumber, phase);
+
+      // 4. Commit execution
+      const commitResponse = await this.git.commit(message, [], {
         '--no-verify': null,
       });
 
@@ -400,7 +421,7 @@ export class CommitManager {
       return {
         success: false,
         commit_hash: null,
-        files_committed: targetFiles,
+        files_committed: [],
         error: `Cleanup commit failed: ${getErrorMessage(error)}`,
       };
     }
