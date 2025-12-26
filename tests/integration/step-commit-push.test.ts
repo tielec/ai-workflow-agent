@@ -13,6 +13,7 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
+import os from 'node:os';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { GitManager } from '../../src/core/git-manager.js';
 import simpleGit from 'simple-git';
@@ -206,14 +207,12 @@ describe('ステップコミット＆プッシュの統合テスト', () => {
 });
 
 describe('エラーハンドリングの統合テスト', () => {
-  let metadataManager: MetadataManager;
-  let gitManager: GitManager;
   let testMetadataPath: string;
   let testDir: string;
 
   beforeAll(async () => {
-    // テスト用ディレクトリを作成
-    testDir = path.join(process.cwd(), 'tests', 'temp', 'step-error-test');
+    // テスト用ディレクトリを作成（Gitリポジトリ外の一時ディレクトリ）
+    testDir = path.join(os.tmpdir(), `ai-workflow-step-error-test-${Date.now()}`);
     await fs.ensureDir(testDir);
     testMetadataPath = path.join(testDir, '.ai-workflow', 'issue-456', 'metadata.json');
     await fs.ensureDir(path.dirname(testMetadataPath));
@@ -253,8 +252,6 @@ describe('エラーハンドリングの統合テスト', () => {
     };
 
     await fs.writeJSON(testMetadataPath, testMetadata, { spaces: 2 });
-    metadataManager = new MetadataManager(testMetadataPath);
-    gitManager = new GitManager(testDir, metadataManager);
   });
 
   afterAll(async () => {
@@ -269,6 +266,10 @@ describe('エラーハンドリングの統合テスト', () => {
     const outputDir = path.join(testDir, '.ai-workflow', 'issue-456', '01_requirements', 'output');
     await fs.ensureDir(outputDir);
     await fs.writeFile(path.join(outputDir, 'requirements.md'), '# Requirements');
+
+    // GitManagerを初期化（Gitリポジトリが存在しないためエラーが発生する）
+    const metadataManager = new MetadataManager(testMetadataPath);
+    const gitManager = new GitManager(testDir, metadataManager);
 
     // When: コミットを実行
     const commitResult = await gitManager.commitStepOutput(
