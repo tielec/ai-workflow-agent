@@ -5,11 +5,6 @@ const config = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  globals: {
-    'ts-jest': {
-      tsconfig: 'tsconfig.test.json',
-    },
-  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -21,7 +16,6 @@ const config = {
     '^.+\\.tsx?$': ['ts-jest', {
       useESM: true,
       tsconfig: 'tsconfig.test.json',
-      isolatedModules: true,
       diagnostics: false,
     }],
   },
