@@ -80,9 +80,12 @@ export class GitHubClient {
     codexClient?: CodexAgentClient | null,
     claudeClient?: ClaudeAgentClient | null,
   ) {
-    // フォールバック: 引数が指定されていない場合はConfigクラスから取得
-    if (token === undefined || token === null) {
+    // フォールバック: 引数が指定されていない場合のみConfigクラスから取得
+    // null が明示的に渡された場合はフォールバックせず検証エラーとする
+    if (token === undefined) {
       this.token = config.getGitHubToken();
+    } else if (token === null) {
+      this.token = '';
     } else {
       this.token = token;
     }
@@ -92,9 +95,12 @@ export class GitHubClient {
       );
     }
 
-    // フォールバック: 引数が指定されていない場合はConfigクラスから取得
-    if (repository === undefined || repository === null) {
+    // フォールバック: 引数が指定されていない場合のみConfigクラスから取得
+    // null が明示的に渡された場合はフォールバックせず検証エラーとする
+    if (repository === undefined) {
       this.repositoryName = config.getGitHubRepository() ?? '';
+    } else if (repository === null) {
+      this.repositoryName = '';
     } else {
       this.repositoryName = repository;
     }

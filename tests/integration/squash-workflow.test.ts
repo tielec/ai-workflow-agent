@@ -118,7 +118,7 @@ describe('スカッシュワークフロー統合テスト', () => {
       mockGit.diff.mockResolvedValue('5 files changed, 100 insertions(+), 10 deletions(-)');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'squashed-commit' } as any);
-      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
 
       // Step 3: エージェント実行のモック設定
       mockMkdir.mockResolvedValue(undefined);
@@ -232,7 +232,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
 
       mockMkdir.mockResolvedValue(undefined);
       mockAccess.mockRejectedValue(new Error('File not found'));
@@ -291,7 +291,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
 
       // エージェントが失敗
       mockCodexAgent.executeTask.mockRejectedValue(new Error('Agent failed'));
@@ -341,7 +341,7 @@ Fixes #194`,
       mockGit.diff.mockResolvedValue('test diff');
       mockGit.reset.mockResolvedValue(undefined as any);
       mockGit.commit.mockResolvedValue({ commit: 'new-commit' } as any);
-      mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
+      mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
 
       // エージェントが無効なメッセージを生成
       mockMkdir.mockResolvedValue(undefined);
@@ -731,7 +731,7 @@ Fixes #216`,
         mockGit.diff.mockResolvedValue('4 files changed, 50 insertions(+), 5 deletions(-)');
         mockGit.reset.mockResolvedValue(undefined as any);
         mockGit.commit.mockResolvedValue({ commit: 'squashed-commit-hash' } as any);
-        mockRemoteManager.forcePushToRemote.mockResolvedValue(undefined);
+        mockRemoteManager.forcePushToRemote.mockResolvedValue({ success: true, retries: 0 });
 
         // Step 3: エージェント実行のモック設定
         mockMkdir.mockResolvedValue(undefined);
