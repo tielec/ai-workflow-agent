@@ -17,10 +17,6 @@ import { BasePhase } from '../../../src/phases/base-phase.js';
 import type { PhaseExecutionResult } from '../../../src/types.js';
 import fs from 'fs-extra';
 
-// fs-extra をモック
-jest.mock('fs-extra');
-const mockFs = fs as jest.Mocked<typeof fs>;
-
 /**
  * テスト用の BasePhase サブクラス
  * loadPrompt() を public にアクセス可能にする
@@ -85,10 +81,10 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
     };
 
     // fs-extra のモック設定
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.ensureDirSync.mockReturnValue(undefined);
-    mockFs.readFileSync.mockReturnValue('Execute planning phase...\n\n{issue_info}');
-    mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
+    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    jest.spyOn(fs, 'ensureDirSync').mockReturnValue(undefined as any);
+    jest.spyOn(fs, 'readFileSync').mockReturnValue('Execute planning phase...\n\n{issue_info}' as any);
+    jest.spyOn(fs, 'lstatSync').mockReturnValue({ isSymbolicLink: () => false } as any);
 
     // TestPhase インスタンス作成
     testPhase = new TestPhase({
@@ -103,6 +99,8 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
   afterEach(() => {
     // 環境変数の復元
     process.env = originalEnv;
+    // モックのクリーンアップ
+    jest.restoreAllMocks();
   });
 
   // TC-011: AGENT_CAN_INSTALL_PACKAGES=true の場合、プロンプト先頭に環境情報が注入される（正常系）
@@ -112,7 +110,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
 
       // プロンプトテンプレートファイルの内容をモック
-      mockFs.readFileSync.mockReturnValue('Execute planning phase...\n\n{issue_info}');
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Execute planning phase...\n\n{issue_info}');
 
       // When: loadPrompt('execute') を呼び出す
       const prompt = testPhase.testLoadPrompt('execute');
@@ -157,7 +155,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'false';
 
       // プロンプトテンプレートファイルの内容をモック
-      mockFs.readFileSync.mockReturnValue('Execute planning phase...');
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Execute planning phase...');
 
       // When: loadPrompt('execute') を呼び出す
       const prompt = testPhase.testLoadPrompt('execute');
@@ -177,7 +175,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       delete process.env.AGENT_CAN_INSTALL_PACKAGES;
 
       // プロンプトテンプレートファイルの内容をモック
-      mockFs.readFileSync.mockReturnValue('Execute planning phase...');
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Execute planning phase...');
 
       // When: loadPrompt('execute') を呼び出す
       const prompt = testPhase.testLoadPrompt('execute');
@@ -197,7 +195,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
 
       // プロンプトテンプレートファイルの内容をモック
-      mockFs.readFileSync.mockReturnValue('Review planning phase output...');
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Review planning phase output...');
 
       // When: loadPrompt('review') を呼び出す
       const prompt = testPhase.testLoadPrompt('review');
@@ -214,7 +212,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
 
       // プロンプトテンプレートファイルの内容をモック
-      mockFs.readFileSync.mockReturnValue('Revise planning phase output...');
+      jest.spyOn(fs, 'readFileSync').mockReturnValue('Revise planning phase output...');
 
       // When: loadPrompt('revise') を呼び出す
       const prompt = testPhase.testLoadPrompt('revise');

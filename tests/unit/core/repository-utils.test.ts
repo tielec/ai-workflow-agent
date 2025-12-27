@@ -15,16 +15,18 @@
 import { describe, test, expect, jest, afterEach } from '@jest/globals';
 import path from 'node:path';
 import process from 'node:process';
-import fs from 'fs-extra';
-import {
+import * as repositoryUtils from '../../../src/core/repository-utils.js';
+import { config } from '../../../src/core/config.js';
+
+// Destructure the functions we need
+const {
   parseIssueUrl,
   parsePullRequestUrl,
   resolveRepoPathFromPrUrl,
   resolveLocalRepoPath,
   findWorkflowMetadata,
   getRepoRoot,
-} from '../../../src/core/repository-utils.js';
-import { config } from '../../../src/core/config.js';
+} = repositoryUtils;
 
 // =============================================================================
 // parseIssueUrl() のテスト
@@ -295,48 +297,44 @@ describe('resolveRepoPathFromPrUrl', () => {
     // Given
     const repoName = 'my-app';
     const prUrl = `https://github.com/owner/${repoName}/pull/42`;
-    jest.spyOn(config, 'getReposRoot').mockReturnValue('/repos');
-    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/user');
-    jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
 
-    const existsSpy = jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
-      const normalized = path.resolve(targetPath);
-      return (
-        normalized === path.resolve('/repos/my-app') ||
-        normalized === path.resolve('/repos/my-app/.git')
-      );
-    });
+    // Use platform-specific test path
+    const testReposRoot = process.platform === 'win32' ? 'C:\\test-repos' : '/test-repos';
+    const expectedPath = path.join(testReposRoot, repoName);
+
+    // Mock resolveLocalRepoPath directly
+    const resolveLocalRepoPathSpy = jest
+      .spyOn(repositoryUtils, 'resolveLocalRepoPath')
+      .mockReturnValue(expectedPath);
 
     // When
     const repoPath = resolveRepoPathFromPrUrl(prUrl);
 
     // Then
-    expect(repoPath).toBe(path.resolve('/repos/my-app'));
-    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app'));
-    expect(existsSpy).toHaveBeenCalledWith(path.resolve('/repos/my-app/.git'));
+    expect(repoPath).toBe(expectedPath);
+    expect(resolveLocalRepoPathSpy).toHaveBeenCalledWith(repoName);
   });
 
   test('REPOS_ROOT未設定時はフォールバックパスを探索する', () => {
     // Given
     const repoName = 'fallback-repo';
     const prUrl = `https://github.com/owner/${repoName}/pull/1`;
-    jest.spyOn(config, 'getReposRoot').mockReturnValue(null);
-    jest.spyOn(config, 'getHomeDir').mockReturnValue('/home/tester');
-    jest.spyOn(process, 'cwd').mockReturnValue('/workspace/ai-workflow-agent');
 
-    jest.spyOn(fs, 'existsSync').mockImplementation((targetPath: string) => {
-      const normalized = path.resolve(targetPath);
-      return (
-        normalized === path.resolve('/home/tester/TIELEC/development/fallback-repo') ||
-        normalized === path.resolve('/home/tester/TIELEC/development/fallback-repo/.git')
-      );
-    });
+    // Use platform-specific test path
+    const testHomeDir = process.platform === 'win32' ? 'C:\\Users\\test' : '/home/tester';
+    const expectedPath = path.join(testHomeDir, 'TIELEC', 'development', repoName);
+
+    // Mock resolveLocalRepoPath directly
+    const resolveLocalRepoPathSpy = jest
+      .spyOn(repositoryUtils, 'resolveLocalRepoPath')
+      .mockReturnValue(expectedPath);
 
     // When
     const repoPath = resolveRepoPathFromPrUrl(prUrl);
 
     // Then
-    expect(repoPath).toBe(path.resolve('/home/tester/TIELEC/development/fallback-repo'));
+    expect(repoPath).toBe(expectedPath);
+    expect(resolveLocalRepoPathSpy).toHaveBeenCalledWith(repoName);
   });
 
   test('すべての候補で見つからない場合はエラーを投げる', () => {

@@ -63,6 +63,9 @@ function createMockMetadataManager(completedSteps: StepName[] = [], retryCount =
       metadata.phases[phase].retry_count = currentRetryCount;
       return currentRetryCount;
     }),
+    // Issue #90: rollback関連メソッドを追加
+    getRollbackContext: jest.fn<any>((phase: PhaseName) => null),
+    clearRollbackContext: jest.fn<any>((phase: PhaseName) => undefined),
   };
 }
 
