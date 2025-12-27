@@ -16,6 +16,7 @@
  * - BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
+ * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他: APIキー、AWS認証情報、Git設定
@@ -72,6 +73,9 @@ pipeline {
         CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
         CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
         ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+
+        // 自動モデル選択設定
+        AUTO_MODEL_SELECTION = "${params.AUTO_MODEL_SELECTION ?: 'true'}"
     }
 
     stages {
@@ -151,6 +155,8 @@ pipeline {
                     echo "Skip Squash: ${params.SKIP_SQUASH ?: false}"
                     echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
                     echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Auto Model Selection: ${params.AUTO_MODEL_SELECTION ?: true}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                 }
             }
