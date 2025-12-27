@@ -81,7 +81,7 @@ async function loadWorkflowMetadata(issueNumber: string): Promise<{
 /**
  * validateCleanupOptions - CLIオプションのバリデーション
  */
-function validateCleanupOptions(
+export function validateCleanupOptions(
   options: CleanupCommandOptions,
   metadataManager: MetadataManager
 ): void {
@@ -204,7 +204,7 @@ export function parsePhaseRange(rangeStr: string): PhaseName[] {
 /**
  * executeCleanup - クリーンアップ実行
  */
-async function executeCleanup(
+export async function executeCleanup(
   options: CleanupCommandOptions,
   metadataManager: MetadataManager,
   workflowDir: string
@@ -292,7 +292,7 @@ async function executeCleanup(
 /**
  * previewCleanup - ドライランモードでプレビュー表示
  */
-async function previewCleanup(
+export async function previewCleanup(
   options: CleanupCommandOptions,
   metadataManager: MetadataManager
 ): Promise<void> {

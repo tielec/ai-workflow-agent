@@ -5,6 +5,7 @@ import {
   getPhaseOutputFilePath,
 } from '../../../src/core/helpers/metadata-io.js';
 import fs from 'fs-extra';
+import path from 'node:path';
 import { jest } from '@jest/globals';
 
 describe('metadata-io', () => {
@@ -70,9 +71,9 @@ describe('metadata-io', () => {
       expect(copyFileSyncSpy).toHaveBeenCalled();
       // バックアップファイルパスが返される
       expect(result).toMatch(/metadata\.json\.backup_\d{8}_\d{6}$/);
-      // コンソールログ出力がある
+      // コンソールログ出力がある（タイムスタンプとログレベルを含む）
       expect(consoleInfoSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[INFO] Metadata backup created:')
+        expect.stringContaining('Metadata backup created:')
       );
 
       consoleInfoSpy.mockRestore();
@@ -126,9 +127,9 @@ describe('metadata-io', () => {
       expect(existsSyncSpy).toHaveBeenCalledWith(workflowDir);
       // fs.removeSync()が呼ばれる
       expect(removeSyncSpy).toHaveBeenCalledWith(workflowDir);
-      // コンソールログ出力がある
+      // コンソールログ出力がある（タイムスタンプとログレベルを含む）
       expect(consoleInfoSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[INFO] Removing workflow directory:')
+        expect.stringContaining('Removing workflow directory:')
       );
 
       consoleInfoSpy.mockRestore();
@@ -158,34 +159,34 @@ describe('metadata-io', () => {
     it('正常系: planningフェーズの出力ファイルパスが取得される', () => {
       // Given: planningフェーズとワークフローディレクトリ（プレフィックス付き）
       const phaseName = '00_planning';
-      const workflowDir = '/path/to/.ai-workflow/issue-26';
+      const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-26');
 
       // When: getPhaseOutputFilePath関数を呼び出す
       const result = getPhaseOutputFilePath(phaseName as any, workflowDir);
 
-      // Then: 正しいパスが返される
+      // Then: 正しいパス（絶対パス）が返される
       expect(result).toBe(
-        '/path/to/.ai-workflow/issue-26/00_planning/output/planning.md'
+        path.resolve(workflowDir, '00_planning', 'output', 'planning.md')
       );
     });
 
     it('正常系: requirementsフェーズの出力ファイルパスが取得される', () => {
       // Given: requirementsフェーズとワークフローディレクトリ（プレフィックス付き）
       const phaseName = '01_requirements';
-      const workflowDir = '/path/to/.ai-workflow/issue-26';
+      const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-26');
 
       // When: getPhaseOutputFilePath関数を呼び出す
       const result = getPhaseOutputFilePath(phaseName as any, workflowDir);
 
-      // Then: 正しいパスが返される
+      // Then: 正しいパス（絶対パス）が返される
       expect(result).toBe(
-        '/path/to/.ai-workflow/issue-26/01_requirements/output/requirements.md'
+        path.resolve(workflowDir, '01_requirements', 'output', 'requirements.md')
       );
     });
 
     it('正常系: testingフェーズでreview/result.mdが存在すればそのパスを返す', () => {
-      const workflowDir = '/path/to/.ai-workflow/issue-38';
-      const reviewPath = `${workflowDir}/06_testing/review/result.md`;
+      const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-38');
+      const reviewPath = path.resolve(workflowDir, '06_testing', 'review', 'result.md');
       const existsSyncSpy = jest
         .spyOn(fs, 'existsSync')
         .mockImplementation((targetPath) => targetPath === reviewPath);
@@ -197,9 +198,9 @@ describe('metadata-io', () => {
     });
 
     it('正常系: testingフェーズでreview/result.mdが無ければ従来パスを返す', () => {
-      const workflowDir = '/path/to/.ai-workflow/issue-26';
-      const reviewPath = `${workflowDir}/06_testing/review/result.md`;
-      const legacyPath = `${workflowDir}/06_testing/output/test-result.md`;
+      const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-26');
+      const reviewPath = path.resolve(workflowDir, '06_testing', 'review', 'result.md');
+      const legacyPath = path.resolve(workflowDir, '06_testing', 'output', 'test-result.md');
       const existsSyncSpy = jest
         .spyOn(fs, 'existsSync')
         .mockImplementation(() => false);
@@ -213,7 +214,7 @@ describe('metadata-io', () => {
     it('異常系: 無効なフェーズ名の場合、nullが返される', () => {
       // Given: 無効なフェーズ名
       const invalidPhaseName = 'invalid';
-      const workflowDir = '/path/to/.ai-workflow/issue-26';
+      const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-26');
 
       // When: getPhaseOutputFilePath関数を呼び出す
       const result = getPhaseOutputFilePath(invalidPhaseName as any, workflowDir);

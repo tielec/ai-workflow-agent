@@ -41,6 +41,9 @@ const buildComments = (count: number, prNumber: number): ReviewComment[] =>
   });
 
 describe('Integration: pr-comment finalize command', () => {
+  // Set timeout to 15 seconds for heavy Git operations
+  jest.setTimeout(15000);
+
   beforeAll(async () => {
     originalReposRoot = process.env.REPOS_ROOT;
     process.env.REPOS_ROOT = REPOS_ROOT;

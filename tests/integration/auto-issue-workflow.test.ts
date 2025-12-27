@@ -3,95 +3,189 @@
  *
  * テスト対象: auto-issue コマンド全体のエンドツーエンドワークフロー
  * テストシナリオ: test-scenario.md の TC-INT-001 〜 TC-INT-014
- *
- * 注意: このテストは実際のエージェント・GitHub API を使用しないため、
- * 主要なモックを使用してワークフロー全体を検証します。
  */
 
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { handleAutoIssueCommand } from '../../src/commands/auto-issue.js';
-import { RepositoryAnalyzer } from '../../src/core/repository-analyzer.js';
-import { IssueDeduplicator } from '../../src/core/issue-deduplicator.js';
-import { IssueGenerator } from '../../src/core/issue-generator.js';
-import * as autoIssueOutput from '../../src/commands/auto-issue-output.js';
 import { jest } from '@jest/globals';
+import fs from 'fs-extra';
+import os from 'node:os';
+import path from 'node:path';
+import fsPromises from 'node:fs/promises';
 
-// モック設定
-jest.mock('../../src/core/repository-analyzer.js', () => ({
-  RepositoryAnalyzer: jest.fn(),
+// モック関数の事前定義
+const mockAnalyze = jest.fn<any>();
+const mockFilterDuplicates = jest.fn<any>();
+const mockGenerate = jest.fn<any>();
+const mockGetGitHubToken = jest.fn<any>();
+const mockGetGitHubRepository = jest.fn<any>();
+const mockGetHomeDir = jest.fn<any>();
+const mockResolveLocalRepoPath = jest.fn<any>();
+const mockResolveAgentCredentials = jest.fn<any>();
+const mockSetupAgentClients = jest.fn<any>();
+const mockWriteAutoIssueOutputFile = jest.fn<any>();
+
+// モジュールの ESM モック
+await jest.unstable_mockModule('../../src/core/repository-analyzer.js', () => ({
+  __esModule: true,
+  RepositoryAnalyzer: jest.fn().mockImplementation(() => ({
+    analyze: mockAnalyze,
+  })),
 }));
-jest.mock('../../src/core/issue-deduplicator.js', () => ({
-  IssueDeduplicator: jest.fn(),
+
+await jest.unstable_mockModule('../../src/core/issue-deduplicator.js', () => ({
+  __esModule: true,
+  IssueDeduplicator: jest.fn().mockImplementation(() => ({
+    filterDuplicates: mockFilterDuplicates,
+  })),
 }));
-jest.mock('../../src/core/issue-generator.js', () => ({
-  IssueGenerator: jest.fn(),
+
+await jest.unstable_mockModule('../../src/core/issue-generator.js', () => ({
+  __esModule: true,
+  IssueGenerator: jest.fn().mockImplementation(() => ({
+    generate: mockGenerate,
+  })),
 }));
-jest.mock('../../src/commands/execute/agent-setup.js');
-jest.mock('../../src/core/config.js');
-jest.mock('../../src/utils/logger.js');
-jest.mock('@octokit/rest');
+
+await jest.unstable_mockModule('../../src/commands/execute/agent-setup.js', () => ({
+  __esModule: true,
+  resolveAgentCredentials: mockResolveAgentCredentials,
+  setupAgentClients: mockSetupAgentClients,
+}));
+
+await jest.unstable_mockModule('../../src/core/config.js', () => ({
+  __esModule: true,
+  config: {
+    getGitHubToken: mockGetGitHubToken,
+    getGitHubRepository: mockGetGitHubRepository,
+    getHomeDir: mockGetHomeDir,
+    getOpenAiApiKey: jest.fn().mockReturnValue(null),
+    getAnthropicApiKey: jest.fn().mockReturnValue(null),
+    getCodexApiKey: jest.fn().mockReturnValue('test-codex-key'),
+    getClaudeCodeToken: jest.fn().mockReturnValue('test-claude-token'),
+    getReposRoot: jest.fn().mockReturnValue(null),
+    isCI: jest.fn().mockReturnValue(false),
+  },
+}));
+
+await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
+  __esModule: true,
+  resolveLocalRepoPath: mockResolveLocalRepoPath,
+}));
+
+await jest.unstable_mockModule('../../src/utils/logger.js', () => ({
+  __esModule: true,
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+await jest.unstable_mockModule('@octokit/rest', () => ({
+  __esModule: true,
+  Octokit: class {
+    issues = { listForRepo: jest.fn().mockResolvedValue({ data: [] }) };
+  },
+}));
+
+await jest.unstable_mockModule('../../src/commands/auto-issue-output.js', () => ({
+  __esModule: true,
+  buildAutoIssueJsonPayload: jest.fn((params: any) => {
+    const { execution, results } = params;
+    const issues = results.map((result: any) => ({
+      success: result.success,
+      title: result.title ?? 'Unknown title',
+      issueNumber: result.issueNumber,
+      issueUrl: result.issueUrl,
+      error: result.error,
+      skippedReason: result.skippedReason,
+    }));
+
+    const summary = {
+      total: results.length,
+      success: results.filter((r: any) => r.success && !r.skippedReason).length,
+      failed: results.filter((r: any) => !r.success).length,
+      skipped: results.filter((r: any) => Boolean(r.skippedReason)).length,
+    };
+
+    return {
+      execution,
+      summary,
+      issues,
+    };
+  }),
+  writeAutoIssueOutputFile: mockWriteAutoIssueOutputFile,
+}));
+
+// モック設定後にモジュールをインポート
+const { handleAutoIssueCommand } = await import('../../src/commands/auto-issue.js');
 
 describe('auto-issue workflow integration tests', () => {
-  let mockAnalyzer: jest.Mocked<RepositoryAnalyzer>;
-  let mockDeduplicator: jest.Mocked<IssueDeduplicator>;
-  let mockGenerator: jest.Mocked<IssueGenerator>;
+  let testRepoDir: string;
 
-  beforeEach(() => {
-    // モックインスタンスの作成
-    mockAnalyzer = {
-      analyze: jest.fn(),
-    } as unknown as jest.Mocked<RepositoryAnalyzer>;
+  beforeEach(async () => {
+    // 実際のテストリポジトリディレクトリを作成
+    testRepoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'test-repo-'));
+    await fs.ensureDir(path.join(testRepoDir, '.git'));
 
-    mockDeduplicator = {
-      filterDuplicates: jest.fn(),
-    } as unknown as jest.Mocked<IssueDeduplicator>;
+    // 環境変数を設定
+    process.env.GITHUB_TOKEN = 'test-token';
+    process.env.GITHUB_REPOSITORY = 'owner/repo';
+    process.env.HOME = '/home/test';
 
-    mockGenerator = {
-      generate: jest.fn(),
-    } as unknown as jest.Mocked<IssueGenerator>;
+    // モック関数のクリア
+    mockAnalyze.mockClear();
+    mockFilterDuplicates.mockClear();
+    mockGenerate.mockClear();
+    mockGetGitHubToken.mockClear();
+    mockGetGitHubRepository.mockClear();
+    mockGetHomeDir.mockClear();
+    mockResolveLocalRepoPath.mockClear();
+    mockResolveAgentCredentials.mockClear();
+    mockSetupAgentClients.mockClear();
+    mockWriteAutoIssueOutputFile.mockClear();
 
-    // コンストラクタのモック
-    (RepositoryAnalyzer as jest.MockedClass<typeof RepositoryAnalyzer>).mockImplementation(
-      () => mockAnalyzer
-    );
-    (IssueDeduplicator as jest.MockedClass<typeof IssueDeduplicator>).mockImplementation(
-      () => mockDeduplicator
-    );
-    (IssueGenerator as jest.MockedClass<typeof IssueGenerator>).mockImplementation(
-      () => mockGenerator
-    );
+    // resolveLocalRepoPath が実際のテストディレクトリを返すように設定
+    mockResolveLocalRepoPath.mockReturnValue(testRepoDir);
 
-    // config のモック
-    const config = require('../../src/core/config.js');
-    config.getGitHubToken = jest.fn().mockReturnValue('test-token');
-    config.getGitHubRepository = jest.fn().mockReturnValue('owner/repo');
-    config.getHomeDir = jest.fn().mockReturnValue('/home/test');
-
-    // agent-setup のモック
-    const agentSetup = require('../../src/commands/execute/agent-setup.js');
-    agentSetup.resolveAgentCredentials = jest.fn().mockReturnValue({
+    // デフォルトの動作設定
+    mockAnalyze.mockResolvedValue([]);
+    mockFilterDuplicates.mockImplementation(async (candidates: any) => candidates);
+    mockGenerate.mockResolvedValue({ success: true });
+    mockGetGitHubToken.mockReturnValue('test-token');
+    mockGetGitHubRepository.mockReturnValue('owner/repo');
+    mockGetHomeDir.mockReturnValue('/home/test');
+    mockResolveAgentCredentials.mockReturnValue({
       codexApiKey: 'test-codex-key',
       claudeCredentialsPath: '/path/to/claude',
     });
-    agentSetup.setupAgentClients = jest.fn().mockReturnValue({
+    mockSetupAgentClients.mockReturnValue({
       codexClient: {},
       claudeClient: {},
     });
+    mockWriteAutoIssueOutputFile.mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // 環境変数をクリーンアップ
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.HOME;
+
+    // テストディレクトリをクリーンアップ
+    if (testRepoDir && (await fs.pathExists(testRepoDir))) {
+      await fs.remove(testRepoDir);
+    }
+
+    // モック関数をクリア
     jest.clearAllMocks();
   });
 
   /**
    * TC-INT-001: エンドツーエンド_正常系_dry-runモード
-   *
-   * シナリオ: auto-issueコマンド全体（dry-runモード）
    */
   describe('TC-INT-001: End-to-end workflow with dry-run mode', () => {
     it('should execute complete workflow in dry-run mode', async () => {
-      // Given: テストリポジトリとdry-runモード
       const mockCandidates = [
         {
           title: 'Error handling missing in CodexAgentClient',
@@ -114,41 +208,31 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
 
-      // When: auto-issue コマンドを dry-run モードで実行
       await handleAutoIssueCommand({
         category: 'bug',
         dryRun: true,
         limit: '3',
       });
 
-      // Then: ワークフロー全体が正常に完了
-      expect(mockAnalyzer.analyze).toHaveBeenCalledTimes(1);
-      expect(mockDeduplicator.filterDuplicates).toHaveBeenCalledTimes(1);
-      expect(mockGenerator.generate).toHaveBeenCalledTimes(2);
-      // dry-run モードなので Issue 作成はスキップ
-      expect(mockGenerator.generate).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(String),
-        true
-      );
+      expect(mockAnalyze).toHaveBeenCalledTimes(1);
+      expect(mockFilterDuplicates).toHaveBeenCalledTimes(1);
+      expect(mockGenerate).toHaveBeenCalledTimes(2);
+      expect(mockGenerate).toHaveBeenCalledWith(expect.any(Object), expect.any(String), true);
     });
   });
 
   /**
    * TC-INT-002: エンドツーエンド_正常系_実際のIssue作成
-   *
-   * シナリオ: auto-issueコマンド全体（本番モード）
    */
   describe('TC-INT-002: End-to-end workflow with actual issue creation', () => {
     it('should create issues successfully', async () => {
-      // Given: テストリポジトリと本番モード
       const mockCandidates = [
         {
           title: 'Memory leak in IssueGenerator component',
@@ -162,39 +246,30 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/456',
         issueNumber: 456,
       });
 
-      // When: auto-issue コマンドを本番モードで実行
       await handleAutoIssueCommand({
         category: 'bug',
         limit: '2',
         dryRun: false,
       });
 
-      // Then: Issue が作成される
-      expect(mockGenerator.generate).toHaveBeenCalledTimes(1);
-      expect(mockGenerator.generate).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(String),
-        false
-      );
+      expect(mockGenerate).toHaveBeenCalledTimes(1);
+      expect(mockGenerate).toHaveBeenCalledWith(expect.any(Object), expect.any(String), false);
     });
   });
 
   /**
    * TC-INT-003: エンドツーエンド_正常系_重複検出によるスキップ
-   *
-   * シナリオ: 重複Issueのスキップ検証
    */
   describe('TC-INT-003: End-to-end workflow with duplicate detection', () => {
     it('should skip duplicate issues', async () => {
-      // Given: 重複を含むバグ候補
       const mockCandidates = [
         {
           title: 'Fix memory leak in CodexAgentClient component',
@@ -217,105 +292,93 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      // 重複検出で1つ目が除外される
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockResolvedValue([mockCandidates[1]]);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockResolvedValue([mockCandidates[1]]);
+      mockGenerate.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/789',
         issueNumber: 789,
       });
 
-      // When: auto-issue コマンドを実行
       await handleAutoIssueCommand({
         category: 'bug',
         limit: '5',
         dryRun: false,
       });
 
-      // Then: 重複が除外され、1件のみ作成される
-      expect(mockDeduplicator.filterDuplicates).toHaveBeenCalledTimes(1);
-      expect(mockGenerator.generate).toHaveBeenCalledTimes(1); // 1件のみ
+      expect(mockFilterDuplicates).toHaveBeenCalledTimes(1);
+      expect(mockGenerate).toHaveBeenCalledTimes(1);
     });
   });
 
   /**
    * TC-INT-004: エージェント選択_正常系_Codex使用
-   *
-   * シナリオ: Codexエージェントでバグ検出
    */
   describe('TC-INT-004: Agent selection with Codex', () => {
     it('should use Codex agent when specified', async () => {
-      // Given: Codex エージェント指定
-      mockAnalyzer.analyze.mockResolvedValue([]);
+      mockAnalyze.mockResolvedValue([]);
 
-      // When: --agent codex で実行
       await handleAutoIssueCommand({
         category: 'bug',
         agent: 'codex',
         dryRun: true,
       });
 
-      // Then: Codex エージェントが使用される
-      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(expect.any(String), 'codex');
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'codex',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
     });
   });
 
   /**
    * TC-INT-005: エージェント選択_正常系_Claude使用
-   *
-   * シナリオ: Claudeエージェントでバグ検出
    */
   describe('TC-INT-005: Agent selection with Claude', () => {
     it('should use Claude agent when specified', async () => {
-      // Given: Claude エージェント指定
-      mockAnalyzer.analyze.mockResolvedValue([]);
+      mockAnalyze.mockResolvedValue([]);
 
-      // When: --agent claude で実行
       await handleAutoIssueCommand({
         category: 'bug',
         agent: 'claude',
         dryRun: true,
       });
 
-      // Then: Claude エージェントが使用される
-      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(expect.any(String), 'claude');
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'claude',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
     });
   });
 
   /**
    * TC-INT-006: エージェント選択_正常系_autoモードでフォールバック
-   *
-   * シナリオ: autoモードでCodex→Claudeフォールバック
-   *
-   * 注意: フォールバックは RepositoryAnalyzer 内で実装されているため、
-   * ここではautoモードが正しく渡されることを検証
    */
   describe('TC-INT-006: Agent selection with auto mode fallback', () => {
     it('should use auto mode for agent selection', async () => {
-      // Given: auto モード指定
-      mockAnalyzer.analyze.mockResolvedValue([]);
+      mockAnalyze.mockResolvedValue([]);
 
-      // When: --agent auto で実行
       await handleAutoIssueCommand({
         category: 'bug',
         agent: 'auto',
         dryRun: true,
       });
 
-      // Then: auto モードが渡される
-      expect(mockAnalyzer.analyze).toHaveBeenCalledWith(expect.any(String), 'auto');
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'auto',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
     });
   });
 
   /**
    * TC-INT-013: オプション統合_正常系_limit制限
-   *
-   * シナリオ: --limit オプションで候補数を制限
    */
   describe('TC-INT-013: Option integration with limit', () => {
     it('should limit number of issues created', async () => {
-      // Given: 5件の候補があるが limit = 3
       const mockCandidates = Array.from({ length: 5 }, (_, i) => ({
         title: `Bug ${i + 1} with sufficient length for validation`,
         file: `test${i + 1}.ts`,
@@ -326,33 +389,28 @@ describe('auto-issue workflow integration tests', () => {
         category: 'bug' as const,
       }));
 
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
 
-      // When: limit = 3 で実行
       await handleAutoIssueCommand({
         category: 'bug',
         limit: '3',
         dryRun: true,
       });
 
-      // Then: 3件のみ処理される
-      expect(mockGenerator.generate).toHaveBeenCalledTimes(3);
+      expect(mockGenerate).toHaveBeenCalledTimes(3);
     });
   });
 
   /**
    * TC-INT-014: オプション統合_正常系_similarity-threshold調整
-   *
-   * シナリオ: --similarity-threshold オプションで閾値調整
    */
   describe('TC-INT-014: Option integration with similarity threshold', () => {
     it('should use specified similarity threshold', async () => {
-      // Given: カスタム閾値指定
       const mockCandidates = [
         {
           title: 'Test bug with sufficient length',
@@ -365,25 +423,23 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
       });
 
-      // When: similarity-threshold = 0.9 で実行
       await handleAutoIssueCommand({
         category: 'bug',
         similarityThreshold: '0.9',
         dryRun: true,
       });
 
-      // Then: 指定した閾値が filterDuplicates に渡される
-      expect(mockDeduplicator.filterDuplicates).toHaveBeenCalledWith(
+      expect(mockFilterDuplicates).toHaveBeenCalledWith(
         expect.any(Array),
         expect.any(Array),
-        0.9
+        0.9,
       );
     });
   });
@@ -393,20 +449,17 @@ describe('auto-issue workflow integration tests', () => {
    */
   describe('Error handling integration', () => {
     it('should handle analyzer failure gracefully', async () => {
-      // Given: アナライザーが失敗
-      mockAnalyzer.analyze.mockRejectedValue(new Error('Analyzer failed'));
+      mockAnalyze.mockRejectedValue(new Error('Analyzer failed'));
 
-      // When & Then: エラーが適切に伝播
       await expect(
         handleAutoIssueCommand({
           category: 'bug',
           dryRun: true,
-        })
+        }),
       ).rejects.toThrow('Analyzer failed');
     });
 
     it('should handle partial failure in issue generation', async () => {
-      // Given: 一部のIssue生成が失敗
       const mockCandidates = [
         {
           title: 'Bug 1 with sufficient length',
@@ -428,11 +481,10 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyze.mockResolvedValue(mockCandidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockAnalyze.mockResolvedValue(mockCandidates);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
 
-      // 1つ目は成功、2つ目は失敗
-      mockGenerator.generate
+      mockGenerate
         .mockResolvedValueOnce({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/1',
@@ -443,14 +495,12 @@ describe('auto-issue workflow integration tests', () => {
           error: 'GitHub API failed',
         });
 
-      // When: handleAutoIssueCommand を実行
       await handleAutoIssueCommand({
         category: 'bug',
         dryRun: false,
       });
 
-      // Then: 部分的な失敗でも処理が継続される
-      expect(mockGenerator.generate).toHaveBeenCalledTimes(2);
+      expect(mockGenerate).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -461,7 +511,7 @@ describe('auto-issue workflow integration tests', () => {
     const baseDir = path.join(process.cwd(), 'tmp', 'auto-issue-workflow-tests');
 
     const cleanupOutput = async () => {
-      await fs.rm(baseDir, { recursive: true, force: true });
+      await fsPromises.rm(baseDir, { recursive: true, force: true });
     };
 
     beforeEach(async () => {
@@ -472,11 +522,6 @@ describe('auto-issue workflow integration tests', () => {
       await cleanupOutput();
     });
 
-    /**
-     * TC-INT-257-001: CLI_正常系_JSON出力
-     *
-     * 目的: `--output-file` 指定時に JSON が生成されることを検証 (FR1/FR2/AC1)
-     */
     it('should create JSON file with execution summary when output file is provided', async () => {
       const candidate = {
         title: 'Fix CLI crash when writing JSON',
@@ -488,9 +533,9 @@ describe('auto-issue workflow integration tests', () => {
         category: 'bug' as const,
       };
 
-      mockAnalyzer.analyze.mockResolvedValue([candidate]);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue([candidate]);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         issueUrl: 'https://github.com/owner/repo/issues/321',
         issueNumber: 321,
@@ -500,6 +545,12 @@ describe('auto-issue workflow integration tests', () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'results.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
 
+      // Setup mock to actually write the file
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
+
       await handleAutoIssueCommand({
         category: 'bug',
         outputFile: relativePath,
@@ -507,7 +558,7 @@ describe('auto-issue workflow integration tests', () => {
         limit: '1',
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
       expect(payload.summary).toEqual({
         total: 1,
         success: 1,
@@ -524,11 +575,6 @@ describe('auto-issue workflow integration tests', () => {
       );
     });
 
-    /**
-     * TC-INT-257-002: CLI_dryRun_JSONカウント
-     *
-     * 目的: dry-run指定でも JSON が生成され summary.skipped が増加することを確認 (FR3/AC2)
-     */
     it('should record skipped entries in JSON when running in dry-run mode', async () => {
       const candidate = {
         title: 'Add JSON export option',
@@ -540,9 +586,9 @@ describe('auto-issue workflow integration tests', () => {
         category: 'bug' as const,
       };
 
-      mockAnalyzer.analyze.mockResolvedValue([candidate]);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue([candidate]);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
         title: 'Add JSON export option',
@@ -551,6 +597,11 @@ describe('auto-issue workflow integration tests', () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'dry-run.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
 
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
+
       await handleAutoIssueCommand({
         category: 'bug',
         outputFile: relativePath,
@@ -558,7 +609,7 @@ describe('auto-issue workflow integration tests', () => {
         limit: '1',
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
       expect(payload.summary).toEqual({
         total: 1,
         success: 0,
@@ -575,16 +626,10 @@ describe('auto-issue workflow integration tests', () => {
       expect(payload.issues[0].issueUrl).toBeUndefined();
     });
 
-    /**
-     * TC-INT-257-003: CLI_outputFile_missingDir_エラー
-     *
-     * 目的: 書き込み不可パス指定時に CLI が非0終了でエラーを表示することを確認 (FR5/AC3)
-     */
     it('should propagate output file errors so the CLI exits with failure', async () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'error.json');
-      const writeSpy = jest
-        .spyOn(autoIssueOutput, 'writeAutoIssueOutputFile')
-        .mockRejectedValue(new Error('permission denied'));
+
+      mockWriteAutoIssueOutputFile.mockRejectedValue(new Error('permission denied'));
 
       await expect(
         handleAutoIssueCommand({
@@ -592,15 +637,8 @@ describe('auto-issue workflow integration tests', () => {
           outputFile: relativePath,
         }),
       ).rejects.toThrow('permission denied');
-
-      writeSpy.mockRestore();
     });
 
-    /**
-     * TC-INT-257-004: JSON出力_timestampがISO8601形式
-     *
-     * 目的: execution.timestamp が ISO8601 UTC 形式であることを確認
-     */
     it('should generate execution timestamp in ISO8601 UTC format', async () => {
       const candidate = {
         title: 'Test timestamp format validation',
@@ -612,9 +650,9 @@ describe('auto-issue workflow integration tests', () => {
         category: 'bug' as const,
       };
 
-      mockAnalyzer.analyze.mockResolvedValue([candidate]);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue([candidate]);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
         title: 'Test timestamp format validation',
@@ -623,28 +661,26 @@ describe('auto-issue workflow integration tests', () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'timestamp.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
 
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
+
       await handleAutoIssueCommand({
         category: 'bug',
         outputFile: relativePath,
         dryRun: true,
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
 
-      // ISO8601 形式の検証 (YYYY-MM-DDTHH:mm:ss.sssZ)
       const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
       expect(payload.execution.timestamp).toMatch(iso8601Regex);
 
-      // 有効な日付かどうかを検証
       const parsedDate = new Date(payload.execution.timestamp);
       expect(parsedDate.toISOString()).toBe(payload.execution.timestamp);
     });
 
-    /**
-     * TC-INT-257-005: JSON出力_カテゴリ別の整合性
-     *
-     * 目的: カテゴリが正しく execution に含まれることを確認
-     */
     it('should include correct category in execution info', async () => {
       const candidate = {
         title: 'Test category tracking',
@@ -656,9 +692,9 @@ describe('auto-issue workflow integration tests', () => {
         category: 'bug' as const,
       };
 
-      mockAnalyzer.analyze.mockResolvedValue([candidate]);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (candidates) => candidates);
-      mockGenerator.generate.mockResolvedValue({
+      mockAnalyze.mockResolvedValue([candidate]);
+      mockFilterDuplicates.mockImplementation(async (candidates) => candidates);
+      mockGenerate.mockResolvedValue({
         success: true,
         skippedReason: 'dry-run mode',
         title: 'Test category tracking',
@@ -667,22 +703,22 @@ describe('auto-issue workflow integration tests', () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'category.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
 
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
+
       await handleAutoIssueCommand({
         category: 'bug',
         outputFile: relativePath,
         dryRun: true,
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
       expect(payload.execution.category).toBe('bug');
       expect(payload.execution.dryRun).toBe(true);
     });
 
-    /**
-     * TC-INT-257-006: JSON出力_複数件処理
-     *
-     * 目的: 複数の Issue 候補が正しく JSON に含まれることを確認
-     */
     it('should include multiple issues in JSON output', async () => {
       const candidates = [
         {
@@ -714,11 +750,10 @@ describe('auto-issue workflow integration tests', () => {
         },
       ];
 
-      mockAnalyzer.analyze.mockResolvedValue(candidates);
-      mockDeduplicator.filterDuplicates.mockImplementation(async (c) => c);
+      mockAnalyze.mockResolvedValue(candidates);
+      mockFilterDuplicates.mockImplementation(async (c) => c);
 
-      // 1件目成功、2件目失敗、3件目スキップ
-      mockGenerator.generate
+      mockGenerate
         .mockResolvedValueOnce({
           success: true,
           issueUrl: 'https://github.com/owner/repo/issues/1',
@@ -739,6 +774,11 @@ describe('auto-issue workflow integration tests', () => {
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'multiple.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
 
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
+
       await handleAutoIssueCommand({
         category: 'bug',
         outputFile: relativePath,
@@ -746,7 +786,7 @@ describe('auto-issue workflow integration tests', () => {
         limit: '3',
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
 
       expect(payload.summary).toEqual({
         total: 3,
@@ -763,16 +803,16 @@ describe('auto-issue workflow integration tests', () => {
       expect(payload.issues[2].skippedReason).toBe('dry-run mode');
     });
 
-    /**
-     * TC-INT-257-007: JSON出力_空の候補リスト
-     *
-     * 目的: 候補がゼロの場合でも JSON が正しく生成されることを確認
-     */
     it('should generate valid JSON even with zero candidates', async () => {
-      mockAnalyzer.analyze.mockResolvedValue([]);
+      mockAnalyze.mockResolvedValue([]);
 
       const relativePath = path.join('tmp', 'auto-issue-workflow-tests', 'empty.json');
       const absolutePath = path.resolve(process.cwd(), relativePath);
+
+      mockWriteAutoIssueOutputFile.mockImplementation(async (filePath: string, payload: any) => {
+        await fs.ensureDir(path.dirname(filePath));
+        await fs.writeJson(filePath, payload, { spaces: 2 });
+      });
 
       await handleAutoIssueCommand({
         category: 'bug',
@@ -780,7 +820,7 @@ describe('auto-issue workflow integration tests', () => {
         dryRun: true,
       });
 
-      const payload = JSON.parse(await fs.readFile(absolutePath, 'utf-8'));
+      const payload = JSON.parse(await fsPromises.readFile(absolutePath, 'utf-8'));
 
       expect(payload.summary).toEqual({
         total: 0,

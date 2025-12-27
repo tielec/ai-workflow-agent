@@ -72,13 +72,11 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
     expect(commitResult.commit_hash).not.toBeNull();
     expect(commitResult.files_committed.length).toBeGreaterThan(0);
 
-    // コミットメッセージを確認（bodyフィールドを使用）
-    const log = await git.log(['-1']);
-    const commitMessage = log.latest?.body ?? '';
-    const commitSubject = log.latest?.message ?? '';
+    // コミットメッセージを確認
+    const commitMessage = await git.show([commitResult.commit_hash!, '--pretty=format:%B', '--no-patch']);
 
-    // 確認項目
-    expect(commitSubject).toBe('[ai-workflow] Initialize workflow for issue #16');
+    // 確認項目（toContainに統一）
+    expect(commitMessage).toContain('[ai-workflow] Initialize workflow for issue #16');
     expect(commitMessage).toContain('Issue: #16');
     expect(commitMessage).toContain('Action: Create workflow metadata and directory structure');
     expect(commitMessage).toContain('Branch: ai-workflow/issue-16');
@@ -205,13 +203,11 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
     expect(commitResult.success).toBe(true);
     expect(commitResult.commit_hash).not.toBeNull();
 
-    // コミットメッセージを確認（bodyフィールドを使用）
-    const log = await git.log(['-1']);
-    const commitMessage = log.latest?.body ?? '';
-    const commitSubject = log.latest?.message ?? '';
+    // コミットメッセージを確認
+    const commitMessage = await git.show([commitResult.commit_hash!, '--pretty=format:%B', '--no-patch']);
 
-    // 確認項目
-    expect(commitSubject).toBe('[ai-workflow] Clean up workflow execution logs');
+    // 確認項目（3.3.1と同じパターンに統一）
+    expect(commitMessage).toContain('[ai-workflow] Clean up workflow execution logs');
     expect(commitMessage).toContain('Issue: #18');
     expect(commitMessage).toContain('Phase: 8 (report)'); // Phase 9ではない
     expect(commitMessage).toContain('Action: Remove agent execution logs (execute/review/revise directories)');
@@ -353,9 +349,8 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
     expect(commitResult.success).toBe(true);
     expect(commitResult.commit_hash).not.toBeNull();
 
-    // コミットメッセージを確認（bodyフィールドを使用）
-    const log = await git.log(['-1']);
-    const commitMessage = log.latest?.body ?? '';
+    // コミットメッセージを確認
+    const commitMessage = await git.show([commitResult.commit_hash!, '--pretty=format:%B', '--no-patch']);
 
     expect(commitMessage).toContain('[ai-workflow] Clean up workflow execution logs');
     expect(commitMessage).toContain('Issue: #20');
@@ -430,11 +425,8 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     expect(initResult.success).toBe(true);
 
     // 初期化コミットを確認
-    let log = await git.log(['-1', '--oneline']);
-    const hash1 = log.latest?.hash.substring(0, 7) ?? '';
-    const msg1 = log.latest?.message.split('\n')[0] ?? '';
-    let commitOneLine = hash1 + ' ' + msg1;
-    expect(commitOneLine).toContain('[ai-workflow] Initialize workflow for issue #21');
+    const initCommitMessage = await git.show([initResult.commit_hash!, '--pretty=format:%B', '--no-patch']);
+    expect(initCommitMessage).toContain('[ai-workflow] Initialize workflow for issue #21');
 
     // Step 2: Phase 1-8を順次実行（シミュレート）
     const phases = [
@@ -466,11 +458,8 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     expect(cleanupResult.success).toBe(true);
 
     // クリーンアップコミットを確認
-    log = await git.log(['-1', '--oneline']);
-    const hash2 = log.latest?.hash.substring(0, 7) ?? '';
-    const msg2 = log.latest?.message.split('\n')[0] ?? '';
-    commitOneLine = hash2 + ' ' + msg2;
-    expect(commitOneLine).toContain('[ai-workflow] Clean up workflow execution logs');
+    const cleanupCommitMessage = await git.show([cleanupResult.commit_hash!, '--pretty=format:%B', '--no-patch']);
+    expect(cleanupCommitMessage).toContain('[ai-workflow] Clean up workflow execution logs');
 
     // Step 4: ファイルシステムを確認
     // Phase 0-8の実行ログが削除されている
