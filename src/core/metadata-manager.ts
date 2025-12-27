@@ -41,6 +41,12 @@ export class MetadataManager {
     this.metadataPath = metadataPath;
     this.workflowDir = dirname(metadataPath);
     this.state = WorkflowState.load(metadataPath);
+
+    // Ensure metadata contains latest schema (design decisions, cost tracking, etc.)
+    const migrated = this.state.migrate();
+    if (migrated) {
+      this.state.save();
+    }
   }
 
   private ensurePhaseData(

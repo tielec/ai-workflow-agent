@@ -50,8 +50,7 @@ function getTimestamp(): string {
  */
 function formatMessage(level: LogLevel, ...args: unknown[]): string {
   const levelLabel = level === 'warn' ? 'WARNING' : level.toUpperCase();
-  const paddedLabel = levelLabel.padEnd(5, ' ');
-  const prefix = `${getTimestamp()} [${paddedLabel}]`;
+  const prefix = `${getTimestamp()} [${levelLabel}]`;
   const message = args
     .map((arg) => {
       if (typeof arg === 'object' && arg !== null) {

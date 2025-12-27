@@ -375,7 +375,7 @@ describe('PullRequestClient', () => {
       expect(result).toEqual({ success: true, error: null });
 
       // And: Info log should be written
-      expect(consoleInfoSpy).toHaveBeenCalledWith('[INFO] Closed pull request #10');
+      expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Closed pull request #10'));
 
       consoleInfoSpy.mockRestore();
     });

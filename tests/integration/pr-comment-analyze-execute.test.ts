@@ -68,6 +68,15 @@ beforeAll(async () => {
     getRepoRoot: getRepoRootMock,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: jest.fn(() => '/repo'),
+    findWorkflowMetadata: jest.fn(async (issueNumber: string) => ({
+      repoRoot: tmpDir,
+      metadataPath: path.join(
+        tmpDir,
+        '.ai-workflow',
+        `issue-${issueNumber}`,
+        'metadata.json',
+      ),
+    })),
   }));
 
   await jest.unstable_mockModule('../../src/core/pr-comment/metadata-manager.js', () => ({
@@ -83,9 +92,17 @@ beforeAll(async () => {
         setAnalyzerError: jest.fn().mockResolvedValue(undefined),
         clearAnalyzerError: jest.fn().mockResolvedValue(undefined),
         exists: jest.fn().mockResolvedValue(true),
-        load: jest.fn().mockResolvedValue(undefined),
+        load: jest.fn().mockResolvedValue({
+          pr: {
+            branch: 'feature/pr-123',
+            title: 'Integration PR',
+            url: 'https://github.com/owner/repo/pull/123',
+          },
+        }),
         getPendingComments: jest.fn(async () => pendingComments),
-        getMetadata: jest.fn().mockResolvedValue({ pr: { title: 'Integration PR' } }),
+        getMetadata: jest.fn().mockResolvedValue({
+          pr: { title: 'Integration PR', branch: 'feature/pr-123' },
+        }),
         getSummary: jest.fn().mockResolvedValue({ by_status: { completed: 1, skipped: 0, failed: 0 } }),
       };
       metadataStore = metadataManagerInstance;
@@ -142,6 +159,9 @@ beforeAll(async () => {
     config: {
       getHomeDir: jest.fn(() => '/home/mock'),
       isCI: configIsCIMock,
+      getLogLevel: jest.fn(() => 'info'),
+      getGitCommitUserName: jest.fn(() => 'Test User'),
+      getGitCommitUserEmail: jest.fn(() => 'test@example.com'),
     },
   }));
 
@@ -151,6 +171,9 @@ beforeAll(async () => {
       status: simpleGitStatusMock,
       add: simpleGitAddMock,
       commit: simpleGitCommitMock,
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
+      addConfig: jest.fn().mockResolvedValue(undefined),
+      push: jest.fn().mockResolvedValue({}),
     })),
   }));
 

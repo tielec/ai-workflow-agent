@@ -346,24 +346,33 @@ async function analyzeComments(
   };
 
   let plan: ResponsePlan;
-  let outputFileExists = false;
-  try {
-    await fsp.access(outputFilePath);
-    outputFileExists = true;
-  } catch {
-    outputFileExists = false;
+  const analyzePlanPath = path.join(analyzeDir, 'response-plan.json');
+  const candidatePaths = [outputFilePath, analyzePlanPath];
+  let planPath: string | null = null;
+
+  for (const candidate of candidatePaths) {
+    try {
+      await fsp.access(candidate);
+      planPath = candidate;
+      break;
+    } catch {
+      continue;
+    }
   }
 
-  if (outputFileExists) {
+  if (planPath) {
     try {
-      const fileContent = await fsp.readFile(outputFilePath, 'utf-8');
+      const fileContent = await fsp.readFile(planPath, 'utf-8');
       const parsedPlan = JSON.parse(fileContent) as ResponsePlan;
       const missingPrNumber = parsedPlan.pr_number === undefined || parsedPlan.pr_number === null;
       plan = normalizeResponsePlan(parsedPlan, prNumber);
       if (missingPrNumber) {
+        await fsp.writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+      }
+      if (planPath !== outputFilePath && !options.dryRun) {
         await fsp.writeFile(outputFilePath, JSON.stringify(plan, null, 2), 'utf-8');
       }
-      logger.info(`Reading response plan from file: ${outputFilePath}`);
+      logger.info(`Reading response plan from file: ${planPath}`);
     } catch (fileError) {
       logger.warn(`Failed to parse JSON from file: ${getErrorMessage(fileError)}`);
       logger.warn('Falling back to raw output parsing.');

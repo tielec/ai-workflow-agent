@@ -234,9 +234,9 @@ describe('Logger Module', () => {
       // When: logging simple string
       logger.info('simple string message');
 
-      // Then: output format is "YYYY-MM-DD HH:mm:ss [INFO ] simple string message"
+      // Then: output format is "YYYY-MM-DD HH:mm:ss [INFO] simple string message"
       const call = consoleLogSpy.mock.calls[0]?.[0] as string;
-      expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO \] simple string message$/);
+      expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO\] simple string message$/);
     });
 
     it('should format object message as JSON', () => {
@@ -314,7 +314,7 @@ describe('Logger Module', () => {
       // Then: timestamp and level are output
       expect(consoleLogSpy).toHaveBeenCalledTimes(1);
       const call = consoleLogSpy.mock.calls[0]?.[0] as string;
-      expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO \] $/);
+      expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO\] $/);
     });
 
     it('should handle null argument', () => {

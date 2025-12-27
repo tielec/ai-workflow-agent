@@ -34,8 +34,19 @@ export class ImplementationPhase extends BasePhase {
       issueNumber,
     );
 
+    const designDecisions =
+      this.metadata.data.design_decisions ??
+      {
+        implementation_strategy: null,
+        test_strategy: null,
+        test_code_strategy: null,
+      };
+    if (!this.metadata.data.design_decisions) {
+      this.metadata.data.design_decisions = designDecisions;
+    }
+
     const implementationStrategy =
-      this.metadata.data.design_decisions.implementation_strategy ??
+      designDecisions.implementation_strategy ??
       '実装方針は利用できません。Issue情報とPlanning情報に基づいて適切な実装アプローチを決定してください。';
 
     // Issue #47: executePhaseTemplate() を使用してコード削減
