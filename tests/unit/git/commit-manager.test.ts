@@ -5,11 +5,14 @@
 
 // @ts-nocheck
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import { CommitManager } from '../../../src/core/git/commit-manager';
 import { MetadataManager } from '../../../src/core/metadata-manager';
 import { SecretMasker } from '../../../src/core/secret-masker';
 import { SimpleGit } from 'simple-git';
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'fs-extra';
 
 describe('CommitManager - Message Generation', () => {
   let commitManager: CommitManager;
@@ -101,8 +104,35 @@ describe('CommitManager - Commit Operations', () => {
   let mockGit: jest.Mocked<SimpleGit>;
   let mockMetadata: jest.Mocked<MetadataManager>;
   let mockSecretMasker: jest.Mocked<SecretMasker>;
+  const testRepoDir = path.join(os.tmpdir(), 'ai-workflow-commit-manager-test-' + Date.now());
 
   beforeEach(() => {
+    // Create real test files on disk (Option 1 from plan - avoid ESM mocking issues)
+    fs.ensureDirSync(path.join(testRepoDir, '.ai-workflow/issue-25/01_requirements/output'));
+    fs.ensureDirSync(path.join(testRepoDir, '.ai-workflow/issue-25/04_implementation'));
+    fs.ensureDirSync(path.join(testRepoDir, 'src'));
+
+    fs.writeFileSync(
+      path.join(testRepoDir, '.ai-workflow/issue-25/01_requirements/output/requirements.md'),
+      '# Test Requirements',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(testRepoDir, '.ai-workflow/issue-25/04_implementation/step-3.md'),
+      '# Step 3',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(testRepoDir, '.ai-workflow/issue-25/metadata.json'),
+      '{}',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(testRepoDir, 'src/index.ts'),
+      '// test',
+      'utf-8'
+    );
+
     mockGit = {
       status: jest.fn().mockResolvedValue({
         current: 'feature/issue-25',
@@ -147,8 +177,16 @@ describe('CommitManager - Commit Operations', () => {
       mockGit,
       mockMetadata,
       mockSecretMasker,
-      '/test/repo'
+      testRepoDir
     );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    // Cleanup test files
+    if (fs.existsSync(testRepoDir)) {
+      fs.removeSync(testRepoDir);
+    }
   });
 
   describe('commitPhaseOutput', () => {

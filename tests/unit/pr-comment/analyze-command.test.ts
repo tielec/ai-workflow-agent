@@ -757,7 +757,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
     const promptArg = agentExecuteTaskMock.mock.calls[0][0].prompt as string;
     expect(promptArg).toContain('PR 123: Mock PR Title');
     expect(promptArg).toContain('Repo: /repo');
-    expect(promptArg).toContain('/repo/.ai-workflow/pr-123/output/response-plan.json');
+    expect(promptArg).toContain(analyzeOutputPath); // Use platform-specific path from line 49
     expect(promptArg).toContain('(File not found)');
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
