@@ -12,12 +12,25 @@ import { jest } from '@jest/globals';
 import type { RefactorCandidate, BugCandidate } from '../../src/types/auto-issue.js';
 
 // モック関数を作成（ES Modules環境対応 - importより前に設定）
-const mockResolveAgentCredentials = jest.fn();
-const mockSetupAgentClients = jest.fn();
+const mockResolveAgentCredentials = jest.fn<any>().mockReturnValue({
+  codexApiKey: 'test-codex-key',
+  claudeCredentialsPath: '/path/to/claude',
+});
+
+const mockSetupAgentClients = jest.fn<any>().mockReturnValue({
+  codexClient: {} as any,
+  claudeClient: {} as any,
+});
+
+const mockResolveLocalRepoPath = jest.fn<any>().mockReturnValue('/fake/repo/path');
 
 jest.mock('../../src/commands/execute/agent-setup.js', () => ({
   resolveAgentCredentials: mockResolveAgentCredentials,
   setupAgentClients: mockSetupAgentClients,
+}));
+
+jest.mock('../../src/core/repository-utils.js', () => ({
+  resolveLocalRepoPath: mockResolveLocalRepoPath,
 }));
 
 jest.mock('../../src/utils/logger.js');
@@ -37,16 +50,10 @@ describe('auto-issue refactor workflow integration tests', () => {
   let mockGetHomeDir: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
-    // agent-setup モックのリセットと再設定
-    mockResolveAgentCredentials.mockReset().mockReturnValue({
-      codexApiKey: 'test-codex-key',
-      claudeCredentialsPath: '/path/to/claude',
-    });
-
-    mockSetupAgentClients.mockReset().mockReturnValue({
-      codexClient: {} as any,
-      claudeClient: {} as any,
-    });
+    // モック関数のクリア
+    mockResolveAgentCredentials.mockClear();
+    mockSetupAgentClients.mockClear();
+    mockResolveLocalRepoPath.mockClear();
 
     // ES Modules環境では jest.spyOn を使用
     mockAnalyzeForRefactoring = jest
