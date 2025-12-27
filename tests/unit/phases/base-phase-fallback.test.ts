@@ -576,7 +576,21 @@ Agent finished.
         ensureDirectory(executeDir);
         const agentLogPath = path.join(executeDir, 'agent_log.md');
         fs.writeFileSync(agentLogPath, 'content', 'utf-8');
-        fs.chmodSync(agentLogPath, 0o000);
+
+        // Mock fs.readFileSync to throw an error (cross-platform compatible)
+        const normalizedAgentLogPath = path.normalize(agentLogPath);
+        const readFileSyncSpy = jest
+          .spyOn(fs, 'readFileSync')
+          .mockImplementation((filePath: any, ...args: any[]) => {
+            const normalizedFilePath = path.normalize(String(filePath));
+            if (normalizedFilePath === normalizedAgentLogPath) {
+              const error: NodeJS.ErrnoException = new Error('EACCES: permission denied');
+              error.code = 'EACCES';
+              throw error;
+            }
+            // Call original implementation for other files
+            return jest.requireActual('fs-extra').readFileSync(filePath, ...args);
+          });
 
         try {
           // When: Handling missing output file
@@ -587,7 +601,7 @@ Agent finished.
           expect(result.error).toContain('フォールバック処理中にエラーが発生しました');
           expect(result.error).toContain('EACCES');
         } finally {
-          fs.chmodSync(agentLogPath, 0o644);
+          readFileSyncSpy.mockRestore();
         }
       });
     });
