@@ -1437,7 +1437,7 @@ describe('auto-issue command handler', () => {
 
       // path.resolve が呼ばれ、絶対パスに変換されていることを確認
       expect(writeSpy).toHaveBeenCalledWith(expectedPath, expect.any(Object));
-      expect(expectedPath.startsWith('/')).toBe(true);
+      expect(path.isAbsolute(expectedPath)).toBe(true);
     });
 
     /**
