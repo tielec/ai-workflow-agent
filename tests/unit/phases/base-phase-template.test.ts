@@ -1,5 +1,7 @@
-import { jest, beforeAll } from '@jest/globals';
+import { jest, beforeAll, afterEach } from '@jest/globals';
 import path from 'node:path';
+import fs from 'fs-extra';
+import os from 'node:os';
 import type * as FsExtra from 'fs-extra';
 import type { PhaseExecutionResult } from '../../../src/types.js';
 
@@ -63,6 +65,29 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
   let mockGithub: any;
   const testWorkingDir = '/test/workspace';
   const testWorkflowDir = '/test/.ai-workflow/issue-47';
+  let realTestPromptsDir: string;
+
+  beforeAll(() => {
+    // Create real test prompt files on disk (Option 1 from plan)
+    realTestPromptsDir = path.join(os.tmpdir(), 'ai-workflow-test-prompts-' + Date.now());
+    const promptsRequirementsDir = path.join(realTestPromptsDir, 'requirements');
+
+    fs.ensureDirSync(promptsRequirementsDir);
+    fs.writeFileSync(path.join(promptsRequirementsDir, 'execute.txt'), 'Execute phase template: {var1} and {var2}', 'utf-8');
+    fs.writeFileSync(path.join(promptsRequirementsDir, 'review.txt'), 'Review phase template', 'utf-8');
+    fs.writeFileSync(path.join(promptsRequirementsDir, 'revise.txt'), 'Revise phase template', 'utf-8');
+  });
+
+  afterAll(() => {
+    // Cleanup real test prompt directory
+    if (realTestPromptsDir && fs.existsSync(realTestPromptsDir)) {
+      fs.removeSync(realTestPromptsDir);
+    }
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -89,7 +114,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
     // fs-extra のモック設定（Jest v30.x 互換 - jest-mock-extended を使用）
     mockFs.existsSync.mockReturnValue(false);
     mockFs.ensureDirSync.mockReturnValue(undefined);
-    mockFs.readFileSync.mockReturnValue('');
+    mockFs.readFileSync.mockImplementation((filePath: any) => {
+      const pathStr = filePath.toString();
+      // Delegate to real filesystem for prompt files in test directory
+      if (pathStr.includes(realTestPromptsDir)) {
+        return fs.readFileSync(filePath, 'utf-8');
+      }
+      return '';
+    });
+    mockFs.writeFileSync.mockReturnValue(undefined);
     mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => false } as any);
 
     // TestPhase インスタンス作成
@@ -100,6 +133,9 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       githubClient: mockGithub,
       skipDependencyCheck: true,
     });
+
+    // Override promptsRoot to use real test prompt directory
+    (testPhase as any).promptsRoot = realTestPromptsDir;
 
     // loadPrompt() のモック
     jest.spyOn(testPhase as any, 'loadPrompt').mockReturnValue('Prompt template: {var1} and {var2}');

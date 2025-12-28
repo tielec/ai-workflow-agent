@@ -119,6 +119,7 @@ describe('BasePhase Fallback Mechanism (Issue #113)', () => {
   afterEach(() => {
     // Restore all mocks to prevent test interference
     jest.restoreAllMocks();
+    jest.clearAllMocks();
 
     // Cleanup test directory
     if (fs.existsSync(testWorkingDir)) {
