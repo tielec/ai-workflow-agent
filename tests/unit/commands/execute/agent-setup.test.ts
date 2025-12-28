@@ -121,6 +121,7 @@ beforeAll(async () => {
 });
 
 import fs from 'fs-extra';
+import path from 'node:path';
 import { logger } from '../../../../src/utils/logger.js';
 
 const existsSyncSpy = jest.spyOn(fs, 'existsSync');
@@ -203,9 +204,9 @@ describe('resolveAgentCredentials - 正常系', () => {
     // Given: CLAUDE_CODE_CREDENTIALS_PATH 未設定、~/.claude-code/credentials.json が存在
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
-    const expectedPath = `${homeDir}/.claude-code/credentials.json`;
-    existsSyncSpy.mockImplementation((path: unknown) => {
-      return path === expectedPath;
+    const expectedPath = path.join(homeDir, '.claude-code', 'credentials.json');
+    existsSyncSpy.mockImplementation((pathArg: unknown) => {
+      return pathArg === expectedPath;
     });
 
     // When: 認証情報を解決
@@ -219,9 +220,9 @@ describe('resolveAgentCredentials - 正常系', () => {
     // Given: 上記2つが存在しない、<repo>/.claude-code/credentials.json が存在
     const homeDir = '/home/user';
     const repoRoot = '/workspace/repo';
-    const expectedPath = `${repoRoot}/.claude-code/credentials.json`;
-    existsSyncSpy.mockImplementation((path: unknown) => {
-      return path === expectedPath;
+    const expectedPath = path.join(repoRoot, '.claude-code', 'credentials.json');
+    existsSyncSpy.mockImplementation((pathArg: unknown) => {
+      return pathArg === expectedPath;
     });
 
     // When: 認証情報を解決
