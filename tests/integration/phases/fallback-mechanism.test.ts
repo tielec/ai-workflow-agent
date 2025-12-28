@@ -41,7 +41,11 @@ describe('Fallback Mechanism Integration Tests (Issue #113)', () => {
     const workflowDir = path.join(testWorkingDir, '.ai-workflow', 'issue-113');
     mockMetadata = {
       workflowDir,
-      data: { issue_number: '113', repo_url: 'https://github.com/test/repo' },
+      data: {
+        issue_number: '113',
+        repo_url: 'https://github.com/test/repo',
+        design_decisions: {}, // Issue #113: Design/TestScenario/Implementationフェーズが参照
+      },
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn().mockReturnValue(null),
       getPhaseStatus: jest.fn().mockReturnValue('completed'),

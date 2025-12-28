@@ -11,7 +11,7 @@
     "repo": "ai-workflow-agent"
   },
   "workflow_version": "1.0.0",
-  "current_phase": "evaluation",
+  "current_phase": "requirements",
   "design_decisions": {
     "implementation_strategy": null,
     "test_strategy": null,
@@ -36,106 +36,100 @@
       ]
     },
     "requirements": {
-      "status": "completed",
+      "status": "in_progress",
       "retry_count": 0,
       "started_at": "2025-12-04T12:59:51.275Z",
-      "completed_at": "2025-12-04T13:03:24.475Z",
+      "completed_at": null,
       "review_result": null,
-      "current_step": null,
+      "current_step": "revise",
       "completed_steps": [
         "execute",
         "review"
-      ]
+      ],
+      "rollback_context": {
+        "triggered_at": "2025-12-28T15:04:01.143Z",
+        "from_phase": null,
+        "from_step": null,
+        "reason": "Testing backward compatibility",
+        "review_result": null,
+        "details": null
+      }
     },
     "design": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:03:25.156Z",
-      "completed_at": "2025-12-04T13:08:10.819Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "test_scenario": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:08:11.825Z",
-      "completed_at": "2025-12-04T13:12:28.260Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "implementation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:12:28.973Z",
-      "completed_at": "2025-12-04T13:17:49.593Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "test_implementation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:17:50.668Z",
-      "completed_at": "2025-12-04T13:25:31.511Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "testing": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:25:32.227Z",
-      "completed_at": "2025-12-04T13:34:38.856Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "documentation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:34:39.653Z",
-      "completed_at": "2025-12-04T13:41:37.906Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "report": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:41:38.602Z",
-      "completed_at": "2025-12-04T13:45:49.464Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     },
     "evaluation": {
-      "status": "completed",
+      "status": "pending",
       "retry_count": 0,
-      "started_at": "2025-12-04T13:45:51.313Z",
-      "completed_at": "2025-12-04T13:48:20.487Z",
+      "started_at": null,
+      "completed_at": null,
       "review_result": null,
       "decision": "PASS",
       "failed_phase": null,
@@ -143,14 +137,12 @@
       "created_issue_url": null,
       "abort_reason": null,
       "current_step": null,
-      "completed_steps": [
-        "execute",
-        "review"
-      ]
+      "completed_steps": [],
+      "rollback_context": null
     }
   },
   "created_at": "2025-12-04T12:55:34.257Z",
-  "updated_at": "2025-12-04T13:48:21.231Z",
+  "updated_at": "2025-12-28T15:04:01.152Z",
   "branch_name": "ai-workflow/issue-208",
   "base_commit": "17ceea370cf2f69430d7577a15a67292a38f2bb5",
   "pr_number": 210,
@@ -158,5 +150,47 @@
   "github_integration": {
     "progress_comment_id": 3612127652,
     "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/208#issuecomment-3612127652"
-  }
+  },
+  "rollback_history": [
+    {
+      "timestamp": "2025-12-28T15:03:00.485Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "test_implementation",
+      "to_step": "revise",
+      "reason": "Fix inconsistent metadata",
+      "triggered_by": "manual",
+      "review_result_path": null
+    },
+    {
+      "timestamp": "2025-12-28T15:03:03.839Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "requirements",
+      "to_step": "revise",
+      "reason": "Testing backward compatibility",
+      "triggered_by": "manual",
+      "review_result_path": null
+    },
+    {
+      "timestamp": "2025-12-28T15:03:21.352Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "requirements",
+      "to_step": "revise",
+      "reason": "Testing backward compatibility",
+      "triggered_by": "manual",
+      "review_result_path": null
+    },
+    {
+      "timestamp": "2025-12-28T15:04:01.143Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "requirements",
+      "to_step": "revise",
+      "reason": "Testing backward compatibility",
+      "triggered_by": "manual",
+      "review_result_path": null
+    }
+  ]
 }
