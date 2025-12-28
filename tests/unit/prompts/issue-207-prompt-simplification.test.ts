@@ -436,7 +436,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     it('should load execute prompt with guidance without throwing', () => {
       const prompt = (phase as any).loadPrompt('execute');
       expect(prompt).toContain('⚠️ 重要: プロンプト長制限への対応');
-      expect(prompt).toMatch(/🛠️.*開発環境情報/);
+      // Note: "🛠️ 開発環境情報" section was removed in Issue #207 prompt simplification
       expect(prompt.length).toBeGreaterThan(0);
     });
 
