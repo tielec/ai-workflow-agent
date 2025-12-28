@@ -66,6 +66,11 @@ function createMockMetadataManager(completedSteps: StepName[] = [], retryCount =
     // Issue #90: rollback関連メソッドを追加
     getRollbackContext: jest.fn<any>((phase: PhaseName) => null),
     clearRollbackContext: jest.fn<any>((phase: PhaseName) => undefined),
+    updatePhaseStatus: jest.fn<any>((phase: PhaseName, status: PhaseStatus) => {
+      if (metadata.phases[phase]) {
+        metadata.phases[phase].status = status;
+      }
+    }),
   };
 }
 

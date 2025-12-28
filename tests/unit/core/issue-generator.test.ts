@@ -726,7 +726,7 @@ Additional text.
       const result = await generator.generateEnhancementIssue(proposal, 'codex', true);
 
       expect(result.skippedReason).toBe('dry-run mode');
-      expect(result.title).toBe('[Enhancement] ⚡ Expose JSON output path in CLI summary');
+      expect(result.title).toBe('⚡ Expose JSON output path in CLI summary');
     });
   });
 });

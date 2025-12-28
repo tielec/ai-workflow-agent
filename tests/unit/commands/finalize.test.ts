@@ -18,14 +18,14 @@ import * as path from 'node:path';
 
 // node:fs のモック - モック化してからインポート
 const fsMock = {
-  existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  readdirSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  removeSync: jest.fn(),
+  existsSync: jest.fn<any>(),
+  mkdirSync: jest.fn<any>(),
+  writeFileSync: jest.fn<any>(),
+  readFileSync: jest.fn<any>(),
+  statSync: jest.fn<any>(),
+  readdirSync: jest.fn<any>(),
+  ensureDirSync: jest.fn<any>(),
+  removeSync: jest.fn<any>(),
 };
 
 jest.mock('fs-extra', () => ({
@@ -37,7 +37,7 @@ jest.mock('fs-extra', () => ({
 // repository-utilsのモック
 jest.mock('../../../src/core/repository-utils.js', () => ({
   __esModule: true,
-  findWorkflowMetadata: jest.fn(),
+  findWorkflowMetadata: jest.fn<any>(),
 }));
 
 import fs from 'fs-extra';
@@ -118,10 +118,9 @@ describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () =
 
   beforeEach(() => {
     jest.clearAllMocks();
-    const mockFs = fs as jest.Mocked<typeof fs>;
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.ensureDirSync.mockImplementation(() => undefined as any);
-    mockFs.writeFileSync.mockImplementation(() => undefined);
+    fsMock.existsSync.mockReturnValue(true);
+    fsMock.ensureDirSync.mockImplementation(() => undefined as any);
+    fsMock.writeFileSync.mockImplementation(() => undefined);
 
     metadataManager = new MetadataManager(testMetadataPath);
 
@@ -205,8 +204,7 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
     jest.clearAllMocks();
 
     // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
+    (findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -226,7 +224,7 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         baseBranch: 'main',
       };
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      fsMock.readFileSync.mockReturnValue(
         JSON.stringify({
           issue_number: '123',  // string型
           base_commit: 'abc123',
@@ -257,7 +255,7 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         baseBranch: 'main',
       };
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      fsMock.readFileSync.mockReturnValue(
         JSON.stringify({
           issue_number: '123',  // string型
           base_commit: 'abc123',
@@ -279,8 +277,7 @@ describe('Finalize コマンド - エラーケース', () => {
     jest.clearAllMocks();
 
     // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
+    (findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
@@ -292,7 +289,7 @@ describe('Finalize コマンド - エラーケース', () => {
   describe('UC-02: finalize_異常系_base_commit不在', () => {
     test('base_commit が存在しない場合にエラーが発生する', async () => {
       // Given: base_commit が存在しない
-      (fs.readFileSync as jest.Mock).mockReturnValue(
+      fsMock.readFileSync.mockReturnValue(
         JSON.stringify({
           issue_number: '123',  // string型
           // base_commit が存在しない
@@ -323,16 +320,15 @@ describe('Finalize コマンド - CLIオプション挙動検証', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    fsMock.existsSync.mockReturnValue(true);
 
     // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
+    (findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>).mockResolvedValue({
       repoRoot: '/test/repo',
       metadataPath: testMetadataPath,
     });
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(
+    fsMock.readFileSync.mockReturnValue(
       JSON.stringify({
         issue_number: '123',  // string型
         base_commit: 'abc123def456',

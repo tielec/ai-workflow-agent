@@ -324,14 +324,14 @@ describe('CommitManager - Commit Operations', () => {
 
   describe('commitCleanupLogs', () => {
     test('commitCleanupLogs_正常系_クリーンアップコミット作成', async () => {
-      // Given: 変更ファイルが存在する（実在するファイルを使用）
+      // Given: 変更ファイルが存在する（ワークフローディレクトリ内のファイル）
       mockGit.status.mockResolvedValue({
         current: 'feature/issue-25',
         files: [
-          { path: 'package.json', working_dir: 'M' },
+          { path: '.ai-workflow/issue-25/08_report/execute/agent_log.md', working_dir: 'M' },
         ],
         not_added: [],
-        modified: ['package.json'],
+        modified: ['.ai-workflow/issue-25/08_report/execute/agent_log.md'],
         deleted: [],
       } as any);
 
@@ -355,16 +355,23 @@ describe('CommitManager - SecretMasker Integration', () => {
   let mockGit: jest.Mocked<SimpleGit>;
   let mockMetadata: jest.Mocked<MetadataManager>;
   let mockSecretMasker: jest.Mocked<SecretMasker>;
+  let testRepoPath: string;
 
   beforeEach(() => {
+    // Create temp directory structure
+    testRepoPath = path.join(os.tmpdir(), `commit-manager-test-${Date.now()}`);
+    const workflowDir = path.join(testRepoPath, '.ai-workflow', 'issue-25', '01_requirements', 'output');
+    fs.ensureDirSync(workflowDir);
+    fs.writeFileSync(path.join(workflowDir, 'requirements.md'), '# Test Requirements');
+
     mockGit = {
       status: jest.fn().mockResolvedValue({
         current: 'feature/issue-25',
         files: [
-          { path: 'package.json', working_dir: 'M' }, // Use real file that exists
+          { path: '.ai-workflow/issue-25/01_requirements/output/requirements.md', working_dir: 'M' },
         ],
         not_added: [],
-        modified: ['package.json'],
+        modified: ['.ai-workflow/issue-25/01_requirements/output/requirements.md'],
       }),
       add: jest.fn().mockResolvedValue(undefined),
       commit: jest.fn().mockResolvedValue({
@@ -401,8 +408,15 @@ describe('CommitManager - SecretMasker Integration', () => {
       mockGit,
       mockMetadata,
       mockSecretMasker,
-      '/test/repo'
+      testRepoPath
     );
+  });
+
+  afterEach(() => {
+    // Clean up temp directory
+    if (fs.existsSync(testRepoPath)) {
+      fs.removeSync(testRepoPath);
+    }
   });
 
   test('commitPhaseOutput_SecretMasker統合_マスキング成功', async () => {
@@ -422,7 +436,7 @@ describe('CommitManager - SecretMasker Integration', () => {
 
     // Then: SecretMaskerが呼び出され、コミットが成功する
     expect(mockSecretMasker.maskSecretsInWorkflowDir).toHaveBeenCalledWith(
-      '/test/repo/.ai-workflow/issue-25'
+      path.join(testRepoPath, '.ai-workflow', 'issue-25')
     );
     expect(result.success).toBe(true);
   });
