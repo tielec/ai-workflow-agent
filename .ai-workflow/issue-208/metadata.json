@@ -47,7 +47,7 @@
         "review"
       ],
       "rollback_context": {
-        "triggered_at": "2025-12-28T15:04:01.143Z",
+        "triggered_at": "2025-12-28T15:14:55.175Z",
         "from_phase": null,
         "from_step": null,
         "reason": "Testing backward compatibility",
@@ -142,7 +142,7 @@
     }
   },
   "created_at": "2025-12-04T12:55:34.257Z",
-  "updated_at": "2025-12-28T15:04:01.152Z",
+  "updated_at": "2025-12-28T15:14:55.187Z",
   "branch_name": "ai-workflow/issue-208",
   "base_commit": "17ceea370cf2f69430d7577a15a67292a38f2bb5",
   "pr_number": 210,
@@ -184,6 +184,16 @@
     },
     {
       "timestamp": "2025-12-28T15:04:01.143Z",
+      "from_phase": null,
+      "from_step": null,
+      "to_phase": "requirements",
+      "to_step": "revise",
+      "reason": "Testing backward compatibility",
+      "triggered_by": "manual",
+      "review_result_path": null
+    },
+    {
+      "timestamp": "2025-12-28T15:14:55.175Z",
       "from_phase": null,
       "from_step": null,
       "to_phase": "requirements",
