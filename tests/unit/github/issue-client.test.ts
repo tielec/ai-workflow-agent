@@ -254,8 +254,8 @@ describe('IssueClient', () => {
       // And: Result should indicate success
       expect(result).toEqual({ success: true, error: null });
 
-      // And: Info log should be written
-      expect(consoleInfoSpy).toHaveBeenCalledWith('[INFO] Closed issue #24');
+      // And: Info log should be written (logger includes timestamp)
+      expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Closed issue #24'));
 
       consoleInfoSpy.mockRestore();
     });
