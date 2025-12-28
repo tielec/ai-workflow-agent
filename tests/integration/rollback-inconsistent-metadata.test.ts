@@ -17,14 +17,14 @@ import type { RollbackCommandOptions } from '../../src/types/commands.js';
 import * as path from 'node:path';
 
 const fsMock = {
-  existsSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  copyFileSync: jest.fn(),
-  readJsonSync: jest.fn(),
-  writeJsonSync: jest.fn(),
+  existsSync: jest.fn<any>(),
+  ensureDirSync: jest.fn<any>(),
+  writeFileSync: jest.fn<any>(),
+  readFileSync: jest.fn<any>(),
+  statSync: jest.fn<any>(),
+  copyFileSync: jest.fn<any>(),
+  readJsonSync: jest.fn<any>(),
+  writeJsonSync: jest.fn<any>(),
 };
 
 // fs-extraのモック
@@ -60,7 +60,7 @@ describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => 
       rollback_context: null,
     };
 
-    fsMock.readJsonSync.mockReturnValue({
+    const metadataData = {
       issue_number: '208',
       issue_url: '',
       issue_title: '',
@@ -85,7 +85,10 @@ describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => 
       model_config: null,
       difficulty_analysis: null,
       rollback_history: [],
-    });
+    };
+
+    fsMock.readJsonSync.mockReturnValue(metadataData);
+    fsMock.readFileSync.mockReturnValue(JSON.stringify(metadataData));
 
     metadataManager = new MetadataManager(testMetadataPath);
   });
