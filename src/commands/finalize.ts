@@ -116,7 +116,7 @@ function validateFinalizeOptions(options: FinalizeCommandOptions): void {
   }
 
   // baseBranch チェック（指定されている場合のみ）
-  if (options.baseBranch && options.baseBranch.trim().length === 0) {
+  if (options.baseBranch !== undefined && options.baseBranch.trim().length === 0) {
     throw new Error('Error: --base-branch cannot be empty');
   }
 }
