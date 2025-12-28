@@ -75,8 +75,7 @@ describe('エージェント実行の統合テスト', () => {
       expect(Array.isArray(result)).toBe(true);
       // Codex CLIプロセスが起動される
       expect(spawn).toHaveBeenCalled();
-      // ログ出力が実行される（リファクタリング後もログフォーマットが動作）
-      expect(consoleLogSpy).toHaveBeenCalled();
+      // Note: ログ出力は logger.info() を使用しているため、console.log() のスパイでは検出されない（Issue #61で統一loggerモジュール導入）
 
       consoleLogSpy.mockRestore();
     });
