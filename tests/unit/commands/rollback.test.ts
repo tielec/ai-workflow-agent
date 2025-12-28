@@ -11,7 +11,7 @@
  * テスト戦略: UNIT_INTEGRATION - ユニット部分
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import {
   validateRollbackOptions,
   loadRollbackReason,
@@ -21,30 +21,69 @@ import {
 import type { RollbackCommandOptions } from '../../../src/types/commands.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
-
-// node:fs のモック - モック化してからインポート
-jest.mock('node:fs', () => ({
-  existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-}));
-
 import fs from 'fs-extra';
 
 describe('Rollback コマンド - バリデーション', () => {
   let metadataManager: MetadataManager;
-  const testWorkflowDir = '/test/.ai-workflow/issue-90';
+  // ユニットテスト: プロジェクトルート配下のパスを使用（MetadataManagerが実ファイルシステムを使用するため）
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-90-unit');
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    metadataManager = new MetadataManager(testMetadataPath);
 
-    // メタデータの初期化（implementation フェーズが完了している状態）
-    metadataManager.data.phases.implementation.status = 'completed';
+    // 実ファイルシステムを使用（MetadataManagerが実際のfs-extraを呼び出すため）
+    fs.ensureDirSync(path.dirname(testMetadataPath));
+
+    const basePhase = {
+      status: 'pending',
+      completed_steps: [],
+      current_step: null,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      retry_count: 0,
+      rollback_context: null,
+    };
+
+    const metadataData = {
+      issue_number: '90',
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'planning',
+      phases: {
+        planning: { ...basePhase },
+        requirements: { ...basePhase },
+        design: { ...basePhase },
+        test_scenario: { ...basePhase },
+        implementation: { ...basePhase, status: 'completed', completed_steps: ['execute', 'review'] },
+        test_implementation: { ...basePhase },
+        testing: { ...basePhase },
+        documentation: { ...basePhase },
+        report: { ...basePhase },
+        evaluation: { ...basePhase },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    };
+
+    // 実ファイルを作成
+    fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
+
+    metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================
@@ -186,10 +225,19 @@ describe('Rollback コマンド - バリデーション', () => {
 });
 
 describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
-  const testWorkflowDir = '/test/.ai-workflow/issue-90';
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-90-reason');
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // テストディレクトリを作成
+    fs.ensureDirSync(testWorkflowDir);
+  });
+
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================
@@ -254,14 +302,14 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
   describe('UC-RC-09: loadRollbackReason() - --reason-fileオプション（正常系）', () => {
     test('--reason-fileオプションでファイルから差し戻し理由が読み込まれる', async () => {
       // Given: ファイルが存在する
+      const reasonFilePath = path.join(testWorkflowDir, 'review-result.md');
+      fs.writeFileSync(reasonFilePath, 'Review result content');
+
       const options: RollbackCommandOptions = {
         issue: '49',
         toPhase: 'implementation',
-        reasonFile: '/path/to/review/result.md'
+        reasonFile: reasonFilePath
       };
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.statSync as jest.Mock).mockReturnValue({ size: 1024 } as any);
-      (fs.readFileSync as jest.Mock).mockReturnValue('Review result content' as any);
 
       // When: loadRollbackReason()を呼び出す
       const reason = await loadRollbackReason(options, testWorkflowDir);
@@ -277,12 +325,12 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
   describe('UC-RC-10: loadRollbackReason() - --reason-fileオプション（ファイル不在）', () => {
     test('指定されたファイルが存在しない場合にエラーがスローされる', async () => {
       // Given: ファイルが存在しない
+      const nonExistentFile = path.join(testWorkflowDir, 'non-existent-file.md');
       const options: RollbackCommandOptions = {
         issue: '49',
         toPhase: 'implementation',
-        reasonFile: '/non-existent-file.md'
+        reasonFile: nonExistentFile
       };
-      (fs.existsSync as jest.Mock).mockReturnValue(false);
 
       // When & Then: エラーがスローされる
       await expect(loadRollbackReason(options, testWorkflowDir))
@@ -295,14 +343,16 @@ describe('Rollback コマンド - 差し戻し理由の読み込み', () => {
   // =============================================================================
   describe('UC-RC-11: loadRollbackReason() - --reason-fileオプション（ファイルサイズ超過）', () => {
     test('ファイルサイズが100KBを超える場合にエラーがスローされる', async () => {
-      // Given: ファイルサイズが100KB超
+      // Given: ファイルサイズが100KB超（200KB）
+      const largeFilePath = path.join(testWorkflowDir, 'large-file.md');
+      const largeContent = 'x'.repeat(200 * 1024); // 200KB
+      fs.writeFileSync(largeFilePath, largeContent);
+
       const options: RollbackCommandOptions = {
         issue: '49',
         toPhase: 'implementation',
-        reasonFile: '/large-file.md'
+        reasonFile: largeFilePath
       };
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-      (fs.statSync as jest.Mock).mockReturnValue({ size: 200 * 1024 } as any);
 
       // When & Then: エラーがスローされる
       await expect(loadRollbackReason(options, testWorkflowDir))
