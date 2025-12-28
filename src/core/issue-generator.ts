@@ -653,6 +653,11 @@ ${candidate.suggestion}
           await this.codexClient.executeTask({ prompt });
         } catch (error) {
           if (agent === 'codex') {
+            // dry-run時はフォールバックテンプレートで継続
+            if (dryRun) {
+              logger.warn(`Codex failed in dry-run mode, using fallback template.`);
+              return this.generateEnhancementIssueWithFallback(proposal, dryRun);
+            }
             return {
               success: false,
               error: `Codex failed: ${getErrorMessage(error)}`,
@@ -818,7 +823,7 @@ ${candidate.suggestion}
     };
 
     const emoji = typeEmoji[proposal.type];
-    return `[Enhancement] ${emoji} ${proposal.title}`;
+    return `${emoji} ${proposal.title}`;
   }
 
   /**
@@ -832,12 +837,12 @@ ${candidate.suggestion}
 
     // タイプに応じたラベルを追加
     const typeLabels: Record<EnhancementProposal['type'], string> = {
-      improvement: 'improvement',
-      integration: 'integration',
-      automation: 'automation',
-      dx: 'developer-experience',
-      quality: 'quality',
-      ecosystem: 'ecosystem',
+      improvement: 'type:improvement',
+      integration: 'type:integration',
+      automation: 'type:automation',
+      dx: 'type:developer-experience',
+      quality: 'type:quality',
+      ecosystem: 'type:ecosystem',
     };
     labels.push(typeLabels[proposal.type]);
 
