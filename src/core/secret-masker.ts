@@ -274,14 +274,28 @@ export class SecretMasker {
       return placeholder;
     });
 
+    // Issue #558: Protect JSON key names (e.g., "key": or key:) from being masked
+    const keyMap = new Map<string, string>();
+    let keyIndex = 0;
+    // Match: word characters (20+ chars) followed by colon (with optional quotes and spaces)
+    const jsonKeyPattern = /\b([a-zA-Z0-9_-]{20,})\s*:/g;
+    masked = masked.replace(jsonKeyPattern, (match, key) => {
+      const placeholder = `__JSON_KEY_${keyIndex++}__`;
+      keyMap.set(placeholder, match);
+      return placeholder;
+    });
+
     masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
     masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
-    masked = masked.replace(
-      /\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:GITHUB_URL|REPO_PLACEHOLDER|REPO_PART)_)(?![a-zA-Z_]+(?:_[a-zA-Z_]*)*:)[A-Za-z0-9_-]{20,}\b/g,
-      '[REDACTED_TOKEN]',
-    );
+    // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, REPO_PLACEHOLDER/REPO_PART/JSON_KEY, and Git commit hashes (40-char hex) from generic token masking
+    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:REPO_(?:PLACEHOLDER|PART)|JSON_KEY)_)(?![a-f0-9]{40}\b)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
     masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
     masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
+
+    // Restore JSON key names first (before repository restoration)
+    for (const [placeholder, original] of keyMap) {
+      masked = masked.split(placeholder).join(original);
+    }
 
     for (const [placeholder, original] of urlMap) {
       masked = masked.split(placeholder).join(original);
