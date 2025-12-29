@@ -291,7 +291,10 @@ graph TD
 - [ ] YAMLの構文エラーがない
 
 ### Phase 5: テストコード実装
-- [ ] スキップの判断が正当である（GitHub Actionsワークフローはテストコード不要）
+- [x] テストコードでGitHub Actionsワークフローの構造を検証済み
+  - `tests/unit/github-actions-workflows.test.ts` で `.github/workflows/test.yml` / `.github/workflows/build.yml` のトリガー・マトリクス・ステップを検証
+  - `package.json` の `test` / `build` スクリプトの存在を確認し、既存コマンドの実行可能性に言及
+  - 依存関係をインストールすれば `npm test -- tests/unit/github-actions-workflows.test.ts` で動作確認可能
 
 ### Phase 6: テスト実行
 - [ ] YAML構文が正しい
