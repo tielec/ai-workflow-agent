@@ -182,6 +182,47 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     expect(masked).toContain('[REDACTED_TOKEN]');
     expect(masked).not.toContain('AKIAIOSFODNN7EXAMPLE1234567890');
   });
+
+  test('Issue #564: Git commit hash（40文字の16進数）は汎用トークンマスキングから除外される', () => {
+    // Given: Git commit hash を含むメタデータJSON風の文字列
+    const input = `{
+      "base_commit": "a3ce4e2453521cca16c96dfe00176b3013c9dd34",
+      "current_commit": "8bffa731a963a121b29b53349567bfa72ca1da36"
+    }`;
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: Git commit hash は保持され、[REDACTED_TOKEN]に置換されない
+    expect(masked).toContain('a3ce4e2453521cca16c96dfe00176b3013c9dd34');
+    expect(masked).toContain('8bffa731a963a121b29b53349567bfa72ca1da36');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('Issue #564: Git commit hash と汎用トークンが混在する場合、commit hash のみ保持される', () => {
+    // Given: Git commit hash と AWS トークンが混在する文字列
+    const input = 'base_commit: a3ce4e2453521cca16c96dfe00176b3013c9dd34, AWS Key: AKIAIOSFODNN7EXAMPLE1234567890';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: Git commit hash は保持され、AWS トークンのみマスキングされる
+    expect(masked).toContain('a3ce4e2453521cca16c96dfe00176b3013c9dd34');
+    expect(masked).toContain('[REDACTED_TOKEN]');
+    expect(masked).not.toContain('AKIAIOSFODNN7EXAMPLE1234567890');
+  });
+
+  test('Issue #564: 40文字でも16進数以外（A-Fを含む）の文字列は汎用トークンとしてマスキングされる', () => {
+    // Given: 40文字だが16進数ではない文字列（Gを含む）
+    const input = 'Invalid hash: G3ce4e2453521cca16c96dfe00176b3013c9dd34';
+
+    // When: マスキングを実行
+    const masked = masker.maskObject(input);
+
+    // Then: 汎用トークンとしてマスキングされる
+    expect(masked).toContain('[REDACTED_TOKEN]');
+    expect(masked).not.toContain('G3ce4e2453521cca16c96dfe00176b3013c9dd34');
+  });
 });
 
 describe('SecretMasker環境変数検出テスト', () => {

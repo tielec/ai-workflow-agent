@@ -197,8 +197,8 @@ export class SecretMasker {
     // Prefer GitHub token patterns first so they don't fall back to generic tokens
     masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
     masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
-    // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, and REPO_PLACEHOLDER/REPO_PART from generic token masking
-    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__REPO_(?:PLACEHOLDER|PART)_)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+    // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, REPO_PLACEHOLDER/REPO_PART, and Git commit hashes (40-char hex) from generic token masking
+    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__REPO_(?:PLACEHOLDER|PART)_)(?![a-f0-9]{40}\b)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
     masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
     masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
 
