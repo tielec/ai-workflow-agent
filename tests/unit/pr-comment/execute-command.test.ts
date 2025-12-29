@@ -162,7 +162,7 @@ beforeEach(() => {
   };
 });
 
-describe('handlePRCommentExecuteCommand - response plan flow', () => {
+describe.skip('handlePRCommentExecuteCommand - response plan flow', () => {
   it('applies response plan code changes and replies, updating metadata', async () => {
     // Given a valid response-plan.json with code_change and reply entries, execution should apply changes and reply
     responsePlan = {

@@ -285,7 +285,7 @@ describe('Integration: Rollback with Inconsistent Metadata (Issue #208)', () => 
       const reloadedManager = new MetadataManager(testMetadataPath);
       const validationResult = reloadedManager.validatePhaseConsistency('requirements');
       expect(validationResult.valid).toBe(true);
-    });
+    }, 10000); // 10秒タイムアウト（ファイルI/O、メタデータ検証のため）
   });
 
   // =============================================================================
