@@ -201,6 +201,25 @@ export class IssueAIGenerator {
     throw lastError instanceof Error ? lastError : new Error('LLM request failed.');
   }
 
+  /**
+   * Sanitizes and prepares task payload for LLM processing with selective masking
+   *
+   * This method processes tasks and context data for LLM consumption while preserving
+   * important metadata through the ignoredPaths mechanism in SecretMasker.
+   *
+   * ## Preserved Content (ignoredPaths configuration):
+   * - `issue_url`: GitHub issue URLs to maintain link functionality
+   * - `pr_url`: Pull request URLs for proper reference tracking
+   * - `target_repository.remote_url`: Repository URLs for context clarity
+   * - `target_repository.github_name`: Repository identification
+   * - `design_decisions.*`: All design decision metadata for context preservation
+   *
+   * @param tasks - Array of remaining tasks to be processed
+   * @param context - Optional issue context with summary and status information
+   * @param issueNumber - The issue number for reference
+   * @param maxTasks - Maximum number of tasks to include (sorted by priority)
+   * @returns Sanitized payload with preserved metadata and count of omitted tasks
+   */
   private sanitizePayload(
     tasks: RemainingTask[],
     context: IssueContext | undefined,
@@ -245,7 +264,15 @@ export class IssueAIGenerator {
         tasks: sanitizedTasks,
         context: sanitizedContext,
       },
-      { ignoredPaths: [] },
+      {
+        ignoredPaths: [
+          'issue_url',
+          'pr_url',
+          'target_repository.remote_url',
+          'target_repository.github_name',
+          'design_decisions.*',
+        ],
+      },
     );
 
     return { payload, omittedTasks };
