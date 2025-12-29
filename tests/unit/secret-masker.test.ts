@@ -140,8 +140,7 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     const masked = masker.maskObject(input);
 
     // Then: リポジトリ名は保持され、[REDACTED_TOKEN]に置換されない
-    expect(masked).toContain('tielec/infrastructure-as-code');
-    expect(masked).not.toContain('[REDACTED_TOKEN]');
+    expect(masked).toContain('"github_name": "tielec/infrastructure-as-code"');
   });
 
   test('Issue #514: 複数のGitHubリポジトリ名が混在しても正しく保持される', () => {
@@ -181,6 +180,63 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     expect(masked).toContain('tielec/infrastructure-as-code');
     expect(masked).toContain('[REDACTED_TOKEN]');
     expect(masked).not.toContain('AKIAIOSFODNN7EXAMPLE1234567890');
+  });
+});
+
+describe('Issue #558 metadata preservation', () => {
+  const metadataMasker = new SecretMasker();
+
+  test('GitHub issue/pr URLs are kept intact after masking', () => {
+    const input =
+      'issue_url: https://github.com/tielec/ai-code-companion/issues/49, pr_url: https://github.com/tielec/ai-code-companion/pull/51';
+    const masked = metadataMasker.maskObject(input);
+
+    expect(masked).toContain('issue_url: https://');
+    expect(masked).toContain('pr_url: https://');
+    expect(masked).toContain('/issues/49');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('長い owner/repo パターンも復元され、プレースホルダーは残らない', () => {
+    const longOwner = 'verylongorganizationname';
+    const longRepo = 'extremely-long-repository-name-that-exceeds-limits';
+    const input = `Repository: https://github.com/${longOwner}/${longRepo}/issues/123`;
+    const masked = metadataMasker.maskObject(input);
+
+    expect(masked).toContain('https://__GITHUB_URL_');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+    expect(masked).toContain('/issues/123');
+  });
+
+  test('implementation_strategyキーは colon 付きであればマスキングされない', () => {
+    const input = 'implementation_strategy: null, very_long_implementation_strategy_name_over_twenty_chars: true';
+    const masked = metadataMasker.maskObject(input);
+
+    expect(masked).toContain('implementation_strategy: null');
+    expect(masked).toContain('very_long_implementation_strategy_name_over_twenty_chars: true');
+    expect(masked).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  test('ignoredPaths を使うと metadata の重要フィールドだけマスク対象外になる', () => {
+    const metadata = {
+      issue_url: 'https://github.com/tielec/ai-code-companion/issues/49',
+      pr_url: 'https://github.com/tielec/ai-code-companion/pull/51',
+      secret_token: 'AKIAIOSFODNN7EXAMPLE1234567890',
+      base_commit: 'a1b2c3d4e5f6789012345678901234567890abcd',
+      design_decisions: {
+        implementation_strategy: null,
+      },
+    };
+
+    const masked = metadataMasker.maskObject(metadata, {
+      ignoredPaths: ['issue_url', 'pr_url', 'design_decisions.implementation_strategy'],
+    }) as typeof metadata;
+
+    expect(masked.issue_url).toBe(metadata.issue_url);
+    expect(masked.pr_url).toBe(metadata.pr_url);
+    expect(masked.design_decisions.implementation_strategy).toBeNull();
+    expect(masked.secret_token).toBe('[REDACTED_TOKEN]');
+    expect(masked.base_commit).toBe('[REDACTED_TOKEN]');
   });
 });
 

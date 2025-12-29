@@ -164,6 +164,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #558**: metadata.json の不適切マスキング処理を修正
+  - `SecretMasker.maskString()` メソッドのプレースホルダー管理とキー名除外処理を改善
+  - GitHub URL復元ロジックを Map 構造で再実装し、長いリポジトリ名やオーナー名を適切に処理
+  - 汎用トークン正規表現にキー名パターン除外（`implementation_strategy` など）を追加
+  - `IssueAIGenerator.sanitizePayload()` の `ignoredPaths` に metadata.json 保護対象パスを設定
+  - **修正対象**: `issue_url`/`pr_url` のプレースホルダー問題、オブジェクトキー名の誤マスキング、ignoredPaths 未活用
+  - **処理改善**: プレースホルダー衝突回避、復元処理順序最適化、セキュリティ機能の完全維持
+  - 修正ファイル: `src/core/secret-masker.ts`, `src/core/github/issue-ai-generator.ts`
+  - テストカバレッジ: ユニットテスト4件、統合テスト1件（36件すべて成功）
+
 - **Issue #510**: finalize コマンドで Step 2 の push 時に pull が実行されると HEAD が更新されスカッシュが失敗する問題の修正
   - Step 1 で `executeStep1()` の戻り値を `{ baseCommit, headBeforeCleanup }` に拡張し、Step 2 実行直前の HEAD を保存
   - `FinalizeContext` 型に `headCommit?: string` オプショナルプロパティを追加

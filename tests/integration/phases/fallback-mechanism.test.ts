@@ -22,7 +22,13 @@ import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import { GitHubClient } from '../../../src/core/github-client.js';
 import { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 
-describe('Fallback Mechanism Integration Tests (Issue #113)', () => {
+// Skip tests in CI with dummy API keys (they require real agent API calls)
+const isDummyKey =
+  process.env.CLAUDE_CODE_OAUTH_TOKEN === 'dummy-token-for-ci' ||
+  process.env.CODEX_API_KEY === 'dummy-key-for-ci';
+const describeOrSkip = isDummyKey ? describe.skip : describe;
+
+describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
   let testWorkingDir: string;
   let mockMetadata: jest.Mocked<MetadataManager>;
   let mockGitHub: jest.Mocked<GitHubClient>;

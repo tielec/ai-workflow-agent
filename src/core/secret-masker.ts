@@ -16,10 +16,46 @@ export interface MaskingResult {
 }
 
 /**
- * SecretMasker - Masks secrets in workflow files before Git commit
+ * SecretMasker - Comprehensive secret masking for workflow files and data structures
  *
- * This class prevents GitHub Secret Scanning from blocking pushes by
- * replacing secret values from environment variables with redacted placeholders.
+ * This class prevents GitHub Secret Scanning from blocking pushes by:
+ * - Replacing secret values from environment variables with redacted placeholders
+ * - Applying generic pattern-based masking for potential secrets and tokens
+ * - Preserving specific content like GitHub URLs and object keys using selective masking
+ *
+ * ## Masking Targets (What gets masked):
+ * - Environment variable values (GITHUB_TOKEN, OPENAI_API_KEY, etc.)
+ * - GitHub tokens (ghp_*, github_pat_* patterns)
+ * - Email addresses
+ * - Generic long token patterns (20+ character alphanumeric strings)
+ * - Bearer tokens and token= parameters
+ *
+ * ## Masking Non-Targets (What is preserved):
+ * - GitHub URLs (github.com/owner/repo format) - URLs are preserved while only masking long parts
+ * - Object keys/property names (e.g., "implementation_strategy", "design_decisions")
+ * - Short strings (< 20 characters) to avoid over-masking
+ * - Content in ignored paths when using ignoredPaths parameter
+ * - Placeholder tokens used internally (__GITHUB_URL_*, __REPO_PART_*, etc.)
+ *
+ * ## ignoredPaths Parameter Usage:
+ * The ignoredPaths parameter in maskObject() allows selective preservation of specific object paths:
+ * - Format: Array of dot-notation paths (e.g., ["issue_url", "pr_url", "design_decisions.*"])
+ * - Supports wildcards with "*" for matching any property at that level
+ * - Example: ignoredPaths: ["issue_url", "pr_url"] preserves issue_url and pr_url values
+ * - Use case: Preserving GitHub URLs, design decisions, and other non-sensitive structured data
+ *
+ * @example
+ * ```typescript
+ * const masker = new SecretMasker();
+ *
+ * // Mask object while preserving specific paths
+ * const masked = masker.maskObject(data, {
+ *   ignoredPaths: ["issue_url", "pr_url", "design_decisions.*"]
+ * });
+ *
+ * // Simple string masking
+ * const maskedString = masker.maskString("Contains secret: ghp_abcd1234...");
+ * ```
  */
 export class SecretMasker {
   private readonly targetFilePatterns = [
@@ -56,7 +92,33 @@ export class SecretMasker {
   }
 
   /**
-   * 任意のオブジェクトをマスキングしつつディープコピーする
+   * Applies comprehensive masking to any object while performing deep copy
+   *
+   * This method recursively processes all object properties, applying secret masking
+   * while preserving object structure and respecting ignored paths.
+   *
+   * @param input - The input object to mask (any type)
+   * @param options - Masking options
+   * @param options.ignoredPaths - Array of dot-notation paths to preserve from masking
+   *   - Format: ["path.to.property", "another.path.*"]
+   *   - Wildcards: Use "*" to match any property at that level
+   *   - Example: ["issue_url", "pr_url", "design_decisions.*"] preserves issue_url,
+   *     pr_url values and all properties under design_decisions
+   * @returns Deep copy of input with secrets masked, except for ignored paths
+   *
+   * @example
+   * ```typescript
+   * const data = {
+   *   issue_url: "https://github.com/owner/repo/issues/123",
+   *   token: "ghp_secrettoken123",
+   *   design_decisions: { strategy: "refactor", approach: "gradual" }
+   * };
+   *
+   * const masked = masker.maskObject(data, {
+   *   ignoredPaths: ["issue_url", "design_decisions.*"]
+   * });
+   * // Result: issue_url and design_decisions are preserved, token is masked
+   * ```
    */
   public maskObject<T>(input: T, options?: { ignoredPaths?: string[] }): T {
     const replacementMap = new Map<string, string>();
@@ -138,77 +200,94 @@ export class SecretMasker {
   }
 
   /**
-   * Apply generic secret patterns to mask potential secrets in a string.
-   * GitHub token patterns are applied before generic token masking to preserve specificity.
+   * Applies generic secret patterns to mask potential secrets in a string
+   *
+   * This method performs sophisticated string masking while preserving important content:
+   * 1. Temporarily protects GitHub URLs using placeholders
+   * 2. Masks known secret patterns (GitHub tokens, emails, generic tokens)
+   * 3. Restores protected content after masking
+   *
+   * ## Masking Order and Logic:
+   * 1. **URL Protection**: GitHub URLs are temporarily replaced with placeholders
+   * 2. **Repository Protection**: Standalone owner/repo patterns are protected
+   * 3. **Secret Masking**: Applies patterns for tokens, emails, and generic secrets
+   * 4. **Restoration**: Protected content is restored to preserve legitimate URLs
+   *
+   * ## Pattern Details:
+   * - **GitHub Tokens**: `ghp_*`, `github_pat_*` patterns → `[REDACTED_GITHUB_TOKEN]`
+   * - **Email Addresses**: Standard email format → `[REDACTED_EMAIL]`
+   * - **Generic Tokens**: 20+ char alphanumeric (with exclusions) → `[REDACTED_TOKEN]`
+   * - **Bearer Tokens**: `Bearer <token>` format → `Bearer [REDACTED_TOKEN]`
+   * - **URL Tokens**: `token=<value>` format → `token=[REDACTED_TOKEN]`
+   *
+   * ## Exclusions to Prevent Over-masking:
+   * - GitHub URL placeholders (`__GITHUB_URL_*__`)
+   * - Repository placeholders (`__REPO_PLACEHOLDER_*__`, `__REPO_PART_*__`)
+   * - Object key patterns (`property_name:` format)
+   * - Short strings (< 20 characters)
+   * - Already redacted content (`REDACTED`)
+   *
+   * @param value - The string to apply masking to
+   * @returns String with secrets masked but important content preserved
+   *
+   * @example
+   * ```typescript
+   * const input = "Visit https://github.com/owner/repo with token ghp_secret123";
+   * const masked = masker.maskString(input);
+   * // Result: "Visit https://github.com/owner/repo with token [REDACTED_GITHUB_TOKEN]"
+   * ```
    */
   private maskString(value: string): string {
     let masked = value;
 
-    // Preserve GitHub repository names (owner/repo pattern) and their parts from being masked
-    // First, handle GitHub URLs specifically (e.g., github.com/owner/repo or github.com/owner/repo.git)
-    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\.git)?/g;
-    const repoMatches: Map<string, string> = new Map();
-    const repoPartMatches: Map<string, string> = new Map();
-    let repoIndex = 0;
+    const urlMap = new Map<string, string>();
+    const partMap = new Map<string, string>();
+    let urlIndex = 0;
     let partIndex = 0;
 
-    // Extract GitHub URLs and preserve repo parts
+    const maskLongPart = (segment: string): string => {
+      if (segment.length < 20) {
+        return segment;
+      }
+      const placeholder = `__REPO_PART_${partIndex++}__`;
+      partMap.set(placeholder, segment);
+      return placeholder;
+    };
+
+    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)(?:\.git)?/g;
     masked = masked.replace(githubUrlPattern, (match, owner, repo) => {
-      const placeholder = `__GITHUB_URL_${repoIndex++}__`;
-      repoMatches.set(placeholder, match);
-
-      // Preserve individual parts (owner and repo names)
-      if (owner.length >= 20) {
-        const ownerPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(ownerPlaceholder, owner);
-      }
-      if (repo.length >= 20) {
-        const repoPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(repoPlaceholder, repo);
-      }
-
+      const placeholder = `__GITHUB_URL_${urlIndex++}__`;
+      let preservedMatch = match;
+      preservedMatch = preservedMatch.replace(owner, maskLongPart(owner));
+      preservedMatch = preservedMatch.replace(repo, maskLongPart(repo));
+      urlMap.set(placeholder, preservedMatch);
       return placeholder;
     });
 
-    // Then, handle standalone owner/repo patterns (not part of URLs)
-    const standaloneRepoPattern = /\b([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\b/g;
+    const standaloneRepoPattern = /\b([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)\b/g;
     masked = masked.replace(standaloneRepoPattern, (match, owner, repo) => {
-      const placeholder = `__REPO_PLACEHOLDER_${repoIndex++}__`;
-      repoMatches.set(placeholder, match);
-
-      // Preserve individual parts (owner and repo names)
-      if (owner.length >= 20) {
-        const ownerPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(ownerPlaceholder, owner);
-      }
-      if (repo.length >= 20) {
-        const repoPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(repoPlaceholder, repo);
-      }
-
+      const placeholder = `__REPO_PLACEHOLDER_${urlIndex++}__`;
+      let preservedMatch = match;
+      preservedMatch = preservedMatch.replace(owner, maskLongPart(owner));
+      preservedMatch = preservedMatch.replace(repo, maskLongPart(repo));
+      urlMap.set(placeholder, preservedMatch);
       return placeholder;
     });
 
-    // Replace individual repo parts with placeholders
-    for (const [placeholder, part] of repoPartMatches) {
-      masked = masked.split(part).join(placeholder);
-    }
-
-    // Prefer GitHub token patterns first so they don't fall back to generic tokens
     masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
     masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
-    // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, and REPO_PLACEHOLDER/REPO_PART from generic token masking
-    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__REPO_(?:PLACEHOLDER|PART)_)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+    masked = masked.replace(
+      /\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:GITHUB_URL|REPO_PLACEHOLDER|REPO_PART)_)(?![a-zA-Z_]+(?:_[a-zA-Z_]*)*:)[A-Za-z0-9_-]{20,}\b/g,
+      '[REDACTED_TOKEN]',
+    );
     masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
     masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
 
-    // Restore preserved repository parts first
-    for (const [placeholder, original] of repoPartMatches) {
+    for (const [placeholder, original] of urlMap) {
       masked = masked.split(placeholder).join(original);
     }
 
-    // Then restore preserved repository names
-    for (const [placeholder, original] of repoMatches) {
+    for (const [placeholder, original] of partMap) {
       masked = masked.split(placeholder).join(original);
     }
 

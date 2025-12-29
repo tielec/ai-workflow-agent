@@ -24,10 +24,18 @@ import { GitHubClient } from '../../src/core/github-client.js';
 import type { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import { logger } from '../../src/utils/logger.js';
 
+// Skip tests in CI with dummy API keys (ContentParser requires valid API keys)
+const isDummyKey =
+  process.env.CLAUDE_CODE_OAUTH_TOKEN === 'dummy-token-for-ci' ||
+  process.env.CODEX_API_KEY === 'dummy-key-for-ci' ||
+  process.env.OPENAI_API_KEY === 'dummy-key-for-ci' ||
+  process.env.ANTHROPIC_API_KEY === 'dummy-key-for-ci';
+const describeOrSkip = isDummyKey ? describe.skip : describe;
+
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(os.tmpdir(), 'evaluation-phase-test');
 
-describe('EvaluationPhase - ファイル存在チェックロジック', () => {
+describeOrSkip('EvaluationPhase - ファイル存在チェックロジック', () => {
   let tempDir: string;
   let workflowDir: string;
   let metadata: MetadataManager;
@@ -156,7 +164,7 @@ All phases completed successfully.
   });
 });
 
-describe('EvaluationPhase - 評価決定の解析と MetadataManager への保存', () => {
+describeOrSkip('EvaluationPhase - 評価決定の解析と MetadataManager への保存', () => {
   let tempDir: string;
   let workflowDir: string;
   let metadata: MetadataManager;
@@ -330,7 +338,7 @@ Fundamental mismatch between requirements and technology stack.
   });
 });
 
-describe('EvaluationPhase - ファイルパス検証', () => {
+describeOrSkip('EvaluationPhase - ファイルパス検証', () => {
   let tempDir: string;
 
   beforeAll(async () => {

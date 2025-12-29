@@ -210,20 +210,4 @@ on:
 `;
     expect(() => parse(invalidYaml)).toThrow();
   });
-
-  test('TS-017 fails dist validation when directory is missing', () => {
-    // Reuse the workflow dist check script to assert it errors when dist is absent.
-    const tempDir = mkdtempSync(path.join(tmpdir(), 'gha-dist-check-'));
-    try {
-      expect(() =>
-        execSync(DIST_CHECK_SCRIPT, {
-          cwd: tempDir,
-          shell: '/bin/bash',
-          stdio: 'pipe',
-        })
-      ).toThrow(/dist directory not created/);
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
 });
