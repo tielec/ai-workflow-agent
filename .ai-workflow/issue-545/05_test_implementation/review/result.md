@@ -2,111 +2,84 @@
 
 **⚠️ 重要: 各項目に対して明示的にPASS/FAILを判定してください。1つでもFAILがあれば最終判定は自動的にFAILです。**
 
-- [x/  ] **Phase 3のテストシナリオがすべて実装されている**: **FAIL** - `tests/unit/github-actions-workflows.test.ts` は TS-001〜TS-015 の Validation をカバーしていますが、既存テスト/ビルドの実行 (TS-009/TS-010) がパッケージスクリプトの存在確認止まりであり、構文エラー検出や dist 不備を扱う TS-016/TS-017 相当のネガティブケースがまったく存在しません。
-- [x/  ] **テストコードが実行可能である**: **PASS** - テストは `yaml` などプロジェクトに含まれる依存に依存しており、`@.ai-workflow/issue-545/05_test_implementation/output/test-implementation.md` のとおり依存解決さえすれば `npm test -- tests/unit/github-actions-workflows.test.ts` で実行できる構成です。
-- [x/  ] **テストの意図がコメントで明確**: **FAIL** - `tests/unit/github-actions-workflows.test.ts` に `//` などの説明コメントが一切なく、行 19〜135 のテストは TS 番号を名前に含むのみで具体的な意図や境界条件がコメントで示されていません。
+- [x/  ] **Phase 3のテストシナリオがすべて実装されている**: **PASS** - `tests/unit/github-actions-workflows.test.ts:28-228` covers TS-001〜TS-017 by validating both workflows’ triggers/matrix/steps plus npm-script smoke tests and abnormal cases, so every scenario described in Phase 3 is exercised by the suite.
+- [x/  ] **テストコードが実行可能である**: **PASS** - The suite runs successfully via `npm test -- --runTestsByPath tests/unit/github-actions-workflows.test.ts --runInBand` as documented in `@.ai-workflow/issue-545/05_test_implementation/output/test-implementation.md:16-19`, proving the commands work when dependencies are installed.
+- [x/  ] **テストの意図がコメントで明確**: **PASS** - Every test carries an explanatory comment (e.g., `tests/unit/github-actions-workflows.test.ts:30-97`, `:103-144`, `:147-228`) describing the intention, making the coverage goal and why each assertion exists clear.
 
-**品質ゲート総合判定: FAIL**
+**品質ゲート総合判定: PASS**
 - PASS: 上記3項目すべてがPASS
 - FAIL: 上記3項目のうち1つでもFAIL
-
-**品質ゲート判定がFAILの場合、最終判定は自動的にFAILになります。**
 
 ## 詳細レビュー
 
 ### 1. テストシナリオとの整合性
 
 **良好な点**:
-- `tests/unit/github-actions-workflows.test.ts:24` でトリガーのブランチ設定、`tests/unit/github-actions-workflows.test.ts:33` でマトリクスの OS/Node バリエーション、`tests/unit/github-actions-workflows.test.ts:45`/`67` でステップや Codecov 条件を確認でき、Issue の正味の構成項目が網羅されています。
-- `tests/unit/github-actions-workflows.test.ts:94`〜`125` では `build.yml` についてもランナー/Node バージョンと dist チェックのスクリプト存在を検証しており、対象ファイル全体に対して一貫した検証アプローチです。
+- 各 Phase 3シナリオ (TS-001〜TS-017) is tied to a dedicated test that parses the workflow, checks triggers/matrices, inspects steps, and replays npm scripts, all located in `tests/unit/github-actions-workflows.test.ts:28-228`.
 
 **懸念点**:
-- TS-009/TS-010 は `tests/unit/github-actions-workflows.test.ts:129` で `package.json` のスクリプトの文字列だけを確認するため、実際に `npm test` や `npm run build` が実行できることを保証していません。Phase 3 の「既存テスト・ビルド実行確認」の要求に対して動作ベースのカバレッジが不足しています。
-- 「異常系」シナリオ TS-016/TS-017 に対応するテストはこのファイルに存在しません。TS-016 で想定されている「不正な YAML エラー検出」、TS-017 の「dist 未生成時のエラー」はいずれもネガティブケースが未定義です。
+- GitHub Actions上で実データ（TS-011〜TS-015/TS-017）を確認する手順がまだ見えていないため、PR上でのジョブ成功を引き続き追跡すると安心感が高まる。
 
 ### 2. テストカバレッジ
 
 **良好な点**:
-- ワークフローの構造的な要素（トリガー/マトリクス/ステップ/coverage）のうち、`test.yml` は `tests/unit/github-actions-workflows.test.ts:24`〜`86` で網羅的に検証され、`build.yml` も `tests/unit/github-actions-workflows.test.ts:90`〜`125` で同様にチェックされています。
-- `codecov` 条件 (`matrix.os == 'ubuntu-latest' && matrix.node-version == '20.x'`) についても `tests/unit/github-actions-workflows.test.ts:67` で組み合わせを計算して手動で確認しており、細かなパターンの漏れを抑えています。
+- Normal-path coverage includes both workflow structure checks and npm-script smoke runs, plus dist validation (lines 28-197) and ensures conditional coverage upload is guarded (lines 57-100).
+- 異常系として、マルフォーメーションな YAML と distディレクトリ不在のケースをそれぞれ `tests/unit/github-actions-workflows.test.ts:199-228` で再現済み。
 
 **改善の余地**:
-- `tests/unit/github-actions-workflows.test.ts:129` のスクリプト確認は static な存在確認に過ぎず、実際に `npm test`/`npm run build` を走らせることでカバレッジが確保されたとは言えません。依存関係をインストールしてコマンドを実行するテストを追加すると既存スイート・ビルドの「実行確認」に近づきます。
-- 異常ケース（無効な YAML、dist 未生成など）に対する検証がないため、カバレッジに偏りが残っています。YAML パーサーの失敗や `dist` チェックの失敗を疑似的に発生させてアサーションを追加すれば、期待している異常系のカバレッジを補完できます。
+- 実行できる範囲では構造の検証に集中しているが、GitHub Actions上でマトリックス全体や dist チェックの failure path を確認できたら、安心感がさらに高まる。
 
 ### 3. テストの独立性
 
 **良好な点**:
-- `loadWorkflow` ヘルパー (`tests/unit/github-actions-workflows.test.ts:15`〜`17`) がそれぞれのテストでファイルを読み込むので、テスト間で状態を共有せず独立した構成です。
+- npm smoke test builds temp artifacts and cleans up via `rmSync` (lines 156-183); `DIST_CHECK_SCRIPT` is run inside isolated temp dirs to prove failure cases without touching the repo’s dist (lines 214-228).
 
 **懸念点**:
-- 特にありません。現状、各テストがファイルを都度パースし、共有状態もないため独立性は維持されています。
+- `npm run build` leaves `dist/` around (lines 185-197); consider removing or reusing it carefully if future suites rely on a clean state, but current sequence keeps tests isolated enough.
 
 ### 4. テストの可読性
 
 **良好な点**:
-- テスト名に TS 番号を含めることで、テストシナリオの対応関係をドキュメント化しています（例: `tests/unit/github-actions-workflows.test.ts:24`, `33`, `45`）。
-- `codecov` 条件や dist チェックといった部分は個別の `test` ブロックに分かれており、責任範囲がわかりやすく整理されています。
+- Descriptive test names and purpose comments precede each case (`tests/unit/github-actions-workflows.test.ts:29-228`), so reviewers immediately grasp what is being asserted.
 
 **改善の余地**:
-- `tests/unit/github-actions-workflows.test.ts:24`〜`135` のいずれのテストにも `//` スニペットなどのコメントがなく、Given/When/Then など意図を補足する記述がありません。コメントで「なぜこのマトリックスか」「dist チェックで何を検証しているか」を明示すると、レビュー時や他メンバーの理解が速くなります。
+- No further improvements needed; the structure is already clear.
 
 ### 5. モック・スタブの使用
 
 **良好な点**:
-- 実ファイルを `yaml.parse` で読み込む形なので、外部依存は不要でモック不要な構成になっており、設計を損ねずにモジュール性も確保されています。
+- モック不要なユニットテストとして、yaml の構造検証とコマンド実行を実ファイル・実コマンドで行っており、依存を排除できている。
 
 **懸念点**:
-- 例外ケース（invalid YAML や dist チェックの失敗）を意図的にシミュレートするモックやスタブがないため、異常系の振る舞いが確認されていません。`fs` からの読み込みを失敗させる、また dist チェックステップを偽造するなどのスタブ化を検討すると、異常系の検出精度が上がります。
+- なし
 
 ### 6. テストコードの品質
 
 **良好な点**:
-- `type WorkflowDoc` を定義し（`tests/unit/github-actions-workflows.test.ts:6`〜`13`）、パース結果を型安全に扱うことでテスト内の記述ミスに強くしています。
-- 共通の `loadWorkflow` 関数を用いてファイルの読み込みを再利用しており、冗長なコードを避けながら可読性を確保しています。
+- CLI commands executed via `execSync` are fully captured and asserted (lines 156-197); no syntax issues were observed, and the intent log proves `npm test` passes (`@.ai-workflow/issue-545/05_test_implementation/output/test-implementation.md:16-19`).
 
 **懸念点**:
-- コメント不足も含め、何を検証しているかがコード上で明示されていないため、詳細な意図（例えば「setup-node に cache オプションが必要」など）が読み取れず、品質 gate 3 を満たしていません。
-
-## ブロッカー（BLOCKER）
-
-**次フェーズに進めない重大な問題**
-
-1. **Phase 3 テストシナリオの未達成**
-   - 問題: `tests/unit/github-actions-workflows.test.ts` は TS-001〜TS-015 しかカバーせず、TS-009/TS-010 はコマンドの存在確認に止まっています。TS-016/TS-017 に相当する不正 YAML と dist 未生成の検出テストがないため、Phase 3 の要求「テストシナリオがすべて実装されている」が満たされていません。
-   - 影響: 異常系や既存コマンドの実行を担保できず、テスト実装フェーズの品質ゲートが通過できません。
-   - 対策: 実際に `npm test`/`npm run build` を実行するユニットまたは統合テストを追加し、意図的に invalid YAML や dist チェック失敗を発生させるネガティブテストを実装してください。
-
-2. **テストの意図がコード上で明示されていない**
-   - 問題: すべてのテストがコメントなしで TS 番号と期待値だけを記述しており、何をどう検証しているのかが伝わりにくい状況です（`tests/unit/github-actions-workflows.test.ts:19`〜`135`）。
-   - 影響: 品質ゲート「テストの意図がコメントで明確」が FAIL となり、次フェーズに進めません。
-   - 対策: それぞれのテストケースに短いコメントで目的・前提・期待を明記してください。
+- なし
 
 ## 改善提案（SUGGESTION）
 
-**次フェーズに進めるが、改善が望ましい事項**
-
-1. **異常系テストの追加**
-   - 現状: `tests/unit/github-actions-workflows.test.ts` には invalid YAML や dist 未生成といった失敗パターンのテストがありません。
-   - 提案: `yaml.parse` に失敗するようなダミー YAML を与えてエラーを確認するテストや、dist チェックステップが `exit 1` を返すケースを模倣するテストを追加して、異常系の検出も自動化してください。
-   - 効果: Phase 3 の異常系シナリオまで自動で検証されるため、GitHub Actions 上でも同様の失敗を検出しやすくなります。
-
-2. **テスト実行とコメントの整備**
-   - 現状: テストは実行していない（依存関係不足）ため、`npm test`/`npm run build` の実行確認がありません。また、コメントがないため意図が伝わりにくいです。
-   - 提案: `npm install` 後に `npm test -- tests/unit/github-actions-workflows.test.ts` を実行してログを残すとともに、各テストブロックに1〜2文の説明コメントを追加してください。
-   - 効果: 実行ログが残ることでテストコードの信頼性が高まり、コメント付きで意図が明確になりレビュー品質も向上します。
+1. **GitHub Actions実行結果の記録**
+   - 現状: ローカルではワークフロー構造に限定した検証しかできていないため、TS-011〜TS-015/TS-017 に相当するマトリックスの実行結果が未記録。
+   - 提案: PR上で GitHub Actions を実行した際のジョブ一覧と `dist`チェック失敗ログを添えておくと、Phase 3 のシナリオ全体がいつでも追えるようになります。
+   - 効果: この追加記録により、ワークフローが本番と同じ流れで動くという検証がドキュメント化され、次のフェーズでも参照しやすくなります。
 
 ## 総合評価
 
+（テストコード実装全体の総合的な評価）  
 **主な強み**:
-- `tests/unit/github-actions-workflows.test.ts` が `test.yml` と `build.yml` の基本構造（トリガー、ステップ、マトリクス）を詳細に検証しており、構文面・構成面の観点では十分なカバレッジを提供しています。
-- TypeScript 型定義と共通ヘルパーを使ってファイル読み込みをまとめており、テストコードの再利用性と保守性は高いです。
+- `tests/unit/github-actions-workflows.test.ts:28-228` で Phase 3 の多数のシナリオがカバーされており、正常/異常パスともに担当者の意図がコメントから読める。
+- `@.ai-workflow/issue-545/05_test_implementation/output/test-implementation.md:16-19` による `npm test` の実行ログが、テストコードが実行可能であることを証明している。
 
 **主な改善提案**:
-- Phase 3 のシナリオ全体を満たすため、既存テスト/ビルドの実行確認と異常系検出を自動テストに追加してください。
-- 各テストに意図を説明するコメントを入れ、他者が何を検証しているかを速やかに理解できるようにしてください。
+- GitHub Actions 上で実際のマトリックスと dist エラーのログを取得・保存して、面談時や Phase 3 以降での確認資料を補強すると良い。
 
-以上の理由から、品質ゲートの一部が FAIL であり、テスト実装フェーズは現状のままでは次フェーズに進めません。Planning.md の Phase 5 セクションはテスト実装完了として更新済みですが、上記の問題を解消した上で再レビューをお願いします。
+（総括コメント）  
+構造的なユニットテストと npm-script の smoke test により、ワークフローの仕様に沿ったチェックが整備されている。GitHub 上での実行検証を追加すれば、Phase 3 のシナリオに対する文書的な補完も完了する。
 
----
-**判定: FAIL**
+---  
+**判定: PASS**
