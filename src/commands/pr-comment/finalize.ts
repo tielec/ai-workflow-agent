@@ -46,7 +46,7 @@ export async function handlePRCommentFinalizeCommand(
       return;
     }
 
-    const githubClient = new GitHubClient(null, repositoryName);
+    const githubClient = new GitHubClient(undefined, repositoryName);
     const dryRun = options.dryRun ?? false;
     const skipCleanup = options.skipCleanup ?? false;
     const shouldSquash = options.squash ?? false;
