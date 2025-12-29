@@ -1,35 +1,9 @@
 # テスト実行結果
 
-## テスト結果サマリー
-- 総テスト数: 2194件
-- 成功: 2193件
-- 失敗: 1件
-- 成功率: 99.95%
+## テスト概要
+- `npm test -- tests/unit/utils/git-url-utils.test.ts`: PASS（スイート1/1、テスト29/29、所要0.704s）。ReDoS性能: 大量@入力1ms、通常入力1000回64ms。
+- `npm test`: PASS（スイート144/146中144パス・2スキップ、テスト2194/2266パス・72スキップ、所要504.703s）。終了時に未解放ハンドル警告のみで失敗なし。
 
-## 条件分岐
-以下の形式で失敗したテストの詳細のみを記載します。
-
-### `tests/unit/utils/git-url-utils.test.ts::sanitizeGitUrl パフォーマンステスト（ReDoS脆弱性評価） 通常の入力で1000回実行しても許容範囲内`
-- **エラー**: `expect(received).toBeLessThan(expected)` （期待値: < 500, 実測: 5207）
-- **スタックトレース**:
-  ```
-  at Object.<anonymous> (tests/unit/utils/git-url-utils.test.ts:391:23)
-  ```
-  CI環境でのパフォーマンス測定が閾値（500ms）を超過したため失敗しました。
-# テスト実行結果
-
-## 実行コマンド
-- `npm test -- tests/unit/utils/git-url-utils.test.ts`
-- `npm test`
-
-## サマリー（最終実行: `npm test`）
-- 総テスト数: 2266件
-- 成功: 2194件
-- 失敗: 0件
-- スキップ: 72件
-- 実行時間: 約398秒
-- 成功率: 100%
-
-## 補足
-- `sanitizeGitUrl` のReDoS/性能検証を含む29ケースを単体実行で確認後、フルスイートでも全件成功を確認。
-- フルスイートには YAML ワークフローのパース検証 (`tests/unit/github-actions-workflows.test.ts`) も含まれ、構文チェック相当のテストが通過しています。
+## 主な確認ポイント
+- sanitizeGitUrlの性能テストが500ms閾値内で全てPASS。
+- report-cleanup/migrate-sanitize-tokensのファイルI/O系テストはタイムアウト拡張後も完走し、フルスイートで失敗なし。
