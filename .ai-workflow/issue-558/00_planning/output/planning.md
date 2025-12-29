@@ -100,12 +100,12 @@
 
 ### Phase 2: 設計 (見積もり: 2~3h)
 
-- [ ] Task 2-1: SecretMasker.maskString()のリファクタリング設計 (1.5h)
+- [x] Task 2-1: SecretMasker.maskString()のリファクタリング設計 (1.5h)
   - URL復元ロジックの改善アルゴリズム設計
   - 汎用トークン正規表現の除外パターン設計（キー名マスキング防止）
   - プレースホルダー管理の改善設計
 
-- [ ] Task 2-2: ignoredPathsパラメータの活用設計 (1h)
+- [x] Task 2-2: ignoredPathsパラメータの活用設計 (1h)
   - metadata.jsonでマスキング除外すべきパスの設計
   - issue_url、pr_url、design_decisionsキーの保護戦略
   - IssueAIGenerator.sanitizePayload()の修正設計
@@ -243,11 +243,11 @@ graph TD
 - [ ] マスキング対象・非対象の区別基準が明確に策定されている
 
 ### Phase 2: 設計
-- [ ] **実装戦略（REFACTOR）の判断根拠が明記されている**
-- [ ] **テスト戦略（UNIT_INTEGRATION）の判断根拠が明記されている**
-- [ ] **テストコード戦略（EXTEND_TEST）の判断根拠が明記されている**
-- [ ] SecretMasker.maskString()の改善アルゴリズムが設計されている
-- [ ] ignoredPathsパラメータの活用方針が設計されている
+- [x] **実装戦略（REFACTOR）の判断根拠が明記されている**
+- [x] **テスト戦略（UNIT_INTEGRATION）の判断根拠が明記されている**
+- [x] **テストコード戦略（EXTEND_TEST）の判断根拠が明記されている**
+- [x] SecretMasker.maskString()の改善アルゴリズムが設計されている
+- [x] ignoredPathsパラメータの活用方針が設計されている
 
 ### Phase 3: テストシナリオ
 - [ ] ユニットテストシナリオが具体的に設計されている
