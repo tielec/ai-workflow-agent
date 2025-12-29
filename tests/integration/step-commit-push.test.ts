@@ -199,7 +199,7 @@ describe('ステップコミット＆プッシュの統合テスト', () => {
     expect(executeMessage.includes('execute completed')).toBeTruthy();
     expect(reviewMessage.includes('review completed')).toBeTruthy();
     expect(reviseMessage.includes('revise completed')).toBeTruthy();
-  });
+  }, 10000); // 10秒タイムアウト（複数ステップの連続Git操作のため）
 
   test('TC-U-013: commitStepOutput_ファイルなし', async () => {
     // Given: コミット対象ファイルが存在しない
