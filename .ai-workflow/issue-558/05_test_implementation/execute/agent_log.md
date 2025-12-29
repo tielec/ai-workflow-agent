@@ -2770,7 +2770,7 @@ PASS tests/unit/secret-masker.test.ts
    199	
    200	  test('長い owner/repo パターンも復元され、プレースホルダーは残らない', () => {
    201	    const longOwner = '[REDACTED_TOKEN]';
-   202	    const longRepo = 'extremely-long-repository-name-that-exceeds-limits';
+   202	    const longRepo = '[REDACTED_TOKEN]';
    203	    const input = `Repository: https://github.com/${longOwner}/${longRepo}/issues/123`;
    204	    const masked = metadataMasker.maskObject(input);
    205	
