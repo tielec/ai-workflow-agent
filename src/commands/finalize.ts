@@ -312,7 +312,7 @@ async function createGitHubClient(metadataManager: MetadataManager): Promise<Git
 
   // GitHubClient を対象リポジトリで初期化
   // token は環境変数から自動取得、repository を明示的に指定
-  const githubClient = new GitHubClient(null, repositoryName);
+  const githubClient = new GitHubClient(undefined, repositoryName);
   return githubClient;
 }
 
