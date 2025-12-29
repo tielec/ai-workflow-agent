@@ -41,21 +41,20 @@ describe('Tests workflow (test.yml)', () => {
     expect(prBranches).toEqual(['main', 'develop']);
   });
 
-  test('TS-004 sets matrix for OS and Node versions', () => {
-    // Confirm the matrix fans out to four combinations (Ubuntu/Windows × Node 18/20).
+  test('TS-004 uses ubuntu-latest runner and Node.js 20.x', () => {
+    // Confirm the test job uses Ubuntu and Node.js 20.x (simplified from multi-OS/version matrix).
     const workflow = loadWorkflow('test.yml');
-    const matrix = workflow.jobs?.test?.strategy?.matrix as
-      | { os?: string[]; ['node-version']?: string[] }
+    const testJob = workflow.jobs?.test;
+    const matrix = testJob?.strategy?.matrix as
+      | { ['node-version']?: string[] }
       | undefined;
 
-    expect(matrix?.os).toEqual(expect.arrayContaining(['ubuntu-latest', 'windows-latest']));
-    expect(matrix?.['node-version']).toEqual(expect.arrayContaining(['18.x', '20.x']));
-    expect(matrix?.os).toHaveLength(2);
-    expect(matrix?.['node-version']).toHaveLength(2);
+    expect(testJob?.['runs-on']).toBe('ubuntu-latest');
+    expect(matrix?.['node-version']).toEqual(['20.x']);
   });
 
   test('TS-005/TS-013 configures steps for checkout, setup-node, npm commands, and coverage upload', () => {
-    // Verify required steps exist with the correct cache and CI settings plus conditional coverage upload.
+    // Verify required steps exist with the correct cache and CI settings plus coverage upload.
     const workflow = loadWorkflow('test.yml');
     const steps: any[] = workflow.jobs?.test?.steps ?? [];
 
@@ -72,31 +71,30 @@ describe('Tests workflow (test.yml)', () => {
     expect(testStep?.env?.CI).toBe(true);
 
     const codecovStep = steps.find((step) => step.uses === 'codecov/codecov-action@v3');
-    expect(codecovStep?.if).toBe("matrix.os == 'ubuntu-latest' && matrix.node-version == '20.x'");
+    expect(codecovStep).toBeDefined();
     expect(codecovStep?.with?.files).toBe('./coverage/lcov.info');
     expect(codecovStep?.with?.fail_ci_if_error).toBe(false);
   });
 
-  test('TS-012 limits coverage upload to ubuntu-latest + Node.js 20.x matrix combination', () => {
-    // Guard that coverage upload only runs on the single intended matrix combination.
+  test('TS-012 runs on single combination (ubuntu-latest + Node.js 20.x)', () => {
+    // Guard that tests run on a single, well-defined environment (simplified matrix).
     const workflow = loadWorkflow('test.yml');
-    const matrix = workflow.jobs?.test?.strategy?.matrix as
-      | { os?: string[]; ['node-version']?: string[] }
+    const testJob = workflow.jobs?.test;
+    const matrix = testJob?.strategy?.matrix as
+      | { ['node-version']?: string[] }
       | undefined;
-    const combinations =
-      matrix?.os?.flatMap((os) =>
-        matrix?.['node-version']?.map((nodeVersion) => ({ os, nodeVersion }))
-      ) ?? [];
 
-    const allowedCombinations = combinations.filter(
-      ({ os, nodeVersion }) => os === 'ubuntu-latest' && nodeVersion === '20.x'
-    );
-    expect(allowedCombinations).toHaveLength(1);
+    // Verify single OS (ubuntu-latest, no matrix)
+    expect(testJob?.['runs-on']).toBe('ubuntu-latest');
 
-    const codecovStep = workflow.jobs?.test?.steps?.find(
+    // Verify single Node version (20.x)
+    expect(matrix?.['node-version']).toEqual(['20.x']);
+
+    // Verify codecov step exists (runs unconditionally on this single combination)
+    const codecovStep = testJob?.steps?.find(
       (step: any) => step.uses === 'codecov/codecov-action@v3'
     );
-    expect(codecovStep?.if).toBe("matrix.os == 'ubuntu-latest' && matrix.node-version == '20.x'");
+    expect(codecovStep).toBeDefined();
   });
 });
 
