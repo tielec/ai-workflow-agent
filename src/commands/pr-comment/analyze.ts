@@ -123,7 +123,7 @@ async function refreshComments(
   metadataManager: PRCommentMetadataManager,
 ): Promise<void> {
   try {
-    const githubClient = new GitHubClient(null, repositoryName);
+    const githubClient = new GitHubClient(undefined, repositoryName);
     const latestComments = await fetchLatestUnresolvedComments(githubClient, prNumber);
     const metadata = await metadataManager.getMetadata();
     const existingIds = new Set(Object.keys(metadata.comments));
