@@ -37,6 +37,7 @@ describe('MetadataManager', () => {
     jest.spyOn(WorkflowState as any, 'load').mockReturnValue(workflowState);
     existsSyncSpy = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
     jest.spyOn(fs, 'readJsonSync').mockReturnValue(metadataCopy);
+    jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
     writeJsonSyncSpy = jest.spyOn(fs, 'writeJsonSync').mockImplementation(() => {});
     ensureDirSyncSpy = jest.spyOn(fs, 'ensureDirSync').mockImplementation(() => {});
     removeSyncSpy = jest.spyOn(fs, 'removeSync').mockImplementation(() => {});
@@ -128,7 +129,7 @@ describe('MetadataManager', () => {
       metadataManager.save();
 
       // Then: ファイルが書き込まれる
-      expect(fs.writeJsonSync).toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
   });
 

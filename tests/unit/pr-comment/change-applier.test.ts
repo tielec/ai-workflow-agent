@@ -48,11 +48,15 @@ describe('CodeChangeApplier', () => {
     const result = await applier.apply([change], false);
 
     expect(result.success).toBe(true);
+    // Use expect.stringContaining to handle both Unix and Windows path formats
     expect(writeFileSpy).toHaveBeenCalledWith(
-      path.join(repoPath, 'src/config.ts'),
+      expect.stringContaining('src'),
       'export {}',
       'utf-8',
     );
+    // Verify the path ends with the expected relative path
+    const callPath = writeFileSpy.mock.calls[0][0] as string;
+    expect(callPath.endsWith(path.join('src', 'config.ts'))).toBe(true);
   });
 
   it('returns failure when diff-only modification is requested', async () => {

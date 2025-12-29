@@ -293,7 +293,12 @@ export class SquashManager {
 
       // 3. git push --force-with-lease
       logger.info('Force pushing to remote...');
-      await this.remoteManager.forcePushToRemote();
+      const pushResult = await this.remoteManager.forcePushToRemote();
+
+      if (!pushResult || !pushResult.success) {
+        const errorMessage = pushResult?.error || 'Force push failed';
+        throw new Error(errorMessage);
+      }
 
       logger.info('Squash and push completed successfully.');
     } catch (error) {

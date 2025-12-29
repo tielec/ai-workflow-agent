@@ -11,39 +11,17 @@
  * テスト戦略: UNIT_INTEGRATION - ユニット部分
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import type { FinalizeCommandOptions } from '../../../src/commands/finalize.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
-
-// node:fs のモック - モック化してからインポート
-const fsMock = {
-  existsSync: jest.fn(),
-  mkdirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(),
-  statSync: jest.fn(),
-  readdirSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  removeSync: jest.fn(),
-};
-
-jest.mock('fs-extra', () => ({
-  __esModule: true,
-  default: fsMock,
-  ...fsMock,
-}));
-
-// repository-utilsのモック
-jest.mock('../../../src/core/repository-utils.js', () => ({
-  __esModule: true,
-  findWorkflowMetadata: jest.fn(),
-}));
-
 import fs from 'fs-extra';
-import { findWorkflowMetadata } from '../../../src/core/repository-utils.js';
 
 describe('Finalize コマンド - バリデーション（validateFinalizeOptions）', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   // =============================================================================
   // UC-08: validation_異常系_issue番号なし
   // =============================================================================
@@ -112,23 +90,65 @@ describe('Finalize コマンド - バリデーション（validateFinalizeOption
 });
 
 describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () => {
-  const testWorkflowDir = '/test/.ai-workflow/issue-123';
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-123-finalize');
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
   let metadataManager: MetadataManager;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    const mockFs = fs as jest.Mocked<typeof fs>;
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.ensureDirSync.mockImplementation(() => undefined as any);
-    mockFs.writeFileSync.mockImplementation(() => undefined);
+
+    // 実ファイルシステムを使用（MetadataManagerが実際のfs-extraを呼び出すため）
+    fs.ensureDirSync(path.dirname(testMetadataPath));
+
+    const basePhase = {
+      status: 'pending',
+      completed_steps: [],
+      current_step: null,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+      retry_count: 0,
+      rollback_context: null,
+    };
+
+    const metadataData = {
+      issue_number: '123',
+      issue_title: 'feat(cli): Add finalize command',
+      issue_url: 'https://github.com/owner/repo/issues/123',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'planning',
+      phases: {
+        planning: { ...basePhase },
+        requirements: { ...basePhase },
+        design: { ...basePhase },
+        test_scenario: { ...basePhase },
+        implementation: { ...basePhase },
+        test_implementation: { ...basePhase },
+        testing: { ...basePhase },
+        documentation: { ...basePhase },
+        report: { ...basePhase },
+        evaluation: { ...basePhase },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    };
+
+    // 実ファイルを作成
+    fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
 
     metadataManager = new MetadataManager(testMetadataPath);
+  });
 
-    // Issue情報を設定 (WorkflowMetadataの実際の型に合わせる)
-    metadataManager.data.issue_number = '123';  // string型
-    metadataManager.data.issue_title = 'feat(cli): Add finalize command';
-    metadataManager.data.issue_url = 'https://github.com/owner/repo/issues/123';
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================
@@ -198,18 +218,52 @@ describe('Finalize コマンド - PR本文生成（generateFinalPrBody）', () =
 });
 
 describe('Finalize コマンド - プレビューモード（previewFinalize）', () => {
-  const testWorkflowDir = '/test/.ai-workflow/issue-123';
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-123');
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
-      repoRoot: '/test/repo',
-      metadataPath: testMetadataPath,
-    });
+    // 実ファイルシステムを使用
+    fs.ensureDirSync(path.dirname(testMetadataPath));
+
+    const metadataData = {
+      issue_number: '123',
+      base_commit: 'abc123',
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'evaluation',
+      phases: {
+        planning: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        requirements: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        design: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_scenario: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        testing: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        documentation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        report: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        evaluation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    };
+
+    // 実ファイルを作成
+    fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
+  });
+
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================
@@ -225,14 +279,6 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         skipPrUpdate: false,
         baseBranch: 'main',
       };
-
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify({
-          issue_number: '123',  // string型
-          base_commit: 'abc123',
-          phases: {},
-        }) as any
-      );
 
       // When: ドライランモードで実行
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
@@ -257,14 +303,6 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
         baseBranch: 'main',
       };
 
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify({
-          issue_number: '123',  // string型
-          base_commit: 'abc123',
-          phases: {},
-        }) as any
-      );
-
       // When & Then: スキップオプションが反映される
       const { handleFinalizeCommand } = await import('../../../src/commands/finalize.js');
       await expect(handleFinalizeCommand(options)).resolves.not.toThrow();
@@ -273,17 +311,52 @@ describe('Finalize コマンド - プレビューモード（previewFinalize）'
 });
 
 describe('Finalize コマンド - エラーケース', () => {
-  const testMetadataPath = '/test/.ai-workflow/issue-123/metadata.json';
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-123');
+  const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
-      repoRoot: '/test/repo',
-      metadataPath: testMetadataPath,
-    });
+    // 実ファイルシステムを使用
+    fs.ensureDirSync(path.dirname(testMetadataPath));
+
+    const metadataData = {
+      issue_number: '123',
+      // base_commit が存在しない（意図的にエラーを発生させる）
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'evaluation',
+      phases: {
+        planning: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        requirements: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        design: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_scenario: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        testing: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        documentation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        report: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        evaluation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    };
+
+    // 実ファイルを作成
+    fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
+  });
+
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================
@@ -291,15 +364,7 @@ describe('Finalize コマンド - エラーケース', () => {
   // =============================================================================
   describe('UC-02: finalize_異常系_base_commit不在', () => {
     test('base_commit が存在しない場合にエラーが発生する', async () => {
-      // Given: base_commit が存在しない
-      (fs.readFileSync as jest.Mock).mockReturnValue(
-        JSON.stringify({
-          issue_number: '123',  // string型
-          // base_commit が存在しない
-          phases: {},
-        }) as any
-      );
-
+      // Given: base_commit が存在しない（beforeEachで意図的に省略）
       const options: FinalizeCommandOptions = {
         issue: '123',
         dryRun: false,
@@ -318,38 +383,52 @@ describe('Finalize コマンド - エラーケース', () => {
 });
 
 describe('Finalize コマンド - CLIオプション挙動検証', () => {
-  const testWorkflowDir = '/test/.ai-workflow/issue-123';
+  const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-123');
   const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-    // findWorkflowMetadataのモック設定
-    const mockFindWorkflowMetadata = findWorkflowMetadata as jest.MockedFunction<typeof findWorkflowMetadata>;
-    mockFindWorkflowMetadata.mockResolvedValue({
-      repoRoot: '/test/repo',
-      metadataPath: testMetadataPath,
-    });
+    // 実ファイルシステムを使用
+    fs.ensureDirSync(path.dirname(testMetadataPath));
 
-    (fs.readFileSync as jest.Mock).mockReturnValue(
-      JSON.stringify({
-        issue_number: '123',  // string型
-        base_commit: 'abc123def456',
-        phases: {
-          planning: { status: 'completed' },
-          requirements: { status: 'completed' },
-          design: { status: 'completed' },
-          test_scenario: { status: 'completed' },
-          implementation: { status: 'completed' },
-          test_implementation: { status: 'completed' },
-          testing: { status: 'completed' },
-          documentation: { status: 'completed' },
-          report: { status: 'completed' },
-          evaluation: { status: 'completed' },
-        },
-      })
-    );
+    const metadataData = {
+      issue_number: '123',
+      base_commit: 'abc123def456',
+      issue_url: '',
+      issue_title: '',
+      created_at: '',
+      updated_at: '',
+      current_phase: 'evaluation',
+      phases: {
+        planning: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        requirements: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        design: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_scenario: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_implementation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        testing: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        documentation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        report: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        evaluation: { status: 'completed', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+      },
+      github_integration: { progress_comment_url: null },
+      costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+      design_decisions: {},
+      model_config: null,
+      difficulty_analysis: null,
+      rollback_history: [],
+    };
+
+    // 実ファイルを作成
+    fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
+  });
+
+  afterEach(() => {
+    // テスト後にクリーンアップ
+    if (fs.existsSync(testWorkflowDir)) {
+      fs.removeSync(testWorkflowDir);
+    }
   });
 
   // =============================================================================

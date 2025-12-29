@@ -57,7 +57,7 @@ describe('SquashManager', () => {
 
     mockRemoteManager = {
       pushToRemote: jest.fn(),
-      forcePushToRemote: jest.fn(),
+      forcePushToRemote: jest.fn<any>().mockResolvedValue({ success: true }),
     } as any;
 
     mockCodexAgent = {

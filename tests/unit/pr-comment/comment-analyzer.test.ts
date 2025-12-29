@@ -161,7 +161,7 @@ describe('ReviewCommentAnalyzer', () => {
       context.agentName,
     );
     expect(fs.writeFile).toHaveBeenCalledWith(
-      '/repo/output/agent_log_comment_123.md',
+      path.normalize('/repo/output/agent_log_comment_123.md'),
       '# formatted log',
       'utf-8',
     );
@@ -192,7 +192,7 @@ describe('ReviewCommentAnalyzer', () => {
 
     const [, content] = (fs.writeFile as jest.Mock).mock.calls[0];
     expect(fs.writeFile).toHaveBeenCalledWith(
-      '/repo/output/agent_log_comment_321.md',
+      path.normalize('/repo/output/agent_log_comment_321.md'),
       expect.any(String),
       'utf-8',
     );
@@ -225,7 +225,7 @@ describe('ReviewCommentAnalyzer', () => {
 
     expect(warnSpy).toHaveBeenCalled();
     expect(fs.writeFile).toHaveBeenCalledWith(
-      '/repo/output/agent_log_comment_456.md',
+      path.normalize('/repo/output/agent_log_comment_456.md'),
       'msg1\nmsg2\nmsg3',
       'utf-8',
     );

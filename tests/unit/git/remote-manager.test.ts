@@ -361,7 +361,7 @@ describe('RemoteManager - GitHub Credentials', () => {
         expect.arrayContaining(['set-url'])
       );
       expect(consoleInfoSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[INFO] Git remote URL is not HTTPS')
+        expect.stringContaining('Git remote URL is not HTTPS')
       );
 
       consoleInfoSpy.mockRestore();

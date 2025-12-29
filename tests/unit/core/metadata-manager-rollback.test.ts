@@ -13,11 +13,12 @@
  * テスト戦略: UNIT_INTEGRATION - ユニット部分
  */
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { MetadataManager } from '../../../src/core/metadata-manager.js';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import type { RollbackContext, RollbackHistoryEntry } from '../../../src/types/commands.js';
 import type { PhaseName } from '../../../src/types.js';
 import * as path from 'node:path';
+import fs from 'fs-extra';
+import { MetadataManager } from '../../../src/core/metadata-manager.js';
 
 const baseMetadata = {
   issue_number: '90',
@@ -118,25 +119,6 @@ const baseMetadata = {
   updated_at: '',
 };
 
-// fs-extraのモック
-const fsMock = {
-  existsSync: jest.fn(),
-  readFileSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  ensureDirSync: jest.fn(),
-  readJsonSync: jest.fn(),
-  writeJsonSync: jest.fn(),
-};
-
-jest.mock('fs-extra', () => ({
-  __esModule: true,
-  default: fsMock,
-  ...fsMock,
-}));
-
-import fs from 'fs-extra';
-const fsMocked = fs as jest.Mocked<typeof fs>;
-
 describe('MetadataManager - Rollback機能', () => {
   let metadataManager: MetadataManager;
   const testWorkflowDir = '/test/.ai-workflow/issue-90';
@@ -144,16 +126,21 @@ describe('MetadataManager - Rollback機能', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    fsMocked.existsSync.mockReturnValue(true);
-    (fs.readFileSync as jest.MockedFunction<typeof fs.readFileSync>).mockReturnValue(
-      JSON.stringify(baseMetadata),
-    );
-    (fs.writeFileSync as jest.MockedFunction<typeof fs.writeFileSync>).mockImplementation(() => {});
+
+    // Use jest.spyOn() to mock fs-extra functions
+    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    jest.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(baseMetadata) as any);
+    jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+
     metadataManager = new MetadataManager(testMetadataPath);
 
     // メタデータの初期化（実装フェーズが完了している状態）
     metadataManager.data.phases.implementation.status = 'completed';
     metadataManager.data.phases.implementation.completed_steps = ['execute', 'review', 'revise'];
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   // =============================================================================
@@ -317,8 +304,8 @@ describe('MetadataManager - Rollback機能', () => {
       expect(metadataManager.data.phases.implementation.status).toBe('in_progress');
       expect(metadataManager.data.phases.implementation.current_step).toBe('revise');
       expect(metadataManager.data.phases.implementation.completed_at).toBeNull();
-      // completed_stepsは維持される
-      expect(metadataManager.data.phases.implementation.completed_steps).toEqual(['execute', 'review', 'revise']);
+      // completed_steps から revise が削除される（差し戻し先のステップを再実行するため）
+      expect(metadataManager.data.phases.implementation.completed_steps).toEqual(['execute', 'review']);
     });
 
     test('P1: retry_countがリセットされる（PR #95レビューコメント対応）', () => {

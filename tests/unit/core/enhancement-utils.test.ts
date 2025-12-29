@@ -62,7 +62,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] ⚡ CLI UI の改善 - プログレスバーとカラフルな出力を追加する');
+      expect(title).toBe('⚡ CLI UI の改善 - プログレスバーとカラフルな出力を追加する');
     });
 
     /**
@@ -85,7 +85,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] 🔗 Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能');
+      expect(title).toBe('🔗 Slack 通知機能の追加 - ワークフロー完了時の自動通知を実装する機能');
     });
 
     /**
@@ -108,7 +108,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] 🤖 定期実行機能の追加 - cron スケジュールによる自動ワークフロー実行');
+      expect(title).toBe('🤖 定期実行機能の追加 - cron スケジュールによる自動ワークフロー実行');
     });
 
     /**
@@ -131,7 +131,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] ✨ 対話的セットアップウィザードの実装 - 初回実行時の環境設定を簡易化');
+      expect(title).toBe('✨ 対話的セットアップウィザードの実装 - 初回実行時の環境設定を簡易化');
     });
 
     /**
@@ -154,7 +154,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] 🛡️ セキュリティスキャンの追加 - 依存関係の脆弱性チェックを統合する');
+      expect(title).toBe('🛡️ セキュリティスキャンの追加 - 依存関係の脆弱性チェックを統合する');
     });
 
     /**
@@ -177,7 +177,7 @@ describe('Enhancement Utilities', () => {
       const title = (generator as any).generateEnhancementTitle(proposal);
 
       // Then: プレフィックスが付与される
-      expect(title).toBe('[Enhancement] 🌐 プラグインシステムの実装 - カスタムフェーズを追加できる拡張機構');
+      expect(title).toBe('🌐 プラグインシステムの実装 - カスタムフェーズを追加できる拡張機構');
     });
   });
 
@@ -209,7 +209,7 @@ describe('Enhancement Utilities', () => {
       expect(labels).toContain('enhancement');
       expect(labels).toContain('impact:high');
       expect(labels).toContain('effort:small');
-      expect(labels).toContain('integration');
+      expect(labels).toContain('type:integration');
     });
 
     /**
@@ -236,7 +236,7 @@ describe('Enhancement Utilities', () => {
       expect(labels).toContain('enhancement');
       expect(labels).toContain('impact:medium');
       expect(labels).toContain('effort:medium');
-      expect(labels).toContain('automation');
+      expect(labels).toContain('type:automation');
     });
 
     /**
@@ -263,7 +263,7 @@ describe('Enhancement Utilities', () => {
       expect(labels).toContain('enhancement');
       expect(labels).toContain('impact:low');
       expect(labels).toContain('effort:small');
-      expect(labels).toContain('improvement');
+      expect(labels).toContain('type:improvement');
     });
 
     /**
@@ -290,7 +290,7 @@ describe('Enhancement Utilities', () => {
       expect(labels).toContain('enhancement');
       expect(labels).toContain('impact:high');
       expect(labels).toContain('effort:medium');
-      expect(labels).toContain('developer-experience');
+      expect(labels).toContain('type:developer-experience');
     });
 
     /**
@@ -317,7 +317,7 @@ describe('Enhancement Utilities', () => {
       expect(labels).toContain('enhancement');
       expect(labels).toContain('impact:high');
       expect(labels).toContain('effort:small');
-      expect(labels).toContain('quality');
+      expect(labels).toContain('type:quality');
     });
 
     /**

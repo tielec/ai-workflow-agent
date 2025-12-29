@@ -26,6 +26,13 @@ const JENKINSFILE_PATHS = [
   'jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile',
 ] as const;
 
+// Jenkinsfiles that use init command and need autoModelSelectionFlag
+const JENKINSFILES_WITH_INIT = [
+  'jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile',
+  'jenkins/jobs/pipeline/ai-workflow/preset/Jenkinsfile',
+  'jenkins/jobs/pipeline/ai-workflow/single-phase/Jenkinsfile',
+] as const;
+
 // Expected patterns for validation
 const EXPECTED_PATTERNS = {
   // IT-003: Environment variable definition pattern
@@ -109,7 +116,7 @@ describe('Integration: Jenkinsfile AUTO_MODEL_SELECTION implementation (Issue #3
   });
 
   describe('IT-004: autoModelSelectionFlag generation and usage', () => {
-    it.each(JENKINSFILE_PATHS)(
+    it.each(JENKINSFILES_WITH_INIT)(
       'should define autoModelSelectionFlag variable in Initialize Workflow stage: %s',
       (jenkinsfilePath) => {
         // Given: Jenkinsfile content is loaded
@@ -122,7 +129,7 @@ describe('Integration: Jenkinsfile AUTO_MODEL_SELECTION implementation (Issue #3
       }
     );
 
-    it.each(JENKINSFILE_PATHS)(
+    it.each(JENKINSFILES_WITH_INIT)(
       'should include autoModelSelectionFlag in init command: %s',
       (jenkinsfilePath) => {
         // Given: Jenkinsfile content is loaded
@@ -174,21 +181,27 @@ describe('Integration: Jenkinsfile AUTO_MODEL_SELECTION implementation (Issue #3
       // When: Check all files for required patterns
       const results = JENKINSFILE_PATHS.map((filePath) => {
         const content = jenkinsfileContents.get(filePath)!;
+        const hasInitCommand = JENKINSFILES_WITH_INIT.includes(filePath as any);
         return {
           file: filePath,
           hasEnvVar: EXPECTED_PATTERNS.environmentVariable.test(content),
           hasFlag: EXPECTED_PATTERNS.autoModelSelectionFlag.test(content),
           hasInitCommand: EXPECTED_PATTERNS.initCommandWithFlag.test(content),
           hasComment: EXPECTED_PATTERNS.commentHeader.test(content),
+          requiresInit: hasInitCommand,
         };
       });
 
-      // Then: All files should have all required patterns
+      // Then: All files should have env var and comment, but only init-using files need flag and init command
       for (const result of results) {
         expect(result.hasEnvVar).toBe(true);
-        expect(result.hasFlag).toBe(true);
-        expect(result.hasInitCommand).toBe(true);
         expect(result.hasComment).toBe(true);
+
+        // Only check flag and init command for files that use init
+        if (result.requiresInit) {
+          expect(result.hasFlag).toBe(true);
+          expect(result.hasInitCommand).toBe(true);
+        }
       }
     });
 
@@ -224,7 +237,7 @@ describe('Integration: Jenkinsfile AUTO_MODEL_SELECTION implementation (Issue #3
       }
     );
 
-    it.each(JENKINSFILE_PATHS)(
+    it.each(JENKINSFILES_WITH_INIT)(
       'should generate --auto-model-selection flag only when AUTO_MODEL_SELECTION is true: %s',
       (jenkinsfilePath) => {
         // Given: Jenkinsfile content is loaded

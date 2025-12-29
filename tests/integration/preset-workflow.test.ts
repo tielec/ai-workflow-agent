@@ -10,7 +10,7 @@
  * 完全なE2Eテストは手動実行が必要です。
  */
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterAll, jest } from '@jest/globals';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import fs from 'fs-extra';
@@ -90,6 +90,14 @@ describe('Preset workflow: review-design (Issue #248)', () => {
     });
 
     metadataManager = new MetadataManager(testMetadataPath);
+  });
+
+  afterAll(async () => {
+    // Clean up temporary directory after all tests
+    const tmpDir = path.join(process.cwd(), 'tmp', 'preset-workflow');
+    if (fs.existsSync(tmpDir)) {
+      await fs.remove(tmpDir);
+    }
   });
 
   // =============================================================================
@@ -271,16 +279,17 @@ describe('Preset workflow: review-design (Issue #248)', () => {
 
   describe('Preset workflow: Status transition validation (Issue #248)', () => {
     let metadataManager: MetadataManager;
-    const testWorkflowDir = '/test/.ai-workflow/issue-248';
+    // 統合テスト: プロジェクトルート配下のパスを使用
+    const testWorkflowDir = path.join(process.cwd(), '.ai-workflow', 'issue-248-status');
     const testMetadataPath = path.join(testWorkflowDir, 'metadata.json');
 
     beforeEach(() => {
       jest.clearAllMocks();
-      fsMock.existsSync.mockReturnValue(true);
-      fsMock.ensureDirSync.mockImplementation(() => {});
-      fsMock.writeFileSync.mockImplementation(() => {});
-      fsMock.writeJsonSync.mockImplementation(() => {});
-      fsMock.readJsonSync.mockReturnValue({
+
+      // 実ファイルシステムを使用（WorkflowState.load()が実際のfs-extraを呼び出すため）
+      fs.ensureDirSync(path.dirname(testMetadataPath));
+
+      const metadataData = {
         issue_number: '248',
         issue_url: '',
         issue_title: '',
@@ -291,6 +300,13 @@ describe('Preset workflow: review-design (Issue #248)', () => {
           planning: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
           requirements: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
           design: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          test_scenario: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          implementation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          test_implementation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          testing: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          documentation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          report: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+          evaluation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         },
         github_integration: { progress_comment_url: null },
         costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
@@ -298,9 +314,19 @@ describe('Preset workflow: review-design (Issue #248)', () => {
         model_config: null,
         difficulty_analysis: null,
         rollback_history: [],
-      });
+      };
+
+      // 実ファイルを作成（統合テスト）
+      fs.writeJsonSync(testMetadataPath, metadataData, { spaces: 2 });
 
       metadataManager = new MetadataManager(testMetadataPath);
+    });
+
+    afterEach(() => {
+      // テスト後にクリーンアップ
+      if (fs.existsSync(testWorkflowDir)) {
+        fs.removeSync(testWorkflowDir);
+      }
     });
 
   // =============================================================================
