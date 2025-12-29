@@ -88,12 +88,12 @@
 
 ### Phase 1: 要件定義 (見積もり: 1~2h)
 
-- [ ] Task 1-1: 不適切マスキングの詳細仕様定義 (1h)
+- [x] Task 1-1: 不適切マスキングの詳細仕様定義 (1h)
   - Issue #558で発生している3つのマスキング問題の詳細分析
   - 期待される正常動作の定義（issue_url、pr_url、design_decisions等）
   - マスキング対象・非対象の明確な区別基準策定
 
-- [ ] Task 1-2: マスキング処理の受け入れ基準定義 (1h)
+- [x] Task 1-2: マスキング処理の受け入れ基準定義 (1h)
   - metadata.json保存時の正常マスキング動作基準
   - GitHub URL保持の受け入れ基準（`https://github.com/owner/repo`形式維持）
   - キー名保持の受け入れ基準（`implementation_strategy`等のキー名は非マスキング）
