@@ -26,10 +26,9 @@
     "level": "simple",
     "confidence": 0.8,
     "factors": {
-      "[REDACTED_TOKEN]": 2,
+      "[REDACTED_TOKEN]": false,
       "scope": "single_module",
       "requires_tests": true,
-      "[REDACTED_TOKEN]": false,
       "complexity_score": 0.3
     },
     "analyzed_at": "2025-12-29T08:38:53.705Z",
@@ -256,7 +255,7 @@
     }
   },
   "created_at": "2025-12-29T08:38:41.929Z",
-  "updated_at": "2025-12-29T08:38:56.650Z",
+  "updated_at": "2025-12-29T08:39:01.482Z",
   "branch_name": "ai-workflow/issue-558",
   "base_commit": "[REDACTED_TOKEN]",
   "pr_number": 559,
