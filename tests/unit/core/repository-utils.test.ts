@@ -352,21 +352,6 @@ describe('resolveRepoPathFromPrUrl', () => {
     jest.restoreAllMocks();
   });
 
-  test.skip('REPOS_ROOTが設定されている場合は優先的に使用する - SKIPPED (ESM mocking issue)', () => {
-    // This test requires jest.spyOn() which doesn't work with ESM immutable bindings
-    // Will be addressed in future PR with comprehensive mocking strategy
-  });
-
-  test.skip('REPOS_ROOT未設定時はフォールバックパスを探索する - SKIPPED (ESM mocking issue)', () => {
-    // This test requires jest.spyOn() which doesn't work with ESM immutable bindings
-    // Will be addressed in future PR with comprehensive mocking strategy
-  });
-
-  test.skip('すべての候補で見つからない場合はエラーを投げる - SKIPPED (ESM mocking issue)', () => {
-    // This test requires jest.spyOn() which doesn't work with ESM immutable bindings
-    // Will be addressed in future PR with comprehensive mocking strategy
-  });
-
   test('不正なPR URLの場合は入力検証エラーをそのまま返す', () => {
     // Given
     const invalidPrUrl = 'https://invalid-url';
