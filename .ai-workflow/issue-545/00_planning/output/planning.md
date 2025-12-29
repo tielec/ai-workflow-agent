@@ -142,18 +142,20 @@
 
 ### Phase 4: 実装 (見積もり: 0.5h)
 
-- [ ] Task 4-1: ディレクトリ構造の作成 (0.1h)
+- [x] Task 4-1: ディレクトリ構造の作成 (0.1h)
   - `.github/workflows/`ディレクトリの作成
 
-- [ ] Task 4-2: test.ymlの作成 (0.2h)
+- [x] Task 4-2: test.ymlの作成 (0.2h)
   - Issueで定義されたtest.yml内容の実装
   - マトリックスビルド設定（ubuntu-latest, windows-latest × Node.js 18.x, 20.x）
   - カバレッジレポート設定（Ubuntu 20.xのみ）
 
-- [ ] Task 4-3: build.ymlの作成 (0.2h)
+- [x] Task 4-3: build.ymlの作成 (0.2h)
   - Issueで定義されたbuild.yml内容の実装
   - TypeScriptビルドステップ
   - distディレクトリ存在確認ステップ
+
+- [x] YAMLの構文エラーがない
 
 ### Phase 5: テストコード実装 (見積もり: 0h)
 
