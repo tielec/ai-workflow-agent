@@ -10,6 +10,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 - **マルチリポジトリ対応** … Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行できます（v0.2.0 で追加）。
 - **自動PR作成とタイトル最適化** … Issue タイトルをそのまま PR タイトルとして使用し、PR 一覧での可読性を向上（v0.3.0、Issue #73）。
 - **GitHub & Jenkins 対応** … 個人アクセストークンと Jenkins Job DSL に対応し、Docker コンテナ内で TypeScript CLI を実行できます。
+- **CI/CD 統合** … GitHub Actions による自動テスト・ビルド検証を提供し、PRマージ前の品質保証を実現します。
 
 ## リポジトリ構成
 
@@ -35,7 +36,7 @@ ai-workflow-agent/
 - npm 10 以上
 - Codex API キー（`CODEX_API_KEY` または `OPENAI_API_KEY`）
 - Claude Code 認証ファイル（`credentials.json`）
-- GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org`）
+- GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org`）※ `workflow`はGitHub Actions CI設定に必要
 - （任意）環境変数 `REPOS_ROOT` … マルチリポジトリ環境でリポジトリの親ディレクトリを指定
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
