@@ -16,3 +16,20 @@
   at Object.<anonymous> (tests/unit/utils/git-url-utils.test.ts:391:23)
   ```
   CI環境でのパフォーマンス測定が閾値（500ms）を超過したため失敗しました。
+# テスト実行結果
+
+## 実行コマンド
+- `npm test -- tests/unit/utils/git-url-utils.test.ts`
+- `npm test`
+
+## サマリー（最終実行: `npm test`）
+- 総テスト数: 2266件
+- 成功: 2194件
+- 失敗: 0件
+- スキップ: 72件
+- 実行時間: 約398秒
+- 成功率: 100%
+
+## 補足
+- `sanitizeGitUrl` のReDoS/性能検証を含む29ケースを単体実行で確認後、フルスイートでも全件成功を確認。
+- フルスイートには YAML ワークフローのパース検証 (`tests/unit/github-actions-workflows.test.ts`) も含まれ、構文チェック相当のテストが通過しています。

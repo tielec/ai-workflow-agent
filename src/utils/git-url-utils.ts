@@ -42,20 +42,29 @@ export function sanitizeGitUrl(url: string): string {
     return url;
   }
 
-  // 2. HTTPS format: Remove authentication credentials
-  // Pattern: https://<any-credentials>@<host-and-path>
-  // Issue #58: Support passwords containing '@' characters
-  // The pattern matches everything between protocol and the LAST '@' as credentials
-  // Captures: (protocol)(credentials)(host-and-path)
-  const httpsPattern = /^(https?:\/\/)(.+)@([^@]+)$/;
-  const match = url.match(httpsPattern);
-
-  if (match) {
-    const [, protocol, , rest] = match;
-    // Credentials detected (group 2), remove them by returning protocol + rest
-    return `${protocol}${rest}`;
+  // 2. Only process HTTP/HTTPS URLs; leave others unchanged
+  const lowerUrl = url.toLowerCase();
+  if (!lowerUrl.startsWith('http://') && !lowerUrl.startsWith('https://')) {
+    return url;
   }
 
-  // 3. SSH format or normal HTTPS (no credentials): Return unchanged
-  return url;
+  // 3. Locate the authority section (between // and the next /, or end-of-string)
+  const protocolTerminator = url.indexOf('//');
+  if (protocolTerminator === -1) {
+    return url;
+  }
+
+  const authorityStart = protocolTerminator + 2;
+  const pathStart = url.indexOf('/', authorityStart);
+  const authorityEnd = pathStart === -1 ? url.length : pathStart;
+
+  // 4. Remove credentials that appear before the host (last '@' in the authority)
+  const authority = url.slice(authorityStart, authorityEnd);
+  const lastAt = authority.lastIndexOf('@');
+  if (lastAt === -1) {
+    return url;
+  }
+
+  // Preserve host, path, query, and fragment after the credentials separator
+  return `${url.slice(0, authorityStart)}${authority.slice(lastAt + 1)}${url.slice(authorityEnd)}`;
 }
