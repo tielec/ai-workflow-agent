@@ -277,7 +277,8 @@ describe('Issue #558 metadata preservation', () => {
     expect(masked.pr_url).toBe(metadata.pr_url);
     expect(masked.design_decisions.implementation_strategy).toBeNull();
     expect(masked.secret_token).toBe('[REDACTED_TOKEN]');
-    expect(masked.base_commit).toBe('[REDACTED_TOKEN]');
+    // Issue #564: Git commit hashes (40-char hex) are not masked
+    expect(masked.base_commit).toBe('a1b2c3d4e5f6789012345678901234567890abcd');
   });
 });
 

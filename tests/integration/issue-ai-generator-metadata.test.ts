@@ -62,7 +62,8 @@ describe('Integration: IssueAIGenerator metadata masking (Issue #558)', () => {
     expect(parsedMetadata.pr_url).not.toContain('[REDACTED_TOKEN]');
     expect(parsedMetadata.design_decisions).toBeTruthy();
     expect(Object.values(parsedMetadata.design_decisions)).toContain(null);
-    expect(parsedMetadata.base_commit).toBe('[REDACTED_TOKEN]');
+    // Issue #564: Git commit hashes (40-char hex) are not masked
+    expect(parsedMetadata.base_commit).toBe('a1b2c3d4e5f6789012345678901234567890abcd');
     expect(parsedMetadata.secret_token).toBe('[REDACTED_TOKEN]');
     expect(sanitizedPayload.issueNumber).toBe(49);
   });
