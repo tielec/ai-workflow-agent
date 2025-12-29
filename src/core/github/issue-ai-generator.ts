@@ -245,7 +245,15 @@ export class IssueAIGenerator {
         tasks: sanitizedTasks,
         context: sanitizedContext,
       },
-      { ignoredPaths: [] },
+      {
+        ignoredPaths: [
+          'issue_url',
+          'pr_url',
+          'target_repository.remote_url',
+          'target_repository.github_name',
+          'design_decisions.*',
+        ],
+      },
     );
 
     return { payload, omittedTasks };

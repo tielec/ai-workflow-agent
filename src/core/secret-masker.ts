@@ -144,71 +144,54 @@ export class SecretMasker {
   private maskString(value: string): string {
     let masked = value;
 
-    // Preserve GitHub repository names (owner/repo pattern) and their parts from being masked
-    // First, handle GitHub URLs specifically (e.g., github.com/owner/repo or github.com/owner/repo.git)
-    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:\.git)?/g;
-    const repoMatches: Map<string, string> = new Map();
-    const repoPartMatches: Map<string, string> = new Map();
-    let repoIndex = 0;
+    const urlMap = new Map<string, string>();
+    const partMap = new Map<string, string>();
+    let urlIndex = 0;
     let partIndex = 0;
 
-    // Extract GitHub URLs and preserve repo parts
+    const maskLongPart = (segment: string): string => {
+      if (segment.length < 20) {
+        return segment;
+      }
+      const placeholder = `__REPO_PART_${partIndex++}__`;
+      partMap.set(placeholder, segment);
+      return placeholder;
+    };
+
+    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)(?:\.git)?/g;
     masked = masked.replace(githubUrlPattern, (match, owner, repo) => {
-      const placeholder = `__GITHUB_URL_${repoIndex++}__`;
-      repoMatches.set(placeholder, match);
-
-      // Preserve individual parts (owner and repo names)
-      if (owner.length >= 20) {
-        const ownerPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(ownerPlaceholder, owner);
-      }
-      if (repo.length >= 20) {
-        const repoPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(repoPlaceholder, repo);
-      }
-
+      const placeholder = `__GITHUB_URL_${urlIndex++}__`;
+      let preservedMatch = match;
+      preservedMatch = preservedMatch.replace(owner, maskLongPart(owner));
+      preservedMatch = preservedMatch.replace(repo, maskLongPart(repo));
+      urlMap.set(placeholder, preservedMatch);
       return placeholder;
     });
 
-    // Then, handle standalone owner/repo patterns (not part of URLs)
-    const standaloneRepoPattern = /\b([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\b/g;
+    const standaloneRepoPattern = /\b([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)\b/g;
     masked = masked.replace(standaloneRepoPattern, (match, owner, repo) => {
-      const placeholder = `__REPO_PLACEHOLDER_${repoIndex++}__`;
-      repoMatches.set(placeholder, match);
-
-      // Preserve individual parts (owner and repo names)
-      if (owner.length >= 20) {
-        const ownerPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(ownerPlaceholder, owner);
-      }
-      if (repo.length >= 20) {
-        const repoPlaceholder = `__REPO_PART_${partIndex++}__`;
-        repoPartMatches.set(repoPlaceholder, repo);
-      }
-
+      const placeholder = `__REPO_PLACEHOLDER_${urlIndex++}__`;
+      let preservedMatch = match;
+      preservedMatch = preservedMatch.replace(owner, maskLongPart(owner));
+      preservedMatch = preservedMatch.replace(repo, maskLongPart(repo));
+      urlMap.set(placeholder, preservedMatch);
       return placeholder;
     });
 
-    // Replace individual repo parts with placeholders
-    for (const [placeholder, part] of repoPartMatches) {
-      masked = masked.split(part).join(placeholder);
-    }
-
-    // Prefer GitHub token patterns first so they don't fall back to generic tokens
     masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
     masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
-    // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, and REPO_PLACEHOLDER/REPO_PART from generic token masking
-    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__REPO_(?:PLACEHOLDER|PART)_)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+    masked = masked.replace(
+      /\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:GITHUB_URL|REPO_PLACEHOLDER|REPO_PART)_)(?![a-zA-Z_]+(?:_[a-zA-Z_]*)*:)[A-Za-z0-9_-]{20,}\b/g,
+      '[REDACTED_TOKEN]',
+    );
     masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
     masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
 
-    // Restore preserved repository parts first
-    for (const [placeholder, original] of repoPartMatches) {
+    for (const [placeholder, original] of urlMap) {
       masked = masked.split(placeholder).join(original);
     }
 
-    // Then restore preserved repository names
-    for (const [placeholder, original] of repoMatches) {
+    for (const [placeholder, original] of partMap) {
       masked = masked.split(placeholder).join(original);
     }
 
