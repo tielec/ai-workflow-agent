@@ -14,9 +14,17 @@ import { ImplementationPhase } from '../../src/phases/implementation.js';
 import { TestingPhase } from '../../src/phases/testing.js';
 import fs from 'fs-extra';
 import * as path from 'node:path';
-import { jest } from '@jest/globals';
+import { jest, describe } from '@jest/globals';
 
-describe('Integration Test: Phase Template Refactoring (Issue #47)', () => {
+// Skip tests in CI with dummy API keys (ContentParser requires valid API keys)
+const isDummyKey =
+  process.env.CLAUDE_CODE_OAUTH_TOKEN === 'dummy-token-for-ci' ||
+  process.env.CODEX_API_KEY === 'dummy-key-for-ci' ||
+  process.env.OPENAI_API_KEY === 'dummy-key-for-ci' ||
+  process.env.ANTHROPIC_API_KEY === 'dummy-key-for-ci';
+const describeOrSkip = isDummyKey ? describe.skip : describe;
+
+describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () => {
   let mockMetadata: MetadataManager;
   let mockGithub: GitHubClient;
   let mockCodex: CodexAgentClient;
