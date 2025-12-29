@@ -503,7 +503,7 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
 ```text
 test('長い owner/repo パターンも復元され、プレースホルダーは残らない', () => {
     const longOwner = '[REDACTED_TOKEN]';
-    const longRepo = 'extremely-long-repository-name-that-exceeds-limits';
+    const longRepo = '[REDACTED_TOKEN]';
     const input = `Repository: https://github.com/${longOwner}/${longRepo}/issues/123`;
     const masked = metadataMasker.maskObject(input);
 
