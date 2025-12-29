@@ -91,7 +91,7 @@ export async function handlePRCommentExecuteCommand(
     logger.info(`Processing ${pendingComments.length} pending comment(s)...`);
     messages.push(`system: Processing ${pendingComments.length} pending comment(s)...`);
 
-    const githubClient = new GitHubClient(null, repositoryName);
+    const githubClient = new GitHubClient(undefined, repositoryName);
     const responsePlanPath = path.join(
       repoRoot,
       '.ai-workflow',

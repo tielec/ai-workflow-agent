@@ -22,7 +22,7 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     // PR URLまたはPR番号からリポジトリ情報とPR番号を解決
     const { repositoryName, prNumber } = await resolvePrInfo(options);
 
-    const githubClient = new GitHubClient(null, repositoryName);
+    const githubClient = new GitHubClient(undefined, repositoryName);
 
     logger.info(`Initializing PR comment resolution for PR #${prNumber}...`);
 
