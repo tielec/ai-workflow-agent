@@ -120,14 +120,14 @@
   - metadata.json全体のマスキング統合テスト
   - Issue生成プロセスでのマスキング連携テスト
 
-### Phase 4: 実装 (見積もり: 4~6h)
+-### Phase 4: 実装 (見積もり: 4~6h)
 
-- [ ] Task 4-1: SecretMasker.maskString()の修正実装 (2~3h)
+- [x] Task 4-1: SecretMasker.maskString()の修正実装 (2~3h)
   - URL復元ロジックの改善実装
   - 汎用トークン正規表現の除外パターン実装
   - プレースホルダー管理の改善実装
 
-- [ ] Task 4-2: IssueAIGenerator.sanitizePayload()の修正実装 (1h)
+- [x] Task 4-2: IssueAIGenerator.sanitizePayload()の修正実装 (1h)
   - ignoredPathsパラメータの適切な設定実装
   - metadata.jsonでのマスキング除外パス設定
 
