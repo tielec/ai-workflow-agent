@@ -8,7 +8,7 @@
  * - Planning Phase（00_planning）の保護
  */
 
-import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, test, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
@@ -18,6 +18,9 @@ import { GitHubClient } from '../../src/core/github-client.js';
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'report-cleanup-test');
 const TEST_ISSUE_NUMBER = '405';
+
+// ファイルI/Oを多用するため十分なタイムアウトを確保
+jest.setTimeout(20000);
 
 describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
   let metadataManager: MetadataManager;

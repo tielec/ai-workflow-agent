@@ -175,6 +175,33 @@ def common = load 'jenkins/shared/common.groovy'
 common.archiveArtifacts(env.ISSUE_NUMBER)
 ```
 
+## GitHub Actions との比較
+
+このプロジェクトでは、AI Workflow Agent のCIタスクとして Jenkins とGitHub Actions の両方をサポートしています。
+
+### CI/CD オプションの使い分け
+
+| 項目 | GitHub Actions | Jenkins |
+|------|---------------|---------|
+| **用途** | 自動テスト・ビルド検証 | AI Workflow Agent の実行 |
+| **トリガー** | PR作成・更新、pushイベント | 手動実行 |
+| **実行内容** | `npm test`, `npm run build` | AI Workflow の10フェーズ実行 |
+| **カバレッジ** | Codecov 自動アップロード | - |
+| **マトリックス** | Ubuntu/Windows × Node.js 18.x/20.x | - |
+| **設定ファイル** | `.github/workflows/test.yml`, `build.yml` | `jenkins/` ディレクトリ配下 |
+
+### GitHub Actions の導入メリット
+
+- **軽量な品質チェック**: PRマージ前の自動テスト・ビルド検証
+- **GitHub ネイティブ統合**: PR画面での直接的なステータス確認
+- **無料枠内運用**: パブリックリポジトリでの無料実行
+- **メンテナンスフリー**: Jenkins サーバー管理が不要
+
+### 移行の考え方
+
+- **GitHub Actions**: 軽量なCI（テスト・ビルドチェック）にフォーカス
+- **Jenkins**: AI Workflow の実行基盤として継続利用
+
 ## 詳細ドキュメント
 
 各ジョブの詳細な使い方については、以下を参照してください：

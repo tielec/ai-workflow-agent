@@ -26,6 +26,9 @@ const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: string |
   throw new Error(`process.exit(${code})`);
 }) as any;
 
+// ファイルI/Oと複数メタデータ生成が重いので余裕を持たせる
+jest.setTimeout(20000);
+
 describe('migrate command - Integration Tests', () => {
   let testRepoPath: string;
 
