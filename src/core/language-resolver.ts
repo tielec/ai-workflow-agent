@@ -20,18 +20,13 @@ export interface LanguageResolveOptions {
  * 優先順位: CLIオプション > 環境変数 > メタデータ > デフォルト
  */
 export function resolveLanguage(options: LanguageResolveOptions): SupportedLanguage {
+  // Priority 1: CLI option (highest priority)
   if (options.cliOption) {
     logger.debug(`Language resolved from CLI option: ${options.cliOption}`);
     return options.cliOption;
   }
 
-  const envRaw = process.env.AI_WORKFLOW_LANGUAGE;
-  const envLanguage = config.getLanguage();
-  if (envRaw && SUPPORTED_LANGUAGES.includes(envLanguage as SupportedLanguage)) {
-    logger.debug(`Language resolved from environment variable: ${envLanguage}`);
-    return envLanguage as SupportedLanguage;
-  }
-
+  // Priority 2: Metadata (if available)
   if (options.metadataManager) {
     const metadataLanguage = options.metadataManager.getLanguage();
     if (metadataLanguage) {
@@ -40,6 +35,13 @@ export function resolveLanguage(options: LanguageResolveOptions): SupportedLangu
     }
   }
 
-  logger.debug(`Language resolved to default: ${DEFAULT_LANGUAGE}`);
-  return DEFAULT_LANGUAGE;
+  // Priority 3: Environment variable (with validation and fallback to default)
+  // config.getLanguage() already handles AI_WORKFLOW_LANGUAGE validation and DEFAULT_LANGUAGE fallback
+  const envLanguage = config.getLanguage();
+  if (envLanguage !== DEFAULT_LANGUAGE) {
+    logger.debug(`Language resolved from environment variable: ${envLanguage}`);
+  } else {
+    logger.debug(`Language resolved to default: ${DEFAULT_LANGUAGE}`);
+  }
+  return envLanguage;
 }
