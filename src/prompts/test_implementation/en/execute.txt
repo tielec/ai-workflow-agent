@@ -1,0 +1,191 @@
+# Test Code Implementation Phase - Execution Prompt
+
+## Task Summary
+Implement the test code based on the Phase 3 test scenario and Phase 4 implementation.
+
+**🚨 Most important task: Creating the actual test file is the top priority**
+- Be sure to create not only the test implementation log (test-implementation.md) but also the **actual executable test file**
+- If you write only the log without creating the test file, the test will not be able to run in Phase 6 and will fail
+- Where to place the test file: Appropriate test directory according to the project structure
+- Supported languages: Python (.py), JavaScript (.test.js), TypeScript (.test.ts), Go (_test.go), Java (Test*.java), etc.
+- Examples: `tests/unit/test_xxx.py`, `src/tests/test_xxx.py`, `scripts/ai-workflow/tests/test_xxx.py`, etc.
+
+## ⚠️ What to do if you decide that this phase is not necessary (Issue #411)
+
+**Important**: Even if you decide that test code implementation is not necessary for this issue, please be sure to **create a test-implementation.md file**. If the
+file is not created, the workflow will stop with an error.
+
+### Skip decision criteria
+It is appropriate to skip test code implementation in the following cases:
+- Issues that only modify documents
+- Issues that only delete files
+- Issues that only make minor modifications to configuration files
+- Issues that do not have implementation code to test File creation when skipping (required)
+If you decide to skip, be sure to create test-implementation.md using the following template:
+
+```markdown
+# Test code implementation
+
+## Skip judgment
+It has been determined that test code implementation is not necessary for this issue.
+
+## Judgment Reason
+- (Describe specific reasons in bullet points)
+- Example: Only document modification, no test code exists
+- Example: Only file deletion, no new test code required
+
+## Recommendation for the next phase
+It is also recommended to skip Phase 6 (Testing).
+```
+
+**Note**: If you create a file using this template, it may be skipped in Phase 6 (Testing) as well.
+
+## Input Information
+
+### Planning Phase Deliverable
+- Planning Document: {planning_document_path}
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Test scenario (if available)
+{test_scenario_context}
+<!--
+If present: Reference to @test-scenario.md
+If not present: "Test scenario not available. Please take appropriate testing considerations when implementing."
+-->
+
+### Implementation log (if available)
+{implementation_context}
+<!--
+If present: Reference to @implementation.md
+If not present: "Implementation log is not available. Please implement based on the design document and test scenario."
+-->
+
+### Design document (if available)
+{design_context}
+<!--
+If present: Reference to @design.md
+If not present: "Design document is not available. Make appropriate design decisions based on issue and planning information."
+-->
+
+### Requirements document (if available)
+{requirements_context}
+<!--
+If present: Reference to @requirements.md
+If it does not exist: "Requirements definition document is not available. Please infer requirements from Planning information and Issue information."
+-->
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+## Correspondence by test strategy
+
+Please implement appropriate test code according to the test strategy determined in Phase 2:
+
+### UNIT_ONLY
+- Implement only unit tests for each function/method
+- Eliminate external dependencies by utilizing mock stubs
+
+### INTEGRATION_ONLY
+- Implement only integration tests between components
+- Test using actual DB and API
+
+### UNIT_INTEGRATION
+- Implement both unit tests and integration tests
+- Unit tests: Function/method level
+- Integration testing: Cooperation between components
+
+### BDD
+- Implement Given-When-Then style BDD testing
+- Scenario testing based on user stories
+
+### ALL (UNIT + INTEGRATION + BDD)
+- Implement all test types
+- Ensure comprehensive test coverage
+
+## Test code implementation steps
+
+### 1. Check the test scenarios
+
+Check the test scenarios created in Phase 3:
+- Normal scenario
+- Abnormal scenario
+- Edge case scenario
+### 2. Understanding the implementation code
+
+Check the actual code implemented in Phase 4:
+- Implemented classes and functions
+- Interface
+- Data structures
+
+### 3. Implementing the test code
+
+Based on the test scenario, implement the following:
+
+#### 3.1 Test file creation (top priority task)
+- Naming conventions (depending on language):
+- Python: test_*.py, *_test.py
+- JavaScript/TypeScript: *.test.js, *.spec.js, *.test.ts, *.spec.ts
+- Go: *_test.go
+- Java: Test*.java, *Test.java
+- Shell: test_*.sh
+- Location: Appropriate test directory according to the project structure
+- Appropriate directory structure according to the test strategy (e.g. tests/unit/, tests/integration/, etc.)
+- **Note**: Please check the existing test directory structure of the project and place it accordingly
+
+#### 3.2 Test case implementation
+- Write tests with Given-When-Then structure
+- Make assertions (assert statements) clear
+- Describe the intent of the test in comments
+
+#### 3.3 Test utility
+- Implement mock stub
+- Create test fixture
+- Test helper function
+
+### 4. Record test implementation log
+
+Please record the implementation contents in the following format:
+
+```markdown
+# Test implementation completion report
+
+## List of test files
+
+| File | Number of tests | Coverage |
+|---------|---------|----------|\
+| `tests/test_xxx.py` | Z items (if applicable)
+- Coverage rate: XX% (only if calculable)
+```
+
+Please save this log as `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md`.
+
+## Quality Gates (Phase 5)
+
+Test code implementations must meet the following quality gates:
+
+- [ ] **All Phase 3 test scenarios are implemented**
+- [ ] **Test code is executable**
+- [ ] **Test intent is clear in comments**
+These quality gates are **mandatory requirements**. After implementation, a critical thinking review is conducted and modifications are required if the quality gates are not met.
+
+## Notes
+
+1. **Clarification of Responsibilities**: Implement only test code
+- Actual code implemented in Phase 4
+- No actual code changes in Phase 5
+
+2. **Test independence**: Avoid dependencies between tests
+- Each test can be run independently
+- Independent of test execution order
+
+3. **Test Coverage**: Ensure sufficient coverage
+- All major functionality is tested
+- Edge cases are also considered
+
+4. **Be aware of being reviewed**: Test code undergoes critical thinking review
+- Satisfy quality gates (three essential requirements) as a top priority
+- Clearly define test intent
+
+## Start implementing the test code
+
+Based on the above, implement the test code and create an implementation log.

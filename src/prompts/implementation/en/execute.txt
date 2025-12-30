@@ -1,0 +1,162 @@
+# Implementation Phase - Execution Prompt
+
+## Task Summary
+Perform the actual code implementation based on the design document and test scenario.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Design document (if available)
+{design_context}
+<!--
+If present: Reference to @design.md
+If not present: "No design document available. Please make appropriate design decisions based on issue and planning information."
+-->
+
+### Test scenario (if available)
+{test_scenario_context}
+<!--
+If present: Reference to @test-scenario.md
+If not present: "Test scenario not available. Please take appropriate testing considerations into implementation."
+-->
+
+### Requirements document (if available)
+{requirements_context}
+<!--
+If present: Reference to @requirements.md
+If not present: "Requirements document not available. Infer requirements from Planning and Issue information."
+-->
+
+### Implementation strategy (Phase
+**{implementation_strategy}**
+
+## Response by implementation strategy
+
+Phase Perform appropriate implementation according to the implementation strategy determined in 2:
+
+### CREATE (new)
+- Create a new file
+- Minimize the impact on existing files
+-
+
+### Follow the design document's "new file list"
+
+### EXTEND
+- Read and understand existing files
+- Extend to match the existing coding style
+- Follow the design document's "modification file list"
+
+### REFACTOR
+- Improve the structure of existing code
+- Improve quality while maintaining functionality
+- If the test already exists, make sure the test passes
+
+## Implementation steps
+
+### 1. Understanding the existing code
+
+Check the "List of changed/added files" written in the design document and read the related files.
+
+**Files to be read**:
+- Existing files described in the design document
+- Related documents (README, CONTRIBUTION, etc.)
+- Existing test files (if any)
+
+### 2. Check coding standards
+Check the project's coding conventions:
+- @CONTRIBUTION.md (if available)
+- @CLAUDE.md (if available)
+- Style of existing code
+
+### 3. Execute the implementation
+
+Follow the design document and implement the following:
+
+#### 3.1 Code Implementation
+- Follow the Detailed Design section of the design document
+- Implement functions/classes/methods
+- Add appropriate error handling
+- Write comments/documentation strings
+
+#### 3.2 Test code implementation (move to Phase 5)
+
+**In Phase 4, only the actual code (business logic, API, data model, etc.) will be implemented, and the test code will be implemented in Phase 5 (test_implementation). **
+
+It references test scenarios created in Phase 3, but does not implement the test code itself.
+
+#### 3.3 File Operations
+Use the following tools to manipulate files:
+- **Read**: Read a file
+- **Write**: Create a new file
+- **Edit**: Edit an existing file
+
+### 4. Record implementation log
+
+Please record the implemented contents in the following format:
+
+```markdown
+# Implementation completion report
+
+## List of changed files
+
+| File | Change type | Summary |
+|---------|---------|------|
+| `path/to/file.py` | New/Modified/Deleted | Describe the summary in one sentence |
+
+## Major Changes
+
+Please briefly describe the important changes in 3-5 bullet points (1-2 sentences each):
+- (Change 1)
+- (Change 2)
+- (Change 3)
+
+## Testing status
+- Build: ✅ Success / ❌ Failure
+- Lint: ✅ Success / ❌ Failure
+- Basic operation check: (concisely stated)
+```
+
+Please save this log as `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md`.
+
+## Quality Gates (Phase 4)
+
+Implementations must meet the following quality gates:
+
+- [ ] **Implementation follows the Phase 2 design**
+- [ ] **Complies with existing code conventions**
+- [ ] **Has basic error handling**
+- [ ] **No obvious bugs**
+
+**Note**: Implementation of the test code is done in Phase 5 (test_implementation). Please implement only the actual code in Phase 4.
+These quality gates are **mandatory requirements**. After implementation, a critical thinking review is conducted and modifications are required if the quality gates are not met.
+
+## Notes
+
+1. **Design compliance**: Do not deviate from the design document
+- Change only the files described in the design document
+- Implement according to the principles of the design document
+
+2. **Respect existing code**: Maintain the existing style
+- Match indentation and naming convention
+- Follow existing patterns
+
+3. **Step-by-step implementation**: Don't implement everything at once, do it in stages
+- Start with core functionality
+- Proceed as you test
+
+4. **Safety**: Avoid risky operations
+- Delete data carefully
+- Specify if backup is required
+
+5. **Be aware that it will be reviewed**: Implementation will undergo a critical thinking review
+- Satisfy quality gates (5 essential requirements) as a top priority
+- Be careful to avoid blockers (problems that prevent you from proceeding to the next phase)
+- Clarify the intent of your implementation in comments
+
+## Start implementation
+
+Based on the above, implement code and test code, and create an implementation log.

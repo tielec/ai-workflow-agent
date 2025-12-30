@@ -283,7 +283,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、Issue #23で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
 | `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
-| `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
+| `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
 | `src/prompts/difficulty/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
 | `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
 | `src/core/instruction-validator.ts` | LLMベースのカスタム指示検証エンジン（Issue #422で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定されたユーザー指示の安全性を検証。OpenAI API（gpt-4o-mini）による文脈理解型検証を実施し、「分析指示」と「実行指示」を区別。フォールバックとして静的パターンマッチングをサポート。インメモリキャッシュ（TTL: 1時間、最大1000エントリ）、リトライロジック（最大3回、指数バックオフ）を実装。`validate()`, `validateWithLLM()`, `validateWithPatterns()`, `parseResponse()` を提供。 |

@@ -1,0 +1,105 @@
+# Project Plan Revision - Revise Prompt
+
+## ⚠️ Mandatory Task
+**Updating the project plan is the top priority.**
+Use the Edit tool to **overwrite** `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md`, replacing the old content completely so only the latest plan remains. If the file does not exist, create it with the Write tool.
+
+---
+
+## Task Overview
+
+Revise the project plan based on the review feedback.
+
+## Original Plan
+
+{planning_document_path}
+
+## Review Feedback
+
+{review_feedback}
+
+## Issue Information (Reference)
+
+{issue_info}
+
+## Previous Execution Log (Reference)
+
+Below is a snippet of the previous execution log. If the plan content is included there, you can use it to rebuild the file:
+
+```
+{previous_log_snippet}
+```
+
+## Revision Policy
+
+### ⚠️ Critical: Overwrite the Plan
+Use the Edit tool to update `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md` as the first priority. Keep only the latest Issue analysis and action plan—avoid unnecessary additions.
+
+Revise the plan according to the steps below:
+
+### Case A: The project plan file does not exist
+
+If the file was not created in the previous run, follow these steps:
+
+1. **Extract plan content from the previous log** (if present)
+   - Extract implementation strategy, test strategy, impact analysis, etc.
+   - Format and save as planning.md
+
+2. **Create a new plan** (if the log is insufficient)
+   - Build a concise plan from Issue information and requirements
+   - Include mandatory items (implementation strategy, test strategy, task breakdown)
+   - Save as planning.md using the Write tool
+
+### Case B: Revise based on review feedback
+
+1. **Resolve blockers (top priority)**
+   - Address all blockers flagged in the review
+   - Blockers are issues that will definitely cause problems if you proceed
+   - Examples: missing strategies, task granularity issues, dependency contradictions
+
+2. **Incorporate improvement suggestions (as feasible)**
+   - Apply reasonable improvement requests from the review
+   - Not all suggestions are mandatory, but adopt sensible ones proactively
+
+3. **Confirm quality gates**
+   - After revisions, ensure all quality gates are satisfied
+   - [ ] **Implementation strategy is clearly decided** (CREATE/EXTEND/REFACTOR)
+   - [ ] **Test strategy is clearly decided** (UNIT_ONLY/.../ALL)
+   - [ ] **Test code strategy is clearly decided** (EXTEND_TEST/CREATE_TEST/BOTH_TEST)
+   - [ ] **Impact analysis is documented**
+   - [ ] **Task breakdown has appropriate granularity** (1 task = ~1–4 hours)
+   - [ ] **Risks are identified**
+
+## How to Proceed
+
+1. **Understand the current state**: Read the original plan and review feedback to identify issues
+2. **Prioritize**: Address blockers first, then improvements
+3. **Apply fixes**: Load the original plan and revise with the Edit tool
+4. **Verify**: After changes, confirm all quality gates are satisfied
+
+## Revision Checklist
+- [ ] 1. Finish understanding the current plan and review feedback
+- [ ] 2. Decide actions for blockers first, then improvements
+- [ ] 3. Reflect fixes and impact analysis in the plan
+- [ ] 4. **Overwrite `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md` using the Edit tool** (required)
+- [ ] 5. Re-check quality gates (strategies, breakdown, risks, etc.)
+
+## Output Format
+
+Save the revised project plan to:
+
+```
+.ai-workflow/issue-{issue_number}/00_planning/output/planning.md
+```
+
+**Important**: Always read the existing planning.md before editing, then update it with the Edit tool. Do not create a new file with the Write tool unless the file is missing.
+
+## Notes
+
+1. **Scope of changes**: Focus on the issues raised; avoid unnecessary modifications
+2. **Preserve structure**: Keep the plan’s core section structure
+3. **Document strategies**: Always state implementation, test, and test-code strategies
+4. **Specificity**: Write changes in concrete, measurable terms
+5. **Consistency**: Ensure no contradictions remain between sections after edits
+
+## Begin revisions

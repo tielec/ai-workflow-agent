@@ -1,0 +1,176 @@
+#Test Scenario Phase - Execution Prompt
+
+## Task Summary
+Create a detailed test scenario from the requirements definition and design documents. **Based on the testing strategy determined in Phase 2**, create scenarios for appropriate test types.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Requirements definition document
+{requirements_document_path}
+
+### Design document
+{design_document_path}
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+### GitHub Issue information (reference)
+{issue_info}
+
+## Correspondence by test strategy
+
+Create the following test scenarios according to the test strategy decided in Phase 2:
+
+### UNIT_ONLY: Unit test only
+- Test case for each function/method unit
+- Normal system/abnormal system/boundary value test
+- Unit test using mock/stub
+
+### INTEGRATION_ONLY: Integration test only
+- Integration testing between components
+- Integration testing with external systems
+- Data flow validation
+
+### BDD_ONLY: BDD testing only
+- User story-based scenarios
+- Given-When-Then format
+- Correspondence with business requirements
+
+### UNIT_INTEGRATION: Unit + Integration
+- Unit test scenario (above)
+- Integration test scenario (above)
+
+### UNIT_BDD: Unit + BDD
+- Unit test scenario (above)
+- BDD scenario (above)
+
+### INTEGRATION_BDD: Integration + BDD
+- Integration test scenario (above)
+- BDD scenario (above)
+
+### ALL: All
+- Unit test scenario (above)
+- Integration test scenario (above)
+- BDD scenario (above)
+
+## Test scenario configuration
+
+### 1. Test strategy summary
+- Selected test strategy (taken from Phase 2)
+- Scope of test target
+- Test purpose
+
+### 2. Unit test scenario (if applicable)
+
+For each function/method:
+**Test case name**: (Function name_Normal system/Abnormal system/Boundary value)
+
+- **Purpose**: What this test verifies
+- **Prerequisites**: State before test execution
+- **Input**: Input parameters to the function
+- **Expected result**: Expected output/state change
+- **Test data**: Test data used
+
+**Example**:
+```
+Test case name: calculate_total_Successful
+Purpose: Verify that the total amount is calculated correctly
+Prerequisites: A list of products exists
+Input: items = [{price: 100, quantity: 2}, {price: 200, quantity: 1}]
+Expected result: 400 is returned
+Test data: The above items
+```
+
+### 3. Integration Test Scenario (if applicable)
+
+For each integration point:
+
+**Scenario Name**: (Names of the two components to be integrated)
+
+- **Purpose**: What this integration will verify
+- **Prerequisites**: State before running the integration test
+- **Test Steps**: Step-by-step instructions
+- **Expected results**: Expected behavior after integration
+- **Check items**: Checklist of points to check
+
+### 4. BDD scenario (if applicable)
+
+For each user story:
+
+**Feature**: (Feature name)
+
+**Scenario**: (Scenario name)
+
+- **Given** (Prerequisites): Initial state of the system
+- **When** (Operation): Action taken by the user
+- **Then** (Result): Expected result
+
+**Example**:
+```gherkin
+Feature: User registration feature
+
+Scenario: New user can register successfully
+Given User is not logged in
+When User submits the registration form with a valid email address and password
+Then User account is created
+And A confirmation email is sent
+And the user is redirected to the login screen
+```
+
+### 5. Test data
+- Test data used in each test scenario
+- Normal data, abnormal data, boundary value data
+
+### 6. Test environment requirements
+- Required test environment (local, CI/CD, etc.)
+- Required external service database
+- Mocks/Stubs Required
+
+## Quality Gates (Phase 3)
+
+Test scenarios must meet the following quality gates:
+
+- [ ] **Test scenarios align with Phase 2 strategy**
+- [ ] **Key normal systems are covered**- [ ] **Key abnormal systems are covered**
+- [ ] **Expected results are clear**
+
+These quality gates are **requirements**. After creation, a critical thinking review is conducted and revisions are required if the quality gates are not met.
+
+## Notes
+
+1. **Strategy compliance**: Please strictly adhere to the Phase 2 test strategy
+- Test types not included in the strategy do not need to be created
+- Example: For UNIT_ONLY, Integration/BDD scenario is not required
+
+2. **Correspondence with requirements**: Make sure that each requirement in the requirements definition document is covered by the test
+- Are the acceptance criteria reflected in the test scenario?
+- Are all functional requirements included in the test target?
+
+3. **Feasibility**: Describe a test scenario that can actually be executed
+- Avoid ambiguous expressions
+- Describe specific inputs and outputs
+- Verifiable expected results
+
+4. **Priority**: Focus on major cases, not all edge cases
+- 80 points is enough (don't aim for perfection)
+- Prioritize the critical path
+- Cover high-risk areas first
+
+5. **Keep in mind that it will be reviewed**: A critical thinking review will be conducted on the test scenario
+- Satisfy the quality gates (4 essential requirements) with the highest priority
+- Be careful to avoid blockers (problems that prevent you from proceeding to the next phase)
+
+## Output format
+
+Test scenario Save it as `.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md`. Please use
+
+Markdown format, use headings appropriately, and create highly readable documents.
+
+## Start implementation
+
+Create a test scenario based on the above.

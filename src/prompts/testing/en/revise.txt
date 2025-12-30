@@ -1,0 +1,142 @@
+# Test execution phase - Modification prompt
+
+## ⚠️ Required task
+**Make sure to update test-result.md. Use the **
+Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.
+Omitting this update will result in an error in the workflow.
+
+## Task Summary
+Correct the issues identified in the review and rerun the test.
+
+**Important**: If the test fails in Phase 5, you must **go back to Phase 4 (Implementation) and fix the implementation**.
+
+## Review results
+{review_feedback}
+
+## Reference information
+
+### Test results
+{test_result_document_path}
+
+### Implementation log
+{implementation_document_path}
+
+### Test scenario
+{test_scenario_document_path}
+
+## Correction instructions
+
+### ⚠️ Most important: Required file update
+**Please overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool as a top priority. Please only include the latest test results and do not keep old records.
+
+### Resolving BLOCKER
+
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**.
+
+**Critical decision**:
+- **If there is a critical test failure**: You must go back to Phase 4 to fix the implementation
+- **If it is a test environment issue**: Fix the test environment and rerun the test
+
+**Criteria for returning to Phase 4**:
+- Critical path tests are failing
+- Successful tests are failing
+- There is an obvious bug in the implementation
+
+**Issues that can be addressed within Phase 5**:
+- Misconfiguration of the test environment
+- Insufficient preparation of test data
+- Incorrect test execution command
+
+### Determine the correction strategy
+
+Confirm the review results and select one of the following:
+
+#### Choice 1: Phase Go back to 4 and fix your implementation
+
+If you have problems with your implementation, this prompt won't help.
+**Phase 4 revision() must be performed**.
+
+In this case, please record the following:
+
+```markdown
+# Need for implementation modification due to test failure
+
+## Reason for modification.(Why you need to go back to Phase 4)
+
+## Failed tests
+(Which test failed)
+
+## Required implementation corrections
+(Where and how to fix the implementation)
+```
+
+Overwrite and save this in `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Please do not keep old content and record only the latest decisions and reasons for corrections.
+
+#### Choice 2: Modify the test environment and rerun the test
+
+If there is a problem with the test environment, modify the environment and rerun the test.
+
+**Correction steps**:
+1. Identify problems in the test environment
+2. Correct the environment (install dependent packages, modify configuration files, etc.)
+3. Rerun the tests
+4. Record test results
+
+## Correct steps (checklist)
+- [ ] 1. Check review results and organize blockers/improvement suggestions
+- [ ] 2. Phase 4 as necessary Clarify the decision to return to
+- [ ] 3. Prepare the test environment and prepare for re-execution
+- [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool** (required)
+- [ ] 5. Check the quality gates after modification (blockers removed, major tests passed, preparation for next phase)
+
+## Things to check after modification
+
+After the modification is completed, please check the following:
+
+1. **Are the blockers resolved?**
+- Have you addressed all the blockers pointed out in the review?
+
+2. **Are the key tests successful?**
+- Are the tests on the critical path successful?
+
+3. **Prepare for the next phase**
+- Do you want to proceed to Phase 6 (documentation)?
+- Or do you need to go back to Phase 4?
+
+## Update test results
+
+If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Be sure to completely replace the old content and record only the latest test-result.md. The following template is an example of the content structure (must be overwritten, not appended):
+
+```markdown
+## Re-execution result
+
+### Re-execution 1: YYYY-MM-DD HH:MM:SS
+- **Modifications**: (What was modified)
+- **Success**: Y
+- **Failure**: Z
+- **Changes**: (Change from last time)
+```
+
+## Output format
+**Important**: Be sure to **overwrite** the modified test results as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. If you have an existing file, completely replace the old contents and record only the latest test results.
+
+## ⚠️ Important: Don'ts of running test processes (Issue #267)
+
+** Never use KillShell. **
+
+Tests can take a long time to run (from a few minutes to more than 10 minutes). Please strictly adhere to the following rules:
+
+### Don'ts
+- **Do not use KillShell**: Do not forcefully terminate the test process in the middle
+- **Do not interrupt due to timeout**: Wait for the test to complete, even if it is running for a long time
+- **Do not terminate the process manually**: `kill`, `pkill`, `Ctrl+C` Do not perform any significant operations.
+
+### Recommendation
+- **Set a sufficient timeout**: Set a sufficient timeout (10 minutes or more) for the test run command
+- **Leverage background execution**: Use the `run_in_background: true` option for long-running tests and check the results in `BashOutput`
+
+** Always wait until the test completes. ** Killing the test process will result in incomplete test results and workflow failures.
+
+## Start correction
+
+Please take appropriate action based on the above.

@@ -14,6 +14,7 @@ import {
   PhaseStatus,
   PhaseMetadata,
   StepName,
+  DEFAULT_LANGUAGE,
   type IssueGenerationOptions,
   type WorkflowMetadata,
 } from '../types.js';
@@ -289,12 +290,30 @@ export abstract class BasePhase {
   }
 
   protected loadPrompt(promptType: 'execute' | 'review' | 'revise'): string {
-    const promptPath = path.join(promptsRoot, this.phaseName, `${promptType}.txt`);
+    const language = this.metadata.getLanguage();
+    const promptPath = path.join(promptsRoot, this.phaseName, language, `${promptType}.txt`);
+    let actualPromptPath = promptPath;
+
     if (!fs.existsSync(promptPath)) {
-      throw new Error(`Prompt file not found: ${promptPath}`);
+      const fallbackPath = path.join(
+        promptsRoot,
+        this.phaseName,
+        DEFAULT_LANGUAGE,
+        `${promptType}.txt`
+      );
+
+      logger.warn(
+        `Prompt not found for language '${language}', falling back to '${DEFAULT_LANGUAGE}': ${promptPath}`
+      );
+
+      if (!fs.existsSync(fallbackPath)) {
+        throw new Error(`Prompt file not found: ${fallbackPath}`);
+      }
+
+      actualPromptPath = fallbackPath;
     }
 
-    let prompt = fs.readFileSync(promptPath, 'utf-8');
+    let prompt = fs.readFileSync(actualPromptPath, 'utf-8');
 
     // Issue #177: 環境情報の注入（execute ステップのみ、パッケージインストール可能時）
     if (promptType === 'execute' && config.canAgentInstallPackages()) {
