@@ -410,6 +410,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
         incrementRetryCount: jest.fn().mockReturnValue(0),
         getRollbackContext: jest.fn().mockReturnValue(null),
         clearRollbackContext: jest.fn(),
+        getLanguage: jest.fn().mockReturnValue('ja'),
       };
 
       const mockGithub: any = {
