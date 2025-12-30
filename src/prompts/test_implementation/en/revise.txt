@@ -1,0 +1,137 @@
+# Test Code Implementation Phase - Modification Prompts
+
+## ⚠️ Required Tasks
+**Updating the test implementation log is a top priority. Use the **
+Write or Edit tools to **save** `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md`, completely replacing the old content and leaving only a record of the latest implementation.
+
+## Task Summary
+Fix the issues identified in the review and implement improved test code.
+
+## Review results
+{review_feedback}
+
+## Reference information
+
+### Test implementation log
+{test_implementation_document_path}
+
+### Test scenario
+{test_scenario_document_path}
+
+### Implementation log
+{implementation_document_path}
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+## Correction instructions
+
+### ⚠️ Most important: Overwrite the test implementation log
+Use the Write or Edit tool to update `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` as a top priority. The content is only the latest test implementation results, and there is no need to add past logs.
+
+### Resolving BLOCKER
+
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**. Be sure to resolve these.
+
+**Typical example of a blocker**:
+- The main case of the test scenario is not implemented → Add a test case
+- The test code cannot be executed → Fix the syntax error
+- Test independence is not maintained → Eliminate dependencies between tests
+- Actual code is mixed → Delete actual code changes (actual code changes are prohibited in Phase 5)
+
+### Consideration of improvement suggestions (SUGGESTION)
+
+Please reflect the items listed in the "Improvement Suggestions" section of the review results to the extent possible.
+
+**Priority of improvement suggestions**:
+1. Expand test coverage → Introduce as a priority
+2. Add edge cases → Introduce if possible
+3. Add comments/documentation → Introduce if you have time
+
+## Quality Gate (Phase 5)
+
+The modified test code implementation must satisfy all of the following quality gates:
+
+- [ ] **Phase All 3 test scenarios are implemented **
+- [ ] **Test code is executable**- [ ] **The intent of the test is clear in the comments**
+
+## Correction policy
+
+### 1. Blocker support (highest priority)
+
+Resolve the blockers pointed out in the review one by one.
+
+**How ​​to deal with it**:
+- Load the implemented test code
+- Identify the point where the blocker was pointed out
+- Understand what was pointed out and correct it appropriately
+- Check if the blocker has been resolved after fixing
+
+### 2. Reflecting improvement suggestions (recommended)
+
+Please reflect the improvement suggestions from the review to the extent possible.
+
+**How ​​to respond**:
+- Load improvement suggestions
+- Select implementable and effective suggestions
+- Modify/add test code
+- Check overall consistency
+
+### 3. Respect existing tests
+
+As a general rule, do not change parts that have no problems in the review.
+
+**Notes**:
+- Make only the necessary modifications to eliminate blockers
+- Avoid unnecessary changes
+- Keep working tests
+
+## Correction steps (checklist)
+- [ ] 1. Check review results and organize blockers/improvement suggestions
+- [ ] 2. Prioritize necessary modifications for test implementation
+- [ ] 3. Organize the content to be recorded in the implementation log
+- [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` with the Write/Edit tool** (required)
+- [ ] 5. Recheck the quality gate (test scenario implementation/execution/comments)
+
+## Things to check after modification
+
+After completing the modification, please check the following:
+
+1. **Are the blockers resolved?**
+- Have you addressed all the blockers pointed out in the review?
+- Are the actions appropriate?
+
+2. **Are the quality gates met?**
+- Are all three quality gates cleared?
+
+3. **Is the test executable?**
+- Is there any syntax error in the test code?
+- Is it executable by the test framework?
+
+4. **Overall consistency**
+- Does the modification introduce any new problems?
+- Is the entire test code consistent?
+
+5. **Preparation for the next phase**
+- Is the modified test code executable?
+- Should I proceed to Phase 6 (test execution)?
+
+## Update test implementation log
+
+Please add the corrections to the test implementation log:
+
+```markdown
+## Correction history
+
+### Correction 1: (Contents of blocker/improvement suggestion)
+- **Issued contents**: (Issued in review)- **Modification**: (How it was corrected)
+- **Scope of influence**: (Which file was changed)
+```
+
+## Output format
+
+Please **overwrite** save** the modified test implementation log as `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md`.
+
+## Start fix
+
+Based on the above, please implement an improved version of the test code that reflects the review findings and update the test implementation log.

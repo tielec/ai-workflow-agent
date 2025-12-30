@@ -1,0 +1,267 @@
+# Test execution phase - Review prompt
+
+## Review target
+
+### Test result
+{test_result_document_path}
+
+### Implementation log (reference)
+{implementation_document_path}
+
+### Test scenario (reference)
+{test_scenario_document_path}
+
+## Quality gate (Phase 5)
+
+Test execution must pass the following quality gates:
+
+- [ ] **Tests are being executed**
+- [ ] **Key test cases are passing**
+- [ ] **Failing tests are being analyzed**
+
+## ⚠️ Important: Check against Planning Phase checklist (required)
+
+### 1. Load Planning.md
+
+Please load the following file:
+- {planning_document_path}
+
+### 2. Extract the checklist for the relevant phase
+
+From Planning.md, find the section for the current phase ("### Phase 6:" or "## Phase 6:") and extract the task checklist.
+
+**Note**: If you can't find the checklist, please skip this check.
+
+### 3. Check with test execution contents
+
+Check whether each task has been completed by checking against the test results (test-result.md).
+
+**Completion Criteria**:
+- Are the tests described in the Task executed?
+- Are the test cases described in the Task verified?
+- Are all subtasks completed?
+
+### 4. Update Planning.md
+
+Please update the checkboxes in planning.md based on the verification results:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Unfinished tasks: `- [ ]` Please use the
+
+**Edit tool** to update the section for that phase.
+
+### 5. Reflection in review judgment
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **There are incomplete tasks** (`[ ]` remains): FAIL
+- List incomplete tasks in review feedback
+- Explain specifically what is missing
+
+**Example (feedback at FAIL)**:
+```
+## Planning Phase checklist verification result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 6-2: Executing integration tests
+- Missing: Integration tests have not been executed- [ ] Task 6-3: Perform Performance Tests
+- Missing: No performance test results recorded
+
+Please complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include the contents of Planning.md in the review results
+
+Although it is necessary to load and match Planning.md, **Please do not include the full text of planning.md or the review contents of Planning Phase in the review results**.
+
+Review results should only include the following:
+- Evaluation of test results (test-result.md)
+- Incomplete tasks found by checking with Planning.md (FAIL only)
+- Improvement suggestions specific to test results
+
+Do not output the review details of the Planning Phase or the entire contents of planning.md.
+
+## Review Attitude
+
+This review should be conducted according to the "80 points is good enough" principle:
+
+1. **Aim for good enough, not perfect**
+- Not all tests need to pass
+- Pass if key test cases are successful
+- Document failures in edge cases as improvement suggestions
+
+2. **Clearly distinguish between blockers and improvement suggestions**
+- Blockers: Serious issues that prevent you from moving on to the next phase (document creation)
+- Improvement suggestions: Things you can move on to the next phase but would like to improve
+
+3. **Practical and balanced judgment**
+- Prioritize moving the project forward
+- Pass if critical features are working
+
+4. **Constructive feedback**
+- Don't blame test failures
+- Provide specific improvement plans
+
+## Review perspective
+
+### 1. Confirm test execution (most important)
+
+- Are the tests actually executed?
+- Are the test execution commands recorded?
+- Are the test outputs recorded?
+
+### 2. Success of the main test cases
+
+- Are the critical path tests successful?
+- Are the normal tests successful?
+- Are the basic functions working?
+
+### 3. Analysis of failed tests
+
+- If there is a failed test, is the cause analyzed?
+- Is a countermeasure specified?
+- Is the severity of the failure evaluated?
+
+### 4. Test scope
+
+- Is the scope covered by the test scenario tested?
+- Are the main functions included in the test?
+
+## ⚠️ Most important: Quality gates are an absolute requirement
+
+**Quality gates (3 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+
+- Quality gate is a "minimum standard that must be cleared" and is non-negotiable- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate
+- It is not allowed to proceed to the next phase without meeting the quality gate
+
+## Distinction between BLOCKER and improvement suggestion (SUGGESTION)
+
+### BLOCKER: A serious problem that prevents you from proceeding to the next phase
+
+**Blocker example**:
+- No tests have been executed
+- All tests have failed
+- Tests for critical functions have failed
+- The causes of test failures have not been analyzed at all
+
+### SUGGESTION: Proceed to the next phase, but what should be improved
+
+**Examples of improvement suggestions**:
+- Tests for edge cases have failed
+- Tests for some non-critical functions have failed
+- Expanding test coverage
+- Additional investigation for test failures
+
+### Decision rule
+
+#### PASS (Pass)
+
+PASS only if **all** below are met:
+- ✅ **All three quality gates are met** (FAIL if even one is)
+- ✅ Blocker does not exist
+- ✅ Minor improvement suggestions only (or no improvement suggestions)
+
+#### PASS_WITH_SUGGESTIONS
+
+PASS_WITH_SUGGESTIONS only if all of the following are met:
+- ✅ **All three quality gates are met** (FAIL if any of them are)
+- ✅ No blockers
+- ✅ Moving on to the next phase, but there are improvements to consider
+
+#### FAIL (FAIL)
+
+If any of the following** apply: FAIL:
+- ❌ **One or more of the quality gates (3 items) are not met**
+- ❌ One or more blockers exist
+
+** Important: Quality gates are absolute requirements, and if even one is not met, it is an automatic FAIL. **
+
+## Output format
+
+Please output in the following format:
+
+```markdown
+## Quality gate evaluation
+
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+
+- [x/ ] **Tests are being executed**: **PASS / FAIL** - (Decision reason)
+- [x/ ] **Key test cases are passing**: **PASS / FAIL** - (Decision reason)
+- [x/ ] **Failing tests are being analyzed**: **PASS / FAIL** - (Decision reason)
+
+**Quality gate overall verdict: PASS / FAIL**
+- PASS: All 3 items above are PASS
+- FAIL: Any one of the 3 items above is FAIL
+**If the quality gate judgment is FAIL, the final judgment will automatically be FAIL. **
+
+## Detailed review
+
+### 1. Confirmation of test execution
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 2. Success of key test cases
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 3. Analysis of failed tests
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+### 4. Test scope
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any improvement suggestions)
+
+## Blocker (BLOCKER)
+
+**Major problem that prevents you from proceeding to the next phase**
+
+(Describe only if there is a blocker)
+1. **(Blocker 1 title)**
+- Problem: (Specific problem)
+- Impact: (How will it affect the next phase)
+- Countermeasure: (How should it be corrected? - Is it necessary to return to Phase 4?)
+
+## Improvement suggestion (SUGGESTION)
+
+**Proceed to the next phase, but items that should be improved**
+
+(Enter only if there is an improvement suggestion)
+1. **(Title of proposal 1)**
+- Current status: (Current status)
+- Suggestions: (Better this way)
+- Effects: (Effects of improvement)
+
+## Overall evaluation
+
+(Comprehensive evaluation of all test results)
+
+**Main strengths**:
+- (Summary of good points)
+
+**Main improvement suggestions**:
+- (Summary of improvement suggestions)
+
+(Summary comment)
+
+---
+**Determination: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**Important**: Be sure to clearly state the verdict in the above format on the last line.

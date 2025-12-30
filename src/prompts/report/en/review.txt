@@ -1,0 +1,274 @@
+# Report creation phase - Review prompt
+
+## Review target
+
+### Report
+{report_document_path}
+
+### Deliverables of each phase (reference)
+- Phase 1 (Requirements): {requirements_context}
+- Phase 2 (Design): {design_context}
+- Phase 3 (Test Scenario): {test_scenario_context}
+- Phase 4 (Implementation): {implementation_context}
+- Phase 5 (Test Implementation): {test_implementation_context}
+- Phase 6 (Testing): {testing_context}
+- Phase 7 (Documentation): {documentation_context}
+
+## Quality Gate (Phase 7: Report)
+
+Reports must pass the following quality gates:
+
+- [ ] **Summary of changes**
+- [ ] **Contains the information needed to make a merge decision**
+- [ ] **Contains operation verification steps**
+
+## ⚠️ Important: Check against Planning Phase checklist (required)
+
+### 1. Load Planning.md
+
+Please load the following file:
+- {planning_document_path}
+
+### 2. Extract the checklist for the relevant phase
+
+From Planning.md, find the section for the current phase ("### Phase 8:" or "## Phase 8:") and extract the task checklist.
+
+**Note**: If you can't find the checklist, please skip this check.
+
+### 3. Check with the report contents
+
+Check whether each task has been completed by checking against the report (report.md).
+
+**Completion criteria**:
+- Are the items described in the Task described?
+- Are the information described in the Task included?
+- Are all subtasks completed?
+
+### 4. Update Planning.md
+
+Please update the checkboxes in planning.md based on the verification results:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Unfinished tasks: `- [ ]` Please use the
+
+**Edit tool** to update the section for that phase.
+
+### 5. Reflection in review judgment
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS- **There are unfinished tasks** (`[ ]` remains): FAIL
+- List unfinished tasks in review feedback
+- Explain specifically what is missing
+
+**Example (feedback at FAIL)**:
+```
+## Planning Phase checklist verification result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 8-2: Description of operation confirmation procedure
+- Missing: Operation confirmation procedure is not described
+- [ ] Task 8-3: Create release notes
+- Missing: Release notes have not been created
+
+Please complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include the contents of Planning.md in the review results
+
+Although it is necessary to load and match Planning.md, **Please do not include the full text of planning.md or the review contents of Planning Phase in the review results**.
+
+Review results should only include the following:
+- Evaluation of the report (report.md)
+- Unfinished tasks found by checking against Planning.md (FAIL only)
+- Report-specific improvement suggestions
+
+Do not output the review details of the Planning Phase or the entire contents of planning.md.
+
+## Review Attitude
+
+Please conduct this review based on the principle of "**80 points is enough**":
+
+1. **Aim for sufficiency, not perfection**
+- Not every detail needs to be perfect
+- Pass if you have the information necessary to make a merge decision
+- Describe small improvements as improvement suggestions
+
+2. **Clearly distinguish between blockers and improvement suggestions**
+- Blockers: Serious defects that make it impossible to make a merge decision
+- Improvement suggestions: Suggestions for a better report
+
+3. **Practical and balanced judgment**
+- Prioritize that the reviewer can make a merge decision
+- Pass if the required information is clear
+
+4. **Constructive feedback**
+- In addition to pointing out deficiencies, present concrete improvement suggestions
+- Evaluate the good points of the report
+
+## Review perspective
+
+### 1. Summary of changes (most important)
+
+- Is the executive summary clear?
+- Can the implementation content be understood in 1-2 sentences?
+- Does the business value be explained?
+- Is the summary of the technical change described?
+
+### 2. Information necessary for merging decisions
+
+- Is the risk assessment clear (classified as high/medium/low)?
+- Is the merge recommendation decision clearly stated (✅/⚠️/❌)?
+- Is the reason for the decision logical?
+- If it is a conditional recommendation, are the conditions clear?
+
+### 3. Operation confirmation procedure
+- Are test results documented?
+- Are merge checklists practical?
+- Are next steps clear?
+- Are rollback steps, if necessary, documented?
+
+### 4. Integrating information from each phase
+
+- Are important information from Phases 1-6 appropriately extracted?
+- Are there any duplications or inconsistencies in information?
+- Is the structure easy to read?
+
+## ⚠️ Most important: Quality gates are an absolute requirement
+
+**Quality gates (3 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+
+- The quality gate is a "minimum standard that must be cleared" and there is no room for negotiation.
+- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate.
+- Proceeding to the next phase is not allowed without meeting the quality gate.
+
+## Distinguishing between blockers (BLOCKER) and improvement proposals (SUGGESTION)
+
+### Blocker (BLOCKER): Serious defect that prevents merge decision
+
+**Blocker example**:
+- Executive summary does not exist
+- Merge recommendation decision is not described
+- Implementation details are not explained at all
+- Risk assessment is not described at all
+- Test results are not described at all
+
+### Improvement suggestion (SUGGESTION): Suggestion for a better report
+
+**Example of improvement suggestion**:
+- The explanation of the business value is weak
+- I want more details about the technical changes
+- It is desirable to add items to the merge checklist
+- It would be good if the next step is a little more specific
+- Improving the format
+
+### Decision rule
+
+#### PASS (Pass)
+
+PASS only if **all** below are met:
+- ✅ **All three quality gates are met** (FAIL if there is any ×)
+- ✅ No blocker
+- ✅ Only minor improvement suggestions (or no improvement suggestions)
+
+#### PASS_WITH_SUGGESTIONS (conditional pass)
+
+PASS_WITH_SUGGESTIONS only if **all** below:
+- ✅ **All three quality gates are met** (FAIL if there is any ×)
+- ✅ No blocker exists
+- ✅ Proceed to the next phase, but there are improvements to consider
+
+#### FAIL (Fail)
+__If any of the following ** are applicable, FAIL:
+- ❌ **At least one of the quality gates (3 items) is not met**
+- ❌ One or more blockers exist
+
+** Important: Quality gates are absolute conditions, and if even one is not met, it is automatically FAIL. **
+
+## Output format
+
+Please output in the following format:
+
+```markdown## Quality Gate Evaluation
+
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+
+- [x/ ] **Summary of changes**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Information necessary for merging decision is complete**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Procedure for checking operation is described**: **PASS / FAIL** - (Judgment reason)
+
+**Quality gate overall judgment: PASS / FAIL**
+- PASS: All three items above are PASS
+- FAIL: Even one of the above three items is FAIL
+
+**If the quality gate judgment is FAIL, the final judgment will be automatically FAIL. **
+
+## Detailed review
+
+### 1. Summary of changes
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 2. Information necessary for merging decisions
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 3. Operation confirmation procedure
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+### 4. Integration of information from each phase
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any improvement suggestions)
+
+## Blocker (BLOCKER)
+
+**Major defect that prevents merging decisions**
+
+(described only if there is a blocker)
+1. **(Blocker 1 title)**
+- Problem: (Specific problem)
+- Impact: (Why the merge judgment cannot be made)
+- Countermeasure: (How to fix)
+
+## Improvement suggestion (SUGGESTION)
+
+** Proposal for making the report better**
+
+(Enter only if there is an improvement suggestion)
+1. ** (Title of proposal 1)
+- Current status: (Current status)
+- Suggestion: (Better this way)
+- Effects: (Effects of improvement)
+
+## Overall evaluation
+
+(Comprehensive evaluation of the entire report)
+
+**Main strengths**:
+- (Summary of good points)
+
+**Main improvement suggestions**:
+- (Summary of improvement suggestions)
+
+(Summary comments)
+
+---
+**Judgment: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+**Important**: Be sure to write your judgment in the above format on the last line.

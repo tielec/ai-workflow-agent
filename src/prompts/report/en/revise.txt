@@ -1,0 +1,166 @@
+# Report Creation Phase - Modification Prompt
+
+## ⚠️ Required Task
+** Report updates are a top priority. Please **overwrite** `.ai-workflow/issue-{issue_number}/08_report/output/report.md` using the **
+Write or Edit tools to keep only the latest report. If the file does not exist, create a new one using the Write tool.
+
+---
+
+## Task Summary
+Correct the issues identified in the review and improve the final report.
+
+## Review Results
+{review_feedback}
+
+## Previous Execution Log (Reference)
+
+Below is part of the previous execution log. If the report content is included in the log, you can use it to create a file:
+
+```
+{previous_log_snippet}
+```
+
+## Reference information
+
+### Current report
+{report_document_path}
+
+### Phase artifacts
+- Phase 1 (Requirements): {requirements_context}
+- Phase 2 (Design): {design_context}
+- Phase 3 (Test Scenario): {test_scenario_context}
+- Phase 4 (Implementation): {implementation_context}
+- Phase 5 (Test Implementation): {test_implementation_context}
+- Phase 6 (Testing): {testing_context}
+- Phase 7 (Documentation): {documentation_context}
+
+## Correction Instructions
+
+### Case A: If the report file has not been created
+
+If the file was not created in the previous run, please take the following steps:
+
+1. **Extract the report content from the previous log** (if the log contains report content)
+- Extract the executive summary, changes, merge checklist, risk assessment, etc.
+- Format and save as report.md
+
+2. **Create a new report** (if the report content is insufficient in the log)
+- Create a concise report by referring to the deliverables of each phase
+- Include required fields (executive summary, changes, merge recommendation)
+- Save as report.md with Write tool
+
+### Case B: If the modification is based on review feedback
+
+#### Removal of BLOCKER
+Issues listed in the "Blocker" section of the review results are **serious defects that prevent merge decisions**.
+
+**Required response**:
+- Missing executive summary → Added
+- Missing merge recommendation judgment → Added
+- Insufficient explanation of implementation details → Detailed
+- Missing risk assessment → Added
+- Missing test results → Added
+
+#### Response to improvement suggestions (SUGGESTION)
+
+The items listed in the "Improvement Suggestions" section of the review results are suggestions for making the report better.
+
+** Recommended response** (not all required):
+- Strengthen description of business value
+- Add details of technical changes
+- Enhance merge checklist
+- Specify next steps
+- Improve format
+
+## Correction strategy
+
+### ⚠️ Most important: Overwrite the report
+With the Write or Edit tool Please update `.ai-workflow/issue-{issue_number}/08_report/output/report.md` with top priority. Please state the main points concisely and avoid unnecessary additions.
+
+### 1. Review Required Information
+
+Make sure you include the following information:
+
+**Executive Summary**:
+- Implementation content (1-2 sentences)
+- Business value
+- Technical changes
+- Risk assessment (high/medium/low)
+- Merge recommendation (✅/⚠️/❌)
+
+**Details of changes**:
+- Important information excerpt for Phase 1-6
+- List of new/modified files
+- Test result summary
+- Document update summary
+
+**Merge checklist**:
+- Functional requirements
+- Testing
+- Code quality
+- Security
+- Operational
+- Documentation
+
+**Risk assessment and recommendations**:
+- Identified risks
+- Risk mitigation measures
+- Merge recommendation decision and rationale
+
+**Next steps**:
+- Post-merge actions
+- Follow-up tasks
+
+### 2. Accuracy of Information
+
+When extracting information from the artifacts of each phase, note the following:
+
+- **Phase 1 (Requirements)**: Functional requirements, acceptance criteria, scope
+- **Phase 2 (Design)**: Implementation strategy, test strategy, change files
+- **Phase 3 (Test Scenarios)**: Key test cases
+- **Phase 4 (Implementation)**: Implemented content, new/modified files
+- **Phase 5 (Testing)**: Test results, number of passes/failures
+- **Phase 6 (Documentation)**: Updated documentation, updated content
+
+### 3. Conciseness and readability
+
+Reports should follow the following principles:
+- **Executive summary must be one page or less**
+- **Excerpt from key points** (no need to copy the full text)
+- **Markdown format for easy reading**
+- **Use bullet points**
+
+### 4. Objectivity
+
+Please write based on facts:
+
+- **Avoid emotional expressions**
+- **Data-based evaluation** (e.g.
+- [ ] 1. Organize essential information and improvement suggestions
+- [ ] 2. Extract and write the key points of each phase deliverable
+- [ ] 3. Check the structure and consistency of the entire report
+- [ ] 4. **Use the Write/Edit tool Overwrite and save `.ai-workflow/issue-{issue_number}/08_report/output/report.md`** (Required)
+- [ ] 5. Re-check the description of risks, merge decisions, and next steps
+
+## Things to check after modification
+
+After completing the modification, check the following:
+
+1. **Is the blocker resolved?**
+- Did it support all the blockers pointed out in the review?
+
+2. **Does it meet the quality gate?**
+- [ ] Summary of changes
+- [ ] Information necessary for merging decision is available
+- [ ] Contains operation confirmation steps
+
+3. **Can reviewers make a merge decision?**
+- Can they decide whether to merge based on this report alone?
+
+## Please **overwrite** `.ai-workflow/issue-{issue_number}/08_report/output/report.md` using the report update
+
+Write or Edit tool.
+
+## Start correction
+
+Based on the above, please improve the report in response to the review points.

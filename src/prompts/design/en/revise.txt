@@ -1,0 +1,139 @@
+# Detailed Design Phase - Modification Prompt
+
+## ⚠️ Most Important: Required Action
+
+**Make sure to use the Write or Edit tools to save the design document to the following path: **
+
+```
+.ai-workflow/issue-{issue_number}/02_design/output/design.md
+```
+
+**If this file does not exist, the Design Phase will fail. **
+
+---
+
+## Task Summary
+Correct the issues pointed out in the review and create an improved design document.
+
+## Original artifact
+{design_document_path}
+
+## Review result
+{review_feedback}
+
+## Previous execution log (reference)
+
+Below is part of the previous execution log. If the design document content is included in the log, you can use it to create a file:
+
+```
+{previous_log_snippet}
+```
+
+## Reference information
+
+### Requirements document
+{requirements_document_path}
+
+### GitHub Issue information
+{issue_info}
+
+## Correction instructions
+
+### Case A: If the design document file has not been created
+
+If the file was not created in the previous execution, please take the following steps:
+
+1. **Extract design document content from the previous log** (If the log includes design document content)
+- Extract implementation strategy, test strategy, impact range analysis, file list, etc.
+- Format design.md Save as
+
+2. **Create a new design document** (if the contents of the design document are insufficient in the log)
+- Create a concise design document based on the requirements definition document and planning information
+- Include the required items (implementation strategy, test strategy, scope of influence, file list)
+- Save as design.md with the Write tool
+
+### Case B: For corrections based on review feedback
+
+#### Removing BLOCKER
+
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**. Be sure to resolve these.
+
+**Typical example of a blocker**:
+- Missing three strategic decisions (implementation, testing, test code) → Add
+- Insufficient basis for the decision → Reinforce concretely and logically
+- No file list → List
+- Design cannot be implemented → Modify the design to be implementable
+- Serious security risk → Add countermeasures
+
+#### Consideration of improvement proposals (SUGGESTION)
+Please reflect the items listed in the "Improvement Suggestions" section of the review results to the extent possible.
+
+**Priority of improvement proposals**:
+1. Proposals that significantly improve the quality of the design → Prioritize reflection
+2. Enriching the documentation (addition of diagrams, etc.) → Reflect if possible
+3. Improving detailed expressions → Reflect if there is time
+
+## Quality gate (Phase) 2)
+
+The revised design document must satisfy all of the following quality gates:
+
+- [ ] **The basis for determining the implementation strategy is specified**
+- [ ] **The basis for determining the testing strategy is specified**
+- [ ] **The scope of impact on existing code is analyzed**
+- [ ] **Files that need to be changed are listed**
+- [ ] **The design is implementable**
+
+## Modification policy
+
+### 1. Blocker support (highest priority)
+
+Resolve the blockers pointed out in the review one by one.
+
+**How ​​to respond**:
+- Read the original design document
+- Identify the point where the blocker was pointed out
+- Understand what was pointed out and correct it appropriately
+- After making the correction, check if the blocker has been resolved
+
+### 2. Reflecting improvement suggestions (recommended)
+
+Please reflect the improvement suggestions from the review to the extent possible.
+
+**How ​​to respond**:
+- Read improvement suggestions
+- Select implementable and effective suggestions
+- Additions/modifications to the original design document
+- Check overall consistency
+
+### 3. Respect the original deliverables
+
+As a general rule, do not change parts that have no problems in the review.
+
+**Notes**:
+- Make only the modifications necessary to eliminate the blocker
+- Avoid unnecessary changes
+- Keep the good parts of the original design
+
+## Things to check after modification
+
+After completing the modification, please check the following:
+
+1. **Have the blockers been resolved?**
+- Have you addressed all the blockers pointed out in the review?
+- Is the content of the document appropriate?
+
+2. **Does it meet the quality gates**
+- Does all five quality gates pass
+
+3. **Overall consistency**
+- Does the modification create new contradictions?
+- Is the entire document consistent?
+
+4. **Implementability**
+- Is the revised design implementable?
+- Proceed to the next phase (test scenario) or save the revised design as `.ai-workflow/issue-{issue_number}/02_design/output/design.md`. Please save in
+
+**overwrite format** (replace the original file).
+
+## Start fix
+Based on the above, please create an improved design document that reflects the review findings.

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #573**: 言語設定に基づくプロンプトファイル切り替え機能
+  - プロンプトファイル構造を `{phase}/*.txt` から `{phase}/{lang}/*.txt` 形式に変更（ja/en対応）
+  - `BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、言語別プロンプトを動的に読み込む
+  - **フォールバック機能**: 指定言語のプロンプトが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック
+  - 警告ログ出力: フォールバック発生時に警告を記録
+  - 10フェーズ × 3種類（execute/review/revise）× 2言語 = 60プロンプトファイル
+  - **後方互換性**: 既存のワークフロー（日本語）は変更なく動作
+  - 修正ファイル: `src/phases/base-phase.ts`、`src/prompts/*/ja/*.txt`（移動）、`src/prompts/*/en/*.txt`（新規）
+  - テストカバレッジ: 13件のテスト（ユニット8件、統合5件、100%成功）
+
 - **Issue #526**: CLI全コマンドに--language/AI_WORKFLOW_LANGUAGEを追加しワークフロー言語を一元設定可能にする
   - 全13コマンドに `--language <ja|en>` オプションを追加
   - 新しい環境変数 `AI_WORKFLOW_LANGUAGE` のサポート

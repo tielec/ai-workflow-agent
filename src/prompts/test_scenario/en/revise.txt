@@ -1,0 +1,147 @@
+# Test scenario phase - Modification prompts
+
+## ⚠️ Most important: Required action
+
+**Write tool or Edit Make sure to use the tool to save the test scenario to the following path: **
+
+```
+.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md
+```
+
+**If this file does not exist, the Test Scenario Phase will fail. **
+
+---
+
+## Task Summary
+Fix the issues identified in the review and create improved test scenarios.
+
+## Original artifact
+{test_scenario_document_path}
+
+## Review result
+{review_feedback}
+
+## Previous execution log (reference)
+
+Below is part of the previous execution log. If the test scenario content is included in the log, you can use it to create a file:
+
+```
+{previous_log_snippet}
+```
+
+## Reference information
+
+### Design document
+{design_document_path}
+
+### Requirements document
+{requirements_document_path}
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+## Correction instructions
+
+### Case A: If the test scenario file has not been created
+
+If the file was not created in the previous execution, please take the following steps:
+
+1. **Extract the test scenario content from the previous log** (if the log contains the test scenario content)
+- Extract normal/abnormal test cases, expected results, etc.
+- Format and save as test-scenario.md
+
+2. **Create a new test scenario** (if the test scenario content is insufficient in the log)
+- Create a test scenario concisely based on the design document and test strategy
+- Include required items (normal tests, abnormal tests, expected results)
+- Write test-scenario.md with the tool Save as
+
+### Case B: Modifications based on review feedback
+
+#### Removing BLOCKER
+
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**. Be sure to resolve these.
+
+**Typical example of a blocker**:
+- Inconsistency with test strategy → Modify scenario in line with strategy
+- Major normal systems not covered → Add normal system test cases
+- Expected results are unclear → Describe specific expected results- Test cannot be implemented → Correct to implementable scenario
+
+#### Examine improvement suggestions (SUGGESTION)
+
+Please reflect the items listed in the "Improvement Suggestions" section of the review results to the extent possible.
+
+**Priority of improvement proposals**:
+1. Proposals that significantly improve test coverage → Incorporate with priority
+2. Add edge cases → Introduce if possible
+3. Improve documentation → Introduce if you have time
+
+## Quality Gate (Phase 3)
+
+The modified test scenario must satisfy all of the following quality gates:
+
+- [ ] **Phase **
+- [ ] **Major normal systems are covered**
+- [ ] **Major abnormal systems are covered**
+- [ ] **Expected results are clear**
+
+## Correction policy
+
+### 1. Blocker support (highest priority)
+
+Eliminate the blockers pointed out in the review one by one.
+
+**How ​​to deal with it**:
+- Load the original test scenario
+- Identify the point where the blocker was pointed out
+- Understand what was pointed out and correct it appropriately
+- After making the correction, check if the blocker has been resolved
+
+### 2. Reflecting improvement suggestions (recommended)
+
+Please reflect the improvement suggestions from the review to the extent possible.
+
+**How ​​to deal with it**:
+- Load improvement suggestions
+- Select implementable and effective suggestions
+- Add/modify to the original test scenario
+- Check overall consistency
+
+### 3. Respect the original work
+
+As a general rule, do not change parts that have no problems in the review.
+
+**Notes**:
+- Make only the necessary modifications to eliminate the blocker
+- Avoid unnecessary changes
+- Keep the good parts of the original scenario
+
+## Things to check after modification
+
+After completing the modification, please check the following:
+
+1. **Have the blockers been resolved?**
+- Have you addressed all the blockers pointed out in the review?
+- Is the response appropriate?
+
+2. **Does it meet the quality gates**
+- Are all four quality gates cleared?
+
+3. **Consistency with the test strategy**
+- Does the scenario follow the Phase 2 strategy?
+
+4. **Overall consistency**
+- Does the modification create new contradictions?
+- Is the entire document consistent?
+
+5. **Implementability**
+- Is the revised test scenario implementable?
+- Should I proceed to the next phase (implementation)?
+
+## Output format
+Save the modified test scenario as `.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md`. Please save in
+
+**overwrite format** (replace the original file).
+
+## Start correction
+
+Based on the above, please create an improved test scenario that reflects the review findings.

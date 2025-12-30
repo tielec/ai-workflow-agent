@@ -1,0 +1,192 @@
+# Test Execution Phase - Execution Prompt
+
+## Task Summary
+Run the test code you implemented in Phase 5 and record the results.
+
+## ⚠️ What to do if you decide that this phase is unnecessary (Issue #411)
+
+**Important**: Even if you decide that test execution is not necessary in this issue, be sure to **create a test-result.md file**. If the
+file is not created, the workflow will stop with an error.
+
+### Criteria for skipping decision
+It is appropriate to skip test execution in the following cases:
+- If the test code implementation was skipped in Phase 5
+- Issue with document modification only
+- Issue with file deletion only Issue
+- Issue with only minor modification of configuration file
+- Issue
+
+### Where there is no implementation code to be tested File creation when skipping (required)
+If you decide to skip, be sure to create test-result.md using the following template:
+
+```markdown
+# Test execution result
+
+## Skip judgment
+We have determined that test execution is not necessary for this issue.
+
+## Judgment Reason
+- (Describe specific reasons in bullet points)
+- Example: Test code implementation was skipped in Phase 5, so there are no tests to run.
+- Example: Test execution is not necessary as the document is only modified.
+
+## Recommendation for the next phase
+Proceed to Phase 7 (Documentation).
+```
+
+**Note**: If a skip judgment is written in test-implementation.md in Phase 5, it is recommended to skip this phase as well.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Test implementation log (if available)
+{test_implementation_context}
+<!--
+If present: Reference to @test-implementation.md
+If not present: "Test code implementation log is not available. Please check the implementation code directly and run the tests."
+-->
+
+### Implementation logs (if available)
+{implementation_context}
+<!--
+If present: Reference to @implementation.md
+If not present: "Implementation logs are not available. Please check the implementation code directly in the repository."
+-->
+
+### Test scenarios (if available){test_scenario_context}
+<!--
+If present: Reference to @test-scenario.md
+If not present: "Test scenario not available. Please perform appropriate tests based on your implementation."
+-->
+
+## Test execution steps
+
+### 1. Checking the test code
+
+Check the test files listed in the test implementation log:
+- Path of the implemented test file
+- Test framework (pytest, unittest, behave, etc.)
+- Test execution command
+
+### 2. Executing the test
+
+Run the appropriate test command:
+
+**For Pytest**:
+```bash
+pytest tests/
+```
+
+**For Unittest**:
+```bash
+python -m unittest discover tests/
+```
+
+**For Behave (BDD)**:
+```bash
+behave tests/features/
+```
+
+**Project-specific test commands**:
+- @README.md or @CONTRIBUTION.md
+- Please refer to any existing test scripts
+
+### 3. Recording test results
+
+Please record the test results in the following format:
+
+```markdown
+# Test execution results
+
+## Test result summary
+
+Please enter a numerical summary in the following format:
+- Total number of tests:
+
+**Failure (1 or more failures)**:
+Please only write the details of the failed test in the following format:
+
+### `tests/test_xxx.py::test_function_name`
+- **Error**: (Error message)
+- **Stack trace**:
+```
+(Excerpt only relevant parts)
+```
+
+**Note**: Do not include a detailed list of successful tests.
+```
+
+Please save this log as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`.
+
+## Quality Gates (Phase 6)
+
+Test execution must meet the following quality gates:
+
+- [ ] **Test is being executed**- [ ] **Key test cases are passing**
+- [ ] **Failing tests are being analyzed**
+
+These quality gates are **mandatory requirements**. After the test run, a critical thinking review will be conducted.
+
+## Notes
+
+1. **Test environment**: Run in an appropriate test environment
+- Check if the required dependent packages are installed
+- Check if the test data is prepared
+
+2. **Failure analysis**: If the test fails, analyze in detail
+- Log the error message
+- Identify the cause
+- Specify the correction policy
+
+3. **Completeness**: Run all tests
+- Run all tests, not just some
+- If any tests were skipped, state the reason
+
+4. **Objectivity**: Honestly record results
+- Don't hide failures
+- Accurately report successes and failures
+
+5. **Be aware of being reviewed**: Test results undergo critical thinking review
+- Quality gates (3 essential requirements) are met
+- In case of test failure, cause analysis and countermeasures are specified
+
+## ⚠️ Important: Don'ts regarding the execution of the test process (Issue #267)
+
+**Never use KillShell. **
+
+Tests can take a long time to run (from a few minutes to more than 10 minutes). Please strictly adhere to the following rules:
+
+### Don'ts
+- **Do not use KillShell**: Do not forcefully terminate the test process in the middle
+- **Do not interrupt due to timeout**: Wait for the test to complete, even if it is running for a long time
+- **Do not terminate the process manually**: `kill`, `pkill`, `Ctrl+C` Don't do this.
+
+### Recommendation
+- **Set sufficient timeouts**: Set a sufficient timeout (10 minutes or more) for test run commands
+- **Leverage background execution**: For long tests, use the `run_in_background: true` option and check the results in `BashOutput`
+- **Step-by-step execution**: If your test suite is large, consider splitting it into individual directories or files.
+
+### Approximate test execution time
+- Small projects: 1-3 minutes
+- Medium projects: 3-10 minutes
+- Large projects: 10 minutes or more
+
+** Be sure to wait until the tests are completed. ** Killing the test process will result in incomplete test results and workflow failures.
+
+### Example of running a long-running test
+
+```bash
+# Recommended: Run in the background and wait for completion# Use run_in_background: true in the Bash tool
+npm test
+
+# Then check the results with BashOutput
+# Check the status with BashOutput periodically until the test is completed
+````
+
+## Start test execution
+
+Based on the above, run the test and record the results.

@@ -1,0 +1,164 @@
+# Implementation Phase - Modification Prompt
+
+## ⚠️ Required Task
+** Update the implementation log as a top priority. Use the **
+Write or Edit tools to **overwrite** `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md`, completely replacing the old content and leaving only a record of the latest implementation.
+If this file does not exist, the Implementation Phase will fail.
+
+---
+
+## Task Summary
+Correct the issues identified in the review and make an improved implementation.
+
+## Review Results
+{review_feedback}
+
+## Previous Execution Log (Reference)
+
+Below is part of the previous execution log. If the implementation log content is included in the log, you can use it to create a file:
+
+```
+{previous_log_snippet}
+```
+
+## Reference information
+
+### Implementation log
+{implementation_document_path}
+
+### Design document
+{design_document_path}
+
+### Test scenario
+{test_scenario_document_path}
+
+### Implementation strategy (determined in Phase 2)
+**{implementation_strategy}**
+
+## Correction instructions
+
+### ⚠️ Most important: Overwrite implementation logs
+Write or Edit tool Please update `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` as a top priority. Please only include the latest implementation details and change history, and avoid adding unnecessary additions.
+
+### Case A: If the implementation log file has not been created
+
+If the file was not created in the previous execution, please take the following steps:
+
+1. **Extract implementation log content from the previous log** (if the log contains implementation log content)
+- Extract implementation content, changed file list, implementation memo, etc.
+- Format and write implementation.md Save as
+
+2. **Create a new implementation log** (If the implementation log contents are insufficient in the log)
+- Implement the implementation based on the design document and implementation strategy
+- Concisely summarize the implementation contents as a log
+- Save as implementation.md with the Write tool
+
+### Case B: In case of modification based on review feedback
+
+#### Eliminate blocker (BLOCKER)
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**. Be sure to resolve these.
+
+**Typical example of a blocker**:
+- Discrepancy with design → Correct implementation according to design
+- Test code not implemented → Add test code
+- Obvious bug → Fix bug
+- Security vulnerability → Add security measures
+
+#### Consideration of improvement suggestions (SUGGESTION)
+
+Please reflect the items listed in the "Improvement Suggestions" section of the review results to the extent possible.
+
+**Priority of improvement proposals**:
+1. Proposals that significantly improve security and quality → Incorporate first
+2. Performance optimization → Introduce if possible
+3. Add comments/documents → Introduce if time is available
+
+## Quality Gate (Phase 4)
+
+The revised implementation must satisfy all of the following quality gates:
+
+- [ ] **Phase **
+- [ ] **Complies with existing code conventions**
+- [ ] **Basic error handling exists**
+- [ ] **Test code is implemented**
+- [ ] **No obvious bugs**
+
+## Modification strategy
+
+### 1. Blocker compatible (top priority)
+
+Please eliminate the blockers pointed out in the reviews one by one.
+
+**How ​​to deal with it**:
+- Load the implemented code
+- Identify the point where the blocker was pointed out
+- Understand what was pointed out and correct it appropriately
+- Check if the blocker has been resolved after fixing
+
+### 2. Reflecting improvement suggestions (recommended)
+
+Please reflect the improvement suggestions from the review to the extent possible.
+
+**How ​​to respond**:
+- Load improvement suggestions
+- Select implementable and effective suggestions
+- Modify/add code
+- Check overall consistency
+
+### 3. Respect existing implementation
+
+As a general rule, do not change parts that have no problems in review.
+
+**Notes**:
+- Perform only the modifications necessary to eliminate blockers
+- Avoid unnecessary changes
+- Keep the parts that are working
+
+## Modification procedure (checklist)
+- [ ] 1. Check the review results and design strategy and determine the modification policy
+- [ ] 2. Deal with blockers and improvement suggestions one by one
+- [ ] 3. Organize implementation logs to be output and changes
+- [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` with the Write/Edit tool** (required)
+- [ ] 5. Check quality gates (design compliance, rules, error handling, testing, no bugs)
+
+## Things to check after modificationAfter completing the fixes, please check the following:
+
+1. **Are the blockers removed?**
+- Have you addressed all the blockers mentioned in the review?
+- Are you responding appropriately?
+
+2. **Are you meeting the quality gates?**
+- Are all five quality gates cleared?
+
+3. **Does the test pass?**
+- Is the implemented test code executable?
+- Does the basic test case pass?
+
+4. **Overall consistency**
+- Does the modification introduce new bugs?
+- Is the entire code consistent?
+
+5. **Preparation for the next phase**
+- Is the modified implementation test executable?
+- Should you proceed to Phase 5 (test execution)?
+
+## Update implementation log
+
+Please add the corrections to the implementation log:
+
+```markdown
+## Correction history
+
+### Correction 1: (Contents of blocker/improvement suggestions)
+- **Issued contents**: (Issued in review)
+- **Amended contents**: (How it was fixed)
+- **Scope of impact**: (Which file was changed?)
+```
+
+## Output format
+
+Please **overwrite** save the modified implementation log as `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md`.
+
+## Start fix
+
+Based on the above, please implement an improved version that reflects the review findings and update the implementation log.

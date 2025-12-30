@@ -1,0 +1,106 @@
+# Requirements Phase - Execute Prompt
+
+## Task Overview
+
+Create a detailed requirements specification using the GitHub issue information.
+
+## Inputs
+
+### Planning Phase Output
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase was executed, always review the development plan (implementation strategy, test strategy, risks, schedule).
+
+### GitHub Issue Information
+
+{issue_info}
+
+## Requirements Document Structure
+
+Create a requirements document that includes the sections below:
+
+### 0. Review the Planning Document (when Planning Phase ran)
+- Understand the overall development plan
+- Check scope, technology choices, risks, and schedule
+- Perform requirements work in line with the strategies set in the plan
+
+### 1. Overview
+- Summarize the "## Overview" section from the issue
+- Clearly state background and objectives
+- Describe business and technical value
+
+### 2. Functional Requirements
+- Extract functional requirements from the issue "## TODO" section
+- Write each requirement clearly and testably
+- Assign priority (High / Medium / Low)
+
+### 3. Non-Functional Requirements
+- Performance requirements
+- Security requirements
+- Availability/Reliability requirements
+- Maintainability/Extensibility requirements
+
+### 4. Constraints
+- Technical constraints (tech stack, consistency with existing systems)
+- Resource constraints (time, people, budget)
+- Policy constraints (security policies, coding standards)
+
+### 5. Preconditions
+- System environment
+- Dependent components
+- External system integrations
+
+### 6. Acceptance Criteria
+- Acceptance criteria for each functional requirement (Given-When-Then recommended)
+- Write them in a testable form
+
+### 7. Out of Scope
+- Items explicitly out of scope
+- Future expansion candidates
+
+## Output Format
+
+Create the requirements document in Markdown and save it to:
+
+```
+.ai-workflow/issue-{issue_number}/01_requirements/output/requirements.md
+```
+
+## Quality Gates (Phase 1)
+
+The requirements document must satisfy the gates below:
+
+- [ ] **Functional requirements are clearly described**
+- [ ] **Acceptance criteria are defined**
+- [ ] **Scope is clear**
+- [ ] **No logical contradictions**
+
+These gates are **mandatory**. A critical thinking review will be performed, and you must fix the document if any gate fails.
+
+## Notes
+
+1. **Specificity**: Avoid vague statements; write clear, measurable requirements
+   - NG: "Handle appropriately", "Address as needed"
+   - OK: "Return a response within 3 seconds", "Notify admin when an error occurs"
+2. **Consistency**: Check for contradictions between sections
+   - Functional requirements align with acceptance criteria
+   - Non-functional requirements and constraints do not conflict
+3. **Completeness**: Reflect all information from the issue
+   - Map all TODO items to functional requirements
+   - Clearly state background and objectives from the overview
+4. **Testability**: Write requirements in a verifiable (testable) way
+   - Use Given-When-Then for acceptance criteria
+   - Make success/failure conditions explicit
+5. **Review Mindset**: The document will undergo critical thinking review
+   - Prioritize satisfying the 4 mandatory quality gates
+   - Avoid blockers that prevent the next phase
+   - Improvements are welcome, but blockers must be fixed
+
+## Reference Information
+
+Refer to the following as needed (if they exist):
+- @CLAUDE.md - Project policies and coding guidelines
+- @ARCHITECTURE.md - Architectural principles
+- @CONTRIBUTION.md - Development guidelines
+- @README.md - Project overview and usage
+- Other project-specific docs

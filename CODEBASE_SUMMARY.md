@@ -71,7 +71,7 @@ src/
 │   ├── commands.ts        # CLI command option interfaces
 │   ├── pr-comment.ts      # PR comment type definitions
 │   └── auto-issue.ts
-├── prompts/               # Agent prompt templates (copied to dist/)
+├── prompts/               # Agent prompt templates by phase/language (copied to dist/)
 ├── templates/             # PR body templates
 ├── main.ts                # CLI definition (Commander)
 └── index.ts               # Bin entry point

@@ -1,0 +1,301 @@
+# Test Code Implementation Phase - Review Prompt
+
+## Review Target
+
+### Test Implementation Log
+{test_implementation_document_path}
+
+### Implemented Test Code
+Check the test files listed in the test implementation log.
+
+### Test scenario (reference)
+{test_scenario_document_path}
+
+### Implementation log (reference)
+{implementation_document_path}
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+## Quality gate (Phase 5)
+
+Test code implementation must clear the following quality gates:
+
+- [ ] **All Phase 3 test scenarios are implemented**
+- [ ] **Test code is executable**
+- [ ] **Test intent is clear in comments**
+
+## ⚠️ Important: Check against Planning Phase checklist (required)
+
+### 1. Load Planning.md
+
+Load the following file:
+- {planning_document_path}
+
+### 2. Extract the checklist for the relevant phase
+
+From Planning.md, find the section for the current phase ("### Phase 5:" or "## Phase 5:") and extract the task checklist.
+
+**Note**: If you can't find the checklist, please skip this check.
+
+### 3. Check against test implementation contents
+
+Check whether each task has been completed by checking against the test implementation log (test-implementation.md).
+
+**Completion criteria**:
+- Is the test file described in the Task created?
+- Is the test case described in the Task implemented?
+- Are all subtasks completed?
+
+### 4. Update Planning.md
+
+Please update the checkbox in planning.md based on the verification results:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Unfinished tasks: `- [ ]` Please use the
+
+**Edit tool** to update the section for that phase.
+
+### 5. Reflection in review judgment
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **There are incomplete tasks** (`[ ]` remains): FAIL
+- List incomplete tasks in review feedback
+- Explain specifically what is missing
+**Example (Feedback at FAIL)**:
+```
+## Planning Phase checklist matching result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 5-2: Implementation of abnormal test case
+- Missing: tests/error_handling_test.py is not implemented
+- [ ] Task 5-3: Implementation of integration test
+- Missing: tests/integration_test.py is not implemented
+
+Please complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include the contents of Planning.md in the review results
+
+Although it is necessary to load and match Planning.md, **Please do not include the full text of planning.md or the review contents of Planning Phase in the review results**.
+
+Review results should only include the following:
+- Evaluation of the test code implementation (test-implementation.md)
+- Unfinished tasks found by checking with Planning.md (FAIL only)
+- Improvement suggestions specific to the test code implementation
+
+Do not output the review details of the Planning Phase or the entire contents of planning.md.
+
+## Review Attitude
+
+Please conduct this review based on the principle of "**80 points is enough**":
+
+1. **Aim for sufficiency, not perfection**
+- Pass if the test code is ready to proceed to the next phase (test execution)
+- Detailed optimizations should be written as improvement suggestions
+
+2. **Clearly distinguish between blockers and improvement suggestions**
+- Blockers: Serious problems that prevent you from proceeding to the next phase (test execution)
+- Improvement suggestions: Proceed to the next phase, but things that should be improved
+
+3. **Practical and balanced judgment**
+- Priority is to move the project forward
+- Problems that can be detected in test execution are not blockers
+
+4. **Constructive feedback**
+- Expression of ``it would be better this way'' instead of ``wrong''
+- Present specific improvement proposals
+
+## Review perspective
+
+### 1. Consistency with the test scenario (most important)
+
+- Are all the main cases of the test scenario implemented?
+- Are there any deviations from the test scenario?
+
+### 2. Test coverage
+
+- Are all major functions tested?
+- Are both normal and abnormal systems covered?
+- Are edge cases considered?
+- Is coverage goal (80% or more recommended) achieved?
+
+### 3. Test independence
+
+- Can each test be executed independently?- Does it depend on the order of test execution?
+- Does it share state between tests?
+
+### 4. Readability of the test
+
+- Is the intent of the test clear with comments?
+- Are the tests written using Given-When-Then structure?
+- Are the test case names appropriate?
+
+### 5. Use of mock stubs
+
+- Are mock stubs used properly?
+- Are external dependencies properly excluded?
+- Are mock settings correct?
+
+### 6. Quality of test code
+
+- Are test codes executable (no syntax errors)?
+- Are assertions (assert statements) clear?
+- Are test utilities used appropriately?
+
+### ⚠️ Most important: Quality gates are an absolute requirement
+
+**Quality gates (3 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+
+- The quality gate is a "minimum standard that must be cleared" and there is no room for negotiation.
+- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate.
+- Proceeding to the next phase is not allowed without meeting the quality gate.
+
+## Distinguishing between blockers (BLOCKER) and improvement proposals (SUGGESTION)
+
+### Blocker (BLOCKER): Serious problem that prevents you from proceeding to the next phase
+
+**Blocker example**:
+- The main cases of the test scenario are not implemented
+- The test code is not executable (syntax errors, etc.)
+- The independence of the test is not maintained (dependence on other tests)
+- The actual code is mixed in (actual code cannot be changed in Phase 5)
+
+### Improvement suggestions (SUGGESTION): Things that should be improved before proceeding to the next phase
+
+**Example of improvement suggestion**:
+- Expanding test coverage
+- Adding edge cases
+- Enriching comments
+- Extracting test helpers
+- Improving mocks
+
+### Decision rules
+
+#### PASS (Pass)
+
+PASS only if **all** below are met:
+- ✅ **All three quality gates are met** (FAIL if there is any ×)
+- ✅ No blocker
+- ✅ Only minor improvement suggestions (or no improvement suggestions)
+
+#### PASS_WITH_SUGGESTIONS (conditional pass)
+
+PASS_WITH_SUGGESTIONS only if **all** below:
+- ✅ **All three quality gates are met** (FAIL if there is any ×)
+- ✅ No blocker exists
+- ✅ Proceed to the next phase, but there are improvements to consider
+
+#### FAIL (FAIL)
+
+FAIL if any of the following apply:- ❌ **Even one of the quality gates (3 items) is not met**
+- ❌ One or more blockers exist
+
+**Important: Quality gate is an absolute condition, and if even one is not met, it will automatically fail. **
+
+## Output format
+
+Please output in the following format:
+
+```markdown
+## Quality gate evaluation
+
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+
+- [x/ ] **All Phase 3 test scenarios are implemented**: **PASS / FAIL** - (Decision reason)
+- [x/ ] **Test code is executable**: **PASS / FAIL** - (Decision reason)
+- [x/ ] **Test intent is clear in comments**: **PASS / FAIL** - (Judgment reason)
+
+**Quality gate overall judgment: PASS / FAIL**
+- PASS: All three items above are PASS
+- FAIL: Even one of the above three items is FAIL
+
+**If the quality gate judgment is FAIL, the final judgment will be automatically FAIL. **
+
+## Detailed review
+
+### 1. Consistency with test scenario
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 2. Test coverage
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+### 3. Test independence
+
+**Good points**:
+- (Specific good points)
+
+**Points of concern**:
+- (Describe any concerns)
+
+### 4. Test readability
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Please state any suggestions for improvement)
+
+### 5. Use of mock stubs
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 6. Test code quality
+
+**Good points**:
+- (Specific positive points)
+
+**Concerns**:
+- (Describe any concerns)
+
+## Blocker (BLOCKER)
+
+**Major problem that prevents you from proceeding to the next phase**
+
+(Describe only if there is a blocker)
+1. **(Blocker 1 title)**
+- Problem: (Specific problem)
+- Impact: (How does it affect the next phase)
+- Countermeasure: (How to fix it)
+## Improvement suggestion (SUGGESTION)
+
+**Proceeding to the next phase, but it is desirable to improve**
+
+(Enter only if there is an improvement suggestion)
+1. **(Title of proposal 1)**
+- Current status: (Current status)
+- Proposal: (Better this way)
+- Effect: (Effects of improvement)
+
+## Overall evaluation
+
+(Comprehensive evaluation of the entire test code implementation)
+
+**Main strengths**:
+- (Summary of good points)
+
+**Main improvement suggestions**:
+- (Summary of improvement suggestions)
+
+(Summary comments)
+
+---
+**Determination: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**Important**: Be sure to write your decision in the above format on the last line. Check not only the test implementation logs, but also the actual implemented test code files.
