@@ -1,0 +1,62 @@
+# Test Scenario Phase - Revise Prompt
+
+## Required Action
+
+Save the updated test scenarios with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md
+```
+
+If this file does not exist, the Test Scenario Phase fails.
+
+---
+
+## Task Summary
+Fix the issues noted in the review and produce improved test scenarios.
+
+## Original Artifact
+{test_scenario_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+Use this if it contains scenario content:
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Design Document: {design_document_path}
+- Requirements Document: {requirements_document_path}
+- Test Strategy (from Phase 2): **{test_strategy}**
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No test-scenario file exists
+1. Extract scenarios from the previous log when possible (tests, data, expected results) and save as test-scenario.md.
+2. If insufficient, create a concise set of scenarios based on the requirements, design, and `{test_strategy}`; include required sections (unit/integration/BDD as applicable), data, and expected results.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: blockers are critical and must be fixed before proceeding. Typical blockers include missing strategy alignment, unclear expectations, or missing core cases.
+- **Apply suggestions** where reasonable to improve coverage or clarity.
+
+## Quality Gates (Phase 3)
+After fixes, the scenarios must satisfy:
+- [ ] **Scenarios follow the Phase 2 strategy**
+- [ ] **Main happy paths are covered**
+- [ ] **Main error paths are covered**
+- [ ] **Expected results are clear**
+
+## Revision Policy
+1. Address blockers one by one; ensure each is resolved.
+2. Re-check the four quality gates.
+3. Keep working content intact; avoid unnecessary changes.
+4. Ensure scenarios are executable with concrete inputs, data, and verifiable outcomes.
+
+## Output Format
+Overwrite the file at `.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md`.
+
+## Start the revisions

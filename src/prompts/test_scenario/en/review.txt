@@ -1,0 +1,97 @@
+# Test Scenario Phase - Review Prompt
+
+## Review Target
+Critically review the test scenarios.
+
+### Test Scenarios
+{test_scenario_document_path}
+
+### Design Document (reference)
+{design_document_path}
+
+### Requirements Document (reference)
+{requirements_document_path}
+
+### Test Strategy (from Phase 2)
+**{test_strategy}**
+
+## Quality Gates (Phase 3)
+- [ ] **Scenarios follow the Phase 2 strategy**
+- [ ] **Main happy paths are covered**
+- [ ] **Main error paths are covered**
+- [ ] **Expected results are clear**
+
+## Important: Check against the Planning Phase checklist
+
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 3:" or "## Phase 3:"); skip if none
+3. Cross-check test-scenario.md to confirm each task is complete (cases/scenarios present and subtasks done)
+4. Update planning.md checkboxes with the Edit tool (`[ ]` → `[x]` for completed)
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do **not** include the full planning content in the review output—only list incomplete tasks when failing and test-scenario-specific feedback.
+
+## Review Mindset
+- Apply the "80 points is good enough" principle
+- Separate blockers (cannot proceed to Implementation) from suggestions
+- Keep feedback constructive and actionable
+
+## Review Points
+- **Alignment with strategy**: scenarios match `{test_strategy}` choices; unnecessary test types are not included
+- **Coverage**: core happy paths, error paths, and key boundaries are present
+- **Clarity**: expectations and data are explicit; scenarios are executable
+- **Traceability**: requirements/acceptance criteria are covered
+- **Environment/data**: test data and environment needs are identified
+
+## Judgement Rules
+
+### PASS
+- ✅ All four quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All four quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] Scenarios follow Phase 2 strategy: **PASS / FAIL** - (reason)
+- [ ] Main happy paths are covered: **PASS / FAIL** - (reason)
+- [ ] Main error paths are covered: **PASS / FAIL** - (reason)
+- [ ] Expected results are clear: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Alignment with strategy: ...
+- Coverage: ...
+- Clarity/executability: ...
+- Traceability/data/env: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

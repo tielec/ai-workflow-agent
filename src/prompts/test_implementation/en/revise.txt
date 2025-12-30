@@ -1,0 +1,60 @@
+# Test Implementation Phase - Revise Prompt
+
+## Required Action
+
+Save the updated test implementation log with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md
+```
+
+If this file does not exist, the Test Implementation Phase fails.
+
+---
+
+## Task Summary
+Fix the review findings by updating the tests and the test implementation log.
+
+## Original Artifact
+{test_implementation_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Test Scenario: {test_scenario_document_path}
+- Implementation Log: {implementation_document_path}
+- Test Strategy (Phase 2): **{test_strategy}**
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No test-implementation file exists
+1. Extract test details from the prior log if available and save as test-implementation.md (include test files, counts, coverage summary).
+2. If insufficient, reconstruct a concise log from the current tests following the required format, then save.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: missing scenarios, non-runnable tests, unclear intent, or production code changes introduced here.
+- **Apply suggestions** to improve coverage, stability, or clarity where reasonable.
+
+## Quality Gates (Phase 5)
+After fixes, confirm:
+- [ ] **All Phase 3 scenarios are implemented**
+- [ ] **Test code is runnable**
+- [ ] **Test intent is clear (comments/structure)**
+
+## Revision Policy
+1. Update or add test files to satisfy the scenarios and strategy.
+2. Keep production code unchanged unless a blocker fix truly requires it—prefer test-only changes.
+3. Ensure the log matches the actual test files and counts.
+4. Maintain independence and clarity of tests; confirm prerequisites/mocks/data are explicit.
+
+## Output Format
+Overwrite `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md` with the updated log.
+
+## Start the revisions

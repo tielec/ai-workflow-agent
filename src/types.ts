@@ -17,6 +17,16 @@ export type StepName = 'execute' | 'review' | 'revise';
 
 export type DifficultyLevel = 'simple' | 'moderate' | 'complex';
 
+/**
+ * Supported language codes for prompts (Issue #571)
+ */
+export type Language = 'ja' | 'en';
+
+/**
+ * Default language used when no valid preference is set
+ */
+export const DEFAULT_LANGUAGE: Language = 'ja';
+
 export interface DifficultyAnalysisResult {
   level: DifficultyLevel;
   confidence: number;
@@ -233,6 +243,10 @@ export interface WorkflowMetadata {
   repository?: string | null;
   target_repository?: TargetRepository | null;
   workflow_version: string;
+  /**
+   * Preferred prompt language (Issue #571)
+   */
+  language?: Language;
   current_phase: PhaseName;
   design_decisions: DesignDecisions;
   cost_tracking: CostTracking;

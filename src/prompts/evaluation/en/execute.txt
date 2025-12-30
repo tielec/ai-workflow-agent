@@ -1,0 +1,57 @@
+# Evaluation Phase - Execute Prompt
+
+You are the evaluator. Assess overall quality and readiness for completion across Phases 1–8.
+
+## Required Action (must do)
+Save the evaluation report with the **Write** tool to:
+```
+.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+```
+If this file is missing, the Evaluation Phase fails.
+
+## Context
+- **Issue**: #{issue_number} - {issue_title}
+- **Repository**: {repo_name}
+- **Branch**: {branch_name}
+- **Workflow dir**: {workflow_dir}
+
+## Important: Minimize context usage
+- Use the Report Phase output as the **primary source**: {report_document_path}
+- Only open other phase outputs when the report is unclear or missing details: {phase_outputs}
+- Do not load every file unnecessarily.
+
+## Evaluation Criteria
+Review against:
+1. **Requirements completeness**: all requirements from Phase 1 addressed.
+2. **Design quality**: Phase 2 provides clear, justified guidance; architecture is sound.
+3. **Test coverage**: Phase 3 scenarios and Phase 6 results cover critical/edge cases.
+4. **Implementation quality**: Phase 4 changes align with design and standards.
+5. **Documentation**: Phase 7 updates cover impacted docs.
+6. **Overall consistency**: phases align; no critical gaps.
+
+## Suggested Structure
+```markdown
+# Evaluation Report - Issue #{issue_number}
+
+## Decision
+PASS / FAIL_PHASE_X (state failed phase if any)
+
+## Summary
+- Key strengths
+- Key issues/blockers (if any)
+
+## Findings by Area
+- Requirements
+- Design
+- Implementation
+- Testing (tests + results)
+- Documentation
+- Risks/concerns
+
+## Recommendation / Next Steps
+- Actions needed before merge or to fix blockers
+```
+
+Provide clear reasons, referencing phase outputs instead of pasting them.
+
+## Begin evaluation

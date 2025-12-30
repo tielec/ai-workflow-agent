@@ -1,0 +1,41 @@
+# Evaluation Phase - Revise Prompt
+
+## Required Action
+
+Save the updated evaluation report with the **Write** or Edit tool to:
+```
+.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+```
+If this file does not exist, the Evaluation Phase fails.
+
+---
+
+## Task Summary
+Address the review feedback and produce a corrected evaluation report.
+
+## Original Artifact
+{evaluation_report_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Report Phase output: {report_document_path}
+- Other phase outputs as needed: {phase_outputs}
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+- Fix any decision format issues (use PASS / PASS_WITH_ISSUES / FAIL_PHASE_X / ABORT exactly).
+- Ensure all evaluation areas are covered and evidence points to specific phase outputs.
+- Clearly state critical issues, required changes, and remaining tasks when applicable.
+- Keep reasoning objective, concise, and actionable.
+
+## Output Format
+Use the required decision templates from the review prompt and save to the path above.
+
+## Start the revisions

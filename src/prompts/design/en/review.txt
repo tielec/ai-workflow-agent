@@ -1,0 +1,165 @@
+# Design Phase - Review Prompt
+
+## Review Target
+Critically review the design document.
+
+### Design Document
+{design_document_path}
+
+### Requirements Document (reference)
+{requirements_document_path}
+
+### GitHub Issue (reference)
+{issue_info}
+
+## Quality Gates (Phase 2)
+
+The design must clear:
+- [ ] **Implementation strategy rationale is documented**
+- [ ] **Test strategy rationale is documented**
+- [ ] **Impact on existing code is analyzed**
+- [ ] **Files needing changes are listed**
+- [ ] **Design is implementable**
+
+## Important: Check against the Planning Phase checklist
+
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 2:" or "## Phase 2:")
+   - Skip if no checklist
+3. Cross-check with design.md to see if each task is complete  
+   Completion: design items are described, strategy decisions are stated, subtasks are done
+4. Update planning.md checkboxes with the Edit tool (`[ ]` → `[x]` for completed)
+5. Reflect the result in your judgement  
+   - All tasks completed → PASS or PASS_WITH_SUGGESTIONS  
+   - Any incomplete (`[ ]` remains) → FAIL and list what is missing
+
+**Do not include the full planning.md content in your review output.** Only include design evaluation, incomplete tasks (when FAIL), and design-specific suggestions.
+
+## Review Mindset
+- Apply the "80 points is good enough" principle  
+- Separate **blockers** (cannot proceed to Test Scenario) from **suggestions**  
+- Prioritize moving the project forward; issues solvable in implementation are not blockers  
+- Provide constructive feedback with concrete improvements
+
+## Review Points
+
+### 1. Strategy decisions (most important)
+- **Implementation strategy (CREATE/EXTEND/REFACTOR)**: rationale is concrete/logical, aligns with requirements, impact on existing code is assessed
+- **Test strategy (UNIT_ONLY/INTEGRATION_ONLY/BDD_ONLY/UNIT_INTEGRATION/UNIT_BDD/INTEGRATION_BDD/ALL)**: rationale is concrete/logical, matches complexity, aligns with acceptance criteria
+- **Test code strategy (EXTEND_TEST/CREATE_TEST/BOTH_TEST)**: rationale is concrete/logical, relation to existing tests is clear
+
+### 2. Impact analysis
+- Comprehensive coverage of effects on existing code, dependencies understood, migration needs evaluated
+
+### 3. File list completeness
+- New files listed, existing files to modify listed, paths are concrete and actionable
+
+### 4. Implementability
+- Design is specific enough to guide implementation, technically feasible, follows project conventions
+
+### 5. Traceability to requirements
+- Each requirement has a corresponding design, no omissions
+
+### 6. Security considerations
+- Risks identified with concrete mitigations
+
+### 7. Non-functional alignment
+- Performance, scalability, maintainability are considered
+
+## Quality Gates Are Mandatory
+If any of the 5 gates is missing, the decision is automatically FAIL.
+
+## Blockers vs Suggestions
+
+**Blocker** (cannot proceed):
+- Any of the three strategy decisions missing or unjustified
+- File list missing
+- Design is not implementable or breaks existing system
+- Major security risk not addressed
+- Traceability unclear
+
+**Suggestion** (can proceed but should improve):
+- Better patterns, performance tuning, richer docs (tables/diagrams)
+- Additional edge cases, deeper impact or security analysis
+
+## Judgement Rules
+
+### PASS
+- ✅ All 5 gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All 5 gates are met
+- ✅ No blockers
+- ✅ Can proceed but there are improvement points
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are absolute; any miss forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly for each. Any FAIL makes the final decision FAIL.**
+
+- [x/  ] **Implementation strategy rationale is documented**: **PASS / FAIL** - (reason)
+- [x/  ] **Test strategy rationale is documented**: **PASS / FAIL** - (reason)
+- [x/  ] **Impact on existing code is analyzed**: **PASS / FAIL** - (reason)
+- [x/  ] **Files needing changes are listed**: **PASS / FAIL** - (reason)
+- [x/  ] **Design is implementable**: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+- PASS: all 5 items are PASS
+- FAIL: any of the 5 items is FAIL
+
+If the quality gate judgement is FAIL, the final decision is automatically FAIL.
+
+## Detailed Review
+
+### 1. Strategy decisions
+Good: ...
+Concerns: ...
+
+### 2. Impact analysis
+Good: ...
+Concerns: ...
+
+### 3. File list completeness
+Good: ...
+Concerns: ...
+
+### 4. Implementability
+Good: ...
+Concerns: ...
+
+### 5. Traceability
+Good: ...
+Concerns: ...
+
+### 6. Security considerations
+Good: ...
+Improvements: ...
+
+### 7. Non-functional alignment
+Good: ...
+Improvements: ...
+
+## Blockers
+Critical issues blocking the next phase (list if any, otherwise "None")
+
+## Suggestions
+Improvements that can be addressed while proceeding (list if any, otherwise "None")
+
+## Overall Evaluation
+Overall strengths and key suggestions
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**Important**: Put the decision line above as the last line.

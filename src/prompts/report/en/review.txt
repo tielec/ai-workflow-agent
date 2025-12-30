@@ -1,0 +1,83 @@
+# Report Phase - Review Prompt
+
+## Review Targets
+- Final report: {report_document_path}
+- References: requirements/design/implementation/test results/doc updates as needed
+
+## Quality Gates (Phase 8)
+- [ ] **Changes are summarized**
+- [ ] **Information needed for merge decision is present**
+- [ ] **Steps to verify behavior are documented**
+
+## Planning Checklist Alignment (required)
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 8:" or "## Phase 8:"); skip if none
+3. Cross-check report.md to confirm each task is done
+4. Update planning.md checkboxes with the Edit tool
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do not include full planning content—only list incomplete tasks when failing and report-specific feedback.
+
+## Review Mindset
+- Apply "80 points is good enough"
+- Separate blockers (cannot proceed to Evaluation) from suggestions
+- Keep feedback concise and actionable
+
+## Review Points
+- Executive summary clarity and accuracy (changes, tests, recommendation)
+- Merge checklist completeness
+- Risk/concern visibility
+- Reference links instead of duplicating prior phase content
+- Verification guidance present
+
+## Judgement Rules
+
+### PASS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] Changes are summarized: **PASS / FAIL** - (reason)
+- [ ] Merge decision info is present: **PASS / FAIL** - (reason)
+- [ ] Verification steps are documented: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Summary/accuracy: ...
+- Merge checklist/risks: ...
+- References/verification: ...
+- Other notes: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

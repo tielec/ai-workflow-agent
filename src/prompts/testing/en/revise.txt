@@ -1,0 +1,60 @@
+# Testing Phase - Revise Prompt
+
+## Required Action
+
+Save the updated test result log with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md
+```
+
+If this file does not exist, the Testing Phase fails.
+
+---
+
+## Task Summary
+Address the review feedback by updating the test execution and the result log.
+
+## Original Artifact
+{test_result_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Test Implementation Log: {test_implementation_document_path}
+- Implementation Log: {implementation_document_path}
+- Test Scenario: {test_scenario_document_path}
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No test-result file exists
+1. If tests were run, reconstruct the summary (totals, pass/fail counts, failure details) and save as test-result.md using the required format.
+2. If tests were intentionally skipped, create test-result.md using the skip template from the Testing phase instructions.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: missing execution, inaccurate results, or lacking failure analysis.
+- Re-run tests as needed; do not kill processes prematurely—wait for completion.
+- Update failure details and analysis; outline next steps when failures remain.
+
+## Quality Gates (Phase 6)
+- [ ] **Tests were executed**
+- [ ] **Key test cases passed**
+- [ ] **Failures (if any) are analyzed**
+
+## Revision Policy
+1. Report results honestly; include failure details instead of omitting them.
+2. Ensure counts and summaries match the latest run.
+3. Provide clear reasons for any skipped tests.
+4. Keep production and test code changes minimal—focus on accurate execution and reporting.
+
+## Output Format
+Overwrite `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the updated log.
+
+## Start the revisions

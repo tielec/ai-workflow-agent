@@ -1,0 +1,59 @@
+# Report Phase - Revise Prompt
+
+## Required Action
+
+Save the updated report with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/08_report/output/report.md
+```
+
+If this file does not exist, the Report Phase fails.
+
+---
+
+## Task Summary
+Fix the review feedback by updating the final report.
+
+## Original Artifact
+{report_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Planning Document: {planning_document_path}
+- Requirements/Design/Implementation/Test Results/Doc Updates as needed
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No report file exists
+1. Recreate the report using the required structure (executive summary, merge checklist, risks, references).
+2. Link to prior phase outputs instead of re-stating details.
+3. Save to the path above.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: missing summary, missing merge decision info, or missing verification steps.
+- Apply suggestions to improve clarity, correctness, and completeness.
+
+## Quality Gates (Phase 8)
+- [ ] **Changes are summarized**
+- [ ] **Information needed for merge decision is present**
+- [ ] **Steps to verify behavior are documented**
+
+## Revision Policy
+1. Keep the report concise and factual; update counts/results/recommendation as needed.
+2. Ensure the merge checklist and risks are accurate.
+3. Provide verification/validation steps so a reviewer can confirm behavior.
+4. Maintain objective tone and clear formatting.
+
+## Output Format
+Overwrite `.ai-workflow/issue-{issue_number}/08_report/output/report.md` with the updated report.
+
+## Start the revisions

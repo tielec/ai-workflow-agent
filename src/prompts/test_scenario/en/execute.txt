@@ -1,0 +1,114 @@
+# Test Scenario Phase - Execute Prompt
+
+## Task Summary
+Create detailed test scenarios from the requirements and design. **Follow the test strategy decided in Phase 2** when choosing test types.
+
+## Inputs
+
+### Planning Phase output
+- Planning Document: {planning_document_path}
+
+**Note**: If planning exists, review the plan (implementation/test strategies, risks, schedule).
+
+### Requirements Document
+{requirements_document_path}
+
+### Design Document
+{design_document_path}
+
+### Test Strategy (from Phase 2)
+**{test_strategy}**
+
+### GitHub Issue (reference)
+{issue_info}
+
+## Scenarios by Test Strategy
+
+Create scenarios according to the chosen strategy:
+
+### UNIT_ONLY
+- Function/method-level cases
+- Happy-path, error, and boundary tests
+- Use mocks/stubs for unit isolation
+
+### INTEGRATION_ONLY
+- Inter-component interaction tests
+- External system integration tests
+- Data flow verification
+
+### BDD_ONLY
+- User-story scenarios
+- Given-When-Then format
+- Map to business requirements
+
+### UNIT_INTEGRATION
+- Both unit and integration scenarios above
+
+### UNIT_BDD
+- Unit scenarios + BDD scenarios
+
+### INTEGRATION_BDD
+- Integration scenarios + BDD scenarios
+
+### ALL
+- Unit, integration, and BDD scenarios
+
+## Test Scenario Structure
+
+### 1. Test Strategy Summary
+- Selected strategy (from Phase 2)
+- Test scope
+- Test objectives
+
+### 2. Unit Test Scenarios (when applicable)
+For each function/method:
+- **Test case name** (function_normal/error/boundary)
+- **Purpose**
+- **Preconditions**
+- **Input**
+- **Expected result**
+- **Test data**
+
+### 3. Integration Test Scenarios (when applicable)
+For each integration point:
+- **Scenario name** (two components)
+- **Purpose**
+- **Preconditions**
+- **Test steps**
+- **Expected result**
+- **Checks**
+
+### 4. BDD Scenarios (when applicable)
+For each user story:
+- **Feature**
+- **Scenario**
+- Given / When / Then steps (use Gherkin)
+
+### 5. Test Data
+- Data used by scenarios: normal, error, boundary
+
+### 6. Test Environment Requirements
+- Needed environments (local, CI/CD, etc.)
+- External services/databases
+- Need for mocks/stubs
+
+## Quality Gates (Phase 3)
+Scenarios must satisfy:
+- [ ] **Scenarios align with the Phase 2 strategy**
+- [ ] **Main happy paths are covered**
+- [ ] **Main error paths are covered**
+- [ ] **Expected results are clear**
+
+These are mandatory; missing any requires fixes after review.
+
+## Notes
+1. **Follow the strategy**: only create test types included in Phase 2 strategy (e.g., UNIT_ONLY means no Integration/BDD)
+2. **Trace to requirements**: ensure every requirement and acceptance criterion is covered
+3. **Executable scenarios**: avoid ambiguity; include concrete inputs/outputs and verifiable expectations
+4. **Prioritize**: focus on critical paths/high-risk areas; 80% is sufficient
+5. **Review mindset**: quality gates (4 required items) must be met; avoid blockers for the next phase
+
+## Output Format
+Save the scenarios to `.ai-workflow/issue-{issue_number}/03_test_scenario/output/test-scenario.md` in Markdown with clear headings.
+
+## Start creating the scenarios

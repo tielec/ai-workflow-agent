@@ -1,0 +1,94 @@
+# Implementation Phase - Review Prompt
+
+## Review Targets
+
+- Implementation log: {implementation_document_path}
+- Implemented code: review the files listed in the log
+- Design (reference): {design_document_path}
+- Test Scenario (reference): {test_scenario_document_path}
+- Implementation Strategy (from Phase 2): **{implementation_strategy}**
+
+## Quality Gates (Phase 4)
+
+- [ ] **Implementation follows the Phase 2 design**
+- [ ] **Conforms to existing code conventions**
+- [ ] **Basic error handling is present**
+- [ ] **No obvious bugs**
+
+Notes:
+- Phase 4 covers production code only; tests are implemented in Phase 5.
+
+## Planning Checklist Alignment (required)
+
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 4:" or "## Phase 4:"); skip if none
+3. Cross-check implementation.md and the code to confirm each task is done (files created, functions implemented, subtasks completed)
+4. Update planning.md checkboxes with the Edit tool (`[ ]` → `[x]` for completed)
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do not include the full planning content in your review output—only list incomplete tasks when failing and implementation-specific feedback.
+
+## Review Mindset
+- Apply "80 points is good enough"
+- Separate blockers (cannot proceed to Test Implementation) from suggestions
+- Keep feedback constructive and actionable
+
+## Review Points
+- Alignment with design and `{implementation_strategy}`
+- Code style and convention adherence
+- Error handling and absence of obvious defects
+- Coverage of items in the implementation log
+- Risky areas or regressions to watch
+
+## Judgement Rules
+
+### PASS
+- ✅ All four quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All four quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] Implementation follows Phase 2 design: **PASS / FAIL** - (reason)
+- [ ] Conforms to code conventions: **PASS / FAIL** - (reason)
+- [ ] Basic error handling present: **PASS / FAIL** - (reason)
+- [ ] No obvious bugs: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Design/strategy alignment: ...
+- Style/conventions: ...
+- Error handling/defects: ...
+- Other notes: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

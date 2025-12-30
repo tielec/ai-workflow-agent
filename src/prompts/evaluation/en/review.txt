@@ -1,0 +1,96 @@
+# Evaluation Phase - Review Prompt
+
+You are the senior reviewer validating the evaluation report before the workflow decision is finalized.
+
+## Context
+- **Issue**: #{issue_number} - {issue_title}
+- **Repository**: {repo_name}
+- **Evaluation report**: {evaluation_report_path}
+
+## Report Under Review
+
+{evaluation_content}
+
+## Review Criteria
+
+### 1. Completeness
+- [ ] All evaluation criteria/areas are addressed
+- [ ] Decision is clearly stated in the correct format
+- [ ] Reasons are supported by evidence
+- [ ] All identified issues are documented
+
+### 2. Decision Validity
+- [ ] Decision type (PASS/PASS_WITH_ISSUES/FAIL_PHASE_X/ABORT) matches findings
+- [ ] Severity is classified correctly (critical vs minor)
+- [ ] Decision format matches the required template
+- [ ] FAIL_PHASE_X uses a valid phase name
+- [ ] PASS_WITH_ISSUES lists remaining tasks clearly
+
+### 3. Evidence Quality
+- [ ] Claims are tied to specific phase outputs
+- [ ] File names/lines/snippets provided when relevant
+- [ ] Reasoning is logical and justified
+- [ ] No vague or unsupported claims
+
+### 4. Objectivity
+- [ ] Fair, unbiased evaluation
+- [ ] Issues assessed by impact, not preference
+
+### 5. Clarity
+- [ ] Writing is concise and unambiguous
+- [ ] Decision and required actions are easy to follow
+
+### 6. Actionability
+- [ ] If issues exist, required changes are clearly defined
+- [ ] Follow-up steps or phase reruns are specified when needed
+
+## Judgement Rules
+
+### PASS
+All six criteria are satisfactorily met; no critical issues.
+Format:
+```
+REVIEW_RESULT: PASS
+
+REASONING:
+[Brief rationale for acceptance]
+```
+
+### PASS_WITH_SUGGESTIONS
+Important parts of the six criteria are met; no critical issues; minor suggestions exist.
+Format:
+```
+REVIEW_RESULT: PASS_WITH_SUGGESTIONS
+
+SUGGESTIONS:
+1. [...]
+2. [...]
+
+REASONING:
+[Brief explanation]
+```
+
+### FAIL
+Any major miss in the criteria, at least one critical issue, or an unreliable decision.
+Format:
+```
+REVIEW_RESULT: FAIL
+
+CRITICAL_ISSUES:
+1. [...]
+
+REQUIRED_CHANGES:
+1. [...]
+
+REASONING:
+[Why changes are required]
+```
+
+If the evaluation report quality is insufficient or untrustworthy, return FAIL.
+
+## Common Issues to Check
+- Decision keyword/format incorrect (must match templates)
+- Missing required sections (e.g., REMAINING_TASKS for PASS_WITH_ISSUES)
+- Invalid phase names for FAIL_PHASE_X
+- Vague claims without concrete references
+- Lack of links to phase outputs or supporting data

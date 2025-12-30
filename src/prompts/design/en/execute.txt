@@ -1,0 +1,119 @@
+# Design Phase - Execute Prompt
+
+## Task Summary
+Create a detailed design document from the requirements and GitHub Issue. In this phase you must also decide the **implementation, test, and test code strategies**.
+
+## Inputs
+
+### Planning Phase output
+- Planning Document: {planning_document_path}
+
+**Note**: If planning is available, review the development plan (implementation strategy, test strategy, risks, schedule).
+
+### Requirements Document
+{requirements_document_path}
+
+### GitHub Issue
+{issue_info}
+
+### Understand the existing codebase
+Review project structure, architecture, and coding conventions via:
+- Overall guidelines: @CLAUDE.md (if present)
+- Architecture: @ARCHITECTURE.md (if present)
+- Project README: @README.md
+- Other relevant README/CONTRIBUTION docs
+
+Capture:
+- Project purpose and architecture
+- Directory structure and components
+- Existing coding conventions/patterns
+- Development workflow
+
+## Design Steps
+
+### 1. Analyze the existing codebase
+From the requirements and Issue:
+- **Scope of impact**: which components are touched, new vs updated files, dependent components
+- **Existing patterns**: similar implementations, conventions to follow, reusable components
+
+### 2. Decide Implementation Strategy (required)
+Choose and justify one:
+- **CREATE**: entirely new functionality with no dependency on existing code
+- **EXTEND**: extend/modify existing code
+- **REFACTOR**: structural improvements without changing behavior
+
+Consider impact on existing files, number of new files, and integration depth.
+
+Output format:
+```markdown
+### Implementation Strategy: CREATE / EXTEND / REFACTOR
+
+**Rationale**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 3. Decide Test Strategy (required)
+Choose and justify one:
+- **UNIT_ONLY**, **INTEGRATION_ONLY**, **BDD_ONLY**, **UNIT_INTEGRATION**, **UNIT_BDD**, **INTEGRATION_BDD**, **ALL**
+
+Consider complexity, presence of user stories, and alignment with existing tests.
+
+Output format:
+```markdown
+### Test Strategy: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**Rationale**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 4. Decide Test Code Strategy (required)
+Choose and justify one:
+- **EXTEND_TEST**: add to existing test files
+- **CREATE_TEST**: create new test files
+- **BOTH_TEST**: both extend existing and add new
+
+Output format:
+```markdown
+### Test Code Strategy: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**Rationale**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 5. Design Document Structure
+Include these sections:
+1. **Architecture Design**: system diagram, component relationships, data flow
+2. **Implementation Strategy Decision** (from step 2)
+3. **Test Strategy Decision** (from step 3)
+4. **Test Code Strategy Decision** (from step 4)
+5. **Impact Analysis**: effect on existing code, dependency changes, migration needs
+6. **Changed/Added File List**: new files (relative paths), files to modify, files to delete
+7. **Detailed Design**: classes (if needed), key functions, data structures, interfaces
+8. **Security Considerations**: auth/authz, data protection, risks and mitigations
+9. **Non-functional Alignment**: performance, scalability, maintainability
+10. **Implementation Order**: recommended sequence with dependencies
+
+## Quality Gates (Phase 2)
+The design must satisfy:
+- [ ] **Implementation strategy rationale is documented**
+- [ ] **Test strategy rationale is documented**
+- [ ] **Impact on existing code is analyzed**
+- [ ] **Files needing changes are listed**
+- [ ] **Design is implementable**
+
+These are mandatory; a critical-thinking review will require fixes if unmet.
+
+## Notes
+1. **Respect the current project structure** and conventions
+2. **Traceability**: map design to each requirement
+3. **Implementability**: avoid ambiguous or impractical designs
+4. **State all three strategies** explicitly
+5. **Review mindset**: quality gates (5 required items) must be met; no blockers that prevent the next phase; rationales must be concrete and logical
+
+## Output Format
+Save the design to `.ai-workflow/issue-{issue_number}/02_design/output/design.md` in Markdown with clear headings. Use tables/code blocks for diagrams when helpful.
+
+## Start the design

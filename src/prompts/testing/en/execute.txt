@@ -1,0 +1,82 @@
+# Testing Phase - Execute Prompt
+
+## Task Summary
+Run the tests implemented in Phase 5 and record the results.
+
+## When this phase is considered unnecessary (Issue #411)
+
+Even if you decide test execution is unnecessary, **you must still create `test-result.md`** or the workflow will fail.
+
+**Skip criteria examples**: Phase 5 tests were skipped, docs-only changes, file deletions, minor config tweaks, or no code under test.
+
+**Required skip template**:
+```markdown
+# Test Results
+
+## Skip Decision
+Test execution is unnecessary for this issue.
+
+## Reasoning
+- (List specific reasons)
+
+## Recommendation
+Proceed to Phase 7 (Documentation).
+```
+
+If Phase 5 recorded a skip, this phase is recommended to skip as well.
+
+## Inputs
+- Planning Document: {planning_document_path}
+- Test Implementation Log (if available): {test_implementation_context}
+- Implementation Log (if available): {implementation_context}
+- Test Scenario (if available): {test_scenario_context}
+- GitHub Issue: {issue_info}
+
+## Test Execution Steps
+1. Review the test files listed in the test implementation log (paths, framework, commands).
+2. Execute the appropriate test command (examples):
+   - Pytest: `pytest tests/`
+   - Unittest: `python -m unittest discover tests/`
+   - Behave: `behave tests/features/`
+   - Or project-specific commands from @README.md / @CONTRIBUTION.md
+3. Record results in this format and save to `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`:
+```markdown
+# Test Results
+
+## Test Summary
+- Total: X
+- Passed: Y
+- Failed: Z
+- Pass rate: XX%
+
+## Conditional Output
+**If failures == 0**:
+✅ All tests passed.
+
+**If failures > 0**: list only failing tests:
+### `tests/test_xxx.py::test_function_name`
+- **Error**: (message)
+- **Stack trace**:
+  ```
+  (relevant excerpt)
+  ```
+
+Do not list successful tests.
+```
+
+## Quality Gates (Phase 6)
+- [ ] **Tests were executed**
+- [ ] **Key test cases passed**
+- [ ] **Failures (if any) are analyzed**
+
+## Notes
+1. **Environment**: ensure deps and test data are prepared.
+2. **Failure analysis**: capture errors, identify causes, and outline fixes.
+3. **Completeness**: run the full suite; note reasons for any skipped tests.
+4. **Honesty**: report successes/failures accurately.
+5. **Process rules (Issue #267)**:
+   - Do **not** kill or interrupt test processes (no KillShell/kill/Ctrl+C).
+   - Allow sufficient timeout (10+ minutes for large suites).
+   - For long runs, use background execution and check output; split runs if helpful.
+
+## Start test execution

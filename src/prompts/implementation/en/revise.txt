@@ -1,0 +1,65 @@
+# Implementation Phase - Revise Prompt
+
+## Required Action
+
+Save the updated implementation log (and corresponding code changes) with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
+```
+
+If this file does not exist, the Implementation Phase fails.
+
+---
+
+## Task Summary
+Fix the issues noted in the review and provide an improved implementation log. Apply code fixes as needed.
+
+## Original Artifact
+{implementation_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+Use this if it contains relevant details:
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Design Document: {design_document_path}
+- Test Scenario: {test_scenario_document_path}
+- Requirements: {requirements_context}
+- Implementation Strategy (Phase 2): **{implementation_strategy}**
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No implementation file exists
+1. Extract the implemented changes from the prior log if available and save as implementation.md (include file list, key changes, test status).
+2. If insufficient, reconstruct a concise log from the current code changes following the required format, then save.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: blockers are critical (e.g., diverging from design/strategy, missing error handling, obvious bugs). Fix the code and log accordingly.
+- **Apply suggestions** where reasonable to improve style, clarity, or risk coverage.
+
+## Quality Gates (Phase 4)
+After fixes, confirm:
+- [ ] **Implementation follows the Phase 2 design**
+- [ ] **Conforms to existing code conventions**
+- [ ] **Basic error handling is present**
+- [ ] **No obvious bugs**
+
+Tests are still implemented in Phase 5; keep this phase focused on production code changes and the implementation log.
+
+## Revision Policy
+1. Address blockers one by one; verify each resolution.
+2. Ensure the log matches the actual code changes.
+3. Keep existing valid content; avoid unnecessary edits.
+4. Re-run any lightweight checks needed to validate fixes, but full test code belongs to Phase 5.
+
+## Output Format
+Overwrite `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md` with the updated log.
+
+## Start the revisions

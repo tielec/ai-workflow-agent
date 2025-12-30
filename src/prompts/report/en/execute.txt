@@ -1,0 +1,66 @@
+# Report Phase - Execute Prompt
+
+## Task Summary
+Summarize all Phase 1–7 outputs into a final report for merge decision making. The report must contain everything a human needs to decide whether to merge.
+
+## Inputs
+- Planning Document: {planning_document_path}
+- Requirements (if available): {requirements_context}
+- Design (if available): {design_context}
+- Implementation Log (if available): {implementation_context}
+- Test Results (if available): {testing_context}
+- Documentation Update Log (if available): {documentation_context}
+- Test Scenario (reference): {test_scenario_context}
+- Test Implementation Log (reference): {test_implementation_context}
+
+## Report Steps
+
+### 1. Executive Summary
+Use this template:
+```markdown
+# Issue Completion Report
+
+## Executive Summary
+
+- **Issue**: #{issue_number}
+- **Title**: {issue_title}
+- **Implementation**: (1–2 sentence summary)
+- **Change size**: New X, Updated Y, Deleted Z
+- **Test results**: N total, pass rate XX%
+- **Merge recommendation**: ✅ Recommend / ⚠️ Conditional / ❌ Not recommended
+
+## Merge Checklist
+- [ ] Requirements satisfied
+- [ ] Tests passed
+- [ ] Documentation updated
+- [ ] Security risks absent/covered
+- [ ] Backward compatibility maintained
+```
+
+### 2. Risks/Notes
+List any critical risks/concerns briefly; otherwise state "None".
+
+### 3. References
+Do **not** restate each phase in full. Link to outputs instead:
+- Requirements: @.ai-workflow/issue-{issue_number}/01_requirements/output/requirements.md
+- Design: @.ai-workflow/issue-{issue_number}/02_design/output/design.md
+- Implementation: @.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
+- Test Implementation: @.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md
+- Test Results: @.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md
+- Documentation: @.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md
+
+## Quality Gates (Phase 8: Report)
+- [ ] **Changes are summarized**
+- [ ] **Information needed for merge decision is present**
+- [ ] **Steps to verify behavior are documented**
+
+## Output
+Save the final report to `.ai-workflow/issue-{issue_number}/08_report/output/report.md` in Markdown with clear headings and concise content.
+
+## Notes
+1. **Concise**: keep the executive summary within one page; include only essentials.
+2. **Objective**: base statements on facts and data; avoid emotive language.
+3. **Practical**: focus on information needed for the merge decision; use the checklist.
+4. **Review awareness**: the report will be critically reviewed; ensure the three quality gates are met.
+
+## Begin report creation

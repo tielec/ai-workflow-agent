@@ -1,0 +1,84 @@
+# Testing Phase - Review Prompt
+
+## Review Targets
+- Test result log: {test_result_document_path}
+- Test Implementation log (reference): {test_implementation_document_path}
+- Implementation log (reference): {implementation_document_path}
+- Test Scenario (reference): {test_scenario_document_path}
+
+## Quality Gates (Phase 6)
+- [ ] **Tests were executed**
+- [ ] **Key test cases passed**
+- [ ] **Failures (if any) are analyzed**
+
+## Planning Checklist Alignment (required)
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 6:" or "## Phase 6:"); skip if none
+3. Cross-check test-result.md to confirm each task is done
+4. Update planning.md checkboxes with the Edit tool
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do not include full planning content in the review output—only list incomplete tasks when failing and testing-specific feedback.
+
+## Review Mindset
+- Apply "80 points is good enough"
+- Separate blockers (cannot proceed to Documentation) from suggestions
+- Be objective; report failures honestly
+
+## Review Points
+- Execution completeness (full suite run; skips justified)
+- Pass/fail summary accuracy
+- Failure analysis quality (causes, next steps)
+- Alignment with scenarios and implemented tests
+
+## Judgement Rules
+
+### PASS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] Tests were executed: **PASS / FAIL** - (reason)
+- [ ] Key test cases passed: **PASS / FAIL** - (reason)
+- [ ] Failures are analyzed: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Execution completeness: ...
+- Results accuracy: ...
+- Failure analysis: ...
+- Other notes: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

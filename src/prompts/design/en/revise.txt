@@ -1,0 +1,110 @@
+# Design Phase - Revise Prompt
+
+## Required Action
+
+**Use the Write or Edit tool to save the design document to:**
+
+```
+.ai-workflow/issue-{issue_number}/02_design/output/design.md
+```
+
+**If this file does not exist, the Design Phase fails.**
+
+---
+
+## Task Summary
+Fix the issues noted in the review and produce an improved design document.
+
+## Original Artifact
+{design_document_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+If the log includes the design content, you may use it:
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+
+### Requirements Document
+{requirements_document_path}
+
+### GitHub Issue
+{issue_info}
+
+## Revision Instructions
+
+### Case A: No design file exists
+If no file was created previously:
+
+1. **Extract design content from the prior log** (when present)  
+   - Implementation/test strategies, impact analysis, file list, etc.  
+   - Clean it up and save as design.md
+
+2. **Create a new design** (when the log is insufficient)  
+   - Build a concise design from the requirements and planning info  
+   - Include required items (implementation/test strategies, impact, file list)  
+   - Save as design.md with the Write tool
+
+### Case B: Fixing per review feedback
+
+#### Resolve Blockers
+Issues in the review "Blockers" section are **critical**. Fix them all.
+
+Typical blockers:
+- Missing any of the three strategies (implementation/test/test code) → add them
+- Weak rationale → strengthen with concrete, logical reasons
+- Missing file list → list the files
+- Design not implementable → adjust to something feasible
+- Major security risk → add mitigations
+
+#### Consider Suggestions
+Apply suggested improvements where reasonable.
+
+Suggested priority:
+1. Changes that significantly improve design quality
+2. Documentation upgrades (e.g., diagrams)
+3. Minor wording tweaks (if time permits)
+
+## Quality Gates (Phase 2)
+After fixes, the design must satisfy:
+- [ ] **Implementation strategy rationale is documented**
+- [ ] **Test strategy rationale is documented**
+- [ ] **Impact on existing code is analyzed**
+- [ ] **Files needing changes are listed**
+- [ ] **Design is implementable**
+
+## Revision Policy
+
+### 1. Address blockers first
+Work through each blocker:
+- Read the original design
+- Locate the cited issue
+- Fix it appropriately
+- Confirm the blocker is resolved
+
+### 2. Apply suggestions (recommended)
+- Review suggestions
+- Choose feasible, effective ones
+- Update the design accordingly
+- Check overall consistency
+
+### 3. Respect the original
+- Do not change parts that were fine
+- Limit edits to what is necessary
+- Preserve good portions of the design
+
+## Post-fix Checklist
+Confirm after editing:
+1. **Blockers resolved**: all review blockers handled correctly
+2. **Quality gates met**: all five gates are satisfied
+3. **Consistency**: no new contradictions introduced
+4. **Implementability**: design is actionable; ready for the Test Scenario phase
+
+## Output Format
+Save the revised design to `.ai-workflow/issue-{issue_number}/02_design/output/design.md` (overwrite the existing file).
+
+## Start the revisions

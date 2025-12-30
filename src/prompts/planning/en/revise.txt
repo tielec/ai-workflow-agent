@@ -1,0 +1,105 @@
+# Project Plan Revision - Revise Prompt
+
+## Required Task
+**Updating the project plan is top priority.**  
+Use the Edit tool to **overwrite** `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md`, replacing old content entirely. If the file does not exist, create it with the Write tool.
+
+---
+
+## Task Summary
+
+Revise the project plan based on the review feedback.
+
+## Original Plan
+
+{planning_document_path}
+
+## Review Feedback
+
+{review_feedback}
+
+## Issue Information (reference)
+
+{issue_info}
+
+## Previous Run Log (reference)
+
+If the previous log contains the plan, use it to rebuild the file:
+
+```
+{previous_log_snippet}
+```
+
+## Revision Policy
+
+### Most Important: Overwrite the plan
+Update `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md` with the Edit tool first. Keep only the latest Issue analysis and response plan—avoid extra add-ons.
+
+Follow these guidelines:
+
+### Case A: The plan file was never created
+
+If no file was produced previously:
+
+1. **Extract the plan from the prior log** (when present)  
+   - Pull out strategy, test strategy, impact analysis, etc.  
+   - Clean it up and save as planning.md
+
+2. **Create a new plan** (when the log is insufficient)  
+   - Build a concise plan from the Issue info and requirements  
+   - Include required items (implementation strategy, test strategy, task breakdown)  
+   - Save as planning.md with the Write tool
+
+### Case B: Updating per review feedback
+
+1. **Resolve blockers (top priority)**  
+   - Fix every blocker noted in the review  
+   - Blockers are items that will certainly cause issues if you proceed (undefined strategies, bad task sizing, circular deps, etc.)
+
+2. **Apply suggestions (where reasonable)**  
+   - Incorporate improvement suggestions when sensible; not all are mandatory
+
+3. **Recheck quality gates**  
+   - After edits, confirm all gates are met:  
+   - [ ] **Implementation strategy is decided** (CREATE/EXTEND/REFACTOR)  
+   - [ ] **Test strategy is decided** (UNIT_ONLY/.../ALL)  
+   - [ ] **Test code strategy is decided** (EXTEND_TEST/CREATE_TEST/BOTH_TEST)  
+   - [ ] **Impact analysis is done**  
+   - [ ] **Task breakdown uses proper granularity** (1 task = 1–4 hours)  
+   - [ ] **Risks are identified**
+
+## How to Proceed
+
+1. **Assess the current state**: read the original plan and review feedback to understand issues
+2. **Prioritize**: address blockers first, then suggestions
+3. **Apply fixes**: edit the plan file with the Edit tool
+4. **Validate**: ensure all quality gates are satisfied after edits
+
+## Revision Checklist
+- [ ] 1. Finish understanding the current plan and feedback
+- [ ] 2. Decide actions for blockers then suggestions
+- [ ] 3. Reflect fixes and impact in the plan
+- [ ] 4. **Overwrite `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md` with the Edit tool** (required)
+- [ ] 5. Reconfirm quality gates (strategies, breakdown, risks, etc.)
+
+## Output Format
+
+Overwrite the revised plan here:
+
+```
+.ai-workflow/issue-{issue_number}/00_planning/output/planning.md
+```
+
+**Important**: Always read the existing planning.md before editing. Do not create a new file with the Write tool when the file exists.
+
+## Notes
+
+1. **Scope of changes**: focus on reported issues; avoid unnecessary edits
+2. **Keep structure**: retain the base section structure of the plan
+3. **State strategies explicitly**: implementation, test, and test-code strategies must be included
+4. **Be specific**: write changes in concrete, measurable terms
+5. **Consistency**: ensure no contradictions between sections after edits
+
+## Start the revisions
+
+Revise the project plan according to the above policy.

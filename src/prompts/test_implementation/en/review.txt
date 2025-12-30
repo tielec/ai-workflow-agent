@@ -1,0 +1,86 @@
+# Test Implementation Phase - Review Prompt
+
+## Review Targets
+- Test implementation log: {test_implementation_document_path}
+- Test files referenced in the log
+- Test Scenario (reference): {test_scenario_document_path}
+- Implementation log (reference): {implementation_document_path}
+- Test Strategy (Phase 2): **{test_strategy}**
+
+## Quality Gates (Phase 5)
+- [ ] **All Phase 3 scenarios are implemented**
+- [ ] **Test code is runnable**
+- [ ] **Test intent is clear (comments/structure)**
+
+## Planning Checklist Alignment (required)
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 5:" or "## Phase 5:"); skip if none
+3. Cross-check test-implementation.md and test files to confirm each task is done
+4. Update planning.md checkboxes with the Edit tool
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do not include full planning content in the review output—only list incomplete tasks when failing and test-specific feedback.
+
+## Review Mindset
+- Apply "80 points is good enough"
+- Separate blockers (cannot proceed to Testing) from suggestions
+- Keep feedback constructive and actionable
+
+## Review Points
+- Alignment with `{test_strategy}` and Phase 3 scenarios
+- Completeness of unit/integration/BDD tests as applicable
+- Executability (setup/mocks/data clear, tests run without missing deps)
+- Clarity of intent and assertions
+- No production-code changes introduced in this phase
+
+## Judgement Rules
+
+### PASS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] All Phase 3 scenarios implemented: **PASS / FAIL** - (reason)
+- [ ] Test code is runnable: **PASS / FAIL** - (reason)
+- [ ] Test intent is clear: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Strategy/scenario alignment: ...
+- Executability and data/mocks: ...
+- Intent/assertions clarity: ...
+- Other notes: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

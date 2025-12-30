@@ -1,0 +1,253 @@
+# Project Planning Phase - Execute Prompt
+
+## Task Summary
+
+Create a detailed project plan from the GitHub Issue information. In Phase 0 you act as the project manager so the development work can proceed in a planned and efficient way.
+
+## Issue Information
+
+{issue_info}
+
+## Project Plan Structure
+
+Build the plan with the sections below:
+
+### 1. Issue Analysis
+- **Complexity**: judge simple / moderate / complex  
+  - Simple: single file change, small feature (estimate: ~4h)  
+  - Moderate: multiple files, extend existing feature (estimate: 4–16h)  
+  - Complex: architecture change, new subsystem (estimate: 16h+)  
+- **Estimated effort**: X hours with rationale
+- **Risk level**: Low / Medium / High
+
+### 2. Implementation Strategy Decision
+
+**Important**: This section feeds Phase 2 (Design). Always fill it out.
+
+#### Implementation Strategy: CREATE / EXTEND / REFACTOR
+
+**Decision rationale**:
+- CREATE: Mostly new files/classes/modules
+- EXTEND: Mostly extending existing code (feature addition)
+- REFACTOR: Mostly structural improvements without changing behavior
+
+(Describe the concrete reasons.)
+
+#### Test Strategy: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**Decision rationale**:
+- UNIT_ONLY: Unit tests only (simple logic, no external deps)
+- INTEGRATION_ONLY: Integration tests only (external system heavy)
+- BDD_ONLY: BDD tests only (user-story centric)
+- UNIT_INTEGRATION: Unit + integration (typical feature work)
+- UNIT_BDD: Unit + BDD (end user functionality)
+- INTEGRATION_BDD: Integration + BDD (system links + user stories)
+- ALL: All levels (large or high-risk changes)
+
+(Describe the concrete reasons.)
+
+#### Test Code Strategy: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**Decision rationale**:
+- EXTEND_TEST: Add to existing tests (when extending functionality)
+- CREATE_TEST: New test files (when adding new functionality)
+- BOTH_TEST: Both extending existing and adding new
+
+(Describe the concrete reasons.)
+
+### 3. Impact Analysis
+- **Impact on existing code**: files/modules that need changes
+- **Dependency changes**: new deps or updates
+- **Migration needs**: DB schema, config changes, etc.
+
+### 4. Task Breakdown
+
+## Important: Checklist standard format (required)
+
+Tasks for every phase **must** be written as checklists. These will be used in the Review Phase to judge completion.
+
+### Standard format
+
+```markdown
+### Phase X: [name] (estimate: X~Yh)
+
+- [ ] Task X-1: [task name] (estimate)
+  - [Subtask 1]
+  - [Subtask 2]
+- [ ] Task X-2: [task name] (estimate)
+  - [Subtask 1]
+```
+
+The checklist is used to judge completion. Make each task clear and verifiable.
+
+**Good example**:
+```
+- [ ] Task 4-1: Separate CLI layer (3~5h)
+  - Create cli/commands.py
+  - Extract CLI logic from main.py
+```
+
+**Bad example**:
+```
+- [ ] Do refactoring
+```
+(Not verifiable.)
+
+### Task lists per phase
+
+List subtasks for each phase:
+
+#### Phase 1: Requirements (estimate: Xh)
+
+- [ ] Task 1-1: [task] (estimate)
+  - Subtask 1
+  - Subtask 2
+- [ ] Task 1-2: [task] (estimate)
+  - Subtask 1
+
+#### Phase 2: Design (estimate: Xh)
+
+- [ ] Task 2-1: [task] (estimate)
+  - Subtask 1
+  - Subtask 2
+
+#### Phase 3: Test Scenario (estimate: Xh)
+
+- [ ] Task 3-1: [task] (estimate)
+  - Subtask 1
+
+#### Phase 4: Implementation (estimate: Xh)
+
+- [ ] Task 4-1: [task] (estimate)
+  - Subtask 1
+  - Subtask 2
+
+#### Phase 5: Test Implementation (estimate: Xh)
+
+- [ ] Task 5-1: [task] (estimate)
+  - Subtask 1
+
+#### Phase 6: Testing (estimate: Xh)
+
+- [ ] Task 6-1: [task] (estimate)
+  - Subtask 1
+
+#### Phase 7: Documentation (estimate: Xh)
+
+- [ ] Task 7-1: [task] (estimate)
+  - Subtask 1
+
+#### Phase 8: Report (estimate: Xh)
+
+- [ ] Task 8-1: [task] (estimate)
+  - Subtask 1
+
+**Task sizing rules**:
+- One task = about 1–4 hours
+- Clear done criteria
+- Independent enough to implement/test
+- **Verifiable**: can be objectively checked in Review Phase
+
+### 5. Dependencies
+
+Show task dependencies in Mermaid:
+
+```mermaid
+graph TD
+    P1[Phase 1] --> P2[Phase 2]
+    P2 --> P3[Phase 3]
+    P3 --> P4[Phase 4]
+    P4 --> P5[Phase 5]
+    P5 --> P6[Phase 6]
+    P6 --> P7[Phase 7]
+```
+
+### 6. Risks and Mitigations
+
+List potential risks and mitigations:
+
+#### Risk 1: (name)
+- **Impact**: Low/Medium/High
+- **Likelihood**: Low/Medium/High
+- **Mitigation**: (specific action)
+
+#### Risk 2: (name)
+...
+
+**Risk categories**:
+- Technical: new tech learning, integration issues
+- Scope: unclear requirements, scope creep
+- Resource: time/people/budget constraints
+- Dependency: external systems, blockers
+
+### 7. Quality Gates
+
+Define pass criteria for each phase:
+
+#### Phase 1: Requirements
+- [ ] Functional requirements are clear
+- [ ] Acceptance criteria are defined
+- [ ] Scope is clear
+...
+
+#### Phase 2: Design
+- [ ] Implementation strategy rationale is documented
+- [ ] Test strategy rationale is documented
+...
+
+(Continue for Phases 3–7.)
+
+## Output Format
+
+Write the project plan in Markdown and save to:
+
+```
+.ai-workflow/issue-{issue_number}/00_planning/output/planning.md
+```
+
+## Quality Gate (Phase 0)
+
+The plan must satisfy all of these:
+
+- [ ] **Implementation strategy is decided** (CREATE/EXTEND/REFACTOR)
+- [ ] **Test strategy is decided** (UNIT_ONLY/.../ALL)
+- [ ] **Test code strategy is decided** (EXTEND_TEST/CREATE_TEST/BOTH_TEST)
+- [ ] **Impact analysis is done**
+- [ ] **Task breakdown uses proper granularity** (1 task = 1–4 hours)
+- [ ] **Risks are identified**
+
+These are mandatory. A critical-thinking review will require fixes if any gate is missing.
+
+## Notes
+
+1. **Implementation strategy decision**: mandatory for Phase 2  
+   - Implementation strategy: CREATE/EXTEND/REFACTOR  
+   - Test strategy: UNIT_ONLY/.../ALL  
+   - Test code strategy: EXTEND_TEST/CREATE_TEST/BOTH_TEST
+
+2. **Specificity**: avoid vague wording; make it concrete and measurable  
+   - NG: "handle appropriately", "as needed"  
+   - OK: "Perform detailed design in Phase 2", "Allow up to 3 retries"
+
+3. **Feasibility**: ensure estimates are realistic and resources sufficient  
+   - Tasks not too large (1–4 hours)  
+   - Dependencies are accurate
+
+4. **Risk coverage**: check for missed critical risks  
+   - Technical, scope, resource, dependency risks
+
+5. **Review mindset**: the plan will undergo critical-thinking review  
+   - Quality gates are top priority  
+   - No blockers that prevent moving to the next phase  
+   - Improvements welcome, blockers must be fixed
+
+## Reference Information
+
+Use these if available:
+- @CLAUDE.md - overall policy and coding guidelines
+- @ARCHITECTURE.md - architecture principles
+- @CONTRIBUTION.md - development guidelines
+- @README.md - project overview and usage
+- Other project-specific docs
+
+## Start creating the project plan

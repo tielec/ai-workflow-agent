@@ -1,0 +1,81 @@
+# Test Implementation Phase - Execute Prompt
+
+## Task Summary
+Implement test code based on the Phase 3 test scenarios and the Phase 4 implementation.
+
+**Priority: create runnable test files, not just the log.** Tests must live in the appropriate test directories for the project (e.g., `tests/unit`, `tests/integration`, `*.test.ts`, `*_test.go`, etc.).
+
+## When this phase is considered unnecessary (Issue #411)
+
+Even if you decide tests are not needed, **you must still create `test-implementation.md`** or the workflow will fail.
+
+**Skip criteria examples**: docs-only changes, file deletions only, minor config tweaks, or when no code under test exists.
+
+**Required skip template** (write to test-implementation.md):
+```markdown
+# Test Implementation
+
+## Skip Decision
+Testing is unnecessary for this issue.
+
+## Reasoning
+- (List specific reasons)
+
+## Recommendation for Next Phase
+Testing (Phase 6) is also recommended to be skipped.
+```
+
+## Inputs
+- Planning Document: {planning_document_path}
+- Test Scenario (if available): {test_scenario_context}
+- Implementation Log (if available): {implementation_context}
+- Design (if available): {design_context}
+- Requirements (if available): {requirements_context}
+- Test Strategy (Phase 2): **{test_strategy}**
+- GitHub Issue: {issue_info}
+
+## Actions by Test Strategy
+- **UNIT_ONLY**: implement unit tests only; mock external dependencies
+- **INTEGRATION_ONLY**: implement integration tests only; exercise real components/DB/API as appropriate
+- **UNIT_INTEGRATION**: implement both unit and integration tests
+- **BDD**: implement Given-When-Then BDD tests based on user stories
+- **ALL**: implement unit, integration, and BDD tests
+
+## Test Implementation Steps
+1. Review Phase 3 scenarios (happy/error/boundary).
+2. Understand Phase 4 code (classes/functions/interfaces/data structures).
+3. Implement tests:
+   - **Create test files** with project-appropriate names/locations.
+   - Write cases using clear Given-When-Then intent and assertions.
+   - Add mocks/stubs/fixtures/helpers as needed.
+4. Record the test implementation log.
+
+### Test Implementation Log Format
+Save to `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md`:
+```markdown
+# Test Implementation Report
+
+## Test Files
+| File | Test Count | Coverage Target |
+|------|------------|-----------------|
+| `tests/test_xxx.py` | X | module name |
+
+## Test Coverage
+- Unit tests: X
+- Integration tests: Y
+- BDD tests: Z (if applicable)
+- Coverage: XX% (when available)
+```
+
+## Quality Gates (Phase 5)
+- [ ] **All Phase 3 scenarios are implemented**
+- [ ] **Test code is runnable**
+- [ ] **Test intent is clear (comments/structure)**
+
+## Notes
+1. **Scope**: only add tests; do not change production code in this phase.
+2. **Independence**: tests should not depend on execution order.
+3. **Coverage focus**: cover main functionality and edge cases.
+4. **Review mindset**: quality gates (3 required items) must be met; make test intent explicit.
+
+## Start implementing tests

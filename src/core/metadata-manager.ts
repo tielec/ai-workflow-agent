@@ -12,6 +12,8 @@ import {
   EvaluationPhaseMetadata,
   DifficultyAnalysisResult,
   ModelConfigByPhase,
+  Language,
+  DEFAULT_LANGUAGE,
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
@@ -210,6 +212,18 @@ export class MetadataManager {
 
   public getModelConfig(): ModelConfigByPhase | null {
     return this.state.data.model_config ?? null;
+  }
+
+  /**
+   * Get preferred language for prompt loading (Issue #571)
+   */
+  public getLanguage(): Language {
+    const metadataLanguage = (this.state.data as WorkflowMetadata & { language?: string }).language;
+    if (metadataLanguage === 'ja' || metadataLanguage === 'en') {
+      return metadataLanguage;
+    }
+
+    return DEFAULT_LANGUAGE;
   }
 
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {

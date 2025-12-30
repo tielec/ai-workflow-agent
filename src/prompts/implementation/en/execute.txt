@@ -1,0 +1,95 @@
+# Implementation Phase - Execute Prompt
+
+## Task Summary
+Implement the actual code based on the design and test scenarios.
+
+## Inputs
+
+### Planning Phase output
+- Planning Document: {planning_document_path}
+
+**Note**: If planning exists, review the development plan (implementation/test strategies, risks, schedule).
+
+### Design Document (if available)
+{design_context}
+
+### Test Scenario (if available)
+{test_scenario_context}
+
+### Requirements Document (if available)
+{requirements_context}
+
+### Implementation Strategy (from Phase 2)
+**{implementation_strategy}**
+
+## Actions by Implementation Strategy
+
+### CREATE (new)
+- Create new files
+- Minimize impact on existing files
+- Follow the "new file list" in the design
+
+### EXTEND (expand)
+- Read and understand existing files
+- Match existing coding style
+- Follow the "files to modify" in the design
+
+### REFACTOR
+- Improve structure of existing code
+- Preserve behavior while improving quality
+- Ensure existing tests still pass
+
+## Implementation Steps
+
+1. **Understand existing code**: review the change/add file list in the design, relevant docs (README/CONTRIBUTION), and existing tests if any.
+2. **Check coding conventions**: @CONTRIBUTION.md (if present), @CLAUDE.md (if present), and existing style.
+3. **Implement**:
+   - Follow the design "Detailed Design" section
+   - Implement functions/classes/methods
+   - Add appropriate error handling
+   - Add comments/docstrings where helpful
+4. **(Phase boundary)** Test code implementation is deferred to Phase 5. Only implement production code here; refer to the test scenarios but do not write tests now.
+5. **File operations**: use Read/Write/Edit tools as needed.
+
+## Implementation Log
+
+Record the work in this format:
+
+```markdown
+# Implementation Completion Report
+
+## Changed Files
+
+| File | Change Type | Summary |
+|------|-------------|---------|
+| `path/to/file.py` | new/updated/removed | One-line summary |
+
+## Key Changes
+- (Change 1)
+- (Change 2)
+- (Change 3)
+
+## Test Status
+- Build: ✅ pass / ❌ fail
+- Lint: ✅ pass / ❌ fail
+- Smoke check: (brief note)
+```
+
+Save this to `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md`.
+
+## Quality Gates (Phase 4)
+- [ ] **Implementation follows the Phase 2 design**
+- [ ] **Conforms to existing code conventions**
+- [ ] **Basic error handling is present**
+- [ ] **No obvious bugs**
+
+Tests are implemented in Phase 5; Phase 4 covers production code only.
+
+## Notes
+1. **Follow the design**: change only files listed in the design and adhere to its approach.
+2. **Respect existing style**: keep indentation, naming, and patterns consistent.
+3. **Implement incrementally**: start with core functionality; validate as you go.
+4. **Safety**: avoid destructive actions; call out any necessary backups.
+5. **Review mindset**: quality gates are mandatory; avoid blockers for the next phase; clarify intent with concise comments when needed.
+
+## Start implementation

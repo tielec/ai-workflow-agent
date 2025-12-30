@@ -1,0 +1,258 @@
+# Requirements Phase - Review Prompt
+
+## Task Summary
+
+Review the generated requirements document with critical thinking and assess its quality.
+
+**Top priority**: After the review, write the decision keyword on the last line.
+
+## Review Target
+
+{requirements_document_path}
+
+## Quality Gates (Phase 1)
+
+The requirements must clear all of these:
+
+- [ ] **Functional requirements are clearly stated**
+- [ ] **Acceptance criteria are defined**
+- [ ] **Scope is clear**
+- [ ] **No logical contradictions**
+
+These are mandatory. If any is missing, the decision must be FAIL.
+
+## Important: Check against the Planning Phase checklist
+
+### 1. Read planning.md
+
+Open: {planning_document_path}
+
+### 2. Extract the checklist for this phase
+
+Find the section for the current phase ("### Phase 1:" or "## Phase 1:") in planning.md and pull the task checklist.
+
+If no checklist is found, skip this check.
+
+### 3. Compare with the requirements document
+
+Cross-check requirements.md to see if each task is completed.
+
+**Completion criteria**:
+- Requirement items from the task are described
+- Acceptance criteria from the task are defined
+- All subtasks are completed
+
+### 4. Update planning.md
+
+Update the checkboxes in planning.md based on the comparison:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Incomplete tasks: leave as `- [ ]`
+
+Use the Edit tool to update this phase section.
+
+### 5. Reflect the result in your judgement
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **Any incomplete task** (`[ ]` remains): FAIL  
+  - List incomplete tasks in feedback  
+  - Explain what is missing
+
+**Example (FAIL feedback)**:
+```
+## Planning Phase checklist result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 1-2: Define non-functional requirements
+  - Missing: performance requirements are not defined
+- [ ] Task 1-3: Clarify acceptance criteria
+  - Missing: acceptance criteria for each requirement are unclear
+
+Complete these tasks before resubmitting.
+```
+
+### Important: Do not include planning.md content in the review output
+
+Reading and cross-checking planning.md is required, but **do not include the full planning.md content or Planning Phase review details** in your output.
+
+Only include:
+- Evaluation of the requirements document
+- Incomplete tasks from the checklist (only when FAIL)
+- Suggestions specific to the requirements doc
+
+Do not output the full planning content.
+
+## Review Mindset
+
+Apply the "80 points is good enough" principle:
+
+1. Aim for "sufficient", not perfection
+2. Separate blockers (cannot proceed) from suggestions (nice to have)
+3. Balance practicality and business value over theoretical perfection
+4. Provide constructive feedback with concrete suggestions
+
+## Review Points
+
+Evaluate the requirements with these checks:
+
+### 1. Specificity
+- [ ] Requirements are clear and concrete
+- [ ] No vague wording ("appropriately", "as needed", etc.)
+- [ ] Numbers and criteria are stated
+
+### 2. Completeness
+- [ ] All Issue information is reflected
+- [ ] All functional requirements are covered
+- [ ] Non-functional requirements are defined appropriately
+- [ ] Constraints and assumptions are documented
+
+### 3. Verifiability
+- [ ] Each requirement is testable
+- [ ] Acceptance criteria are clearly defined
+- [ ] Success/failure conditions are identifiable
+
+### 4. Consistency
+- [ ] No contradictions between sections
+- [ ] Aligned with project policies (CLAUDE.md, ARCHITECTURE.md)
+- [ ] Considers consistency with existing systems
+
+### 5. Feasibility
+- [ ] Technically feasible
+- [ ] Considers resource constraints (time, people, budget)
+- [ ] Fits the existing tech stack
+
+### 6. Priority
+- [ ] Priorities are set appropriately
+- [ ] MVP scope is clear
+- [ ] Phased release is considered
+
+### 7. Security
+- [ ] Security requirements are defined
+- [ ] AuthN/AuthZ/encryption are considered
+- [ ] Handling of sensitive data is stated
+
+### 8. Performance
+- [ ] Performance requirements are defined
+- [ ] Response time, throughput, resource usage are stated
+
+## Decision Rules
+
+### Most Important: Quality gates are mandatory
+
+**The four gates are required. If any is missing, the result is automatically FAIL.**
+
+- Gates are the minimum bar; non-negotiable
+- "80% is good enough" applies only after gates are met
+- Do not proceed to the next phase if gates fail
+
+### Blockers vs Suggestions
+
+**Blocker**: a critical issue that prevents moving to the next phase (Design)  
+- Any quality gate unmet  
+- Functional requirements unclear so direction is undefined  
+- Logical contradictions that will cause rework  
+- Major mismatch with the Issue
+
+**Suggestion**: you can proceed but improvement is desirable  
+- Some non-functional items missing (can be added later)  
+- Better wording/structure exists  
+- Security or performance details could be richer  
+- Document structure could be improved
+
+### Judgement Options
+
+Return one of:
+
+#### PASS
+
+All of these:
+- ✅ **All 4 quality gates are met** (any miss = FAIL)
+- ✅ No blockers
+- ✅ Only trivial suggestions (typos) or none
+
+#### PASS_WITH_SUGGESTIONS
+
+All of these:
+- ✅ **All 4 quality gates are met** (any miss = FAIL)
+- ✅ No blockers
+- ✅ Work can proceed but there are points to consider
+
+#### FAIL
+
+Any of these:
+- ❌ Any quality gate is not met
+- ❌ One or more blockers exist
+- ❌ High risk of rework if proceeding as-is
+
+**Important: quality gates are absolute; missing any gate forces FAIL.**
+
+## Output Format
+
+Write the review like this:
+
+```markdown
+# Requirements Review
+
+## Quality Gate Check
+
+**Important: Give explicit PASS/FAIL for each item. If any is FAIL, the final decision is automatically FAIL.**
+
+- [ ] Functional requirements are clearly stated: **PASS / FAIL** - (reason)
+- [ ] Acceptance criteria are defined: **PASS / FAIL** - (reason)
+- [ ] Scope is clear: **PASS / FAIL** - (reason)
+- [ ] No logical contradictions: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+- PASS: all four items are PASS
+- FAIL: any of the four items is FAIL
+
+If the quality gate judgement is FAIL, the final decision is automatically FAIL.
+
+## Detailed Review
+
+### 1. Specificity
+[Notes...]
+
+### 2. Completeness
+[Notes...]
+
+### 3. Verifiability
+[Notes...]
+
+### 4. Consistency
+[Notes...]
+
+### 5. Feasibility
+[Notes...]
+
+### 6. Priority
+[Notes...]
+
+### 7. Security
+[Notes...]
+
+### 8. Performance
+[Notes...]
+
+## Blockers
+
+**Critical issues that block the next phase**
+
+[List blockers if any, otherwise "None"]
+
+## Suggestions
+
+**Improvements that can be addressed while proceeding**
+
+[List suggestions if any, otherwise "None"]
+
+## Overall Evaluation
+
+[Overall feedback...]
+
+---
+**Decision: PASS | PASS_WITH_SUGGESTIONS | FAIL**
+```
+
+**Important**: Put the decision line above as the last line.

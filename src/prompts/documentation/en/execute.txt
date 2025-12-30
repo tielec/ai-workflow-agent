@@ -1,0 +1,55 @@
+# Documentation Phase - Execute Prompt
+
+## Task Summary
+Identify and update project documents affected by the changes.
+
+## Inputs
+- Planning Document: {planning_document_path}
+- Implementation Log (if available): {implementation_context}
+- Test Results (if available): {testing_context}
+- Requirements (reference): {requirements_context}
+- Design (reference): {design_context}
+- Test Scenario (reference): {test_scenario_context}
+- Test Implementation Log (reference): {test_implementation_context}
+
+## Context/Reading Rules
+- `CLAUDE.md` (repo and user) is auto-loaded—do **not** re-read it.
+- Limit Read tool usage: load at most 3–5 files at a time; for large files use `limit: 1000-2000`.
+- Avoid re-reading files already loaded; read only relevant sections.
+- Suggested flow: list affected docs, process 1–2 high-priority files at a time, decide changes, then edit.
+
+## Documentation Update Steps
+1. Explore project docs (all `.md` except `.ai-workflow` outputs) and list those potentially affected.
+2. Decide what to update in each (README, ARCHITECTURE, CONTRIBUTION, etc.) based on implementation and tests.
+3. Apply updates following existing format/style; keep sections consistent.
+
+## Update Log
+
+Create `documentation-update-log.md` at `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md` with:
+```markdown
+# Documentation Update Report
+
+## Update Summary
+
+| File | Reason for Update |
+|------|-------------------|
+| `{filename}` | One-line reason |
+```
+List only updated docs; omit files left unchanged.
+
+## Quality Gates (Phase 7)
+- [ ] **Affected documents are identified**
+- [ ] **Needed documents are updated**
+- [ ] **Updates are recorded**
+
+## Output
+1. Update the relevant project docs directly (e.g., README.md, ARCHITECTURE.md).
+2. Save the update log to `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md`.
+
+## Notes
+1. **Thorough exploration**: review applicable `.md` files (excluding `.ai-workflow` outputs).
+2. **Decision clarity**: note why each doc was updated or left unchanged in the log.
+3. **Preserve style**: maintain existing formatting and tone.
+4. **Review awareness**: the log and docs will be critically reviewed; ensure the three quality gates are met.
+
+## Begin documentation updates

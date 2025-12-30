@@ -1,0 +1,83 @@
+# Documentation Phase - Review Prompt
+
+## Review Targets
+- Documentation update log: {documentation_update_log_path}
+- Updated documents listed in the log
+- Implementation/Test/Design/Requirements as references where needed
+
+## Quality Gates (Phase 7)
+- [ ] **Affected documents are identified**
+- [ ] **Needed documents are updated**
+- [ ] **Updates are recorded**
+
+## Planning Checklist Alignment (required)
+1. Read planning.md: {planning_document_path}
+2. Extract the checklist for this phase ("### Phase 7:" or "## Phase 7:"); skip if none
+3. Cross-check the log and documents to confirm each task is done
+4. Update planning.md checkboxes with the Edit tool
+5. Reflect in judgement: all tasks done → PASS or PASS_WITH_SUGGESTIONS; any incomplete → FAIL and list what is missing
+
+Do not include full planning content—only list incomplete tasks when failing and doc-specific feedback.
+
+## Review Mindset
+- Apply "80 points is good enough"
+- Separate blockers (cannot proceed to Report) from suggestions
+- Preserve existing document style; keep feedback actionable
+
+## Review Points
+- Coverage of affected docs based on implementation/tests
+- Accuracy and clarity of updates
+- Consistency with project style and other phases' outputs
+- Completeness of the update log (only updated files listed with reasons)
+
+## Judgement Rules
+
+### PASS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Only trivial or no suggestions
+
+### PASS_WITH_SUGGESTIONS
+- ✅ All three quality gates are met
+- ✅ No blockers
+- ✅ Can proceed but improvement points exist
+
+### FAIL
+- ❌ Any quality gate missing
+- ❌ At least one blocker
+
+Quality gates are mandatory; missing any gate forces FAIL.
+
+## Output Format
+
+```markdown
+## Quality Gate Check
+
+**Important: Mark PASS/FAIL explicitly; any FAIL makes the final decision FAIL.**
+
+- [ ] Affected documents identified: **PASS / FAIL** - (reason)
+- [ ] Needed documents updated: **PASS / FAIL** - (reason)
+- [ ] Updates recorded: **PASS / FAIL** - (reason)
+
+**Quality gate overall judgement: PASS / FAIL**
+
+## Detailed Review
+- Coverage/accuracy: ...
+- Style/consistency: ...
+- Log completeness: ...
+- Other notes: ...
+
+## Blockers
+[List if any, otherwise "None"]
+
+## Suggestions
+[List if any, otherwise "None"]
+
+## Overall Evaluation
+Summary of strengths and key improvements
+
+---
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+Put the decision line above as the last line.

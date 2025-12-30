@@ -1,0 +1,60 @@
+# Documentation Phase - Revise Prompt
+
+## Required Action
+
+Save the updated documentation update log with the Write or Edit tool to:
+
+```
+.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md
+```
+
+If this file does not exist, the Documentation Phase fails.
+
+---
+
+## Task Summary
+Fix the review feedback by updating the relevant project docs and the update log.
+
+## Original Artifact
+{documentation_update_log_path}
+
+## Review Feedback
+{review_feedback}
+
+## Previous Run Log (reference)
+```
+{previous_log_snippet}
+```
+
+## Reference Information
+- Implementation Log: {implementation_context}
+- Test Results: {testing_context}
+- Requirements/Design/Test Scenario/Test Implementation (if needed)
+- GitHub Issue: {issue_info}
+
+## Revision Instructions
+
+### Case A: No documentation-update-log file exists
+1. Identify all docs affected by the implementation/test changes.
+2. Update those docs following existing style.
+3. Create the log with the required table (file + one-line reason) and save it to the path above.
+
+### Case B: Fixing per review feedback
+- **Resolve blockers first**: missing affected docs, missing updates, or missing log entries.
+- Apply suggestions to improve clarity/consistency where reasonable.
+
+## Quality Gates (Phase 7)
+- [ ] **Affected documents are identified**
+- [ ] **Needed documents are updated**
+- [ ] **Updates are recorded**
+
+## Revision Policy
+1. Keep edits focused on impacted docs; avoid unnecessary changes.
+2. Preserve formatting and tone of each document.
+3. Ensure the log lists only updated files with concise reasons.
+4. Verify changes align with implementation and tests.
+
+## Output Format
+Overwrite `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md` with the updated log and ensure the docs themselves are updated accordingly.
+
+## Start the revisions
