@@ -25,6 +25,7 @@ import { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import { AgentExecutor } from '../phases/core/agent-executor.js';
 import { detectCodexCliAuth, isValidCodexApiKey } from '../core/helpers/codex-credentials.js';
 import { glob } from 'glob';
+import { PromptLoader } from '../core/prompt-loader.js';
 
 /**
  * Rollback コマンドのエントリーポイント
@@ -804,11 +805,7 @@ function buildAgentPrompt(
   outputFilePath: string
 ): string {
   // プロンプトテンプレートを読み込む
-  const templatePath = path.join(
-    path.dirname(new URL(import.meta.url).pathname),
-    '../prompts/rollback/auto-analyze.txt'
-  );
-  let template = fs.readFileSync(templatePath, 'utf-8');
+  let template = PromptLoader.loadPrompt('rollback', 'auto-analyze');
 
   // 変数の置き換え
   template = template.replace(/{issue_number}/g, String(issueNumber));

@@ -8,6 +8,8 @@ import type { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import type { PhaseContext } from '../../src/types/commands.js';
 import type { FinalizeContext } from '../../src/core/git/squash-manager.js';
 
+jest.resetModules();
+
 // Mock fs module before importing
 const mockMkdir = jest.fn<() => Promise<void>>();
 const mockReadFile = jest.fn<() => Promise<string>>();

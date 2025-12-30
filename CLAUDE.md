@@ -99,6 +99,11 @@ node dist/index.js execute --issue 123 --phase all
 - **Config.getLanguage()** (`src/core/config.ts`): 環境変数 `AI_WORKFLOW_LANGUAGE` からの取得とバリデーション
 - **MetadataManager** (`src/core/metadata-manager.ts`): 言語設定の永続化/取得
 
+### プロンプト/テンプレートの配置（多言語化）
+
+- プロンプトはフェーズ/コマンド別に `src/prompts/{phase|category}/{lang}/*.txt`（`ja`/`en`）へ配置。auto-issue, pr-comment, rollback, difficulty, followup, squash, content_parser, validation も同パターンで揃えています。
+- PR 本文テンプレートは `src/templates/{lang}/pr_body*_template.md` に分割。`PromptLoader` が `config.getLanguage()` を参照し、指定言語が無い場合はデフォルト（`ja`）へフォールバックします。
+
 ### Codex モデル選択（Issue #302で追加）
 
 Codex エージェントは `gpt-5.1-codex-max` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。

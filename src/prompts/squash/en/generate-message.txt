@@ -1,0 +1,50 @@
+# Commit Message Generator
+
+You are an expert in writing Conventional Commits. Create a high-quality commit message using the info below.
+
+## Issue Info
+
+**Issue**: #{issue_number}
+**Title**: {issue_title}
+
+**Body**:
+{issue_body}
+
+## Changes
+
+### Files Changed
+```
+{diff_stat}
+```
+
+### Summary
+```
+{diff_shortstat}
+```
+
+## Output Requirements
+
+Generate a commit message in this format:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+Fixes #{issue_number}
+```
+
+### Details
+- **`<type>`**: one of
+  - `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+- **`<scope>`** (optional): affected area (e.g., `git`, `metadata`, `evaluation`)
+- **`<subject>`**:
+  - <= 50 characters, imperative mood, lowercase start, no period
+- **`<body>`** (optional): why this change is needed and what it fixes
+- **`Fixes #{issue_number}`**: required issue reference
+
+## Output Instruction
+
+Write the generated commit message to `.ai-workflow/tmp/squash/commit-message.txt` using the write tool.
+
+**Important**: The message must be saved to the file.

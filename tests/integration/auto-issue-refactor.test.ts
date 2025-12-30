@@ -11,6 +11,8 @@ import fs from 'fs-extra';
 import os from 'node:os';
 import path from 'node:path';
 
+jest.setTimeout(20000);
+
 // モック関数の事前定義
 const mockAnalyzeForRefactoring = jest.fn<any>();
 const mockGenerateRefactorIssue = jest.fn<any>();

@@ -1,17 +1,15 @@
-import * as fs from 'node:fs';
 import crypto from 'node:crypto';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
-import { resolveProjectPath } from './path-utils.js';
 import type {
   LLMValidationResponse,
   ValidationCacheEntry,
   ValidationResult,
 } from '../types/auto-issue.js';
+import { PromptLoader } from './prompt-loader.js';
 
-const PROMPT_PATH = resolveProjectPath('src', 'prompts', 'validation', 'validate-instruction.txt');
 const TIMEOUT_MS = 5000;
 const MAX_RETRIES = 3;
 const MODEL = 'gpt-4o-mini';
@@ -206,10 +204,7 @@ export class InstructionValidator {
   }
 
   private static buildPrompt(instruction: string): string {
-    if (!fs.existsSync(PROMPT_PATH)) {
-      throw new Error(`Instruction validation prompt not found: ${PROMPT_PATH}`);
-    }
-    const template = fs.readFileSync(PROMPT_PATH, 'utf-8');
+    const template = PromptLoader.loadPrompt('validation', 'validate-instruction');
     return template.replaceAll('{{instruction}}', instruction);
   }
 

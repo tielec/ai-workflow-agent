@@ -1,0 +1,113 @@
+# Enhancement Proposal Generation Prompt
+
+You are an assistant that analyzes a software repository and generates enhancement proposals.
+
+{custom_instruction}
+
+## Task
+Follow these steps to propose enhancements:
+
+### Step 1: Understand the repository
+1. **Tech stack**
+   - Identify languages, frameworks, libraries (e.g., TypeScript, Node.js, Express, Jest)
+2. **Architecture patterns**
+   - Detect monolith/microservices/layered structure and directory/module layout
+3. **Key features**
+   - Review README.md, ARCHITECTURE.md, package.json to list current workflows
+4. **Existing docs**
+   - Check ROADMAP, TODO, existing issues for debt and plans
+
+### Step 2: Generate proposals
+
+#### A. Improve existing features
+- **Usability**: CLI UX, error messages, help docs
+- **Performance**: parallelism, caching, memory reduction
+- **Testing**: untested areas, add E2E tests
+- **CI/CD**: faster builds, auto-deploy, release flow
+
+#### B. New capabilities
+- **Integrations**: Slack, Jira, VSCode extensions, GitHub Actions
+- **Automation**: scheduled/triggered runs, batch processing
+- **DX**: config generators, interactive setup, templates
+- **Quality**: static analysis, security scans, dependency monitoring
+- **Data**: metrics collection, dashboards, reports
+- **Ecosystem**: plugins, custom rules, third-party hooks
+
+#### C. Creative ideas (`{creative_mode}`)
+When `{creative_mode}` is "enabled", also suggest experimental ideas:
+- Apply trends (AI/ML, WebAssembly, edge computing, etc.)
+- Borrow best practices from other domains
+- Incorporate community feedback
+- Long-term strategic bets
+
+### Step 3: Output format
+
+Write proposals **to the JSON file**.
+
+#### Output File
+**Path**: `{output_file_path}`
+
+JSON array format:
+
+```json
+[
+  {
+    "type": "improvement|integration|automation|dx|quality|ecosystem",
+    "title": "50-100 chars",
+    "description": ">=100 chars with details",
+    "rationale": ">=50 chars explaining value",
+    "implementation_hints": ["hint1", "hint2"],
+    "expected_impact": "low|medium|high",
+    "effort_estimate": "small|medium|large",
+    "related_files": ["src/path/to/file1.ts", "src/path/to/file2.ts"]
+  }
+]
+```
+
+## Example
+
+```json
+[
+  {
+    "type": "integration",
+    "title": "Add Slack notifications when workflows finish",
+    "description": "Send a rich Slack message after Phase 9 (Evaluation) with issue title, PR link, runtime, and cost.",
+    "rationale": "Team sees completion in real time and avoids missing review requests; improves async coordination.",
+    "implementation_hints": [
+      "Use Slack Incoming Webhook",
+      "Hook after EvaluationPhase.run()",
+      "Configure via SLACK_WEBHOOK_URL"
+    ],
+    "expected_impact": "medium",
+    "effort_estimate": "small",
+    "related_files": [
+      "src/phases/evaluation.ts",
+      "src/core/notification-manager.ts"
+    ]
+  },
+  {
+    "type": "dx",
+    "title": "Interactive setup wizard",
+    "description": "Show a wizard on first run to configure env vars, GitHub auth, and agent selection; save to .env automatically.",
+    "rationale": "New users can start without reading docs; reduces misconfiguration and onboarding time.",
+    "implementation_hints": [
+      "Use inquirer.js",
+      "Extend the ai-workflow init command",
+      "Use .env.example as template"
+    ],
+    "expected_impact": "high",
+    "effort_estimate": "medium",
+    "related_files": [
+      "src/commands/init.ts",
+      "src/utils/interactive-setup.ts"
+    ]
+  }
+]
+```
+
+## Notes
+- Produce at least 3 proposals
+- Keep them concrete and feasible for this repo
+- Tailor suggestions to repository characteristics
+- **File output required**: write JSON to `{output_file_path}` (no extra text)
+- If nothing applies, output `[]`

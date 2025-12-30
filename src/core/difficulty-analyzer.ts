@@ -1,10 +1,9 @@
-import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import { ClaudeAgentClient, resolveClaudeModel } from './claude-agent-client.js';
 import { CodexAgentClient, resolveCodexModel } from './codex-agent-client.js';
 import { DifficultyAnalysisResult, DifficultyLevel } from '../types.js';
-import { resolveProjectPath } from './path-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { PromptLoader } from './prompt-loader.js';
 
 export interface DifficultyAnalyzerInput {
   title: string;
@@ -18,7 +17,6 @@ export interface DifficultyAnalyzerOptions {
   workingDir: string;
 }
 
-const PROMPT_PATH = resolveProjectPath('src', 'prompts', 'difficulty', 'analyze.txt');
 const CONFIDENCE_THRESHOLD = 0.5;
 
 function isDifficultyLevel(level: unknown): level is DifficultyLevel {
@@ -116,10 +114,7 @@ export class DifficultyAnalyzer {
   }
 
   private buildPrompt(input: DifficultyAnalyzerInput): string {
-    if (!fs.existsSync(PROMPT_PATH)) {
-      throw new Error(`Difficulty prompt not found: ${PROMPT_PATH}`);
-    }
-    const template = fs.readFileSync(PROMPT_PATH, 'utf-8');
+    const template = PromptLoader.loadPrompt('difficulty', 'analyze');
     const labels = input.labels.length ? input.labels.join(', ') : '(none)';
 
     return template

@@ -9,7 +9,6 @@
 
 import path from 'node:path';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
 import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
@@ -22,9 +21,7 @@ import type {
   EnhancementProposal,
   IssueCreationResult,
 } from '../types/auto-issue.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { PromptLoader } from './prompt-loader.js';
 
 /**
  * 出力ファイルパスを生成
@@ -95,16 +92,7 @@ export class IssueGenerator {
     const issueTitle = candidate.title;
 
     // 1. プロンプトテンプレートを読み込み
-    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/generate-issue-body.txt');
-    if (!fs.existsSync(promptPath)) {
-      return {
-        success: false,
-        error: `Prompt template not found: ${promptPath}`,
-        title: issueTitle,
-      };
-    }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
+    const template = PromptLoader.loadPrompt('auto-issue', 'generate-issue-body');
 
     // 2. 出力ファイルパスを生成
     const outputFilePath = generateOutputFilePath();
@@ -301,16 +289,15 @@ ${candidate.suggestedFix}
     const title = this.generateRefactorTitle(candidate);
 
     // 1. プロンプトテンプレートを読み込み
-    const promptPath = path.resolve(
-      __dirname,
-      '../prompts/auto-issue/generate-refactor-issue-body.txt',
-    );
-    if (!fs.existsSync(promptPath)) {
-      logger.warn(`Prompt template not found: ${promptPath}. Using fallback template.`);
+    let template: string;
+    try {
+      template = PromptLoader.loadPrompt('auto-issue', 'generate-refactor-issue-body');
+    } catch (error) {
+      logger.warn(
+        `Prompt template not found: ${getErrorMessage(error)}. Using fallback template.`,
+      );
       return this.generateRefactorIssueWithFallback(candidate, dryRun);
     }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
 
     // 2. 出力ファイルパスを生成
     const outputFilePath = generateOutputFilePath();
@@ -613,16 +600,15 @@ ${candidate.suggestion}
     const title = this.generateEnhancementTitle(proposal);
 
     // 1. プロンプトテンプレートを読み込み
-    const promptPath = path.resolve(
-      __dirname,
-      '../prompts/auto-issue/generate-enhancement-issue-body.txt',
-    );
-    if (!fs.existsSync(promptPath)) {
-      logger.warn(`Prompt template not found: ${promptPath}. Using fallback template.`);
+    let template: string;
+    try {
+      template = PromptLoader.loadPrompt('auto-issue', 'generate-enhancement-issue-body');
+    } catch (error) {
+      logger.warn(
+        `Prompt template not found: ${getErrorMessage(error)}. Using fallback template.`,
+      );
       return this.generateEnhancementIssueWithFallback(proposal, dryRun);
     }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
 
     // 2. 出力ファイルパスを生成
     const outputFilePath = generateOutputFilePath();

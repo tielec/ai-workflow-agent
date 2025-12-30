@@ -9,6 +9,7 @@ import path from 'node:path';
 import { BasePhase } from '../../src/phases/base-phase.js';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 import { config } from '../../src/core/config.js';
+import { resolveLanguage } from '../../src/core/language-resolver.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import { logger } from '../../src/utils/logger.js';
 import { DEFAULT_LANGUAGE, type PhaseExecutionResult, type PhaseName } from '../../src/types.js';
@@ -56,6 +57,7 @@ describe('Prompt language switching integration', () => {
   let warnSpy: jest.SpyInstance;
   let infoSpy: jest.SpyInstance;
   let canInstallSpy: jest.SpyInstance;
+  let originalEnv: NodeJS.ProcessEnv;
 
   const createPhase = (): TestPhase =>
     new TestPhase({
@@ -72,6 +74,7 @@ describe('Prompt language switching integration', () => {
   };
 
   beforeEach(() => {
+    originalEnv = { ...process.env };
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-workflow-prompt-lang-'));
     workingDir = path.join(tempRoot, 'workspace');
     metadataPath = path.join(workingDir, '.ai-workflow', 'issue-573', 'metadata.json');
@@ -89,6 +92,7 @@ describe('Prompt language switching integration', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    process.env = originalEnv;
     if (fs.existsSync(tempRoot)) {
       fs.removeSync(tempRoot);
     }
@@ -171,5 +175,23 @@ describe('Prompt language switching integration', () => {
         });
       });
     });
+  });
+
+  test('resolves CLI language override and uses it for prompt selection', () => {
+    // Ensure CLI choice outranks env/metadata and is persisted for prompt loading
+    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+    metadataManager.setLanguage('ja');
+    const resolvedLanguage = resolveLanguage({ cliOption: 'en', metadataManager });
+    metadataManager.setLanguage(resolvedLanguage);
+
+    const phase = createPhase();
+    const prompt = phase.readPrompt('review');
+    const expected = fs.readFileSync(
+      path.join(promptsRoot, 'planning', 'en', 'review.txt'),
+      'utf-8'
+    );
+
+    expect(metadataManager.getLanguage()).toBe('en');
+    expect(prompt).toBe(expected);
   });
 });

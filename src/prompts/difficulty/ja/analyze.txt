@@ -1,0 +1,61 @@
+あなたは GitHub Issue の難易度を分析するエキスパートです。
+与えられた Issue 情報を分析し、実装の難易度を JSON 形式で返してください。
+
+## 入力情報
+
+### Issue タイトル
+{{title}}
+
+### Issue 本文
+{{body}}
+
+### Issue ラベル
+{{labels}}
+
+## 判定基準
+
+以下の基準に基づいて難易度を判定してください：
+
+### simple（軽微な変更）
+- ファイル変更数: 1-2
+- 影響範囲: 単一ファイルまたは単一モジュール内
+- テスト要件: 不要または軽微な変更のみ
+- アーキテクチャ変更: なし
+- 例: タイポ修正、設定変更、ドキュメント更新、小規模バグ修正
+
+### moderate（中規模の変更）
+- ファイル変更数: 3-10
+- 影響範囲: 複数ファイルまたは単一モジュール
+- テスト要件: 必要
+- アーキテクチャ変更: なし
+- 例: バグ修正、小機能追加、既存機能の改善
+
+### complex（大規模な変更）
+- ファイル変更数: 11以上
+- 影響範囲: 複数モジュールまたは横断的
+- テスト要件: 必須（複雑なテストケース）
+- アーキテクチャ変更: あり、または可能性あり
+- 例: 新機能実装、リファクタリング、アーキテクチャ変更
+
+## 出力フォーマット
+
+以下の JSON 形式で出力してください（コードブロックなし、純粋な JSON のみ）:
+
+{
+  "level": "simple" | "moderate" | "complex",
+  "confidence": 0.0-1.0,
+  "factors": {
+    "estimated_file_changes": <推定ファイル変更数>,
+    "scope": "single_file" | "single_module" | "multiple_modules" | "cross_cutting",
+    "requires_tests": <テスト必要性 true/false>,
+    "requires_architecture_change": <アーキテクチャ変更要否 true/false>,
+    "complexity_score": 0.0-1.0
+  }
+}
+
+## 注意事項
+
+- 判断に迷った場合は、安全側に倒して上位レベルを選択してください
+- confidence が 0.5 未満の場合、システムは自動的に complex として扱います
+- ラベルに "bug", "docs", "typo" などが含まれる場合は simple の可能性が高いです
+- ラベルに "refactor", "architecture", "breaking" などが含まれる場合は complex の可能性が高いです

@@ -9,9 +9,17 @@ const baseInput = {
 };
 
 describe('DifficultyAnalyzer', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
   beforeEach(() => {
+    originalEnv = { ...process.env };
     jest.spyOn(logger, 'warn').mockImplementation(() => {});
     jest.spyOn(logger, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   it('returns moderate difficulty with normalized factors (TC-DA-002)', async () => {
@@ -363,5 +371,33 @@ describe('DifficultyAnalyzer', () => {
     expect(result.level).toBe('complex');
     expect(result.analyzer_agent).toBe('codex');
     expect(result.analyzer_model).toBe('fallback');
+  });
+
+  // Ensure Japanese prompt is chosen when AI_WORKFLOW_LANGUAGE=ja
+  it('builds Japanese difficulty prompt when environment language is ja', () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+    const analyzer = new DifficultyAnalyzer({
+      claudeClient: null,
+      codexClient: null,
+      workingDir: process.cwd(),
+    });
+
+    const prompt = (analyzer as any).buildPrompt(baseInput);
+
+    expect(prompt).toContain('GitHub Issue の難易度を分析するエキスパート');
+  });
+
+  // Ensure English prompt is chosen when AI_WORKFLOW_LANGUAGE=en
+  it('builds English difficulty prompt when environment language is en', () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'en';
+    const analyzer = new DifficultyAnalyzer({
+      claudeClient: null,
+      codexClient: null,
+      workingDir: process.cwd(),
+    });
+
+    const prompt = (analyzer as any).buildPrompt(baseInput);
+
+    expect(prompt).toContain('expert at estimating GitHub Issue difficulty');
   });
 });

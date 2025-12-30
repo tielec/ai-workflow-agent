@@ -1,0 +1,22 @@
+Extract strategy decisions from the document below.
+
+# Document
+{document_content}
+
+# Targets
+1. **Implementation strategy**: one of CREATE, EXTEND, REFACTOR
+2. **Test strategy**: one of UNIT_ONLY, INTEGRATION_ONLY, BDD_ONLY, UNIT_INTEGRATION, UNIT_BDD, INTEGRATION_BDD, ALL
+3. **Test code strategy**: one of EXTEND_TEST, CREATE_TEST, BOTH_TEST
+
+# Output
+Return JSON only (no extra text):
+{{
+  "implementation_strategy": "CREATE",
+  "test_strategy": "UNIT_INTEGRATION",
+  "test_code_strategy": "CREATE_TEST"
+}}
+
+# Notes
+- If not stated, return null for that field
+- Output pure JSON (no ```json fences)
+- Do not add explanations or preamble

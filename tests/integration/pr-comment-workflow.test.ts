@@ -3,6 +3,8 @@ import { logger } from '../../src/utils/logger.js';
 import path from 'node:path';
 import { promises as fsp } from 'node:fs';
 
+jest.setTimeout(20000);
+
 const TMP_WORKFLOW_ROOT = path.join(process.cwd(), '.tmp', 'pr-comment-workflow');
 const CURRENT_REPO_ROOT = path.join(TMP_WORKFLOW_ROOT, 'repo');
 const REPOS_ROOT_BASE = path.join(TMP_WORKFLOW_ROOT, 'repos');

@@ -1,0 +1,90 @@
+You are a follow-up Issue author. Use the info below to produce a detailed, actionable follow-up Issue body.
+
+# Inputs
+
+## Remaining Tasks
+
+{remaining_tasks_json}
+
+## Issue Context
+
+{issue_context_json}
+
+## Evaluation Report
+Path: {evaluation_report_path}
+
+Review the evaluation report to understand why these tasks remain.
+
+# Issue Body Format
+
+Include these five sections in Markdown:
+
+## Background
+(Summarize the original issue and why tasks remain; reference the evaluation report. >=100 characters.)
+
+## Goal
+(For each task, describe the objective and expected outcome. >=100 characters.)
+
+## Execution Plan
+(For each task include: target files, concrete steps, test approach, cautions. Use numbered list or `### Task 1` style. >=200 characters.)
+
+## Acceptance Criteria
+(Completion criteria, preferably Given-When-Then. >=100 characters.)
+
+Example:
+- [ ] Given: test scenarios exist / When: run tests / Then: all tests pass
+- [ ] Given: docs updated / When: check README.md / Then: new feature is documented
+
+## References
+(Links to original issue, evaluation report, related docs. >=50 characters.)
+Example:
+- Original issue: #{issue_number}
+- Evaluation report: `{evaluation_report_path}`
+- Docs: ARCHITECTURE.md, README.md
+
+# Output Format
+
+Write the issue body **to the specified file**.
+
+## Output File
+
+**Path**: `{output_file_path}`
+
+Write raw Markdown (no code fences):
+
+```
+## Background
+...
+
+## Goal
+...
+
+## Execution Plan
+...
+
+## Acceptance Criteria
+...
+
+## References
+- Original issue: #{issue_number}
+- Evaluation report: `{evaluation_report_path}`
+```
+
+**Important**: Write to the file above, not stdout.
+
+# Critical Notes
+
+1. Write in English
+2. Be specific and actionable
+3. Include all five sections
+4. **File output required**: write Markdown to `{output_file_path}`
+5. Respect minimum lengths (Background 100, Goal 100, Execution 200, Acceptance 100, References 50)
+6. Do not wrap in ``` fences
+7. Reflect the evaluation report in Background and Goal
+
+# Tone
+
+- Concise and clear
+- Technically accurate
+- Assume an engineer reader
+- Include executable guidance
