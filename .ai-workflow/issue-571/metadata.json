@@ -257,7 +257,9 @@
     }
   },
   "created_at": "2025-12-30T02:40:49.386Z",
-  "updated_at": "2025-12-30T02:41:01.787Z",
+  "updated_at": "2025-12-30T02:41:04.602Z",
   "branch_name": "ai-workflow/issue-571",
-  "base_commit": "a1bd1532f010f611cd694b74208d211100a50d1d"
+  "base_commit": "a1bd1532f010f611cd694b74208d211100a50d1d",
+  "pr_number": 572,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/572"
 }
