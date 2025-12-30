@@ -17,6 +17,18 @@ export type StepName = 'execute' | 'review' | 'revise';
 
 export type DifficultyLevel = 'simple' | 'moderate' | 'complex';
 
+/**
+ * サポートされるワークフロー言語
+ */
+export const SUPPORTED_LANGUAGES = ['ja', 'en'] as const;
+
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+/**
+ * 未指定時に使用するデフォルト言語
+ */
+export const DEFAULT_LANGUAGE: SupportedLanguage = 'ja';
+
 export interface DifficultyAnalysisResult {
   level: DifficultyLevel;
   confidence: number;
@@ -245,6 +257,10 @@ export interface WorkflowMetadata {
     progress_comment_url?: string;
   };
   external_documents?: Record<string, string>;
+  /**
+   * ワークフロー全体で使用する言語（後方互換性のため未設定時はデフォルト適用）
+   */
+  language?: SupportedLanguage;
   created_at: string;
   updated_at: string;
   // Issue #90: 差し戻し履歴（オプショナル）

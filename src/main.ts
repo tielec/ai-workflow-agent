@@ -15,6 +15,7 @@ import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
 import { handlePRCommentAnalyzeCommand } from './commands/pr-comment/analyze.js';
 import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 
 /**
  * CLIエントリーポイント
@@ -27,6 +28,20 @@ export async function runCli(): Promise<void> {
     .description('TypeScript rewrite of the AI workflow automation toolkit')
     .version('0.1.0');
 
+  const createLanguageOption = () =>
+    new Option('--language <lang>', `Workflow language (${SUPPORTED_LANGUAGES.join('|')})`).choices(
+      [...SUPPORTED_LANGUAGES],
+    );
+
+  const applyLanguageOption = (value: unknown) => {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized) {
+        process.env.AI_WORKFLOW_LANGUAGE = normalized;
+      }
+    }
+  };
+
   // init コマンド
   program
     .command('init')
@@ -34,13 +49,16 @@ export async function runCli(): Promise<void> {
     .option('--branch <name>', 'Custom branch name (default: ai-workflow/issue-{issue_number})')
     .option('--base-branch <branch>', 'Base branch to branch from (default: current branch)')
     .option('--auto-model-selection', 'Analyze issue difficulty and select models automatically')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleInitCommand(
           options.issueUrl,
           options.branch,
           options.autoModelSelection,
           options.baseBranch,
+          options.language as SupportedLanguage | undefined,
         );
       } catch (error) {
         reportFatalError(error);
@@ -83,6 +101,7 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .addOption(createLanguageOption())
     .option(
       '--claude-model <model>',
       'Claude model (opus|sonnet|haiku or full model ID, default: opus)',
@@ -131,6 +150,7 @@ export async function runCli(): Promise<void> {
     )
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleExecuteCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -142,8 +162,10 @@ export async function runCli(): Promise<void> {
     .command('review')
     .requiredOption('--phase <name>', 'Phase name')
     .requiredOption('--issue <number>', 'Issue number')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleReviewCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -158,8 +180,10 @@ export async function runCli(): Promise<void> {
     .option('--dry-run', 'Dry run mode (do not modify files)')
     .option('--issue <number>', 'Target specific issue number')
     .option('--repo <path>', 'Target repository path')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleMigrateCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -179,8 +203,10 @@ export async function runCli(): Promise<void> {
     .option('--force', 'Skip confirmation prompt', false)
     .option('--dry-run', 'Preview changes without updating metadata', false)
     .option('--interactive', 'Interactive mode for entering rollback reason', false)
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleRollbackCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -199,8 +225,10 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleRollbackAutoCommand({
           issueNumber: Number.parseInt(options.issue, 10),
           dryRun: options.dryRun,
@@ -226,6 +254,7 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .addOption(createLanguageOption())
     .option(
       '--creative-mode',
       'Enable creative mode for enhancement proposals (experimental ideas)',
@@ -237,6 +266,7 @@ export async function runCli(): Promise<void> {
     )
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleAutoIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -251,8 +281,10 @@ export async function runCli(): Promise<void> {
     .option('--dry-run', 'Preview mode (do not delete files)', false)
     .option('--phases <range>', 'Phase range to clean up (e.g., "0-4" or "planning,requirements")')
     .option('--all', 'Delete all workflow artifacts (requires Evaluation Phase completion)', false)
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleCleanupCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -268,8 +300,10 @@ export async function runCli(): Promise<void> {
     .option('--skip-squash', 'Skip commit squash step', false)
     .option('--skip-pr-update', 'Skip PR update and draft conversion steps', false)
     .option('--base-branch <branch>', 'PR base branch (default: main)', 'main')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handleFinalizeCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -285,8 +319,10 @@ export async function runCli(): Promise<void> {
     .option('--pr-url <url>', 'Pull Request URL (e.g., https://github.com/owner/repo/pull/123)')
     .option('--issue <number>', 'Issue number to resolve PR from')
     .option('--comment-ids <ids>', 'Comma separated comment ids to include')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handlePRCommentInitCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -304,8 +340,10 @@ export async function runCli(): Promise<void> {
         .choices(['auto', 'codex', 'claude'])
         .default('auto'),
     )
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handlePRCommentAnalyzeCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -324,8 +362,10 @@ export async function runCli(): Promise<void> {
         .default('auto'),
     )
     .option('--batch-size <number>', 'Batch size for processing comments', '3')
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handlePRCommentExecuteCommand(options);
       } catch (error) {
         reportFatalError(error);
@@ -339,8 +379,10 @@ export async function runCli(): Promise<void> {
     .option('--skip-cleanup', 'Skip metadata cleanup', false)
     .option('--dry-run', 'Preview mode (do not resolve threads)', false)
     .option('--squash', 'Squash commits into a single commit', false)
+    .addOption(createLanguageOption())
     .action(async (options) => {
       try {
+        applyLanguageOption(options.language);
         await handlePRCommentFinalizeCommand(options);
       } catch (error) {
         reportFatalError(error);

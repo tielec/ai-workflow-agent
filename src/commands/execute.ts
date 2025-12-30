@@ -18,6 +18,7 @@ import { findWorkflowMetadata, getRepoRoot } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { PhaseContext, ExecuteCommandOptions } from '../types/commands.js';
 import { ModelOptimizer, ModelOverrides } from '../core/model-optimizer.js';
+import { resolveLanguage } from '../core/language-resolver.js';
 
 // 新規モジュールからインポート
 import { validateExecuteOptions, parseExecuteOptions } from './execute/options-parser.js';
@@ -88,6 +89,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     followupLlmMaxRetries,
     followupLlmAppendMetadata,
     squashOnComplete,
+    language,
   } = parsedOptions;
 
   // メタデータからリポジトリ情報を取得
@@ -120,6 +122,16 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
 
   let metadataManager = new MetadataManager(metadataPath);
   const issueNumberInt = Number.parseInt(issueNumber, 10);
+
+  const resolvedLanguage = resolveLanguage({
+    cliOption: language,
+    metadataManager,
+  });
+  process.env.AI_WORKFLOW_LANGUAGE = resolvedLanguage;
+
+  if (metadataManager.data.language !== resolvedLanguage) {
+    metadataManager.setLanguage(resolvedLanguage);
+  }
 
   // メタデータから対象リポジトリ情報を取得
   const targetRepo = metadataManager.data.target_repository;
@@ -346,6 +358,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     squashOnComplete,
     issueNumber: Number(issueNumber),
     issueInfo,
+    language: resolvedLanguage,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）

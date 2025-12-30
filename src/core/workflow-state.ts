@@ -9,6 +9,7 @@ import {
   WorkflowMetadata,
   PhasesMetadata,
   EvaluationPhaseMetadata,
+  DEFAULT_LANGUAGE,
 } from '../types.js';
 
 const formatTimestampForFilename = (date = new Date()): string => {
@@ -53,6 +54,7 @@ export class WorkflowState {
     initialData.issue_number = issueNumber;
     initialData.issue_url = issueUrl;
     initialData.issue_title = issueTitle;
+    initialData.language = DEFAULT_LANGUAGE;
     initialData.created_at = nowIso;
     initialData.updated_at = nowIso;
 
@@ -215,6 +217,12 @@ export class WorkflowState {
     if (!('model_config' in this.data)) {
       logger.info('Migrating metadata.json: Adding model_config');
       (this.data as WorkflowMetadata).model_config = null;
+      migrated = true;
+    }
+
+    if (!('language' in this.data)) {
+      logger.info('Migrating metadata.json: Adding language field');
+      (this.data as WorkflowMetadata).language = DEFAULT_LANGUAGE;
       migrated = true;
     }
 

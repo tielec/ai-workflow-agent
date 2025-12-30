@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #526**: CLI全コマンドに--language/AI_WORKFLOW_LANGUAGEを追加しワークフロー言語を一元設定可能にする
+  - 全13コマンドに `--language <ja|en>` オプションを追加
+  - 新しい環境変数 `AI_WORKFLOW_LANGUAGE` のサポート
+  - **言語設定の優先順位**: CLI オプション > 環境変数 > メタデータ > デフォルト (`ja`)
+  - **言語永続化**: `init` コマンドで指定した言語設定は `metadata.json` に保存され、後続のコマンドで引き継がれる
+  - **後方互換性**: 既存のワークフロー（`language` フィールドなし）は日本語（`ja`）として動作
+  - **バリデーション**: `ja` または `en` 以外の値が指定された場合、明確なエラーメッセージを表示
+  - 新規モジュール: `src/core/language-resolver.ts`（言語解決ヘルパー）
+  - 修正ファイル: `src/types.ts`, `src/core/config.ts`, `src/core/metadata-manager.ts`, `src/commands/execute/options-parser.ts`, `src/commands/init.ts`, `src/commands/execute.ts`, `src/main.ts`, `src/types/commands.ts`, `src/core/workflow-state.ts`
+  - テストカバレッジ: 160件のテスト（ユニット + インテグレーション、100%成功）
+
 - **Issue #512**: Jenkins Webhook仕様拡張（Issue #505の拡張）
   - DevLoop Runner仕様に合わせて追加フィールドでペイロード拡張（build_url, branch_name, pr_url, finished_at, logs_url）
   - **シグネチャ変更**: `sendWebhook()`を位置引数からMap型config引数に変更（後方互換性あり）

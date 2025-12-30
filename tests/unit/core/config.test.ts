@@ -14,7 +14,7 @@
  * - CI環境判定
  */
 
-import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Config, config } from '../../../src/core/config.js';
 
 describe('Config - GitHub関連メソッド', () => {
@@ -778,6 +778,164 @@ describe('Config - ロギング関連メソッド', () => {
 
       // Then: falseが返される
       expect(result).toBe(false);
+    });
+  });
+});
+
+describe('Config - ワークフロー言語設定 (Issue #526)', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  describe('getLanguage()', () => {
+    test('AI_WORKFLOW_LANGUAGE が en のときに en を返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = 'en';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('en');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が大文字だけでも正規化して返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = 'JA';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が ja のときに ja を返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が大文字・空白混在でも正規化して返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = '  EN ';
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('en');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が未設定ならデフォルト ja を返す', () => {
+      // Given
+      delete process.env.AI_WORKFLOW_LANGUAGE;
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が無効値なら警告を出しデフォルトにフォールバックする', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = 'fr';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid AI_WORKFLOW_LANGUAGE value 'fr'"),
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が空文字ならデフォルト ja を返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = '';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が空白のみならデフォルト ja を返す', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = '   ';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が数値文字列なら警告を出しデフォルトにフォールバックする', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = '123';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid AI_WORKFLOW_LANGUAGE value '123'"),
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    test('AI_WORKFLOW_LANGUAGE が特殊文字を含む場合は警告を出しデフォルトにフォールバックする', () => {
+      // Given
+      process.env.AI_WORKFLOW_LANGUAGE = 'ja;rm -rf';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const testConfig = new Config();
+
+      // When
+      const result = testConfig.getLanguage();
+
+      // Then
+      expect(result).toBe('ja');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid AI_WORKFLOW_LANGUAGE value 'ja;rm -rf'"),
+      );
+
+      warnSpy.mockRestore();
     });
   });
 });

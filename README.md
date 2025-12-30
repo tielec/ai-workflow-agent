@@ -41,6 +41,7 @@ ai-workflow-agent/
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
 - （任意）環境変数 `AGENT_CAN_INSTALL_PACKAGES` … エージェントがパッケージをインストール可能かどうか（Docker環境では `true`、デフォルト: `false`）
+- （任意）環境変数 `AI_WORKFLOW_LANGUAGE` … ワークフロー言語設定（`ja` | `en`、デフォルト: `ja`）
 - （任意）Docker 24 以上（コンテナ内で実行する場合）
 
 ## クイックスタート（ローカル）
@@ -60,6 +61,7 @@ export LOG_LEVEL="info"                  # （任意）ログレベル（debug|i
 export LOG_NO_COLOR="false"              # （任意）カラーリング無効化（CI環境では "true"）
 export AGENT_CAN_INSTALL_PACKAGES="false"  # （任意）パッケージインストール許可（Docker内部では "true"）
 export AI_WORKFLOW_SQUASH_ON_COMPLETE="false"  # （任意）スカッシュ機能のデフォルト動作
+export AI_WORKFLOW_LANGUAGE="ja"             # （任意）ワークフロー言語（ja|en）
 
 # Issue URL からワークフローを初期化
 node dist/index.js init \
@@ -84,7 +86,8 @@ ai-workflow init \
   --issue-url <URL> \
   [--branch <name>] \
   [--base-branch <branch>] \
-  [--auto-model-selection]
+  [--auto-model-selection] \
+  [--language <ja|en>]
 
 ai-workflow execute \
   --issue <number> \
@@ -105,7 +108,8 @@ ai-workflow execute \
   [--followup-llm-model <model>] \
   [--followup-llm-timeout <ms>] \
   [--followup-llm-max-retries <count>] \
-  [--followup-llm-append-metadata]
+  [--followup-llm-append-metadata] \
+  [--language <ja|en>]
 
 ai-workflow execute \
   --list-presets
@@ -118,17 +122,20 @@ ai-workflow auto-issue \
   [--agent auto|codex|claude] \
   [--creative-mode] \
   [--output-file <path>] \
-  [--custom-instruction <text>]
+  [--custom-instruction <text>] \
+  [--language <ja|en>]
 
 ai-workflow review \
   --phase <name> \
-  --issue <number>
+  --issue <number> \
+  [--language <ja|en>]
 
 ai-workflow migrate \
   --sanitize-tokens \
   [--dry-run] \
   [--issue <number>] \
-  [--repo <path>]
+  [--repo <path>] \
+  [--language <ja|en>]
 
 ai-workflow rollback \
   --issue <number> \
@@ -137,47 +144,55 @@ ai-workflow rollback \
   [--to-step <step>] \
   [--from-phase <phase>] \
   [--force] \
-  [--dry-run]
+  [--dry-run] \
+  [--language <ja|en>]
 
 ai-workflow rollback-auto \
   --issue <number> \
   [--dry-run] \
   [--force] \
-  [--agent auto|codex|claude]
+  [--agent auto|codex|claude] \
+  [--language <ja|en>]
 
 ai-workflow cleanup \
   --issue <number> \
   [--dry-run] \
   [--phases <range>] \
-  [--all]
+  [--all] \
+  [--language <ja|en>]
 
 ai-workflow finalize \
   --issue <number> \
   [--dry-run] \
   [--skip-squash] \
   [--skip-pr-update] \
-  [--base-branch <branch>]
+  [--base-branch <branch>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment init \
   --pr <number> | --pr-url <URL> \
-  [--dry-run]
+  [--dry-run] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment analyze \
   --pr <number> \
   [--dry-run] \
   [--agent auto|codex|claude] \
-  [--comment-ids <ids>]
+  [--comment-ids <ids>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment execute \
   --pr <number> | --pr-url <URL> \
   [--dry-run] \
   [--agent auto|codex|claude] \
-  [--batch-size <number>]
+  [--batch-size <number>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment finalize \
   --pr <number> | --pr-url <URL> \
   [--dry-run] \
-  [--squash]
+  [--squash] \
+  [--language <ja|en>]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -240,6 +255,38 @@ node dist/index.js init \
 **Jenkins 連携**:
 
 Jenkins Job DSL に `BASE_BRANCH` パラメータが追加されており、`Initialize Workflow` ステージで `--base-branch` オプションとして渡されます。
+
+### ワークフロー言語設定（Issue #526で追加）
+
+すべてのコマンドで `--language` オプションを使用して、ワークフローの出力言語を指定できます：
+
+```bash
+# 英語でワークフローを初期化
+node dist/index.js init \
+  --issue-url https://github.com/owner/repo/issues/123 \
+  --language en
+
+# 日本語でワークフローを実行（デフォルト）
+node dist/index.js execute --issue 123 --phase all --language ja
+
+# 環境変数で言語を設定
+export AI_WORKFLOW_LANGUAGE="en"
+node dist/index.js execute --issue 123 --phase all
+```
+
+**言語設定の優先順位**:
+
+1. CLI オプション `--language <ja|en>` が最優先
+2. 環境変数 `AI_WORKFLOW_LANGUAGE` は CLI 未指定時に使用
+3. メタデータ（`metadata.json` の `language` フィールド）
+4. デフォルト値 `ja`（日本語）
+
+**動作仕様**:
+
+- **言語永続化**: `init` コマンドで指定した言語設定は `metadata.json` に保存され、後続のコマンドで引き継がれます
+- **実行時更新**: `execute` コマンドで CLI オプションまたは環境変数で言語が指定された場合、メタデータが更新されます
+- **後方互換性**: 既存のワークフロー（`language` フィールドなし）は日本語（`ja`）として動作します
+- **バリデーション**: `ja` または `en` 以外の値が指定された場合、エラーメッセージを表示して処理を中断します
 
 ### エージェントモード
 

@@ -72,6 +72,33 @@ node dist/index.js execute --issue <NUM> --preset <PRESET_NAME>
 node dist/index.js list-presets
 ```
 
+### ワークフロー言語設定（Issue #526で追加）
+
+すべてのコマンドで `--language` オプションを使用して、ワークフローの出力言語を指定できます。
+
+```bash
+# 英語でワークフローを初期化
+node dist/index.js init --issue-url <URL> --language en
+
+# 日本語でワークフローを実行（デフォルト）
+node dist/index.js execute --issue 123 --phase all --language ja
+
+# 環境変数で言語を設定
+export AI_WORKFLOW_LANGUAGE="en"
+node dist/index.js execute --issue 123 --phase all
+```
+
+**優先順位**:
+- CLI オプション `--language <ja|en>` が最優先
+- 環境変数 `AI_WORKFLOW_LANGUAGE` は CLI 未指定時に使用
+- メタデータ（`metadata.json` の `language` フィールド）
+- デフォルト値 `ja`（日本語）
+
+**実装モジュール**:
+- **LanguageResolver** (`src/core/language-resolver.ts`): CLI・環境変数・メタデータを優先順位付きで解決する共通ヘルパー
+- **Config.getLanguage()** (`src/core/config.ts`): 環境変数 `AI_WORKFLOW_LANGUAGE` からの取得とバリデーション
+- **MetadataManager** (`src/core/metadata-manager.ts`): 言語設定の永続化/取得
+
 ### Codex モデル選択（Issue #302で追加）
 
 Codex エージェントは `gpt-5.1-codex-max` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。
