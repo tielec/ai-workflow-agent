@@ -26,7 +26,15 @@ export function resolveLanguage(options: LanguageResolveOptions): SupportedLangu
     return options.cliOption;
   }
 
-  // Priority 2: Metadata (if available)
+  // Priority 2: Environment variable (with validation and fallback to default)
+  // config.getLanguage() handles AI_WORKFLOW_LANGUAGE validation and DEFAULT_LANGUAGE fallback
+  const envLanguage = config.getLanguage();
+  if (envLanguage !== DEFAULT_LANGUAGE) {
+    logger.debug(`Language resolved from environment variable: ${envLanguage}`);
+    return envLanguage;
+  }
+
+  // Priority 3: Metadata (if available)
   if (options.metadataManager) {
     const metadataLanguage = options.metadataManager.getLanguage();
     if (metadataLanguage) {
@@ -35,13 +43,7 @@ export function resolveLanguage(options: LanguageResolveOptions): SupportedLangu
     }
   }
 
-  // Priority 3: Environment variable (with validation and fallback to default)
-  // config.getLanguage() already handles AI_WORKFLOW_LANGUAGE validation and DEFAULT_LANGUAGE fallback
-  const envLanguage = config.getLanguage();
-  if (envLanguage !== DEFAULT_LANGUAGE) {
-    logger.debug(`Language resolved from environment variable: ${envLanguage}`);
-  } else {
-    logger.debug(`Language resolved to default: ${DEFAULT_LANGUAGE}`);
-  }
-  return envLanguage;
+  // Priority 4: Default
+  logger.debug(`Language resolved to default: ${DEFAULT_LANGUAGE}`);
+  return DEFAULT_LANGUAGE;
 }
