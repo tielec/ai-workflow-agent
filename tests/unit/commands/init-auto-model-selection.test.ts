@@ -48,6 +48,10 @@ jest.unstable_mockModule('../../../src/core/metadata-manager.js', () => ({
     });
     getModelConfig = jest.fn(() => this.data.model_config ?? null);
     setBaseCommit = jest.fn();
+    getLanguage = jest.fn(() => this.data.language ?? null);
+    setLanguage = jest.fn((value) => {
+      this.data.language = value;
+    });
     save = jest.fn();
   },
 }));
@@ -132,6 +136,7 @@ jest.unstable_mockModule('../../../src/core/config.js', () => ({
     getLogNoColor: jest.fn(() => true),
     getClaudeModel: jest.fn(),
     getCodexModel: jest.fn(),
+    getLanguage: jest.fn(() => 'ja'),
   },
 }));
 

@@ -1,3 +1,4 @@
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../types.js';
 import type { ExecuteCommandOptions } from '../../types/commands.js';
 
 /**
@@ -90,6 +91,11 @@ export interface ParsedExecuteOptions {
    * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
    */
   codexModel?: string;
+
+  /**
+   * 言語設定（パース済み）
+   */
+  language?: SupportedLanguage;
 }
 
 /**
@@ -174,6 +180,8 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
       ? options.codexModel.trim()
       : undefined;
 
+  const language = parseLanguageOption(options.language);
+
   return {
     issueNumber,
     phaseOption,
@@ -192,6 +200,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     squashOnComplete,
     claudeModel,
     codexModel,
+    language,
   };
 }
 
@@ -256,6 +265,61 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
     const retries = Number(options.followupLlmMaxRetries);
     if (!Number.isInteger(retries) || retries < 0) {
       errors.push("Option '--followup-llm-max-retries' must be a non-negative integer.");
+    }
+  }
+
+  const languageValidation = validateLanguageOption(options.language);
+  if (!languageValidation.valid) {
+    errors.push(...languageValidation.errors);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * 言語オプションをパースして正規化
+ *
+ * @param value - CLIオプション --language の値
+ * @returns 正規化された SupportedLanguage または未指定時は undefined
+ * @throws Error - 許可されていない値が指定された場合
+ */
+export function parseLanguageOption(value: string | undefined): SupportedLanguage | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const normalized = String(value).toLowerCase().trim();
+  if (normalized === '') {
+    return undefined;
+  }
+
+  if (!SUPPORTED_LANGUAGES.includes(normalized as SupportedLanguage)) {
+    throw new Error(
+      `Invalid language option '${value}'. Allowed values: ${SUPPORTED_LANGUAGES.join(', ')}`
+    );
+  }
+
+  return normalized as SupportedLanguage;
+}
+
+/**
+ * 言語オプションのバリデーション
+ *
+ * @param value - 検証対象の値
+ * @returns バリデーション結果
+ */
+export function validateLanguageOption(value: string | undefined): ValidationResult {
+  const errors: string[] = [];
+
+  if (value !== undefined && value !== null && value !== '') {
+    const normalized = String(value).toLowerCase().trim();
+    if (!SUPPORTED_LANGUAGES.includes(normalized as SupportedLanguage)) {
+      errors.push(
+        `Option '--language' must be one of: ${SUPPORTED_LANGUAGES.join(', ')}. Got: '${value}'`,
+      );
     }
   }
 

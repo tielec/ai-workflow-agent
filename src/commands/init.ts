@@ -13,9 +13,11 @@ import { parseIssueUrl, resolveLocalRepoPath, getRepoRoot } from '../core/reposi
 import { sanitizeGitUrl } from '../utils/git-url-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { BranchValidationResult } from '../types/commands.js';
+import { resolveLanguage } from '../core/language-resolver.js';
 import { DifficultyAnalyzer } from '../core/difficulty-analyzer.js';
 import { ModelOptimizer } from '../core/model-optimizer.js';
 import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
+import type { SupportedLanguage } from '../types.js';
 
 /**
  * Gitブランチ名のバリデーション
@@ -193,7 +195,8 @@ export async function handleInitCommand(
   issueUrl: string,
   customBranch?: string,
   autoModelSelection?: boolean,
-  baseBranch?: string
+  baseBranch?: string,
+  language?: SupportedLanguage,
 ): Promise<void> {
   // Issue URLをパース
   let issueInfo;
@@ -302,6 +305,14 @@ export async function handleInitCommand(
       const state = WorkflowState.load(metadataPath);
       const migrated = state.migrate();
       const metadataManager = new MetadataManager(metadataPath);
+      const resolvedLanguage = resolveLanguage({
+        cliOption: language,
+        metadataManager,
+      });
+      process.env.AI_WORKFLOW_LANGUAGE = resolvedLanguage;
+      if (metadataManager.data.language !== resolvedLanguage) {
+        metadataManager.setLanguage(resolvedLanguage);
+      }
       metadataManager.data.branch_name = branchName;
       metadataManager.data.repository = repositoryName;
 
@@ -406,6 +417,12 @@ export async function handleInitCommand(
   WorkflowState.createNew(metadataPath, String(issueNumber), issueUrl, `Issue #${issueNumber}`);
 
   const metadataManager = new MetadataManager(metadataPath);
+  const resolvedLanguage = resolveLanguage({
+    cliOption: language,
+    metadataManager,
+  });
+  process.env.AI_WORKFLOW_LANGUAGE = resolvedLanguage;
+  metadataManager.setLanguage(resolvedLanguage);
   metadataManager.data.branch_name = branchName;
   metadataManager.data.repository = repositoryName;
 

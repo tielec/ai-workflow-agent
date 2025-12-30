@@ -13,7 +13,9 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   parseExecuteOptions,
+  parseLanguageOption,
   validateExecuteOptions,
+  validateLanguageOption,
   type ParsedExecuteOptions,
   type ValidationResult,
 } from '../../../../src/commands/execute/options-parser.js';
@@ -569,5 +571,78 @@ describe('parseExecuteOptions - codexModel オプション（Issue #302）', () 
 
     // Then: result.codexModel が '5.1' である
     expect(result.codexModel).toBe('5.1');
+  });
+});
+
+// =============================================================================
+// 言語オプション関連 (Issue #526)
+// =============================================================================
+
+describe('parseLanguageOption', () => {
+  test('ja をそのまま返す', () => {
+    expect(parseLanguageOption('ja')).toBe('ja');
+  });
+
+  test('en をそのまま返す', () => {
+    expect(parseLanguageOption('en')).toBe('en');
+  });
+
+  test('大文字や空白を正規化して返す', () => {
+    expect(parseLanguageOption('  EN ')).toBe('en');
+  });
+
+  test('未指定や空文字は undefined を返す', () => {
+    expect(parseLanguageOption(undefined)).toBeUndefined();
+    expect(parseLanguageOption('')).toBeUndefined();
+  });
+
+  test('許可されない値ならエラーを投げる', () => {
+    expect(() => parseLanguageOption('fr')).toThrow(
+      "Invalid language option 'fr'. Allowed values: ja, en",
+    );
+  });
+});
+
+describe('validateLanguageOption', () => {
+  test('ja/en はバリデーションを通過する', () => {
+    expect(validateLanguageOption('ja')).toEqual({ valid: true, errors: [] });
+    expect(validateLanguageOption('en')).toEqual({ valid: true, errors: [] });
+  });
+
+  test('未指定はバリデーションを通過する', () => {
+    expect(validateLanguageOption(undefined)).toEqual({ valid: true, errors: [] });
+  });
+
+  test('空文字列は未指定扱いでバリデーションを通過する', () => {
+    expect(validateLanguageOption('')).toEqual({ valid: true, errors: [] });
+  });
+
+  test('不正な値はエラーメッセージを返す', () => {
+    const result = validateLanguageOption('fr');
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Option '--language' must be one of: ja, en. Got: 'fr'");
+  });
+});
+
+describe('parseExecuteOptions - language フィールド', () => {
+  test('language が指定されている場合にパースされる', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+      language: 'en',
+    };
+
+    const result = parseExecuteOptions(options);
+    expect(result.language).toBe('en');
+  });
+
+  test('language が未指定の場合は undefined', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '123',
+      phase: 'all',
+    };
+
+    const result = parseExecuteOptions(options);
+    expect(result.language).toBeUndefined();
   });
 });
