@@ -232,9 +232,10 @@ describe('Issue #558 metadata preservation', () => {
       'issue_url: https://github.com/tielec/ai-code-companion/issues/49, pr_url: https://github.com/tielec/ai-code-companion/pull/51';
     const masked = metadataMasker.maskObject(input);
 
-    expect(masked).toContain('issue_url: https://');
-    expect(masked).toContain('pr_url: https://');
-    expect(masked).toContain('/issues/49');
+    // Issue #558/#564: URLs should be fully restored (no placeholders)
+    expect(masked).toContain('issue_url: https://github.com/tielec/ai-code-companion/issues/49');
+    expect(masked).toContain('pr_url: https://github.com/tielec/ai-code-companion/pull/51');
+    expect(masked).not.toContain('__GITHUB_URL_');
     expect(masked).not.toContain('[REDACTED_TOKEN]');
   });
 
@@ -244,9 +245,10 @@ describe('Issue #558 metadata preservation', () => {
     const input = `Repository: https://github.com/${longOwner}/${longRepo}/issues/123`;
     const masked = metadataMasker.maskObject(input);
 
-    expect(masked).toContain('https://__GITHUB_URL_');
+    // Issue #558/#564: URLs should be fully restored (no placeholders)
+    expect(masked).toContain(`https://github.com/${longOwner}/${longRepo}/issues/123`);
+    expect(masked).not.toContain('__GITHUB_URL_');
     expect(masked).not.toContain('[REDACTED_TOKEN]');
-    expect(masked).toContain('/issues/123');
   });
 
   test('implementation_strategyキーは colon 付きであればマスキングされない', () => {

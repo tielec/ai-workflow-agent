@@ -254,7 +254,8 @@ export class SecretMasker {
       return placeholder;
     };
 
-    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)(?:\.git)?/g;
+    // Match GitHub URLs with optional paths (issues, pull, etc.)
+    const githubUrlPattern = /github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)(?:\.git|\/(?:issues|pull)\/\d+)?/g;
     masked = masked.replace(githubUrlPattern, (match, owner, repo) => {
       const placeholder = `__GITHUB_URL_${urlIndex++}__`;
       let preservedMatch = match;

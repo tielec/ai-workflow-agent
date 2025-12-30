@@ -53,12 +53,12 @@ describe('Integration: IssueAIGenerator metadata masking (Issue #558)', () => {
     };
     const parsedMetadata = JSON.parse(sanitizedPayload.tasks[0].task);
 
-    expect(parsedMetadata.issue_url).toContain('https://');
-    expect(parsedMetadata.issue_url).toContain('/issues/49');
-    expect(parsedMetadata.issue_url).toContain('__GITHUB_URL_');
+    // Issue #558/#564: GitHub URLs should be fully restored (no placeholders)
+    expect(parsedMetadata.issue_url).toBe('https://github.com/tielec/ai-code-companion/issues/49');
+    expect(parsedMetadata.issue_url).not.toContain('__GITHUB_URL_');
     expect(parsedMetadata.issue_url).not.toContain('[REDACTED_TOKEN]');
-    expect(parsedMetadata.pr_url).toContain('https://');
-    expect(parsedMetadata.pr_url).toContain('/pull/51');
+    expect(parsedMetadata.pr_url).toBe('https://github.com/tielec/ai-code-companion/pull/51');
+    expect(parsedMetadata.pr_url).not.toContain('__GITHUB_URL_');
     expect(parsedMetadata.pr_url).not.toContain('[REDACTED_TOKEN]');
     expect(parsedMetadata.design_decisions).toBeTruthy();
     expect(Object.values(parsedMetadata.design_decisions)).toContain(null);
