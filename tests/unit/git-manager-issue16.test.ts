@@ -27,8 +27,15 @@ describe('GitManager.commitWorkflowInit() - Issue #16', () => {
   let metadataManager: MetadataManager;
   let gitManager: GitManager;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // グローバル .gitconfig へのアクセスを回避するため、HOME環境変数を一時ディレクトリに設定
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'repo-init-test');
     await fs.ensureDir(testRepoDir);
@@ -64,6 +71,13 @@ describe('GitManager.commitWorkflowInit() - Issue #16', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
@@ -140,8 +154,15 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
   let metadataManager: MetadataManager;
   let gitManager: GitManager;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // グローバル .gitconfig へのアクセスを回避するため、HOME環境変数を一時ディレクトリに設定
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home-cleanup');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'repo-cleanup-test');
     await fs.ensureDir(testRepoDir);
@@ -183,6 +204,13 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
@@ -341,8 +369,15 @@ describe('GitManager既存機能への影響検証 - Issue #16', () => {
   let metadataManager: MetadataManager;
   let gitManager: GitManager;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // グローバル .gitconfig へのアクセスを回避するため、HOME環境変数を一時ディレクトリに設定
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home-compat');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'repo-compat-test');
     await fs.ensureDir(testRepoDir);
@@ -384,6 +419,13 @@ describe('GitManager既存機能への影響検証 - Issue #16', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
