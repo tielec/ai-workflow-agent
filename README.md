@@ -41,7 +41,7 @@ ai-workflow-agent/
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
 - （任意）環境変数 `AGENT_CAN_INSTALL_PACKAGES` … エージェントがパッケージをインストール可能かどうか（Docker環境では `true`、デフォルト: `false`）
-- （任意）環境変数 `AI_WORKFLOW_LANGUAGE` … ワークフロー言語設定（`ja` | `en`、デフォルト: `ja`）
+- （任意）環境変数 `AI_WORKFLOW_LANGUAGE` … ワークフロー言語設定（`ja` | `en`、デフォルト: `ja`）。Jenkins実行時に自動設定されるか、CLI実行時に`--language`オプションで指定可能
 - （任意）Docker 24 以上（コンテナ内で実行する場合）
 
 ## クイックスタート（ローカル）
@@ -73,10 +73,13 @@ node dist/index.js execute --phase all --issue 1
 # 失敗したフェーズのみ再実行
 node dist/index.js execute --phase requirements --issue 1 --agent codex
 
+# 英語でワークフローを実行
+node dist/index.js execute --phase all --issue 1 --language en
+
 # マルチリポジトリの例: 別リポジトリのIssueに対してワークフローを実行
 node dist/index.js init \
   --issue-url https://github.com/owner/my-app/issues/123
-node dist/index.js execute --phase all --issue 123
+node dist/index.js execute --phase all --issue 123 --language ja
 ```
 
 ## CLI オプション

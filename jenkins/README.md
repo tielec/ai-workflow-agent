@@ -54,14 +54,24 @@ jenkins/
 
 | ジョブ名 | 説明 | パラメータ数 |
 |---------|------|-------------|
-| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 29 |
-| **preset** | プリセット実行（quick-fix, implementation等） | 30 |
-| **single_phase** | 単一フェーズ実行（デバッグ用） | 28 |
-| **rollback** | フェーズ差し戻し実行 | 26 |
-| **auto_issue** | 自動Issue作成 | 19 |
-| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 23 |
-| **pr_comment_execute** | PRコメント自動対応（init + execute） | 18 |
-| **pr_comment_finalize** | PRコメント解決処理（finalize） | 17 |
+| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 30 |
+| **preset** | プリセット実行（quick-fix, implementation等） | 31 |
+| **single_phase** | 単一フェーズ実行（デバッグ用） | 29 |
+| **rollback** | フェーズ差し戻し実行 | 27 |
+| **auto_issue** | 自動Issue作成 | 20 |
+| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 24 |
+| **pr_comment_execute** | PRコメント自動対応（init + execute） | 19 |
+| **pr_comment_finalize** | PRコメント解決処理（finalize） | 18 |
+
+### 言語設定
+
+すべてのジョブで**ワークフロー言語**を選択できます：
+
+- **LANGUAGE**: ワークフロー実行言語
+  - `ja`: 日本語（デフォルト）
+  - `en`: English
+
+この設定により、プロンプト、出力メッセージ、生成されるドキュメントが指定した言語で作成されます。
 
 ### Webhook通知
 

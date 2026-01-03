@@ -43,6 +43,8 @@ pipeline {
         // AI Workflow設定
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.6.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
         EXECUTION_MODE = 'pr_comment_execute'
         CODEX_HOME = ''
 
@@ -200,11 +202,13 @@ pipeline {
 
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         sh """
                             node dist/index.js pr-comment init \
                                 --pr-url ${params.PR_URL} \
-                                ${dryRunFlag}
+                                ${dryRunFlag} \
+                                ${languageOption}
                         """
                     }
                 }
@@ -226,13 +230,15 @@ pipeline {
 
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         def analyzeResult = sh(
                             script: """
                                 node dist/index.js pr-comment analyze \
                                     --pr-url ${params.PR_URL} \
                                     --agent ${params.AGENT_MODE ?: 'auto'} \
-                                    ${dryRunFlag}
+                                    ${dryRunFlag} \
+                                    ${languageOption}
                             """,
                             returnStatus: true
                         )
@@ -276,13 +282,15 @@ pipeline {
                     dir(env.WORKFLOW_DIR) {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
                         def batchSizeFlag = params.BATCH_SIZE ? "--batch-size ${params.BATCH_SIZE}" : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         sh """
                             node dist/index.js pr-comment execute \
                                 --pr-url ${params.PR_URL} \
                                 --agent ${params.AGENT_MODE ?: 'auto'} \
                                 ${dryRunFlag} \
-                                ${batchSizeFlag}
+                                ${batchSizeFlag} \
+                                ${languageOption}
                         """
                     }
                 }
