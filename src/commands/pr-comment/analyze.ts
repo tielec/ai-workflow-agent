@@ -1,4 +1,3 @@
-import * as fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -9,6 +8,7 @@ import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { config } from '../../core/config.js';
+import { PromptLoader } from '../../core/prompt-loader.js';
 import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
 import {
   getRepoRoot,
@@ -483,7 +483,7 @@ async function buildAnalyzePrompt(
   comments: CommentMetadata[],
   outputFilePath: string,
 ): Promise<string> {
-  const template = await fsp.readFile(path.join(process.cwd(), 'dist', 'prompts', 'pr-comment', 'analyze.txt'), 'utf-8');
+  const template = PromptLoader.loadPrompt('pr-comment', 'analyze');
   const metadata = await metadataManager.getMetadata();
 
   const commentBlocks: string[] = [];
@@ -491,12 +491,16 @@ async function buildAnalyzePrompt(
     commentBlocks.push(await formatCommentBlock(meta, repoRoot));
   }
 
-  return template
+  const metadataSummary = [`PR ${prNumber}: ${metadata.pr.title}`, `Repo: ${repoRoot}`, `Output: ${outputFilePath}`].join('\n');
+
+  const filledTemplate = template
     .replace('{pr_number}', String(prNumber))
     .replace('{pr_title}', metadata.pr.title)
     .replace('{repo_path}', repoRoot)
     .replace('{all_comments}', commentBlocks.join('\n\n'))
     .replace('{output_file_path}', outputFilePath);
+
+  return `${metadataSummary}\n\n${filledTemplate}`;
 }
 
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {
@@ -817,8 +821,16 @@ async function commitIfNeeded(repoRoot: string, message: string): Promise<void> 
 
   // Git設定（初回のみ）
   if (!gitConfigured) {
-    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
-    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
+    const gitUserName =
+      (typeof config.getGitCommitUserName === 'function' && config.getGitCommitUserName()) ||
+      process.env.GIT_COMMIT_USER_NAME ||
+      process.env.GIT_AUTHOR_NAME ||
+      'AI Workflow Bot';
+    const gitUserEmail =
+      (typeof config.getGitCommitUserEmail === 'function' && config.getGitCommitUserEmail()) ||
+      process.env.GIT_COMMIT_USER_EMAIL ||
+      process.env.GIT_AUTHOR_EMAIL ||
+      'ai-workflow@example.com';
 
     logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
     await git.addConfig('user.name', gitUserName);

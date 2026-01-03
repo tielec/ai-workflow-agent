@@ -5,7 +5,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 ## 特長
 
 - **Codex + Claude のデュアルエージェント** … Codex（`gpt-5.1-codex-max`）で高い推論が必要な編集を担当し、状況に応じて自動で Claude にフォールバックします。
-- **決定的なプロンプト管理** … すべてのプロンプトテンプレートは `src/prompts/{phase}/{lang}` に配置され（`ja`/`en` の多言語対応）、ビルド時に `dist` へコピーされます。
+- **決定的なプロンプト管理** … すべてのプロンプト/テンプレートは `src/prompts/{phase|category}/{lang}` と `src/templates/{lang}` に配置され（`ja`/`en` の多言語対応）、存在しない言語はデフォルト言語にフォールバックしつつビルド時に `dist` へコピーされます。
 - **永続化されたワークフロー状態** … `.ai-workflow/issue-*/metadata.json` へメタデータを保存する `MetadataManager` により、途中再開やコスト集計が可能です。
 - **マルチリポジトリ対応** … Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行できます（v0.2.0 で追加）。
 - **自動PR作成とタイトル最適化** … Issue タイトルをそのまま PR タイトルとして使用し、PR 一覧での可読性を向上（v0.3.0、Issue #73）。
@@ -23,8 +23,8 @@ ai-workflow-agent/
 ├── src/
 │   ├── core/                  # エージェント・Git/GitHub ヘルパー・メタデータ管理
 │   ├── phases/                # 各フェーズ実装（planning 〜 evaluation）
-│   ├── prompts/               # フェーズ別・言語別プロンプト（{phase}/{lang}/*.txt）
-│   ├── templates/             # PR ボディなどのテンプレート
+│   ├── prompts/               # フェーズ/コマンド別・言語別プロンプト（{phase|category}/{lang}/*.txt）
+│   ├── templates/             # PR ボディなどのテンプレート（{lang}/pr_body*.md）
 │   ├── main.ts                # CLI 定義
 │   └── index.ts               # bin エントリ
 └── dist/                      # `npm run build` 後に生成される JS

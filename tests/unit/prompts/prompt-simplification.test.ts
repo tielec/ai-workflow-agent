@@ -19,7 +19,7 @@ describe('Phase 4 (Implementation) Prompt Simplification', () => {
   let promptContent: string;
 
   beforeAll(() => {
-    const promptPath = path.join(PROMPTS_DIR, 'implementation', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'implementation', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
     promptContent = fs.readFileSync(promptPath, 'utf-8');
   });
@@ -57,7 +57,7 @@ describe('Phase 5 (Test Implementation) Prompt Simplification', () => {
   let promptContent: string;
 
   beforeAll(() => {
-    const promptPath = path.join(PROMPTS_DIR, 'test_implementation', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'test_implementation', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
     promptContent = fs.readFileSync(promptPath, 'utf-8');
   });
@@ -93,7 +93,7 @@ describe('Phase 6 (Testing) Prompt Simplification', () => {
   let promptContent: string;
 
   beforeAll(() => {
-    const promptPath = path.join(PROMPTS_DIR, 'testing', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'testing', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
     promptContent = fs.readFileSync(promptPath, 'utf-8');
   });
@@ -130,7 +130,7 @@ describe('Phase 7 (Documentation) Prompt Simplification', () => {
   let promptContent: string;
 
   beforeAll(() => {
-    const promptPath = path.join(PROMPTS_DIR, 'documentation', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'documentation', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
     promptContent = fs.readFileSync(promptPath, 'utf-8');
   });
@@ -170,7 +170,7 @@ describe('Phase 8 (Report) Prompt Simplification', () => {
   let promptContent: string;
 
   beforeAll(() => {
-    const promptPath = path.join(PROMPTS_DIR, 'report', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'report', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
     promptContent = fs.readFileSync(promptPath, 'utf-8');
   });
@@ -216,17 +216,17 @@ describe('Phase 0-2 Prompts Should Not Be Changed', () => {
   // UT-11: Phase 0-2のプロンプトファイルが変更されていないことの確認
 
   test('Phase 0 (Planning) prompt should exist', () => {
-    const promptPath = path.join(PROMPTS_DIR, 'planning', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'planning', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
   });
 
   test('Phase 1 (Requirements) prompt should exist', () => {
-    const promptPath = path.join(PROMPTS_DIR, 'requirements', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'requirements', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
   });
 
   test('Phase 2 (Design) prompt should exist', () => {
-    const promptPath = path.join(PROMPTS_DIR, 'design', 'execute.txt');
+    const promptPath = path.join(PROMPTS_DIR, 'design', 'ja', 'execute.txt');
     expect(fs.existsSync(promptPath)).toBe(true);
   });
 
@@ -239,7 +239,7 @@ describe('Build Process - Prompt Files Copy', () => {
   // Note: このテストはビルド後に実行されることを前提とする
 
   test('Phase 4 prompt should be copied to dist after build', () => {
-    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'implementation', 'execute.txt');
+    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'implementation', 'ja', 'execute.txt');
 
     // ビルドされていない場合はスキップ
     if (!fs.existsSync(DIST_PROMPTS_DIR)) {
@@ -251,7 +251,7 @@ describe('Build Process - Prompt Files Copy', () => {
 
     if (fs.existsSync(distPromptPath)) {
       const srcContent = fs.readFileSync(
-        path.join(PROMPTS_DIR, 'implementation', 'execute.txt'),
+        path.join(PROMPTS_DIR, 'implementation', 'ja', 'execute.txt'),
         'utf-8'
       );
       const distContent = fs.readFileSync(distPromptPath, 'utf-8');
@@ -260,7 +260,7 @@ describe('Build Process - Prompt Files Copy', () => {
   });
 
   test('Phase 5 prompt should be copied to dist after build', () => {
-    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'test_implementation', 'execute.txt');
+    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'test_implementation', 'ja', 'execute.txt');
 
     if (!fs.existsSync(DIST_PROMPTS_DIR)) {
       console.warn('dist/prompts/ directory does not exist. Skipping build test.');
@@ -271,7 +271,7 @@ describe('Build Process - Prompt Files Copy', () => {
 
     if (fs.existsSync(distPromptPath)) {
       const srcContent = fs.readFileSync(
-        path.join(PROMPTS_DIR, 'test_implementation', 'execute.txt'),
+        path.join(PROMPTS_DIR, 'test_implementation', 'ja', 'execute.txt'),
         'utf-8'
       );
       const distContent = fs.readFileSync(distPromptPath, 'utf-8');
@@ -280,7 +280,7 @@ describe('Build Process - Prompt Files Copy', () => {
   });
 
   test('Phase 6 prompt should be copied to dist after build', () => {
-    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'testing', 'execute.txt');
+    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'testing', 'ja', 'execute.txt');
 
     if (!fs.existsSync(DIST_PROMPTS_DIR)) {
       console.warn('dist/prompts/ directory does not exist. Skipping build test.');
@@ -291,7 +291,7 @@ describe('Build Process - Prompt Files Copy', () => {
 
     if (fs.existsSync(distPromptPath)) {
       const srcContent = fs.readFileSync(
-        path.join(PROMPTS_DIR, 'testing', 'execute.txt'),
+        path.join(PROMPTS_DIR, 'testing', 'ja', 'execute.txt'),
         'utf-8'
       );
       const distContent = fs.readFileSync(distPromptPath, 'utf-8');
@@ -300,7 +300,7 @@ describe('Build Process - Prompt Files Copy', () => {
   });
 
   test('Phase 7 prompt should be copied to dist after build', () => {
-    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'documentation', 'execute.txt');
+    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'documentation', 'ja', 'execute.txt');
 
     if (!fs.existsSync(DIST_PROMPTS_DIR)) {
       console.warn('dist/prompts/ directory does not exist. Skipping build test.');
@@ -311,7 +311,7 @@ describe('Build Process - Prompt Files Copy', () => {
 
     if (fs.existsSync(distPromptPath)) {
       const srcContent = fs.readFileSync(
-        path.join(PROMPTS_DIR, 'documentation', 'execute.txt'),
+        path.join(PROMPTS_DIR, 'documentation', 'ja', 'execute.txt'),
         'utf-8'
       );
       const distContent = fs.readFileSync(distPromptPath, 'utf-8');
@@ -320,7 +320,7 @@ describe('Build Process - Prompt Files Copy', () => {
   });
 
   test('Phase 8 prompt should be copied to dist after build', () => {
-    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'report', 'execute.txt');
+    const distPromptPath = path.join(DIST_PROMPTS_DIR, 'report', 'ja', 'execute.txt');
 
     if (!fs.existsSync(DIST_PROMPTS_DIR)) {
       console.warn('dist/prompts/ directory does not exist. Skipping build test.');
@@ -331,7 +331,7 @@ describe('Build Process - Prompt Files Copy', () => {
 
     if (fs.existsSync(distPromptPath)) {
       const srcContent = fs.readFileSync(
-        path.join(PROMPTS_DIR, 'report', 'execute.txt'),
+        path.join(PROMPTS_DIR, 'report', 'ja', 'execute.txt'),
         'utf-8'
       );
       const distContent = fs.readFileSync(distPromptPath, 'utf-8');

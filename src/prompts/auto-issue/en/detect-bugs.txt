@@ -1,0 +1,125 @@
+You are a code review expert. Detect bugs and issues in the repository below.
+
+{custom_instruction}
+
+# Target Patterns
+
+Find the following five categories (language-agnostic):
+
+1. **Missing error handling**
+   - No try/catch (Java, C#, JavaScript, etc.)
+   - Ignored error return values (Go, C, etc.)
+   - Unhandled panic (Go, Rust, etc.)
+   - Unhandled promise rejection (JavaScript/TypeScript)
+   - Uncaught exceptions (Python, Ruby, etc.)
+   - Missing error logs
+
+2. **Potential resource leaks**
+   - Unclosed file handles (all languages)
+   - Unreleased DB connections (all languages)
+   - Missing defer/finally (Go, Java, Python, etc.)
+   - RAII violations (C++)
+   - Missing context cancel handling (Go)
+   - Unremoved event listeners (JavaScript/TypeScript)
+   - Uncleared timers (JavaScript/TypeScript)
+
+3. **Concurrency issues**
+   - Race conditions (goroutines, threads, etc.)
+   - Possible deadlocks (mutex, channel, locks, etc.)
+   - Unsynchronized global access
+   - Missing atomic operations
+
+4. **Possible null/nil references**
+   - Null/Nil pointer dereference (Go, Java, C#, C/C++, etc.)
+   - Optional unchecked (Swift, Rust, etc.)
+   - Null-safety violations (Kotlin, Dart, etc.)
+
+5. **Security concerns**
+   - Hardcoded secrets (API keys, passwords, tokens)
+   - Possible SQL injection (all languages)
+   - Possible command injection (Shell, Groovy, etc.)
+   - Possible path traversal (file operations)
+   - XSS vulnerabilities (web)
+   - Direct env var usage without sanitization
+
+# Output Format
+
+Write all detected bug candidates **to the JSON file**.
+
+## Output File
+
+**Path**: `{output_file_path}`
+
+Write JSON in this structure:
+
+```json
+{
+  "bugs": [
+    {
+      "title": "Missing error handling in executeTask",
+      "file": "src/core/codex-agent-client.ts",
+      "line": 42,
+      "severity": "high",
+      "description": "executeTask() lacks error handling. API request failures may throw uncaught errors.",
+      "suggestedFix": "Add try/catch and log errors with retry handling.",
+      "category": "bug"
+    }
+  ]
+}
+```
+
+**Important**: Write JSON to the file above, not stdout.
+
+## Field Specs
+
+- **title**: 50-80 chars, Japanese or English
+- **file**: path relative to repo root
+- **line**: integer line number
+- **severity**: 'high' | 'medium' | 'low'
+- **description**: 200-500 chars describing impact
+- **suggestedFix**: 100-300 chars with a concrete fix
+- **category**: fixed to 'bug' for this phase
+
+# Repository Path
+
+{repository_path}
+
+# Exclusions
+
+Skip the following:
+
+## Directories
+- Dependencies: `node_modules/`, `vendor/`
+- VCS: `.git/`
+- Build outputs: `dist/`, `build/`, `out/`, `target/`
+- Caches: `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `coverage/`
+- Virtual env: `.venv/`, `venv/`
+- Framework: `.next/`, `.nuxt/`
+
+## File patterns
+- Generated: `*.min.js`, `*.bundle.js`, `*.generated.*`, `*.g.go`, `*.pb.go`, `*.gen.ts`
+- Lock files: `package-lock.json`, `yarn.lock`, `Gemfile.lock`, `poetry.lock`, `go.sum`, `Cargo.lock`
+- Binary: `.exe`, `.dll`, `.so`, `.dylib`, `.png`, `.jpg`, `.gif`, `.pdf`, `.zip`, `.tar`, `.gz`
+
+## Explicitly in-scope
+- Scripts: `.js`, `.jsx`, `.mjs`, `.ts`, `.tsx`, `.py`, `.rb`, `.php`, `.pl`, `.sh`, `.bash`
+- Compiled: `.go`, `.java`, `.kt`, `.rs`, `.c`, `.h`, `.cpp`, `.hpp`, `.cs`, `.swift`
+- JVM: `.groovy`, `.scala`
+- CI/CD: `Jenkinsfile`, `Dockerfile`, `Makefile`
+- Config: `.yml`, `.yaml`, `.json`, `.toml`, `.xml`
+- IaC: `.tf`, `.template`
+
+# Important Notes
+
+1. Language agnostic; include all source files
+2. Be specific: precise file paths and line numbers
+3. Prioritize by severity; report highest impact first
+4. Deduplicate findings
+5. **File output required**: write JSON to `{output_file_path}`
+6. If nothing found, output `{"bugs": []}`
+7. Respect exclusion patterns above
+
+# Constraints
+
+- Max 20 findings
+- Scope: source files minus excluded paths

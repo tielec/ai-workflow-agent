@@ -7,6 +7,7 @@ import {
   type FollowUpContext,
   type GeneratedIssue,
 } from '../../../src/core/github/issue-agent-generator.js';
+import { PromptLoader } from '../../../src/core/prompt-loader.js';
 import type { CodexAgentClient } from '../../../src/core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../../src/core/claude-agent-client.js';
 import type { RemainingTask, IssueContext } from '../../../src/types.js';
@@ -117,6 +118,51 @@ Issue #123 では FOLLOW-UP Issue 生成機能をエージェントベースに�
 - 元Issue: #123
 - Evaluation Report: \`.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md\`
 `;
+
+describe('IssueAgentGenerator prompt language switching', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+  const baseContext: FollowUpContext = {
+    remainingTasks: NORMAL_REMAINING_TASKS,
+    issueContext: ISSUE_CONTEXT_NORMAL,
+    issueNumber: 999,
+    evaluationReportPath: '.ai-workflow/issue-999/09_evaluation/output/evaluation_report.md',
+  };
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+  });
+
+  it('sends Japanese follow-up prompt when AI_WORKFLOW_LANGUAGE=ja', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const codexClient = createCodexMock();
+    const generator = new IssueAgentGenerator(codexClient, createClaudeMock());
+
+    await generator.generate(baseContext, 'codex');
+
+    expect(pathSpy).toHaveBeenCalledWith('followup', 'generate-followup-issue', 'ja');
+    const promptArg = codexClient.executeTask.mock.calls[0][0].prompt;
+    expect(promptArg).toContain('FOLLOW-UP Issue 作成アシスタント');
+  });
+
+  it('sends English follow-up prompt when AI_WORKFLOW_LANGUAGE=en', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'en';
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const codexClient = createCodexMock();
+    const generator = new IssueAgentGenerator(codexClient, createClaudeMock());
+
+    await generator.generate(baseContext, 'codex');
+
+    expect(pathSpy).toHaveBeenCalledWith('followup', 'generate-followup-issue', 'en');
+    const promptArg = codexClient.executeTask.mock.calls[0][0].prompt;
+    expect(promptArg).toContain('You are a follow-up Issue author.');
+  });
+});
 
 describe('IssueAgentGenerator.generate - Codex success', () => {
   let codexClient: CodexMock;

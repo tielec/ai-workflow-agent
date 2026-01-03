@@ -20,6 +20,7 @@ const config = {
     }],
   },
   extensionsToTreatAsEsm: ['.ts'],
+  setupFiles: ['<rootDir>/tests/setup-env.ts'],
   // ESMパッケージ（chalk、strip-ansi、ansi-regex、#ansi-styles）を変換対象に含める
   transformIgnorePatterns: [
     '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',

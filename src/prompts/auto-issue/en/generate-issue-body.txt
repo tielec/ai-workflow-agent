@@ -1,0 +1,68 @@
+Generate a GitHub Issue body from the bug candidate below.
+
+# Bug Candidate
+
+{bug_candidate_json}
+
+# Issue Body Format
+
+Produce Markdown with these five sections:
+
+## Summary
+(1-2 sentences so readers instantly grasp the bug.)
+
+## Details
+(Include: conditions to reproduce, current behavior, expected behavior, and suspected root cause.)
+
+## Impact
+(List affected features/users, any security impact, and any performance impact.)
+
+## Suggested Fix
+(Specific fix plan: target files/code areas, what to change, and how to test.)
+
+## Related Files
+(List relevant file paths with line numbers.)
+
+# Output Format
+
+Write the generated issue **to the specified file**.
+
+## Output File
+
+**Path**: `{output_file_path}`
+
+Write raw Markdown (no code fences) like:
+
+```
+## Summary
+...
+
+## Details
+...
+
+## Impact
+...
+
+## Suggested Fix
+...
+
+## Related Files
+- path (line)
+```
+
+**Important**: Write Markdown to the file above, not stdout.
+
+# Critical Notes
+
+1. Write in English
+2. Be concrete; avoid vague descriptions
+3. Include all five sections
+4. **File output required**: write Markdown to `{output_file_path}`
+5. Aim for ~200–500 characters per section
+6. Do not wrap in ``` fences
+
+# Tone
+
+- Concise and clear
+- Technically accurate terms
+- Assume an engineer reader

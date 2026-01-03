@@ -1,8 +1,5 @@
-import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
-import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../types.js';
@@ -11,6 +8,7 @@ import { getErrorMessage } from '../utils/error-utils.js';
 import { ClaudeAgentClient } from './claude-agent-client.js';
 import { CodexAgentClient } from './codex-agent-client.js';
 import { detectCodexCliAuth, isValidCodexApiKey } from './helpers/codex-credentials.js';
+import { PromptLoader } from './prompt-loader.js';
 
 interface ReviewParseResult {
   result: string;
@@ -43,7 +41,6 @@ export class ContentParser {
   private readonly mode: ContentParserMode;
   private readonly openaiModel: string;
   private readonly anthropicModel: string;
-  private readonly promptDir: string;
 
   constructor(options: { apiKey?: string; anthropicApiKey?: string; model?: string; anthropicModel?: string; mode?: ContentParserMode } = {}) {
     this.mode = options.mode ?? 'auto';
@@ -145,9 +142,6 @@ export class ContentParser {
         ].join('\n'),
       );
     }
-
-    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-    this.promptDir = path.resolve(moduleDir, '..', 'prompts', 'content_parser');
 
     // 使用するモードをログ出力
     const effectiveMode = this.getEffectiveMode();
@@ -338,11 +332,7 @@ export class ContentParser {
   }
 
   private loadPrompt(promptName: string): string {
-    const promptPath = path.join(this.promptDir, `${promptName}.txt`);
-    if (!fs.existsSync(promptPath)) {
-      throw new Error(`Prompt file not found: ${promptPath}`);
-    }
-    return fs.readFileSync(promptPath, 'utf-8');
+    return PromptLoader.loadPrompt('content_parser', promptName);
   }
 
   public async extractDesignDecisions(documentContent: string): Promise<Record<string, string>> {

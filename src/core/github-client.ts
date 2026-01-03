@@ -4,8 +4,6 @@ import { config } from './config.js';
 import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
 import { RemainingTask, IssueContext, type IssueGenerationOptions } from '../types.js';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { IssueClient, type IssueCreationResult } from './github/issue-client.js';
 import { PullRequestClient, type PullRequestSummary, type PullRequestResult } from './github/pull-request-client.js';
 import { CommentClient, type ProgressCommentResult } from './github/comment-client.js';
@@ -19,6 +17,7 @@ import {
 import { IssueAgentGenerator } from './github/issue-agent-generator.js';
 import type { CodexAgentClient } from './codex-agent-client.js';
 import type { ClaudeAgentClient } from './claude-agent-client.js';
+import { PromptLoader } from './prompt-loader.js';
 
 // Re-export types for backward compatibility
 export type {
@@ -39,15 +38,6 @@ export interface GenericResult {
   success: boolean;
   error?: string | null;
 }
-
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const PR_TEMPLATE_PATH = path.resolve(moduleDir, '..', 'templates', 'pr_body_template.md');
-const PR_DETAILED_TEMPLATE_PATH = path.resolve(
-  moduleDir,
-  '..',
-  'templates',
-  'pr_body_detailed_template.md',
-);
 
 /**
  * GitHubClient - Facade pattern for GitHub API operations
@@ -322,16 +312,16 @@ export class GitHubClient {
   // ============================================================================
 
   public generatePrBodyTemplate(issueNumber: number, branchName: string): string {
-    if (!fs.existsSync(PR_TEMPLATE_PATH)) {
+    try {
+      const template = PromptLoader.loadTemplate('pr_body_template.md');
+      return template
+        .replace(/\{issue_number\}/g, issueNumber.toString())
+        .replace(/\{branch_name\}/g, branchName);
+    } catch (error) {
       throw new Error(
-        `PR template not found: ${PR_TEMPLATE_PATH}. Please ensure the template file exists.`,
+        `Failed to load PR template: ${getErrorMessage(error)}`,
       );
     }
-
-    const template = fs.readFileSync(PR_TEMPLATE_PATH, 'utf-8');
-    return template
-      .replace(/\{issue_number\}/g, issueNumber.toString())
-      .replace(/\{branch_name\}/g, branchName);
   }
 
   public generatePrBodyDetailed(
@@ -339,25 +329,25 @@ export class GitHubClient {
     branchName: string,
     extractedInfo: Record<string, string>,
   ): string {
-    if (!fs.existsSync(PR_DETAILED_TEMPLATE_PATH)) {
+    try {
+      const template = PromptLoader.loadTemplate('pr_body_detailed_template.md');
+      return template.replace(/\{(\w+)\}/g, (_, key: string) => {
+        if (key === 'issue_number') {
+          return String(issueNumber);
+        }
+        if (key === 'branch_name') {
+          return branchName;
+        }
+        if (Object.prototype.hasOwnProperty.call(extractedInfo, key)) {
+          return extractedInfo[key] ?? '';
+        }
+        return `{${key}}`;
+      });
+    } catch (error) {
       throw new Error(
-        `Detailed PR template not found: ${PR_DETAILED_TEMPLATE_PATH}. Please ensure the template file exists.`,
+        `Failed to load detailed PR template: ${getErrorMessage(error)}`,
       );
     }
-
-    const template = fs.readFileSync(PR_DETAILED_TEMPLATE_PATH, 'utf-8');
-    return template.replace(/\{(\w+)\}/g, (_, key: string) => {
-      if (key === 'issue_number') {
-        return String(issueNumber);
-      }
-      if (key === 'branch_name') {
-        return branchName;
-      }
-      if (Object.prototype.hasOwnProperty.call(extractedInfo, key)) {
-        return extractedInfo[key] ?? '';
-      }
-      return `{${key}}`;
-    });
   }
 
   public async extractPhaseOutputs(

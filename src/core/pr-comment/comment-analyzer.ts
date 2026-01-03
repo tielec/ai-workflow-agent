@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { PromptLoader } from '../prompt-loader.js';
 import {
   CommentMetadata,
   CommentResolution,
@@ -48,12 +49,12 @@ interface RunAgentOptions {
  * レビューコメント分析エンジン
  */
 export class ReviewCommentAnalyzer {
-  private readonly promptTemplatePath: string;
+  private readonly promptsDir: string | null;
   private readonly outputDir: string;
   private readonly logFormatter: LogFormatter;
 
-  constructor(promptsDir: string, outputDir: string) {
-    this.promptTemplatePath = path.join(promptsDir, 'pr-comment', 'analyze.txt');
+  constructor(_promptsDir: string, outputDir: string) {
+    this.promptsDir = _promptsDir;
     this.outputDir = outputDir;
     this.logFormatter = new LogFormatter();
   }
@@ -118,7 +119,7 @@ export class ReviewCommentAnalyzer {
     context: AnalysisContext,
     outputFile: string,
   ): Promise<string> {
-    const template = await fs.readFile(this.promptTemplatePath, 'utf-8');
+    const template = await this.loadAnalyzeTemplate();
     const comment = commentMeta.comment;
 
     let fileContext = '';
@@ -145,6 +146,21 @@ export class ReviewCommentAnalyzer {
       .replace('{file_content}', fileContext)
       .replace('{pr_description}', context.prDescription || '(No description)')
       .replace('{output_file_path}', outputFile);
+  }
+
+  private async loadAnalyzeTemplate(): Promise<string> {
+    if (this.promptsDir) {
+      const templatePath = path.join(this.promptsDir, 'pr-comment', 'analyze.txt');
+      try {
+        return await fs.readFile(templatePath, 'utf-8');
+      } catch (error) {
+        logger.debug(
+          `Failed to read analyze prompt from ${templatePath}, falling back to default: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+
+    return PromptLoader.loadPrompt('pr-comment', 'analyze');
   }
 
   /**

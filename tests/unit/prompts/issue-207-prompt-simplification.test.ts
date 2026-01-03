@@ -22,7 +22,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('UT-1: Phase 4 Implementation Prompt Loading', () => {
     it('should contain simplified format instructions for implementation phase', () => {
       // Given: Phase 4のプロンプトファイルパス
-      const promptPath = path.join(srcPromptsDir, 'implementation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'implementation', 'ja', 'execute.txt');
 
       // When: プロンプトファイルを読み込む
       expect(fs.existsSync(promptPath)).toBe(true);
@@ -38,7 +38,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should contain table format instructions', () => {
-      const promptPath = path.join(srcPromptsDir, 'implementation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'implementation', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: テーブルフォーマット指示が含まれる
@@ -52,7 +52,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('UT-2: Phase 5 Test Implementation Prompt Loading', () => {
     it('should contain simplified format instructions for test implementation phase', () => {
       // Given: Phase 5のプロンプトファイルパス
-      const promptPath = path.join(srcPromptsDir, 'test_implementation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'test_implementation', 'ja', 'execute.txt');
 
       // When: プロンプトファイルを読み込む
       expect(fs.existsSync(promptPath)).toBe(true);
@@ -68,7 +68,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should contain table format instructions for test files', () => {
-      const promptPath = path.join(srcPromptsDir, 'test_implementation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'test_implementation', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: テーブルフォーマット指示が含まれる
@@ -82,7 +82,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('UT-3: Phase 6 Testing Prompt Loading', () => {
     it('should contain conditional format instructions (success/failure)', () => {
       // Given: Phase 6のプロンプトファイルパス
-      const promptPath = path.join(srcPromptsDir, 'testing', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'testing', 'ja', 'execute.txt');
 
       // When: プロンプトファイルを読み込む
       expect(fs.existsSync(promptPath)).toBe(true);
@@ -100,7 +100,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should contain summary format instructions', () => {
-      const promptPath = path.join(srcPromptsDir, 'testing', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'testing', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: サマリー形式の指示が含まれる
@@ -114,7 +114,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('UT-4: Phase 7 Documentation Prompt Loading', () => {
     it('should contain simplified format instructions for documentation phase', () => {
       // Given: Phase 7のプロンプトファイルパス
-      const promptPath = path.join(srcPromptsDir, 'documentation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'documentation', 'ja', 'execute.txt');
 
       // When: プロンプトファイルを読み込む
       expect(fs.existsSync(promptPath)).toBe(true);
@@ -132,7 +132,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should contain table format instructions for documentation updates', () => {
-      const promptPath = path.join(srcPromptsDir, 'documentation', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'documentation', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: テーブルフォーマット指示が含まれる
@@ -144,9 +144,9 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   // Issue #388: Documentation prompt length guidance
   // ========================================
   describe('Issue #388: Documentation prompt length guidance', () => {
-    const documentationPromptPath = path.join(srcPromptsDir, 'documentation', 'execute.txt');
-    const documentationReviewPath = path.join(srcPromptsDir, 'documentation', 'review.txt');
-    const documentationRevisePath = path.join(srcPromptsDir, 'documentation', 'revise.txt');
+    const documentationPromptPath = path.join(srcPromptsDir, 'documentation', 'ja', 'execute.txt');
+    const documentationReviewPath = path.join(srcPromptsDir, 'documentation', 'ja', 'review.txt');
+    const documentationRevisePath = path.join(srcPromptsDir, 'documentation', 'ja', 'revise.txt');
     const troubleshootingPath = path.join(projectRoot, 'TROUBLESHOOTING.md');
 
     let documentationPrompt: string;
@@ -241,7 +241,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('UT-5: Phase 8 Report Prompt Loading', () => {
     it('should contain executive summary and @references format instructions', () => {
       // Given: Phase 8のプロンプトファイルパス
-      const promptPath = path.join(srcPromptsDir, 'report', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'report', 'ja', 'execute.txt');
 
       // When: プロンプトファイルを読み込む
       expect(fs.existsSync(promptPath)).toBe(true);
@@ -261,7 +261,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should contain merge checklist format', () => {
-      const promptPath = path.join(srcPromptsDir, 'report', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'report', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: マージチェックリストが含まれる
@@ -270,7 +270,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should NOT contain detailed phase summary sections', () => {
-      const promptPath = path.join(srcPromptsDir, 'report', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'report', 'ja', 'execute.txt');
       const content = fs.readFileSync(promptPath, 'utf-8');
 
       // Then: 削除された詳細再掲載セクションが含まれない
@@ -295,8 +295,8 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     phases.forEach(({ phase, dir }) => {
       it(`UT-${6 + phases.indexOf({ phase, dir })}: ${phase} prompt should exist in dist/ after build`, () => {
         // Given: ビルド後のdist/prompts/ディレクトリ
-        const srcPromptPath = path.join(srcPromptsDir, dir, 'execute.txt');
-        const distPromptPath = path.join(distPromptsDir, dir, 'execute.txt');
+        const srcPromptPath = path.join(srcPromptsDir, dir, 'ja', 'execute.txt');
+        const distPromptPath = path.join(distPromptsDir, dir, 'ja', 'execute.txt');
 
         // When: ビルドが実行されている場合
         if (!fs.existsSync(distPromptsDir)) {
@@ -330,7 +330,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
       ];
 
       earlyPhases.forEach(({ phase, dir }) => {
-        const promptPath = path.join(srcPromptsDir, dir, 'execute.txt');
+        const promptPath = path.join(srcPromptsDir, dir, 'ja', 'execute.txt');
 
         // When: プロンプトファイルが存在する
         expect(fs.existsSync(promptPath)).toBe(true);
@@ -344,9 +344,9 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
     });
 
     it('should verify that Phase 0-2 prompts still contain detailed sections', () => {
-      const planningPath = path.join(srcPromptsDir, 'planning', 'execute.txt');
-      const requirementsPath = path.join(srcPromptsDir, 'requirements', 'execute.txt');
-      const designPath = path.join(srcPromptsDir, 'design', 'execute.txt');
+      const planningPath = path.join(srcPromptsDir, 'planning', 'ja', 'execute.txt');
+      const requirementsPath = path.join(srcPromptsDir, 'requirements', 'ja', 'execute.txt');
+      const designPath = path.join(srcPromptsDir, 'design', 'ja', 'execute.txt');
 
       if (fs.existsSync(planningPath)) {
         const content = fs.readFileSync(planningPath, 'utf-8');
@@ -463,7 +463,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
       ];
 
       modifiedPhases.forEach((dir) => {
-        const promptPath = path.join(srcPromptsDir, dir, 'execute.txt');
+        const promptPath = path.join(srcPromptsDir, dir, 'ja', 'execute.txt');
         if (fs.existsSync(promptPath)) {
           const content = fs.readFileSync(promptPath, 'utf-8');
 
@@ -484,7 +484,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
       ];
 
       modifiedPhases.forEach((dir) => {
-        const promptPath = path.join(srcPromptsDir, dir, 'execute.txt');
+        const promptPath = path.join(srcPromptsDir, dir, 'ja', 'execute.txt');
         if (fs.existsSync(promptPath)) {
           const content = fs.readFileSync(promptPath, 'utf-8');
 
@@ -500,7 +500,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   // ========================================
   describe('Context Reduction Effect (Reference)', () => {
     it('should show approximate size reduction for Phase 8 prompt', () => {
-      const promptPath = path.join(srcPromptsDir, 'report', 'execute.txt');
+      const promptPath = path.join(srcPromptsDir, 'report', 'ja', 'execute.txt');
 
       if (fs.existsSync(promptPath)) {
         const content = fs.readFileSync(promptPath, 'utf-8');

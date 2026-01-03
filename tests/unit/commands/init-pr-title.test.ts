@@ -353,7 +353,7 @@ describe('デバッグログ出力 - ログテスト', () => {
 describe('PR テンプレート最適化 - テンプレートテスト', () => {
   test('テストケース 1-6-1: pr_body_template.md から不要セクションが削除されている', () => {
     // Given: テンプレートファイルを読み込む
-    const templatePath = 'src/templates/pr_body_template.md';
+    const templatePath = 'src/templates/ja/pr_body_template.md';
     const templateContent = fs.readFileSync(templatePath, 'utf-8');
 
     // Then: 不要セクションが存在しない
@@ -368,7 +368,7 @@ describe('PR テンプレート最適化 - テンプレートテスト', () => {
 
   test('テストケース 1-6-2: pr_body_detailed_template.md から不要セクションが削除されている', () => {
     // Given: テンプレートファイルを読み込む
-    const templatePath = 'src/templates/pr_body_detailed_template.md';
+    const templatePath = 'src/templates/ja/pr_body_detailed_template.md';
     const templateContent = fs.readFileSync(templatePath, 'utf-8');
 
     // Then: 不要セクションが存在しない

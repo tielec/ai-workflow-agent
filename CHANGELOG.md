@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #575**: プロンプト・テンプレートの多言語対応を完了
+  - Issue #573で完了した10フェーズ（execute/review/revise）に加え、残りのプロンプト・テンプレートを多言語化
+  - **新規モジュール**: `src/core/prompt-loader.ts`（約200行）- プロンプト・テンプレートの言語対応読み込みユーティリティ
+    - `loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供
+    - `BasePhase.loadPrompt()` と同一のフォールバックパターンを実装
+  - **多言語化対象プロンプト（16ファイル → 32ファイル）**:
+    - `auto-issue/`（6ファイル）: detect-bugs, detect-enhancements, detect-refactoring, generate-issue-body, generate-enhancement-issue-body, generate-refactor-issue-body
+    - `pr-comment/`（2ファイル）: analyze, execute
+    - `rollback/`（1ファイル）: auto-analyze
+    - `difficulty/`（1ファイル）: analyze
+    - `followup/`（1ファイル）: generate-followup-issue
+    - `squash/`（1ファイル）: generate-message
+    - `content_parser/`（3ファイル）: extract_design_decisions, parse_evaluation_decision, parse_review_result
+    - `validation/`（1ファイル）: validate-instruction
+  - **多言語化対象テンプレート（2ファイル → 4ファイル）**:
+    - `templates/ja/`, `templates/en/`: pr_body_template.md, pr_body_detailed_template.md
+  - **修正対象TypeScriptファイル（11ファイル）**: PromptLoader経由で言語対応プロンプト・テンプレートを読み込むよう変更
+    - `repository-analyzer.ts`, `issue-generator.ts`, `analyze.ts` (pr-comment), `comment-analyzer.ts`, `rollback.ts`, `difficulty-analyzer.ts`, `issue-agent-generator.ts`, `squash-manager.ts`, `content-parser.ts`, `instruction-validator.ts`, `github-client.ts`
+  - **フォールバック機能**: 指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック
+  - テストカバレッジ: ユニット + インテグレーションテスト（2318件中2296成功、22スキップ、0失敗）
+
 - **Issue #573**: 言語設定に基づくプロンプトファイル切り替え機能
   - プロンプトファイル構造を `{phase}/*.txt` から `{phase}/{lang}/*.txt` 形式に変更（ja/en対応）
   - `BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、言語別プロンプトを動的に読み込む

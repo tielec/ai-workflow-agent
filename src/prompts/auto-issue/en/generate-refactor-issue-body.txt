@@ -1,0 +1,60 @@
+Generate a GitHub Issue body from the refactoring candidate below.
+
+# Refactoring Candidate
+
+{refactor_candidate_json}
+
+# Issue Body Format
+
+Include these five sections in Markdown:
+
+## Summary
+(1-2 sentences on the refactor target and expected benefit.)
+
+## Details
+(Explain current problems, technical debt, specific refactor, and expected improvement.)
+
+## Impact
+(Modules/files affected, dependency impact, testing impact, and whether breaking changes exist.)
+
+## Recommended Approach
+(Suggest techniques, phased plan if needed, and relevant patterns/best practices.)
+
+## Action Items
+(Checklist like:)
+- [ ] Analyze impact
+- [ ] Create refactor plan
+- [ ] Apply code changes
+- [ ] Run tests
+- [ ] Request code review
+
+# Output Format
+
+Write the issue **to the specified file**.
+
+## Output File
+
+**Path**: `{output_file_path}`
+
+Write raw Markdown (no code fences). Do **not** print to stdout.
+
+# Important Notes
+
+1. Write in English
+2. Be specific; avoid vague statements
+3. Include all five sections
+4. **File output required**: write Markdown to `{output_file_path}`
+5. Aim for ~200–500 characters per section
+6. Do not wrap the output in ``` fences
+
+# Priority phrasing
+Reflect urgency based on the candidate priority:
+- **high**: urgent technical debt reduction, major maintainability risk
+- **medium**: worthwhile maintainability improvements
+- **low**: readability or minor cleanup
+
+# Tone
+
+- Concise and clear
+- Technically precise
+- Assume an engineer audience
