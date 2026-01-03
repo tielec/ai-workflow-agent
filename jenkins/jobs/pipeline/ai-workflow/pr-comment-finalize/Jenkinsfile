@@ -35,6 +35,8 @@ pipeline {
         // AI Workflow設定
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.6.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
         EXECUTION_MODE = 'pr_comment_finalize'
         CODEX_HOME = ''
 
@@ -160,12 +162,14 @@ pipeline {
 
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
                         def squashFlag = (params.SQUASH == null || params.SQUASH) ? '--squash' : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         sh """
                             node dist/index.js pr-comment finalize \
                                 --pr-url ${params.PR_URL} \
                                 ${squashFlag} \
-                                ${dryRunFlag}
+                                ${dryRunFlag} \
+                                ${languageOption}
                         """
                     }
                 }

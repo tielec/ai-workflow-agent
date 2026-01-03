@@ -73,6 +73,12 @@ Pull Request URL（必須）
 - claude: Claude Code のみを使用
             '''.stripIndent().trim())
 
+            choiceParam('LANGUAGE', ['ja', 'en'], '''
+ワークフロー言語
+- ja: 日本語（デフォルト）
+- en: English
+            '''.stripIndent().trim())
+
             booleanParam('DRY_RUN', false, '''
 ドライランモード（API呼び出しやGit操作を行わず動作確認のみ実施）
             '''.stripIndent().trim())
