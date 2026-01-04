@@ -508,7 +508,8 @@ export class ContentParser {
       /判定[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
       /\*\*結果[:：]?\*\*\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
       /DECISION[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i,
-      /Determination[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i, // Issue #584: 英語プロンプト対応
+      /Determination[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i, // Issue #584: design, test_scenario, test_implementation, testing, documentation
+      /Judgment[:：]\s*(PASS|FAIL|PASS_WITH_SUGGESTIONS)/i, // Issue #584: implementation, report
     ];
 
     // パターンを順番にマッチング（最初にマッチしたものを返す）
