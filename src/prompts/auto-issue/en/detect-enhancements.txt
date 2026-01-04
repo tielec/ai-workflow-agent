@@ -53,7 +53,7 @@ JSON array format:
 [
   {
     "type": "improvement|integration|automation|dx|quality|ecosystem",
-    "title": "50-100 chars",
+    "title": "50-100 chars (English only)",
     "description": ">=100 chars with details",
     "rationale": ">=50 chars explaining value",
     "implementation_hints": ["hint1", "hint2"],

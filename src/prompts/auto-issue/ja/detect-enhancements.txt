@@ -71,7 +71,7 @@
 [
   {
     "type": "improvement|integration|automation|dx|quality|ecosystem",
-    "title": "提案タイトル（50〜100文字）",
+    "title": "提案タイトル（50〜100文字、日本語のみ）",
     "description": "提案の詳細説明（100文字以上）",
     "rationale": "なぜこの提案が有用か（50文字以上）",
     "implementation_hints": ["実装のヒント1", "実装のヒント2"],
