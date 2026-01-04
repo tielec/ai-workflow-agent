@@ -72,7 +72,7 @@ Write JSON in this structure:
 
 ## Field Specs
 
-- **title**: 50-80 chars, Japanese or English
+- **title**: 50-80 chars, **English only**
 - **file**: path relative to repo root
 - **line**: integer line number
 - **severity**: 'high' | 'medium' | 'low'
