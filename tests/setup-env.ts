@@ -10,6 +10,8 @@ process.env.GIT_COMMIT_USER_NAME =
   process.env.GIT_COMMIT_USER_NAME ?? process.env.GIT_AUTHOR_NAME;
 process.env.GIT_COMMIT_USER_EMAIL =
   process.env.GIT_COMMIT_USER_EMAIL ?? process.env.GIT_AUTHOR_EMAIL;
+// Default language baseline for tests (individual suites may override as needed)
+process.env.AI_WORKFLOW_LANGUAGE = 'ja';
 
 if (!process.env.AI_WORKFLOW_GIT_CONFIGURED) {
   try {

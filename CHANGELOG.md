@@ -380,6 +380,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Squash failures logged as warnings but do not fail the workflow
 
 ### Changed
+- **Issue #579**: [Refactor] repository-analyzer.ts modularization for improved maintainability
+  - Extracted monolithic `repository-analyzer.ts` (~1,221 lines) into focused modules under `src/core/analyzer/`
+  - **New modules created**:
+    - `types.ts` - Shared analyzer types and re-exported candidate shapes
+    - `path-exclusion.ts` - Exclusion constants and path filtering helpers (`isExcludedDirectory`, `isExcludedFile`, `matchesWildcard`)
+    - `output-parser.ts` - JSON output parsing for bug/refactor/enhancement candidates
+    - `candidate-validator.ts` - Centralized validation logic for all candidate categories
+    - `agent-executor.ts` - Agent execution, fallback logic, and custom instruction injection
+    - `index.ts` - Barrel export for clean module imports
+  - **Refactored facade**: `RepositoryAnalyzer` class reduced to ~350 lines, delegating to extracted modules
+  - **Public API preserved**: Constructor signature and all public methods (`analyze()`, `analyzeForRefactoring()`, `analyzeForEnhancements()`) remain 100% unchanged
+  - **Benefits**: ~70% reduction in main file size, single-responsibility modules, improved testability
+  - Test coverage: All 173 test suites passed (115 unit + 57 integration, 1 skipped)
+
 - **Issue #155**: [Refactor] コード重複の削減: repository-analyzer.ts
   - Extract Method パターン適用により `repository-analyzer.ts` の重複コードを削減（~150行 → ~50行、67%削減）
   - 新規プライベートメソッド追加: `executeAgentWithFallback()`, `validateAnalysisResult()`
