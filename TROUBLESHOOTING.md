@@ -176,8 +176,9 @@ v0.5.1以降では、SecretMaskerクラスが拡張され、ワークフロー�
 - **処理タイミング**: コミット作成時に `.ai-workflow/issue-*/` 内のファイル（agent_log_raw.txt, agent_log.md, prompt.txt, metadata.json）を自動スキャン
 - **マスキング方式**: 環境変数マッチング + 汎用パターンマッチングの2段階処理
 
-**Issue #592 対応**:
+**Issue #592・Issue #595 対応**:
 - `/tmp/.../sd-platform-development` のような長いディレクトリ名は SecretMasker の汎用トークンマスキングから除外され、ログ内のリポジトリパスが保持されることで Claude/Codex が正しい作業ディレクトリを参照できるようになりました。
+- **Issue #595 で更なる改善**: 環境変数値がパス成分のsubstringを含む場合（例: GITHUB_TOKEN = `"ghp_xxxxxxxxxxdevelopmentxxxxxxxxx"`）でも、パス保護が環境変数置換より先に実行されるため、リポジトリパス（例: `/sd-platform-development/`）が誤ってマスクされることがなくなりました。
 - `working-directory-resolver.ts` は REPOS_ROOT との整合性チェックとパス解決の前後ログを追加しており、REPOS_ROOT 外で解決すると `[Issue #592 Warning] Resolved path (...) is outside REPOS_ROOT (...)` を出力するので、警告が出たら REPOS_ROOT 設定やパスマスキングの影響を確認してください。
 
 **予防策**:
