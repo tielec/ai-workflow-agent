@@ -81,6 +81,7 @@ function createMockMetadataManager(phasesData: Partial<Record<PhaseName, { statu
       }
       return result;
     },
+    getLanguage: () => 'ja', // Issue #587: デフォルトは日本語
   };
 }
 
