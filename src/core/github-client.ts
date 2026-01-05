@@ -252,6 +252,25 @@ export class GitHubClient {
   }
 
   /**
+   * Retrieve the current PR body for the given pull request number.
+   */
+  public async getPullRequestBody(prNumber: number): Promise<string> {
+    try {
+      const { data } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      return data.body ?? '';
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Failed to get pull request body: ${this.encodeWarning(message)}`);
+      throw new Error(`Failed to get pull request body: ${message}`);
+    }
+  }
+
+  /**
    * Issue #261: PullRequestClient への直接アクセスを提供
    */
   public getPullRequestClient(): PullRequestClient {

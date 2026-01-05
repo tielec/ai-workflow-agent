@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #325**: Automatic PR body checklist updates during phase completion
+  - PR body workflow progress checklists are now automatically updated when each phase completes successfully
+  - Enhances visibility: Users can see real-time workflow progress by viewing the PR without checking metadata
+  - **Implementation**: New utility module `src/utils/pr-body-checklist-utils.ts` with pure functions for checklist updates
+  - **PhaseRunner integration**: `finalizePhase()` method now calls `updatePrBodyChecklist()` after status updates
+  - **GitHub client extension**: Added `getPullRequestBody()` method for fetching current PR content
+  - **Error handling**: PR body update failures do not affect phase completion (non-blocking operation)
+  - **Idempotency**: Already completed phases remain unchanged (safe to run multiple times)
+  - **Mapping support**: All phases 0-8 (planning through report) with proper display name mapping
+  - **Skip logic**: Automatically skips update when no PR number is available in metadata
+  - Test coverage: 59 unit tests covering utilities, phase integration, and error scenarios
+
 - **Issue #575**: プロンプト・テンプレートの多言語対応を完了
   - Issue #573で完了した10フェーズ（execute/review/revise）に加え、残りのプロンプト・テンプレートを多言語化
   - **新規モジュール**: `src/core/prompt-loader.ts`（約200行）- プロンプト・テンプレートの言語対応読み込みユーティリティ

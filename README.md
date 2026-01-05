@@ -9,6 +9,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 - **永続化されたワークフロー状態** … `.ai-workflow/issue-*/metadata.json` へメタデータを保存する `MetadataManager` により、途中再開やコスト集計が可能です。
 - **マルチリポジトリ対応** … Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行できます（v0.2.0 で追加）。
 - **自動PR作成とタイトル最適化** … Issue タイトルをそのまま PR タイトルとして使用し、PR 一覧での可読性を向上（v0.3.0、Issue #73）。
+- **リアルタイム進捗表示** … 各フェーズ完了時にPR本文のワークフロー進捗チェックリストが自動更新され、PRを確認するだけで現在の進捗状況を把握可能（Issue #325）。
 - **GitHub & Jenkins 対応** … 個人アクセストークンと Jenkins Job DSL に対応し、Docker コンテナ内で TypeScript CLI を実行できます。
 - **CI/CD 統合** … GitHub Actions による自動テスト・ビルド検証を提供し、PRマージ前の品質保証を実現します。
 
