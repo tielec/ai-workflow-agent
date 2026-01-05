@@ -65,6 +65,7 @@ export class PlanningPhase extends BasePhase {
       parsed.result,
       parsed.feedback,
       parsed.suggestions,
+      this.metadata,
     );
 
     const reviewFile = path.join(this.reviewDir, 'result.md');

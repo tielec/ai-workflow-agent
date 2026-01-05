@@ -117,6 +117,7 @@ export class TestScenarioPhase extends BasePhase {
       reviewResult.result,
       reviewResult.feedback,
       reviewResult.suggestions,
+      this.metadata,
     );
 
     return {

@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { jest } from '@jest/globals';
 import { ReviewClient } from '../../../src/core/github/review-client.js';
+import type { MetadataManager } from '../../../src/core/metadata-manager.js';
 
 describe('ReviewClient', () => {
   type CreateCommentParams = Parameters<Octokit['issues']['createComment']>[0];
@@ -8,6 +9,7 @@ describe('ReviewClient', () => {
 
   let reviewClient: ReviewClient;
   let mockOctokit: Octokit;
+  let mockMetadata: MetadataManager;
   let createCommentMock: jest.MockedFunction<Octokit['issues']['createComment']>;
   const getCreateCommentArgs = (): Required<CreateCommentParams> => {
     const call = createCommentMock.mock.calls[0];
@@ -38,6 +40,11 @@ describe('ReviewClient', () => {
       },
     } as unknown as Octokit;
 
+    // Create mock MetadataManager (Issue #587)
+    mockMetadata = {
+      getLanguage: () => 'ja',
+    } as unknown as MetadataManager;
+
     reviewClient = new ReviewClient(mockOctokit, 'owner', 'repo');
   });
 
@@ -62,7 +69,8 @@ describe('ReviewClient', () => {
         'requirements',
         'PASS',
         '要件定義書は完璧です。',
-        []
+        [],
+        mockMetadata,
       );
 
       // Then: Verify Octokit was called correctly
@@ -104,7 +112,8 @@ describe('ReviewClient', () => {
         'design',
         'PASS_WITH_SUGGESTIONS',
         '設計書は良好ですが、改善提案があります。',
-        ['エラーハンドリングの詳細を追記してください。', 'パフォーマンス要件を明確化してください。']
+        ['エラーハンドリングの詳細を追記してください。', 'パフォーマンス要件を明確化してください。'],
+        mockMetadata,
       );
 
       // Then: Verify Octokit was called correctly
@@ -148,7 +157,8 @@ describe('ReviewClient', () => {
         'implementation',
         'FAIL',
         '実装に重大な問題があります。',
-        ['セキュリティ脆弱性を修正してください。', 'テストカバレッジが不足しています。']
+        ['セキュリティ脆弱性を修正してください。', 'テストカバレッジが不足しています。'],
+        mockMetadata,
       );
 
       // Then: Verify Octokit was called correctly
@@ -185,7 +195,8 @@ describe('ReviewClient', () => {
         'testing',
         'PASS',
         'テストは完璧です。',
-        []
+        [],
+        mockMetadata,
       );
 
       // Then: Body should NOT include suggestions section
@@ -203,7 +214,8 @@ describe('ReviewClient', () => {
         'unknown_phase',
         'PASS',
         'フィードバック',
-        []
+        [],
+        mockMetadata,
       );
 
       // Then: Should use phase name as-is
@@ -221,7 +233,8 @@ describe('ReviewClient', () => {
         'requirements',
         'UNKNOWN_RESULT',
         'フィードバック',
-        []
+        [],
+        mockMetadata,
       );
 
       // Then: Should use default emoji
@@ -235,7 +248,7 @@ describe('ReviewClient', () => {
       createCommentMock.mockResolvedValue({ data: {} } as CreateCommentResponse);
 
       // When: Post with empty feedback
-      await reviewClient.postReviewResult(24, 'requirements', 'PASS', '', []);
+      await reviewClient.postReviewResult(24, 'requirements', 'PASS', '', [], mockMetadata);
 
       // Then: Body should not include feedback section (empty string is falsy)
       const body = getCreateCommentBody();

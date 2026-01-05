@@ -11,6 +11,7 @@ type SyncMock<TReturn = any, TArgs extends any[] = any[]> = jest.Mock<
 type MockMetadataManager = {
   getProgressCommentId: SyncMock<number | null, []>;
   saveProgressCommentId: SyncMock<void, [number, string]>;
+  getLanguage: SyncMock<string, []>;
 };
 
 describe('CommentClient', () => {
@@ -23,6 +24,7 @@ describe('CommentClient', () => {
     mockMetadataManager = {
       getProgressCommentId: jest.fn<() => number | null>(),
       saveProgressCommentId: jest.fn<(id: number, url: string) => void>(),
+      getLanguage: jest.fn<() => string>(() => 'ja'), // Issue #587
     };
 
     commentClient = new CommentClient(mockOctokit.client, 'owner', 'repo');
@@ -47,6 +49,7 @@ describe('CommentClient', () => {
         24,
         'requirements',
         'in_progress',
+        mockMetadataManager as any,
         '要件定義書を作成中です。',
       );
 
@@ -61,7 +64,7 @@ describe('CommentClient', () => {
     it('uses correct emoji when status is completed', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      await commentClient.postWorkflowProgress(10, 'requirements', 'completed');
+      await commentClient.postWorkflowProgress(10, 'requirements', 'completed', mockMetadataManager as any);
 
       const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
       expect(callArgs.body).toContain('✅');
@@ -70,7 +73,7 @@ describe('CommentClient', () => {
     it('falls back to raw phase name when unknown', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      await commentClient.postWorkflowProgress(11, 'unknown_phase', 'in_progress');
+      await commentClient.postWorkflowProgress(11, 'unknown_phase', 'in_progress', mockMetadataManager as any);
 
       const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
       expect(callArgs.body).toContain('unknown_phase');
@@ -79,7 +82,7 @@ describe('CommentClient', () => {
     it('does not include details when omitted', async () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
 
-      await commentClient.postWorkflowProgress(12, 'requirements', 'in_progress');
+      await commentClient.postWorkflowProgress(12, 'requirements', 'in_progress', mockMetadataManager as any);
 
       const callArgs = mockOctokit.issues.createComment.mock.calls[0][0] as { body: string };
       expect(callArgs.body).not.toContain('詳細');
