@@ -98,6 +98,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       getRollbackContext: jest.fn().mockReturnValue(null),
       clearRollbackContext: jest.fn(),
       getCurrentStep: jest.fn().mockReturnValue(null),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     } as any;
 
     // GitHubClient のモック

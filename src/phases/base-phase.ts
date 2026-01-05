@@ -212,7 +212,8 @@ export abstract class BasePhase {
     this.ensureDirectories();
 
     // 新規モジュールの初期化 (Issue #23)
-    this.logFormatter = new LogFormatter();
+    const language = this.metadata.getLanguage();
+    this.logFormatter = new LogFormatter(language);
     this.progressFormatter = new ProgressFormatter();
     this.reviewCycleManager = new ReviewCycleManager(this.metadata, this.phaseName);
 

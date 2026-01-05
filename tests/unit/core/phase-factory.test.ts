@@ -35,7 +35,7 @@ import { EvaluationPhase } from '../../../src/phases/evaluation.js';
 function createMockContext(): PhaseContext {
   return {
     workingDir: '/tmp/test-workspace',
-    metadataManager: {} as any,
+    metadataManager: { getLanguage: () => 'ja' } as any,
     codexClient: null,
     claudeClient: null,
     githubClient: {} as any,
@@ -246,7 +246,7 @@ describe('PhaseContext 構築の検証', () => {
     // Given: PhaseContext with specific values
     const context: PhaseContext = {
       workingDir: '/custom/working/dir',
-      metadataManager: { customProp: 'test' } as any,
+      metadataManager: { customProp: 'test', getLanguage: () => 'ja' } as any,
       codexClient: { model: 'gpt-5-codex' } as any,
       claudeClient: null,
       githubClient: { repo: 'test/repo' } as any,

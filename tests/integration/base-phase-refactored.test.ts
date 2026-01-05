@@ -94,6 +94,7 @@ function createMockMetadataManager(workflowDir: string): any {
       planning: { status: 'pending' },
     },
     workflowDir,
+    getLanguage: jest.fn<any>(() => 'ja'),
     getCompletedSteps: jest.fn<any>((phase: PhaseName) => completedSteps[phase] || []),
     addCompletedStep: jest.fn<any>((phase: PhaseName, step: string) => {
       if (!completedSteps[phase]) {

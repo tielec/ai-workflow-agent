@@ -198,8 +198,9 @@ describe('ReviewCommentAnalyzer', () => {
     );
     expect(String(content)).toContain('# Claude Agent 実行ログ');
     expect(String(content)).toContain('**経過時間**: 1500ms');
-    expect(String(content)).toContain('**開始**: 2024-01-20T10:40:00.000Z');
-    expect(String(content)).toContain('**終了**: 2024-01-20T10:40:01.500Z');
+    // Locale-aware timestamp formatting (ja-JP uses YYYY/M/D format)
+    expect(String(content)).toMatch(/\*\*開始\*\*: (2024\/1\/20|2024-01-20)/);
+    expect(String(content)).toMatch(/\*\*終了\*\*: (2024\/1\/20|2024-01-20)/);
   });
 
   // Given formatter failure; When persisting; Then raw messages are saved and warning is logged

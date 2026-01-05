@@ -7,7 +7,121 @@
  * - 4000文字を超える出力は切り詰め（truncate）
  */
 
+import { DEFAULT_LANGUAGE, SupportedLanguage } from '../../types.js';
+
+interface LogFormatterMessages {
+  claudeAgentLog: string;
+  generatedAt: string;
+  systemInit: string;
+  sessionId: string;
+  model: string;
+  permissionMode: string;
+  availableTools: string;
+  unknown: string;
+  aiResponse: string;
+  toolUse: string;
+  tool: string;
+  parameters: string;
+  executionComplete: string;
+  status: string;
+  elapsed: string;
+  turns: string;
+  totalElapsed: string;
+  started: string;
+  finished: string;
+  error: string;
+
+  codexAgentLog: string;
+  startedAt: string;
+  threadStart: string;
+  toolExecution: string;
+  type: string;
+  command: string;
+
+  commandExecution: string;
+  toolType: string;
+}
+
+const LOG_FORMATTER_TEXT: Record<SupportedLanguage, LogFormatterMessages> = {
+  ja: {
+    claudeAgentLog: 'Claude Agent 実行ログ',
+    generatedAt: '生成日時',
+    systemInit: 'システム初期化',
+    sessionId: 'セッションID',
+    model: 'モデル',
+    permissionMode: '権限モード',
+    availableTools: '利用可能ツール',
+    unknown: '不明',
+    aiResponse: 'AI応答',
+    toolUse: 'ツール使用',
+    tool: 'ツール',
+    parameters: 'パラメータ',
+    executionComplete: '実行完了',
+    status: 'ステータス',
+    elapsed: '所要時間',
+    turns: 'ターン数',
+    totalElapsed: '経過時間',
+    started: '開始',
+    finished: '終了',
+    error: 'エラー',
+    codexAgentLog: 'Codex Agent 実行ログ',
+    startedAt: '開始日時',
+    threadStart: 'スレッド開始',
+    toolExecution: 'ツール実行',
+    type: '種別',
+    command: 'コマンド',
+    commandExecution: 'コマンド実行',
+    toolType: 'ツール',
+  },
+  en: {
+    claudeAgentLog: 'Claude Agent Execution Log',
+    generatedAt: 'Generated At',
+    systemInit: 'System Initialization',
+    sessionId: 'Session ID',
+    model: 'Model',
+    permissionMode: 'Permission Mode',
+    availableTools: 'Available Tools',
+    unknown: 'Unknown',
+    aiResponse: 'AI Response',
+    toolUse: 'Tool Use',
+    tool: 'Tool',
+    parameters: 'Parameters',
+    executionComplete: 'Execution Complete',
+    status: 'Status',
+    elapsed: 'Elapsed',
+    turns: 'Turns',
+    totalElapsed: 'Total Elapsed',
+    started: 'Started',
+    finished: 'Finished',
+    error: 'Error',
+    codexAgentLog: 'Codex Agent Execution Log',
+    startedAt: 'Started At',
+    threadStart: 'Thread Started',
+    toolExecution: 'Tool Execution',
+    type: 'Type',
+    command: 'Command',
+    commandExecution: 'Command Execution',
+    toolType: 'Tool',
+  },
+};
+
 export class LogFormatter {
+  private readonly language: SupportedLanguage;
+  private readonly messages: LogFormatterMessages;
+  private readonly locale: 'ja-JP' | 'en-US';
+
+  /**
+   * @param language - 出力言語（既定: ja）
+   */
+  constructor(language: SupportedLanguage = DEFAULT_LANGUAGE) {
+    const selectedLanguage = Object.prototype.hasOwnProperty.call(LOG_FORMATTER_TEXT, language)
+      ? language
+      : DEFAULT_LANGUAGE;
+    this.language = selectedLanguage;
+    this.messages = LOG_FORMATTER_TEXT[selectedLanguage];
+    this.locale = selectedLanguage === 'ja' ? 'ja-JP' : 'en-US';
+  }
+
   /**
    * エージェントログを Markdown 形式に変換
    *
@@ -53,8 +167,8 @@ export class LogFormatter {
 
     // Claude Agent のログフォーマット
     const lines: string[] = [];
-    lines.push('# Claude Agent 実行ログ\n');
-    lines.push(`生成日時: ${new Date(startTime).toLocaleString('ja-JP')}\n`);
+    lines.push(`# ${this.messages.claudeAgentLog}\n`);
+    lines.push(`${this.messages.generatedAt}: ${new Date(startTime).toLocaleString(this.locale)}\n`);
     lines.push('---\n');
 
     let turnNumber = 1;
@@ -75,14 +189,18 @@ export class LogFormatter {
         if (messageType === 'system') {
           const subtype = this.getString(messageRecord, 'subtype');
           if (subtype === 'init') {
-            lines.push(`## Turn ${turnNumber++}: システム初期化\n`);
-            lines.push(`**セッションID**: \`${this.getString(messageRecord, 'session_id') || 'N/A'}\``);
-            lines.push(`**モデル**: ${this.getString(messageRecord, 'model') || 'N/A'}`);
-            lines.push(`**権限モード**: ${this.getString(messageRecord, 'permissionMode') || 'N/A'}`);
+            lines.push(`## Turn ${turnNumber++}: ${this.messages.systemInit}\n`);
+            lines.push(
+              `**${this.messages.sessionId}**: \`${this.getString(messageRecord, 'session_id') || 'N/A'}\``,
+            );
+            lines.push(`**${this.messages.model}**: ${this.getString(messageRecord, 'model') || 'N/A'}`);
+            lines.push(
+              `**${this.messages.permissionMode}**: ${this.getString(messageRecord, 'permissionMode') || 'N/A'}`,
+            );
 
             const tools = messageRecord.tools;
-            const toolsStr = Array.isArray(tools) ? tools.join(', ') : '不明';
-            lines.push(`**利用可能ツール**: ${toolsStr}\n`);
+            const toolsStr = Array.isArray(tools) ? tools.join(', ') : this.messages.unknown;
+            lines.push(`**${this.messages.availableTools}**: ${toolsStr}\n`);
           }
         } else if (messageType === 'assistant') {
           const messageObj = this.asRecord(messageRecord.message);
@@ -100,16 +218,16 @@ export class LogFormatter {
             if (blockType === 'text') {
               const text = this.getString(blockRecord, 'text');
               if (text) {
-                lines.push(`## Turn ${turnNumber++}: AI応答\n`);
+                lines.push(`## Turn ${turnNumber++}: ${this.messages.aiResponse}\n`);
                 lines.push(`${text}\n`);
               }
             } else if (blockType === 'tool_use') {
-              lines.push(`## Turn ${turnNumber++}: ツール使用\n`);
-              lines.push(`**ツール**: \`${this.getString(blockRecord, 'name') || 'N/A'}\`\n`);
+              lines.push(`## Turn ${turnNumber++}: ${this.messages.toolUse}\n`);
+              lines.push(`**${this.messages.tool}**: \`${this.getString(blockRecord, 'name') || 'N/A'}\`\n`);
 
               const input = this.asRecord(blockRecord.input);
               if (input) {
-                lines.push('**パラメータ**:');
+                lines.push(`**${this.messages.parameters}**:`);
                 for (const [key, value] of Object.entries(input)) {
                   const valueStr = typeof value === 'string' && value.length > 100
                     ? `${value.substring(0, 100)}...`
@@ -121,10 +239,10 @@ export class LogFormatter {
             }
           }
         } else if (messageType === 'result') {
-          lines.push(`## Turn ${turnNumber++}: 実行完了\n`);
-          lines.push(`**ステータス**: ${this.getString(messageRecord, 'subtype') || 'success'}`);
-          lines.push(`**所要時間**: ${this.getNumber(messageRecord, 'duration_ms') || duration}ms`);
-          lines.push(`**ターン数**: ${this.getNumber(messageRecord, 'num_turns') || 'N/A'}`);
+          lines.push(`## Turn ${turnNumber++}: ${this.messages.executionComplete}\n`);
+          lines.push(`**${this.messages.status}**: ${this.getString(messageRecord, 'subtype') || 'success'}`);
+          lines.push(`**${this.messages.elapsed}**: ${this.getNumber(messageRecord, 'duration_ms') || duration}ms`);
+          lines.push(`**${this.messages.turns}**: ${this.getNumber(messageRecord, 'num_turns') || 'N/A'}`);
 
           const result = this.getString(messageRecord, 'result');
           if (result) {
@@ -138,11 +256,11 @@ export class LogFormatter {
     }
 
     lines.push('\n---\n');
-    lines.push(`**経過時間**: ${duration}ms`);
-    lines.push(`**開始**: ${new Date(startTime).toISOString()}`);
-    lines.push(`**終了**: ${new Date(endTime).toISOString()}`);
+    lines.push(`**${this.messages.totalElapsed}**: ${duration}ms`);
+    lines.push(`**${this.messages.started}**: ${new Date(startTime).toLocaleString(this.locale)}`);
+    lines.push(`**${this.messages.finished}**: ${new Date(endTime).toLocaleString(this.locale)}`);
     if (error) {
-      lines.push(`\n**エラー**: ${error.message}`);
+      lines.push(`\n**${this.messages.error}**: ${error.message}`);
     }
 
     return lines.join('\n');
@@ -166,8 +284,8 @@ export class LogFormatter {
     error: Error | null,
   ): string | null {
     const lines: string[] = [];
-    lines.push('# Codex Agent 実行ログ\n');
-    lines.push(`開始日時: ${new Date(startTime).toLocaleString('ja-JP')}\n`);
+    lines.push(`# ${this.messages.codexAgentLog}\n`);
+    lines.push(`${this.messages.startedAt}: ${new Date(startTime).toLocaleString(this.locale)}\n`);
     lines.push('---\n');
 
     const pendingItems = new Map<string, { type: string; command?: string }>();
@@ -189,7 +307,7 @@ export class LogFormatter {
 
       if (eventType === 'thread.started') {
         const threadId = this.getString(eventRecord, 'thread_id') ?? 'N/A';
-        lines.push(`## Turn ${turnNumber++}: スレッド開始\n`);
+        lines.push(`## Turn ${turnNumber++}: ${this.messages.threadStart}\n`);
         lines.push(`**Thread ID**: \`${threadId}\`\n`);
         wroteContent = true;
         continue;
@@ -228,13 +346,13 @@ export class LogFormatter {
         const aggregatedOutput = this.getString(item, 'aggregated_output');
         const truncatedOutput = aggregatedOutput ? this.truncate(aggregatedOutput, 4000) : null;
 
-        lines.push(`## Turn ${turnNumber++}: ツール実行\n`);
-        lines.push(`**種別**: ${this.describeItemType(itemType)}`);
+        lines.push(`## Turn ${turnNumber++}: ${this.messages.toolExecution}\n`);
+        lines.push(`**${this.messages.type}**: ${this.describeItemType(itemType)}`);
         if (command) {
-          lines.push(`**コマンド**: \`${command}\``);
+          lines.push(`**${this.messages.command}**: \`${command}\``);
         }
         lines.push(
-          `**ステータス**: ${status}${exitCode !== null ? ` (exit_code=${exitCode})` : ''}`,
+          `**${this.messages.status}**: ${status}${exitCode !== null ? ` (exit_code=${exitCode})` : ''}`,
         );
 
         if (truncatedOutput) {
@@ -260,10 +378,10 @@ export class LogFormatter {
           this.getNumber(eventRecord, 'turns') ?? this.getNumber(eventRecord, 'num_turns') ?? 'N/A';
         const info = this.getString(eventRecord, 'result') ?? this.getString(eventRecord, 'summary') ?? null;
 
-        lines.push(`## Turn ${turnNumber++}: 実行完了\n`);
-        lines.push(`**ステータス**: ${status}`);
-        lines.push(`**所要時間**: ${eventDuration}ms`);
-        lines.push(`**ターン数**: ${turnCount}`);
+        lines.push(`## Turn ${turnNumber++}: ${this.messages.executionComplete}\n`);
+        lines.push(`**${this.messages.status}**: ${status}`);
+        lines.push(`**${this.messages.elapsed}**: ${eventDuration}ms`);
+        lines.push(`**${this.messages.turns}**: ${turnCount}`);
         if (info) {
           lines.push('');
           lines.push(info);
@@ -279,11 +397,11 @@ export class LogFormatter {
     }
 
     lines.push('\n---\n');
-    lines.push(`**経過時間**: ${duration}ms`);
-    lines.push(`**開始**: ${new Date(startTime).toISOString()}`);
-    lines.push(`**終了**: ${new Date(endTime).toISOString()}`);
+    lines.push(`**${this.messages.totalElapsed}**: ${duration}ms`);
+    lines.push(`**${this.messages.started}**: ${new Date(startTime).toLocaleString(this.locale)}`);
+    lines.push(`**${this.messages.finished}**: ${new Date(endTime).toLocaleString(this.locale)}`);
     if (error) {
-      lines.push(`\n**エラー**: ${error.message}`);
+      lines.push(`\n**${this.messages.error}**: ${error.message}`);
     }
 
     return lines.join('\n');
@@ -349,15 +467,15 @@ export class LogFormatter {
   }
 
   /**
-   * アイテム種別の日本語変換
+   * アイテム種別の変換
    */
   private describeItemType(value: string): string {
     const normalized = value.toLowerCase();
     if (normalized === 'command_execution') {
-      return 'コマンド実行';
+      return this.messages.commandExecution;
     }
     if (normalized === 'tool') {
-      return 'ツール';
+      return this.messages.toolType;
     }
     return value;
   }

@@ -124,6 +124,7 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       updateCurrentStep: jest.fn<any>(),
       save: jest.fn<any>(),
       getRollbackContext: jest.fn<any>().mockReturnValue(null),
+      getLanguage: jest.fn<any>().mockReturnValue('ja'),
     };
 
     // GitHubClient のモック

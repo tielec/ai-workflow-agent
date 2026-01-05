@@ -283,7 +283,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/context/context-builder.ts` | コンテキスト構築（約223行、Issue #49で追加）。オプショナルコンテキスト構築、ファイル参照生成（@filepath形式）、Planning Document参照を担当。 |
 | `src/phases/cleanup/artifact-cleaner.ts` | クリーンアップロジック（約228行、Issue #49で追加）。ワークフロークリーンアップ、パス検証（セキュリティ対策）、シンボリックリンクチェック、CI環境判定を担当。 |
 | `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、Issue #23で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
-| `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
+| `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加、Issue #597で多言語対応）。Codex/Claude エージェントの生ログを Markdown 形式に変換。言語設定（`ja`/`en`）に応じてヘッダー、ラベル、タイムスタンプ形式を動的に切り替え。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
 | `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`pr-comment`（2ファイル）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。 |
@@ -441,7 +441,7 @@ BasePhase クラスは1420行から676行へリファクタリングされ（約
 
 **フォーマッターモジュール**:
 - **ProgressFormatter** (`src/phases/formatters/progress-formatter.ts`): 進捗表示フォーマットを担当。フェーズステータスに応じた絵文字表示、全フェーズの進捗状況リスト、現在のフェーズ詳細、完了したフェーズの詳細（折りたたみ表示）を生成。
-- **LogFormatter** (`src/phases/formatters/log-formatter.ts`): ログフォーマットを担当。Codex/Claude の生ログを Markdown 形式に変換、JSON イベントストリームの解析、4000文字を超える出力の切り詰め処理を実施。`pr-comment` コマンドでも利用され、`agent_log.md` の統一的なMarkdown形式を提供。
+- **LogFormatter** (`src/phases/formatters/log-formatter.ts`): ログフォーマットを担当。Codex/Claude の生ログを Markdown 形式に変換、JSON イベントストリームの解析、4000文字を超える出力の切り詰め処理を実施。`pr-comment` コマンドでも利用され、`agent_log.md` の統一的なMarkdown形式を提供。**Issue #597で多言語対応**: コンストラクタで言語（`'ja'` | `'en'`）を指定でき、ヘッダー（"Claude Agent 実行ログ" / "Claude Agent Execution Log"）、ラベル（"生成日時" / "Generated At"）、タイムスタンプのロケール（`ja-JP` / `en-US`）を動的に切り替え。`MetadataManager.getLanguage()` 経由で呼び出し元から言語が渡される。
 
 **オーケストレーション**:
 BasePhase クラスは各モジュールを依存性注入により統合し、フェーズライフサイクル（execute → review → revise）のオーケストレーションのみを担当します。各モジュールは単一の責務を持ち（Single Responsibility Principle）、独立してテスト可能です。
