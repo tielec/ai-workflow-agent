@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #595**: SecretMasker Path Protection Logic Ordering Fix - SecretMaskerにおけるパス保護とenv var置換の順序問題を修正
+  - `SecretMasker.maskObject()` 内の `applyMasking()` 関数で、パス保護（`maskString()`）を環境変数置換より先に実行するよう順序を変更
+  - 環境変数値が**パスのsubstringを含む場合**（例: GITHUB_TOKEN = `"ghp_xxxxxxxxxxdevelopmentxxxxxxxxx"`）に、リポジトリパス（例: `/sd-platform-development/`）が誤ってマスクされる問題を解消
+  - **修正前の問題**: 環境変数置換が先に実行されるため、`sd-platform-development` が `sd-platform-[REDACTED_GITHUB_TOKEN]` に置換され、Claude/Codex が作業ディレクトリを認識できなくなる
+  - **修正後の解決**: パス保護が先に実行されるため、環境変数値がパス成分に影響を与えることなく、正しい作業ディレクトリが維持される
+  - セキュリティ機能は完全維持: 環境変数値が**パス以外**の箇所に出現した場合は引き続き正常にマスクされる
+  - Issue #592のパス保護機能（20文字以上のパス成分保護）との相乗効果により、マルチリポジトリワークフローの信頼性が向上
+  - 修正ファイル: `src/core/secret-masker.ts`（`applyMasking()` 関数の順序変更）
+  - テストカバレッジ: 83件のテスト（ユニット71件 + 統合12件、100%成功）
+
 - **Issue #592**: SecretMasker がリポジトリパスを過剰にマスキングし、Claude Agent の working directory 解決が失敗する問題を修正
   - `SecretMasker.maskString()` メソッドにファイルパスコンポーネント保護機能を追加
   - Unix パス内の20文字以上のディレクトリ名（例: `sd-platform-development`）をプレースホルダー `__PATH_COMPONENT_N__` で一時保護し、汎用トークンマスキングから除外
