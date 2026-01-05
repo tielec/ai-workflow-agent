@@ -511,6 +511,10 @@ node dist/index.js auto-issue \
 - `REPOS_ROOT` 未設定時はフォールバック候補パス（`~/TIELEC/development/{repo}`、`~/projects/{repo}`、`../{repo}`）を探索
 - リポジトリが見つからない場合、明確なエラーメッセージを表示し、`REPOS_ROOT` 設定またはJenkinsfile確認を促す
 
+**Issue #592 対応**:
+- SecretMasker は Unix パス内の長いディレクトリ名を `[REDACTED_TOKEN]` にマスクしないようになり、ログ出力に含まれるリポジトリパスが保持されることで Claude/Codex が working directory を正しく決定できるようになりました。
+- `working-directory-resolver.ts` は REPOS_ROOT との整合性チェックと前後の存在確認ログを追加しており、REPOS_ROOT 外に解決すると `[Issue #592 Warning] Resolved path (...) is outside REPOS_ROOT (...)` のような警告を出すので、ログから設定やマスキングの問題を検証できます。
+
 **オプション**:
 - `--category <type>`: 検出するIssueの種類（`bug` | `refactor` | `enhancement` | `all`、デフォルト: `bug`）
   - **Phase 1 (Issue #126)**: `bug`（バグ検出とIssue生成）
