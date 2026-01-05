@@ -246,6 +246,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/helpers/log-formatter.ts` | エージェントログのフォーマット処理（181行、Issue #26で追加）。`formatCodexLog()`, `formatClaudeLog()`, `truncateInput()` を提供。 |
 | `src/core/helpers/env-setup.ts` | エージェント実行環境のセットアップ（47行、Issue #26で追加）。`setupCodexEnvironment()`, `setupGitHubEnvironment()` を提供。 |
 | `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
+| `src/utils/pr-body-checklist-utils.ts` | PR本文チェックリスト更新ユーティリティ（約150行、Issue #325で追加）。PR bodyのワークフロー進捗チェックリストを自動更新する純粋関数群を提供。`updatePhaseChecklistInPrBody()`, `hasWorkflowChecklist()`, `PHASE_CHECKLIST_MAP` を提供。フェーズ名（`planning`〜`report`）から表示名（`Phase 0: Planning`〜`Phase 8: Report`）へのマッピング、正規表現による安全な置換処理（特殊文字エスケープ）、冪等性保証（既チェック項目の保護）を実装。PhaseRunner の `finalizePhase()` から呼び出され、各フェーズ完了時にPR本文を自動更新。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。Issue #243でパースロジックを改善：`extractJsonFromResponse()`（JSON抽出前処理）と`inferDecisionFromText()`（マーカーパターン優先判定）を追加し、LLMレスポンス形式の多様性に対応。 |
 | `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、pr-comment、rollback、difficulty、followup、squash、content_parser、validation の各モジュールで利用。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
@@ -444,7 +445,7 @@ Issue #49では、BasePhase クラスを676行から445行へさらにリファ�
 
 **ライフサイクルモジュール**:
 - **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。
-- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。
+- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。**Issue #325**: `finalizePhase()`にPR bodyチェックリスト自動更新機能（`updatePrBodyChecklist()`）を追加。各フェーズ完了時にPR本文のワークフロー進捗を自動的に更新し、ユーザーがPRを確認するだけで進捗状況を把握できるよう改善。
 
 **コンテキスト構築モジュール**:
 - **ContextBuilder** (`src/phases/context/context-builder.ts`, 223行): コンテキスト構築を担当。オプショナルコンテキスト構築（`buildOptionalContext`）、ファイル参照生成（`@filepath` 形式、`buildFileReference`）、Planning Document参照（`buildPlanningDocumentReference`）を実施。ファイルが存在しない場合は適切なフォールバックメッセージを返し、依存関係を無視した柔軟な実行を可能にする。
