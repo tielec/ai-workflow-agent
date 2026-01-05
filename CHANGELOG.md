@@ -32,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #597**: i18n: LogFormatter の多言語対応を完了
+  - `LogFormatter` クラスがエージェントログ出力の言語を動的に切り替え可能になった
+  - コンストラクタに `language` パラメータを追加（デフォルト: `'ja'`）
+  - `LOG_FORMATTER_TEXT` 定数に日本語/英語のメッセージマップを実装
+  - **対応項目**: Claude Agent/Codex Agent のヘッダー、システム初期化、AI応答、ツール使用、実行完了、エラーセクション等すべてのラベル
+  - **タイムスタンプ**: `'ja-JP'` または `'en-US'` ロケールでの動的フォーマット
+  - **アイテムタイプ翻訳**: `command_execution` → `コマンド実行`/`Command Execution`、`tool` → `ツール`/`Tool`
+  - **後方互換性**: 言語未指定時は従来通り日本語で動作
+  - **呼び出し元統合**: `base-phase.ts`、`agent-executor.ts` で `metadata.getLanguage()` を使用して言語を渡すよう更新
+  - 修正ファイル: `src/phases/formatters/log-formatter.ts`（メッセージマップとコンストラクタ拡張）、`src/phases/base-phase.ts`、`src/phases/core/agent-executor.ts`（言語連携）
+  - テストカバレッジ: 54件のユニットテスト（既存 + 新規i18n対応、100%成功）
+
 - **Issue #590**: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了
   - `phase-runner.ts` のハードコードされた日本語メッセージ4箇所（開始・再開・完了・失敗）を多言語対応
   - `--language en` 指定時に英語、`--language ja`（またはデフォルト）指定時に日本語で GitHub Issue に進捗メッセージが投稿される
