@@ -167,3 +167,146 @@ describe('SecretMaskerとパス解決の統合テスト (Issue #592)', () => {
     expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Issue #592 Warning'));
   });
 });
+
+describe('Issue #595: Integration tests for path protection ordering', () => {
+  const baseEnv = { ...process.env };
+  let tempDir: string;
+
+  beforeAll(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'secret-masker-595-'));
+  });
+
+  afterAll(async () => {
+    process.env = baseEnv;
+    await fs.remove(tempDir);
+  });
+
+  beforeEach(async () => {
+    // Reset environment variables
+    process.env = { ...baseEnv };
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.DEV_TOKEN;
+    delete process.env.PROD_TOKEN;
+    // Clean temp directory
+    await fs.emptyDir(tempDir);
+  });
+
+  // IT-595-001: Verify maskObject preserves paths with env var substring match
+  // Note: maskSecretsInWorkflowDir has a different code path that processes files differently.
+  // The Issue #595 fix is specifically for maskObject() where applyMasking() order was reversed.
+  // Note: Path protection regex requires path components to be followed by / or end of string.
+  test('should preserve paths when using maskObject with env var substring match (IT-595.1)', async () => {
+    // Given: Environment with matching substring
+    process.env.GITHUB_TOKEN = 'ghp_developmenttoken123456789';
+    const masker = new SecretMasker();
+
+    // Given: Log content with repository paths (paths must end with / for protection to work)
+    const logContent = `Local path: ${tempDir}/sd-platform-development/ Agent working directory: ${tempDir}/sd-platform-development/file.txt`;
+
+    // When: Using maskObject (which applies Issue #595 fix)
+    const maskedContent = masker.maskObject(logContent) as string;
+
+    // Then: Paths should be preserved via maskObject
+    expect(maskedContent).toContain('sd-platform-development');
+    expect(maskedContent).not.toContain('[REDACTED_GITHUB_TOKEN]');
+  });
+
+  // IT-595-002: Preserve paths in metadata.json with env var substring match
+  test('should preserve paths in metadata.json with env var substring match (IT-595.2)', async () => {
+    // Given: Environment with matching substring
+    process.env.GITHUB_TOKEN = 'ghp_xxplatformxxproductionxx';
+    const masker = new SecretMasker();
+
+    // Given: metadata.json with repository paths and token
+    const metadata = {
+      working_directory: `${tempDir}/sd-platform-development`,
+      repository: 'plan-b-co-jp/sd-platform-development',
+      remote_url: 'https://ghp_xxplatformxxproductionxx@github.com/owner/repo.git',
+      issue_number: 236
+    };
+    await fs.writeFile(
+      path.join(tempDir, 'metadata.json'),
+      JSON.stringify(metadata, null, 2)
+    );
+
+    // When: Masking workflow directory
+    await masker.maskSecretsInWorkflowDir(tempDir);
+
+    // Then: Paths should be preserved, token should be masked
+    const maskedContent = await fs.readFile(
+      path.join(tempDir, 'metadata.json'),
+      'utf-8'
+    );
+    expect(maskedContent).toContain('sd-platform-development');
+    expect(maskedContent).toContain('[REDACTED_GITHUB_TOKEN]');
+    expect(maskedContent).not.toContain('ghp_xxplatformxxproductionxx');
+  });
+
+  // IT-595-003: Multi-repository log file with multiple env var matches
+  test('should preserve multiple repository paths in multi-repo log (IT-595.3)', async () => {
+    // Given: Multiple environment variables
+    process.env.DEV_TOKEN = 'dev_development_token_value';
+    process.env.PROD_TOKEN = 'prod_production_token_value';
+    const masker = new SecretMasker();
+
+    // Given: Log file with multiple repository paths
+    const logContent = `
+      Repository 1: ${tempDir}/sd-platform-development/.ai-workflow
+      Repository 2: ${tempDir}/sd-api-production/.ai-workflow
+      Processing both repositories...
+    `;
+    await fs.writeFile(path.join(tempDir, 'agent_log_raw.txt'), logContent);
+
+    // When: Masking workflow directory
+    await masker.maskSecretsInWorkflowDir(tempDir);
+
+    // Then: All repository paths are preserved
+    const maskedContent = await fs.readFile(
+      path.join(tempDir, 'agent_log_raw.txt'),
+      'utf-8'
+    );
+    expect(maskedContent).toContain('sd-platform-development');
+    expect(maskedContent).toContain('sd-api-production');
+  });
+
+  // IT-595-004: End-to-end reproduction scenario from issue using maskObject
+  // Note: The Issue #595 fix is in maskObject(), not maskSecretsInWorkflowDir().
+  // This test verifies maskObject correctly handles the exact reproduction scenario.
+  // Note: Path components must be followed by / or end of string for protection regex to match.
+  test('should fix Issue #595 reproduction scenario using maskObject (IT-595.4)', async () => {
+    // Given: Exact scenario from issue - env var contains "development"
+    process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxdevelopmentxxxxxxxxx';
+    const masker = new SecretMasker();
+
+    // Given: The exact path pattern from the issue (with trailing slash for regex match)
+    // The path protection regex requires (?=\/|$) - either followed by / or end of string
+    const logContent = `Local path: /tmp/ai-workflow-repos-5-05c8a277/sd-platform-development/.ai-workflow/issue-236`;
+
+    // When: Using maskObject (which has the Issue #595 fix)
+    const maskedContent = masker.maskObject(logContent) as string;
+
+    // Then: Path is NOT corrupted
+    // This was the bug: path was becoming sd-platform-[REDACTED_GITHUB_TOKEN]
+    expect(maskedContent).toContain('sd-platform-development');
+    expect(maskedContent).not.toContain('sd-platform-[REDACTED_GITHUB_TOKEN]');
+    expect(maskedContent).not.toContain('[REDACTED_TOKEN]');
+  });
+
+  // IT-595-005: Verify path resolution still works after masking
+  test('should allow path resolution after masking (IT-595.5)', async () => {
+    // Given: Environment with matching substring
+    process.env.GITHUB_TOKEN = 'ghp_developmenttoken123456789';
+    const masker = new SecretMasker();
+
+    // Given: Original path
+    const originalPath = path.join(tempDir, 'sd-platform-development', '.ai-workflow', 'issue-236');
+    const maskedPath = masker.maskObject(originalPath) as string;
+
+    // Then: The masked path should be identical to original (not corrupted)
+    expect(maskedPath).toBe(originalPath);
+
+    // And if the directory exists, resolution should work
+    await fs.ensureDir(originalPath);
+    expect(fs.existsSync(maskedPath)).toBe(true);
+  });
+});

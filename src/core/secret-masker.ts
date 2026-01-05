@@ -129,14 +129,59 @@ export class SecretMasker {
     const ignoredPatterns = (options?.ignoredPaths ?? []).map((pattern) => pattern.split('.'));
     const visited = new WeakMap<object, unknown>();
 
+    /**
+     * Core masking function that applies two-step masking process to protect repository paths
+     *
+     * ## Issue #595 Fix - Critical Processing Order:
+     * The processing order is crucial to prevent environment variable values containing
+     * path substrings from corrupting repository paths. This function ensures path
+     * protection occurs BEFORE environment variable replacement.
+     *
+     * ## Processing Steps:
+     * 1. **Step 1 - Pattern/Path Protection**: Call `maskString()` to protect Unix paths,
+     *    GitHub URLs, and apply pattern-based masking. This creates placeholders for
+     *    long path components (20+ chars) to prevent substring matches.
+     *
+     * 2. **Step 2 - Environment Variable Replacement**: Replace environment variable
+     *    values with redaction placeholders. Safe to execute after Step 1 because
+     *    legitimate paths are now protected.
+     *
+     * ## Example of Issue #595:
+     * Without proper order:
+     * - Path: "/repos/sd-platform-development"
+     * - GITHUB_TOKEN contains "development"
+     * - Result: "/repos/sd-platform-[REDACTED_GITHUB_TOKEN]" (CORRUPTED)
+     *
+     * With correct order (this fix):
+     * - Step 1 protects path components → "/repos/__PATH_COMPONENT_0__"
+     * - Step 2 replaces env vars safely
+     * - Result: "/repos/sd-platform-development" (PRESERVED)
+     *
+     * @param value - The string value to apply comprehensive masking to
+     * @returns String with secrets properly masked while preserving legitimate paths
+     */
     const applyMasking = (value: string): string => {
-      let masked = value;
+      // Issue #595: Path protection must execute FIRST
+      // This ensures Unix path components are protected with placeholders
+      // before environment variable replacement occurs.
+      // Without this order, env var values containing path substrings
+      // (e.g., "development" in GITHUB_TOKEN) would corrupt paths like
+      // "/repos/sd-platform-development" → "/repos/sd-platform-[REDACTED_GITHUB_TOKEN]"
+
+      // Step 1: Apply path protection and pattern masking via maskString()
+      // This protects long path components (20+ chars) from being matched
+      // by env var substrings
+      let masked = this.maskString(value);
+
+      // Step 2: Apply environment variable replacement
+      // Now safe because paths have been processed and protected
       for (const [secretValue, replacement] of replacementMap) {
         if (secretValue) {
           masked = masked.split(secretValue).join(replacement);
         }
       }
-      return this.maskString(masked);
+
+      return masked;
     };
 
     const matchesPattern = (path: string[], pattern: string[]): boolean => {
@@ -228,8 +273,14 @@ export class SecretMasker {
    * - Short strings (< 20 characters)
    * - Already redacted content (`REDACTED`)
    *
+   * ## Processing Order (Issue #595):
+   * This method is called by `applyMasking()` as the FIRST step in the masking process
+   * to protect repository paths before environment variable replacement. This prevents
+   * corruption when env var values contain path substrings.
+   *
    * @param value - The string to apply masking to
    * @returns String with secrets masked but important content preserved
+   * @see {@link applyMasking} for the complete masking process flow
    *
    * @example
    * ```typescript
