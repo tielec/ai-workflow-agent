@@ -21,6 +21,7 @@ const mockGitHubClient = {
 
 let handlePRCommentFinalizeCommand: (options: PRCommentFinalizeOptions) => Promise<void>;
 let originalReposRoot: string | undefined;
+let originalHome: string | undefined;
 
 const buildComments = (count: number, prNumber: number): ReviewComment[] =>
   Array.from({ length: count }, (_, index) => {
@@ -45,12 +46,24 @@ describe('Integration: pr-comment finalize command', () => {
   jest.setTimeout(15000);
 
   beforeAll(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+
     originalReposRoot = process.env.REPOS_ROOT;
     process.env.REPOS_ROOT = REPOS_ROOT;
     await fs.remove(TEST_BASE_DIR);
     await fs.ensureDir(REPOS_ROOT);
     await fs.ensureDir(REMOTES_ROOT);
     await fs.ensureDir(CLONES_ROOT);
+
+    // HOMEをテスト用ディレクトリに設定（fs.removeの後に実行）
+    const tempHomeDir = path.join(TEST_BASE_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（git操作時のエラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Integration Tester\n\temail = integration@example.com\n');
 
     await jest.unstable_mockModule('../../src/core/github-client.js', () => ({
       GitHubClient: jest.fn().mockImplementation(() => mockGitHubClient),
@@ -75,6 +88,13 @@ describe('Integration: pr-comment finalize command', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     if (originalReposRoot === undefined) {
       delete process.env.REPOS_ROOT;
     } else {
