@@ -3,7 +3,14 @@ import { MetadataManager } from '../../core/metadata-manager.js';
 import { GitManager } from '../../core/git-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { validatePhaseDependencies } from '../../core/phase-dependencies.js';
-import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../types.js';
+import {
+  PhaseName,
+  PhaseStatus,
+  PhaseExecutionResult,
+  SupportedLanguage,
+  DEFAULT_LANGUAGE,
+  SUPPORTED_LANGUAGES,
+} from '../../types.js';
 import { StepExecutor } from './step-executor.js';
 import { ProgressFormatter } from '../formatters/progress-formatter.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -14,6 +21,47 @@ import {
 
 // PhaseRunOptions は BasePhase から import（Issue #49）
 import type { PhaseRunOptions } from '../base-phase.js';
+
+/**
+ * PhaseRunner用の多言語メッセージマッピング定数
+ *
+ * フェーズの実行ライフサイクルにおける進捗メッセージを、ユーザーの指定言語
+ * （日本語/英語）に基づいて動的に生成するために使用される。
+ *
+ * @see {@link https://github.com/tielec/ai-workflow-agent/issues/590|Issue #590}
+ * @since v0.5.0 - Issue #590: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了
+ *
+ * @example
+ * ```typescript
+ * const language = metadata.getLanguage() || 'ja';
+ * const messages = PHASE_RUNNER_MESSAGES[language];
+ * const startMessage = messages.phaseStarted('planning');
+ * // 日本語: "planning フェーズを開始します。"
+ * // 英語: "Starting planning phase."
+ * ```
+ */
+const PHASE_RUNNER_MESSAGES: Record<
+  SupportedLanguage,
+  {
+    phaseStarted: (phaseName: string) => string;
+    phaseResumed: (phaseName: string, step: string) => string;
+    phaseCompleted: (phaseName: string) => string;
+    phaseFailed: (phaseName: string, reason: string) => string;
+  }
+> = {
+  ja: {
+    phaseStarted: (phaseName) => `${phaseName} フェーズを開始します。`,
+    phaseResumed: (phaseName, step) => `${phaseName} フェーズを再開します (step: ${step})。`,
+    phaseCompleted: (phaseName) => `${phaseName} フェーズが完了しました。`,
+    phaseFailed: (phaseName, reason) => `${phaseName} フェーズでエラーが発生しました: ${reason}`,
+  },
+  en: {
+    phaseStarted: (phaseName) => `Starting ${phaseName} phase.`,
+    phaseResumed: (phaseName, step) => `Resuming ${phaseName} phase (step: ${step}).`,
+    phaseCompleted: (phaseName) => `${phaseName} phase completed.`,
+    phaseFailed: (phaseName, reason) => `${phaseName} phase failed: ${reason}`,
+  },
+};
 
 /**
  * PhaseRunner - フェーズライフサイクル管理を担当
@@ -110,15 +158,19 @@ export class PhaseRunner {
     const currentStatus = this.metadata.getPhaseStatus(this.phaseName);
     const currentStep = this.metadata.getCurrentStep(this.phaseName);
     const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
+    const messages = this.getMessages();
 
     // フェーズが pending の場合のみステータス更新
     if (currentStatus === 'pending') {
       this.updatePhaseStatus('in_progress');
-      await this.postProgress('in_progress', `${this.phaseName} フェーズを開始します。`);
+      await this.postProgress('in_progress', messages.phaseStarted(this.phaseName));
     } else if (currentStatus === 'in_progress') {
       // ロールバック等で in_progress の場合
       logger.info(`Phase ${this.phaseName} resuming from step: ${currentStep ?? 'execute'}`);
-      await this.postProgress('in_progress', `${this.phaseName} フェーズを再開します (step: ${currentStep ?? 'execute'})。`);
+      await this.postProgress(
+        'in_progress',
+        messages.phaseResumed(this.phaseName, currentStep ?? 'execute')
+      );
     }
 
     try {
@@ -234,7 +286,8 @@ export class PhaseRunner {
       this.updatePhaseStatus('completed');
       logger.info(`Phase ${this.phaseName}: Status updated to 'completed'`);
 
-      await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
+      const messages = this.getMessages();
+      await this.postProgress('completed', messages.phaseCompleted(this.phaseName));
       await this.updatePrBodyChecklist();
     } catch (error) {
       const message = getErrorMessage(error);
@@ -302,9 +355,10 @@ export class PhaseRunner {
       this.updatePhaseStatus('failed');
       logger.info(`Phase ${this.phaseName}: Status updated to 'failed'`);
 
+      const messages = this.getMessages();
       await this.postProgress(
         'failed',
-        `${this.phaseName} フェーズでエラーが発生しました: ${reason}`
+        messages.phaseFailed(this.phaseName, reason)
       );
     } catch (error) {
       const message = getErrorMessage(error);
@@ -423,5 +477,19 @@ export class PhaseRunner {
       const message = getErrorMessage(error);
       logger.warn(`Phase ${this.phaseName}: Failed to update PR body checklist: ${message}`);
     }
+  }
+
+  /**
+   * 現在の言語設定に基づいたメッセージ関数を取得する
+   */
+  private getMessages(): (typeof PHASE_RUNNER_MESSAGES)[SupportedLanguage] {
+    const languageCandidate = (
+      this.metadata as { getLanguage?: () => SupportedLanguage | string }
+    ).getLanguage?.();
+    const language: SupportedLanguage = languageCandidate && SUPPORTED_LANGUAGES.includes(languageCandidate as SupportedLanguage)
+      ? (languageCandidate as SupportedLanguage)
+      : DEFAULT_LANGUAGE;
+
+    return PHASE_RUNNER_MESSAGES[language];
   }
 }

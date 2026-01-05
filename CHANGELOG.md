@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #592**: SecretMasker がリポジトリパスを過剰にマスキングし、Claude Agent の working directory 解決が失敗する問題を修正
+  - `SecretMasker.maskString()` メソッドにファイルパスコンポーネント保護機能を追加
+  - Unix パス内の20文字以上のディレクトリ名（例: `sd-platform-development`）をプレースホルダー `__PATH_COMPONENT_N__` で一時保護し、汎用トークンマスキングから除外
+  - Jenkins 環境でリポジトリ名がマスキングされて working directory 解決が `process.cwd()` にフォールバックする問題を解決
+  - デバッグログ強化: `claude-agent-client.ts`、`codex-agent-client.ts`、`working-directory-resolver.ts` にパス解決プロセスのトレースログを追加
+  - REPOS_ROOT 整合性チェック: 解決されたパスが REPOS_ROOT 外にある場合の警告ログを追加（Issue #592 問題の早期検出支援）
+  - **セキュリティ維持**: 既存のマスキング機能（GitHub トークン、メールアドレス、汎用トークン等）は引き続き正常に動作
+  - **パス外の保護**: ファイルパス外に出現する20文字以上の文字列は従来通りマスキング対象
+  - 修正ファイル: `src/core/secret-masker.ts`、`src/core/claude-agent-client.ts`、`src/core/codex-agent-client.ts`、`src/core/helpers/working-directory-resolver.ts`
+  - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
+
 ### Added
+
+- **Issue #590**: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了
+  - `phase-runner.ts` のハードコードされた日本語メッセージ4箇所（開始・再開・完了・失敗）を多言語対応
+  - `--language en` 指定時に英語、`--language ja`（またはデフォルト）指定時に日本語で GitHub Issue に進捗メッセージが投稿される
+  - **新規実装**: `PHASE_RUNNER_MESSAGES` 定数と `getMessages()` ヘルパーメソッドを追加
+  - **言語統一**: `progress-formatter.ts` と同じパターン（`MetadataManager.getLanguage()` 経由）で一貫性を確保
+  - **後方互換性**: 言語未指定時は従来通り日本語で動作
+  - 修正ファイル: `src/phases/lifecycle/phase-runner.ts`
+  - テストカバレッジ: 11件のユニットテスト（100%成功）
 
 - **Issue #325**: Automatic PR body checklist updates during phase completion
   - PR body workflow progress checklists are now automatically updated when each phase completes successfully
@@ -380,6 +402,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Squash failures logged as warnings but do not fail the workflow
 
 ### Changed
+- **Issue #579**: [Refactor] repository-analyzer.ts modularization for improved maintainability
+  - Extracted monolithic `repository-analyzer.ts` (~1,221 lines) into focused modules under `src/core/analyzer/`
+  - **New modules created**:
+    - `types.ts` - Shared analyzer types and re-exported candidate shapes
+    - `path-exclusion.ts` - Exclusion constants and path filtering helpers (`isExcludedDirectory`, `isExcludedFile`, `matchesWildcard`)
+    - `output-parser.ts` - JSON output parsing for bug/refactor/enhancement candidates
+    - `candidate-validator.ts` - Centralized validation logic for all candidate categories
+    - `agent-executor.ts` - Agent execution, fallback logic, and custom instruction injection
+    - `index.ts` - Barrel export for clean module imports
+  - **Refactored facade**: `RepositoryAnalyzer` class reduced to ~350 lines, delegating to extracted modules
+  - **Public API preserved**: Constructor signature and all public methods (`analyze()`, `analyzeForRefactoring()`, `analyzeForEnhancements()`) remain 100% unchanged
+  - **Benefits**: ~70% reduction in main file size, single-responsibility modules, improved testability
+  - Test coverage: All 173 test suites passed (115 unit + 57 integration, 1 skipped)
+
 - **Issue #155**: [Refactor] コード重複の削減: repository-analyzer.ts
   - Extract Method パターン適用により `repository-analyzer.ts` の重複コードを削減（~150行 → ~50行、67%削減）
   - 新規プライベートメソッド追加: `executeAgentWithFallback()`, `validateAnalysisResult()`

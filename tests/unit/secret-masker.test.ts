@@ -126,6 +126,234 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     expect(masked).toBe(input);
   });
 
+  describe('Issue #592: ファイルパスコンポーネントの保護', () => {
+    test('Unixパス内の長いディレクトリ名は汎用トークンマスキングから除外される', () => {
+      const input = '/tmp/ai-workflow-repos-2-4a4ea5b0/sd-platform-development/.ai-workflow/issue-236';
+
+      const masked = masker.maskObject(input) as string;
+
+      expect(masked).toContain('ai-workflow-repos-2-4a4ea5b0');
+      expect(masked).toContain('sd-platform-development');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('パス外に出現した同一文字列はマスキングされる', () => {
+      const input = 'Token: sd-platform-development';
+
+      const masked = masker.maskObject(input) as string;
+
+      expect(masked).toContain('[REDACTED_TOKEN]');
+      expect(masked).not.toContain('sd-platform-development');
+    });
+
+    test('複数の長いパスコンポーネントを保持する', () => {
+      const input = '/tmp/very-long-directory-name/another-long-dir-name-here/file.txt';
+
+      const masked = masker.maskObject(input) as string;
+
+      expect(masked).toContain('very-long-directory-name');
+      expect(masked).toContain('another-long-dir-name-here');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('パス内とパス外が混在する場合でもパスのみ保持する', () => {
+      const input = 'Path /sd-platform-development/ with token sd-platform-development outside';
+
+      const masked = masker.maskObject(input) as string;
+      const pathOccurrences = masked.match(/sd-platform-development/g)?.length ?? 0;
+
+      expect(pathOccurrences).toBe(1);
+      expect(masked).toContain('/sd-platform-development/');
+      expect(masked).toContain('[REDACTED_TOKEN]');
+    });
+
+    test('長いファイル名も保護対象になる', () => {
+      const input = '/tmp/repo/very-long-filename-that-exceeds-20-chars.md';
+
+      const masked = masker.maskObject(input) as string;
+
+      expect(masked).toContain('very-long-filename-that-exceeds-20-chars.md');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('20文字丁度や数字のみのコンポーネントも保持する', () => {
+      const input = '/tmp/exactly-20-chars-dir/12345678901234567890/file.txt';
+
+      const masked = masker.maskObject(input) as string;
+
+      expect(masked).toContain('exactly-20-chars-dir');
+      expect(masked).toContain('12345678901234567890');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+  });
+
+  describe('Issue #592 エッジ: ファイルパス保護の追加ケース (TC-2.3)', () => {
+    test('TC-2.3.1 連続するスラッシュを含むパスでも長いコンポーネントを保持する', () => {
+      // Given: 連続スラッシュを含む長いパス
+      const input = '/tmp//sd-platform-development//file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: パス構造とディレクトリ名がそのまま維持される
+      expect(masked).toBe(input);
+      expect(masked).toContain('sd-platform-development');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.2 ドットを含む長いディレクトリ名を保持する', () => {
+      // Given: ドットを含む29文字のディレクトリ名
+      const input = '/tmp/some.long.directory.name.here/file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: ディレクトリ名がマスクされずに保持される
+      expect(masked).toContain('some.long.directory.name.here');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.3 アンダースコアとハイフン混在の長いディレクトリ名を保持する', () => {
+      // Given: 特殊文字を含む32文字のディレクトリ名
+      const input = '/tmp/my_project-name_with-mixed_chars/file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: ディレクトリ名がそのまま残る
+      expect(masked).toContain('my_project-name_with-mixed_chars');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.4 数字のみ20文字のディレクトリ名を保持する', () => {
+      // Given: 数字のみで20文字のディレクトリ名
+      const input = '/tmp/12345678901234567890/file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: 数字のみのコンポーネントも保護される
+      expect(masked).toContain('12345678901234567890');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.5 ちょうど20文字のディレクトリ名を保持する', () => {
+      // Given: 20文字の境界値ディレクトリ名
+      const input = '/tmp/exactly-20-chars-dir/file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: 境界値でもマスキングされない
+      expect(masked).toContain('exactly-20-chars-dir');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.6 19文字のディレクトリ名は保護対象外だがマスクされない', () => {
+      // Given: 19文字のディレクトリ名（保護対象外だがトークン扱いにもならない）
+      const input = '/tmp/exactly-19-char-dir/file.txt';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: 変更されずに保持される
+      expect(masked).toBe(input);
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-2.3.7 空文字列入力はそのまま返す', () => {
+      // Given: 空文字列
+      const input = '';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: 空文字列が返りエラーにならない
+      expect(masked).toBe('');
+    });
+
+    test('TC-2.3.8 パスのみの文字列でもディレクトリ名を保持する', () => {
+      // Given: パスのみが含まれる文字列
+      const input = '/tmp/ai-workflow-repos-XXX/sd-platform-development/.ai-workflow';
+
+      // When: マスキングを実行
+      const masked = masker.maskObject(input) as string;
+
+      // Then: 両方のディレクトリ名が保持される
+      expect(masked).toContain('ai-workflow-repos-XXX');
+      expect(masked).toContain('sd-platform-development');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+  });
+
+  describe('Issue #592: maskObject のパス保護 (TC-2.4)', () => {
+    test('TC-2.4.1 メタデータオブジェクト内のパスを保持する', () => {
+      // Given: target_repository.path を含むメタデータ
+      const input = {
+        target_repository: {
+          path: '/tmp/ai-workflow-repos-2-4a4ea5b0/sd-platform-development/.ai-workflow',
+          github_name: 'owner/sd-platform-dev',
+        },
+        issue_number: 236,
+      };
+
+      // When: オブジェクトマスキングを実行
+      const masked = masker.maskObject(input) as typeof input;
+
+      // Then: パスとリポジトリ名が保持され、元オブジェクトは変化しない
+      expect(masked.target_repository.path).toContain('sd-platform-development');
+      expect(masked.target_repository.github_name).toBe('owner/sd-platform-dev');
+      expect(masked.target_repository.path).not.toContain('[REDACTED_TOKEN]');
+      expect(input.target_repository.path).toBe(
+        '/tmp/ai-workflow-repos-2-4a4ea5b0/sd-platform-development/.ai-workflow',
+      );
+    });
+
+    test('TC-2.4.2 ネストされたオブジェクト内のパスを保持する', () => {
+      // Given: ネスト構造内にパスを含むオブジェクト
+      const input = {
+        workflow: {
+          phases: [
+            {
+              execute: {
+                working_directory: '/tmp/sd-platform-development/.ai-workflow/issue-236/01_requirements/execute',
+              },
+            },
+          ],
+        },
+      };
+
+      // When: オブジェクトマスキングを実行
+      const masked = masker.maskObject(input) as typeof input;
+
+      // Then: ネスト内のパスが保持され、マスキングされない
+      expect(masked.workflow.phases[0].execute.working_directory).toContain('sd-platform-development');
+      expect(masked.workflow.phases[0].execute.working_directory).toContain('.ai-workflow/issue-236');
+      expect(masked.workflow.phases[0].execute.working_directory).not.toContain('[REDACTED_TOKEN]');
+      expect(input.workflow.phases[0].execute.working_directory).toContain('sd-platform-development');
+    });
+
+    test('TC-2.4.3 配列内の複数パスを保持する', () => {
+      // Given: 配列内に2つのパスがあるオブジェクト
+      const input = {
+        files: [
+          '/tmp/sd-platform-development/file1.txt',
+          '/tmp/another-long-directory-name/file2.txt',
+        ],
+      };
+
+      // When: オブジェクトマスキングを実行
+      const masked = masker.maskObject(input) as typeof input;
+
+      // Then: いずれのパスも保持される
+      expect(masked.files[0]).toContain('sd-platform-development');
+      expect(masked.files[1]).toContain('another-long-directory-name');
+      expect(masked.files[0]).not.toContain('[REDACTED_TOKEN]');
+      expect(masked.files[1]).not.toContain('[REDACTED_TOKEN]');
+      expect(input.files[0]).toBe('/tmp/sd-platform-development/file1.txt');
+    });
+  });
+
   test('Issue #514: GitHubリポジトリ名（owner/repo形式）は汎用トークンマスキングから除外される', () => {
     // Given: GitHubリポジトリ名を含むメタデータJSON風の文字列
     const input = `{

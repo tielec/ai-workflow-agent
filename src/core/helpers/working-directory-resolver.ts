@@ -23,15 +23,17 @@ export async function resolveWorkingDirectory(originalPath: string): Promise<str
     const issueMatch = originalPath.match(/\.ai-workflow[/\\]issue-(\d+)/);
     if (!issueMatch) {
       logger.warn(`Could not extract issue number from path: ${originalPath}`);
-      return fallbackToProcessCwd();
+      return fallbackToProcessCwd(originalPath);
     }
 
     const issueNumber = issueMatch[1];
     logger.info(`Attempting to resolve working directory for Issue #${issueNumber}`);
+    logger.debug(`[Resolver] Step 1: Checking metadata for Issue #${issueNumber}`);
 
     // 1. メタデータから target_repository.path を取得
     try {
       const { repoRoot, metadataPath } = await findWorkflowMetadata(issueNumber);
+      logger.debug(`[Resolver] Metadata lookup repoRoot: ${repoRoot ?? 'undefined'}`);
       logger.info(`Found metadata at: ${metadataPath}`);
 
       const metadataContent = fs.readFileSync(metadataPath, 'utf-8');
@@ -39,6 +41,7 @@ export async function resolveWorkingDirectory(originalPath: string): Promise<str
 
       if (metadata.target_repository?.path && fs.existsSync(metadata.target_repository.path)) {
         logger.info(`Using target_repository.path from metadata: ${metadata.target_repository.path}`);
+        validateReposRootConsistency(metadata.target_repository.path, originalPath);
         return metadata.target_repository.path;
       }
 
@@ -49,6 +52,7 @@ export async function resolveWorkingDirectory(originalPath: string): Promise<str
 
     // 2. REPOS_ROOT 環境変数を試行
     const reposRoot = config.getReposRoot();
+    logger.debug(`[Resolver] Step 2: Checking REPOS_ROOT: ${reposRoot ?? 'undefined'}`);
     if (reposRoot) {
       // 元のパスからリポジトリ名を推測
       const repoNameMatch = originalPath.match(/([^/\\]+)[/\\]\.ai-workflow/);
@@ -58,6 +62,7 @@ export async function resolveWorkingDirectory(originalPath: string): Promise<str
 
         if (fs.existsSync(fallbackPath)) {
           logger.info(`Using REPOS_ROOT fallback: ${fallbackPath}`);
+          validateReposRootConsistency(fallbackPath, originalPath);
           return fallbackPath;
         }
 
@@ -66,22 +71,42 @@ export async function resolveWorkingDirectory(originalPath: string): Promise<str
     }
 
     // 3. 最終手段: process.cwd()
-    return fallbackToProcessCwd();
+    logger.debug('[Resolver] Step 3: Falling back to process.cwd()');
+    return fallbackToProcessCwd(originalPath);
   } catch (error) {
     logger.error(`Unexpected error in resolveWorkingDirectory: ${getErrorMessage(error)}`);
-    return fallbackToProcessCwd();
+    return fallbackToProcessCwd(originalPath);
   }
 }
 
 /**
  * process.cwd() にフォールバック（最終手段）
  */
-function fallbackToProcessCwd(): string {
+function fallbackToProcessCwd(originalPath: string): string {
   const cwd = process.cwd();
   logger.warn(`Falling back to process.cwd(): ${cwd}`);
   logger.warn(
-    'This may cause file path mismatches in multi-repository environments. ' +
+    `Original path was: ${originalPath}. ` +
+      'This may cause file path mismatches in multi-repository environments. ' +
       'Ensure REPOS_ROOT is set correctly or run init command first.',
   );
   return cwd;
+}
+
+/**
+ * REPOS_ROOT と解決結果の整合性を検証し、ずれがあれば警告を出力する
+ */
+function validateReposRootConsistency(resolvedPath: string, originalPath: string): void {
+  const reposRoot = config.getReposRoot();
+  if (!reposRoot) {
+    return;
+  }
+
+  if (!resolvedPath.startsWith(reposRoot)) {
+    logger.warn(
+      `[Issue #592 Warning] Resolved path (${resolvedPath}) is outside REPOS_ROOT (${reposRoot}). ` +
+        `Original path: ${originalPath}. ` +
+        'This may indicate a path masking issue.',
+    );
+  }
 }

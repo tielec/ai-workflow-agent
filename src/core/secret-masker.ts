@@ -208,10 +208,11 @@ export class SecretMasker {
    * 3. Restores protected content after masking
    *
    * ## Masking Order and Logic:
-   * 1. **URL Protection**: GitHub URLs are temporarily replaced with placeholders
-   * 2. **Repository Protection**: Standalone owner/repo patterns are protected
-   * 3. **Secret Masking**: Applies patterns for tokens, emails, and generic secrets
-   * 4. **Restoration**: Protected content is restored to preserve legitimate URLs
+   * 1. **Path Protection**: Unix path components (20+ chars) are temporarily replaced to avoid over-masking
+   * 2. **URL Protection**: GitHub URLs are temporarily replaced with placeholders
+   * 3. **Repository Protection**: Standalone owner/repo patterns are protected
+   * 4. **Secret Masking**: Applies patterns for tokens, emails, and generic secrets
+   * 5. **Restoration**: Protected content is restored to preserve legitimate URLs and paths
    *
    * ## Pattern Details:
    * - **GitHub Tokens**: `ghp_*`, `github_pat_*` patterns → `[REDACTED_GITHUB_TOKEN]`
@@ -239,6 +240,18 @@ export class SecretMasker {
    */
   private maskString(value: string): string {
     let masked = value;
+
+    // Issue #592: Protect long Unix path components from generic token masking
+    const pathComponentMap = new Map<string, string>();
+    let pathComponentIndex = 0;
+    const unixPathPattern = /\/([a-zA-Z0-9_.-]{20,})(?=\/|$)/g;
+    masked = masked.replace(unixPathPattern, (match) => {
+      const placeholder = `__PATH_COMPONENT_${pathComponentIndex++}__`;
+      // スラッシュを残したままプレースホルダー化し、owner/repo の区切りを維持する
+      const placeholderWithSlash = `/${placeholder}`;
+      pathComponentMap.set(placeholderWithSlash, match);
+      return placeholderWithSlash;
+    });
 
     const urlMap = new Map<string, string>();
     const partMap = new Map<string, string>();
@@ -289,7 +302,10 @@ export class SecretMasker {
     masked = masked.replace(/\b(?:ghp_[\w-]{20,}|github_pat_[\w-]{20,})\b/gi, '[REDACTED_GITHUB_TOKEN]');
     masked = masked.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]');
     // Exclude REDACTED placeholders, ghp_/github_pat_ prefixes, REPO_PLACEHOLDER/REPO_PART/JSON_KEY, and Git commit hashes (40-char hex) from generic token masking
-    masked = masked.replace(/\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:REPO_(?:PLACEHOLDER|PART)|JSON_KEY)_)(?![a-f0-9]{40}\b)[A-Za-z0-9_-]{20,}\b/g, '[REDACTED_TOKEN]');
+    masked = masked.replace(
+      /\b(?!ghp_)(?!github_pat_)(?!REDACTED)(?!__(?:REPO_(?:PLACEHOLDER|PART)|JSON_KEY|PATH_COMPONENT)_)(?![a-f0-9]{40}\b)[A-Za-z0-9_-]{20,}\b/g,
+      '[REDACTED_TOKEN]',
+    );
     masked = masked.replace(/(Bearer\s+)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
     masked = masked.replace(/(token=)[\w\-.]+/gi, '$1[REDACTED_TOKEN]');
 
@@ -303,6 +319,10 @@ export class SecretMasker {
     }
 
     for (const [placeholder, original] of partMap) {
+      masked = masked.split(placeholder).join(original);
+    }
+
+    for (const [placeholder, original] of pathComponentMap) {
       masked = masked.split(placeholder).join(original);
     }
 
