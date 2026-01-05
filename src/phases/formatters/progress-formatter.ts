@@ -64,7 +64,7 @@ const PROGRESS_TEXT: Record<
     completedAt: '完了時刻',
     completedDetails: '完了したフェーズの詳細',
     lastUpdated: '最終更新',
-    footer: 'AI駆動開発自動化ワークフロー (Claude Agent SDK)',
+    footer: 'AI駆動開発自動化ワークフロー',
   },
   en: {
     title: '🤖 AI Workflow - Progress',
@@ -78,7 +78,7 @@ const PROGRESS_TEXT: Record<
     completedAt: 'Completed At',
     completedDetails: 'Completed Phases Details',
     lastUpdated: 'Last Updated',
-    footer: 'AI-driven development automation workflow (Claude Agent SDK)',
+    footer: 'AI-driven development automation workflow',
   },
 };
 
