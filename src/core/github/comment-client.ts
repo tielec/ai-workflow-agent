@@ -3,6 +3,52 @@ import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { MetadataManager } from '../metadata-manager.js';
+import { SupportedLanguage } from '../../types.js';
+
+/**
+ * 言語別テキストマッピング（Issue #587）
+ */
+const WORKFLOW_PROGRESS_TEXT: Record<
+  SupportedLanguage,
+  {
+    workflow: string;
+    phase: string;
+    status: string;
+    footer: string;
+    phaseNames: Record<string, string>;
+  }
+> = {
+  ja: {
+    workflow: 'AI Workflow',
+    phase: 'フェーズ',
+    status: 'ステータス',
+    footer: 'AI駆動開発自動化ワークフロー',
+    phaseNames: {
+      planning: '企画',
+      requirements: '要件定義',
+      design: '設計',
+      test_scenario: 'テストシナリオ',
+      implementation: '実装',
+      testing: 'テスト',
+      documentation: 'ドキュメント',
+    },
+  },
+  en: {
+    workflow: 'AI Workflow',
+    phase: 'Phase',
+    status: 'Status',
+    footer: 'AI-driven development automation workflow',
+    phaseNames: {
+      planning: 'Planning',
+      requirements: 'Requirements',
+      design: 'Design',
+      test_scenario: 'Test Scenario',
+      implementation: 'Implementation',
+      testing: 'Testing',
+      documentation: 'Documentation',
+    },
+  },
+};
 
 export interface ProgressCommentResult {
   comment_id: number;
@@ -69,6 +115,7 @@ export class CommentClient {
     issueNumber: number,
     phase: string,
     status: string,
+    metadata: MetadataManager,
     details?: string,
   ) {
     const statusEmoji: Record<string, string> = {
@@ -78,28 +125,22 @@ export class CommentClient {
       failed: '❌',
     };
 
-    const phaseNames: Record<string, string> = {
-      planning: '企画',
-      requirements: '要件定義',
-      design: '設計',
-      test_scenario: 'テストシナリオ',
-      implementation: '実装',
-      testing: 'テスト',
-      documentation: 'ドキュメント',
-    };
+    // 言語取得（Issue #587）
+    const language = metadata.getLanguage() || 'ja';
+    const text = WORKFLOW_PROGRESS_TEXT[language];
 
     const emoji = statusEmoji[status] ?? '📝';
-    const phaseLabel = phaseNames[phase] ?? phase;
+    const phaseLabel = text.phaseNames[phase] ?? phase;
 
-    let body = `## ${emoji} AI Workflow - ${phaseLabel}フェーズ\n\n`;
-    body += `**ステータス**: ${status.toUpperCase()}\n\n`;
+    let body = `## ${emoji} ${text.workflow} - ${phaseLabel}${text.phase}\n\n`;
+    body += `**${text.status}**: ${status.toUpperCase()}\n\n`;
 
     if (details) {
       body += `${details}\n\n`;
     }
 
     body += '---\n';
-    body += '*AI駆動開発自動化ワークフロー (Claude Agent SDK)*';
+    body += `*${text.footer}*`;
 
     const { data } = await this.octokit.issues.createComment({
       owner: this.owner,

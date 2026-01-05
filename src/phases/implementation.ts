@@ -119,6 +119,7 @@ export class ImplementationPhase extends BasePhase {
       reviewResult.result,
       reviewResult.feedback,
       reviewResult.suggestions,
+      this.metadata,
     );
 
     return {

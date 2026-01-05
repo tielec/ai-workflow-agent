@@ -1,5 +1,56 @@
 import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
+import { MetadataManager } from '../metadata-manager.js';
+import { SupportedLanguage } from '../../types.js';
+
+/**
+ * 言語別テキストマッピング（Issue #587）
+ */
+const REVIEW_TEXT: Record<
+  SupportedLanguage,
+  {
+    reviewResult: string;
+    phase: string;
+    decision: string;
+    feedback: string;
+    suggestions: string;
+    footer: string;
+    phaseNames: Record<string, string>;
+  }
+> = {
+  ja: {
+    reviewResult: 'レビュー結果',
+    phase: 'フェーズ',
+    decision: '判定',
+    feedback: 'フィードバック',
+    suggestions: '改善提案',
+    footer: 'AI駆動開発自動化ワークフロー - クリティカルシンキングレビュー',
+    phaseNames: {
+      requirements: '要件定義',
+      design: '設計',
+      test_scenario: 'テストシナリオ',
+      implementation: '実装',
+      testing: 'テスト',
+      documentation: 'ドキュメント',
+    },
+  },
+  en: {
+    reviewResult: 'Review Result',
+    phase: 'Phase',
+    decision: 'Decision',
+    feedback: 'Feedback',
+    suggestions: 'Suggestions',
+    footer: 'AI-driven development automation workflow - Critical thinking review',
+    phaseNames: {
+      requirements: 'Requirements',
+      design: 'Design',
+      test_scenario: 'Test Scenario',
+      implementation: 'Implementation',
+      testing: 'Testing',
+      documentation: 'Documentation',
+    },
+  },
+};
 
 /**
  * ReviewClient handles review result posting operations with GitHub API.
@@ -27,6 +78,7 @@ export class ReviewClient {
     result: string,
     feedback: string,
     suggestions: string[],
+    metadata: MetadataManager,
   ) {
     const emojiMap: Record<string, string> = {
       PASS: '✅',
@@ -34,27 +86,22 @@ export class ReviewClient {
       FAIL: '❌',
     };
 
-    const phaseNames: Record<string, string> = {
-      requirements: '要件定義',
-      design: '設計',
-      test_scenario: 'テストシナリオ',
-      implementation: '実装',
-      testing: 'テスト',
-      documentation: 'ドキュメント',
-    };
+    // 言語取得（Issue #587）
+    const language = metadata.getLanguage() || 'ja';
+    const text = REVIEW_TEXT[language];
 
     const emoji = emojiMap[result] ?? '📝';
-    const phaseLabel = phaseNames[phase] ?? phase;
+    const phaseLabel = text.phaseNames[phase] ?? phase;
 
-    let body = `## ${emoji} レビュー結果 - ${phaseLabel}フェーズ\n\n`;
-    body += `**判定**: ${result}\n\n`;
+    let body = `## ${emoji} ${text.reviewResult} - ${phaseLabel}${text.phase}\n\n`;
+    body += `**${text.decision}**: ${result}\n\n`;
 
     if (feedback) {
-      body += `### フィードバック\n\n${feedback}\n\n`;
+      body += `### ${text.feedback}\n\n${feedback}\n\n`;
     }
 
     if (suggestions.length) {
-      body += '### 改善提案\n\n';
+      body += `### ${text.suggestions}\n\n`;
       suggestions.forEach((item, index) => {
         body += `${index + 1}. ${item}\n`;
       });
@@ -62,7 +109,7 @@ export class ReviewClient {
     }
 
     body += '---\n';
-    body += '*AI駆動開発自動化ワークフロー - クリティカルシンキングレビュー*';
+    body += `*${text.footer}*`;
 
     const { data } = await this.octokit.issues.createComment({
       owner: this.owner,

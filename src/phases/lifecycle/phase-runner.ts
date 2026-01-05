@@ -7,6 +7,10 @@ import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../types.js';
 import { StepExecutor } from './step-executor.js';
 import { ProgressFormatter } from '../formatters/progress-formatter.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import {
+  hasWorkflowChecklist,
+  updatePhaseChecklistInPrBody,
+} from '../../utils/pr-body-checklist-utils.js';
 
 // PhaseRunOptions は BasePhase から import（Issue #49）
 import type { PhaseRunOptions } from '../base-phase.js';
@@ -231,6 +235,7 @@ export class PhaseRunner {
       logger.info(`Phase ${this.phaseName}: Status updated to 'completed'`);
 
       await this.postProgress('completed', `${this.phaseName} フェーズが完了しました。`);
+      await this.updatePrBodyChecklist();
     } catch (error) {
       const message = getErrorMessage(error);
       logger.error(`Phase ${this.phaseName}: Failed to finalize phase: ${message}`);
@@ -374,5 +379,49 @@ export class PhaseRunner {
     }
 
     this.metadata.updatePhaseStatus(this.phaseName, status, payload);
+  }
+
+  /**
+   * Update the PR body checklist when a phase is completed.
+   * Errors are logged and swallowed to avoid blocking phase completion.
+   */
+  private async updatePrBodyChecklist(): Promise<void> {
+    const prNumber = this.metadata.data.pr_number;
+    if (prNumber === null || prNumber === undefined) {
+      logger.info(`Phase ${this.phaseName}: Skipping PR body update (no PR number)`);
+      return;
+    }
+
+    try {
+      const prBody = await this.github.getPullRequestBody(prNumber);
+      if (!prBody) {
+        logger.info(`Phase ${this.phaseName}: PR body is empty, skipping checklist update`);
+        return;
+      }
+
+      if (!hasWorkflowChecklist(prBody)) {
+        logger.info(`Phase ${this.phaseName}: Workflow checklist not found in PR body, skipping update`);
+        return;
+      }
+
+      const updatedBody = updatePhaseChecklistInPrBody(prBody, this.phaseName);
+      if (updatedBody === prBody) {
+        logger.info(`Phase ${this.phaseName}: PR body checklist already up to date`);
+        return;
+      }
+
+      const updateResult = await this.github.updatePullRequest(prNumber, updatedBody);
+      if (!updateResult.success) {
+        logger.warn(
+          `Phase ${this.phaseName}: Failed to update PR body checklist: ${updateResult.error ?? 'Unknown error'}`
+        );
+        return;
+      }
+
+      logger.info(`Phase ${this.phaseName}: Updated PR body checklist`);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.warn(`Phase ${this.phaseName}: Failed to update PR body checklist: ${message}`);
+    }
   }
 }

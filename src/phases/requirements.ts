@@ -71,6 +71,7 @@ export class RequirementsPhase extends BasePhase {
       reviewResult.result,
       reviewResult.feedback,
       reviewResult.suggestions,
+      this.metadata,
     );
 
     const reviewFile = path.join(this.reviewDir, 'result.md');

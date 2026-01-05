@@ -10,7 +10,7 @@
  */
 
 import { MetadataManager } from '../../core/metadata-manager.js';
-import { PhaseName, PhaseStatus, PhaseMetadata } from '../../types.js';
+import { PhaseName, PhaseStatus, PhaseMetadata, SupportedLanguage } from '../../types.js';
 
 const statusEmoji: Record<string, string> = {
   pending: '⏸️',
@@ -32,6 +32,56 @@ const phaseDefinitions: Array<{ key: PhaseName; number: string; label: string }>
   { key: 'evaluation', number: 'Phase 9', label: 'Evaluation' },
 ];
 
+/**
+ * 言語別テキストマッピング（Issue #587）
+ */
+const PROGRESS_TEXT: Record<
+  SupportedLanguage,
+  {
+    title: string;
+    overallProgress: string;
+    currentPhase: string;
+    status: string;
+    startedAt: string;
+    retryCount: string;
+    started: string;
+    reviewResult: string;
+    completedAt: string;
+    completedDetails: string;
+    lastUpdated: string;
+    footer: string;
+  }
+> = {
+  ja: {
+    title: '🤖 AI Workflow - 進捗状況',
+    overallProgress: '全体進捗',
+    currentPhase: '現在のフェーズ',
+    status: 'ステータス',
+    startedAt: '開始時刻',
+    retryCount: '試行回数',
+    started: '開始',
+    reviewResult: 'レビュー結果',
+    completedAt: '完了時刻',
+    completedDetails: '完了したフェーズの詳細',
+    lastUpdated: '最終更新',
+    footer: 'AI駆動開発自動化ワークフロー',
+  },
+  en: {
+    title: '🤖 AI Workflow - Progress',
+    overallProgress: 'Overall Progress',
+    currentPhase: 'Current Phase',
+    status: 'Status',
+    startedAt: 'Started At',
+    retryCount: 'Retry Count',
+    started: 'started',
+    reviewResult: 'Review Result',
+    completedAt: 'Completed At',
+    completedDetails: 'Completed Phases Details',
+    lastUpdated: 'Last Updated',
+    footer: 'AI-driven development automation workflow',
+  },
+};
+
 export class ProgressFormatter {
   /**
    * 進捗コメントを Markdown 形式で生成
@@ -52,8 +102,12 @@ export class ProgressFormatter {
     phasesStatus[currentPhase] = status;
     const parts: string[] = [];
 
-    parts.push('## 🤖 AI Workflow - 進捗状況\n\n');
-    parts.push('### 全体進捗\n\n');
+    // 言語取得（Issue #587）
+    const language = metadata.getLanguage() || 'ja';
+    const text = PROGRESS_TEXT[language];
+
+    parts.push(`## ${text.title}\n\n`);
+    parts.push(`### ${text.overallProgress}\n\n`);
 
     const completedDetails: Array<{
       number: string;
@@ -79,7 +133,7 @@ export class ProgressFormatter {
       if (phaseStatus === 'completed' && phaseData?.completed_at) {
         line += ` (${phaseData.completed_at})`;
       } else if (phaseStatus === 'in_progress' && phaseData?.started_at) {
-        line += ` (開始: ${phaseData.started_at})`;
+        line += ` (${text.started}: ${phaseData.started_at})`;
       }
 
       parts.push(`${line}\n`);
@@ -105,17 +159,17 @@ export class ProgressFormatter {
     // 現在のフェーズ詳細
     if (currentPhaseInfo) {
       parts.push(
-        `\n### 現在のフェーズ: ${currentPhaseInfo.number} (${currentPhaseInfo.label})\n\n`,
+        `\n### ${text.currentPhase}: ${currentPhaseInfo.number} (${currentPhaseInfo.label})\n\n`,
       );
-      parts.push(`**ステータス**: ${currentPhaseInfo.status.toUpperCase()}\n`);
+      parts.push(`**${text.status}**: ${currentPhaseInfo.status.toUpperCase()}\n`);
 
       const phaseData = currentPhaseInfo.data;
       if (phaseData?.started_at) {
-        parts.push(`**開始時刻**: ${phaseData.started_at}\n`);
+        parts.push(`**${text.startedAt}**: ${phaseData.started_at}\n`);
       }
 
       const retryCount = phaseData?.retry_count ?? 0;
-      parts.push(`**試行回数**: ${retryCount + 1}/3\n`);
+      parts.push(`**${text.retryCount}**: ${retryCount + 1}/3\n`);
 
       if (details) {
         parts.push(`\n${details}\n`);
@@ -125,18 +179,18 @@ export class ProgressFormatter {
     // 完了したフェーズの詳細（折りたたみ表示）
     if (completedDetails.length) {
       parts.push('\n<details>\n');
-      parts.push('<summary>完了したフェーズの詳細</summary>\n\n');
+      parts.push(`<summary>${text.completedDetails}</summary>\n\n`);
 
       for (const info of completedDetails) {
         parts.push(`### ${info.number}: ${info.label}\n\n`);
-        parts.push('**ステータス**: COMPLETED\n');
+        parts.push(`**${text.status}**: COMPLETED\n`);
 
         const data = info.data;
         if (data?.review_result) {
-          parts.push(`**レビュー結果**: ${data.review_result}\n`);
+          parts.push(`**${text.reviewResult}**: ${data.review_result}\n`);
         }
         if (data?.completed_at) {
-          parts.push(`**完了時刻**: ${data.completed_at}\n`);
+          parts.push(`**${text.completedAt}**: ${data.completed_at}\n`);
         }
 
         parts.push('\n');
@@ -153,8 +207,8 @@ export class ProgressFormatter {
     )}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
     parts.push('\n---\n');
-    parts.push(`*最終更新: ${formattedNow}*\n`);
-    parts.push('*AI駆動開発自動化ワークフロー (Claude Agent SDK)*\n');
+    parts.push(`*${text.lastUpdated}: ${formattedNow}*\n`);
+    parts.push(`*${text.footer}*\n`);
 
     return parts.join('');
   }

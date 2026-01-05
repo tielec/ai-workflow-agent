@@ -81,6 +81,7 @@ function createMockMetadataManager(phasesData: Partial<Record<PhaseName, { statu
       }
       return result;
     },
+    getLanguage: () => 'ja', // Issue #587: デフォルトは日本語
   };
 }
 
@@ -340,7 +341,7 @@ describe('ProgressFormatter - 最終更新時刻', () => {
     // Then: 最終更新時刻が含まれる
     expect(result).toContain('*最終更新:');
     expect(result).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/); // YYYY-MM-DD HH:MM:SS 形式
-    expect(result).toContain('*AI駆動開発自動化ワークフロー (Claude Agent SDK)*');
+    expect(result).toContain('*AI駆動開発自動化ワークフロー*');
   });
 });
 

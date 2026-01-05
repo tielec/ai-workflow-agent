@@ -17,7 +17,60 @@ import { GitHubClient } from '../core/github-client.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import type { FinalizeContext } from '../core/git/squash-manager.js';
-import type { PhaseName } from '../types.js';
+import type { PhaseName, SupportedLanguage } from '../types.js';
+
+/**
+ * 言語別テキストマッピング（Issue #587）
+ */
+const FINALIZE_TEXT: Record<
+  SupportedLanguage,
+  {
+    changeSummary: string;
+    issueNumber: string;
+    title: string;
+    completionStatus: string;
+    allPhasesCompleted: string;
+    phaseStatus: string;
+    testResult: string;
+    testPassed: string;
+    testPending: string;
+    cleanupStatus: string;
+    workflowDirectoryDeleted: string;
+    commitSquashed: string;
+    footer: string;
+  }
+> = {
+  ja: {
+    changeSummary: '変更サマリー',
+    issueNumber: 'Issue番号',
+    title: 'タイトル',
+    completionStatus: '完了ステータス',
+    allPhasesCompleted: 'All phases completed',
+    phaseStatus: 'フェーズステータス',
+    testResult: 'テスト結果',
+    testPassed: 'Passed',
+    testPending: 'Pending',
+    cleanupStatus: 'クリーンアップ状況',
+    workflowDirectoryDeleted: 'ワークフローディレクトリ削除済み',
+    commitSquashed: 'コミットスカッシュ完了',
+    footer: 'AI Workflow Agent - Finalize Command',
+  },
+  en: {
+    changeSummary: 'Change Summary',
+    issueNumber: 'Issue Number',
+    title: 'Title',
+    completionStatus: 'Completion Status',
+    allPhasesCompleted: 'All phases completed',
+    phaseStatus: 'Phase Status',
+    testResult: 'Test Result',
+    testPassed: 'Passed',
+    testPending: 'Pending',
+    cleanupStatus: 'Cleanup Status',
+    workflowDirectoryDeleted: 'Workflow directory deleted',
+    commitSquashed: 'Commits squashed',
+    footer: 'AI Workflow Agent - Finalize Command',
+  },
+};
 
 /**
  * FinalizeCommandOptions - CLIオプションの型定義
@@ -326,12 +379,16 @@ async function createGitHubClient(metadataManager: MetadataManager): Promise<Git
 function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: number): string {
   const metadata = metadataManager.data;
 
-  // 変更サマリー
-  const summary = `## 変更サマリー
+  // 言語取得（Issue #587）
+  const language = metadataManager.getLanguage() || 'ja';
+  const text = FINALIZE_TEXT[language];
 
-- Issue番号: #${issueNumber}
-- タイトル: ${metadata.issue_title ?? 'Unknown'}
-- 完了ステータス: All phases completed
+  // 変更サマリー
+  const summary = `## ${text.changeSummary}
+
+- ${text.issueNumber}: #${issueNumber}
+- ${text.title}: ${metadata.issue_title ?? 'Unknown'}
+- ${text.completionStatus}: ${text.allPhasesCompleted}
 `;
 
   // 完了フェーズ一覧
@@ -358,26 +415,26 @@ function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: numb
     .join('\n');
 
   // テスト結果（testing フェーズのステータスから取得）
-  const testStatus = metadata.phases?.testing?.status === 'completed' ? '✅ Passed' : '⏳ Pending';
+  const testStatus = metadata.phases?.testing?.status === 'completed' ? `✅ ${text.testPassed}` : `⏳ ${text.testPending}`;
 
   const body = `${summary}
 
-## フェーズステータス
+## ${text.phaseStatus}
 
 ${phaseList}
 
-## テスト結果
+## ${text.testResult}
 
 ${testStatus}
 
-## クリーンアップ状況
+## ${text.cleanupStatus}
 
-- ✅ ワークフローディレクトリ削除済み
-- ✅ コミットスカッシュ完了
+- ✅ ${text.workflowDirectoryDeleted}
+- ✅ ${text.commitSquashed}
 
 ---
 
-**AI Workflow Agent - Finalize Command**
+**${text.footer}**
 `;
 
   return body;

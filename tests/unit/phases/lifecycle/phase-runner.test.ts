@@ -23,6 +23,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { PhaseRunner } from '../../../../src/phases/lifecycle/phase-runner.js';
 import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../../../src/types.js';
+import { logger } from '../../../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-runner-test');
@@ -77,6 +78,7 @@ function createMockMetadataManager(): any {
     }),
     getCurrentStep: jest.fn<any>(() => null),
     getCompletedSteps: jest.fn<any>(() => []),
+    getLanguage: jest.fn<any>(() => 'ja'), // Issue #587
   };
 }
 
@@ -101,6 +103,82 @@ function createMockStepExecutor(
     reviewStep: jest.fn<any>().mockResolvedValue(reviewResult),
     reviseStep: jest.fn<any>().mockResolvedValue(undefined),
   };
+}
+
+const CHECKLIST_BODY = [
+  '### 🔄 Workflow Progress',
+  '',
+  '- [ ] Phase 0: Planning',
+  '- [ ] Phase 1: Requirements',
+  '- [ ] Phase 2: Design',
+  '- [ ] Phase 3: Test Scenario',
+  '- [ ] Phase 4: Implementation',
+  '- [ ] Phase 5: Test Implementation',
+  '- [ ] Phase 6: Testing',
+  '- [ ] Phase 7: Documentation',
+  '- [ ] Phase 8: Report',
+].join('\n');
+
+function createChecklistMetadata(prNumber: number | null | undefined = 123): any {
+  return {
+    data: { pr_number: prNumber },
+    updatePhaseStatus: jest.fn<any>(),
+    getPhaseStatus: jest.fn<any>().mockReturnValue('pending'),
+    getCurrentStep: jest.fn<any>(),
+    getCompletedSteps: jest.fn<any>(),
+  };
+}
+
+function createChecklistGithubClient(options?: {
+  prBody?: string;
+  updateResult?: { success: boolean; error?: string | null };
+  throwOnUpdate?: Error;
+  throwOnGet?: Error;
+}): any {
+  const prBody = options?.prBody ?? CHECKLIST_BODY;
+  const updateResult = options?.updateResult ?? { success: true, error: null };
+
+  return {
+    getPullRequestBody: options?.throwOnGet
+      ? jest.fn<any>().mockRejectedValue(options.throwOnGet)
+      : jest.fn<any>().mockResolvedValue(prBody),
+    updatePullRequest: options?.throwOnUpdate
+      ? jest.fn<any>().mockRejectedValue(options.throwOnUpdate)
+      : jest.fn<any>().mockResolvedValue(updateResult),
+    createOrUpdateProgressComment: jest.fn<any>().mockResolvedValue(undefined),
+  };
+}
+
+function createPhaseRunnerForChecklist(
+  phaseName: PhaseName,
+  options?: {
+    prNumber?: number | null | undefined;
+    prBody?: string;
+    updateResult?: { success: boolean; error?: string | null };
+    throwOnUpdate?: Error;
+    throwOnGet?: Error;
+  }
+): { runner: PhaseRunner; metadata: any; github: any } {
+  const metadata = createChecklistMetadata(options?.prNumber);
+  const github = createChecklistGithubClient({
+    prBody: options?.prBody,
+    updateResult: options?.updateResult,
+    throwOnGet: options?.throwOnGet,
+    throwOnUpdate: options?.throwOnUpdate,
+  });
+
+  const runner = new PhaseRunner(
+    phaseName,
+    metadata,
+    github,
+    {} as any,
+    false,
+    false,
+    undefined,
+    null
+  );
+
+  return { runner, metadata, github };
 }
 
 describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
@@ -199,6 +277,194 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       expect.any(Function) // postProgressFn
     );
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('implementation', 'completed', {});
+  });
+});
+
+describe('PhaseRunner - updatePrBodyChecklist()', () => {
+  // Verify checklist updates stay non-blocking and respect skip conditions.
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('UC-PR-01: updates PR body checklist and calls GitHub APIs', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements');
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.getPullRequestBody).toHaveBeenCalledWith(123);
+    const updatedBody = (github.updatePullRequest as jest.Mock).mock.calls[0][1];
+    expect(updatedBody).toContain('- [x] Phase 1: Requirements');
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('Updated PR body checklist'));
+  });
+
+  test('UC-PR-02: updates only the target phase in the checklist', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('design');
+
+    await (runner as any).updatePrBodyChecklist();
+
+    const updatedBody = (github.updatePullRequest as jest.Mock).mock.calls[0][1];
+    expect(updatedBody).toContain('- [x] Phase 2: Design');
+    expect(updatedBody).toContain('- [ ] Phase 1: Requirements');
+    expect(updatedBody).toContain('- [ ] Phase 8: Report');
+  });
+
+  test('UC-PR-04/05: skips update when PR number is missing', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', { prNumber: null });
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.getPullRequestBody).not.toHaveBeenCalled();
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Skipping PR body update (no PR number)')
+    );
+  });
+
+  test('UC-PR-06: skips when checklist already up to date', async () => {
+    const checkedBody = CHECKLIST_BODY.replace('- [ ] Phase 1: Requirements', '- [x] Phase 1: Requirements');
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', { prBody: checkedBody });
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('PR body checklist already up to date'));
+  });
+
+  test('UC-PR-07: warns and continues when PR body fetch fails', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', {
+      throwOnGet: new Error('Network failure'),
+    });
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to update PR body checklist: Network failure')
+    );
+  });
+
+  test('UC-PR-08: warns when PR update result is unsuccessful', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', {
+      updateResult: { success: false, error: 'API error' },
+    });
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to update PR body checklist: API error')
+    );
+  });
+
+  test('UC-PR-09/10: warns and swallows exceptions from updatePullRequest', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', {
+      throwOnUpdate: new Error('Unexpected failure'),
+    });
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to update PR body checklist: Unexpected failure')
+    );
+  });
+
+  test('UC-PBC-12: skips when PR body is empty', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', { prBody: '' });
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('PR body is empty, skipping checklist update')
+    );
+  });
+
+  test('UC-PBC-13: skips when workflow checklist is not present', async () => {
+    const { runner, github } = createPhaseRunnerForChecklist('requirements', {
+      prBody: 'No checklist here',
+    });
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+
+    await (runner as any).updatePrBodyChecklist();
+
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Workflow checklist not found in PR body, skipping update')
+    );
+  });
+});
+
+describe('PhaseRunner - finalizePhase()', () => {
+  // Ensure finalize handles checklist updates while keeping phase completion intact.
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('UC-PR-11/12/13: updates status then posts progress before checklist update', async () => {
+    const { runner, metadata } = createPhaseRunnerForChecklist('planning');
+    const postProgressSpy = jest
+      .spyOn(runner as any, 'postProgress')
+      .mockResolvedValue(undefined as any);
+    const updateChecklistSpy = jest
+      .spyOn(runner as any, 'updatePrBodyChecklist')
+      .mockResolvedValue(undefined as any);
+
+    await (runner as any).finalizePhase();
+
+    expect(metadata.updatePhaseStatus).toHaveBeenCalledWith('planning', 'completed', {});
+    expect(postProgressSpy).toHaveBeenCalled();
+    expect(updateChecklistSpy).toHaveBeenCalled();
+    expect(
+      metadata.updatePhaseStatus.mock.invocationCallOrder[0] <
+      postProgressSpy.mock.invocationCallOrder[0]
+    ).toBe(true);
+    expect(
+      postProgressSpy.mock.invocationCallOrder[0] <
+      updateChecklistSpy.mock.invocationCallOrder[0]
+    ).toBe(true);
+  });
+
+  test('UC-PR-14: keeps status completed even if checklist update fails', async () => {
+    const { runner, metadata } = createPhaseRunnerForChecklist('design');
+    jest.spyOn(runner as any, 'postProgress').mockResolvedValue(undefined as any);
+    jest.spyOn(runner as any, 'updatePrBodyChecklist').mockRejectedValue(new Error('boom'));
+
+    await expect((runner as any).finalizePhase()).resolves.toBeUndefined();
+    expect(metadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'completed', {});
+  });
+
+  test.each<PhaseName>([
+    'planning',
+    'requirements',
+    'design',
+    'test_scenario',
+    'implementation',
+    'test_implementation',
+    'testing',
+    'documentation',
+    'report',
+  ])('UC-PR-15: invokes checklist update for phase %s', async (phaseName) => {
+    const { runner } = createPhaseRunnerForChecklist(phaseName);
+    const updateChecklistSpy = jest
+      .spyOn(runner as any, 'updatePrBodyChecklist')
+      .mockResolvedValue(undefined as any);
+    jest.spyOn(runner as any, 'postProgress').mockResolvedValue(undefined as any);
+
+    await (runner as any).finalizePhase();
+
+    expect(updateChecklistSpy).toHaveBeenCalledTimes(1);
   });
 });
 

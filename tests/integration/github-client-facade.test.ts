@@ -12,10 +12,16 @@ process.env.GITHUB_REPOSITORY = 'owner/repo';
 
 describe('GitHubClient Facade Integration', () => {
   let githubClient: GitHubClient;
+  let mockMetadata: MetadataManager;
 
   beforeEach(() => {
     // Create GitHubClient instance
     githubClient = new GitHubClient('test-token', 'owner/repo');
+
+    // Create mock metadata (Issue #587)
+    mockMetadata = {
+      getLanguage: () => 'ja',
+    } as unknown as MetadataManager;
   });
 
   describe('Client Initialization', () => {
@@ -252,10 +258,10 @@ describe('GitHubClient Facade Integration', () => {
       });
 
       // When: Call GitHubClient.postWorkflowProgress
-      const result = await githubClient.postWorkflowProgress(24, 'requirements', 'in_progress', 'details');
+      const result = await githubClient.postWorkflowProgress(24, 'requirements', 'in_progress', mockMetadata, 'details');
 
       // Then: CommentClient.postWorkflowProgress should be called
-      expect(mockPostProgress).toHaveBeenCalledWith(24, 'requirements', 'in_progress', 'details');
+      expect(mockPostProgress).toHaveBeenCalledWith(24, 'requirements', 'in_progress', mockMetadata, 'details');
 
       // And: Result should match
       expect(result.id).toBe(123456);
@@ -292,10 +298,10 @@ describe('GitHubClient Facade Integration', () => {
       });
 
       // When: Call GitHubClient.postReviewResult
-      const result = await githubClient.postReviewResult(24, 'requirements', 'PASS', 'feedback', ['suggestion']);
+      const result = await githubClient.postReviewResult(24, 'requirements', 'PASS', 'feedback', ['suggestion'], mockMetadata);
 
       // Then: ReviewClient.postReviewResult should be called
-      expect(mockPostReview).toHaveBeenCalledWith(24, 'requirements', 'PASS', 'feedback', ['suggestion']);
+      expect(mockPostReview).toHaveBeenCalledWith(24, 'requirements', 'PASS', 'feedback', ['suggestion'], mockMetadata);
 
       // And: Result should match
       expect(result.id).toBe(123456);

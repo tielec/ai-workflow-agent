@@ -194,9 +194,10 @@ export class GitHubClient {
     issueNumber: number,
     phase: string,
     status: string,
+    metadata: MetadataManager,
     details?: string,
   ) {
-    return this.commentClient.postWorkflowProgress(issueNumber, phase, status, details);
+    return this.commentClient.postWorkflowProgress(issueNumber, phase, status, metadata, details);
   }
 
   public async createOrUpdateProgressComment(
@@ -217,8 +218,9 @@ export class GitHubClient {
     result: string,
     feedback: string,
     suggestions: string[],
+    metadata: MetadataManager,
   ) {
-    return this.reviewClient.postReviewResult(issueNumber, phase, result, feedback, suggestions);
+    return this.reviewClient.postReviewResult(issueNumber, phase, result, feedback, suggestions, metadata);
   }
 
   // ============================================================================
@@ -249,6 +251,25 @@ export class GitHubClient {
 
   public async getPullRequestNumber(issueNumber: number): Promise<number | null> {
     return this.pullRequestClient.getPullRequestNumber(issueNumber);
+  }
+
+  /**
+   * Retrieve the current PR body for the given pull request number.
+   */
+  public async getPullRequestBody(prNumber: number): Promise<string> {
+    try {
+      const { data } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      return data.body ?? '';
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.error(`Failed to get pull request body: ${this.encodeWarning(message)}`);
+      throw new Error(`Failed to get pull request body: ${message}`);
+    }
   }
 
   /**

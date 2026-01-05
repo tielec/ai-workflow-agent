@@ -85,6 +85,7 @@ export class DocumentationPhase extends BasePhase {
       reviewResult.result,
       reviewResult.feedback,
       reviewResult.suggestions,
+      this.metadata,
     );
 
     return {
