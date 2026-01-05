@@ -82,12 +82,17 @@ export class ClaudeAgentClient {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
     const cwd = options.workingDirectory ?? this.workingDir;
 
+    const cwdExists = fs.existsSync(cwd);
+    logger.debug(`[ClaudeAgent] Original working directory: ${cwd}`);
+    logger.debug(`[ClaudeAgent] Directory exists: ${cwdExists}`);
+
     // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
     // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
-    if (!fs.existsSync(cwd)) {
+    if (!cwdExists) {
       logger.warn(`Working directory does not exist: ${cwd}`);
       const resolvedCwd = await resolveWorkingDirectory(cwd);
       logger.info(`Resolved working directory: ${resolvedCwd}`);
+      logger.debug(`[ClaudeAgent] Resolved directory exists: ${fs.existsSync(resolvedCwd)}`);
       return this.executeTask({ ...options, workingDirectory: resolvedCwd });
     }
 

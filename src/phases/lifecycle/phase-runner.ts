@@ -3,7 +3,14 @@ import { MetadataManager } from '../../core/metadata-manager.js';
 import { GitManager } from '../../core/git-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { validatePhaseDependencies } from '../../core/phase-dependencies.js';
-import { PhaseName, PhaseStatus, PhaseExecutionResult, SupportedLanguage } from '../../types.js';
+import {
+  PhaseName,
+  PhaseStatus,
+  PhaseExecutionResult,
+  SupportedLanguage,
+  DEFAULT_LANGUAGE,
+  SUPPORTED_LANGUAGES,
+} from '../../types.js';
 import { StepExecutor } from './step-executor.js';
 import { ProgressFormatter } from '../formatters/progress-formatter.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -476,7 +483,13 @@ export class PhaseRunner {
    * 現在の言語設定に基づいたメッセージ関数を取得する
    */
   private getMessages(): (typeof PHASE_RUNNER_MESSAGES)[SupportedLanguage] {
-    const language = this.metadata.getLanguage() || 'ja';
+    const languageCandidate = (
+      this.metadata as { getLanguage?: () => SupportedLanguage | string }
+    ).getLanguage?.();
+    const language: SupportedLanguage = languageCandidate && SUPPORTED_LANGUAGES.includes(languageCandidate as SupportedLanguage)
+      ? (languageCandidate as SupportedLanguage)
+      : DEFAULT_LANGUAGE;
+
     return PHASE_RUNNER_MESSAGES[language];
   }
 }

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #592**: SecretMasker がリポジトリパスを過剰にマスキングし、Claude Agent の working directory 解決が失敗する問題を修正
+  - `SecretMasker.maskString()` メソッドにファイルパスコンポーネント保護機能を追加
+  - Unix パス内の20文字以上のディレクトリ名（例: `sd-platform-development`）をプレースホルダー `__PATH_COMPONENT_N__` で一時保護し、汎用トークンマスキングから除外
+  - Jenkins 環境でリポジトリ名がマスキングされて working directory 解決が `process.cwd()` にフォールバックする問題を解決
+  - デバッグログ強化: `claude-agent-client.ts`、`codex-agent-client.ts`、`working-directory-resolver.ts` にパス解決プロセスのトレースログを追加
+  - REPOS_ROOT 整合性チェック: 解決されたパスが REPOS_ROOT 外にある場合の警告ログを追加（Issue #592 問題の早期検出支援）
+  - **セキュリティ維持**: 既存のマスキング機能（GitHub トークン、メールアドレス、汎用トークン等）は引き続き正常に動作
+  - **パス外の保護**: ファイルパス外に出現する20文字以上の文字列は従来通りマスキング対象
+  - 修正ファイル: `src/core/secret-masker.ts`、`src/core/claude-agent-client.ts`、`src/core/codex-agent-client.ts`、`src/core/helpers/working-directory-resolver.ts`
+  - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
+
 ### Added
 
 - **Issue #590**: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了

@@ -87,12 +87,16 @@ export class CodexAgentClient {
   public async executeTask(options: ExecuteTaskOptions): Promise<string[]> {
     let cwd = options.workingDirectory ?? this.workingDir;
 
+    logger.debug(`[CodexAgent] Original working directory: ${cwd}`);
+    logger.debug(`[CodexAgent] Directory exists: ${fs.existsSync(cwd)}`);
+
     // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
     // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
     if (!fs.existsSync(cwd)) {
       logger.warn(`Working directory does not exist: ${cwd}`);
       cwd = await resolveWorkingDirectory(cwd);
       logger.info(`Resolved working directory: ${cwd}`);
+      logger.debug(`[CodexAgent] Resolved directory exists: ${fs.existsSync(cwd)}`);
     }
 
     const args: string[] = [
