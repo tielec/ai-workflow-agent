@@ -1,0 +1,142 @@
+# Documentation Update Phase - Correction Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## ⚠️ Required Task
+**Please make updating the documentation-update-log your top priority. Please **overwrite** `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` using the **
+Write or Edit tools to record only the latest update log.
+
+## Task Summary
+Please fix the issues identified in the review and improve the documentation updates.
+
+## Review results
+{review_feedback}
+
+## Reference information
+
+### Current update log
+{documentation_update_log_path}
+
+### Deliverables for each phase
+- Phase 1: {requirements_document_path}
+- Phase 2: {design_document_path}
+- Phase 3: {test_scenario_document_path}
+- Phase 4: {implementation_document_path}
+- Phase 5: {test_result_document_path}
+
+## ⚠️ Notes when using the Read tool (prompt length suppression)
+- `CLAUDE.md` (repository root) and `~/.claude/CLAUDE.md` is included in the automatic context, so do not reread it.
+- Limit the number of additional files to be read to **3-5 or less**, and for large files, specify `limit: 1000-2000` to partially read only the necessary parts
+
+## Correction instructions
+
+### ⚠️ Most important: Overwrite update logs
+Use the Write or Edit tool Be sure to overwrite and save `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md`. Please record only the investigation/update details and avoid unnecessary additions to past logs.
+
+### Resolving BLOCKER
+
+Issues listed in the "Blocker" section of the review results are **serious issues that prevent you from proceeding to the next phase**.
+
+**Required response**:
+- Insufficient document search → Search again and add to update log
+- Missing update of important document → Update relevant document
+- Error in updated content → Modify
+- Destruction of style → Correct to match existing style
+- Insufficient update log → Refinement
+
+### Response to improvement suggestions (SUGGESTION)
+
+The items listed in the "Improvement Suggestions" section of the review results are suggestions for updating the document to be better.
+
+**Recommended** (not all required):
+- Additional documentation updates- Detailed description
+- Improved format
+- Improved update log expression
+
+## Correction policy
+
+### 1. Thorough document search
+
+Please double check the following locations:
+
+- .md file directly under the project root
+- .md file in a subdirectory (excluding the .ai-workflow directory)
+- docs directory (if available)
+
+### 2. Review your update decision
+
+For each document, answer the following questions again:
+
+1. **Do readers of this document need to know about this change? **
+2. **Will readers be in trouble if they don't know? Do you misunderstand? **
+3. **Is the content of the document outdated? **
+
+→ **If yes to any of the above, update target**
+
+### 3. Improved update content
+
+While maintaining the existing style and format:
+
+- Describe the changes concisely
+- Describe accurate information (consistent with Phases 2 and 4)
+- Focus on useful information from the user's perspective
+
+### 4. Improved update log
+
+Documentation-update-log.md contains the following:
+
+```markdown
+# Project documentation update log
+
+## Researched documents
+
+(list all .md files with relative paths)
+- `Relative path 1`
+- `Relative path 2`
+- ...
+
+## Updated documents
+
+### `Relative path`
+**Reason for update**: (Explanation in one line)
+
+** Main changes**:
+- (Change 1)
+- (Change 2)
+- ...
+
+## Documents judged not to be updated
+
+- `Relative path`: Reason (1 line)
+- ...
+```
+
+## Correction steps (checklist)
+- [ ] 1. Check blockers and improvement suggestions, and organize the updates
+- [ ] 2. Complete the investigation and correction of the target document
+- [ ] 3. Log updates and references
+- [ ] 4. **Use the Write/Edit tool Overwrite and save `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md`** (Required)
+- [ ] 5. Recheck consistency and user perspective
+
+## Things to check after modification
+
+After completing the modification, check the following:
+
+1. **Is the blocker resolved?**
+- Have all blockers identified in the review been addressed
+
+2. **Have quality gates been met**
+- [ ] Affected documents have been identified- [ ] Necessary documents have been updated
+- [ ] Updates have been recorded
+
+3. **Will users be bothered?**
+- Will this document update provide the information they need?
+
+## Document update
+
+1. Directly update project documents that need modification
+2. Use the Write or Edit tools to view the update log. **Save as `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md`**
+
+## Start fix
+
+Based on the above, please improve the document update in response to the review findings.

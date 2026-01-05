@@ -1,0 +1,44 @@
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
+以下の評価レポートから、判定結果と関連情報を抽出してください。
+
+# 評価レポート
+{evaluation_content}
+
+# 抽出対象
+1. **判定 (decision)**: PASS, PASS_WITH_ISSUES, FAIL_PHASE_*, ABORT のいずれか
+2. **失敗フェーズ (failedPhase)**: 判定がFAIL_PHASE_*の場合、フェーズ名（planning, requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report）
+3. **中止理由 (abortReason)**: 判定がABORTの場合、中止理由の説明文
+4. **残タスク (remainingTasks)**: 判定がPASS_WITH_ISSUESの場合、残タスク一覧
+
+# 出力形式
+以下のJSON形式で出力してください（他の説明文は不要）:
+{
+  "decision": "PASS_WITH_ISSUES",
+  "failedPhase": null,
+  "abortReason": null,
+  "remainingTasks": [
+    {
+      "task": "タスクの説明",
+      "phase": "該当フェーズ",
+      "priority": "高"
+    }
+  ]
+}
+
+# 判定の種類
+- **PASS**: すべての成果物が基準を満たしており、問題なし
+- **PASS_WITH_ISSUES**: 基本的には合格だが、フォローアップが必要な軽微な問題あり（残タスクを抽出）
+- **FAIL_PHASE_<phase>**: 特定フェーズに重大な問題があり、そのフェーズからやり直しが必要（failedPhaseを抽出）
+  - 例: FAIL_PHASE_DESIGN → failedPhase: "design"
+  - 例: FAIL_PHASE_IMPLEMENTATION → failedPhase: "implementation"
+- **ABORT**: プロジェクトを継続できない致命的な問題（abortReasonを抽出）
+
+# 注意事項
+- 判定が明記されていない場合は "PASS" を返してください
+- 残タスクは "## 残タスク" セクションから `- [ ] タスク (Phase: xxx, 優先度: xxx)` 形式で抽出
+- JSON形式のみを出力し、マークダウンのコードブロック記法（```json）は使用しないでください
+- 説明文や前置きは一切不要です
+- failedPhaseは必ずphase名のみ（planning, requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report）を返してください
+- FAIL_PHASE_の後ろのフェーズ識別子から正しいphase名にマッピングしてください
+  - 例: FAIL_PHASE_2 → "design", FAIL_PHASE_IMPLEMENTATION → "implementation"

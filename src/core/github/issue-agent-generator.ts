@@ -9,7 +9,6 @@
 
 import path from 'node:path';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
@@ -17,9 +16,7 @@ import { DEFAULT_CODEX_MODEL, resolveCodexModel } from '../codex-agent-client.js
 import type { CodexAgentClient } from '../codex-agent-client.js';
 import type { ClaudeAgentClient } from '../claude-agent-client.js';
 import type { RemainingTask, IssueContext } from '../../types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { PromptLoader } from '../prompt-loader.js';
 
 /**
  * FOLLOW-UP Issue生成コンテキスト
@@ -75,20 +72,17 @@ export class IssueAgentGenerator {
     logger.info(`Generating follow-up issue for #${context.issueNumber} with agent mode`);
 
     // 1. プロンプトテンプレートを読み込み
-    const promptPath = path.resolve(
-      __dirname,
-      '../../prompts/followup/generate-followup-issue.txt',
-    );
-    if (!fs.existsSync(promptPath)) {
+    let template: string;
+    try {
+      template = PromptLoader.loadPrompt('followup', 'generate-followup-issue');
+    } catch (error) {
       return {
         success: false,
         title: '',
         body: '',
-        error: `Prompt template not found: ${promptPath}`,
+        error: `Prompt template not found: ${getErrorMessage(error)}`,
       };
     }
-
-    const template = fs.readFileSync(promptPath, 'utf-8');
 
     // 2. 出力ファイルパスを生成
     const outputFilePath = this.generateOutputFilePath();

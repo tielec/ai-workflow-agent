@@ -71,6 +71,12 @@ GitHub リポジトリ（owner/repo）（必須）
 - claude: Claude Code のみを使用（credentials.json が必要）
             '''.stripIndent().trim())
 
+            choiceParam('LANGUAGE', ['ja', 'en'], '''
+ワークフロー言語
+- ja: 日本語（デフォルト）
+- en: English
+            '''.stripIndent().trim())
+
             // ========================================
             // Auto Issue 設定
             // ========================================

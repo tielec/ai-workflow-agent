@@ -16,11 +16,15 @@ import {
   validateRollbackOptions,
   loadRollbackReason,
   generateRollbackReasonMarkdown,
-  getPhaseNumber
+  getPhaseNumber,
+  handleRollbackAutoCommand,
 } from '../../../src/commands/rollback.js';
 import type { RollbackCommandOptions } from '../../../src/types/commands.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
+import { PromptLoader } from '../../../src/core/prompt-loader.js';
+import { AgentExecutor } from '../../../src/phases/core/agent-executor.js';
 import * as path from 'node:path';
+import os from 'node:os';
 import fs from 'fs-extra';
 
 describe('Rollback コマンド - バリデーション', () => {
@@ -435,5 +439,121 @@ describe('Rollback コマンド - ヘルパー関数', () => {
       expect(getPhaseNumber('report')).toBe('08');
       expect(getPhaseNumber('evaluation')).toBe('09');
     });
+  });
+});
+
+describe('Rollback auto language switching', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+  let repoRoot: string;
+  let issueDir: string;
+  let metadataPath: string;
+  const createdDecisionFiles: string[] = [];
+
+  const basePhase = {
+    status: 'completed',
+    completed_steps: ['execute'],
+    current_step: null,
+    started_at: null,
+    completed_at: null,
+    review_result: null,
+    retry_count: 0,
+    rollback_context: null,
+  };
+
+  const createMetadata = () => ({
+    issue_number: '575',
+    issue_url: '',
+    issue_title: 'Rollback auto language test',
+    created_at: '',
+    updated_at: '',
+    current_phase: 'testing',
+    phases: {
+      planning: { ...basePhase },
+      requirements: { ...basePhase },
+      design: { ...basePhase },
+      test_scenario: { ...basePhase },
+      implementation: { ...basePhase },
+      test_implementation: { ...basePhase },
+      testing: { ...basePhase },
+      documentation: { ...basePhase },
+      report: { ...basePhase },
+      evaluation: { ...basePhase },
+    },
+    github_integration: { progress_comment_url: null },
+    costs: { total_input_tokens: 0, total_output_tokens: 0, total_cost_usd: 0 },
+    design_decisions: {},
+    model_config: null,
+    difficulty_analysis: null,
+    rollback_history: [],
+  });
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rollback-lang-root-'));
+    const repoDir = path.join(repoRoot, 'repo');
+    issueDir = path.join(repoDir, '.ai-workflow', 'issue-575');
+    metadataPath = path.join(issueDir, 'metadata.json');
+
+    fs.ensureDirSync(path.join(repoDir, '.git'));
+    fs.ensureDirSync(issueDir);
+    fs.writeJsonSync(metadataPath, createMetadata(), { spaces: 2 });
+    process.env.REPOS_ROOT = repoRoot;
+    process.env.CODEX_API_KEY = 'codex-api-key-mock-1234567890';
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+    for (const filePath of createdDecisionFiles) {
+      if (fs.existsSync(filePath)) {
+        fs.removeSync(filePath);
+      }
+    }
+    createdDecisionFiles.length = 0;
+    if (repoRoot && fs.existsSync(repoRoot)) {
+      fs.removeSync(repoRoot);
+    }
+  });
+
+  const stubAgentExecution = (outputPath: string) =>
+    jest.spyOn(AgentExecutor.prototype, 'executeWithAgent').mockImplementation(async () => {
+      const decision = {
+        needs_rollback: false,
+        reason: 'language-check',
+        confidence: 'high',
+        analysis: 'not needed',
+      };
+      createdDecisionFiles.push(outputPath);
+      fs.writeFileSync(outputPath, JSON.stringify(decision));
+    });
+
+  it('uses Japanese rollback auto prompt when AI_WORKFLOW_LANGUAGE=ja', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+    jest.spyOn(Date, 'now').mockReturnValue(1767085536064);
+    jest.spyOn(Math, 'random').mockReturnValue(0.123456);
+    const expectedPath = path.join(os.tmpdir(), 'rollback-auto-1767085536064-4fzyo8.json');
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const executeSpy = stubAgentExecution(expectedPath);
+
+    await handleRollbackAutoCommand({ issueNumber: 575, agent: 'auto', dryRun: true, force: true });
+
+    expect(pathSpy).toHaveBeenCalledWith('rollback', 'auto-analyze', 'ja');
+    expect(executeSpy).toHaveBeenCalled();
+    expect(executeSpy.mock.calls[0][0]).toContain('Rollback Auto Analysis Prompt');
+  });
+
+  it('uses English rollback auto prompt when AI_WORKFLOW_LANGUAGE=en', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'en';
+    jest.spyOn(Date, 'now').mockReturnValue(1767085536085);
+    jest.spyOn(Math, 'random').mockReturnValue(0.123456);
+    const expectedPath = path.join(os.tmpdir(), 'rollback-auto-1767085536085-4fzyo8.json');
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const executeSpy = stubAgentExecution(expectedPath);
+
+    await handleRollbackAutoCommand({ issueNumber: 575, agent: 'auto', dryRun: true, force: true });
+
+    expect(pathSpy).toHaveBeenCalledWith('rollback', 'auto-analyze', 'en');
+    expect(executeSpy).toHaveBeenCalled();
+    expect(executeSpy.mock.calls[0][0]).toContain('Rollback Auto Analysis Prompt');
   });
 });

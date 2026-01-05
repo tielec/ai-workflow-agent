@@ -1,0 +1,177 @@
+# Project Plan Review - Review Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Task Overview
+
+Critically review the project plan to confirm feasibility and quality.
+
+## Plan
+
+{planning_document_path}
+
+## Review Perspectives
+
+Review the plan from the perspectives below:
+
+### 1. Feasibility
+- **Estimate validity**: Are task estimates realistic?
+- **Resource sufficiency**: Are required resources (time, skills) sufficient?
+- **Technical feasibility**: Are proposed technologies/approaches viable?
+- **Dependency consistency**: Are task dependencies logically consistent?
+
+### 2. Task Breakdown Quality
+- **Granularity**: Is 1 task roughly 1–4 hours of work?
+- **Clear completion criteria**: Are done criteria explicit for each task?
+- **Independence**: Can tasks be implemented/tested independently?
+- **Coverage**: Are all TODOs from the issue reflected?
+
+### 3. Risk Analysis Coverage
+- **Risk categories covered**: Are technical, scope, resource, and dependency risks considered?
+- **Impact/likelihood**: Are impact and likelihood assessed appropriately?
+- **Mitigation specificity**: Are mitigations concrete?
+- **Missing risks**: Any important risks overlooked?
+
+### 4. Strategy Validity
+- **Implementation strategy**: Is CREATE/EXTEND/REFACTOR chosen appropriately? (Mandatory check)
+- **Test strategy**: Is UNIT_ONLY/.../ALL chosen appropriately? (Mandatory check)
+- **Test code strategy**: Is EXTEND_TEST/CREATE_TEST/BOTH_TEST chosen appropriately? (Mandatory check)
+- **Rationale**: Are reasons for each strategy clearly documented?
+
+### 5. Quality Gates Check
+
+Confirm all quality gates are satisfied:
+
+- [ ] **Implementation strategy is clearly decided** (CREATE/EXTEND/REFACTOR)
+- [ ] **Test strategy is clearly decided** (UNIT_ONLY/.../ALL)
+- [ ] **Test code strategy is clearly decided** (EXTEND_TEST/CREATE_TEST/BOTH_TEST)
+- [ ] **Impact analysis is documented**
+- [ ] **Task breakdown has appropriate granularity** (1 task = ~1–4 hours)
+- [ ] **Risks are identified**
+
+## Review Judgement Criteria
+
+Use the three-level judgement below:
+
+### ⚠️ Critical: Quality Gates Are Mandatory
+
+**If any of the 6 quality gates fail, the result is automatically FAIL.**
+
+- Quality gates are the minimum bar; they are non-negotiable
+- "80% is enough" applies only after gates are met and for improvements
+- Do not proceed to the next phase if gates are unmet
+
+### PASS
+
+Only when **all** conditions are met:
+- ✅ **All 6 quality gates are satisfied** (any × = FAIL)
+- ✅ No blockers that prevent the next phase
+- ✅ Plan is feasible and well-structured
+- ✅ No improvements needed, or only trivial (e.g., typos)
+
+### PASS_WITH_SUGGESTIONS
+
+Only when **all** conditions are met:
+- ✅ **All 6 quality gates are satisfied** (any × = FAIL)
+- ✅ No blockers exist
+- ✅ Improvements are possible, but the next phase can proceed
+- ⚠️ Provide improvement suggestions, but current work can continue
+
+### FAIL
+
+If **any** of the following applies:
+- ❌ **Any of the 6 quality gates are not satisfied**
+- ❌ One or more blockers exist that prevent the next phase
+- ❌ Plan is infeasible or structurally problematic
+
+**Important**:
+- Blockers are issues that will definitely cause problems in the next phase
+- Improvements are optional enhancements and are not blockers
+- **If any quality gate fails, the final judgement is automatically FAIL**
+
+## Examples of Blockers
+
+If any of these exist, the result is FAIL:
+
+1. **Strategy undefined**: Implementation/Test/Test-code strategies not documented
+2. **Task granularity issues**: Tasks too large (8h+) or too small (<=15min)
+3. **Dependency contradiction**: Cyclic dependencies between tasks
+4. **Unrealistic estimates**: Clearly infeasible short estimates
+5. **Missing critical risks**: Obvious major risks not listed
+
+## Examples of Improvements
+
+List these under PASS_WITH_SUGGESTIONS:
+
+1. **Estimate accuracy**: Add buffer for safer estimates
+2. **Risk detail**: Make mitigations more specific
+3. **Finer task breakdown**: Split tasks into smaller units
+4. **Extra quality gates**: Add stricter checks
+
+## Output Format for the Review
+
+Output the review results in the following format:
+
+```markdown
+## Review Result
+
+**Decision: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+
+## Feasibility
+
+(Comments on feasibility)
+
+## Task Breakdown Quality
+
+(Comments on task breakdown)
+
+## Risk Analysis Coverage
+
+(Comments on risk analysis)
+
+## Strategy Validity
+
+(Comments on strategy choices)
+
+## Quality Gate Check
+
+**⚠️ Important: Explicitly mark PASS/FAIL for each item. If any item is FAIL, the final judgement is automatically FAIL.**
+
+- [x/ ] Implementation strategy is clearly decided: **PASS / FAIL** - (Reason)
+- [x/ ] Test strategy is clearly decided: **PASS / FAIL** - (Reason)
+- [x/ ] Test code strategy is clearly decided: **PASS / FAIL** - (Reason)
+- [x/ ] Impact analysis is documented: **PASS / FAIL** - (Reason)
+- [x/ ] Task breakdown granularity is appropriate: **PASS / FAIL** - (Reason)
+- [x/ ] Risks are identified: **PASS / FAIL** - (Reason)
+
+**Quality Gate Overall Judgement: PASS / FAIL**
+- PASS: All 6 items above are PASS
+- FAIL: Any of the 6 items is FAIL
+
+**If any quality gate is FAIL, the final decision is automatically FAIL.**
+
+## Blockers (only when FAIL)
+
+1. (Description of blocker 1)
+2. (Description of blocker 2)
+...
+
+## Improvement Suggestions (only when PASS_WITH_SUGGESTIONS)
+
+1. (Description of improvement 1)
+2. (Description of improvement 2)
+...
+
+## Overall Evaluation
+
+(Overall evaluation comments)
+```
+
+## Notes
+
+1. **Objectivity**: Remove emotion and subjectivity; base on facts
+2. **Constructive**: Provide concrete improvement ideas, not just criticism
+3. **Clarity**: Distinguish blockers from improvement suggestions
+4. **Completeness**: Cover all review perspectives
+
+## Begin the review

@@ -1,0 +1,165 @@
+# Documentation Update Phase - Execution Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Task Summary
+Identify and update the project documentation affected by this change.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Implementation log (if available)
+{implementation_context}
+<!--
+If present: Reference to @implementation.md
+If not present: "Implementation log is not available. Please check the implementation directly in the repository."
+-->
+
+### Test results (if available)
+{testing_context}
+<!--
+If present: Reference to @test-result.md
+If not present: "Test results not available. Please update documentation based on your implementation."
+-->
+
+### Requirements definition document (reference/if available)
+{requirements_context}
+
+### Design document (reference/if available)
+{design_context}
+
+### Test scenario (reference/if available)
+{test_scenario_context}
+
+### Test implementation log (for reference/if available)
+{test_implementation_context}
+
+## ⚠️ Important: Responding to prompt length limitations
+
+### Files automatically included in the context (Read not required) The following files have been automatically loaded by Claude Code. Reloading with the Read tool results in double loading and wastes context.
+- `CLAUDE.md` (repository root)
+- `~/.claude/CLAUDE.md` (user global)
+
+### Rules when using the Read tool
+1. Limit the number of files read at a time to **up to 3-5**
+2. Be sure to specify `limit: 1000-2000` for large files (e.g. README.md, ARCHITECTURE.md)
+3. Do not reread files that have already been read
+4. Identify the sections that need to be updated and partially read only the necessary parts
+
+### Recommended stepwise processing
+1. List the affected documents first (no need to read)
+2. Process the most important **1-2 files at a time**
+3. Decide what to update for each document and then use Edit to reflect it
+
+## Document update procedure
+### Step 1: Explore your project's documentation structure
+
+First, investigate what documents exist in your project:
+
+**Where to look**:
+- .md files directly under the project root
+- .md files in subdirectories (excluding the .ai-workflow directory)
+- docs directory (if any)
+
+**What you should read and understand for each document**:
+- Who will read it (end users, developers, operations personnel, etc.)
+- What is written (how to use, design philosophy, troubleshooting, etc.)
+- What is the structure (section structure, formatting style)
+
+### Step 2: Analyze the impact of changes
+
+Phase 2 (design) and Phase 4 (Implementation), please extract the following:
+
+**Functional changes**:
+- What are the newly added features?
+- What has changed about existing behavior?
+- What features have been removed/deprecated?
+
+**Interface Changes**:
+- What are the new CLI command options?
+- What about API or configuration file changes?
+- What changes in how users use it?
+
+**Internal structure changes**:
+- What about architectural changes?
+- What about new components/classes/functions?
+- Are there any changes to the design philosophy or implementation pattern?
+
+### Step 3: Identify affected documents
+
+For each document, answer the following questions:
+
+1. **Do the readers of this document need to know about this change? **
+2. **Will readers be in trouble if they don't know? Do you misunderstand? **
+3. **Is the content of the document outdated? **
+
+→ **If yes to any of the above, then update**
+
+### Step 4: Perform the update
+
+For documents that need to be updated:
+
+**Principles**:
+- Maintain the existing style format
+- Add to the appropriate section (or create a new section if necessary)
+- Be concise and include only the necessary information
+- Avoid contradicting existing content
+- Maintain consistency throughout the document
+
+**Note**:
+- Avoid excessive explanation
+- Don't copy code verbatim
+- Focus on the information needed from the user's perspective
+
+### Step 5: Log updates
+
+documentation-update-log.md Please create it as `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md` and include the following content:
+
+```markdown
+# Documentation update report
+
+## Update summary
+Please list only the updated documents in the following table format:
+
+| File | Reason for update |
+|---------|---------|
+| `{File name}` | Describe the reason for update in one sentence |
+
+* Please omit the list of files that you have determined do not need to be updated.
+* Detailed changes are described in each document itself, so there is no need to describe them here.
+```
+
+## Quality Gates (Phase 7: Documentation)
+
+Document updates must meet the following quality gates:
+
+- [ ] **Affected documents are identified**
+- [ ] **Required documents are updated**
+- [ ] **Updates are recorded**
+
+These quality gates are **requirements**. After creation, a critical thinking review will be conducted.
+
+## Output format
+
+1. Directly update project documentation (README.md, ARCHITECTURE.md, etc.)
+2. Save update log as `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md`
+
+## Notes
+
+1. **Examine thoroughly**: Examine all .md files (excluding the .ai-workflow directory)
+
+2. **Clarify criteria**: Record why each document was updated/not updated
+
+3. **Stay with the existing style**: Do not change the format or writing of the document
+
+4. **Be aware that it will be reviewed**: The document will undergo a critical thinking review
+- Meet the quality gates (three essential requirements)
+- Identify all documents that need updating
+
+## Start document updates
+
+With the above in mind, start updating your project documentation.

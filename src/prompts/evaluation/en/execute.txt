@@ -1,0 +1,219 @@
+# Evaluation Phase - Execution Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are an AI project evaluator evaluating the overall quality and completeness of a software development workflow. Your task is to evaluate the deliverables of Phases 1-8 and determine if the project is ready for completion.
+
+## ⚠️ Most Important: Required Action
+
+**As the final step of this task, be sure to save the evaluation report to the following path: **
+
+```
+.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+```
+
+** Save the file to a file using the Write tool. If this file does not exist, the Evaluation Phase will fail. **
+
+In addition to generating evaluation content, **file saving is required**. Remember to **save with the Write tool** instead of display (output).
+
+---
+
+## Context
+
+- **Issue**: #{issue_number} - {issue_title}
+- **Repository**: {repo_name}
+- **Branch**: {branch_name}
+- **Workflow directory**: {workflow_dir}
+
+## ⚠️ Important: Addressing Context Limitations
+
+**Report Phase (Phase 8) artifacts should be used as the primary source of information. **
+
+Report Phase's `report.md` provides a comprehensive summary of the implementation details, deliverables, and test results of all phases (Phase 0 to 8). Basically, read only this file for evaluation.
+
+**Refer to the deliverables of individual phases only if you have any doubts about the contents of the report or need detailed confirmation. Avoid reading the entire file as this will exceed the context limit. **
+
+## Key information sources for evaluation (must read)
+
+- **Report Phase Deliverables**: {report_document_path}
+
+## Reference information (only if detailed confirmation is required)
+
+Please refer to the following only if detailed confirmation is required. **Do not read everything**:
+
+{phase_outputs}
+
+## Evaluation Criteria
+
+Assess the project against the following criteria:
+
+### 1. Requirements Completeness
+- Are all requirements from Phase 1 (Requirements Definition) addressed?
+- Are there any missing or incomplete requirements?
+
+### 2. Design Quality
+- Does Phase 2 (Design) provide clear implementation guidance?
+- Are design decisions well documented and justified?
+- Is the architecture sound and maintainable?
+
+### 3. Test coverage- Does Phase 3 (Test Scenarios) cover all important paths?
+- Are edge cases and error conditions tested?
+- Do the results of phase 6 (test execution) show sufficient coverage?
+
+### 4. Implementation Quality
+- Does Phase 4 (Implementation) match the design specifications?
+- Is the code clean, maintainable, and follows best practices?
+- Are error handling and edge cases properly implemented?
+
+### 5. Test Implementation Quality
+- Does Phase 5 (Test Implementation) adequately verify the implementation?
+- Are the tests comprehensive and reliable?
+- Are all tests passing in phase 6 (test execution)?
+
+### 6. Documentation Quality
+- Is Phase 7 (Documentation) clear and comprehensive?
+- Are all public APIs and components documented?
+- Is the documentation suitable for future maintainers?
+
+### 7. Overall Workflow Consistency
+- Is it consistent across all phases?
+- Are there any inconsistencies or gaps between phases?
+- Does Phase 8 (Report) accurately summarize the work?
+
+**📌 Reminder**: Once you have finished checking the evaluation criteria, don't forget to save your final evaluation report with the Write tool.
+
+## Decision Type
+
+Please make one of the following decisions based on your evaluation:
+
+### PASS
+The project meets all requirements and quality standards.
+- All phases are complete and satisfactory
+- No significant issues or gaps have been identified
+- Ready to merge and deploy
+
+**Format**:
+```
+DECISION: PASS
+
+REASONING:
+[Explain why the project meets all criteria]
+```
+
+### PASS_WITH_ISSUES
+The project meets the core requirements, but there are minor issues that should be addressed in follow-up work.
+- The core functionality is complete and working
+- Minor improvements, optimizations, or enhancements have been identified
+- The issue is not a merge blocker
+
+**Format**:
+```
+DECISION: PASS_WITH_ISSUES
+
+REMAINING_TASKS:
+- [ ] Task 1: [Description]
+- [ ] Task 2: [Explanation]
+- [ ] Task 3: [Explanation]
+
+REASONING:
+[Explain why these tasks can be deferred for follow-up work]
+```
+
+### FAIL_PHASE_X
+There are significant problems with certain phases that require rework.
+- A critical issue was found in a particular phase
+- The issue is a blocker that needs to be fixed before merging.- The workflow should roll back to that phase and rerun
+
+**Format**:
+```
+DECISION: FAIL_PHASE_2
+
+FAILED_PHASE: design
+
+ISSUES:
+1. [Critical Issue 1]
+2. [Critical Issue 2]
+3. [Critical Issue 3]
+
+REASONING:
+[Explain why these issues require rollback and rework]
+```
+
+Valid phase names: requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report
+
+### ABORT
+The workflow should be terminated due to an underlying problem.
+- A fundamental problem that cannot be resolved by reworking
+- The original issue may be invalid or unfeasible
+- Significant scope creep or requirement changes are required
+
+**Format**:
+```
+DECISION: ABORT
+
+ABORT_REASON:
+[Explain why the workflow should be terminated]
+
+RECOMMENDED_ACTIONS:
+1. [Action 1]
+2. [Action 2]
+```
+
+**📌 Reminder**: Once you have made your decision, be sure to save the full evaluation report using the Write tool.
+
+## Instructions
+
+1. **Read the Report Phase artifacts**: `report.md` contains a summary of all phases. Read this first to get a complete picture of the project
+2. **Assess against the criteria**: Check each of the seven evaluation criteria
+3. **Refer to individual files only for details**: Refer to the relevant phase's deliverables only if the Report content alone is not enough to make a decision
+4. **Identify issues**: Document any issues, gaps, or quality concerns
+5. **Determine severity**: Classify the issue as critical (blocking) or minor (non-blocking)
+6. **Make a decision**: Select one of the four decision types based on your analysis
+7. **Provide reasoning**: Explain the decision with concrete evidence from the Report
+8. **Thoroughly**: This is the final quality gate before merging
+
+**⚠️ Note**: Loading a file for all phases will exceed the context limit. Use the Report as your primary source of information.
+
+## Output Format
+
+The evaluation report must include:
+
+1. **Executive Summary**: A brief summary of the evaluation (2-3 sentences)
+2. **Criteria Evaluation**: Evaluation of each of the seven criteria
+3. **Identified Issues**: List of all issues found, if any.4. **Decision**: Final decision in the exact format specified above
+5. **Recommendation**: Additional recommendations (optional)
+
+### File Saving Example
+
+Once you have created the assessment report, **be sure to save it with the Write tool**:
+
+```
+Write tool:
+- file_path: .ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+- content: [Full text of the evaluation report generated above (Markdown format)]
+```
+
+**Important**: Please use the exact path above, not a relative file path.
+
+## Important Notes
+
+- Keep evaluations objective and evidence-based
+- Focus on critical issues that affect functionality, correctness, and maintainability
+- Include minor style and documentation improvements in PASS_WITH_ISSUES, not FAIL
+- Use FAIL_PHASE_X only for critical blocking issues
+- Use ABORT only when the project is fundamentally flawed or unfeasible.
+- When identifying the problem, provide specific line numbers, file names, or examples.
+
+Your evaluation will determine whether this workflow is successful or requires additional work. Please conduct a thorough and fair evaluation.
+
+---
+
+## ⚠️ Final check: Don't forget to save the file
+
+After creating the evaluation report, be sure to **Write Use the tool and save it to the following path**:
+
+```
+.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+```
+
+**If this file does not exist, the Evaluation Phase will fail. Both the generation of the evaluation content and the file saving are required. **

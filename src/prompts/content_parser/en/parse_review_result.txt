@@ -1,0 +1,20 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Extract the decision from the review result below.
+
+# Review Result
+{full_text}
+
+# Target
+- **Decision**: PASS, PASS_WITH_SUGGESTIONS, or FAIL
+
+# Output
+Return JSON only (no extra text):
+{{
+  "result": "PASS"
+}}
+
+# Notes
+- If not explicit, return "FAIL"
+- Output pure JSON (no ```json fences)
+- No explanations or preamble

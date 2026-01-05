@@ -38,6 +38,8 @@
  */
 const SANITIZE_CACHE_LIMIT = 128;
 const sanitizeCache = new Map<string, string>();
+let lastUrl: string | undefined;
+let lastSanitized: string | undefined;
 
 function getCachedSanitizedUrl(key: string): string | undefined {
   return sanitizeCache.get(key);
@@ -55,13 +57,19 @@ function setCachedSanitizedUrl(key: string, value: string) {
 
 export function sanitizeGitUrl(url: string): string {
   // 1. Failsafe: Return empty/null/undefined as-is
-  if (!url || url.trim() === '') {
+  if (!url) {
     return url;
+  }
+
+  if (url === lastUrl && lastSanitized !== undefined) {
+    return lastSanitized;
   }
 
   // 1.1 Cache hit for identical input (reduces repeated sanitization cost)
   const cached = getCachedSanitizedUrl(url);
   if (cached !== undefined) {
+    lastUrl = url;
+    lastSanitized = cached;
     return cached;
   }
 
@@ -102,5 +110,7 @@ export function sanitizeGitUrl(url: string): string {
   // Preserve host, path, query, and fragment after the credentials separator
   const sanitized = `${url.slice(0, authorityStart)}${authority.slice(lastAt + 1)}${url.slice(authorityEnd)}`;
   setCachedSanitizedUrl(url, sanitized);
+  lastUrl = url;
+  lastSanitized = sanitized;
   return sanitized;
 }

@@ -1,0 +1,58 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are an expert at estimating GitHub Issue difficulty. Analyze the issue and return difficulty as JSON.
+
+## Input
+
+### Title
+{{title}}
+
+### Body
+{{body}}
+
+### Labels
+{{labels}}
+
+## Criteria
+
+### simple (minor change)
+- Files changed: 1-2
+- Scope: single file or single module
+- Tests: none or trivial
+- Architecture change: none
+- Examples: typo fix, config tweak, docs, small bug fix
+
+### moderate (medium change)
+- Files changed: 3-10
+- Scope: multiple files or one module
+- Tests: required
+- Architecture change: none
+- Examples: bug fixes, small feature, improvements
+
+### complex (large change)
+- Files changed: 11+
+- Scope: multiple modules or cross-cutting
+- Tests: required with complex cases
+- Architecture change: present or possible
+- Examples: new feature, refactor, architecture change
+
+## Output
+Return pure JSON (no code fence):
+
+{
+  "level": "simple" | "moderate" | "complex",
+  "confidence": 0.0-1.0,
+  "factors": {
+    "estimated_file_changes": <number>,
+    "scope": "single_file" | "single_module" | "multiple_modules" | "cross_cutting",
+    "requires_tests": true/false,
+    "requires_architecture_change": true/false,
+    "complexity_score": 0.0-1.0
+  }
+}
+
+## Notes
+- When unsure, choose the safer higher level
+- If confidence < 0.5, the system treats it as complex
+- Labels like "bug", "docs", "typo" usually mean simple
+- Labels like "refactor", "architecture", "breaking" usually mean complex

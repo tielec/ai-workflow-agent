@@ -5,7 +5,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 ## 特長
 
 - **Codex + Claude のデュアルエージェント** … Codex（`gpt-5.1-codex-max`）で高い推論が必要な編集を担当し、状況に応じて自動で Claude にフォールバックします。
-- **決定的なプロンプト管理** … すべてのプロンプトテンプレートは `src/prompts/{phase}` に配置され、ビルド時に `dist` へコピーされます。
+- **決定的なプロンプト管理** … すべてのプロンプト/テンプレートは `src/prompts/{phase|category}/{lang}` と `src/templates/{lang}` に配置され（`ja`/`en` の多言語対応）、存在しない言語はデフォルト言語にフォールバックしつつビルド時に `dist` へコピーされます。
 - **永続化されたワークフロー状態** … `.ai-workflow/issue-*/metadata.json` へメタデータを保存する `MetadataManager` により、途中再開やコスト集計が可能です。
 - **マルチリポジトリ対応** … Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行できます（v0.2.0 で追加）。
 - **自動PR作成とタイトル最適化** … Issue タイトルをそのまま PR タイトルとして使用し、PR 一覧での可読性を向上（v0.3.0、Issue #73）。
@@ -23,8 +23,8 @@ ai-workflow-agent/
 ├── src/
 │   ├── core/                  # エージェント・Git/GitHub ヘルパー・メタデータ管理
 │   ├── phases/                # 各フェーズ実装（planning 〜 evaluation）
-│   ├── prompts/               # フェーズ別プロンプト
-│   ├── templates/             # PR ボディなどのテンプレート
+│   ├── prompts/               # フェーズ/コマンド別・言語別プロンプト（{phase|category}/{lang}/*.txt）
+│   ├── templates/             # PR ボディなどのテンプレート（{lang}/pr_body*.md）
 │   ├── main.ts                # CLI 定義
 │   └── index.ts               # bin エントリ
 └── dist/                      # `npm run build` 後に生成される JS
@@ -41,6 +41,7 @@ ai-workflow-agent/
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
 - （任意）環境変数 `AGENT_CAN_INSTALL_PACKAGES` … エージェントがパッケージをインストール可能かどうか（Docker環境では `true`、デフォルト: `false`）
+- （任意）環境変数 `AI_WORKFLOW_LANGUAGE` … ワークフロー言語設定（`ja` | `en`、デフォルト: `ja`）。Jenkins実行時に自動設定されるか、CLI実行時に`--language`オプションで指定可能
 - （任意）Docker 24 以上（コンテナ内で実行する場合）
 
 ## クイックスタート（ローカル）
@@ -60,6 +61,7 @@ export LOG_LEVEL="info"                  # （任意）ログレベル（debug|i
 export LOG_NO_COLOR="false"              # （任意）カラーリング無効化（CI環境では "true"）
 export AGENT_CAN_INSTALL_PACKAGES="false"  # （任意）パッケージインストール許可（Docker内部では "true"）
 export AI_WORKFLOW_SQUASH_ON_COMPLETE="false"  # （任意）スカッシュ機能のデフォルト動作
+export AI_WORKFLOW_LANGUAGE="ja"             # （任意）ワークフロー言語（ja|en）
 
 # Issue URL からワークフローを初期化
 node dist/index.js init \
@@ -71,10 +73,13 @@ node dist/index.js execute --phase all --issue 1
 # 失敗したフェーズのみ再実行
 node dist/index.js execute --phase requirements --issue 1 --agent codex
 
+# 英語でワークフローを実行
+node dist/index.js execute --phase all --issue 1 --language en
+
 # マルチリポジトリの例: 別リポジトリのIssueに対してワークフローを実行
 node dist/index.js init \
   --issue-url https://github.com/owner/my-app/issues/123
-node dist/index.js execute --phase all --issue 123
+node dist/index.js execute --phase all --issue 123 --language ja
 ```
 
 ## CLI オプション
@@ -84,7 +89,8 @@ ai-workflow init \
   --issue-url <URL> \
   [--branch <name>] \
   [--base-branch <branch>] \
-  [--auto-model-selection]
+  [--auto-model-selection] \
+  [--language <ja|en>]
 
 ai-workflow execute \
   --issue <number> \
@@ -105,7 +111,8 @@ ai-workflow execute \
   [--followup-llm-model <model>] \
   [--followup-llm-timeout <ms>] \
   [--followup-llm-max-retries <count>] \
-  [--followup-llm-append-metadata]
+  [--followup-llm-append-metadata] \
+  [--language <ja|en>]
 
 ai-workflow execute \
   --list-presets
@@ -118,17 +125,20 @@ ai-workflow auto-issue \
   [--agent auto|codex|claude] \
   [--creative-mode] \
   [--output-file <path>] \
-  [--custom-instruction <text>]
+  [--custom-instruction <text>] \
+  [--language <ja|en>]
 
 ai-workflow review \
   --phase <name> \
-  --issue <number>
+  --issue <number> \
+  [--language <ja|en>]
 
 ai-workflow migrate \
   --sanitize-tokens \
   [--dry-run] \
   [--issue <number>] \
-  [--repo <path>]
+  [--repo <path>] \
+  [--language <ja|en>]
 
 ai-workflow rollback \
   --issue <number> \
@@ -137,47 +147,55 @@ ai-workflow rollback \
   [--to-step <step>] \
   [--from-phase <phase>] \
   [--force] \
-  [--dry-run]
+  [--dry-run] \
+  [--language <ja|en>]
 
 ai-workflow rollback-auto \
   --issue <number> \
   [--dry-run] \
   [--force] \
-  [--agent auto|codex|claude]
+  [--agent auto|codex|claude] \
+  [--language <ja|en>]
 
 ai-workflow cleanup \
   --issue <number> \
   [--dry-run] \
   [--phases <range>] \
-  [--all]
+  [--all] \
+  [--language <ja|en>]
 
 ai-workflow finalize \
   --issue <number> \
   [--dry-run] \
   [--skip-squash] \
   [--skip-pr-update] \
-  [--base-branch <branch>]
+  [--base-branch <branch>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment init \
   --pr <number> | --pr-url <URL> \
-  [--dry-run]
+  [--dry-run] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment analyze \
   --pr <number> \
   [--dry-run] \
   [--agent auto|codex|claude] \
-  [--comment-ids <ids>]
+  [--comment-ids <ids>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment execute \
   --pr <number> | --pr-url <URL> \
   [--dry-run] \
   [--agent auto|codex|claude] \
-  [--batch-size <number>]
+  [--batch-size <number>] \
+  [--language <ja|en>]
 
 ai-workflow pr-comment finalize \
   --pr <number> | --pr-url <URL> \
   [--dry-run] \
-  [--squash]
+  [--squash] \
+  [--language <ja|en>]
 ```
 
 ### ブランチ名のカスタマイズ
@@ -240,6 +258,38 @@ node dist/index.js init \
 **Jenkins 連携**:
 
 Jenkins Job DSL に `BASE_BRANCH` パラメータが追加されており、`Initialize Workflow` ステージで `--base-branch` オプションとして渡されます。
+
+### ワークフロー言語設定（Issue #526で追加）
+
+すべてのコマンドで `--language` オプションを使用して、ワークフローの出力言語を指定できます：
+
+```bash
+# 英語でワークフローを初期化
+node dist/index.js init \
+  --issue-url https://github.com/owner/repo/issues/123 \
+  --language en
+
+# 日本語でワークフローを実行（デフォルト）
+node dist/index.js execute --issue 123 --phase all --language ja
+
+# 環境変数で言語を設定
+export AI_WORKFLOW_LANGUAGE="en"
+node dist/index.js execute --issue 123 --phase all
+```
+
+**言語設定の優先順位**:
+
+1. CLI オプション `--language <ja|en>` が最優先
+2. 環境変数 `AI_WORKFLOW_LANGUAGE` は CLI 未指定時に使用
+3. メタデータ（`metadata.json` の `language` フィールド）
+4. デフォルト値 `ja`（日本語）
+
+**動作仕様**:
+
+- **言語永続化**: `init` コマンドで指定した言語設定は `metadata.json` に保存され、後続のコマンドで引き継がれます
+- **実行時更新**: `execute` コマンドで CLI オプションまたは環境変数で言語が指定された場合、メタデータが更新されます
+- **後方互換性**: 既存のワークフロー（`language` フィールドなし）は日本語（`ja`）として動作します
+- **バリデーション**: `ja` または `en` 以外の値が指定された場合、エラーメッセージを表示して処理を中断します
 
 ### エージェントモード
 
@@ -1205,6 +1255,10 @@ ai-workflow auto-issue \
   - **ブロックされる指示**: ファイル削除、コード変更、Git操作などの実行指示は自動的にブロック
   - LLMベースの文脈理解型検証により、「分析指示」と「実行指示」を正確に区別
   - LLM検証失敗時は静的パターンマッチングにフォールバック
+- `--language <ja|en>`: 生成されるIssueの言語を指定（デフォルト: `ja`、Issue #580で改善）
+  - **タイトル**: 指定言語で生成（英語例: "Memory leak in batch processor"、日本語例: "バッチ処理でメモリリークが発生"）
+  - **本文・説明**: 指定言語で生成
+  - **ラベル**: システム定義ラベルは英語固定（"bug", "enhancement" 等）
   - 検証結果の信頼度（confidence: high/medium/low）が低い場合は警告を表示
 
 **環境変数**:

@@ -43,6 +43,8 @@ pipeline {
         CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
         EXECUTION_MODE = 'rollback'
         CODEX_HOME = ''
         ROLLBACK_MODE = "${params.ROLLBACK_MODE ?: 'auto'}"
@@ -206,11 +208,13 @@ pipeline {
                             echo "[DRY RUN] Workflow initialization skipped"
                         } else {
                             def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
+                            def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                             sh """
                                 node dist/index.js init \
                                     --issue-url ${params.ISSUE_URL} \
-                                    ${branchOption}
+                                    ${branchOption} \
+                                    ${languageOption}
                             """
                         }
                     }
@@ -241,6 +245,7 @@ pipeline {
                         } else {
                             // 差し戻しを実行
                             // CI環境では --force フラグを付与（確認プロンプトをスキップ）
+                            def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
                             if (rollbackMode == 'manual') {
                                 def toStepFlag = params.ROLLBACK_TO_STEP ? "--to-step ${params.ROLLBACK_TO_STEP}" : ''
                                 def reasonFlag = params.ROLLBACK_REASON ? "--reason \"${params.ROLLBACK_REASON}\"" : ''
@@ -253,14 +258,16 @@ pipeline {
                                         ${toStepFlag} \
                                         ${reasonFlag} \
                                         ${reasonFileFlag} \
-                                        --force
+                                        --force \
+                                        ${languageOption}
                                 """
                             } else {
                                 sh """
                                     node dist/index.js rollback-auto \
                                         --issue ${env.ISSUE_NUMBER} \
                                         --agent ${params.AGENT_MODE ?: 'auto'} \
-                                        --force
+                                        --force \
+                                        ${languageOption}
                                 """
                             }
                         }

@@ -1,0 +1,50 @@
+# PR Review Comments — Execute Phase
+
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
+Use the provided response plan to carry out actions for all comments in a single pass.
+
+## Inputs
+- PR Number: {pr_number}
+- Repository Path: {repo_path}
+- Response Plan (from analyze phase):
+{response_plan}
+
+## Guardrails
+- Never touch: `.env`, `.env.*`, `credentials.*`, `secrets.*`, `*.pem`, `*.key`
+- Repository-relative paths only; refuse path traversal
+- Apply changes exactly as described, or explain why not in the result
+- Keep replies concise and professional
+
+## Expected Output
+Write **only** the JSON block below to `{output_file_path}`.
+
+```json
+{
+  "pr_number": 123,
+  "source_plan": "response-plan.md",
+  "comments": [
+    {
+      "comment_id": "c001",
+      "status": "completed|skipped|failed",
+      "type": "code_change|reply|discussion|skip",
+      "actions": ["Applied patch to src/app.ts", "Posted reply"],
+      "reply_message": "Final reply text used",
+      "reply_comment_id": 123456,
+      "changes": [
+        {
+          "path": "src/app.ts",
+          "change_type": "modify",
+          "content": "// new file content or patch representation"
+        }
+      ],
+      "error": "Reason when failed"
+    }
+  ]
+}
+```
+
+Rules:
+- For `code_change`, include `changes` describing the intended edits (full content or patch).
+- For `reply`/`discussion`, include the `reply_message` to post.
+- Mark `skipped` when the plan cannot be safely executed; include an `error`.

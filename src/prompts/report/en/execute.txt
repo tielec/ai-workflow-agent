@@ -1,0 +1,134 @@
+# Reporting Phase - Execution Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Task Summary
+Assemble all deliverables from Phase 1-7 and create a final report for the merge decision. This report contains all the information a human can use to decide whether to merge the PR.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Requirements document (if available)
+{requirements_context}
+<!--
+If present: Reference to @requirements.md
+If not present: "Requirements document not available. Infer requirements from issue information."
+-->
+
+### Design document (if available)
+{design_context}
+<!--
+If present: Reference to @design.md
+If not present: "Design document not available. Infer design content from issue information."
+-->
+
+### Implementation log (if available)
+{implementation_context}
+<!--
+If present: Reference to @implementation.md
+If not present: "Implementation log is not available. Please check the implementation content in the repository."
+-->
+
+### Test results (if available)
+{testing_context}
+<!--
+If present: Reference to @test-result.md
+If not present: "Test results not available. Please infer from implementation."
+-->
+
+### Documentation update log (if available)
+{documentation_context}
+<!--
+If present: Reference to @documentation-update-log.md
+If not present: "Documentation update log is not available."
+-->
+
+### Test scenario (for reference/if available)
+{test_scenario_context}
+
+### Test implementation log (for reference/if available)
+{test_implementation_context}
+
+## Report creation procedure
+
+### 1. Create executive summary
+
+Please write briefly in the following format:
+
+```markdown
+# Issue Completion Report
+
+## Executive Summary
+
+- **Issue Number**: #{issue_number}
+- **Title**: {issue_title}- **Implementation details**: (concisely in 1-2 sentences)
+- **Scale of changes**: X new items, Y changes, Z deletions
+- **Test results**: All N items succeeded (success rate XX%)
+- **Merge recommended**: ✅ Merge recommended / ⚠️ Conditional merge / ❌ Merge not recommended
+
+## Merge Checklist
+
+Please complete the following checklist:
+
+- [ ] Requirements met: (Are they met?)
+- [ ] Test success: (All tests passed?)
+- [ ] Document updates: (Are the required documents updated?)
+- [ ] Security risks: (Are there any new risks?)
+- [ ] Backward compatibility: (Will there be any impact on existing functions?)
+
+## Risks/Notes
+
+If there are any special points to be noted, please briefly describe them in bullet points. If not, please write "None".
+
+## See details
+
+**Important**: Please do not repost the details of each phase here. Please link instead using the following @reference format:
+
+- **Requirements definition**: @.ai-workflow/issue-{issue_number}/01_requirements/output/requirements.md
+- **Design**: @.ai-workflow/issue-{issue_number}/02_design/output/design.md
+- **Implementation**: @.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
+- **Test implementation**: @.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md
+- **Test results**: @.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md
+- **Documentation update**: @.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md
+```
+
+## Quality Gate (Phase 8: Report)
+
+Reports must meet the following quality gates:
+
+- [ ] **Summary of changes**
+- [ ] **Contains information needed to make a merge decision**
+- [ ] **Provides verification steps**
+
+These quality gates are **requirements**. After creation, a critical thinking review will be conducted.
+
+## Output Format
+
+Save the final report as `.ai-workflow/issue-{issue_number}/08_report/output/report.md`.
+Please use Markdown format, use headings appropriately, and create highly readable reports.
+
+## Notes
+
+1. **Brevity**: Don't be too long
+- Executive summary should be one page or less
+- Detailed excerpts of key points
+
+2. **Objectivity**: Fact-based statements
+- Avoid emotional expressions
+- Data-based evaluation
+
+3. **Practicality**: Focus on information necessary for merging decisions
+- Skip unnecessary details
+- Use checklists
+
+4. **Be aware that you will be reviewed**: The report will undergo a critical thinking review
+- Meet the quality gates (three essential requirements)
+- Have the information necessary to make a merge decision
+
+## Start writing the report
+
+Create the final report based on the above.

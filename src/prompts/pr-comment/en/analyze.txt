@@ -1,0 +1,69 @@
+# PR Review Comments — Analyze Phase
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Triage **all** provided review comments in one pass and propose a single response plan.
+
+## Goals
+- Classify each comment as: `code_change`, `reply`, `discussion`, or `skip`
+- Provide confidence: `high` | `medium` | `low`
+- For `code_change`, suggest minimal, safe edits (avoid sensitive files)
+- Draft a reply message for every comment
+
+## Input Context
+- PR number: {pr_number}
+- PR title: {pr_title}
+- Repository path: {repo_path}
+- Comments (batched):
+{all_comments}
+
+## Security & Safety Guardrails
+- Never change or propose touching: `.env`, `.env.*`, `credentials.*`, `secrets.*`, `*.pem`, `*.key`
+- Use repository-relative paths only (no absolute paths or `..` traversal)
+- If confidence for `code_change` would be `low`, downgrade to `discussion`
+- Replies must be concise, professional, and actionable
+
+## Output
+**Path**: `{output_file_path}`
+
+**Important**: Write JSON to `{output_file_path}` using the file-write tool.
+
+```json
+{
+  "pr_number": 123,
+  "analyzer_agent": "codex|claude|auto",
+  "comments": [
+    {
+      "comment_id": "c001",
+      "file": "src/app.ts",
+      "line": 42,
+      "author": "reviewer",
+      "body": "...",
+      "type": "code_change|reply|discussion|skip",
+      "confidence": "high|medium|low",
+      "rationale": "reason for this choice",
+      "proposed_changes": [
+        {
+          "action": "modify|create|delete",
+          "file": "src/app.ts",
+          "line_range": "40-55",
+          "changes": "For modify/create, include full new file content; for delete use an empty string."
+        }
+      ],
+      "reply_message": "Reply text to post on GitHub"
+    }
+  ]
+}
+```
+
+Do not:
+- Output JSON Lines/event streams
+- Add extra narrative outside the JSON block
+- Output multiple JSON objects or comments around the JSON
+
+Notes:
+- Follow the structure above exactly
+- Ensure the file is written successfully
+- Include every input comment exactly once
+- `proposed_changes` can be an empty array for non-`code_change` types
+- If a file is missing, keep `proposed_changes` empty and use `discussion` or `reply`

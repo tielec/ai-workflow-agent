@@ -12,6 +12,9 @@ import {
   EvaluationPhaseMetadata,
   DifficultyAnalysisResult,
   ModelConfigByPhase,
+  DEFAULT_LANGUAGE,
+  SUPPORTED_LANGUAGES,
+  type SupportedLanguage,
 } from '../types.js';
 import { formatTimestampForFilename, backupMetadataFile, removeWorkflowDirectory } from './helpers/metadata-io.js';
 
@@ -210,6 +213,40 @@ export class MetadataManager {
 
   public getModelConfig(): ModelConfigByPhase | null {
     return this.state.data.model_config ?? null;
+  }
+
+  /**
+   * メタデータに言語設定を保存
+   */
+  public setLanguage(language: SupportedLanguage): void {
+    if (!SUPPORTED_LANGUAGES.includes(language)) {
+      logger.warn(
+        `Unsupported language specified in setLanguage: ${language}. Falling back to ${DEFAULT_LANGUAGE}.`,
+      );
+      this.state.data.language = DEFAULT_LANGUAGE;
+    } else {
+      this.state.data.language = language;
+    }
+    this.save();
+    logger.debug(`Language set to: ${this.state.data.language}`);
+  }
+
+  /**
+   * メタデータから言語設定を取得（未設定または不正な場合はデフォルト）
+   */
+  public getLanguage(): SupportedLanguage {
+    const language = this.state.data.language;
+    if (language && SUPPORTED_LANGUAGES.includes(language as SupportedLanguage)) {
+      return language as SupportedLanguage;
+    }
+
+    if (language) {
+      logger.warn(
+        `Invalid language value in metadata: ${language}. Falling back to ${DEFAULT_LANGUAGE}.`,
+      );
+    }
+
+    return DEFAULT_LANGUAGE;
   }
 
   public getPhaseStatus(phaseName: PhaseName): PhaseStatus {

@@ -23,7 +23,13 @@ async function setupValidator(options: SetupOptions = {}) {
     createMock.mockResolvedValue(options.openAiResponse);
   }
 
-  const mockConfig = { getOpenAiApiKey: jest.fn(() => apiKey) };
+  const mockConfig = {
+    getOpenAiApiKey: jest.fn(() => apiKey),
+    getLanguage: jest.fn(() => {
+      const envLang = process.env.AI_WORKFLOW_LANGUAGE?.toLowerCase().trim();
+      return envLang === 'en' ? 'en' : 'ja';
+    }),
+  };
 
   jest.unstable_mockModule('../../../src/core/config.js', () => ({
     config: mockConfig,
@@ -468,5 +474,44 @@ describe('InstructionValidator', () => {
         ),
       ).toThrow('Invalid confidence value');
     });
+  });
+});
+
+describe('InstructionValidator prompt language switching', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+    jest.resetModules();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it('builds Japanese validation prompt when AI_WORKFLOW_LANGUAGE=ja', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
+    const { PromptLoader } = await import('../../../src/core/prompt-loader.js');
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const { InstructionValidator } = await import('../../../src/core/instruction-validator.js');
+
+    const prompt = (InstructionValidator as any).buildPrompt('削除して');
+
+    expect(pathSpy).toHaveBeenCalledWith('validation', 'validate-instruction', 'ja');
+    expect(prompt).toContain('セキュリティ検証エージェント');
+  });
+
+  it('builds English validation prompt when AI_WORKFLOW_LANGUAGE=en', async () => {
+    process.env.AI_WORKFLOW_LANGUAGE = 'en';
+    const { PromptLoader } = await import('../../../src/core/prompt-loader.js');
+    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
+    const { InstructionValidator } = await import('../../../src/core/instruction-validator.js');
+
+    const prompt = (InstructionValidator as any).buildPrompt('delete this file');
+
+    expect(pathSpy).toHaveBeenCalledWith('validation', 'validate-instruction', 'en');
+    expect(prompt).toContain('security validation agent');
   });
 });

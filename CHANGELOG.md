@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #575**: プロンプト・テンプレートの多言語対応を完了
+  - Issue #573で完了した10フェーズ（execute/review/revise）に加え、残りのプロンプト・テンプレートを多言語化
+  - **新規モジュール**: `src/core/prompt-loader.ts`（約200行）- プロンプト・テンプレートの言語対応読み込みユーティリティ
+    - `loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供
+    - `BasePhase.loadPrompt()` と同一のフォールバックパターンを実装
+  - **多言語化対象プロンプト（16ファイル → 32ファイル）**:
+    - `auto-issue/`（6ファイル）: detect-bugs, detect-enhancements, detect-refactoring, generate-issue-body, generate-enhancement-issue-body, generate-refactor-issue-body
+    - `pr-comment/`（2ファイル）: analyze, execute
+    - `rollback/`（1ファイル）: auto-analyze
+    - `difficulty/`（1ファイル）: analyze
+    - `followup/`（1ファイル）: generate-followup-issue
+    - `squash/`（1ファイル）: generate-message
+    - `content_parser/`（3ファイル）: extract_design_decisions, parse_evaluation_decision, parse_review_result
+    - `validation/`（1ファイル）: validate-instruction
+  - **多言語化対象テンプレート（2ファイル → 4ファイル）**:
+    - `templates/ja/`, `templates/en/`: pr_body_template.md, pr_body_detailed_template.md
+  - **修正対象TypeScriptファイル（11ファイル）**: PromptLoader経由で言語対応プロンプト・テンプレートを読み込むよう変更
+    - `repository-analyzer.ts`, `issue-generator.ts`, `analyze.ts` (pr-comment), `comment-analyzer.ts`, `rollback.ts`, `difficulty-analyzer.ts`, `issue-agent-generator.ts`, `squash-manager.ts`, `content-parser.ts`, `instruction-validator.ts`, `github-client.ts`
+  - **フォールバック機能**: 指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック
+  - テストカバレッジ: ユニット + インテグレーションテスト（2318件中2296成功、22スキップ、0失敗）
+
+- **Issue #573**: 言語設定に基づくプロンプトファイル切り替え機能
+  - プロンプトファイル構造を `{phase}/*.txt` から `{phase}/{lang}/*.txt` 形式に変更（ja/en対応）
+  - `BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、言語別プロンプトを動的に読み込む
+  - **フォールバック機能**: 指定言語のプロンプトが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック
+  - 警告ログ出力: フォールバック発生時に警告を記録
+  - 10フェーズ × 3種類（execute/review/revise）× 2言語 = 60プロンプトファイル
+  - **後方互換性**: 既存のワークフロー（日本語）は変更なく動作
+  - 修正ファイル: `src/phases/base-phase.ts`、`src/prompts/*/ja/*.txt`（移動）、`src/prompts/*/en/*.txt`（新規）
+  - テストカバレッジ: 13件のテスト（ユニット8件、統合5件、100%成功）
+
+- **Issue #526**: CLI全コマンドに--language/AI_WORKFLOW_LANGUAGEを追加しワークフロー言語を一元設定可能にする
+  - 全13コマンドに `--language <ja|en>` オプションを追加
+  - 新しい環境変数 `AI_WORKFLOW_LANGUAGE` のサポート
+  - **言語設定の優先順位**: CLI オプション > 環境変数 > メタデータ > デフォルト (`ja`)
+  - **言語永続化**: `init` コマンドで指定した言語設定は `metadata.json` に保存され、後続のコマンドで引き継がれる
+  - **後方互換性**: 既存のワークフロー（`language` フィールドなし）は日本語（`ja`）として動作
+  - **バリデーション**: `ja` または `en` 以外の値が指定された場合、明確なエラーメッセージを表示
+  - 新規モジュール: `src/core/language-resolver.ts`（言語解決ヘルパー）
+  - 修正ファイル: `src/types.ts`, `src/core/config.ts`, `src/core/metadata-manager.ts`, `src/commands/execute/options-parser.ts`, `src/commands/init.ts`, `src/commands/execute.ts`, `src/main.ts`, `src/types/commands.ts`, `src/core/workflow-state.ts`
+  - テストカバレッジ: 160件のテスト（ユニット + インテグレーション、100%成功）
+
 - **Issue #512**: Jenkins Webhook仕様拡張（Issue #505の拡張）
   - DevLoop Runner仕様に合わせて追加フィールドでペイロード拡張（build_url, branch_name, pr_url, finished_at, logs_url）
   - **シグネチャ変更**: `sendWebhook()`を位置引数からMap型config引数に変更（後方互換性あり）
@@ -163,6 +205,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 柔軟な実行制御: `--skip-squash`, `--skip-pr-update` オプションで任意のステップをスキップ可能
 
 ### Fixed
+
+- **Issue #584**: プロンプトテンプレートに出力言語の明示的な指示がない問題を修正
+  - `--language` オプションで言語を指定しても、生成ドキュメントの本文がIssueの言語に引きずられる問題を解決
+  - 全92ファイルのプロンプトテンプレートに言語別の明示的な出力指示を追加
+  - 英語プロンプト（46ファイル）: `**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**`
+  - 日本語プロンプト（46ファイル）: `**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**`
+  - 配置位置: タイトルがあるプロンプトはタイトル直下、タイトルがないプロンプトはファイル先頭
+  - CLAUDE.md の「プロンプト/テンプレートの配置（多言語化）」セクションにドキュメント追加
+  - テストカバレッジ: 20件のテスト（統合10件、ユニット10件、100%成功）
 
 - **Issue #558**: metadata.json の不適切マスキング処理を修正
   - `SecretMasker.maskString()` メソッドのプレースホルダー管理とキー名除外処理を改善

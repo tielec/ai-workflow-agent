@@ -75,12 +75,24 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
   let bareRepoPath: string;
   let workingRepoPath: string;
   let git: SimpleGit;
+  let originalHome: string | undefined;
   const issueNumber = 253;
   const branchName = `ai-workflow/issue-${issueNumber}`;
 
   beforeEach(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+
     // テスト用の一時ディレクトリを作成
     testDir = path.join(os.tmpdir(), `ai-workflow-test-${Date.now()}`);
+    const tempHomeDir = path.join(testDir, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（remote push 時の git receive-pack エラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Test User\n\temail = test@example.com\n');
+
     bareRepoPath = path.join(testDir, 'bare-repo.git');
     workingRepoPath = path.join(testDir, 'working-repo');
 
@@ -90,6 +102,13 @@ describe('Issue #253: init command - PR URL persistence (Integration Test)', () 
   });
 
   afterEach(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリをクリーンアップ
     await fs.remove(testDir);
   });

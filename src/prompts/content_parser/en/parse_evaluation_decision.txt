@@ -1,0 +1,42 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Extract decision and related info from the evaluation report.
+
+# Evaluation Report
+{evaluation_content}
+
+# Targets
+1. **decision**: one of PASS, PASS_WITH_ISSUES, FAIL_PHASE_*, ABORT
+2. **failedPhase**: when decision is FAIL_PHASE_*, one of planning, requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report
+3. **abortReason**: when decision is ABORT, explanatory text
+4. **remainingTasks**: when decision is PASS_WITH_ISSUES, list of remaining tasks
+
+# Output
+Return JSON only:
+{
+  "decision": "PASS_WITH_ISSUES",
+  "failedPhase": null,
+  "abortReason": null,
+  "remainingTasks": [
+    {
+      "task": "Task description",
+      "phase": "Phase name",
+      "priority": "High"
+    }
+  ]
+}
+
+# Decision Types
+- **PASS**: all artifacts meet the bar
+- **PASS_WITH_ISSUES**: mostly pass with follow-up tasks (extract remainingTasks)
+- **FAIL_PHASE_<phase>**: critical issues in a specific phase require redo (populate failedPhase)
+  - Examples: FAIL_PHASE_DESIGN -> failedPhase "design"; FAIL_PHASE_IMPLEMENTATION -> "implementation"
+- **ABORT**: fatal issues stop the project (populate abortReason)
+
+# Notes
+- If not stated, default `decision` to "PASS"
+- Remaining tasks come from the "## 残タスク" section formatted as `- [ ] task (Phase: xxx, 優先度: xxx)`
+- Output pure JSON (no ```json fences)
+- Do not add explanations
+- failedPhase must be the phase name only from the allowed list
+- Map FAIL_PHASE identifiers to the correct phase name (e.g., FAIL_PHASE_2 -> "design")

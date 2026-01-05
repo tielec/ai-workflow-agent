@@ -1,0 +1,306 @@
+# Test Scenario Phase - Review Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Review Target
+Please review the test scenario from a critical thinking perspective.
+
+### Test scenario
+{test_scenario_document_path}
+
+### Design document (reference)
+{design_document_path}
+
+### Requirements definition document (reference)
+{requirements_document_path}
+
+### Test strategy (determined in Phase 2)
+**{test_strategy}**
+
+## Quality Gate (Phase 3)
+
+The test scenario must clear the following quality gates:
+
+- [ ] **The test scenario is in line with the strategy of Phase 2**
+- [ ] **The main normal systems are covered**
+- [ ] **The main abnormal systems are covered**
+- [ ] **The expected results are clear**
+
+## ⚠️ Important: Check with the Planning Phase checklist (required)
+
+### 1. Load Planning.md
+
+Please load the following file:
+- {planning_document_path}
+
+### 2. Extract the checklist for the relevant phase
+
+From Planning.md, select the current phase ("### Phase 3:" or "## Phase 3:") section and extract the task checklist.
+
+**Note**: If you can't find the checklist, please skip this check.
+
+### 3. Check with the test scenario contents
+
+Check whether each task is completed by checking against the test scenario (test-scenario.md).
+
+**Completion criteria**:
+- Are the test cases described in the Task written?
+- Are the scenarios described in the Task implemented?
+- Are all subtasks completed?
+
+### 4. Update Planning.md
+
+Please update the checkboxes in planning.md based on the verification results:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Unfinished tasks: `- [ ]` Please use the
+
+**Edit tool** to update the section for that phase.
+
+### 5. Reflection in review judgment
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **There are incomplete tasks** (`[ ]` remains): FAIL
+- List incomplete tasks in review feedback
+- Explain specifically what is missing
+
+**Example (feedback on FAIL)**:```
+## Planning Phase checklist verification result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 3-2: Creating an abnormal scenario
+- Missing: Error handling scenarios are missing
+- [ ] Task 3-3: Defining edge cases
+- Missing: No boundary value test cases defined
+
+Please complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include the contents of Planning.md in the review results
+
+Although it is necessary to load and match Planning.md, **Please do not include the full text of planning.md or the review contents of Planning Phase in the review results**.
+
+Review results should only include the following:
+- Evaluation of the test scenario (test-scenario.md)
+- Unfinished tasks found by checking against Planning.md (FAIL only)
+- Test scenario-specific improvement suggestions
+
+Do not output the review details of the Planning Phase or the entire contents of planning.md.
+
+## Review Attitude
+
+Please conduct this review based on the principle of "**80 points is good enough**":
+
+1. **Aim for good enough, not perfect**
+- Pass if the test scenario is ready for the next phase (implementation)
+- It is not necessary to cover all edge cases
+- OK if the main test cases are covered
+
+2. **Clearly distinguish between blockers and improvement proposals**
+- Blockers: Serious problems that prevent you from proceeding to the next phase (implementation)
+- Improvement proposals: Items that you can proceed to the next phase but would like to improve
+
+3. **Practical and balanced judgment**
+- Prioritize moving the project forward
+- Do not make blockers problems that can be fixed in the implementation phase
+
+4. **Constructive feedback**
+- Expression of "it would be better if we add more" instead of "lack"
+- Present specific improvement proposals
+
+## Review perspective
+
+### 1. Consistency with test strategy (most important)
+
+- Is it in line with the test strategy decided in Phase 2?
+- UNIT_ONLY → Does only Unit test scenario exist?
+- BDD_ONLY → Does only BDD scenario exist?
+- UNIT_BDD → Are both scenarios present?
+- Etc.
+- Are test types not included in the strategy included?
+
+### 2. Health coverage
+
+- Are the normal systems of the main functions covered?
+- Is the critical path tested?
+- Is the happy path clearly defined?
+
+### 3. Abnormal coverage
+- Are the major error cases covered?
+- Are there boundary value tests?
+- Are the expected error handling tested?
+
+### 4. Clarity of expected results
+
+- Are the expected results of each test case specific?
+- Are they stated in a verifiable (test-executable) manner?
+- Are there any ambiguous expressions?
+
+### 5. Correspondence with requirements
+
+- Are the acceptance criteria in the requirements definition reflected in the test scenario?
+- Are all functional requirements included in the test target?
+
+### 6. Feasibility
+
+- Can the test scenario actually be implemented and executed?
+- Are the test data specifically defined?
+- Are the prerequisites clear?
+
+## ⚠️ Most important: Quality gate is an absolute requirement
+
+**Quality gate (4 items) is an essential requirement. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+
+- The quality gate is a "minimum standard that must be cleared" and there is no room for negotiation.
+- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate.
+- Proceeding to the next phase is not allowed without meeting the quality gate.
+
+## Distinguishing between blockers (BLOCKER) and improvement proposals (SUGGESTION)
+
+### Blocker (BLOCKER): Serious problem that prevents you from proceeding to the next phase
+
+**Blocker example**:
+- Completely inconsistent with the test strategy (e.g. only BDD scenario even though it is UNIT_ONLY)
+- Major normal systems are not covered at all
+- Expected results are not described at all
+- Test scenario cannot be implemented
+
+### Improvement suggestions (SUGGESTION): Things that should be improved to proceed to the next phase
+
+**Example of improvement proposal**:
+- Additional edge case testing
+- More detailed test data
+- Expanding test coverage
+- Adding test cases
+- Enhancing documentation
+
+### Judgment rule
+
+#### PASS (Pass) PASS only if **all** below
+
+are satisfied:
+- ✅ **All 4 quality gates are met** (FAIL if any × is present)
+- ✅ No blocker
+- ✅ Only minor improvement suggestions (or no improvement suggestions)
+
+#### PASS_WITH_SUGGESTIONS (conditional pass)
+
+Only if **all** below are met:
+- ✅ **All 4 quality gates are met** (FAIL if any of the Xs are present)
+- ✅ No blockers
+- ✅ Proceed to the next phase, but there are improvements to consider
+
+#### FAIL
+
+If any of the following **FAIL:
+- ❌ **Even one of the quality gates (4 items) is not met**- ❌ One or more blockers exist
+
+**Important: Quality gates are an absolute condition, and if one or more blockers are not met, it is an automatic FAIL. **
+
+## Output format
+
+Please output in the following format:
+
+```markdown
+## Quality gate evaluation
+
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+
+- [x/ ] **Test scenario in line with Phase 2 strategy**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Major normal systems are covered**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Major abnormal systems are covered**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Expected results are clear**: **PASS / FAIL** - (Judgment reason)
+
+**Quality gate overall judgment: PASS / FAIL**
+- PASS: All 4 items above are PASS
+- FAIL: FAIL
+
+**If the quality gate judgment is FAIL for any of the above 4 items, the final judgment will automatically be FAIL. **
+
+## Detailed review
+
+### 1. Consistency with test strategy
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 2. Normal system coverage
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 3. Coverage of abnormal systems
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any improvement suggestions)
+
+### 4. Clarity of expected results
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 5. Correspondence with requirements
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+### 6. Feasibility
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+## Blocker (BLOCKER)
+
+**Major problem that prevents you from proceeding to the next phase**
+
+(Describe only if there is a blocker)
+1. **(Blocker 1 title)**
+- Problem: (Specific problem)
+- Impact: (How does it affect the next phase)
+- Countermeasure: (How to fix it)
+## Improvement suggestion (SUGGESTION)
+
+**Proceeding to the next phase, but it is desirable to improve**
+
+(Enter only if there is an improvement suggestion)
+1. **(Title of proposal 1)**
+- Current status: (Current status)
+- Proposal: (Better this way)
+- Effect: (Effects of improvement)
+
+## Overall evaluation
+
+(Comprehensive evaluation of the entire test scenario)
+
+**Main strengths**:
+- (Summary of good points)
+
+**Main improvement suggestions**:
+- (Summary of improvement suggestions)
+
+(Summary comments)
+
+---
+**Determination: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**Important**: Be sure to write your decision in the above format on the last line.

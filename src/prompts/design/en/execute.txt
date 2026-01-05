@@ -1,0 +1,197 @@
+# Detailed Design Phase - Execution Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Task Summary
+Create a detailed design document from the requirements definition document and the contents of the GitHub issue. In this phase, we also decide on the implementation strategy, testing strategy, and test code strategy.
+
+## Input Information
+
+### Planning Phase Deliverables
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning Phase is being performed, be sure to review the development plan (implementation strategy, testing strategy, risks, schedule).
+
+### Requirements Document
+{requirements_document_path}
+
+### GitHub Issue Information
+{issue_info}
+
+### Understanding the Existing Codebase
+
+To understand the project structure, architecture, and coding conventions for this repository, please refer to the following documents:
+
+- Project-wide guidelines: @CLAUDE.md (if available)
+- Architecture design: @ARCHITECTURE.md (if available)
+- Project README: @README.md
+- Other related documents such as README, CONTRIBUTION.md, etc.
+
+Please understand the following from the above documents:
+- Project purpose and architecture
+- Directory structure and component configuration
+- Existing coding standards and patterns
+- Development workflow
+
+## Design document creation procedure
+
+### 1. Existing code base analysis
+
+Analyze the following from the requirements definition document and issue content:
+
+1. **Identification of the scope of impact**
+- Which components (Ansible/Pulumi/Jenkins/Scripts) are affected
+- Do you need to modify existing files or create new files?
+- What are the dependent components?
+
+2. **Investigating existing patterns**
+- Investigating for similar functional implementations
+- Checking existing coding standards and patterns
+- Identifying reusable components
+
+### 2. Determining the implementation strategy (required)
+
+Please choose from the following three and **state the basis for your decision**:
+
+- **CREATE**: Completely new functionality with no dependencies on existing code
+- **EXTEND**: Existing code needs to be extended/modified
+- **REFACTOR**: Main purpose is to improve the structure of existing code
+
+**Judgment criteria**:
+- Scope of impact on existing files
+- Number of new files created
+- Degree of integration with existing functions
+
+**Output format**:
+```markdown### Implementation strategy: CREATE / EXTEND / REFACTOR
+
+**Decision basis**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 3. Test strategy determination (required)
+
+Please select from the following and **specify the basis for your decision**:
+
+- **UNIT_ONLY**: Unit test only
+- **INTEGRATION_ONLY**: Integration test only
+- **BDD_ONLY**: BDD test only
+- **UNIT_INTEGRATION**: Unit + Integration
+- **UNIT_BDD**: Unit + BDD
+- **INTEGRATION_BDD**: Integration + BDD
+- **ALL**: All
+
+**Criteria**:
+- Functional complexity
+- Presence of user stories
+- Consistency with existing tests
+
+**Output format**:
+```markdown
+### Testing strategy: UNIT_ONLY / INTEGRATION_ONLY / BDD_ONLY / UNIT_INTEGRATION / UNIT_BDD / INTEGRATION_BDD / ALL
+
+**Decision basis**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 4. Deciding on the test code strategy (required)
+
+Please select from the following and **state the basis for your decision**:
+
+- **EXTEND_TEST (Extend existing test)**: Add to existing test file
+- **CREATE_TEST (Create a new test)**: Create a new test file
+- **BOTH_TEST (Both)**: Extending existing tests and creating new tests
+
+**Decision criteria**:
+- Presence of existing test files
+- Relationship with existing tests
+
+**Output format**:
+```markdown
+### Test code strategy: EXTEND_TEST / CREATE_TEST / BOTH_TEST
+
+**Decision basis**:
+- (Reason 1)
+- (Reason 2)
+```
+
+### 5. Structure of the design document
+
+Create a design document that includes the following sections:
+
+#### Required sections:
+
+1. **Architecture design**
+- Overall system diagram
+- Relationship between components
+- Data flow
+
+2. **Implementation Strategy Decision** (described in Section 2)
+
+3. **Test Strategy Decision** (described in Section 3)
+
+4. **Test Code Strategy Decision** (described in Section 4)
+
+5. **Impact Scope Analysis**
+- Impact on existing code
+- Change in dependencies
+- Whether migration is necessary
+6. **List of changed/added files**
+- Newly created files (relative path)
+- Existing files that need to be modified (relative path)
+- Files that need to be deleted (relative path)
+
+7. **Detailed design**
+- Class design (if necessary)
+- Function design (main functions only)
+- Data structure design
+- Interface design
+
+8. **Security Considerations**
+- Authentication and Authorization
+- Data Protection
+- Security Risks and Countermeasures
+
+9. **Addressing Non-Functional Requirements**
+- Performance
+- Scalability
+- Maintainability
+
+10. **Implementation Order**
+- Recommended Implementation Order
+- Dependency Considerations
+
+## Quality Gates (Phase 2)
+
+The design document must meet the following quality gates:
+
+- [ ] **The basis for determining the implementation strategy is specified**
+- [ ] **The basis for determining the testing strategy is specified**
+- [ ] **The scope of impact on existing code is analyzed**
+- [ ] **Files that need to be changed are listed**
+- [ ] **The design is implementable**
+
+These quality gates are **mandatory requirements**. After creation, a critical thinking review is conducted and revisions are required if the quality gates are not met.
+
+## Notes
+
+1. **Respect the existing project structure**: Please follow the existing directory structure and coding standards
+2. **Traceability**: Please clearly indicate the design that corresponds to each requirement in the requirements definition document
+3. **Implementability**: Avoid designs that cannot be implemented or are ambiguous
+4. **Explicit judgment**: Be sure to clearly state the three strategic decisions (implementation, testing, and test code)
+5. **Be aware that it will be reviewed**: The design document will undergo a critical thinking review
+- Satisfy the quality gate (5 essential requirements) with the highest priority
+- Be careful not to have blockers (problems that prevent you from proceeding to the next phase)
+- The basis for the decision should be described concretely and logically
+
+## Output format
+
+The design document is Save it as `.ai-workflow/issue-{issue_number}/02_design/output/design.md`. Please use
+
+Markdown format, use headings appropriately, and create highly readable documents. If you need diagrams, use Markdown code blocks and tables.
+
+## Start implementation
+
+Create a detailed design document based on the above.

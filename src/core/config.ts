@@ -1,3 +1,5 @@
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, type SupportedLanguage } from '../types.js';
+
 /**
  * 環境変数アクセスを一元化する設定管理クラス
  *
@@ -142,6 +144,16 @@ export interface IConfig {
    * @returns true: カラーリング無効、false: カラーリング有効
    */
   getLogNoColor(): boolean;
+
+  // ========== ワークフロー言語 ==========
+
+  /**
+   * ワークフローで使用する言語を取得
+   *
+   * 環境変数 AI_WORKFLOW_LANGUAGE を検証し、許可された言語であれば返却。
+   * 未設定または不正値の場合はデフォルト値（'ja'）にフォールバック。
+   */
+  getLanguage(): SupportedLanguage;
 
   // ========== Follow-up LLM 設定 ==========
 
@@ -333,6 +345,25 @@ export class Config implements IConfig {
   public getLogNoColor(): boolean {
     const value = this.getEnv('LOG_NO_COLOR', false);
     return value === 'true' || value === '1';
+  }
+
+  // ========== ワークフロー言語 ==========
+
+  public getLanguage(): SupportedLanguage {
+    const value = this.getEnv('AI_WORKFLOW_LANGUAGE', false);
+    if (!value) {
+      return DEFAULT_LANGUAGE;
+    }
+
+    const normalized = value.toLowerCase().trim();
+    if (SUPPORTED_LANGUAGES.includes(normalized as SupportedLanguage)) {
+      return normalized as SupportedLanguage;
+    }
+
+    console.warn(
+      `Invalid AI_WORKFLOW_LANGUAGE value '${value}'. Allowed values: ${SUPPORTED_LANGUAGES.join(', ')}. Falling back to '${DEFAULT_LANGUAGE}'.`,
+    );
+    return DEFAULT_LANGUAGE;
   }
 
   // ========== Follow-up LLM 設定 ==========

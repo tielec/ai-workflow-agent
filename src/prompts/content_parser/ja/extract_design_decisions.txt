@@ -1,0 +1,24 @@
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
+以下のドキュメントから、戦略判断を抽出してください。
+
+# ドキュメント内容
+{document_content}
+
+# 抽出対象
+1. **実装戦略**: CREATE, EXTEND, REFACTOR のいずれか
+2. **テスト戦略**: UNIT_ONLY, INTEGRATION_ONLY, BDD_ONLY, UNIT_INTEGRATION, UNIT_BDD, INTEGRATION_BDD, ALL のいずれか
+3. **テストコード戦略**: EXTEND_TEST, CREATE_TEST, BOTH_TEST のいずれか
+
+# 出力形式
+以下のJSON形式で出力してください（他の説明文は不要）:
+{{
+  "implementation_strategy": "CREATE",
+  "test_strategy": "UNIT_INTEGRATION",
+  "test_code_strategy": "CREATE_TEST"
+}}
+
+# 注意事項
+- 戦略が明記されていない場合は null を返してください
+- JSON形式のみを出力し、マークダウンのコードブロック記法（```json）は使用しないでください
+- 説明文や前置きは一切不要です

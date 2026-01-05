@@ -1,0 +1,110 @@
+# Requirements Phase - Revise Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## ⚠️ Critical: Mandatory Action
+
+**Use the Write tool or Edit tool to save the requirements document to:**
+
+```
+.ai-workflow/issue-{issue_number}/01_requirements/output/requirements.md
+```
+
+**If this file does not exist, the Requirements Phase fails.**
+
+---
+
+## Task Overview
+
+Fix the issues noted in the review and produce an improved requirements document.
+
+**Important**: Based on the previous review, you must resolve all blockers (BLOCKER).
+
+## Original Output
+
+The requirements document below was reviewed and needs changes:
+
+{requirements_document_path}
+
+## Review Feedback
+
+{review_feedback}
+
+## Previous Execution Log (Reference)
+
+Below is a snippet of the previous execution log. If the requirements content is present, you can use it to rebuild the file:
+
+```
+{previous_log_snippet}
+```
+
+## Revision Instructions
+
+### Case A: Requirements file was never created
+
+If the file was not created in the previous run, follow these steps:
+
+1. **Extract requirements content from the prior log** (if present)
+   - Pull out functional requirements, acceptance criteria, scope, etc.
+   - Format and save as requirements.md
+
+2. **Create a new requirements document** (if the log is insufficient)
+   - Build a concise requirements doc from Issue and Planning info
+   - Include mandatory items (functional requirements, acceptance criteria, scope)
+   - Save as requirements.md using the Write tool
+
+### Case B: Revise based on review feedback
+
+#### Resolve Blockers (BLOCKER)
+
+Items in the "Blockers" section of the review are **critical issues that prevent the next phase**. Resolve all of them.
+
+#### Consider Improvement Suggestions (SUGGESTION)
+
+Items in the "Improvement Suggestions" section should be applied where feasible. They are recommended but not required to proceed.
+
+## Issue Information (Reference)
+
+Revisit the original issue details:
+
+{issue_info}
+
+## Quality Gates (Phase 1)
+
+The revised requirements document must satisfy:
+
+- [ ] **Functional requirements are clearly described**
+- [ ] **Acceptance criteria are defined**
+- [ ] **Scope is clear**
+- [ ] **No logical contradictions**
+
+## Revision Policy
+
+1. **Resolve blockers first**: Fix all blockers called out in the review
+2. **Check quality gates**: Ensure the 4 mandatory items are satisfied
+3. **Apply suggestions**: Reflect improvement suggestions as feasible (don’t chase perfection)
+4. **Respect existing content**: Leave unchanged parts that are already correct
+
+## Notes
+
+1. **Focus on review findings**: Avoid major changes outside the review points
+2. **Separate blockers vs suggestions**: Blockers are mandatory; suggestions are recommended
+3. **Maintain specificity**: Do not introduce ambiguity while fixing
+4. **Ensure consistency**: Confirm fixes do not conflict with other sections
+
+## Output Format
+
+Save the revised requirements document to:
+
+```
+.ai-workflow/issue-{issue_number}/01_requirements/output/requirements.md
+```
+
+Overwrite the original file with your revisions.
+
+## Reference Information
+
+Refer to the following as needed:
+- @CLAUDE.md - Project policies and coding guidelines
+- @ARCHITECTURE.md - Architectural principles
+- Relevant @CONTRIBUTION.md - Development guidelines

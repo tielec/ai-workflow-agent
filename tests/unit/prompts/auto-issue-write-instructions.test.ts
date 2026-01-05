@@ -7,7 +7,7 @@ import path from 'path';
  * This covers Issue #485 Scenario 5: prompt pattern consistency verification.
  */
 
-const AUTO_ISSUE_PROMPTS_DIR = path.join(process.cwd(), 'src', 'prompts', 'auto-issue');
+const AUTO_ISSUE_PROMPTS_DIR = path.join(process.cwd(), 'src', 'prompts', 'auto-issue', 'ja');
 const PROMPT_FILES = [
   'detect-bugs.txt',
   'detect-refactoring.txt',

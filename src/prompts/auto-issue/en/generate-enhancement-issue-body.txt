@@ -1,0 +1,79 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Generate a GitHub Issue body from the enhancement proposal below.
+
+# Enhancement Proposal
+
+{enhancement_proposal_json}
+
+# Issue Body Format
+
+Include these five sections in Markdown:
+
+## Summary
+(1-2 sentences on the proposal goal and expected value.)
+
+## Background & Rationale
+(Why this is needed: current pain points, who is affected, what problems it solves, expected benefits.)
+
+## Proposal Details
+(Spec, technical approach, implementation direction, and considerations.)
+
+## Implementation Hints
+(Recommended tech/libraries, references, phased plan if helpful, and cautions.)
+
+## Action Items
+(Checklist such as:)
+- [ ] Refine requirements
+- [ ] Validate feasibility
+- [ ] Create implementation plan
+- [ ] Start implementation
+- [ ] Run tests
+- [ ] Update docs
+
+# Output Format
+
+Write the issue **to the specified file**.
+
+## Output File
+
+**Path**: `{output_file_path}`
+
+Write raw Markdown (no code fences) to that file. Do not print to stdout.
+
+# Important Notes
+
+1. Write in English
+2. Be concrete about the proposal and how to build it
+3. Include all five sections
+4. **File output required**: write Markdown to `{output_file_path}`
+5. Aim for ~200–500 characters per section
+6. Do not wrap the output in ``` fences
+
+# Expected Impact (`expected_impact`)
+Express value appropriately:
+- **high**: major user value or productivity gain
+- **medium**: meaningful improvement
+- **low**: limited or situational value
+
+# Effort (`effort_estimate`)
+Adjust plan detail:
+- **large**: long-running; include a phased plan
+- **medium**: moderate effort; outline key steps
+- **small**: quick win; keep steps concise
+
+# Proposal Type (`type`)
+Highlight the right angle:
+- **improvement**: emphasize current problems and benefits after improvement
+- **integration**: emphasize benefits and scenarios for the integration
+- **automation**: emphasize efficiency gains and manual work removed
+- **dx**: emphasize developer experience and productivity
+- **quality**: emphasize quality assurance and early defect detection
+- **ecosystem**: emphasize extensibility and ecosystem growth
+
+# Tone
+
+- Positive and constructive
+- Technically accurate
+- Assume an engineer reader
+- Clearly communicate the value

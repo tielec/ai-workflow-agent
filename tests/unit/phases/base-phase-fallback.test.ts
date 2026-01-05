@@ -100,6 +100,7 @@ describe('BasePhase Fallback Mechanism (Issue #113)', () => {
       data: { issue_number: '113' },
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn(),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     } as any;
 
     // Mock GitHubClient

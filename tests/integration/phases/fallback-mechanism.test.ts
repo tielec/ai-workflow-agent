@@ -55,6 +55,7 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn().mockReturnValue(null),
       getPhaseStatus: jest.fn().mockReturnValue('completed'),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     } as any;
 
     // Mock GitHubClient

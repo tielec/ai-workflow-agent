@@ -9,7 +9,6 @@
 
 import path from 'node:path';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import { logger } from '../utils/logger.js';
@@ -22,9 +21,7 @@ import type {
   EnhancementProposal,
 } from '../types/auto-issue.js';
 import { parseCodexEvent } from './helpers/agent-event-parser.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { PromptLoader } from './prompt-loader.js';
 
 /**
  * 除外ディレクトリパターン
@@ -259,13 +256,13 @@ export class RepositoryAnalyzer {
     logger.info(`Analyzing repository: ${repoPath}`);
 
     // 1. プロンプトパスと出力ファイルパスを準備
-    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-bugs.txt');
+    const promptTemplate = PromptLoader.loadPrompt('auto-issue', 'detect-bugs');
     const outputFilePath = this.outputFileFactory?.('bugs') ?? generateOutputFilePath();
     logger.debug(`Output file path: ${outputFilePath}`);
 
     try {
       // 2. 共通エージェント実行メソッド呼び出し
-      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent, options);
+      await this.executeAgentWithFallback(promptTemplate, outputFilePath, repoPath, agent, options);
 
       // 3. 出力ファイルからJSONを読み込み
       const candidates = this.readOutputFile(outputFilePath);
@@ -297,13 +294,13 @@ export class RepositoryAnalyzer {
     logger.info(`Analyzing repository for refactoring: ${repoPath}`);
 
     // 1. プロンプトパスと出力ファイルパスを準備
-    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-refactoring.txt');
+    const promptTemplate = PromptLoader.loadPrompt('auto-issue', 'detect-refactoring');
     const outputFilePath = this.outputFileFactory?.('refactor') ?? generateOutputFilePath('refactor');
     logger.debug(`Output file path: ${outputFilePath}`);
 
     try {
       // 2. 共通エージェント実行メソッド呼び出し
-      await this.executeAgentWithFallback(promptPath, outputFilePath, repoPath, agent, options);
+      await this.executeAgentWithFallback(promptTemplate, outputFilePath, repoPath, agent, options);
 
       // 3. 出力ファイルからJSONを読み込み
       const candidates = this.readRefactorOutputFile(outputFilePath);
@@ -337,7 +334,7 @@ export class RepositoryAnalyzer {
     logger.info(`Analyzing repository for enhancement proposals: ${repoPath}`);
 
     // 1. プロンプトパスと出力ファイルパスを準備
-    const promptPath = path.resolve(__dirname, '../prompts/auto-issue/detect-enhancements.txt');
+    const promptTemplate = PromptLoader.loadPrompt('auto-issue', 'detect-enhancements');
     const outputFilePath =
       this.outputFileFactory?.('enhancements') ?? generateOutputFilePath('enhancements');
     logger.debug(`Output file path: ${outputFilePath}`);
@@ -345,7 +342,7 @@ export class RepositoryAnalyzer {
     try {
       // 2. 共通エージェント実行メソッド呼び出し（creative_mode変数を追加）
       await this.executeAgentWithFallback(
-        promptPath,
+        promptTemplate,
         outputFilePath,
         repoPath,
         agent,
@@ -383,20 +380,14 @@ export class RepositoryAnalyzer {
    * @throws エージェントが利用不可の場合、またはエージェント実行失敗時
    */
   private async executeAgentWithFallback(
-    promptPath: string,
+    promptTemplate: string,
     outputFilePath: string,
     repoPath: string,
     agent: 'auto' | 'codex' | 'claude',
     options?: AnalyzeOptions,
   ): Promise<void> {
     // 1. プロンプトテンプレート読み込み
-    if (!fs.existsSync(promptPath)) {
-      throw new Error(`Prompt template not found: ${promptPath}`);
-    }
-    const template = fs.readFileSync(promptPath, 'utf-8');
-
-    // 2. 変数置換
-    let prompt = template
+    let prompt = promptTemplate
       .replace('{repository_path}', repoPath)
       .replace(/{output_file_path}/g, outputFilePath);
 

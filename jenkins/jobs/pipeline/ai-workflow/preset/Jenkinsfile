@@ -37,6 +37,8 @@ pipeline {
         CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
         EXECUTION_MODE = 'preset'
         CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
@@ -176,13 +178,15 @@ pipeline {
                             def branchOption = params.BRANCH_NAME ? "--branch ${params.BRANCH_NAME}" : ""
                             def baseBranchOption = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ""
                             def autoModelSelectionFlag = env.AUTO_MODEL_SELECTION == 'true' ? '--auto-model-selection' : ''
+                            def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                             sh """
                                 node dist/index.js init \
                                     --issue-url ${params.ISSUE_URL} \
                                     ${branchOption} \
                                     ${baseBranchOption} \
-                                    ${autoModelSelectionFlag}
+                                    ${autoModelSelectionFlag} \
+                                    ${languageOption}
                             """
                         }
                     }
@@ -205,6 +209,7 @@ pipeline {
                         } else {
                             def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
                             def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
+                            def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -213,7 +218,8 @@ pipeline {
                                     --issue ${env.ISSUE_NUMBER} \
                                     --followup-llm-mode agent \
                                     ${cleanupFlags} \
-                                    ${squashFlag}
+                                    ${squashFlag} \
+                                    ${languageOption}
                             """
 
                             // metadata.json から PR URL を直接読み込み（readJSON を使用して SecretMasker を回避）

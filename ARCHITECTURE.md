@@ -72,7 +72,7 @@ src/commands/rollback.ts (フェーズ差し戻しコマンド処理、v0.4.0、
  │   ├─ collectAnalysisContext() … review/test結果の自動探索
  │   │   ├─ findLatestReviewResult() … review-result.md の最新ファイルを検索
  │   │   └─ findLatestTestResult() … test-result.md の最新ファイルを検索
- │   ├─ buildAgentPrompt() … プロンプトテンプレート（src/prompts/rollback/auto-analyze.txt）から分析プロンプトを生成
+│   ├─ buildAgentPrompt() … プロンプトテンプレート（src/prompts/rollback/{lang}/auto-analyze.txt、PromptLoader経由で言語フォールバック）から分析プロンプトを生成
  │   ├─ AgentExecutor.executeWithAgent() … エージェントで分析実行（Codex/Claude）
  │   ├─ parseRollbackDecision() … エージェント応答からRollbackDecisionをJSON抽出（exported for testing）
  │   │   └─ 3つのフォールバックパターン: Markdown code block → Plain JSON → Bracket search
@@ -247,6 +247,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/helpers/env-setup.ts` | エージェント実行環境のセットアップ（47行、Issue #26で追加）。`setupCodexEnvironment()`, `setupGitHubEnvironment()` を提供。 |
 | `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。Issue #243でパースロジックを改善：`extractJsonFromResponse()`（JSON抽出前処理）と`inferDecisionFromText()`（マーカーパターン優先判定）を追加し、LLMレスポンス形式の多様性に対応。 |
+| `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、pr-comment、rollback、difficulty、followup、squash、content_parser、validation の各モジュールで利用。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合）。Issue取得、コメント投稿、クローズ、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）** を担当。 |
@@ -283,13 +284,14 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/formatters/progress-formatter.ts` | 進捗表示フォーマット（約150行、Issue #23で追加）。GitHub Issue コメント用の進捗状況フォーマットを生成。 |
 | `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加）。Codex/Claude エージェントの生ログを Markdown 形式に変換。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
-| `src/prompts/{phase}/*.txt` | フェーズ別のプロンプトテンプレート。 |
-| `src/prompts/difficulty/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
+| `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
+| `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`pr-comment`（2ファイル）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。 |
+| `src/prompts/difficulty/{lang}/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加、Issue #575で多言語対応）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
 | `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
 | `src/core/instruction-validator.ts` | LLMベースのカスタム指示検証エンジン（Issue #422で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定されたユーザー指示の安全性を検証。OpenAI API（gpt-4o-mini）による文脈理解型検証を実施し、「分析指示」と「実行指示」を区別。フォールバックとして静的パターンマッチングをサポート。インメモリキャッシュ（TTL: 1時間、最大1000エントリ）、リトライロジック（最大3回、指数バックオフ）を実装。`validate()`, `validateWithLLM()`, `validateWithPatterns()`, `parseResponse()` を提供。 |
 | `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
 | `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
-| `src/templates/*.md` | PR ボディ等の Markdown テンプレート。 |
+| `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md` を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
 
 ## BasePhase のライフサイクル

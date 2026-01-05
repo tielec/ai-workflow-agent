@@ -1,0 +1,295 @@
+# Implementation Phase - Review Prompt
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Review Target
+
+### Implementation Log
+{implementation_document_path}
+
+### Implemented Code
+Please review the files listed in the implementation log.
+
+### Design document (reference)
+{design_document_path}
+
+### Test scenario (reference)
+{test_scenario_document_path}
+
+### Implementation strategy (determined in Phase 2)
+**{implementation_strategy}**
+
+## Quality gate (Phase 4)
+
+implementations must pass the following quality gates:
+
+- [ ] **Implementation follows Phase 2 design**
+- [ ] **Complies with existing code conventions**
+- [ ] **Has basic error handling**
+- [ ] **No obvious bugs**
+
+**Note**:
+- Phase 4 only covers implementation of actual code (business logic)
+- Test code implementation is done in Phase 5 (test_implementation)
+- Changes in 8-phase workflow (Issue #324 and later)
+
+## ⚠️ Important: Check against Planning Phase checklist (required)
+
+### 1. Load Planning.md
+
+Please load the following file:
+- {planning_document_path}
+
+### 2. Extract the checklist for the relevant phase
+
+From Planning.md, find the section for the current phase ("### Phase 4:" or "## Phase 4:") and extract the task checklist.
+
+**Note**: If you can't find the checklist, please skip this check.
+
+### 3. Check with the implementation contents
+
+Check whether each task has been completed by checking against the implementation log (implementation.md).
+
+**Completion criteria**:
+- Has the file described in the Task been created?
+- Has the function described in the Task been implemented?
+- Have all subtasks been completed?
+
+### 4. Update Planning.md
+
+Please update the checkboxes in planning.md based on the verification results:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Unfinished tasks: `- [ ]` Please use the
+
+**Edit tool** to update the section for that phase.
+
+### 5. Reflection in review judgment
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **Some unfinished tasks** (`[ ]` remains): FAIL
+- List unfinished tasks in review feedback
+- Explain what is missing in detail
+
+**Example (feedback on FAIL)**:
+```
+## Planning Phase Checklist matching results: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 4-2: Extract workflow control logic
+- Missing: core/workflow_controller.py is not implemented
+- [ ] Task 4-3: Independent configuration management
+- Missing: core/config_manager.py is not implemented
+
+Please complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include the contents of Planning.md in the review results
+
+Although it is necessary to load and match Planning.md, **Please do not include the full text of planning.md or the review contents of Planning Phase in the review results**.
+
+Review results should only include the following:
+- Evaluation against the implementation log (implementation.md)
+- Unfinished tasks found by checking against Planning.md (FAIL only)
+- Implementation-specific improvement suggestions
+
+Do not output the review details of the Planning Phase or the entire contents of planning.md.
+
+## Review Attitude
+
+Please conduct this review based on the principle of "**80 points is enough**":
+
+1. **Aim for sufficiency, not perfection**
+- Pass if the implementation is ready to proceed to the next phase (test execution)
+- Detailed optimizations should be written as improvement suggestions
+
+2. **Clearly distinguish between blockers and improvement suggestions**
+- Blockers: Serious problems that prevent you from proceeding to the next phase (test execution)
+- Improvement suggestions: Proceed to the next phase, but things that should be improved
+
+3. **Practical and balanced judgment**
+- Priority is to move the project forward
+- Problems that can be detected in the testing phase are not blockers
+
+4. **Constructive feedback**
+- Expression of "it would be better this way" instead of "wrong"
+- Present specific improvement proposals
+
+## Review perspective
+
+### 1. Consistency with the design (most important)
+
+- Are the contents of the design document followed?
+- Are the files described in the design document implemented?
+- Are there any deviations from the design?
+
+### 2. Compliance with coding standards
+
+- Does the project follow the coding standards?- Is it consistent with the style of existing code
+- Is the naming convention appropriate?
+
+### 3. Error handling
+
+- Is there basic error handling?
+- Are exceptions handled properly?
+- Are error messages clear?
+
+### 4. Are there any bugs?
+
+- Are there any obvious logic errors?
+- Is there a possibility of a null reference error
+- Is the boundary value handled appropriately?
+
+### 5. Maintainability
+
+- Is the code easy to read?
+- Is the comments and documentation appropriate?
+- Is it too complex?
+
+## ⚠️ Most important: Quality gates are an absolute requirement
+
+**Quality gates (4 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+
+- The quality gate is a "minimum standard that must be cleared" and there is no room for negotiation.
+- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate.
+- Proceeding to the next phase is not allowed without meeting the quality gate.
+
+## Distinguishing between blockers (BLOCKER) and improvement proposals (SUGGESTION)
+
+### Blocker (BLOCKER): Serious problem that prevents you from proceeding to the next phase
+
+**Example of blocker**:
+- Implementation that is completely inconsistent with the design document
+- Obvious logic error (does not work)
+- Serious security vulnerability
+- Change that breaks the existing system
+
+### Improvement suggestion (SUGGESTION): Things that should be improved to proceed to the next phase
+
+**Example of improvement suggestions**:
+- Performance optimization
+- Improving code readability
+- Additional processing of edge cases
+- Expanding test coverage
+- Enriching comments
+
+### Judgment rule
+
+#### PASS (Pass) PASS only if **all** below
+
+are satisfied:
+- ✅ **All 4 quality gates are met** (FAIL if any × is present)
+- ✅ No blocker
+- ✅ Only minor improvement suggestions (or no improvement suggestions)
+
+#### PASS_WITH_SUGGESTIONS (conditional pass)
+
+Only if **all** below are met:
+- ✅ **All 4 quality gates are met** (FAIL if any of the Xs are present)
+- ✅ No blockers
+- ✅ Proceed to the next phase, but there are improvements to consider
+
+#### FAIL
+
+If any of the following **FAIL:
+- ❌ **Even one of the quality gates (4 items) is not met**
+- ❌ One or more blockers exist
+
+**Important: The quality gate is an absolute condition, and if even one is not met, it will automatically fail. **
+## Output format
+
+Please output in the following format:
+
+```markdown
+## Quality gate evaluation
+
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+
+- [x/ ] **Implemented according to the Phase 2 design**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **Complies with the conventions of existing code**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **There is basic error handling**: **PASS / FAIL** - (Reason for judgment)
+- [x/ ] **No obvious bugs**: **PASS / FAIL** - (Judgment reason)
+
+** Quality gate overall judgment: PASS / FAIL**
+- PASS: All 4 items above are PASS
+- FAIL: FAIL
+
+** If the quality gate judgment is FAIL for any of the above 4 items, the final judgment will automatically be FAIL. **
+
+## Detailed review
+
+### 1. Consistency with design
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 2. Compliance with coding standards
+
+**Good points**:
+- (Specific good points)
+
+**Concerns**:
+- (Describe any concerns)
+
+### 3. Error handling
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+### 4. Presence of bugs
+
+**Good points**:
+- (Confirm that there are no obvious bugs)
+
+**Concerns**:
+- (Describe any potential bugs)
+
+### 5. Maintainability
+
+**Good points**:
+- (Specific good points)
+
+**Room for improvement**:
+- (Describe any suggestions for improvement)
+
+## Blocker (BLOCKER)
+
+** Serious problem that prevents you from proceeding to the next phase **
+
+(Describe only if there is a blocker)
+1. ** (Title of blocker 1)
+- Problem: (Specific problem)
+- Impact: (How does it affect the next phase)
+- Countermeasure: (How to fix)
+
+## Improvement proposal (SUGGESTION)
+
+**Proceeding to the next phase, but it is desirable to improve**
+
+(Enter only if there is an improvement suggestion)
+1. **(Title of proposal 1)**
+- Current status: (Current status)
+- Proposal: (Better this way)
+- Effect: (Effects of improvement)
+
+## Overall evaluation(Comprehensive evaluation of the entire implementation)
+
+**Main strengths**:
+- (Summary of good points)
+
+**Main improvement suggestions**:
+- (Summary of improvement suggestions)
+
+(Summary comments)
+
+---
+**Judgment: PASS / PASS_WITH_SUGGESTIONS / FAIL**
+```
+
+**Important**: Please be sure to write your judgment in the above format on the last line. Check not only the implementation log, but also the actual implemented code files.

@@ -525,7 +525,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
   describe('IT-007: TestingPhase.revise prompt aims for clarity and required tasks', () => {
     it('does not mix append instructions or leave out mandatory updates', () => {
       const realFs = jest.requireActual<typeof import('node:fs')>('node:fs');
-      const promptPath = path.join('src', 'prompts', 'testing', 'revise.txt');
+      const promptPath = path.join('src', 'prompts', 'testing', 'ja', 'revise.txt');
       const promptText = realFs.readFileSync(promptPath, 'utf-8');
 
       expect(promptText).toContain('⚠️ 必須タスク');
@@ -544,7 +544,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
   describe('IT-008: Revise prompts for test implementation and implementation phases keep mandatory updates', () => {
     it('requires the test implementation log to be overwritten', () => {
       const realFs = jest.requireActual<typeof import('node:fs')>('node:fs');
-      const promptPath = path.join('src', 'prompts', 'test_implementation', 'revise.txt');
+      const promptPath = path.join('src', 'prompts', 'test_implementation', 'ja', 'revise.txt');
       const promptText = realFs.readFileSync(promptPath, 'utf-8');
 
       expect(promptText).toContain('⚠️ 必須タスク');
@@ -555,7 +555,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
 
     it('requires the implementation log to be overwritten', () => {
       const realFs = jest.requireActual<typeof import('node:fs')>('node:fs');
-      const promptPath = path.join('src', 'prompts', 'implementation', 'revise.txt');
+      const promptPath = path.join('src', 'prompts', 'implementation', 'ja', 'revise.txt');
       const promptText = realFs.readFileSync(promptPath, 'utf-8');
 
       expect(promptText).toContain('⚠️ 必須タスク');

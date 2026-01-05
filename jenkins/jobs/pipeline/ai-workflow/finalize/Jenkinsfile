@@ -46,6 +46,8 @@ pipeline {
         // AI Workflow設定
         WORKFLOW_DIR = '.'
         WORKFLOW_VERSION = '0.5.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
         EXECUTION_MODE = 'finalize'
         CODEX_HOME = ''
 
@@ -236,6 +238,7 @@ pipeline {
                         def skipPrUpdateFlag = params.SKIP_PR_UPDATE ? '--skip-pr-update' : ''
                         // BASE_BRANCH が指定されている場合のみフラグを渡す（デフォルトブランチは変更しない）
                         def baseBranchFlag = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         sh """
                             node dist/index.js finalize \
@@ -243,7 +246,8 @@ pipeline {
                                 ${dryRunFlag} \
                                 ${skipSquashFlag} \
                                 ${skipPrUpdateFlag} \
-                                ${baseBranchFlag}
+                                ${baseBranchFlag} \
+                                ${languageOption}
                         """
                     }
                 }

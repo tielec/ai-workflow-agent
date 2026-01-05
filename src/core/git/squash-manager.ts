@@ -1,13 +1,6 @@
-import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
+import * as fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { SimpleGit } from 'simple-git';
-
-// ESM compatibility: プロンプトルートパスを解決
-// dist/core/git/squash-manager.js から dist/prompts/ を参照
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const promptsRoot = path.resolve(moduleDir, '..', '..', 'prompts');
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -16,10 +9,8 @@ import type { RemoteManager } from './remote-manager.js';
 import type { CodexAgentClient } from '../codex-agent-client.js';
 import type { ClaudeAgentClient } from '../claude-agent-client.js';
 import type { PhaseContext } from '../../types/commands.js';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { PromptLoader } from '../prompt-loader.js';
+import { config } from '../config.js';
 
 /**
  * FinalizeContext - finalize コマンド用のシンプルなコンテキスト
@@ -228,7 +219,7 @@ export class SquashManager {
 
     // 一時ディレクトリ作成
     const tempDir = path.join(this.workingDir, '.ai-workflow', 'tmp', 'squash');
-    await fs.mkdir(tempDir, { recursive: true });
+    await fs.promises.mkdir(tempDir, { recursive: true });
 
     try {
       // エージェント実行（Codex優先、Claudeにフォールバック）
@@ -248,13 +239,13 @@ export class SquashManager {
 
       // イベントから生成されたメッセージを抽出
       const outputFile = path.join(tempDir, 'commit-message.txt');
-      const fileExists = await fs
+      const fileExists = await fs.promises
         .access(outputFile)
         .then(() => true)
         .catch(() => false);
 
       if (fileExists) {
-        const content = await fs.readFile(outputFile, 'utf-8');
+        const content = await fs.promises.readFile(outputFile, 'utf-8');
         return content.trim();
       }
 
@@ -262,7 +253,7 @@ export class SquashManager {
     } finally {
       // 一時ディレクトリクリーンアップ
       try {
-        await fs.rm(tempDir, { recursive: true, force: true });
+        await fs.promises.rm(tempDir, { recursive: true, force: true });
       } catch (error) {
         logger.warn(`Failed to clean up temp directory: ${getErrorMessage(error)}`);
       }
@@ -313,9 +304,34 @@ export class SquashManager {
    * @throws Error - ファイル読み込み失敗時
    */
   private async loadPromptTemplate(): Promise<string> {
-    const templatePath = path.join(promptsRoot, 'squash', 'generate-message.txt');
+    const language = config.getLanguage();
+    const candidates: string[] = [
+      path.join(this.workingDir, 'src', 'prompts', 'squash', 'generate-message.txt'),
+    ];
+
+    if (typeof fs.existsSync === 'function') {
+      try {
+        const resolved = PromptLoader.resolvePromptPath('squash', 'generate-message', language);
+        candidates.unshift(resolved);
+      } catch (error) {
+        logger.debug(
+          `Failed to resolve squash prompt path, continuing with defaults: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+
+    for (const candidate of candidates) {
+      try {
+        return await fs.promises.readFile(candidate, 'utf-8');
+      } catch (error) {
+        logger.debug(
+          `Failed to read squash prompt from ${candidate}, trying next candidate: ${getErrorMessage(error)}`,
+        );
+      }
+    }
+
     try {
-      return await fs.readFile(templatePath, 'utf-8');
+      return PromptLoader.loadPrompt('squash', 'generate-message');
     } catch (error) {
       throw new Error(`Failed to load prompt template: ${getErrorMessage(error)}`);
     }

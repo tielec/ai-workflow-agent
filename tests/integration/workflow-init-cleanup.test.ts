@@ -23,8 +23,19 @@ const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'integration-workflow
 describe('ワークフロー初期化の統合テスト - Issue #16', () => {
   let testRepoDir: string;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（git操作時のエラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Test User\n\temail = test@example.com\n');
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'init-integration');
     await fs.ensureDir(testRepoDir);
@@ -43,6 +54,13 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
@@ -123,8 +141,19 @@ describe('ワークフロー初期化の統合テスト - Issue #16', () => {
 describe('Report Phaseクリーンアップの統合テスト - Issue #16', () => {
   let testRepoDir: string;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（git操作時のエラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Test User\n\temail = test@example.com\n');
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'report-cleanup-integration');
     await fs.ensureDir(testRepoDir);
@@ -143,6 +172,13 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
@@ -274,8 +310,19 @@ describe('Report Phaseクリーンアップの統合テスト - Issue #16', () =
 describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', () => {
   let testRepoDir: string;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（git操作時のエラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Test User\n\temail = test@example.com\n');
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'eval-cleanup-integration');
     await fs.ensureDir(testRepoDir);
@@ -294,6 +341,13 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
@@ -379,8 +433,19 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
 describe('エンドツーエンドテスト - Issue #16', () => {
   let testRepoDir: string;
   let git: SimpleGit;
+  let originalHome: string | undefined;
 
   beforeAll(async () => {
+    // HOMEをテスト用ディレクトリに分離（グローバル .gitconfig へのアクセスを防ぐ）
+    originalHome = process.env.HOME;
+    const tempHomeDir = path.join(TEST_DIR, 'temp-home');
+    await fs.ensureDir(tempHomeDir);
+    process.env.HOME = tempHomeDir;
+
+    // 空の .gitconfig を作成（git操作時のエラーを防ぐ）
+    const gitConfigPath = path.join(tempHomeDir, '.gitconfig');
+    await fs.writeFile(gitConfigPath, '[user]\n\tname = Test User\n\temail = test@example.com\n');
+
     // テスト用リポジトリディレクトリを作成
     testRepoDir = path.join(TEST_DIR, 'e2e-test');
     await fs.ensureDir(testRepoDir);
@@ -399,6 +464,13 @@ describe('エンドツーエンドテスト - Issue #16', () => {
   });
 
   afterAll(async () => {
+    // HOME環境変数を復元
+    if (originalHome !== undefined) {
+      process.env.HOME = originalHome;
+    } else {
+      delete process.env.HOME;
+    }
+
     // テスト用ディレクトリを削除
     await fs.remove(TEST_DIR);
   });
