@@ -26,6 +26,10 @@ const config = {
     '/node_modules/(?!(strip-ansi|ansi-regex|chalk|#ansi-styles)/)',
   ],
   moduleNameMapper: {
+    '^\\.\\./utils/logger\\.js$': '<rootDir>/src/core/utils/logger.ts',
+    '^\\.\\./utils/error-utils\\.js$': '<rootDir>/src/core/utils/error-utils.ts',
+    '^.+/core/utils/logger\\.js$': '<rootDir>/src/core/utils/logger.ts',
+    '^.+/core/utils/error-utils\\.js$': '<rootDir>/src/core/utils/error-utils.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

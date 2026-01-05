@@ -39,6 +39,14 @@ src/
 │   │   ├── squash-manager.ts   # Commit squashing (Issue #194)
 │   │   ├── remote-manager.ts
 │   │   └── file-selector.ts
+│   ├── analyzer/               # Repository analysis modules (Issue #579)
+│   │   ├── types.ts            # Shared analyzer types
+│   │   ├── path-exclusion.ts   # Path filtering utilities
+│   │   ├── output-parser.ts    # JSON output parsing
+│   │   ├── candidate-validator.ts # Validation logic
+│   │   ├── agent-executor.ts   # Agent execution service
+│   │   └── index.ts            # Barrel exports
+│   ├── repository-analyzer.ts  # Repository analysis facade (uses analyzer/)
 │   ├── pr-comment/             # PR comment feature core
 │   │   ├── metadata-manager.ts # Comment resolution tracking
 │   │   ├── comment-analyzer.ts # Analysis engine
