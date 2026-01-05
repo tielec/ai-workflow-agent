@@ -1,5 +1,7 @@
 # Implementation Phase - Modification Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Required Task
 ** Update the implementation log as a top priority. Use the **
 Write or Edit tools to **overwrite** `.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md`, completely replacing the old content and leaving only a record of the latest implementation.

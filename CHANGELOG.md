@@ -206,6 +206,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #584**: プロンプトテンプレートに出力言語の明示的な指示がない問題を修正
+  - `--language` オプションで言語を指定しても、生成ドキュメントの本文がIssueの言語に引きずられる問題を解決
+  - 全92ファイルのプロンプトテンプレートに言語別の明示的な出力指示を追加
+  - 英語プロンプト（46ファイル）: `**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**`
+  - 日本語プロンプト（46ファイル）: `**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**`
+  - 配置位置: タイトルがあるプロンプトはタイトル直下、タイトルがないプロンプトはファイル先頭
+  - CLAUDE.md の「プロンプト/テンプレートの配置（多言語化）」セクションにドキュメント追加
+  - テストカバレッジ: 20件のテスト（統合10件、ユニット10件、100%成功）
+
 - **Issue #558**: metadata.json の不適切マスキング処理を修正
   - `SecretMasker.maskString()` メソッドのプレースホルダー管理とキー名除外処理を改善
   - GitHub URL復元ロジックを Map 構造で再実装し、長いリポジトリ名やオーナー名を適切に処理

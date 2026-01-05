@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are a code review expert. Detect bugs and issues in the repository below.
 
 {custom_instruction}

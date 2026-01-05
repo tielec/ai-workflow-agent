@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are a follow-up Issue author. Use the info below to produce a detailed, actionable follow-up Issue body.
 
 # Inputs

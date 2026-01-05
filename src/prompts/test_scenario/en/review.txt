@@ -1,5 +1,7 @@
 # Test Scenario Phase - Review Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Review Target
 Please review the test scenario from a critical thinking perspective.
 

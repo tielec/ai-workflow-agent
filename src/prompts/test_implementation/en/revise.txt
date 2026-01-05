@@ -1,5 +1,7 @@
 # Test Code Implementation Phase - Modification Prompts
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Required Tasks
 **Updating the test implementation log is a top priority. Use the **
 Write or Edit tools to **save** `.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md`, completely replacing the old content and leaving only a record of the latest implementation.

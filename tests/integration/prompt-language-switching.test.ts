@@ -12,6 +12,7 @@ import { config } from '../../src/core/config.js';
 import { resolveLanguage } from '../../src/core/language-resolver.js';
 import { WorkflowState } from '../../src/core/workflow-state.js';
 import { logger } from '../../src/utils/logger.js';
+import { PROMPT_LANGUAGE_INSTRUCTIONS } from '../../src/prompts/prompt-language-instructions.js';
 import { DEFAULT_LANGUAGE, type PhaseExecutionResult, type PhaseName } from '../../src/types.js';
 
 const promptsRoot = path.join(process.cwd(), 'src', 'prompts');
@@ -29,6 +30,23 @@ const allPhases: PhaseName[] = [
   'report',
   'evaluation',
 ];
+
+const collectPromptFiles = (lang: 'en' | 'ja'): string[] => {
+  const files: string[] = [];
+  fs.readdirSync(promptsRoot).forEach((category) => {
+    const langDir = path.join(promptsRoot, category, lang);
+    if (!fs.existsSync(langDir) || !fs.statSync(langDir).isDirectory()) {
+      return;
+    }
+
+    fs.readdirSync(langDir).forEach((file) => {
+      if (file.endsWith('.txt')) {
+        files.push(path.join(langDir, file));
+      }
+    });
+  });
+  return files;
+};
 
 class TestPhase extends BasePhase {
   constructor(params: any) {
@@ -109,6 +127,7 @@ describe('Prompt language switching integration', () => {
     );
 
     expect(prompt).toBe(expected);
+    expect(prompt).toContain(PROMPT_LANGUAGE_INSTRUCTIONS.ja);
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -123,6 +142,7 @@ describe('Prompt language switching integration', () => {
     );
 
     expect(prompt).toBe(expected);
+    expect(prompt).toContain(PROMPT_LANGUAGE_INSTRUCTIONS.en);
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
@@ -193,5 +213,84 @@ describe('Prompt language switching integration', () => {
 
     expect(metadataManager.getLanguage()).toBe('en');
     expect(prompt).toBe(expected);
+  });
+
+  test('all prompts include the required language instruction near the top', () => {
+    languages.forEach((lang) => {
+      const files = collectPromptFiles(lang);
+      expect(files.length).toBeGreaterThan(0);
+      files.forEach((filePath) => {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const nonEmptyLines = content
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line !== '');
+        const instruction = PROMPT_LANGUAGE_INSTRUCTIONS[lang];
+        const instructionIndex = nonEmptyLines.indexOf(instruction);
+        const firstLine = nonEmptyLines[0] ?? '';
+
+        expect(instructionIndex).not.toBe(-1);
+        if (firstLine.startsWith('#')) {
+          expect(instructionIndex).toBe(1);
+        } else {
+          expect(instructionIndex).toBe(0);
+        }
+      });
+    });
+  });
+
+  test('language instruction appears exactly once in each prompt file', () => {
+    languages.forEach((lang) => {
+      const files = collectPromptFiles(lang);
+      files.forEach((filePath) => {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const instruction = PROMPT_LANGUAGE_INSTRUCTIONS[lang];
+        const occurrences = content.split(instruction).length - 1;
+
+        expect(occurrences).toBe(1);
+      });
+    });
+  });
+
+  test('prompt inventory matches expected counts by language', () => {
+    expect(collectPromptFiles('en').length).toBe(46);
+    expect(collectPromptFiles('ja').length).toBe(46);
+  });
+
+  test('auto-issue and utility prompts include language instructions', () => {
+    const categoryFiles: Record<string, string[]> = {
+      'auto-issue': [
+        'detect-bugs',
+        'detect-enhancements',
+        'detect-refactoring',
+        'generate-issue-body',
+        'generate-enhancement-issue-body',
+        'generate-refactor-issue-body',
+      ],
+      'pr-comment': ['analyze', 'execute'],
+      rollback: ['auto-analyze'],
+      difficulty: ['analyze'],
+      followup: ['generate-followup-issue'],
+      squash: ['generate-message'],
+      content_parser: [
+        'parse_review_result',
+        'parse_evaluation_decision',
+        'extract_design_decisions',
+      ],
+      validation: ['validate-instruction'],
+    };
+
+    languages.forEach((lang) => {
+      const instruction = PROMPT_LANGUAGE_INSTRUCTIONS[lang];
+      Object.entries(categoryFiles).forEach(([category, files]) => {
+        files.forEach((file) => {
+          const filePath = path.join(promptsRoot, category, lang, `${file}.txt`);
+          expect(fs.existsSync(filePath)).toBe(true);
+          const content = fs.readFileSync(filePath, 'utf-8');
+
+          expect(content).toContain(instruction);
+        });
+      });
+    });
   });
 });

@@ -1,5 +1,7 @@
 # PR Review Comments — Analyze Phase
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 Triage **all** provided review comments in one pass and propose a single response plan.
 
 ## Goals

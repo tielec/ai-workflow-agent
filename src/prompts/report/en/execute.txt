@@ -1,5 +1,7 @@
 # Reporting Phase - Execution Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Task Summary
 Assemble all deliverables from Phase 1-7 and create a final report for the merge decision. This report contains all the information a human can use to decide whether to merge the PR.
 

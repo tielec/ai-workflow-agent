@@ -1,5 +1,7 @@
 # Documentation Update Phase - Correction Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Required Task
 **Please make updating the documentation-update-log your top priority. Please **overwrite** `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` using the **
 Write or Edit tools to record only the latest update log.

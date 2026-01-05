@@ -1,5 +1,7 @@
 # Test execution phase - Modification prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Required task
 **Make sure to update test-result.md. Use the **
 Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.

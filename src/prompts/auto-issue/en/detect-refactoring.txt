@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are a code quality expert. Analyze the repository and find refactoring candidates.
 
 {custom_instruction}

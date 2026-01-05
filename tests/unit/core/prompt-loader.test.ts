@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PromptLoader } from '../../../src/core/prompt-loader.js';
 import { config } from '../../../src/core/config.js';
+import { PROMPT_LANGUAGE_INSTRUCTIONS } from '../../../src/prompts/prompt-language-instructions.js';
 import { DEFAULT_LANGUAGE } from '../../../src/types.js';
 import { logger } from '../../../src/utils/logger.js';
 
@@ -106,5 +107,19 @@ describe('PromptLoader', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("Prompt not found for language 'zz'"),
     );
+  });
+
+  it('ensures English prompts include the standardized language instruction', () => {
+    const prompt = PromptLoader.loadPrompt('planning', 'execute', 'en');
+    const lines = prompt.split(/\r?\n/).filter((line) => line.trim() !== '');
+
+    expect(lines).toContain(PROMPT_LANGUAGE_INSTRUCTIONS.en);
+  });
+
+  it('ensures Japanese prompts include the standardized language instruction', () => {
+    const prompt = PromptLoader.loadPrompt('planning', 'execute', 'ja');
+    const lines = prompt.split(/\r?\n/).filter((line) => line.trim() !== '');
+
+    expect(lines).toContain(PROMPT_LANGUAGE_INSTRUCTIONS.ja);
   });
 });
