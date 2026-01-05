@@ -78,6 +78,7 @@ function createMockMetadataManager(): any {
     }),
     getCurrentStep: jest.fn<any>(() => null),
     getCompletedSteps: jest.fn<any>(() => []),
+    getLanguage: jest.fn<any>(() => 'ja'), // Issue #587
   };
 }
 
