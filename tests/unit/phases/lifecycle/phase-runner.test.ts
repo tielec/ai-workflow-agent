@@ -22,7 +22,7 @@ import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globa
 import fs from 'fs-extra';
 import path from 'node:path';
 import { PhaseRunner } from '../../../../src/phases/lifecycle/phase-runner.js';
-import { PhaseName, PhaseStatus, PhaseExecutionResult } from '../../../../src/types.js';
+import { PhaseName, PhaseStatus, PhaseExecutionResult, SupportedLanguage } from '../../../../src/types.js';
 import { logger } from '../../../../src/utils/logger.js';
 
 // テスト用の一時ディレクトリ
@@ -126,6 +126,7 @@ function createChecklistMetadata(prNumber: number | null | undefined = 123): any
     getPhaseStatus: jest.fn<any>().mockReturnValue('pending'),
     getCurrentStep: jest.fn<any>(),
     getCompletedSteps: jest.fn<any>(),
+    getLanguage: jest.fn<any>(() => 'ja'),
   };
 }
 
@@ -277,6 +278,214 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       expect.any(Function) // postProgressFn
     );
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('implementation', 'completed', {});
+  });
+});
+
+describe('PhaseRunner - 多言語対応（Issue #590）', () => {
+  let testWorkflowDir: string;
+
+  const buildPhaseRunner = (options: {
+    phaseName: PhaseName;
+    language: SupportedLanguage | undefined;
+    phaseStatus?: PhaseStatus;
+    currentStep?: string | null;
+    completedSteps?: string[];
+    executeResult?: PhaseExecutionResult;
+    reviewResult?: PhaseExecutionResult;
+  }) => {
+    const metadata = createMockMetadataManager();
+    metadata.getLanguage = jest.fn<any>(() => options.language);
+    metadata.getPhaseStatus = jest.fn<any>(() => options.phaseStatus ?? 'pending');
+    metadata.getCurrentStep = jest.fn<any>(() => options.currentStep ?? null);
+    metadata.getCompletedSteps = jest.fn<any>(() => options.completedSteps ?? []);
+
+    const github = createMockGitHubClient();
+    const stepExecutor = createMockStepExecutor(
+      options.executeResult ?? { success: true },
+      options.reviewResult ?? { success: true }
+    );
+
+    const runner = new PhaseRunner(
+      options.phaseName,
+      metadata,
+      github,
+      stepExecutor,
+      true,
+      false,
+      undefined,
+      jest.fn<any>().mockResolvedValue({ success: true })
+    );
+
+    return { runner, metadata, github, stepExecutor };
+  };
+
+  const extractProgressMessages = (github: any): string[] =>
+    (github.createOrUpdateProgressComment as jest.Mock).mock.calls.map((call) => call[1]);
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-590-i18n');
+    await fs.ensureDir(testWorkflowDir);
+    jest.clearAllMocks();
+    mockValidatePhaseDependencies.mockImplementation(() => ({
+      valid: true,
+      violations: [],
+      warnings: []
+    }));
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('TC-590-MSG-01/02: 言語ごとのメッセージ関数が定義されている', () => {
+    const { runner: jaRunner } = buildPhaseRunner({ phaseName: 'design', language: 'ja' });
+    const { runner: enRunner } = buildPhaseRunner({ phaseName: 'design', language: 'en' });
+
+    const jaMessages = (jaRunner as any).getMessages();
+    const enMessages = (enRunner as any).getMessages();
+
+    expect(typeof jaMessages.phaseStarted).toBe('function');
+    expect(typeof jaMessages.phaseResumed).toBe('function');
+    expect(typeof jaMessages.phaseCompleted).toBe('function');
+    expect(typeof jaMessages.phaseFailed).toBe('function');
+
+    expect(typeof enMessages.phaseStarted).toBe('function');
+    expect(typeof enMessages.phaseResumed).toBe('function');
+    expect(typeof enMessages.phaseCompleted).toBe('function');
+    expect(typeof enMessages.phaseFailed).toBe('function');
+  });
+
+  test('TC-590-01: 日本語メッセージでフェーズ開始が投稿される', async () => {
+    const { runner, github, metadata } = buildPhaseRunner({
+      phaseName: 'design',
+      language: 'ja'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('design フェーズを開始します。');
+    expect(metadata.getLanguage).toHaveBeenCalled();
+  });
+
+  test('TC-590-05: 英語メッセージでフェーズ開始が投稿される', async () => {
+    const { runner, github, metadata } = buildPhaseRunner({
+      phaseName: 'design',
+      language: 'en'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('Starting design phase.');
+    expect(metadata.getLanguage).toHaveBeenCalled();
+  });
+
+  test('TC-590-02: 日本語メッセージでフェーズ再開が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'implementation',
+      language: 'ja',
+      phaseStatus: 'in_progress',
+      currentStep: 'review'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('implementation フェーズを再開します (step: review)。');
+  });
+
+  test('TC-590-06: 英語メッセージでフェーズ再開が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'implementation',
+      language: 'en',
+      phaseStatus: 'in_progress',
+      currentStep: 'review'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('Resuming implementation phase (step: review).');
+  });
+
+  test('TC-590-02-A: ステップ未定義時は execute で再開メッセージが投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'testing',
+      language: 'ja',
+      phaseStatus: 'in_progress',
+      currentStep: null
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('testing フェーズを再開します (step: execute)。');
+  });
+
+  test('TC-590-03: 日本語メッセージでフェーズ完了が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'design',
+      language: 'ja'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[messages.length - 1]).toContain('design フェーズが完了しました。');
+  });
+
+  test('TC-590-07: 英語メッセージでフェーズ完了が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'design',
+      language: 'en'
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[messages.length - 1]).toContain('design phase completed.');
+  });
+
+  test('TC-590-04: 日本語メッセージでフェーズ失敗が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'testing',
+      language: 'ja',
+      executeResult: { success: false, error: 'テスト失敗' }
+    });
+
+    const result = await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(result).toBe(false);
+    expect(messages[messages.length - 1]).toContain('testing フェーズでエラーが発生しました: テスト失敗');
+  });
+
+  test('TC-590-08: 英語メッセージでフェーズ失敗が投稿される', async () => {
+    const { runner, github } = buildPhaseRunner({
+      phaseName: 'testing',
+      language: 'en',
+      executeResult: { success: false, error: 'Test failed' }
+    });
+
+    const result = await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(result).toBe(false);
+    expect(messages[messages.length - 1]).toContain('testing phase failed: Test failed');
+  });
+
+  test('TC-590-09: 言語未設定時は日本語メッセージを使用する', async () => {
+    const { runner, github, metadata } = buildPhaseRunner({
+      phaseName: 'design',
+      language: undefined
+    });
+
+    await runner.run({ skipReview: false });
+
+    const messages = extractProgressMessages(github);
+    expect(messages[0]).toContain('design フェーズを開始します。');
+    expect(metadata.getLanguage).toHaveBeenCalled();
   });
 });
 
