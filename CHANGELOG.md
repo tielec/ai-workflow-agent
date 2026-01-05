@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #590**: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了
+  - `phase-runner.ts` のハードコードされた日本語メッセージ4箇所（開始・再開・完了・失敗）を多言語対応
+  - `--language en` 指定時に英語、`--language ja`（またはデフォルト）指定時に日本語で GitHub Issue に進捗メッセージが投稿される
+  - **新規実装**: `PHASE_RUNNER_MESSAGES` 定数と `getMessages()` ヘルパーメソッドを追加
+  - **言語統一**: `progress-formatter.ts` と同じパターン（`MetadataManager.getLanguage()` 経由）で一貫性を確保
+  - **後方互換性**: 言語未指定時は従来通り日本語で動作
+  - 修正ファイル: `src/phases/lifecycle/phase-runner.ts`
+  - テストカバレッジ: 11件のユニットテスト（100%成功）
+
 - **Issue #325**: Automatic PR body checklist updates during phase completion
   - PR body workflow progress checklists are now automatically updated when each phase completes successfully
   - Enhances visibility: Users can see real-time workflow progress by viewing the PR without checking metadata
