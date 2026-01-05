@@ -1,5 +1,7 @@
 # Detailed Design Phase - Execution Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Task Summary
 Create a detailed design document from the requirements definition document and the contents of the GitHub issue. In this phase, we also decide on the implementation strategy, testing strategy, and test code strategy.
 

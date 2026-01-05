@@ -1,5 +1,7 @@
 # Project Plan Revision - Revise Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Mandatory Task
 **Updating the project plan is the top priority.**
 Use the Edit tool to **overwrite** `.ai-workflow/issue-{issue_number}/00_planning/output/planning.md`, replacing the old content completely so only the latest plan remains. If the file does not exist, create it with the Write tool.

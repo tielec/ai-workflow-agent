@@ -1,5 +1,7 @@
 # ドキュメント更新フェーズ - 修正プロンプト
 
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
 ## ⚠️ 必須タスク
 **documentation-update-log の更新を最優先で行ってください。**
 Write ツールまたは Edit ツールを使って `.ai-workflow/issue-{issue_number}/06_documentation/output/documentation-update-log.md` を**上書き保存**し、最新の更新ログのみを記録してください。

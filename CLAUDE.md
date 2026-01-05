@@ -103,6 +103,7 @@ node dist/index.js execute --issue 123 --phase all
 
 - プロンプトはフェーズ/コマンド別に `src/prompts/{phase|category}/{lang}/*.txt`（`ja`/`en`）へ配置。auto-issue, pr-comment, rollback, difficulty, followup, squash, content_parser, validation も同パターンで揃えています。
 - PR 本文テンプレートは `src/templates/{lang}/pr_body*_template.md` に分割。`PromptLoader` が `config.getLanguage()` を参照し、指定言語が無い場合はデフォルト（`ja`）へフォールバックします。
+- すべてのプロンプトには言語別の明示的な出力指示を含めます（英語: `**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**` / 日本語: `**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**`）。タイトルがあるプロンプトはタイトル直下（空行を挟んで）に、タイトルが無いプロンプトはファイル先頭に配置します。
 
 ### Codex モデル選択（Issue #302で追加）
 

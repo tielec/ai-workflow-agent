@@ -1,5 +1,7 @@
 # PR Review Comments — Execute Phase
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 Use the provided response plan to carry out actions for all comments in a single pass.
 
 ## Inputs

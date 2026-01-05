@@ -1,5 +1,7 @@
 # PR Review Comments — Execute Phase
 
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
 Use the provided response plan to carry out actions for all comments in a single pass.
 
 ## Inputs

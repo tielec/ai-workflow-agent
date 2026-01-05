@@ -1,5 +1,7 @@
 #Test Scenario Phase - Execution Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Task Summary
 Create a detailed test scenario from the requirements definition and design documents. **Based on the testing strategy determined in Phase 2**, create scenarios for appropriate test types.
 

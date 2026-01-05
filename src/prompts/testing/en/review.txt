@@ -1,5 +1,7 @@
 # Test execution phase - Review prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Review target
 
 ### Test result

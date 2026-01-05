@@ -1,5 +1,7 @@
 # Evaluation Phase - Modification Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are an AI project evaluator tasked with revising the evaluation report based on review feedback or ensuring the creation of an evaluation report file.
 
 ## ⚠️ Most Important: Required Action

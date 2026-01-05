@@ -1,5 +1,7 @@
 # Test scenario phase - Modification prompts
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Most important: Required action
 
 **Write tool or Edit Make sure to use the tool to save the test scenario to the following path: **

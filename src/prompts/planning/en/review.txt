@@ -1,5 +1,7 @@
 # Project Plan Review - Review Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Task Overview
 
 Critically review the project plan to confirm feasibility and quality.

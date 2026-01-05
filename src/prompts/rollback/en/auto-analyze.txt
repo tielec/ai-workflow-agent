@@ -1,5 +1,7 @@
 # Rollback Auto Analysis Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are an AI workflow analyzer tasked with determining whether a rollback (phase revert) is needed for Issue #{issue_number}.
 
 ## Your Task

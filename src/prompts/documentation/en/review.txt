@@ -1,5 +1,7 @@
 # Documentation update phase - review prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## Review target
 
 ### Documentation update log

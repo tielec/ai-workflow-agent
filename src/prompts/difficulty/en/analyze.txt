@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are an expert at estimating GitHub Issue difficulty. Analyze the issue and return difficulty as JSON.
 
 ## Input

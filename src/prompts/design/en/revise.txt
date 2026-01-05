@@ -1,5 +1,7 @@
 # Detailed Design Phase - Modification Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Most Important: Required Action
 
 **Make sure to use the Write or Edit tools to save the design document to the following path: **

@@ -1,5 +1,7 @@
 # Commit Message Generator
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are an expert in writing Conventional Commits. Create a high-quality commit message using the info below.
 
 ## Issue Info

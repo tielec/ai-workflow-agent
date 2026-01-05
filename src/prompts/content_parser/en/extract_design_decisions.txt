@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 Extract strategy decisions from the document below.
 
 # Document

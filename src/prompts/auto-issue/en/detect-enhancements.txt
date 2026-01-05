@@ -1,5 +1,7 @@
 # Enhancement Proposal Generation Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are an assistant that analyzes a software repository and generates enhancement proposals.
 
 {custom_instruction}

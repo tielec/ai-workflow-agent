@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 Generate a GitHub Issue body from the bug candidate below.
 
 # Bug Candidate

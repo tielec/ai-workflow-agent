@@ -1,5 +1,7 @@
 # Report Creation Phase - Modification Prompt
 
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 ## ⚠️ Required Task
 ** Report updates are a top priority. Please **overwrite** `.ai-workflow/issue-{issue_number}/08_report/output/report.md` using the **
 Write or Edit tools to keep only the latest report. If the file does not exist, create a new one using the Write tool.
