@@ -80,6 +80,7 @@ describe('BasePhase - model optimizer integration (TC-SE-001/002)', () => {
       clearRollbackContext: jest.fn(),
       incrementRetryCount: jest.fn().mockReturnValue(0),
       updatePhaseStatus: jest.fn(),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     };
     const agentClient = { getWorkingDirectory: jest.fn().mockReturnValue('/tmp/repo') };
     const phase = new BasePhaseCtor({
@@ -118,6 +119,7 @@ describe('BasePhase - model optimizer integration (TC-SE-001/002)', () => {
       clearRollbackContext: jest.fn(),
       incrementRetryCount: jest.fn().mockReturnValue(0),
       updatePhaseStatus: jest.fn(),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     };
     const phase = new BasePhaseCtor({
       phaseName: 'planning',
@@ -157,6 +159,7 @@ describe('BasePhase - model optimizer integration (TC-SE-001/002)', () => {
       clearRollbackContext: jest.fn(),
       incrementRetryCount: jest.fn().mockReturnValue(0),
       updatePhaseStatus: jest.fn(),
+      getLanguage: jest.fn().mockReturnValue('ja'),
     };
     const phase = new BasePhaseCtor({
       phaseName: 'implementation',

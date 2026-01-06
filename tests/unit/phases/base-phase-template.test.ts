@@ -109,6 +109,7 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       updateCurrentStep: jest.fn<any>(),
       getRollbackContext: jest.fn<any>().mockReturnValue(null),
       save: jest.fn<any>(),
+      getLanguage: jest.fn<any>().mockReturnValue('ja'),
     };
 
     // GitHubClient のモック

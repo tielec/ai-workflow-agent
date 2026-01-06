@@ -66,6 +66,7 @@ const createMetadata = (overrides: Partial<any> = {}) => ({
     target_repository: { repo: 'repo', path: '/tmp/repo' },
     ...overrides,
   },
+  getLanguage: jest.fn(() => 'ja'),
   getCompletedSteps: jest.fn().mockReturnValue([]),
   addCompletedStep: jest.fn(),
   updateCurrentStep: jest.fn(),

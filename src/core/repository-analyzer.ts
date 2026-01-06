@@ -74,6 +74,7 @@ export class RepositoryAnalyzer {
     try {
       await this.executeAgentWithFallback(promptTemplate, outputFilePath, repoPath, agent, options);
       const candidates = this.readBugOutputFile(outputFilePath);
+      this.maybeBackupInvalidJson(outputFilePath, candidates.length);
       const validCandidates = this.validateAnalysisResult(candidates, 'bug');
       return validCandidates;
     } finally {
@@ -95,6 +96,7 @@ export class RepositoryAnalyzer {
     try {
       await this.executeAgentWithFallback(promptTemplate, outputFilePath, repoPath, agent, options);
       const candidates = this.readRefactorOutputFile(outputFilePath);
+      this.maybeBackupInvalidJson(outputFilePath, candidates.length);
       const validCandidates = this.validateAnalysisResult(candidates, 'refactor');
       return validCandidates;
     } finally {
@@ -117,6 +119,7 @@ export class RepositoryAnalyzer {
     try {
       await this.executeAgentWithFallback(promptTemplate, outputFilePath, repoPath, agent, options);
       const proposals = this.readEnhancementOutputFile(outputFilePath);
+      this.maybeBackupInvalidJson(outputFilePath, proposals.length);
       const validProposals = proposals.filter((proposal) =>
         this.validateEnhancementProposal(proposal),
       );
@@ -196,6 +199,39 @@ export class RepositoryAnalyzer {
 
   private validateEnhancementProposal(proposal: EnhancementProposal): boolean {
     return validateEnhancementProposalImpl(proposal);
+  }
+
+  private maybeBackupInvalidJson(filePath: string, parsedLength: number): void {
+    try {
+      if (parsedLength > 0 || !fs.existsSync(filePath)) {
+        return;
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8').trim();
+      if (!content || content === '[]') {
+        return;
+      }
+
+      this.saveInvalidJsonBackup(filePath);
+    } catch (error) {
+      logger.error(`Failed to inspect output file for backup: ${getErrorMessage(error)}`);
+    }
+  }
+
+  private saveInvalidJsonBackup(originalPath: string): string | null {
+    try {
+      if (!fs.existsSync(originalPath)) {
+        return null;
+      }
+
+      const backupPath = originalPath.replace(/\.json$/, '.invalid.json');
+      fs.copyFileSync(originalPath, backupPath);
+      logger.warn(`Saved invalid JSON to ${backupPath} for debugging`);
+      return backupPath;
+    } catch (error) {
+      logger.error(`Failed to save invalid JSON backup: ${getErrorMessage(error)}`);
+      return null;
+    }
   }
 
   private async collectRepositoryCode(repoPath: string): Promise<string> {

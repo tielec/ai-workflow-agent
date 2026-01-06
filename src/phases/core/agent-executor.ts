@@ -15,7 +15,7 @@ import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-clie
 import { ClaudeAgentClient, resolveClaudeModel } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { LogFormatter } from '../formatters/log-formatter.js';
-import { PhaseName, StepModelConfig } from '../../types.js';
+import { DEFAULT_LANGUAGE, PhaseName, StepModelConfig } from '../../types.js';
 import { AgentPriority } from '../../commands/execute/agent-setup.js';
 
 type UsageMetrics = {
@@ -58,13 +58,14 @@ export class AgentExecutor {
   ) {
     this.codex = codex;
     this.claude = claude;
-    this.logFormatter = new LogFormatter();
     this.metadata = metadata;
     this.phaseName = phaseName;
     this.workingDir = workingDir;
     this.getAgentWorkingDirectoryFn = getAgentWorkingDirectoryFn ?? null;
     // NEW: デフォルトは 'codex-first'（従来動作を維持）
     this.agentPriority = agentPriority ?? 'codex-first';
+    const language = this.metadata.getLanguage?.() ?? DEFAULT_LANGUAGE;
+    this.logFormatter = new LogFormatter(language);
   }
 
   /**

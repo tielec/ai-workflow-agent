@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #589**: auto-issue コマンドでのJSONパース失敗時のエラーハンドリング強化とバックアップ機能を追加
+  - `output-parser.ts` でJSONパース失敗時にファイル内容全体をエラーログに出力する機能を追加
+  - `repository-analyzer.ts` でパース失敗時に無効JSONファイルを `.invalid.json` としてバックアップ保存するフォールバック処理を追加
+  - auto-issue の全プロンプト（日本語・英語）にJSON生成ガイドライン（エスケープ方法、Writeツール使用推奨）を追記
+  - Codex/Claudeエージェントが生成するJSONの構文エラー（日本語文字のエスケープ不備）による Issue 作成失敗問題を解決
+  - 日本語カスタムインストラクション（`--custom-instruction`）使用時の信頼性が大幅に向上
+  - デバッグ可能性の向上：バックアップファイルとエラーログによる問題原因の特定が容易に
+  - 修正ファイル: `src/core/analyzer/output-parser.ts`, `src/core/repository-analyzer.ts`, auto-issueプロンプト6ファイル（`detect-bugs.txt`, `detect-refactoring.txt`, `detect-enhancements.txt` の日本語・英語版）
+  - テストカバレッジ: 2579件のテスト（成功率99.15%）
+
 - **Issue #595**: SecretMasker Path Protection Logic Ordering Fix - SecretMaskerにおけるパス保護とenv var置換の順序問題を修正
   - `SecretMasker.maskObject()` 内の `applyMasking()` 関数で、パス保護（`maskString()`）を環境変数置換より先に実行するよう順序を変更
   - 環境変数値が**パスのsubstringを含む場合**（例: GITHUB_TOKEN = `"ghp_xxxxxxxxxxdevelopmentxxxxxxxxx"`）に、リポジトリパス（例: `/sd-platform-development/`）が誤ってマスクされる問題を解消
@@ -31,6 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
 
 ### Added
+
+- **Issue #597**: i18n: LogFormatter の多言語対応を完了
+  - `LogFormatter` クラスがエージェントログ出力の言語を動的に切り替え可能になった
+  - コンストラクタに `language` パラメータを追加（デフォルト: `'ja'`）
+  - `LOG_FORMATTER_TEXT` 定数に日本語/英語のメッセージマップを実装
+  - **対応項目**: Claude Agent/Codex Agent のヘッダー、システム初期化、AI応答、ツール使用、実行完了、エラーセクション等すべてのラベル
+  - **タイムスタンプ**: `'ja-JP'` または `'en-US'` ロケールでの動的フォーマット
+  - **アイテムタイプ翻訳**: `command_execution` → `コマンド実行`/`Command Execution`、`tool` → `ツール`/`Tool`
+  - **後方互換性**: 言語未指定時は従来通り日本語で動作
+  - **呼び出し元統合**: `base-phase.ts`、`agent-executor.ts` で `metadata.getLanguage()` を使用して言語を渡すよう更新
+  - 修正ファイル: `src/phases/formatters/log-formatter.ts`（メッセージマップとコンストラクタ拡張）、`src/phases/base-phase.ts`、`src/phases/core/agent-executor.ts`（言語連携）
+  - テストカバレッジ: 54件のユニットテスト（既存 + 新規i18n対応、100%成功）
 
 - **Issue #590**: i18n: phase-runner.ts 進捗メッセージの多言語対応を完了
   - `phase-runner.ts` のハードコードされた日本語メッセージ4箇所（開始・再開・完了・失敗）を多言語対応
