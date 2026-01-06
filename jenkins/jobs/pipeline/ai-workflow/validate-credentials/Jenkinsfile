@@ -1,0 +1,165 @@
+/**
+ * AI Workflow - Validate Credentials
+ *
+ * 認証情報の事前検証用 Jenkinsfile（Issue #598）。
+ * validate-credentials コマンドを実行し、各種トークンと設定の有効性を確認します。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - CHECK_CATEGORY: チェックするカテゴリ（all|git|github|codex|claude|openai|anthropic）
+ * - VERBOSE: 詳細ログ出力
+ * - OUTPUT_FORMAT: text | json
+ * - EXIT_ON_ERROR: 失敗時にビルドを失敗させる
+ * - LANGUAGE: ワークフロー言語（ja|en）
+ * - Git 設定: GIT_COMMIT_USER_NAME / GIT_COMMIT_USER_EMAIL
+ * - API キー: GITHUB_TOKEN / CODEX_AUTH_JSON / CODEX_API_KEY / CLAUDE_CODE_OAUTH_TOKEN / CLAUDE_CODE_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY
+ *
+ * 成果物:
+ * - credentials-validation-result.json
+ * - credentials-validation-result.txt
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet-micro'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
+        CODEX_HOME = ''
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN ?: ''}"
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Validate Credentials"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    def outputFormat = params.OUTPUT_FORMAT ?: 'text'
+                    if (!['text', 'json'].contains(outputFormat)) {
+                        error("OUTPUT_FORMAT must be 'text' or 'json'. Actual: ${outputFormat}")
+                    }
+
+                    def checkCategory = params.CHECK_CATEGORY ?: 'all'
+                    def supportedCategories = ['all', 'git', 'github', 'codex', 'claude', 'openai', 'anthropic']
+                    if (!supportedCategories.contains(checkCategory)) {
+                        error("Unsupported CHECK_CATEGORY: ${checkCategory}")
+                    }
+
+                    currentBuild.description = "Validate Credentials | ${checkCategory} | output=${outputFormat}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Validate Credentials') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Credentials"
+                    echo "========================================="
+
+                    def checkCategory = params.CHECK_CATEGORY ?: 'all'
+                    def verboseFlag = params.VERBOSE ? '--verbose' : ''
+                    def exitFlag = params.EXIT_ON_ERROR ? '--exit-on-error' : ''
+                    def languageFlag = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+
+                    def requestedFormat = params.OUTPUT_FORMAT ?: 'text'
+                    def formatsToRun = requestedFormat == 'json' ? ['json', 'text'] : ['text', 'json']
+                    def statuses = []
+
+                    formatsToRun.each { fmt ->
+                        def outputFile = fmt == 'json' ? 'credentials-validation-result.json' : 'credentials-validation-result.txt'
+                        def cmd = [
+                            'node dist/index.js validate-credentials',
+                            "--check ${checkCategory}",
+                            "--output ${fmt}",
+                            verboseFlag,
+                            exitFlag,
+                            languageFlag,
+                            "> ${outputFile}"
+                        ].findAll { it?.trim() }.join(' ')
+
+                        int status = sh(script: cmd, returnStatus: true)
+                        statuses << status
+                    }
+
+                    if (params.EXIT_ON_ERROR && statuses.any { it != 0 }) {
+                        error("validate-credentials command failed (exit-on-error enabled)")
+                    }
+                }
+            }
+        }
+
+        stage('Archive Results') {
+            steps {
+                archiveArtifacts artifacts: 'credentials-validation-result.*', fingerprint: true, onlyIfSuccessful: false
+            }
+        }
+    }
+}

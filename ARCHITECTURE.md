@@ -150,6 +150,13 @@ src/commands/pr-comment/finalize.ts (PRコメント自動対応: 完了コマン
  ├─ resolveCompletedThreads() … 完了スレッドを解決
  └─ PRCommentMetadataManager.cleanup() … メタデータクリーンアップ
 
+src/commands/validate-credentials.ts (認証情報バリデーションコマンド、Issue #598で追加)
+ ├─ handleValidateCredentialsCommand() … validate-credentials コマンドハンドラ
+ ├─ parseOptions() … CLIオプションパース（check, verbose, output, exitOnError）
+ ├─ formatTextOutput() … テキスト形式出力フォーマット（✓/✗/⚠記号付き）
+ ├─ formatJsonOutput() … JSON形式出力フォーマット
+ └─ determineExitCode() … Exit Code 制御（--exit-on-error対応）
+
 src/core/pr-comment/metadata-manager.ts (PRコメント: メタデータ管理、Issue #383で追加、Issue #428で拡張)
  ├─ PRCommentMetadataManager クラス
  │   ├─ initialize() … メタデータ初期化
@@ -238,6 +245,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約200行、Issue #407で拡張）。Issue/PR URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `parsePullRequestUrl()`, `resolveLocalRepoPath()`, `resolveRepoPathFromPrUrl()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。**Issue #407で追加**: `resolveRepoPathFromPrUrl()`によりPR URLからREPOS_ROOT配下のローカルパスを解決し、`pr-comment`コマンドのマルチリポジトリ対応を実現。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
+| `src/core/credential-validator.ts` | 認証情報バリデーションモジュール（Issue #598で追加）。`CredentialValidator` クラスで6カテゴリの認証情報を検証。各カテゴリのチェッカー（`GitChecker`, `GitHubChecker`, `CodexChecker`, `ClaudeChecker`, `OpenAIChecker`, `AnthropicChecker`）を管理し、並列バリデーションを実行。`validate()`, `maskValue()` を提供。API呼び出しは10秒タイムアウト、機密情報は最初の4文字 + `****` でマスキング。 |
 | `src/core/model-optimizer.ts` | モデル最適化モジュール（約300行、Issue #363で追加）。難易度×フェーズ×ステップのマッピングに基づいて最適なモデルを自動選択。難易度別デフォルトマッピング（`simple`: 全軽量、`moderate`: 設計系フェーズは revise も軽量 / 実装系フェーズは revise 高品質 / ドキュメント系は全軽量、`complex`: execute/revise 高品質 + review 軽量）を提供。**review ステップは常に軽量モデルで、CLI/ENV オーバーライドは review には適用しない**。CLI/ENV 優先オーバーライドと metadata.json の既存設定を考慮。`resolveModel()`, `generateModelConfig()`, `applyOverrides()` を提供。型定義: `DifficultyLevel`, `StepModelConfig`, `PhaseModelConfig`, `ModelConfigByPhase`。 |
 | `src/core/safety/instruction-validator.ts` | カスタム指示の安全性検証モジュール（約170行、Issue #380で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定された指示の安全性を検証。`InstructionValidator.validate()` で文字数制限（500文字）と危険パターン検出を実施。`DANGEROUS_PATTERNS`（Git操作、ファイル操作、システムコマンド、設定変更、DB操作、自動修正）と `ALLOWED_PATTERNS`（分析・検出・調査系キーワード）を定義。単語境界マッチング（英語）と含有チェック（日本語）で誤検知を軽減。 |
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
@@ -299,6 +307,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/instruction-validator.ts` | LLMベースのカスタム指示検証エンジン（Issue #422で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定されたユーザー指示の安全性を検証。OpenAI API（gpt-4o-mini）による文脈理解型検証を実施し、「分析指示」と「実行指示」を区別。フォールバックとして静的パターンマッチングをサポート。インメモリキャッシュ（TTL: 1時間、最大1000エントリ）、リトライロジック（最大3回、指数バックオフ）を実装。`validate()`, `validateWithLLM()`, `validateWithPatterns()`, `parseResponse()` を提供。 |
 | `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
 | `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
+| `src/types/validation.ts` | 認証情報バリデーション関連の型定義（Issue #598で追加）。`CheckStatus`（passed/failed/warning/skipped）、`CategoryStatus`、`CheckCategory`（git/github/codex/claude/openai/anthropic）、`ValidationCheck`、`CategoryResult`、`ValidationResult`、`ValidationSummary`、`RawValidateCredentialsOptions`、`ValidateCredentialsOptions`、`Checker` インターフェースを定義。 |
 | `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md` を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
 

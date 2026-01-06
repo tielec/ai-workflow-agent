@@ -197,6 +197,13 @@ ai-workflow pr-comment finalize \
   [--dry-run] \
   [--squash] \
   [--language <ja|en>]
+
+ai-workflow validate-credentials \
+  [--check <category>] \
+  [--verbose] \
+  [--output <format>] \
+  [--exit-on-error] \
+  [--language <ja|en>]
 ```
 
 ### ブランチ名のカスタマイズ

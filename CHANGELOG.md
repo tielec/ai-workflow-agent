@@ -42,6 +42,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #598**: 認証情報バリデーションコマンド (`validate-credentials`) と Jenkins Job の実装
+  - 新規 CLI コマンド `validate-credentials` を追加し、ワークフロー実行前に認証情報の有効性を事前検証
+  - **6つの認証カテゴリをサポート**: `git`（環境変数）、`github`（API呼び出し・スコープ確認）、`codex`（auth.json/API キー）、`claude`（OAuth/API キー）、`openai`（API キー）、`anthropic`（API キー）
+  - **CLIオプション**: `--check <category>`（チェック対象カテゴリ指定、デフォルト: all）、`--verbose`（詳細出力）、`--output <format>`（text/json）、`--exit-on-error`（失敗時 exit code 1）
+  - **出力フォーマット**: テキスト形式（記号付き: ✓成功、✗失敗、⚠警告）と JSON 形式をサポート
+  - **セキュリティ機能**: API キー等の機密情報は最初の4文字 + `****` でマスキング
+  - **パフォーマンス**: 各 API 呼び出しは 10 秒タイムアウト、独立したカテゴリは並列チェック
+  - **Jenkins Job 新規追加**: `validate_credentials` ジョブを追加（DSL/Jenkinsfile/README）
+  - **新規モジュール**: `src/commands/validate-credentials.ts`、`src/core/credential-validator.ts`、`src/types/validation.ts`
+  - テストカバレッジ: 40件のテスト（ユニット + 統合、100%成功）
+
 - **Issue #597**: i18n: LogFormatter の多言語対応を完了
   - `LogFormatter` クラスがエージェントログ出力の言語を動的に切り替え可能になった
   - コンストラクタに `language` パラメータを追加（デフォルト: `'ja'`）
