@@ -9,11 +9,18 @@ export function readBugOutputFile(filePath: string): BugCandidate[] {
     return [];
   }
 
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+  let rawContent: string;
 
-    const parsed = JSON.parse(content);
+  try {
+    rawContent = fs.readFileSync(filePath, 'utf-8');
+    logger.debug(`Output file content (first 500 chars): ${rawContent.substring(0, 500)}`);
+  } catch (readError) {
+    logger.error(`Failed to read output file: ${getErrorMessage(readError)}`);
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawContent);
 
     if (parsed.bugs && Array.isArray(parsed.bugs)) {
       logger.info(`Read ${parsed.bugs.length} bug candidates from output file.`);
@@ -33,7 +40,8 @@ export function readBugOutputFile(filePath: string): BugCandidate[] {
     logger.warn('Output file does not contain valid bug candidates structure.');
     return [];
   } catch (error) {
-    logger.error(`Failed to read/parse output file: ${getErrorMessage(error)}`);
+    logger.error(`Failed to parse output file: ${getErrorMessage(error)}`);
+    logger.error(`File content for debugging:\n${rawContent}`);
     return [];
   }
 }
@@ -44,11 +52,18 @@ export function readRefactorOutputFile(filePath: string): RefactorCandidate[] {
     return [];
   }
 
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+  let rawContent: string;
 
-    const parsed = JSON.parse(content);
+  try {
+    rawContent = fs.readFileSync(filePath, 'utf-8');
+    logger.debug(`Output file content (first 500 chars): ${rawContent.substring(0, 500)}`);
+  } catch (readError) {
+    logger.error(`Failed to read refactoring output file: ${getErrorMessage(readError)}`);
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawContent);
 
     if (Array.isArray(parsed)) {
       logger.info(`Read ${parsed.length} refactoring candidates from output file.`);
@@ -69,6 +84,7 @@ export function readRefactorOutputFile(filePath: string): RefactorCandidate[] {
     return [];
   } catch (error) {
     logger.error(`Failed to read/parse refactoring output file: ${getErrorMessage(error)}`);
+    logger.error(`File content for debugging:\n${rawContent}`);
     return [];
   }
 }
@@ -79,11 +95,18 @@ export function readEnhancementOutputFile(filePath: string): EnhancementProposal
     return [];
   }
 
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    logger.debug(`Output file content (first 500 chars): ${content.substring(0, 500)}`);
+  let rawContent: string;
 
-    const proposals = parseEnhancementProposals(content);
+  try {
+    rawContent = fs.readFileSync(filePath, 'utf-8');
+    logger.debug(`Output file content (first 500 chars): ${rawContent.substring(0, 500)}`);
+  } catch (readError) {
+    logger.error(`Failed to read enhancement output file: ${getErrorMessage(readError)}`);
+    return [];
+  }
+
+  try {
+    const proposals = parseEnhancementProposals(rawContent);
     if (proposals.length > 0) {
       logger.info(`Read ${proposals.length} enhancement proposals from output file.`);
       return proposals;
@@ -92,7 +115,8 @@ export function readEnhancementOutputFile(filePath: string): EnhancementProposal
     logger.warn('Output file does not contain valid enhancement proposals structure.');
     return [];
   } catch (error) {
-    logger.error(`Failed to read/parse enhancement output file: ${getErrorMessage(error)}`);
+    logger.error(`Failed to parse enhancement output file: ${getErrorMessage(error)}`);
+    logger.error(`File content for debugging:\n${rawContent}`);
     return [];
   }
 }

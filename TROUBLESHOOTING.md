@@ -344,6 +344,68 @@ Jenkins環境で `auto-issue` コマンドを実行すると、対象リポジ�
 
 **関連ドキュメント**: README.md の環境変数セクション、CLAUDE.md の auto-issue セクションを参照してください。
 
+### JSONパース失敗によるauto-issue実行失敗（Issue #589で改善）
+
+`auto-issue` コマンド実行時に、Codex/Claude エージェントが生成したJSONファイルのパースに失敗する場合があります。
+
+**症状**:
+```
+[WARNING] Failed to parse agent output JSON
+[INFO] Saved invalid JSON backup for debugging
+```
+または、日本語文字を含むカスタムインストラクション（`--custom-instruction`）を使用した際にIssueが作成されない
+
+**原因**:
+- エージェントが生成したJSONに日本語文字のエスケープ不備（引用符、改行文字等）が含まれている
+- `cat <<'EOF'` 形式でJSONを出力した際のエスケープ処理の問題
+
+**改善内容（v0.5.0以降、Issue #589）**:
+1. **エラーハンドリング強化**: JSONパース失敗時にファイル内容全体をエラーログに出力
+2. **バックアップファイル生成**: 無効なJSONファイルを `.invalid.json` サフィックス付きで保存
+3. **プロンプト改善**: JSON生成ガイドライン（特殊文字エスケープ、Writeツール使用推奨）をプロンプトに追記
+
+**対処法**:
+
+**1. バックアップファイルの確認**:
+```bash
+# 無効JSONのバックアップファイルを探す
+find /tmp -name "*.invalid.json" 2>/dev/null
+
+# バックアップファイルの内容確認
+cat /tmp/auto-issue-refactor-*.invalid.json
+```
+
+**2. エラーログの確認**:
+```bash
+# auto-issueコマンドのログでJSONパース失敗を確認
+grep -i "failed to parse" ~/.ai-workflow.log
+
+# ファイル内容のデバッグ情報を確認
+grep -A 20 "File content for debugging" ~/.ai-workflow.log
+```
+
+**3. エージェント切り替えによる再試行**:
+```bash
+# Codexエージェントで失敗した場合、Claudeに切り替え
+ai-workflow auto-issue --category refactor --agent claude
+
+# Claudeエージェントで失敗した場合、Codexに切り替え
+ai-workflow auto-issue --category refactor --agent codex
+```
+
+**4. カスタムインストラクションの見直し**:
+```bash
+# 日本語文字を含む場合、シンプルな英語表現に変更
+ai-workflow auto-issue --category bugs --custom-instruction "Focus on memory leaks"
+```
+
+**予防策**:
+- v0.5.0以降では、プロンプト改善によりJSON生成品質が向上し、パース失敗の頻度が大幅に減少しています
+- エージェントに対してWriteツール（`cat <<'EOF'` ではなく）の使用を推奨するガイドラインが追加されました
+- エスケープ不備の問題は根本的に軽減されています
+
+**注意**: バックアップファイル（`.invalid.json`）は自動的には削除されません。デバッグ完了後は手動で削除してください。
+
 ### `Workflow metadata for issue <number> not found`
 
 - `execute` コマンドで Issue 番号を指定した際、対応するメタデータが見つからない場合に発生します。

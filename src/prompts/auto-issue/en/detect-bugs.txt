@@ -72,6 +72,30 @@ Write JSON in this structure:
 
 **Important**: Write JSON to the file above, not stdout.
 
+## Important Notes for JSON Output
+
+**IMPORTANT**: When generating JSON, follow these guidelines:
+
+1. **Escape special characters**: Properly escape quotes ("), backslashes (\), and newlines (\n)
+2. **Non-ASCII characters**: Output as valid UTF-8 encoded JSON strings
+3. **File output method**: Use the **Write tool** instead of `cat <<'EOF'` to create JSON files
+4. **Syntax validation**: Verify JSON syntax before writing to file
+
+### Examples of correct escaping
+
+```json
+{
+  "description": "This is a large file",
+  "suggestion": "Consider splitting the file.\\nIt has multiple responsibilities."
+}
+```
+
+### Patterns to avoid
+
+- Using `cat <<'EOF'` for JSON output (causes escaping issues)
+- Unescaped quotes or backslashes
+- Missing \\n for string literals with newlines
+
 ## Field Specs
 
 - **title**: 50-80 chars, **English only**
