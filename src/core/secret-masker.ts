@@ -69,6 +69,7 @@ export class SecretMasker {
     'GITHUB_TOKEN',
     'OPENAI_API_KEY',
     'CODEX_API_KEY',
+    'API_KEY',
     'CLAUDE_CODE_OAUTH_TOKEN',
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
@@ -160,7 +161,18 @@ export class SecretMasker {
      * @param value - The string value to apply comprehensive masking to
      * @returns String with secrets properly masked while preserving legitimate paths
      */
+    let loggedMaskingOrder = false;
+    let processedCount = 0;
+
     const applyMasking = (value: string): string => {
+      processedCount++;
+      if (!loggedMaskingOrder) {
+        logger.debug(
+          '[Issue #603] SecretMasker: applying path protection before env substitution. ' +
+          `Processing order: 1) path/URL protection via maskString(), 2) env var replacement (${replacementMap.size} secrets).`
+        );
+        loggedMaskingOrder = true;
+      }
       // Issue #595: Path protection must execute FIRST
       // This ensures Unix path components are protected with placeholders
       // before environment variable replacement occurs.

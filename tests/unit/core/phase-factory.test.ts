@@ -9,7 +9,10 @@
  * Issue #46: execute.ts リファクタリング
  */
 
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, jest } from '@jest/globals';
+import fs from 'fs-extra';
+import os from 'node:os';
+import path from 'node:path';
 import { createPhaseInstance } from '../../../src/core/phase-factory.js';
 import type { PhaseName } from '../../../src/types.js';
 import type { PhaseContext } from '../../../src/types/commands.js';
@@ -33,9 +36,30 @@ import { EvaluationPhase } from '../../../src/phases/evaluation.js';
  * モック PhaseContext を作成
  */
 function createMockContext(): PhaseContext {
+  const workingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-factory-'));
+  const workflowDir = path.join(workingDir, '.ai-workflow', 'issue-603');
+  const metadataManager = {
+    workflowDir,
+    data: {
+      issue_number: '603',
+      target_repository: {
+        path: workingDir,
+        repo: path.basename(workingDir),
+      },
+      phases: {},
+    },
+    getLanguage: () => 'ja',
+    getRollbackContext: () => null,
+    updatePhaseStatus: jest.fn(),
+    addCompletedStep: jest.fn(),
+    getCompletedSteps: jest.fn().mockReturnValue([]),
+    updateCurrentStep: jest.fn(),
+    save: jest.fn(),
+  } as any;
+
   return {
-    workingDir: '/tmp/test-workspace',
-    metadataManager: { getLanguage: () => 'ja' } as any,
+    workingDir,
+    metadataManager,
     codexClient: null,
     claudeClient: null,
     githubClient: {} as any,
@@ -244,9 +268,26 @@ describe('createPhaseInstance - 異常系', () => {
 describe('PhaseContext 構築の検証', () => {
   test('PhaseContext の baseParams が正しくフェーズに渡される', () => {
     // Given: PhaseContext with specific values
+    const workingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-factory-ctx-'));
     const context: PhaseContext = {
-      workingDir: '/custom/working/dir',
-      metadataManager: { customProp: 'test', getLanguage: () => 'ja' } as any,
+      workingDir,
+      metadataManager: {
+        customProp: 'test',
+        getLanguage: () => 'ja',
+        data: {
+          issue_number: '603',
+          target_repository: {
+            path: workingDir,
+            repo: path.basename(workingDir),
+          },
+          phases: {},
+        },
+        updatePhaseStatus: jest.fn(),
+        addCompletedStep: jest.fn(),
+        getCompletedSteps: jest.fn().mockReturnValue([]),
+        updateCurrentStep: jest.fn(),
+        save: jest.fn(),
+      } as any,
       codexClient: { model: 'gpt-5-codex' } as any,
       claudeClient: null,
       githubClient: { repo: 'test/repo' } as any,

@@ -181,6 +181,30 @@ v0.5.1以降では、SecretMaskerクラスが拡張され、ワークフロー�
 - **Issue #595 で更なる改善**: 環境変数値がパス成分のsubstringを含む場合（例: GITHUB_TOKEN = `"ghp_xxxxxxxxxxdevelopmentxxxxxxxxx"`）でも、パス保護が環境変数置換より先に実行されるため、リポジトリパス（例: `/sd-platform-development/`）が誤ってマスクされることがなくなりました。
 - `working-directory-resolver.ts` は REPOS_ROOT との整合性チェックとパス解決の前後ログを追加しており、REPOS_ROOT 外で解決すると `[Issue #592 Warning] Resolved path (...) is outside REPOS_ROOT (...)` を出力するので、警告が出たら REPOS_ROOT 設定やパスマスキングの影響を確認してください。
 
+### Execute step writes files to the wrong directory (Issue #603)
+
+**Symptoms**:
+- `[Issue #603]` debug logs show the validated working directory differs from `process.cwd()` or from `metadata.target_repository.path`
+- Post-execute validation fails with a message that expected outputs are missing or would be written outside the target repository
+
+**Causes**:
+- `metadata.target_repository.path` points to a missing or moved repository
+- `REPOS_ROOT` is unset or points to a different workspace than the metadata path
+- Path masking altered the path before validation (check upstream SecretMasker logs)
+
+**Resolutions**:
+1. Verify the target path exists and matches metadata:
+   ```bash
+   jq -r '.target_repository.path' .ai-workflow/issue-*/metadata.json
+   ls -la <path_from_metadata>
+   ```
+2. Ensure `REPOS_ROOT` matches the parent of the target repository before running `execute`:
+   ```bash
+   export REPOS_ROOT="/tmp/ai-workflow-repos-14-807707ed"
+   ```
+3. Re-run the step; if `[Issue #603]` logs still show divergence, fix the metadata path (re-run `init` if needed) rather than relying on `process.cwd()`—the fallback is intentionally disabled.
+4. If artifact validation fails, check the logged expected output path and recreate the missing directory inside the target repo, then rerun the phase.
+
 **予防策**:
 - SSH形式でリポジトリをクローンする（推奨）:
   ```bash

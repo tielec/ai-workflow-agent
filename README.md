@@ -591,6 +591,7 @@ AI Workflow Agent は、ワークフローファイルに含まれるシーク�
 **Issue #592 対応**:
 - `/tmp/ai-workflow-repos-*/<リポジトリ名>` のような Unix パスの長いディレクトリ名は SecretMasker の汎用トークンマスキングから除外され、元のパスが保持されるようになったため、Claude/Codex が working directory を正しく解決できます。
 - Claude/Codex 各エージェントと `working-directory-resolver.ts` は、パス解決の前後で存在確認や REPOS_ROOT との整合性チェックのデバッグログを出力するようになり、REPOS_ROOT 外へ解決した場合は `[Issue #592 Warning]` で警告されるので、ログからマスキングや設定の問題を早期に検出できます。
+- **Issue #603 update**: Working directory resolution now fails fast instead of falling back to `process.cwd()`. `[Issue #603]` logs in `agent-executor`, `claude-agent-client`, and post-execute artifact validation show the validated directory, mismatches against metadata/REPOS_ROOT, and will stop the workflow when outputs would be written outside the target repository.
 
 ### Rollbackコマンド（フェーズ差し戻し）
 

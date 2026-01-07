@@ -37,6 +37,10 @@ describe('buildOptionalContext メソッドテスト', () => {
       issue_url: `https://github.com/test/repo/issues/${TEST_ISSUE_NUMBER}`,
       issue_title: 'Test Issue',
       workflow_dir: workflowDir,
+      target_repository: {
+        path: TEST_DIR,
+        repo: path.basename(TEST_DIR),
+      },
       phases: {},
       costs: {
         total_input_tokens: 0,
@@ -182,6 +186,10 @@ describe('getPhaseOutputFile メソッドテスト', () => {
       issue_url: `https://github.com/test/repo/issues/${TEST_ISSUE_NUMBER}`,
       issue_title: 'Test Issue',
       workflow_dir: workflowDir,
+      target_repository: {
+        path: TEST_DIR,
+        repo: path.basename(TEST_DIR),
+      },
       phases: {},
       costs: {
         total_input_tokens: 0,

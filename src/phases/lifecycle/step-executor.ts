@@ -1,9 +1,12 @@
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { GitManager } from '../../core/git-manager.js';
 import { PhaseExecutionResult, PhaseName, PhaseStatus } from '../../types.js';
 import { ReviewCycleManager } from '../core/review-cycle-manager.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ArtifactValidator } from '../helpers/artifact-validator.js';
+import { config } from '../../core/config.js';
 
 /**
  * StepExecutor - ステップ実行ロジックを担当
@@ -25,6 +28,7 @@ export class StepExecutor {
   private readonly phaseName: PhaseName;
   private readonly metadata: MetadataManager;
   private readonly reviewCycleManager: ReviewCycleManager;
+  private readonly artifactValidator: ArtifactValidator;
   private readonly executeFn: () => Promise<PhaseExecutionResult>;
   private readonly reviewFn: () => Promise<PhaseExecutionResult>;
   private readonly shouldRunReviewFn: () => Promise<boolean>;
@@ -48,6 +52,7 @@ export class StepExecutor {
     this.phaseName = phaseName;
     this.metadata = metadata;
     this.reviewCycleManager = reviewCycleManager;
+    this.artifactValidator = new ArtifactValidator();
     this.executeFn = executeFn;
     this.reviewFn = reviewFn;
     this.shouldRunReviewFn = shouldRunReviewFn;
@@ -88,6 +93,42 @@ export class StepExecutor {
       }
 
       logger.info(`Phase ${this.phaseName}: Execute completed successfully`);
+
+      // Issue #603: Post-execute artifact validation
+      if (executeResult.output) {
+        logger.debug(`[Issue #603] Phase ${this.phaseName}: Validating artifact at expected path: ${executeResult.output}`);
+        const fallbackDirs = this.buildFallbackDirs(executeResult.output);
+        logger.debug(`[Issue #603] Phase ${this.phaseName}: Fallback directories for artifact search: ${fallbackDirs.join(', ')}`);
+
+        const validation = this.artifactValidator.validateArtifact(
+          executeResult.output,
+          fallbackDirs,
+          path.basename(executeResult.output),
+        );
+
+        if (!validation.valid) {
+          const errorMessage =
+            validation.error ?? 'Artifact validation failed after execute step.';
+          logger.error(`[Issue #603] Phase ${this.phaseName}: ${errorMessage}`);
+          logger.error(
+            `[Issue #603] Phase ${this.phaseName}: This error halts the workflow before review/revise to prevent downstream issues. ` +
+            'Check working directory configuration and agent output paths.'
+          );
+          return { success: false, error: errorMessage, output: executeResult.output };
+        }
+
+        if (validation.relocated) {
+          logger.warn(
+            `[Issue #603] Phase ${this.phaseName}: Artifact was found at wrong location and relocated. ` +
+            `From: ${validation.actualPath} To: ${validation.expectedPath}. ` +
+            'Review working directory configuration to prevent future relocations.',
+          );
+        } else {
+          logger.debug(`[Issue #603] Phase ${this.phaseName}: Artifact validated at expected path: ${validation.expectedPath}`);
+        }
+      } else {
+        logger.warn(`[Issue #603] Phase ${this.phaseName}: Execute result missing output path. Skipping artifact validation.`);
+      }
 
       // Git コミット＆プッシュ（Issue #10）
       if (gitManager) {
@@ -215,6 +256,32 @@ export class StepExecutor {
         }
       }
     );
+  }
+
+  private buildFallbackDirs(expectedOutputPath: string): string[] {
+    const dirs = new Set<string>();
+    const repoRoot = this.extractRepoRoot(expectedOutputPath);
+    if (repoRoot) {
+      dirs.add(repoRoot);
+    }
+
+    const reposRoot = config.getReposRoot();
+    if (reposRoot) {
+      dirs.add(reposRoot);
+    }
+
+    dirs.add(process.cwd());
+
+    return Array.from(dirs);
+  }
+
+  private extractRepoRoot(expectedOutputPath: string): string | null {
+    const marker = `${path.sep}.ai-workflow${path.sep}`;
+    const markerIndex = expectedOutputPath.indexOf(marker);
+    if (markerIndex === -1) {
+      return null;
+    }
+    return path.resolve(expectedOutputPath.slice(0, markerIndex));
   }
 
   /**

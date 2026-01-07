@@ -62,6 +62,10 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
 
     const metadataData = {
       issue_number: '47',
+      target_repository: {
+        path: testWorkingDir,
+        repo: path.basename(testWorkingDir),
+      },
       phases: phaseEntries,
       design_decisions: {
         implementation_strategy: null,
@@ -496,10 +500,19 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
         skipDependencyCheck: true,
       });
 
+      const requirementsOutput = path.join(
+        testWorkflowDir,
+        '01_requirements',
+        'output',
+        'requirements.md'
+      );
+      fs.ensureDirSync(path.dirname(requirementsOutput));
+      fs.writeFileSync(requirementsOutput, '# requirements', 'utf-8');
+
       // execute() のモック
       jest.spyOn(phase as any, 'execute').mockResolvedValue({
         success: true,
-        output: '/path/to/requirements.md',
+        output: requirementsOutput,
       });
 
       // review() のモック

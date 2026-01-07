@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #603**: Prevent execute step outputs from landing in the wrong working directory and improve traceability
+  - Working directory resolution now fails fast instead of silently falling back to `process.cwd()`, with `[Issue #603]` debug logs showing the validated path and whether it diverges from the process cwd
+  - Added detailed resolution traces in `working-directory-resolver.ts` plus logging in `agent-executor` and `claude-agent-client` to pinpoint mismatches between metadata, REPOS_ROOT, and the requested directory
+  - Post-execute artifact validation now logs expected vs. discovered locations with Issue #603 context and stops the workflow when outputs are misplaced, replacing the prior implicit fallback
+  - SecretMasker emits masking-order trace logs to simplify debugging when path protection interacts with environment variable replacement
+  - Updated integration coverage (`secret-masker-path-resolution.test.ts`) to expect errors instead of process.cwd() fallback when paths are absent
 - **Issue #589**: auto-issue コマンドでのJSONパース失敗時のエラーハンドリング強化とバックアップ機能を追加
   - `output-parser.ts` でJSONパース失敗時にファイル内容全体をエラーログに出力する機能を追加
   - `repository-analyzer.ts` でパース失敗時に無効JSONファイルを `.invalid.json` としてバックアップ保存するフォールバック処理を追加
