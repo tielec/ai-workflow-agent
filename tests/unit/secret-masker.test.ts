@@ -126,6 +126,48 @@ describe('SecretMasker汎用パターンマスキング (maskObject)', () => {
     expect(masked).toBe(input);
   });
 
+  describe('Issue #603: パス保護と環境変数置換の順序確認', () => {
+    test('TC-U-603-010/011: トークンにリポジトリ名のサブストリングが含まれてもパスは保持される', () => {
+      process.env.GITHUB_TOKEN = 'ghp_development_secret123';
+      const message =
+        'Working with token ghp_development_secret123 in /tmp/ai-workflow-repos/sd-platform-development';
+
+      const masked = masker.maskObject(message) as string;
+
+      expect(masked).toContain('/tmp/ai-workflow-repos/sd-platform-development');
+      expect(masked).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-U-603-012: 複数のシークレットが重なってもパスを保持しつつ全てマスクする', () => {
+      process.env.GITHUB_TOKEN = 'ghp_platform_token';
+      process.env.API_KEY = 'key_platform_api';
+      const message = 'Paths: /tmp/repos/sd-platform-development/src/platform/module.ts token ghp_platform_token and key_platform_api';
+
+      const masked = masker.maskObject(message) as string;
+
+      expect(masked).toContain('/tmp/repos/sd-platform-development/src/platform/module.ts');
+      expect(masked).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(masked).toContain('[REDACTED_API_KEY]');
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-U-603-013: 短いパスコンポーネントを含むパスも安全に処理する', () => {
+      const shortPath = '/tmp/a/b/c/src/dev/test.ts';
+
+      const masked = masker.maskObject(shortPath) as string;
+
+      expect(masked).toBe(shortPath);
+      expect(masked).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-U-603-014: 空・null・undefined入力を安全に処理する', () => {
+      expect(masker.maskObject('')).toBe('');
+      expect(masker.maskObject(null as unknown as string | null)).toBeNull();
+      expect(masker.maskObject(undefined as unknown as string | undefined)).toBeUndefined();
+    });
+  });
+
   describe('Issue #592: ファイルパスコンポーネントの保護', () => {
     test('Unixパス内の長いディレクトリ名は汎用トークンマスキングから除外される', () => {
       const input = '/tmp/ai-workflow-repos-2-4a4ea5b0/sd-platform-development/.ai-workflow/issue-236';

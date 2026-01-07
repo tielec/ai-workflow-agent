@@ -97,7 +97,13 @@ describe('BasePhase Fallback Mechanism (Issue #113)', () => {
     // Mock MetadataManager
     mockMetadata = {
       workflowDir: path.join(testWorkingDir, '.ai-workflow', 'issue-113'),
-      data: { issue_number: '113' },
+      data: {
+        issue_number: '113',
+        target_repository: {
+          path: testWorkingDir,
+          repo: path.basename(testWorkingDir),
+        },
+      },
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn(),
       getLanguage: jest.fn().mockReturnValue('ja'),

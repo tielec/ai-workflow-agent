@@ -101,7 +101,13 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
     // MetadataManager のモック
     mockMetadata = {
       workflowDir: testWorkflowDir,
-      data: { issue_number: '47' },
+      data: {
+        issue_number: '47',
+        target_repository: {
+          path: testWorkingDir,
+          repo: path.basename(testWorkingDir),
+        },
+      },
       updatePhaseStatus: jest.fn<any>(),
       getPhaseStatus: jest.fn<any>(),
       addCompletedStep: jest.fn<any>(),
@@ -169,10 +175,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
 
       // Then: 変数が置換されたプロンプトでエージェントが実行される
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template: value1 and value2',
-        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template: value1 and value2');
+      expect(agentOptions).toEqual({
+        maxTurns: 30,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -198,10 +209,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
 
       // Then: maxTurns が 30 でエージェントが実行される
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template: {var1} and {var2}',
-        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template: {var1} and {var2}');
+      expect(agentOptions).toEqual({
+        maxTurns: 30,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -230,10 +246,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       });
 
       // Then: カスタム値でエージェントが実行される
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template: {var1} and {var2}',
-        { maxTurns: 50, verbose: true, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template: {var1} and {var2}');
+      expect(agentOptions).toEqual({
+        maxTurns: 50,
+        verbose: true,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -294,10 +315,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await customPhase.testExecutePhaseTemplate(outputFile, templateVariables);
 
       // Then: すべての変数が置換されたプロンプトでエージェントが実行される
-      expect((customPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Multi-variable template: A, B, C',
-        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, 'undefined_custom-phase', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (customPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Multi-variable template: A, B, C');
+      expect(agentOptions).toEqual({
+        maxTurns: 30,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, 'undefined_custom-phase', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -366,10 +392,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
 
       // Then: 空文字列が置換される
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template:  and value2',
-        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template:  and value2');
+      expect(agentOptions).toEqual({
+        maxTurns: 30,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -395,10 +426,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables);
 
       // Then: プロンプトがそのまま使用される（変数置換なし）
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template: {var1} and {var2}',
-        { maxTurns: 30, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template: {var1} and {var2}');
+      expect(agentOptions).toEqual({
+        maxTurns: 30,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);
@@ -424,10 +460,15 @@ describe('BasePhase.executePhaseTemplate() - Issue #47', () => {
       const result = await testPhase.testExecutePhaseTemplate(outputFile, templateVariables, { maxTurns: 0 });
 
       // Then: maxTurns=0 でエージェントが実行される
-      expect((testPhase as any).executeWithAgent).toHaveBeenCalledWith(
-        'Execute phase template: {var1} and {var2}',
-        { maxTurns: 0, verbose: undefined, logDir: path.join(testWorkflowDir, '01_requirements', 'execute') }
-      );
+      const [[promptArg, agentOptions]] = (testPhase as any).executeWithAgent.mock.calls;
+      expect(promptArg).toContain('**IMPORTANT: Output File Path**');
+      expect(promptArg).toContain(`\`${outputFilePath}\``);
+      expect(promptArg).toContain('Execute phase template: {var1} and {var2}');
+      expect(agentOptions).toEqual({
+        maxTurns: 0,
+        verbose: undefined,
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      });
 
       // Then: 成功が返される
       expect(result.success).toBe(true);

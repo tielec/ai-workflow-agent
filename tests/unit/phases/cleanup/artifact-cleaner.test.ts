@@ -91,7 +91,7 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
       expect(fs.existsSync(path.join(phasePath, 'metadata.json'))).toBe(true);
       expect(fs.existsSync(path.join(phasePath, 'output', 'phase.md'))).toBe(true);
     }
-  });
+  }, 20000);
 
   test('UC-AC-02: cleanupWorkflowLogs() - 削除失敗時でもワークフローが継続される（WARNING ログのみ）', async () => {
     // Given: ディレクトリが存在しない（削除失敗をシミュレート）

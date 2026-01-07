@@ -17,6 +17,8 @@ import { MetadataManager } from '../../core/metadata-manager.js';
 import { LogFormatter } from '../formatters/log-formatter.js';
 import { DEFAULT_LANGUAGE, PhaseName, StepModelConfig } from '../../types.js';
 import { AgentPriority } from '../../commands/execute/agent-setup.js';
+import { validateWorkingDirectoryPath } from '../../core/helpers/working-directory-resolver.js';
+import { getErrorMessage } from '../../utils/error-utils.js';
 
 type UsageMetrics = {
   inputTokens: number;
@@ -227,10 +229,20 @@ export class AgentExecutor {
     let messages: string[] = [];
     let error: Error | null = null;
 
-    // Issue #264: REPOS_ROOT対応の作業ディレクトリを使用
-    // getAgentWorkingDirectoryFn が設定されている場合はそちらを優先
-    const agentWorkingDir = this.getAgentWorkingDirectoryFn?.() ?? this.workingDir;
-    logger.debug(`Agent working directory: ${agentWorkingDir}`);
+    let agentWorkingDir: string;
+    try {
+      logger.debug(`[Issue #603] Validating working directory for ${agentName} in phase ${this.phaseName}`);
+      agentWorkingDir = this.getValidatedWorkingDirectory();
+      logger.info(`[Issue #603] Agent working directory validated: ${agentWorkingDir}`);
+      logger.debug(`[Issue #603] Agent will execute with cwd=${agentWorkingDir} (not process.cwd=${process.cwd()})`);
+    } catch (validationError) {
+      const message = getErrorMessage(validationError);
+      logger.error(
+        `[Issue #603] Failed to validate working directory for ${agentName} in phase ${this.phaseName}: ${message}. ` +
+        'This prevents the agent from writing artifacts to the wrong directory.'
+      );
+      throw validationError instanceof Error ? validationError : new Error(message);
+    }
 
     try {
       const modelOverride =
@@ -304,6 +316,22 @@ export class AgentExecutor {
     });
 
     return { messages, authFailed };
+  }
+
+  /**
+   * Issue #603: Get validated working directory for agent execution.
+   *
+   * Resolution priority:
+   * 1. getAgentWorkingDirectoryFn (from BasePhase, uses metadata.target_repository.path)
+   * 2. workingDir (constructor fallback)
+   *
+   * Validates that the directory exists and is not masked.
+   * Throws if validation fails - never falls back to process.cwd().
+   */
+  private getValidatedWorkingDirectory(): string {
+    const candidatePath = this.getAgentWorkingDirectoryFn?.() ?? this.workingDir;
+    logger.debug(`[Issue #603] Working directory candidate: ${candidatePath} (source: ${this.getAgentWorkingDirectoryFn ? 'getAgentWorkingDirectoryFn' : 'workingDir'})`);
+    return validateWorkingDirectoryPath(candidatePath, this.workingDir);
   }
 
   /**

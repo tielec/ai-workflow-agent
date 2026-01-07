@@ -387,6 +387,10 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
         workflowDir,
         data: {
           issue_number: '388',
+          target_repository: {
+            path: tempRoot,
+            repo: path.basename(tempRoot),
+          },
           phases: {
             documentation: {
               status: 'pending',

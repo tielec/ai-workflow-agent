@@ -5,7 +5,7 @@ import { config } from './config.js';
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
-import { resolveWorkingDirectory } from './helpers/working-directory-resolver.js';
+import { validateWorkingDirectoryPath } from './helpers/working-directory-resolver.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -80,21 +80,20 @@ export class ClaudeAgentClient {
 
   public async executeTask(options: ExecuteTaskOptions): Promise<string[]> {
     const { prompt, systemPrompt = null, maxTurns = DEFAULT_MAX_TURNS, verbose = true } = options;
-    const cwd = options.workingDirectory ?? this.workingDir;
 
-    const cwdExists = fs.existsSync(cwd);
-    logger.debug(`[ClaudeAgent] Original working directory: ${cwd}`);
-    logger.debug(`[ClaudeAgent] Directory exists: ${cwdExists}`);
+    // Issue #603: Validate working directory before agent execution
+    const requestedCwd = options.workingDirectory ?? this.workingDir;
+    logger.debug(`[ClaudeAgent] Requested working directory: ${requestedCwd}`);
 
-    // Issue #507: 作業ディレクトリが存在しない場合のフォールバック処理を改善
-    // マルチリポジトリ環境で metadata.target_repository.path を優先的に使用
-    if (!cwdExists) {
-      logger.warn(`Working directory does not exist: ${cwd}`);
-      const resolvedCwd = await resolveWorkingDirectory(cwd);
-      logger.info(`Resolved working directory: ${resolvedCwd}`);
-      logger.debug(`[ClaudeAgent] Resolved directory exists: ${fs.existsSync(resolvedCwd)}`);
-      return this.executeTask({ ...options, workingDirectory: resolvedCwd });
+    if (requestedCwd !== process.cwd()) {
+      logger.debug(
+        `[Issue #603] ClaudeAgent working directory (${requestedCwd}) differs from process.cwd (${process.cwd()}). ` +
+        'This is expected in Jenkins/multi-repo environments and ensures artifacts are written to the correct location.'
+      );
     }
+
+    const cwd = validateWorkingDirectoryPath(requestedCwd);
+    logger.info(`[Issue #603] ClaudeAgent working directory validated: ${cwd}`);
 
     // 環境変数でBashコマンド承認スキップを確認（Docker環境内で安全）
     // CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1 の場合、すべての操作を自動承認

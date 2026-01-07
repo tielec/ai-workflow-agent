@@ -49,6 +49,10 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
       workflowDir,
       data: {
         issue_number: '113',
+        target_repository: {
+          path: testWorkingDir,
+          repo: path.basename(testWorkingDir),
+        },
         repo_url: 'https://github.com/test/repo',
         design_decisions: {}, // Issue #113: Design/TestScenario/Implementationフェーズが参照
       },
@@ -56,6 +60,9 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
       getRollbackContext: jest.fn().mockReturnValue(null),
       getPhaseStatus: jest.fn().mockReturnValue('completed'),
       getLanguage: jest.fn().mockReturnValue('ja'),
+      addCompletedStep: jest.fn(),
+      getCompletedSteps: jest.fn().mockReturnValue([]),
+      updateCurrentStep: jest.fn(),
     } as any;
 
     // Mock GitHubClient

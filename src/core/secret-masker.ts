@@ -69,6 +69,7 @@ export class SecretMasker {
     'GITHUB_TOKEN',
     'OPENAI_API_KEY',
     'CODEX_API_KEY',
+    'API_KEY',
     'CLAUDE_CODE_OAUTH_TOKEN',
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
@@ -160,7 +161,18 @@ export class SecretMasker {
      * @param value - The string value to apply comprehensive masking to
      * @returns String with secrets properly masked while preserving legitimate paths
      */
+    let loggedMaskingOrder = false;
+    let processedCount = 0;
+
     const applyMasking = (value: string): string => {
+      processedCount++;
+      if (!loggedMaskingOrder) {
+        logger.debug(
+          '[Issue #603] SecretMasker: applying path protection before env substitution. ' +
+          `Processing order: 1) path/URL protection via maskString(), 2) env var replacement (${replacementMap.size} secrets).`
+        );
+        loggedMaskingOrder = true;
+      }
       // Issue #595: Path protection must execute FIRST
       // This ensures Unix path components are protected with placeholders
       // before environment variable replacement occurs.
@@ -292,16 +304,31 @@ export class SecretMasker {
   private maskString(value: string): string {
     let masked = value;
 
-    // Issue #592: Protect long Unix path components from generic token masking
+    // Issue #592/#603: Protect long path components from generic token masking
+    // Support both Unix (/) and Windows (\) path separators
     const pathComponentMap = new Map<string, string>();
     let pathComponentIndex = 0;
-    const unixPathPattern = /\/([a-zA-Z0-9_.-]{20,})(?=\/|$)/g;
+
+    // Unix path pattern
+    // Match path components followed by /, end of string, or non-path characters (quotes, etc.)
+    const unixPathPattern = /\/([a-zA-Z0-9_.-]{20,})(?=\/|$|[^a-zA-Z0-9_.\/-])/g;
     masked = masked.replace(unixPathPattern, (match) => {
       const placeholder = `__PATH_COMPONENT_${pathComponentIndex++}__`;
       // スラッシュを残したままプレースホルダー化し、owner/repo の区切りを維持する
       const placeholderWithSlash = `/${placeholder}`;
       pathComponentMap.set(placeholderWithSlash, match);
       return placeholderWithSlash;
+    });
+
+    // Windows path pattern (Issue #603: Windows path support)
+    // Match path components followed by \, end of string, or non-path characters (quotes, etc.)
+    const windowsPathPattern = /\\([a-zA-Z0-9_.-]{20,})(?=\\|$|[^a-zA-Z0-9_.\\-])/g;
+    masked = masked.replace(windowsPathPattern, (match) => {
+      const placeholder = `__PATH_COMPONENT_${pathComponentIndex++}__`;
+      // バックスラッシュを残したままプレースホルダー化
+      const placeholderWithBackslash = `\\${placeholder}`;
+      pathComponentMap.set(placeholderWithBackslash, match);
+      return placeholderWithBackslash;
     });
 
     const urlMap = new Map<string, string>();
@@ -472,6 +499,17 @@ export class SecretMasker {
 
   /**
    * Mask secrets in a single file
+   *
+   * Issue #603: Fixed processing order to match Issue #595 fix in maskObject().
+   * CRITICAL: Path protection (maskString) must execute BEFORE environment variable replacement
+   * to prevent corruption of repository paths when env var values contain path substrings.
+   *
+   * Processing order:
+   * 1. Count environment variable occurrences in original content (for accurate statistics)
+   * 2. Replace known pattern tokens (GitHub, email) with their specific [REDACTED_*] tokens
+   * 3. Protect remaining environment variable values with temporary placeholders
+   * 4. Apply path protection and pattern masking via maskString() (protects long path components)
+   * 5. Replace placeholders with [REDACTED_*] tokens (preserves env var names)
    */
   private async maskSecretsInFile(
     filePath: string,
@@ -481,17 +519,69 @@ export class SecretMasker {
     const originalContent = content;
     let maskedCount = 0;
 
+    // Issue #603: Step 1 - Count environment variable occurrences in original content
+    // This ensures accurate statistics even when maskString() masks some env var values
     for (const secret of secrets) {
-      const replacement = `[REDACTED_${secret.name}]`;
-      const occurrences = this.countOccurrences(content, secret.value);
-
+      const occurrences = this.countOccurrences(originalContent, secret.value);
       if (occurrences > 0) {
-        content = this.replaceAll(content, secret.value, replacement);
         maskedCount += occurrences;
       }
     }
 
+    // Issue #603: Step 2 - Replace known pattern tokens FIRST
+    // This ensures maskString() can detect and preserve these patterns
+    // Known patterns: GitHub tokens (ghp_*, github_pat_*), OpenAI tokens (sk-*, sk-proj-*), emails
+    const githubTokenPattern = /^(ghp_[\w-]+|github_pat_[\w-]+)$/i;
+    const openaiTokenPattern = /^sk(-proj)?-[\w-]+$/i;
+    const emailPattern = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+    for (const secret of secrets) {
+      if (!secret.value) continue;
+
+      // Check if the secret value matches known patterns
+      if (
+        githubTokenPattern.test(secret.value) ||
+        openaiTokenPattern.test(secret.value) ||
+        emailPattern.test(secret.value)
+      ) {
+        // Replace immediately with [REDACTED_*] so maskString() can detect the pattern
+        const replacement = `[REDACTED_${secret.name}]`;
+        content = this.replaceAll(content, secret.value, replacement);
+      }
+    }
+
+    // Issue #603: Step 3 - Protect remaining environment variable values with temporary placeholders
+    // This prevents maskString() from masking them with generic [REDACTED_TOKEN]
+    const envVarPlaceholders = new Map<string, string>();
+    for (const secret of secrets) {
+      if (!secret.value) continue;
+
+      // Skip if already replaced in Step 2
+      if (
+        githubTokenPattern.test(secret.value) ||
+        openaiTokenPattern.test(secret.value) ||
+        emailPattern.test(secret.value)
+      ) {
+        continue;
+      }
+
+      // Replace with placeholder
+      const placeholder = `__ENV_VAR_${secret.name}_${Math.random().toString(36).substring(2, 10)}__`;
+      envVarPlaceholders.set(placeholder, secret.name);
+      content = this.replaceAll(content, secret.value, placeholder);
+    }
+
+    // Issue #603: Step 4 - Apply path protection and pattern masking
+    // This protects long path components (20+ chars) from being matched by env var substrings
+    // Environment variable values are already protected by placeholders or specific [REDACTED_*]
     content = this.maskString(content);
+
+    // Issue #603: Step 5 - Replace placeholders with [REDACTED_*] tokens
+    // This preserves environment variable names in the redacted output
+    for (const [placeholder, envVarName] of envVarPlaceholders) {
+      const replacement = `[REDACTED_${envVarName}]`;
+      content = this.replaceAll(content, placeholder, replacement);
+    }
 
     const modified = content !== originalContent;
     if (modified) {

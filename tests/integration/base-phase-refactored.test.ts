@@ -71,7 +71,7 @@ class TestPhase extends BasePhase {
 /**
  * モック MetadataManager を作成
  */
-function createMockMetadataManager(workflowDir: string): any {
+function createMockMetadataManager(workflowDir: string, repoPath: string): any {
   const completedSteps: Record<PhaseName, string[]> = {
     planning: [],
     requirements: [],
@@ -89,7 +89,7 @@ function createMockMetadataManager(workflowDir: string): any {
     data: {
       issue_number: '1',
       target_repository: {
-        path: '/path/to/repo'
+        path: repoPath
       },
       planning: { status: 'pending' },
     },
@@ -132,7 +132,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
 
   test('IC-BP-01: BasePhase が4つの新規モジュールを統合して動作する', async () => {
     // Given: BasePhase のインスタンス
-    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir, testRepoRoot);
     const mockGitHub = createMockGitHubClient();
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
@@ -150,7 +150,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
 
   test('IC-BP-02: 後方互換性 - BasePhase の public メソッドのシグネチャが不変である', async () => {
     // Given: BasePhase のインスタンス
-    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir, testRepoRoot);
     const mockGitHub = createMockGitHubClient();
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 
@@ -168,7 +168,7 @@ describe('BasePhase リファクタリング - 統合テスト', () => {
     const requirementsFile = path.join(requirementsDir, 'requirements.md');
     await fs.writeFile(requirementsFile, '# Requirements');
 
-    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir, testRepoRoot);
     const mockGitHub = createMockGitHubClient();
     const testPhase = new TestPhase(mockMetadata, mockGitHub, testRepoRoot);
 

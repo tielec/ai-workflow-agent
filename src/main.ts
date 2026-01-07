@@ -16,6 +16,7 @@ import { handlePRCommentAnalyzeCommand } from './commands/pr-comment/analyze.js'
 import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
+import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 
 /**
  * CLIエントリーポイント
@@ -268,6 +269,28 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handleAutoIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // validate-credentials コマンド (Issue #598)
+  program
+    .command('validate-credentials')
+    .description('Validate configured credentials for AI workflow')
+    .option(
+      '--check <category>',
+      'Category to check (all|git|github|codex|claude|openai|anthropic)',
+      'all',
+    )
+    .option('--verbose', 'Show detailed diagnostic information', false)
+    .option('--output <format>', 'Output format (text|json)', 'text')
+    .option('--exit-on-error', 'Return exit code 1 if validation fails', false)
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleValidateCredentialsCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

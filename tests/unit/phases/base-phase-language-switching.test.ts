@@ -76,7 +76,13 @@ describe('BasePhase.loadPrompt language switching', () => {
 
     metadata = {
       workflowDir: path.join(workingDir, '.ai-workflow', 'issue-573'),
-      data: { issue_number: '573' },
+      data: {
+        issue_number: '573',
+        target_repository: {
+          path: workingDir,
+          repo: path.basename(workingDir),
+        },
+      },
       updatePhaseStatus: jest.fn(),
       getLanguage: jest.fn().mockReturnValue(DEFAULT_LANGUAGE),
       getRollbackContext: jest.fn().mockReturnValue(null),

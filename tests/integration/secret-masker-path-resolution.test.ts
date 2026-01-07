@@ -156,15 +156,16 @@ describe('SecretMaskerとパス解決の統合テスト (Issue #592)', () => {
     expect(resolved).toBe(repoDir);
   });
 
-  test('正当なフォールバックでは process.cwd() に解決し Issue #592 警告は出さない (IT-3.3.2)', async () => {
-    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+  // Issue #603: process.cwd() fallback is now disabled to prevent misplaced artifacts.
+  // The resolver now throws an error when the working directory cannot be resolved.
+  test('存在しないパスではprocess.cwd()へフォールバックせずエラーをスローする (IT-3.3.2, Issue #603)', async () => {
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
     const nonExistent = path.join(tempRoot, 'nonexistent-repo', '.ai-workflow', 'issue-999', 'execute');
 
-    const resolved = await resolveWorkingDirectory(nonExistent);
-
-    expect(resolved).toBe(process.cwd());
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Falling back to process.cwd()'));
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Issue #592 Warning'));
+    await expect(resolveWorkingDirectory(nonExistent)).rejects.toThrow(
+      /\[Issue #603\] Working directory does not exist/
+    );
   });
 });
 
