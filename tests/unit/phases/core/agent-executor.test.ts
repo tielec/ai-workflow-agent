@@ -853,11 +853,11 @@ describe('AgentExecutor - エージェント優先順位（Issue #306）', () =>
       expect(mockClaude.executeTask).toHaveBeenCalledTimes(1);
     });
 
-    test('12-2: agentPriority 未指定時は codex-first がデフォルト', async () => {
-      // Given: agentPriority 未指定
-      const mockCodex = createMockAgentClient([
-        JSON.stringify({ type: 'response.completed' }),
-      ]);
+  test('12-2: agentPriority 未指定時は codex-first がデフォルト', async () => {
+    // Given: agentPriority 未指定
+    const mockCodex = createMockAgentClient([
+      JSON.stringify({ type: 'response.completed' }),
+    ]);
       const mockClaude = createMockAgentClient([
         JSON.stringify({ type: 'result', subtype: 'success' }),
       ]);
@@ -873,5 +873,65 @@ describe('AgentExecutor - エージェント優先順位（Issue #306）', () =>
       expect(mockCodex.executeTask).toHaveBeenCalledTimes(1);
       expect(mockClaude.executeTask).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('AgentExecutor - 作業ディレクトリ検証（Issue #603）', () => {
+  let testWorkflowDir: string;
+  let repoDir: string;
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-working-dir');
+    repoDir = path.join(TEST_DIR, 'sd-platform-development');
+    await fs.ensureDir(testWorkflowDir);
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('TC-U-603-040: validated working directory is passed to agent client', async () => {
+    await fs.ensureDir(repoDir);
+    const mockAgent = createMockAgentClient(['run completed']);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(
+      mockAgent,
+      null,
+      mockMetadata,
+      'requirements',
+      path.join(TEST_DIR, 'fallback-working-dir'),
+      () => repoDir,
+    );
+
+    const logDir = path.join(testWorkflowDir, '01_requirements', 'execute');
+    const result = await executor.executeWithAgent('Test prompt', { logDir });
+
+    expect(result.length).toBeGreaterThan(0);
+    expect(mockAgent.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workingDirectory: repoDir,
+      }),
+    );
+  });
+
+  test('TC-U-603-041: invalid working directory throws before agent execution', async () => {
+    const missingDir = path.join(TEST_DIR, 'missing-repo');
+    const mockAgent = createMockAgentClient(['should not run']);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(
+      mockAgent,
+      null,
+      mockMetadata,
+      'requirements',
+      missingDir,
+      () => missingDir,
+    );
+
+    await expect(
+      executor.executeWithAgent('Test prompt', {
+        logDir: path.join(testWorkflowDir, '01_requirements', 'execute'),
+      }),
+    ).rejects.toThrow(/\[Issue #603\] Working directory does not exist/);
+    expect(mockAgent.executeTask).not.toHaveBeenCalled();
   });
 });

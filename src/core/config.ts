@@ -126,6 +126,12 @@ export interface IConfig {
   getReposRoot(): string | null;
 
   /**
+   * 成果物が誤った場所にある場合に自動リロケートするかどうか
+   * @returns true: リロケートする（デフォルト）、false: 失敗として扱う
+   */
+  getArtifactRelocateOnMismatch(): boolean;
+
+  /**
    * Codex CLI バイナリパスを取得
    * @returns バイナリパス（デフォルト: 'codex'）
    */
@@ -327,6 +333,15 @@ export class Config implements IConfig {
 
   public getReposRoot(): string | null {
     return this.getEnv('REPOS_ROOT', false);
+  }
+
+  public getArtifactRelocateOnMismatch(): boolean {
+    const value = this.getEnv('ARTIFACT_RELOCATE_ON_MISMATCH', false);
+    if (!value) {
+      return true;
+    }
+    const normalized = value.toLowerCase();
+    return !(normalized === 'false' || normalized === '0');
   }
 
   public getCodexCliPath(): string {

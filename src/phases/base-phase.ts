@@ -29,6 +29,7 @@ import { PhaseRunner } from './lifecycle/phase-runner.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { PHASE_AGENT_PRIORITY } from '../commands/execute/agent-setup.js';
 import { ModelOptimizer, ModelOverrides } from '../core/model-optimizer.js';
+import { validateWorkingDirectoryPath } from '../core/helpers/working-directory-resolver.js';
 
 // PhaseRunOptions を BasePhase から export（Issue #49）
 export interface PhaseRunOptions {
@@ -103,23 +104,26 @@ export abstract class BasePhase {
   }
 
   protected getAgentWorkingDirectory(): string {
-    // Issue #245: REPOS_ROOT が設定されている場合は動的にパスを解決
-    // PR #235 の execute.ts と同様のロジックで、WORKSPACE と REPOS_ROOT の分離に対応
-    const reposRoot = config.getReposRoot();
-    if (reposRoot && this.metadata.data.target_repository?.repo) {
-      const repoName = this.metadata.data.target_repository.repo;
-      const reposRootPath = path.join(reposRoot, repoName);
-      if (fs.existsSync(reposRootPath)) {
-        logger.debug(`Using REPOS_ROOT path for agent working directory: ${reposRootPath}`);
-        return reposRootPath;
-      }
+    const targetRepo = this.metadata.data.target_repository;
+    if (targetRepo?.path) {
+      const validated = validateWorkingDirectoryPath(targetRepo.path);
+      logger.debug(`Using metadata target_repository.path for agent working directory: ${validated}`);
+      return validated;
     }
 
-    try {
-      return this.getActiveAgent().getWorkingDirectory();
-    } catch {
-      return this.workingDir;
+    const reposRoot = config.getReposRoot();
+    if (reposRoot && targetRepo?.repo) {
+      const reposRootPath = validateWorkingDirectoryPath(path.join(reposRoot, targetRepo.repo));
+      logger.warn(
+        `metadata.target_repository.path missing. Falling back to REPOS_ROOT for agent working directory: ${reposRootPath}`,
+      );
+      return reposRootPath;
     }
+
+    throw new Error(
+      '[Issue #603] Unable to determine agent working directory. ' +
+        'Set metadata.target_repository.path or configure REPOS_ROOT with the repository name.',
+    );
   }
 
   private async runWithStepModel<T>(step: StepName, fn: () => Promise<T>): Promise<T> {
@@ -149,38 +153,50 @@ export abstract class BasePhase {
   /**
    * Issue #274: ワークフローディレクトリのベースパスを解決
    *
-   * REPOS_ROOT が設定されている場合は、対象リポジトリの .ai-workflow ディレクトリを使用。
-   * Jenkins環境ではWORKSPACEとREPOS_ROOTが分離されているため、
-   * 成果物ファイルは REPOS_ROOT 配下に保存する必要がある。
+   * メタデータに含まれる target_repository.path を最優先で使用し、
+   * 有効な REPOS_ROOT + repo 名がある場合のみフォールバックを許可する。
+   * Jenkins環境での誤った process.cwd() へのフォールバックを防止し、
+   * 成果物ファイルを常にリポジトリ配下に保存する。
    *
    * @returns ワークフローのベースディレクトリ（例: /tmp/repos/repo-name/.ai-workflow/issue-123）
    */
   private resolveWorkflowBaseDir(): string {
-    const reposRoot = config.getReposRoot();
     const metadataData = (this.metadata as MetadataManager & { data?: WorkflowMetadata }).data;
-    const repoName = metadataData?.target_repository?.repo;
     const issueNumber = metadataData?.issue_number;
-    const fallbackDir =
-      (this.metadata as { workflowDir?: string }).workflowDir ??
-      path.join(process.cwd(), '.ai-workflow', `issue-${issueNumber ?? 'unknown'}`);
+    const targetRepo = metadataData?.target_repository;
 
-    if (reposRoot && repoName && issueNumber) {
-      const reposRootPath = path.join(reposRoot, repoName);
-      if (fs.existsSync(reposRootPath)) {
-        const workflowDir = path.join(reposRootPath, '.ai-workflow', `issue-${issueNumber}`);
-        logger.debug(`Using REPOS_ROOT path for workflow directory: ${workflowDir}`);
-        return workflowDir;
-      }
+    if (!issueNumber) {
+      throw new Error('[Issue #603] Issue number is missing from metadata. Cannot resolve workflow directory.');
     }
 
-    // フォールバック: metadata.workflowDir を使用
-    if (!metadataData) {
-      logger.debug('Metadata data is not available when resolving workflow base dir. Using fallback.');
+    if (targetRepo?.path) {
+      const repoPath = validateWorkingDirectoryPath(targetRepo.path);
+      const workflowDir = path.join(repoPath, '.ai-workflow', `issue-${issueNumber}`);
+      logger.debug(`Using metadata target_repository.path for workflow directory: ${workflowDir}`);
+      return workflowDir;
     }
-    if (!((this.metadata as { workflowDir?: string }).workflowDir)) {
-      logger.debug('metadata.workflowDir is missing. Falling back to workingDir-based path.');
+
+    const reposRoot = config.getReposRoot();
+    if (reposRoot && targetRepo?.repo) {
+      const repoPath = validateWorkingDirectoryPath(path.join(reposRoot, targetRepo.repo));
+      const workflowDir = path.join(repoPath, '.ai-workflow', `issue-${issueNumber}`);
+      logger.warn(`metadata.target_repository.path missing. Using REPOS_ROOT fallback for workflow directory: ${workflowDir}`);
+      return workflowDir;
     }
-    return fallbackDir;
+
+    const existingWorkflowDir = (this.metadata as { workflowDir?: string }).workflowDir;
+    if (existingWorkflowDir && fs.existsSync(existingWorkflowDir)) {
+      logger.warn(
+        `Using existing metadata.workflowDir as workflow base directory: ${existingWorkflowDir}. ` +
+          'Ensure it points to the target repository path.',
+      );
+      return existingWorkflowDir;
+    }
+
+    throw new Error(
+      '[Issue #603] Unable to resolve workflow base directory. ' +
+        'Set metadata.target_repository.path or configure REPOS_ROOT with the repository name.',
+    );
   }
 
   constructor(params: BasePhaseConstructorParams) {
@@ -475,12 +491,15 @@ export abstract class BasePhase {
   ): Promise<PhaseExecutionResult> {
     // 1. プロンプトテンプレートを読み込む
     let prompt = this.loadPrompt('execute');
+    const outputFilePath = path.resolve(this.outputDir, phaseOutputFile);
 
     // 2. テンプレート変数を置換
     for (const [key, value] of Object.entries(templateVariables)) {
       const placeholder = `{${key}}`;
       prompt = prompt.replace(placeholder, value);
     }
+
+    prompt = this.injectOutputPathInstruction(prompt, outputFilePath);
 
     // 3. エージェントを実行
     const agentOptions = {
@@ -491,7 +510,6 @@ export abstract class BasePhase {
     await this.executeWithAgent(prompt, agentOptions);
 
     // 4. 出力ファイルの存在確認
-    const outputFilePath = path.join(this.outputDir, phaseOutputFile);
     if (!fs.existsSync(outputFilePath)) {
       // NEW: フォールバック機構が有効な場合
       if (options?.enableFallback === true) {
@@ -1017,6 +1035,30 @@ export abstract class BasePhase {
     }
 
     return false;
+  }
+
+  private injectOutputPathInstruction(prompt: string, outputFilePath: string): string {
+    const instruction = [
+      '**IMPORTANT: Output File Path**',
+      `- Write to this exact absolute path using the Write tool: \`${outputFilePath}\``,
+      '- Do NOT use relative paths or `/workspace` prefixes. Use the absolute path above.',
+    ].join('\n');
+
+    const lines = prompt.split('\n');
+    const headingIndex = lines.findIndex((line) => line.trim().startsWith('#'));
+
+    if (headingIndex === -1) {
+      return [instruction, '', prompt].join('\n');
+    }
+
+    const insertIndex = headingIndex + 1;
+    return [
+      ...lines.slice(0, insertIndex),
+      '',
+      instruction,
+      '',
+      ...lines.slice(insertIndex),
+    ].join('\n');
   }
 
   private getReviseFunction():

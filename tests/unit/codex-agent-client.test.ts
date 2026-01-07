@@ -1,8 +1,12 @@
 import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import { jest } from '@jest/globals';
+import fs from 'fs-extra';
+import os from 'node:os';
+import path from 'node:path';
 
 describe('CodexAgentClient', () => {
   let client: CodexAgentClient;
+  let workingDir: string;
   type RunCodexProcess = (
     args: string[],
     options: { cwd: string; verbose: boolean; stdinPayload: string }
@@ -12,8 +16,15 @@ describe('CodexAgentClient', () => {
     jest.spyOn(client as unknown as { runCodexProcess: RunCodexProcess }, 'runCodexProcess');
 
   beforeEach(() => {
-    client = new CodexAgentClient({ workingDir: '/test/workspace' });
+    workingDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-agent-client-'));
+    client = new CodexAgentClient({ workingDir });
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (workingDir && fs.existsSync(workingDir)) {
+      fs.removeSync(workingDir);
+    }
   });
 
   describe('executeTask', () => {
@@ -32,7 +43,7 @@ describe('CodexAgentClient', () => {
       // When: executeTask関数を呼び出す
       const result = await client.executeTask({
         prompt: 'Test prompt',
-        workingDirectory: '/test/workspace',
+        workingDirectory: workingDir,
       });
 
       // Then: 出力配列が返される
@@ -51,7 +62,7 @@ describe('CodexAgentClient', () => {
       await expect(
         client.executeTask({
           prompt: 'Test prompt',
-          workingDirectory: '/test/workspace',
+          workingDirectory: workingDir,
         })
       ).rejects.toThrow();
     });
@@ -78,7 +89,7 @@ describe('CodexAgentClient', () => {
       const result = client.getWorkingDirectory();
 
       // Then: 作業ディレクトリパスが返される
-      expect(result).toBe('/test/workspace');
+      expect(result).toBe(workingDir);
     });
   });
 });

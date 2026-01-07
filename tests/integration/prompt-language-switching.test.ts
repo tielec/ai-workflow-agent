@@ -88,6 +88,12 @@ describe('Prompt language switching integration', () => {
 
   const createMetadata = (): void => {
     WorkflowState.createNew(metadataPath, '573', 'https://example.com/issues/573', 'Prompt test');
+    const data = fs.readJsonSync(metadataPath);
+    data.target_repository = {
+      path: workingDir,
+      repo: path.basename(workingDir),
+    };
+    fs.writeJsonSync(metadataPath, data, { spaces: 2 });
     metadataManager = new MetadataManager(metadataPath);
   };
 

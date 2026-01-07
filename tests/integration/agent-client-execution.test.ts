@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import path from 'node:path';
 
 // child_process モジュールをモック化（read-only プロパティ問題を回避）
 jest.unstable_mockModule('node:child_process', () => ({
@@ -21,10 +22,15 @@ const { CodexAgentClient } = await import('../../src/core/codex-agent-client.js'
 const { ClaudeAgentClient } = await import('../../src/core/claude-agent-client.js');
 
 describe('エージェント実行の統合テスト', () => {
-  const existingWorkingDir = process.cwd();
+  const existingWorkingDir = path.join(process.cwd(), '.ai-workflow', 'issue-603');
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (fs.existsSync as jest.MockedFunction<typeof fs.existsSync>).mockReturnValue(true);
+    const defaultExport = (fs as any).default;
+    if (defaultExport?.existsSync) {
+      defaultExport.existsSync.mockReturnValue(true);
+    }
   });
 
   describe('Codexエージェント実行フロー', () => {
