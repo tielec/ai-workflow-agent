@@ -99,6 +99,96 @@ node dist/index.js execute --issue 123 --phase all
 - **Config.getLanguage()** (`src/core/config.ts`): 環境変数 `AI_WORKFLOW_LANGUAGE` からの取得とバリデーション
 - **MetadataManager** (`src/core/metadata-manager.ts`): 言語設定の永続化/取得
 
+### 認証情報の検証（validate-credentials コマンド）
+
+ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。
+
+```bash
+# すべてのカテゴリを検証
+node dist/index.js validate-credentials --check all
+
+# 特定のカテゴリのみ検証
+node dist/index.js validate-credentials --check codex
+node dist/index.js validate-credentials --check claude
+
+# JSON形式で出力
+node dist/index.js validate-credentials --check all --output json
+
+# 詳細ログを有効化
+node dist/index.js validate-credentials --check all --verbose
+
+# 失敗時にビルドを失敗させる（CI/CD用）
+node dist/index.js validate-credentials --check all --exit-on-error
+```
+
+**検証カテゴリ（`--check` オプション）**:
+- `all`: すべてのカテゴリを検証（デフォルト）
+- `git`: Git 設定（ユーザー名、メールアドレス）
+- `github`: GitHub 認証（トークン、スコープ、レート制限）
+- `codex`: Codex 認証とエージェント疎通
+- `claude`: Claude Code 認証とエージェント疎通
+- `openai`: OpenAI API キー
+- `anthropic`: Anthropic API キー
+
+**認証情報の設定パターン**:
+
+| カテゴリ | 認証方法A | 認証方法B | 疎通チェック |
+|---------|----------|----------|------------|
+| **Codex** | `~/.codex/auth.json` ファイル | `CODEX_API_KEY` 環境変数 | どちらか一方があれば実行 |
+| **Claude** | `CLAUDE_CODE_OAUTH_TOKEN` | `CLAUDE_CODE_API_KEY` | どちらか一方があれば実行 |
+
+**重要**: 疎通チェックは、どちらか一方の認証情報があれば実行されます。
+
+**Codex の動作**:
+- ✅ `~/.codex/auth.json` のみ: ファイル存在確認 → JSON形式検証 → エージェント疎通（"ping" プロンプト実行）
+- ✅ `CODEX_API_KEY` のみ: APIキー確認 → エージェント疎通（"ping" プロンプト実行）
+- ✅ 両方あり: ファイル + APIキーの両方を確認 → エージェント疎通
+- ❌ 両方なし: 認証失敗（`status: failed`）
+
+**Claude の動作**:
+- ✅ `CLAUDE_CODE_OAUTH_TOKEN` のみ: OAuth トークン確認 → エージェント疎通（"ping" プロンプト実行）
+- ✅ `CLAUDE_CODE_API_KEY` のみ: APIキー確認 → エージェント疎通（"ping" プロンプト実行）
+- ✅ 両方あり: OAuth（優先） + APIキー → エージェント疎通
+- ❌ 両方なし: 認証失敗（`status: failed`）
+
+**疎通チェックの実装**:
+- `CodexAgentClient` / `ClaudeAgentClient` を再利用（execute コマンドと同じロジック）
+- 軽量プロンプト（"ping"）を `maxTurns: 1` で実行
+- タイムアウト: 10秒
+
+**出力例（JSON形式）**:
+```json
+{
+  "timestamp": "2026-01-08T10:30:00.000Z",
+  "results": {
+    "codex": {
+      "status": "passed",
+      "checks": [
+        { "name": "Codex Auth File", "status": "passed", "value": "/root/.codex/auth.json" },
+        { "name": "JSON Format", "status": "passed", "message": "Valid JSON format" },
+        { "name": "CODEX_API_KEY", "status": "skipped", "message": "Not set (using auth file)" },
+        { "name": "Codex API", "status": "passed", "message": "Codex agent responded successfully" }
+      ]
+    },
+    "claude": {
+      "status": "passed",
+      "checks": [
+        { "name": "CLAUDE_CODE_OAUTH_TOKEN", "status": "passed", "value": "sess****" },
+        { "name": "CLAUDE_CODE_API_KEY", "status": "skipped", "message": "Not set (using OAuth token)" },
+        { "name": "Claude API", "status": "passed", "message": "Claude agent responded successfully" }
+      ]
+    }
+  },
+  "summary": {
+    "total": 8,
+    "passed": 6,
+    "failed": 0,
+    "warnings": 0,
+    "skipped": 2
+  }
+}
+```
+
 ### プロンプト/テンプレートの配置（多言語化）
 
 - プロンプトはフェーズ/コマンド別に `src/prompts/{phase|category}/{lang}/*.txt`（`ja`/`en`）へ配置。auto-issue, pr-comment, rollback, difficulty, followup, squash, content_parser, validation も同パターンで揃えています。
