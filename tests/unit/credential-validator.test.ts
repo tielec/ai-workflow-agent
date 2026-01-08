@@ -104,7 +104,7 @@ describe('CredentialValidator', () => {
     // デフォルトのモック戻り値
     mockGitHubGetAuthenticated.mockResolvedValue({
       data: { login: 'tester' },
-      headers: { 'x-oauth-scopes': 'repo, workflow, read:org' },
+      headers: { 'x-oauth-scopes': 'repo' },
     });
     mockGitHubRateLimitGet.mockResolvedValue({ data: { rate: { remaining: 4000, limit: 5000 } } });
     mockOpenAiModelsList.mockResolvedValue({ data: [] });

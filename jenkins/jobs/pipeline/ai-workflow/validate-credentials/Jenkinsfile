@@ -122,26 +122,21 @@ pipeline {
                     def languageFlag = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                     def requestedFormat = params.OUTPUT_FORMAT ?: 'text'
-                    def formatsToRun = requestedFormat == 'json' ? ['json', 'text'] : ['text', 'json']
-                    def statuses = []
+                    def outputFile = requestedFormat == 'json' ? 'credentials-validation-result.json' : 'credentials-validation-result.txt'
 
-                    formatsToRun.each { fmt ->
-                        def outputFile = fmt == 'json' ? 'credentials-validation-result.json' : 'credentials-validation-result.txt'
-                        def cmd = [
-                            'node dist/index.js validate-credentials',
-                            "--check ${checkCategory}",
-                            "--output ${fmt}",
-                            verboseFlag,
-                            exitFlag,
-                            languageFlag,
-                            "> ${outputFile}"
-                        ].findAll { it?.trim() }.join(' ')
+                    def cmd = [
+                        'node dist/index.js validate-credentials',
+                        "--check ${checkCategory}",
+                        "--output ${requestedFormat}",
+                        verboseFlag,
+                        exitFlag,
+                        languageFlag,
+                        "> ${outputFile}"
+                    ].findAll { it?.trim() }.join(' ')
 
-                        int status = sh(script: cmd, returnStatus: true)
-                        statuses << status
-                    }
+                    int status = sh(script: cmd, returnStatus: true)
 
-                    if (params.EXIT_ON_ERROR && statuses.any { it != 0 }) {
+                    if (params.EXIT_ON_ERROR && status != 0) {
                         error("validate-credentials command failed (exit-on-error enabled)")
                     }
                 }

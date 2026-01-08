@@ -97,7 +97,7 @@ describe('validate-credentials コマンド (統合)', () => {
     // デフォルトの成功モック
     mockGitHubGetAuthenticated.mockResolvedValue({
       data: { login: 'tester' },
-      headers: { 'x-oauth-scopes': 'repo, workflow, read:org' },
+      headers: { 'x-oauth-scopes': 'repo' },
     });
     mockGitHubRateLimitGet.mockResolvedValue({ data: { rate: { remaining: 4000, limit: 5000 } } });
     mockOpenAiModelsList.mockResolvedValue({ data: [] });

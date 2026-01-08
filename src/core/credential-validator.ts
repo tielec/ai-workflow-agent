@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { Octokit } from '@octokit/rest';
 import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -6,6 +8,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../utils/logger.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { config } from './config.js';
+import { CodexAgentClient } from './codex-agent-client.js';
+import { ClaudeAgentClient } from './claude-agent-client.js';
 import type {
   CategoryResult,
   CategoryStatus,
@@ -17,7 +21,7 @@ import type {
   ValidationSummary,
 } from '../types/validation.js';
 
-const REQUIRED_GITHUB_SCOPES = ['repo', 'workflow', 'read:org'];
+const REQUIRED_GITHUB_SCOPES = ['repo'];
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 const isBlank = (value: string | null | undefined): boolean => {
@@ -338,64 +342,117 @@ class CodexChecker implements Checker {
 
   async check(): Promise<CategoryResult> {
     const checks: ValidationCheck[] = [];
-    const authJsonPath = process.env.CODEX_AUTH_JSON?.trim() ?? '';
     const apiKey = config.getCodexApiKey()?.trim() ?? process.env.CODEX_API_KEY?.trim() ?? '';
 
-    if (isBlank(authJsonPath) && isBlank(apiKey)) {
+    // execute コマンドと同じ動作: $HOME/.codex/auth.json ファイルを検証
+    const homeDir = process.env.HOME || os.homedir();
+    const authFilePath = path.join(homeDir, '.codex', 'auth.json');
+
+    const hasAuthFile = fs.existsSync(authFilePath);
+    const hasApiKey = !isBlank(apiKey);
+
+    if (!hasAuthFile && !hasApiKey) {
       checks.push({
         name: 'Codex Authentication',
         status: 'failed',
-        message: 'Neither CODEX_AUTH_JSON nor CODEX_API_KEY is set',
+        message: 'Neither ~/.codex/auth.json nor CODEX_API_KEY is set',
       });
       return { status: 'failed', checks };
     }
 
-    if (!isBlank(authJsonPath)) {
-      checks.push({ name: 'CODEX_AUTH_JSON', status: 'passed', value: authJsonPath });
-      if (fs.existsSync(authJsonPath)) {
-        checks.push({ name: 'File Exists', status: 'passed', message: 'File exists' });
-        try {
-          const rawContent = fs.readFileSync(authJsonPath, 'utf-8');
-          JSON.parse(rawContent);
-          checks.push({ name: 'JSON Format', status: 'passed', message: 'Valid JSON format' });
-        } catch (error) {
-          checks.push({
-            name: 'JSON Format',
-            status: 'failed',
-            message: `Invalid JSON format: ${getErrorMessage(error)}`,
-          });
-        }
-      } else {
-        checks.push({ name: 'File Exists', status: 'failed', message: 'File not found' });
+    // auth.json ファイルの検証
+    if (hasAuthFile) {
+      checks.push({
+        name: 'Codex Auth File',
+        status: 'passed',
+        value: authFilePath
+      });
+      try {
+        const rawContent = fs.readFileSync(authFilePath, 'utf-8');
+        JSON.parse(rawContent);
+        checks.push({ name: 'JSON Format', status: 'passed', message: 'Valid JSON format' });
+      } catch (error) {
         checks.push({
           name: 'JSON Format',
-          status: 'skipped',
-          message: 'Skipped (file not found)',
+          status: 'failed',
+          message: `Invalid JSON format: ${getErrorMessage(error)}`,
         });
       }
     } else {
       checks.push({
-        name: 'CODEX_AUTH_JSON',
+        name: 'Codex Auth File',
         status: 'skipped',
-        message: 'Not set (using API key)',
+        message: 'Not found (using CODEX_API_KEY)',
+      });
+      checks.push({
+        name: 'JSON Format',
+        status: 'skipped',
+        message: 'Skipped (auth file not found)',
       });
     }
 
-    if (!isBlank(apiKey)) {
+    // CODEX_API_KEY の検証
+    if (hasApiKey) {
       checks.push({ name: 'CODEX_API_KEY', status: 'passed', value: this.maskValue(apiKey) });
+    } else {
+      checks.push({
+        name: 'CODEX_API_KEY',
+        status: 'skipped',
+        message: 'Not set (using auth file)',
+      });
     }
 
-    // API 呼び出しは任意のためスキップ
-    checks.push({
-      name: 'Codex API',
-      status: 'skipped',
-      message: 'Skipped (API validation not required)',
-    });
+    // Codex CLI 疎通チェック（軽量プロンプト実行）
+    if (hasAuthFile || hasApiKey) {
+      const codexCheckResult = await this.testCodexConnectivity();
+      checks.push(codexCheckResult);
+    } else {
+      checks.push({
+        name: 'Codex API',
+        status: 'skipped',
+        message: 'Skipped (no credentials)',
+      });
+    }
 
     return {
       status: resolveCategoryStatus(checks),
       checks,
     };
+  }
+
+  /**
+   * Codex CLI 疎通テスト（軽量プロンプト実行）
+   * 既存の CodexAgentClient を再利用
+   */
+  private async testCodexConnectivity(): Promise<ValidationCheck> {
+    try {
+      const codexClient = new CodexAgentClient();
+
+      // 30秒タイムアウトで軽量プロンプトを実行（Docker環境での初回起動を考慮）
+      await Promise.race([
+        codexClient.executeTask({
+          prompt: 'ping',
+          maxTurns: 1,
+          verbose: true, // Jenkins環境でのデバッグのためログを有効化
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout after 30 seconds')), 30000)
+        ),
+      ]);
+
+      return {
+        name: 'Codex API',
+        status: 'passed',
+        message: 'Codex agent responded successfully',
+      };
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      return {
+        name: 'Codex API',
+        status: 'failed',
+        message: `Codex agent check failed: ${errorMsg.substring(0, 100)}`,
+      };
+    }
   }
 }
 
@@ -452,16 +509,60 @@ class ClaudeChecker implements Checker {
       });
     }
 
-    checks.push({
-      name: 'Claude API',
-      status: 'skipped',
-      message: 'Skipped (API validation not required)',
-    });
+    // Claude Code エージェント疎通チェック（軽量プロンプト実行）
+    if (!isBlank(oauthToken) || !isBlank(apiKey)) {
+      const claudeCheckResult = await this.testClaudeConnectivity(oauthToken, apiKey);
+      checks.push(claudeCheckResult);
+    } else {
+      checks.push({
+        name: 'Claude API',
+        status: 'skipped',
+        message: 'Skipped (no credentials)',
+      });
+    }
 
     return {
       status: resolveCategoryStatus(checks),
       checks,
     };
+  }
+
+  /**
+   * Claude Code 疎通テスト（軽量プロンプト実行）
+   * 既存の ClaudeAgentClient を再利用
+   */
+  private async testClaudeConnectivity(
+    oauthToken: string,
+    apiKey: string,
+  ): Promise<ValidationCheck> {
+    try {
+      const claudeClient = new ClaudeAgentClient();
+
+      // 30秒タイムアウトで軽量プロンプトを実行（Docker環境での初回起動を考慮）
+      await Promise.race([
+        claudeClient.executeTask({
+          prompt: 'ping',
+          maxTurns: 1,
+          verbose: true, // Jenkins環境でのデバッグのためログを有効化
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout after 30 seconds')), 30000)
+        ),
+      ]);
+
+      return {
+        name: 'Claude API',
+        status: 'passed',
+        message: 'Claude agent responded successfully',
+      };
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      return {
+        name: 'Claude API',
+        status: 'failed',
+        message: `Claude agent check failed: ${errorMsg.substring(0, 100)}`,
+      };
+    }
   }
 }
 
@@ -483,13 +584,17 @@ class OpenAIChecker implements Checker {
     const apiKey = config.getOpenAiApiKey()?.trim() ?? process.env.OPENAI_API_KEY?.trim() ?? '';
 
     if (isBlank(apiKey)) {
-      checks.push({ name: 'OPENAI_API_KEY', status: 'failed', message: 'Not set' });
+      checks.push({
+        name: 'OPENAI_API_KEY',
+        status: 'skipped',
+        message: 'Not configured (optional for follow-up issue generation)',
+      });
       checks.push({
         name: 'OpenAI API',
         status: 'skipped',
-        message: 'Skipped (key not set)',
+        message: 'Skipped (key not configured)',
       });
-      return { status: 'failed', checks };
+      return { status: 'passed', checks };
     }
 
     checks.push({ name: 'OPENAI_API_KEY', status: 'passed', value: this.maskValue(apiKey) });
@@ -532,13 +637,17 @@ class AnthropicChecker implements Checker {
       config.getAnthropicApiKey()?.trim() ?? process.env.ANTHROPIC_API_KEY?.trim() ?? '';
 
     if (isBlank(apiKey)) {
-      checks.push({ name: 'ANTHROPIC_API_KEY', status: 'failed', message: 'Not set' });
+      checks.push({
+        name: 'ANTHROPIC_API_KEY',
+        status: 'skipped',
+        message: 'Not configured (optional for follow-up issue generation)',
+      });
       checks.push({
         name: 'Anthropic API',
         status: 'skipped',
-        message: 'Skipped (key not set)',
+        message: 'Skipped (key not configured)',
       });
-      return { status: 'failed', checks };
+      return { status: 'passed', checks };
     }
 
     checks.push({

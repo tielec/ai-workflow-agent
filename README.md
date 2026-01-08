@@ -37,7 +37,7 @@ ai-workflow-agent/
 - npm 10 以上
 - Codex API キー（`CODEX_API_KEY` または `OPENAI_API_KEY`）
 - Claude Code 認証ファイル（`credentials.json`）
-- GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org`）※ `workflow`はGitHub Actions CI設定に必要
+- GitHub パーソナルアクセストークン（`repo`）※ `workflow`はGitHub Actions CI設定に必要
 - （任意）環境変数 `REPOS_ROOT` … マルチリポジトリ環境でリポジトリの親ディレクトリを指定
 - （任意）環境変数 `LOG_LEVEL` … ログレベル制御（`debug` | `info` | `warn` | `error`、デフォルト: `info`）
 - （任意）環境変数 `LOG_NO_COLOR` … カラーリング無効化（CI環境用）
