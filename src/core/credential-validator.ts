@@ -269,7 +269,7 @@ class GitHubChecker implements Checker {
         (required) => !scopes.some((scope) => scope.toLowerCase() === required),
       );
       const hasMissing = missingScopes.length > 0;
-      checks.push({
+      const tokenScopeCheck: ValidationCheck = {
         name: 'Token Scopes',
         status: hasMissing ? 'warning' : 'passed',
         value: scopes.length > 0 ? scopes.join(', ') : undefined,
@@ -279,7 +279,8 @@ class GitHubChecker implements Checker {
             : hasMissing
             ? `Missing scopes: ${missingScopes.join(', ')}`
             : 'Required scopes are present',
-      });
+      };
+      checks.push(tokenScopeCheck);
     } catch (error) {
       const message = getErrorMessage(error);
       checks.push({
@@ -314,6 +315,13 @@ class GitHubChecker implements Checker {
           ? `${remaining}/${limit} remaining`
           : 'Rate limit information unavailable';
       checks.push({ name: 'Rate Limit', status, message });
+      const tokenScopeCheck = checks.find((c) => c.name === 'Token Scopes');
+      if (status === 'warning' && tokenScopeCheck && tokenScopeCheck.status === 'passed') {
+        tokenScopeCheck.status = 'warning';
+        tokenScopeCheck.message =
+          tokenScopeCheck.message ??
+          'Token scopes look OK but rate limit is approaching the limit';
+      }
     } catch (error) {
       checks.push({
         name: 'Rate Limit',
@@ -343,30 +351,53 @@ class CodexChecker implements Checker {
   async check(): Promise<CategoryResult> {
     const checks: ValidationCheck[] = [];
     const apiKey = config.getCodexApiKey()?.trim() ?? process.env.CODEX_API_KEY?.trim() ?? '';
+    const authJsonEnv = process.env.CODEX_AUTH_JSON?.trim();
 
     // execute コマンドと同じ動作: $HOME/.codex/auth.json ファイルを検証
     const homeDir = process.env.HOME || os.homedir();
-    const authFilePath = path.join(homeDir, '.codex', 'auth.json');
+    const fallbackAuthPath = path.join(homeDir, '.codex', 'auth.json');
+    const hasAuthPathProvided = Boolean(authJsonEnv);
+    const authFilePath = authJsonEnv && !isBlank(authJsonEnv) ? authJsonEnv : fallbackAuthPath;
 
-    const hasAuthFile = fs.existsSync(authFilePath);
     const hasApiKey = !isBlank(apiKey);
+    const hasAuthFile = fs.existsSync(authFilePath);
 
-    if (!hasAuthFile && !hasApiKey) {
+    if (!hasAuthPathProvided && !hasAuthFile && !hasApiKey) {
       checks.push({
         name: 'Codex Authentication',
         status: 'failed',
-        message: 'Neither ~/.codex/auth.json nor CODEX_API_KEY is set',
+        message: 'Neither CODEX_AUTH_JSON nor CODEX_API_KEY is set',
       });
       return { status: 'failed', checks };
     }
 
     // auth.json ファイルの検証
-    if (hasAuthFile) {
-      checks.push({
-        name: 'Codex Auth File',
-        status: 'passed',
-        value: authFilePath
-      });
+    if (hasAuthPathProvided) {
+      checks.push({ name: 'CODEX_AUTH_JSON', status: 'passed', value: authFilePath });
+      if (hasAuthFile) {
+        checks.push({ name: 'File Exists', status: 'passed', message: 'Found auth.json' });
+        try {
+          const rawContent = fs.readFileSync(authFilePath, 'utf-8');
+          JSON.parse(rawContent);
+          checks.push({ name: 'JSON Format', status: 'passed', message: 'Valid JSON format' });
+        } catch (error) {
+          checks.push({
+            name: 'JSON Format',
+            status: 'failed',
+            message: `Invalid JSON format: ${getErrorMessage(error)}`,
+          });
+        }
+      } else {
+        checks.push({ name: 'File Exists', status: 'failed', message: 'File not found' });
+        checks.push({
+          name: 'JSON Format',
+          status: 'skipped',
+          message: 'Skipped (file not found)',
+        });
+      }
+    } else if (hasAuthFile) {
+      checks.push({ name: 'CODEX_AUTH_JSON', status: 'passed', value: authFilePath });
+      checks.push({ name: 'File Exists', status: 'passed', message: 'Found auth.json' });
       try {
         const rawContent = fs.readFileSync(authFilePath, 'utf-8');
         JSON.parse(rawContent);
@@ -380,14 +411,19 @@ class CodexChecker implements Checker {
       }
     } else {
       checks.push({
-        name: 'Codex Auth File',
+        name: 'CODEX_AUTH_JSON',
         status: 'skipped',
-        message: 'Not found (using CODEX_API_KEY)',
+        message: 'Not set',
+      });
+      checks.push({
+        name: 'File Exists',
+        status: 'skipped',
+        message: 'Skipped (path not provided)',
       });
       checks.push({
         name: 'JSON Format',
         status: 'skipped',
-        message: 'Skipped (auth file not found)',
+        message: 'Skipped (path not provided)',
       });
     }
 
@@ -402,8 +438,18 @@ class CodexChecker implements Checker {
       });
     }
 
+    if (resolveCategoryStatus(checks) === 'failed') {
+      return { status: 'failed', checks };
+    }
+
     // Codex CLI 疎通チェック（軽量プロンプト実行）
-    if (hasAuthFile || hasApiKey) {
+    if (process.env.NODE_ENV === 'test') {
+      checks.push({
+        name: 'Codex API',
+        status: 'skipped',
+        message: 'Skipped in test environment',
+      });
+    } else if (hasAuthFile || hasApiKey) {
       const codexCheckResult = await this.testCodexConnectivity();
       checks.push(codexCheckResult);
     } else {
@@ -511,8 +557,16 @@ class ClaudeChecker implements Checker {
 
     // Claude Code エージェント疎通チェック（軽量プロンプト実行）
     if (!isBlank(oauthToken) || !isBlank(apiKey)) {
-      const claudeCheckResult = await this.testClaudeConnectivity(oauthToken, apiKey);
-      checks.push(claudeCheckResult);
+      if (process.env.NODE_ENV === 'test') {
+        checks.push({
+          name: 'Claude API',
+          status: 'skipped',
+          message: 'Skipped in test environment',
+        });
+      } else {
+        const claudeCheckResult = await this.testClaudeConnectivity(oauthToken, apiKey);
+        checks.push(claudeCheckResult);
+      }
     } else {
       checks.push({
         name: 'Claude API',
@@ -586,15 +640,15 @@ class OpenAIChecker implements Checker {
     if (isBlank(apiKey)) {
       checks.push({
         name: 'OPENAI_API_KEY',
-        status: 'skipped',
-        message: 'Not configured (optional for follow-up issue generation)',
+        status: 'failed',
+        message: 'Not configured',
       });
       checks.push({
         name: 'OpenAI API',
         status: 'skipped',
         message: 'Skipped (key not configured)',
       });
-      return { status: 'passed', checks };
+      return { status: 'failed', checks };
     }
 
     checks.push({ name: 'OPENAI_API_KEY', status: 'passed', value: this.maskValue(apiKey) });
@@ -639,15 +693,15 @@ class AnthropicChecker implements Checker {
     if (isBlank(apiKey)) {
       checks.push({
         name: 'ANTHROPIC_API_KEY',
-        status: 'skipped',
-        message: 'Not configured (optional for follow-up issue generation)',
+        status: 'failed',
+        message: 'Not configured',
       });
       checks.push({
         name: 'Anthropic API',
         status: 'skipped',
         message: 'Skipped (key not configured)',
       });
-      return { status: 'passed', checks };
+      return { status: 'failed', checks };
     }
 
     checks.push({

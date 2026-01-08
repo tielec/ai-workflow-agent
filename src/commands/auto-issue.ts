@@ -12,7 +12,11 @@ import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
-import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
+import {
+  type AgentPriority,
+  resolveAgentCredentials,
+  setupAgentClients,
+} from './execute/agent-setup.js';
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { IssueDeduplicator, type ExistingIssue } from '../core/issue-deduplicator.js';
 import { IssueGenerator } from '../core/issue-generator.js';
@@ -26,6 +30,16 @@ import type {
 } from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
+
+/**
+ * カテゴリ別エージェント優先順位（Issue #390）
+ */
+export const CATEGORY_AGENT_PRIORITY: Record<string, AgentPriority> = {
+  bug: 'claude-first',
+  refactor: 'claude-first',
+  enhancement: 'claude-first',
+  all: 'claude-first',
+};
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -45,6 +59,12 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     );
     if (options.customInstruction) {
       logger.info(`Using custom instruction: ${options.customInstruction}`);
+    }
+
+    let agentPriority: AgentPriority | undefined;
+    if (options.agent === 'auto') {
+      agentPriority = CATEGORY_AGENT_PRIORITY[options.category] ?? 'codex-first';
+      logger.debug(`Agent priority for category '${options.category}': ${agentPriority}`);
     }
 
     if (options.customInstruction) {
@@ -102,7 +122,9 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const credentials = resolveAgentCredentials(homeDir, repoPath);
 
     // 7. エージェントクライアントを初期化（既存の setupAgentClients を活用）
-    const { codexClient, claudeClient } = setupAgentClients(options.agent, repoPath, credentials);
+    const { codexClient, claudeClient } = setupAgentClients(options.agent, repoPath, credentials, {
+      agentPriority,
+    });
 
     if (!codexClient && !claudeClient) {
       throw new Error('Agent mode requires a valid agent configuration.');

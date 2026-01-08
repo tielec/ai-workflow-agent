@@ -435,6 +435,108 @@ describe('setupAgentClients - claude モード', () => {
 // =============================================================================
 
 describe('setupAgentClients - auto モード', () => {
+  test('agentPriority: claude-first で Claude が優先される', () => {
+    // Given: auto モード、両方の認証情報が存在、agentPriority: claude-first
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345',
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
+
+    // When: エージェントを初期化（claude-first 優先）
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    // Then: Claude が優先、Codex はフォールバックとして初期化
+    expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
+      workingDir,
+      credentialsPath: undefined,
+      model: 'claude-opus-4-5-20251101',
+    });
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.1-codex-max' });
+    expect(result.claudeClient).toBeDefined();
+    expect(result.codexClient).toBeDefined();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('claude-first priority'),
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Fallback available'),
+    );
+  });
+
+  test('Claude 利用不可時に Codex へフォールバックする（claude-first 優先）', () => {
+    // Given: auto モード、Claude 認証情報なし、Codex 認証情報のみ
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345',
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
+
+    // When: エージェントを初期化（claude-first 優先）
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    // Then: Codex のみ初期化され、Claude は null
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.1-codex-max' });
+    expect(result.codexClient).toBeDefined();
+    expect(result.claudeClient).toBeNull();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Claude agent unavailable'),
+    );
+  });
+
+  test('claude-first 優先時に Codex がフォールバックとして設定される', () => {
+    // Given: auto モード、両方の認証情報が存在（Codex/Claude）
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'test-codex-key-valid-length-12345',
+      claudeCodeToken: 'test-claude-token',
+      claudeCredentialsPath: null,
+    };
+
+    // When: エージェントを初期化（claude-first 優先）
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    // Then: 両方初期化され、Codex はフォールバックとして利用可能
+    expect(result.claudeClient).toBeDefined();
+    expect(result.codexClient).toBeDefined();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Fallback available'),
+    );
+  });
+
+  test('claude-first 優先時に両方の認証情報が存在しない場合は警告を出す', () => {
+    // Given: auto モード、両方の認証情報が存在しない
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
+
+    // When: エージェントを初期化（claude-first 優先）
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    // Then: 両方 null で警告ログが出力される
+    expect(result.codexClient).toBeNull();
+    expect(result.claudeClient).toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Both Claude and Codex agents unavailable.'),
+    );
+  });
+
   test('auto モード時、有効な Codex API キー優先で両方初期化される', () => {
     // Given: auto モード、両方の認証情報が存在（Codex キーは20文字以上）
     const agentMode = 'auto';

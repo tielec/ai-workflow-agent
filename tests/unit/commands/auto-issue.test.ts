@@ -72,7 +72,7 @@ await jest.unstable_mockModule('@octokit/rest', () => ({
   },
 }));
 
-const { handleAutoIssueCommand } = await import('../../../src/commands/auto-issue.js');
+const { handleAutoIssueCommand, CATEGORY_AGENT_PRIORITY } = await import('../../../src/commands/auto-issue.js');
 const repositoryUtils = await import('../../../src/core/repository-utils.js');
 const autoIssueOutput = await import('../../../src/commands/auto-issue-output.js');
 const { config } = await import('../../../src/core/config.js');
@@ -137,11 +137,122 @@ describe('auto-issue command handler', () => {
       codexClient: {},
       claudeClient: {},
     } as any);
+    logger.debug = jest.fn();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+  });
+
+  describe('Issue #390: カテゴリ別エージェント優先順位', () => {
+    it('CATEGORY_AGENT_PRIORITY に全カテゴリが定義され、すべて claude-first になる', () => {
+      const categories = ['bug', 'refactor', 'enhancement', 'all'];
+
+      for (const category of categories) {
+        expect(CATEGORY_AGENT_PRIORITY[category]).toBeDefined();
+        expect(CATEGORY_AGENT_PRIORITY[category]).toBe('claude-first');
+      }
+    });
+
+    it.each([
+      { category: 'bug' as const },
+      { category: 'refactor' as const },
+      { category: 'enhancement' as const },
+    ])('auto モードで $category カテゴリは claude-first を setupAgentClients に渡す', async ({ category }) => {
+      // Given: auto モード、各カテゴリ
+      mockAnalyze.mockResolvedValue([]);
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
+      mockAnalyzeForEnhancements.mockResolvedValue([]);
+
+      // When: handleAutoIssueCommand を実行
+      await handleAutoIssueCommand({
+        category,
+        agent: 'auto',
+      });
+
+      // Then: agentPriority: claude-first が渡される
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(`Agent priority for category '${category}': claude-first`),
+      );
+    });
+
+    it('明示的に agent=codex を指定した場合は agentPriority が適用されない', async () => {
+      mockAnalyze.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'codex',
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'codex',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: undefined }),
+      );
+    });
+
+    it('明示的に agent=claude を指定した場合は agentPriority が適用されない', async () => {
+      mockAnalyze.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'claude',
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'claude',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: undefined }),
+      );
+    });
+
+    it('Claude 認証情報が無い場合でも claude-first から Codex へフォールバックする（TC-INT-007）', async () => {
+      // Given: Claude の認証情報が欠如し、Codex のみ利用可能な状態を模擬
+      mockResolveAgentCredentials.mockReturnValueOnce({
+        codexApiKey: 'fallback-codex-key',
+        claudeCodeToken: null,
+        claudeCredentialsPath: null,
+      } as any);
+      mockSetupAgentClients.mockImplementationOnce((agentMode, repoPath, credentials, options) => {
+        expect(agentMode).toBe('auto');
+        expect(options.agentPriority).toBe('claude-first');
+        expect(credentials.claudeCodeToken).toBeNull();
+        expect(credentials.claudeCredentialsPath).toBeNull();
+        logger.info('Claude agent unavailable. Using Codex (model=gpt-5.1-codex-max).');
+        return { codexClient: {}, claudeClient: null } as any;
+      });
+      mockAnalyze.mockResolvedValue([]);
+
+      // When: auto/claude-first でコマンド実行（Claude 認証無し）
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'auto',
+      });
+
+      // Then: Codex のみが初期化され、フォールバックログが出力される
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.objectContaining({
+          codexApiKey: 'fallback-codex-key',
+          claudeCodeToken: null,
+          claudeCredentialsPath: null,
+        }),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Claude agent unavailable. Using Codex'),
+      );
+    });
   });
 
   /**
