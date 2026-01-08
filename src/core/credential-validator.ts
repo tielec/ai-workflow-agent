@@ -428,15 +428,15 @@ class CodexChecker implements Checker {
     try {
       const codexClient = new CodexAgentClient();
 
-      // 10秒タイムアウトで軽量プロンプトを実行
+      // 30秒タイムアウトで軽量プロンプトを実行（Docker環境での初回起動を考慮）
       await Promise.race([
         codexClient.executeTask({
           prompt: 'ping',
           maxTurns: 1,
-          verbose: false,
+          verbose: true, // Jenkins環境でのデバッグのためログを有効化
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('Timeout after 30 seconds')), 30000)
         ),
       ]);
 
@@ -538,15 +538,15 @@ class ClaudeChecker implements Checker {
     try {
       const claudeClient = new ClaudeAgentClient();
 
-      // 10秒タイムアウトで軽量プロンプトを実行
+      // 30秒タイムアウトで軽量プロンプトを実行（Docker環境での初回起動を考慮）
       await Promise.race([
         claudeClient.executeTask({
           prompt: 'ping',
           maxTurns: 1,
-          verbose: false,
+          verbose: true, // Jenkins環境でのデバッグのためログを有効化
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('Timeout after 30 seconds')), 30000)
         ),
       ]);
 

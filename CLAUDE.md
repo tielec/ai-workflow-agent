@@ -154,7 +154,8 @@ node dist/index.js validate-credentials --check all --exit-on-error
 **疎通チェックの実装**:
 - `CodexAgentClient` / `ClaudeAgentClient` を再利用（execute コマンドと同じロジック）
 - 軽量プロンプト（"ping"）を `maxTurns: 1` で実行
-- タイムアウト: 10秒
+- タイムアウト: 30秒（Docker環境での初回起動を考慮）
+- 詳細ログ: 有効（Jenkins環境でのデバッグのため `verbose: true`）
 
 **出力例（JSON形式）**:
 ```json
