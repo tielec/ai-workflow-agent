@@ -9,7 +9,7 @@ AI Workflow Agent リポジトリで開発するための環境構築手順で�
 - Git
 - Codex API キー（`gpt-5.1-codex-max` 高推論ライセンス。旧モデルは `legacy` エイリアスで指定可能）
 - Claude Code 認証情報（`claude login` で生成される `credentials.json`）
-- GitHub パーソナルアクセストークン（`repo`, `workflow`, `read:org` スコープ）
+- GitHub パーソナルアクセストークン（`repo` スコープ）
 - （任意）Docker Desktop（Jenkins コンテナと同条件で動作確認したい場合）
 
 ## 2. クローンと依存関係のインストール

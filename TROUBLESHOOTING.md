@@ -105,7 +105,7 @@ nvm use --lts
 ### `GITHUB_TOKEN and GITHUB_REPOSITORY are required`
 
 - 両方の環境変数が設定されているか確認します。
-- PAT のスコープは `repo`, `workflow`, `read:org` が必要です。
+- PAT のスコープは `repo` が必要です。
 - Jenkins では `github-token` のシークレットが存在するか、ジョブ DSL を再適用してください。
 
 ### API レート制限 / Abuse Detection

@@ -1080,7 +1080,7 @@ Evaluation Phase (Phase 9) 完了後、オプションで `.ai-workflow/issue-*`
 ## 環境変数
 
 ### 必須
-- `GITHUB_TOKEN`: GitHub パーソナルアクセストークン（repo、workflow、read:org スコープ）
+- `GITHUB_TOKEN`: GitHub パーソナルアクセストークン（`repo` スコープ）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式（メタデータからフォールバック）
 
 ### エージェント設定（Issue #188で整理）

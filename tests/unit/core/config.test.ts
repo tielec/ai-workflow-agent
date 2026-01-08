@@ -62,7 +62,7 @@ describe('Config - GitHub関連メソッド', () => {
 
       // When/Then: getGitHubToken()を呼び出すと例外がスローされる
       expect(() => testConfig.getGitHubToken()).toThrow(
-        'GITHUB_TOKEN environment variable is required. Please set your GitHub personal access token with repo, workflow, and read:org scopes.',
+        'GITHUB_TOKEN environment variable is required. Please set your GitHub personal access token with repo scopes.',
       );
     });
 

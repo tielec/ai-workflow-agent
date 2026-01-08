@@ -21,7 +21,7 @@ import type {
   ValidationSummary,
 } from '../types/validation.js';
 
-const REQUIRED_GITHUB_SCOPES = ['repo', 'workflow', 'read:org'];
+const REQUIRED_GITHUB_SCOPES = ['repo'];
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 const isBlank = (value: string | null | undefined): boolean => {

@@ -8,7 +8,7 @@ TypeScript CLI を Docker / Jenkins 上で実行する際に必要な認証情�
 |------|-------------|------|
 | Codex API キー | `CODEX_API_KEY`（または `OPENAI_API_KEY`） | `gpt-5.1-codex-max` の高推論キー（`legacy` で旧モデルも指定可） |
 | Claude 認証情報 | `CLAUDE_CODE_CREDENTIALS_PATH`（JSON ファイル） | Claude Code CLI で取得した OAuth トークン |
-| GitHub API | `GITHUB_TOKEN` | `repo`, `workflow`, `read:org` を付与した PAT |
+| GitHub API | `GITHUB_TOKEN` | `repo` を付与した PAT |
 | リポジトリ名 | `GITHUB_REPOSITORY` | `tielec/ai-workflow-agent` 形式 |
 
 ### Codex API キー
@@ -29,7 +29,7 @@ TypeScript CLI を Docker / Jenkins 上で実行する際に必要な認証情�
 
 ### GitHub PAT
 
-- `repo`, `workflow`, `read:org` スコープ付き PAT を発行。
+- `repo` スコープ付き PAT を発行。
 - Jenkins では Job DSL パラメータとして定義します（`password` 型でマスキング表示）。
 
 ## Jenkins での環境変数例
