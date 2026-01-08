@@ -130,7 +130,7 @@ Anthropic API キー（任意）
 
 // Develop / Stable フォルダ配下にジョブを作成
 genericFolders.each { folder ->
-    String jobName = "ai-workflow/${folder.name}/validate-credentials"
+    String jobName = "AI_Workflow/${folder.name}/validate-credentials"
     String descriptionHeader = "Target Branch: ${folder.displayName} (${folder.branch})"
     createJob(jobName, descriptionHeader, folder.branch)
 }
