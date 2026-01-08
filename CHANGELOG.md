@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #608**: validate-credentials パイプラインで Setup Environment ステージが不要なエラーを起こす問題を修正
+  - `validate-credentials` Jenkinsfile から `stage('Setup Environment')` ブロックを削除
+  - 認証情報検証ジョブでは Issue URL からのリポジトリクローンは不要であり、`setupEnvironment()` 関数の呼び出しが原因で `git fetch origin` エラーが発生していた
+  - `setupNodeEnvironment()` のみを使用することで、Node.js 環境準備と認証情報検証に特化したパイプラインを実現
+  - 修正ファイル: `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile`
+  - テストカバレッジ: 3件のテスト（ユニット + 統合、100%成功）
+
 - **Issue #603**: Prevent execute step outputs from landing in the wrong working directory and improve traceability
   - Working directory resolution now fails fast instead of silently falling back to `process.cwd()`, with `[Issue #603]` debug logs showing the validated path and whether it diverges from the process cwd
   - Added detailed resolution traces in `working-directory-resolver.ts` plus logging in `agent-executor` and `claude-agent-client` to pinpoint mismatches between metadata, REPOS_ROOT, and the requested directory
