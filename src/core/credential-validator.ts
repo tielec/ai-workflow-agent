@@ -584,13 +584,17 @@ class OpenAIChecker implements Checker {
     const apiKey = config.getOpenAiApiKey()?.trim() ?? process.env.OPENAI_API_KEY?.trim() ?? '';
 
     if (isBlank(apiKey)) {
-      checks.push({ name: 'OPENAI_API_KEY', status: 'failed', message: 'Not set' });
+      checks.push({
+        name: 'OPENAI_API_KEY',
+        status: 'skipped',
+        message: 'Not configured (optional for follow-up issue generation)',
+      });
       checks.push({
         name: 'OpenAI API',
         status: 'skipped',
-        message: 'Skipped (key not set)',
+        message: 'Skipped (key not configured)',
       });
-      return { status: 'failed', checks };
+      return { status: 'passed', checks };
     }
 
     checks.push({ name: 'OPENAI_API_KEY', status: 'passed', value: this.maskValue(apiKey) });
@@ -633,13 +637,17 @@ class AnthropicChecker implements Checker {
       config.getAnthropicApiKey()?.trim() ?? process.env.ANTHROPIC_API_KEY?.trim() ?? '';
 
     if (isBlank(apiKey)) {
-      checks.push({ name: 'ANTHROPIC_API_KEY', status: 'failed', message: 'Not set' });
+      checks.push({
+        name: 'ANTHROPIC_API_KEY',
+        status: 'skipped',
+        message: 'Not configured (optional for follow-up issue generation)',
+      });
       checks.push({
         name: 'Anthropic API',
         status: 'skipped',
-        message: 'Skipped (key not set)',
+        message: 'Skipped (key not configured)',
       });
-      return { status: 'failed', checks };
+      return { status: 'passed', checks };
     }
 
     checks.push({
