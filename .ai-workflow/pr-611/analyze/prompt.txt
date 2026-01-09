@@ -1,6 +1,6 @@
 PR 611: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
-Repo: /tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent
-Output: /tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.json
+Repo: /tmp/ai-workflow-repos-60-4e617738/ai-workflow-agent
+Output: /tmp/ai-workflow-repos-60-4e617738/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.json
 
 # PRレビューコメント — 分析フェーズ
 
@@ -17,15 +17,413 @@ PRレビューコメントのトリアージを支援します。提供された
 ## 入力コンテキスト
 - PR番号: 611
 - PRタイトル: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
-- 対象リポジトリ: /tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent
+- 対象リポジトリ: /tmp/ai-workflow-repos-60-4e617738/ai-workflow-agent
 - コメント（一括）:
-### Comment #2674304789
+### Comment #2674336980
 - File: src/commands/execute/agent-setup.ts
 - Line: 370
 - Author: yuto-takashi
 - Body:
 ```
-今回の修正によって可読性が悪くなったともう。リファクタリングしたほうが良さそう。
+ご指摘ありがとうございます。autoモードのCodex/Claude優先分岐がネストして読みにくくなっているのが原因だと思うので、優先度ごとの処理を小さなヘルパー関数に分けて、フォールバックのログ/初期化順序が見通せる形にリファクタする案で進めてよいでしょうか。
+```
+- Diff:
+```diff
+
+```
+- File Content:
+```
+import path from 'node:path';
+import process from 'node:process';
+import fs from 'fs-extra';
+
+import { logger } from '../../utils/logger.js';
+import { config } from '../../core/config.js';
+import { CodexAgentClient, resolveCodexModel, DEFAULT_CODEX_MODEL } from '../../core/codex-agent-client.js';
+import { ClaudeAgentClient, resolveClaudeModel, DEFAULT_CLAUDE_MODEL } from '../../core/claude-agent-client.js';
+import {
+  CODEX_MIN_API_KEY_LENGTH,
+  detectCodexCliAuth,
+  isValidCodexApiKey,
+} from '../../core/helpers/codex-credentials.js';
+import { PhaseName } from '../../types.js';
+
+/**
+ * エージェント優先順位（Issue #306）
+ *
+ * - 'codex-first': Codex を優先的に使用し、失敗時に Claude へフォールバック
+ * - 'claude-first': Claude を優先的に使用し、失敗時に Codex へフォールバック
+ *
+ * @example
+ * // claude-first の場合
+ * // 1. Claude Agent を試行
+ * // 2. Claude 失敗時 → Codex Agent にフォールバック
+ *
+ * // codex-first の場合
+ * // 1. Codex Agent を試行
+ * // 2. Codex 失敗時 → Claude Agent にフォールバック
+ */
+export type AgentPriority = 'codex-first' | 'claude-first';
+
+/**
+ * フェーズごとのエージェント優先順位マッピング（Issue #306）
+ *
+ * `--agent auto` モード実行時に、フェーズの特性に応じて
+ * エージェントの優先順位を自動的に切り替えます。
+ *
+ * | 優先順位 | 対象フェーズ | 理由 |
+ * |---------|-------------|------|
+ * | claude-first | planning, requirements, design, test_scenario, documentation, report, evaluation | 情報整理・戦略立案・ドキュメント作成が得意 |
+ * | codex-first | implementation, test_implementation, testing | 具体的なコード実装・テスト実行が得意 |
+ *
+ * @example
+ * const priority = PHASE_AGENT_PRIORITY['planning']; // 'claude-first'
+ * const priority = PHASE_AGENT_PRIORITY['implementation']; // 'codex-first'
+ */
+export const PHASE_AGENT_PRIORITY: Record<PhaseName, AgentPriority> = {
+  planning: 'claude-first',
+  requirements: 'claude-first',
+  design: 'claude-first',
+  test_scenario: 'claude-first',
+  implementation: 'codex-first',
+  test_implementation: 'codex-first',
+  testing: 'codex-first',
+  documentation: 'claude-first',
+  report: 'claude-first',
+  evaluation: 'claude-first',
+};
+
+/**
+ * API キーの最小文字数
+ * OpenAI/Codex API キーは通常 40 文字以上
+ */
+/**
+ * エージェント初期化結果
+ */
+export interface AgentSetupResult {
+  /**
+   * Codex エージェントクライアント（未初期化時は null）
+   */
+  codexClient: CodexAgentClient | null;
+
+  /**
+   * Claude エージェントクライアント（未初期化時は null）
+   */
+  claudeClient: ClaudeAgentClient | null;
+}
+
+/**
+ * 認証情報解決結果
+ */
+export interface CredentialsResult {
+  /**
+   * Codex API キー（未設定時は null）
+   */
+  codexApiKey: string | null;
+
+  /**
+   * Claude Code トークン（未設定時は null）
+   * CLAUDE_CODE_OAUTH_TOKEN または CLAUDE_CODE_API_KEY
+   */
+  claudeCodeToken: string | null;
+
+  /**
+   * Claude 認証情報ファイルパス（未設定時は null）
+   * @deprecated credentials.json は非推奨。CLAUDE_CODE_OAUTH_TOKEN または CLAUDE_CODE_API_KEY を使用してください。
+   */
+  claudeCredentialsPath: string | null;
+}
+
+/**
+ * 認証情報を解決（フォールバック処理）
+ *
+ * Codex API キーと Claude 認証情報を以下の優先順位で探索します:
+ *
+ * **Codex API キー**:
+ * 1. CODEX_API_KEY 環境変数
+ *
+ * **Claude 認証情報**:
+ * 1. CLAUDE_CODE_OAUTH_TOKEN 環境変数（推奨）
+ * 2. CLAUDE_CODE_API_KEY 環境変数（フォールバック）
+ * 3. credentials.json ファイル（レガシー、非推奨）
+ *    - CLAUDE_CODE_CREDENTIALS_PATH 環境変数
+ *    - ~/.claude-code/credentials.json
+ *    - <repo>/.claude-code/credentials.json
+ *
+ * @param homeDir - ホームディレクトリ
+ * @param repoRoot - リポジトリルート
+ * @returns 認証情報解決結果
+ */
+export function resolveAgentCredentials(homeDir: string, repoRoot: string): CredentialsResult {
+  // Codex API キーの解決
+  const codexApiKey = config.getCodexApiKey();
+
+  // デバッグログ: API キーの長さを出力（値自体は出力しない）
+  if (codexApiKey !== null) {
+    const trimmedLength = codexApiKey.trim().length;
+    logger.debug(`CODEX_API_KEY detected (length=${trimmedLength}, valid=${isValidCodexApiKey(codexApiKey)})`);
+    if (!isValidCodexApiKey(codexApiKey)) {
+      logger.warn(
+        `CODEX_API_KEY is set but appears invalid (length=${trimmedLength}, expected>=${CODEX_MIN_API_KEY_LENGTH}). ` +
+          'It will be ignored.',
+      );
+    }
+  }
+
+  // Claude Code トークンの解決（OAUTH_TOKEN → API_KEY）
+  const claudeCodeToken = config.getClaudeCodeToken();
+
+  // Claude 認証情報ファイルパスの候補を探索（レガシー、非推奨）
+  let claudeCredentialsPath: string | null = null;
+
+  if (!claudeCodeToken) {
+    const claudeCandidatePaths: string[] = [];
+
+    // 優先度1: CLAUDE_CODE_CREDENTIALS_PATH 環境変数
+    const claudeCredentialsEnv = config.getClaudeCredentialsPath();
+    if (claudeCredentialsEnv) {
+      claudeCandidatePaths.push(claudeCredentialsEnv);
+    }
+
+    // 優先度2: ~/.claude-code/credentials.json
+    claudeCandidatePaths.push(path.join(homeDir, '.claude-code', 'credentials.json'));
+
+    // 優先度3: <repo>/.claude-code/credentials.json
+    claudeCandidatePaths.push(path.join(repoRoot, '.claude-code', 'credentials.json'));
+
+    // 最初に存在するファイルパスを採用
+    claudeCredentialsPath =
+      claudeCandidatePaths.find((candidate) => candidate && fs.existsSync(candidate)) ?? null;
+
+    if (claudeCredentialsPath) {
+      logger.warn(
+        'Using credentials.json for Claude Code authentication. This is deprecated. ' +
+          'Please set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY environment variable instead.',
+      );
+    }
+  }
+
+  return {
+    codexApiKey,
+    claudeCodeToken,
+    claudeCredentialsPath,
+  };
+}
+
+/**
+ * エージェントセットアップオプション（Issue #301, #302）
+ */
+export interface AgentSetupOptions {
+  /**
+   * Claude モデル指定（エイリアスまたはフルモデルID）
+   * 未指定時は環境変数 CLAUDE_MODEL → デフォルト (opus) の順で解決
+   */
+  claudeModel?: string;
+
+  /**
+   * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
+   * 未指定時は環境変数 CODEX_MODEL → デフォルト (gpt-5.1-codex-max) の順で解決
+   */
+  codexModel?: string;
+
+  /**
+   * エージェント優先順位（Issue #306, #390）
+   * - 'codex-first': Codex 優先、Claude フォールバック（デフォルト）
+   * - 'claude-first': Claude 優先、Codex フォールバック
+   *
+   * @default 'codex-first'
+   */
+  agentPriority?: AgentPriority;
+}
+
+/**
+ * Codex/Claude クライアントを初期化
+ *
+ * エージェントモードに基づいて、Codex および Claude エージェントクライアントを初期化します。
+ *
+ * **エージェントモード動作**:
+ * - 'codex': Codex のみ使用（codexApiKey 必須、なければエラー）
+ * - 'claude': Claude のみ使用（claudeCodeToken または claudeCredentialsPath 必須、なければエラー）
+ * - 'auto': agentPriority に基づいて優先順位を決定
+ *   - 'codex-first' (デフォルト): Codex 優先、Claude フォールバック
+ *   - 'claude-first': Claude 優先、Codex フォールバック
+ *
+ * @param agentMode - エージェントモード ('auto' | 'codex' | 'claude')
+ * @param workingDir - 作業ディレクトリ
+ * @param credentials - 認証情報（codexApiKey, claudeCodeToken, claudeCredentialsPath）
+ * @param options - エージェントセットアップオプション（Issue #301, #390）
+ * @returns エージェント初期化結果
+ * @throws {Error} 必須の認証情報が存在しない場合
+ */
+export function setupAgentClients(
+  agentMode: 'auto' | 'codex' | 'claude',
+  workingDir: string,
+  credentials: CredentialsResult,
+  options: AgentSetupOptions = {},
+): AgentSetupResult {
+  const { codexApiKey, claudeCodeToken, claudeCredentialsPath } = credentials;
+  let codexClient: CodexAgentClient | null = null;
+  let claudeClient: ClaudeAgentClient | null = null;
+
+  // Claude モデルの解決（CLI > 環境変数 > デフォルト）（Issue #301）
+  const claudeModelInput = options.claudeModel ?? config.getClaudeModel();
+  const resolvedClaudeModel = resolveClaudeModel(claudeModelInput);
+  logger.debug(`Claude model resolved: ${claudeModelInput ?? '(default)'} -> ${resolvedClaudeModel}`);
+
+  // Codex モデルの解決（CLI > 環境変数 > デフォルト）（Issue #302）
+  const codexModelInput = options.codexModel ?? config.getCodexModel();
+  const resolvedCodexModel = resolveCodexModel(codexModelInput);
+  logger.debug(`Codex model resolved: ${codexModelInput ?? '(default)'} -> ${resolvedCodexModel}`);
+
+  // Claude の認証情報が利用可能かどうか
+  const hasClaudeCredentials = !!(claudeCodeToken || claudeCredentialsPath);
+  const { authFilePath: codexAuthFile, candidates: codexAuthCandidates } = detectCodexCliAuth();
+  const hasCodexCliAuth = codexAuthFile !== null;
+  const hasCodexCredentials = isValidCodexApiKey(codexApiKey) || hasCodexCliAuth;
+  const codexCredentialHints: string[] = [];
+  if (!isValidCodexApiKey(codexApiKey)) {
+    codexCredentialHints.push('CODEX_API_KEY missing or invalid');
+  }
+  if (!hasCodexCliAuth) {
+    if (codexAuthCandidates.length > 0) {
+      codexCredentialHints.push(
+        `Codex auth file not found at ${codexAuthCandidates.join(', ')}`,
+      );
+    } else {
+      codexCredentialHints.push('CODEX_HOME not set and HOME/.codex/auth.json missing');
+    }
+  }
+  const codexUnavailableReason =
+    codexCredentialHints.join('; ') || 'no Codex credentials detected';
+
+  switch (agentMode) {
+    case 'codex': {
+      if (!hasCodexCredentials) {
+        throw new Error(
+          `Agent mode "codex" requires CODEX_API_KEY (>=${CODEX_MIN_API_KEY_LENGTH} characters) ` +
+            'or CODEX_AUTH_JSON (Codex CLI auth file).',
+        );
+      }
+      if (isValidCodexApiKey(codexApiKey)) {
+        const trimmed = codexApiKey.trim();
+        process.env.CODEX_API_KEY = trimmed;
+        if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+          process.env.OPENAI_API_KEY = trimmed;
+        }
+      } else {
+        logger.info('Using Codex auth.json (CODEX_HOME) for codex agent mode.');
+      }
+
+      codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
+      logger.info(`Codex agent enabled (codex mode, model=${resolvedCodexModel}).`);
+      break;
+    }
+    case 'claude': {
+      // Claude 専用モード: claudeCodeToken もしくは claudeCredentialsPath 必須
+      if (!hasClaudeCredentials) {
+        throw new Error(
+          'Agent mode "claude" requires Claude Code credentials. ' +
+            'Set CLAUDE_CODE_OAUTH_TOKEN or CLAUDE_CODE_API_KEY environment variable.',
+        );
+      }
+
+      // ClaudeAgentClient には認証パスとモデルを渡す
+      claudeClient = new ClaudeAgentClient({
+        workingDir,
+        credentialsPath: claudeCredentialsPath ?? undefined,
+        model: resolvedClaudeModel,
+      });
+      logger.info(`Claude Code agent enabled (claude mode, model=${resolvedClaudeModel}).`);
+      break;
+    }
+    case 'auto':
+    default: {
+      const priority: AgentPriority = options.agentPriority ?? 'codex-first';
+
+      const enableCodexClient = (fallbackMessage?: string) => {
+        const usingApiKey = isValidCodexApiKey(codexApiKey);
+        if (usingApiKey) {
+          const trimmed = codexApiKey.trim();
+          process.env.CODEX_API_KEY = trimmed;
+          if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+            process.env.OPENAI_API_KEY = trimmed;
+          }
+        }
+        const message =
+          fallbackMessage ??
+          (usingApiKey
+            ? `Codex API key detected. Codex agent enabled (model=${resolvedCodexModel}).`
+            : `Codex agent enabled via Codex CLI credentials (model=${resolvedCodexModel}).`);
+        logger.info(message);
+        codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
+      };
+
+      if (priority === 'claude-first') {
+        if (hasClaudeCredentials) {
+          logger.info(
+            `Claude Code agent enabled (auto mode, claude-first priority, model=${resolvedClaudeModel}).`,
+          );
+          claudeClient = new ClaudeAgentClient({
+            workingDir,
+            credentialsPath: claudeCredentialsPath ?? undefined,
+            model: resolvedClaudeModel,
+          });
+        }
+
+        if (hasCodexCredentials) {
+          const codexMessage = claudeClient
+            ? `Codex credentials detected. Fallback available (model=${resolvedCodexModel}).`
+            : `Claude agent unavailable. Using Codex (model=${resolvedCodexModel}).`;
+          enableCodexClient(codexMessage);
+        } else if (!claudeClient) {
+          logger.warn('Both Claude and Codex agents unavailable.');
+        }
+      } else {
+        // Auto モード: Codex を優先、Claude にフォールバック（従来動作）
+        if (hasCodexCredentials) {
+          enableCodexClient();
+        }
+
+        if (hasClaudeCredentials) {
+          if (!codexClient) {
+            logger.info(
+              `Codex agent unavailable (${codexUnavailableReason}). Using Claude Code (model=${resolvedClaudeModel}).`,
+            );
+          } else {
+            logger.info(
+              `Claude Code credentials detected. Fallback available (model=${resolvedClaudeModel}).`,
+            );
+          }
+          claudeClient = new ClaudeAgentClient({
+            workingDir,
+            credentialsPath: claudeCredentialsPath ?? undefined,
+            model: resolvedClaudeModel,
+          });
+        } else if (!codexClient) {
+          logger.warn(
+            `Codex agent unavailable (${codexUnavailableReason}) and no Claude credentials configured.`,
+          );
+        }
+      }
+      break;
+    }
+  }
+
+  return {
+    codexClient,
+    claudeClient,
+  };
+}
+
+```
+
+### Comment #2674386641
+- File: src/commands/execute/agent-setup.ts
+- Line: 370
+- Author: yuto-takashi
+- Body:
+```
+はい、その方針で進めていいです。
 ```
 - Diff:
 ```diff
@@ -424,7 +822,7 @@ export function setupAgentClients(
 - 返信は簡潔で、プロフェッショナルで、実行可能な内容にする
 
 ## 出力
-**出力先**: `/tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.json`
+**出力先**: `/tmp/ai-workflow-repos-60-4e617738/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.json`
 
 **重要**: 必ず指定されたファイルパス（`{output_file_path}`）にJSONを書き出してください。  
 ファイル書き込みツールを使用して、以下の構造のJSONファイルを作成してください。
