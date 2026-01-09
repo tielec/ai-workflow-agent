@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #615**: PRコメント分析でスレッドコンテキストと承認パターン検出機能を追加し、ユーザー承認の誤判定問題を修正
+  - `buildAnalyzePrompt()` をスレッド単位でコメントをグループ化するよう拡張（`formatThreadBlock()` 関数追加）
+  - AI返信コメントと人間のコメントを識別し、時系列順で整理する `[AI Reply]`/`[User Comment]` ラベル機能を実装
+  - 「AI提案→ユーザー承認」パターンを `code_change` として正しく判定する承認パターン検出機能を追加
+  - 日英両言語のプロンプトテンプレートに承認パターン検出指示（日本語：「はい」「OK」「その方針で進めて」、英語：「yes」「LGTM」「go ahead」等）を追加
+  - スレッド全体の文脈を考慮した分析により、単なる返信として誤判定されていた承認コメントが正しくコード変更として処理されるよう改善
+  - `thread_id` がないコメントは `unknown-{comment_id}` として個別スレッド化するフォールバック処理を実装
+  - 修正ファイル: `src/commands/pr-comment/analyze.ts`、`src/prompts/pr-comment/ja/analyze.txt`、`src/prompts/pr-comment/en/analyze.txt`
+  - テストカバレッジ: 20件のテスト（ユニット + 統合、成功率95%、1件スキップ）
+
 - **Issue #608**: validate-credentials パイプラインで Setup Environment ステージが不要なエラーを起こす問題を修正
   - `validate-credentials` Jenkinsfile から `stage('Setup Environment')` ブロックを削除
   - 認証情報検証ジョブでは Issue URL からのリポジトリクローンは不要であり、`setupEnvironment()` 関数の呼び出しが原因で `git fetch origin` エラーが発生していた

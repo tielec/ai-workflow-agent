@@ -67,3 +67,49 @@ Notes:
 - Include every input comment exactly once
 - `proposed_changes` can be an empty array for non-`code_change` types
 - If a file is missing, keep `proposed_changes` empty and use `discussion` or `reply`
+
+## Understanding Thread Context
+
+Comments are grouped by thread. Each thread contains:
+
+- `[User Comment]`: Comments posted by the reviewer
+- `[AI Reply]`: Replies previously posted by AI
+
+**Important**: Always consider the full thread when deciding.
+
+## Approval Pattern Detection
+
+When the following patterns appear within a thread, classify the **latest comment** as `code_change`.
+
+### Pattern 1: AI proposal → User approval
+
+1. The previous comment is an AI proposal (e.g., "shall I", "would you like me to", "I suggest we", "let me know if you'd like").
+2. The current comment is user approval (e.g., "yes", "OK", "approved", "LGTM", "go ahead", "please proceed", "sounds good").
+
+Decision:
+- `type: "code_change"`
+- `confidence: "high"`
+- `proposed_changes` should include concrete implementation of the AI proposal
+
+### Pattern 2: Question → Answer
+
+1. The previous comment is an AI question.
+2. The current comment is a user answer with specific instructions.
+
+Decision:
+- `type: "code_change"`
+- `confidence: "medium"`
+- `proposed_changes` should implement the user’s instruction
+
+### Pattern 3: Simple reply (no approval)
+
+If there is no AI proposal or no approval keywords:
+
+- Use `type: "reply"` or `type: "discussion"`
+- `proposed_changes: []`
+
+## Notes
+
+- **Always reference the full thread context**, not only the latest comment
+- When a user explicitly approves or instructs, treat it as a code change
+- If approval detection is uncertain, set `confidence: "medium"`
