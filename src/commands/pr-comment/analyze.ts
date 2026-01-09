@@ -127,7 +127,19 @@ async function refreshComments(
     const latestComments = await fetchLatestUnresolvedComments(githubClient, prNumber);
     const metadata = await metadataManager.getMetadata();
     const existingIds = new Set(Object.keys(metadata.comments));
-    const newComments = latestComments.filter((c) => !existingIds.has(String(c.id)));
+    const replyIds = new Set(
+      Object.values(metadata.comments)
+        .map((comment) => comment.reply_comment_id)
+        .filter((id): id is number => id !== null && id !== undefined),
+    );
+    const excludedCount = latestComments.filter((comment) => replyIds.has(comment.id)).length;
+    if (excludedCount > 0) {
+      logger.debug(`Excluded ${excludedCount} AI reply comment(s)`);
+    }
+
+    const newComments = latestComments.filter(
+      (comment) => !existingIds.has(String(comment.id)) && !replyIds.has(comment.id),
+    );
 
     if (newComments.length === 0) {
       logger.debug('No new comments found.');

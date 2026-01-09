@@ -99,6 +99,9 @@ ai-workflow pr-comment analyze --pr <number> | --pr-url <URL> [--dry-run] [--age
 
 `pr-comment analyze` は実行直前に `refreshComments()` を呼び出し、GitHub から未解決コメントを再取得した上で既存メタデータにない `comment_id` だけを `pending` 状態で追加する `PRCommentMetadataManager.addComments()` を実行するため、`pr-comment init` 実行後や中断再開後に投稿された新規コメントも漏れなく分析対象になります（重複は metadata 内の ID で除外されます）。
 
+**AI返信コメントの自動除外機能（Issue #614で追加）**:
+`refreshComments()` は取得したコメントの中からAI自身の返信コメント（メタデータの `reply_comment_id` に記録されたID）を自動的に除外し、2重返信を防ぎます。除外されたAI返信コメント数は `logger.debug("Excluded N AI reply comment(s)")` 形式でデバッグログに出力されます。
+
 **出力ファイル**:
 
 `response-plan.json` は以下の構造を持ちます:
