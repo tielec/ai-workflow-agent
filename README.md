@@ -1480,6 +1480,8 @@ ai-workflow pr-comment execute --pr 123 --dry-run
 -ai-workflow pr-comment finalize --pr-url https://github.com/owner/repo/pull/123
 ```
 
+実行フェーズでは、`metadataManager.getPendingComments()` が `reply_comment_id` を持つコメントを事前に除外し、`processComment()` でも返信済みのコメントを検知して `Already replied` ログを出力しながら `skipped` ステータスへ更新することで二重返信を防止します。dry-run モードではステータス更新を行わずログのみを出力しますが、実行サマリーの `summary.by_status.skipped` にはスキップされた件数が反映されます。
+
 **分析フェーズの出力**: `pr-comment analyze` は `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` に JSON を書き出し、CLI はこのファイルを最優先で読み込みます。ファイル生成に失敗した場合だけ、従来の生出力パース＋フォールバック戦略が動作します。
 
 `pr-comment analyze` を実行する直前に `refreshComments()` が GitHub から現在の未解決コメントを再取得し、`comment-resolution-metadata.json` の `comment_id` を基準に差分を判定したうえで `pending` 状態でメタデータに追加するため、`pr-comment init` 実行後や中断再開後に投稿された新規コメントも漏れなく分析対象となり、追加された件数はログ（例: `Found 3 new comment(s)`）に出力されます。
