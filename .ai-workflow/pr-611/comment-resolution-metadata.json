@@ -62,12 +62,18 @@
         "thread_id": "PRRT_kwDOQEEbbM5onfMB",
         "pr_number": 611
       },
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "started_at": "2026-01-09T00:44:56.767Z",
+      "completed_at": "2026-01-09T00:44:57.867Z",
       "retry_count": 0,
-      "resolution": null,
-      "reply_comment_id": null,
+      "resolution": {
+        "type": "discussion",
+        "confidence": "high",
+        "reply": "方針ありがとうございます。優先度ごとにヘルパーへ分離し、フォールバックのログと初期化順を整理する形でリファクタを進めます。",
+        "changes": [],
+        "analysis_notes": "autoモードの優先分岐の読みやすさに関する方針確認で、具体的な変更指示よりも進め方の合意形成が目的のため議論扱いと判断。"
+      },
+      "reply_comment_id": 2674395185,
       "resolved_at": null,
       "error": null
     },
@@ -87,12 +93,18 @@
         "thread_id": "PRRT_kwDOQEEbbM5onfMB",
         "pr_number": 611
       },
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "started_at": "2026-01-09T00:44:57.868Z",
+      "completed_at": "2026-01-09T00:44:58.730Z",
       "retry_count": 0,
-      "resolution": null,
-      "reply_comment_id": null,
+      "resolution": {
+        "type": "reply",
+        "confidence": "high",
+        "reply": "承知しました。ヘルパー分割とフォールバック順の整理で進め、進捗がまとまり次第共有します。",
+        "changes": [],
+        "analysis_notes": "直前のリファクタ案に対する承認で追加対応は不要だが、受領報告の返信が適切なため返信扱いと判断。"
+      },
+      "reply_comment_id": 2674395199,
       "resolved_at": null,
       "error": null
     }
@@ -100,16 +112,16 @@
   "summary": {
     "total": 3,
     "by_status": {
-      "pending": 2,
+      "pending": 0,
       "in_progress": 0,
-      "completed": 1,
+      "completed": 3,
       "skipped": 0,
       "failed": 0
     },
     "by_type": {
       "code_change": 0,
-      "reply": 0,
-      "discussion": 1,
+      "reply": 1,
+      "discussion": 2,
       "skip": 0
     }
   },
@@ -119,7 +131,7 @@
     "total_cost_usd": 0
   },
   "created_at": "2026-01-09T00:18:11.445Z",
-  "updated_at": "2026-01-09T00:44:48.483Z",
+  "updated_at": "2026-01-09T00:44:58.730Z",
   "analyze_completed_at": "2026-01-09T00:44:48.480Z",
   "execute_completed_at": null,
   "response_plan_path": "/tmp/ai-workflow-repos-60-4e617738/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.md",
