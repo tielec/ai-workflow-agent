@@ -63,12 +63,12 @@
     "total_cost_usd": 0
   },
   "created_at": "2026-01-09T00:18:11.445Z",
-  "updated_at": "2026-01-09T00:18:11.479Z",
-  "analyze_completed_at": null,
+  "updated_at": "2026-01-09T00:19:41.926Z",
+  "analyze_completed_at": "2026-01-09T00:19:41.922Z",
   "execute_completed_at": null,
-  "response_plan_path": null,
+  "response_plan_path": "/tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent/.ai-workflow/pr-611/output/response-plan.md",
   "execution_result_path": null,
-  "analyzer_agent": null,
+  "analyzer_agent": "codex",
   "analyzer_error": null,
   "analyzer_error_type": null,
   "base_commit": "4b0c9aa85726468ec777bbb744a5a86325a596a5"
