@@ -504,7 +504,7 @@ async function buildAnalyzePrompt(
 
   for (const [threadId] of threadGroups) {
     const allThreadComments = getAllThreadComments(metadata, threadId);
-    const formatted = formatThreadBlock(
+    const formatted = await formatThreadBlockWithContext(
       threadId,
       allThreadComments.length > 0 ? allThreadComments : threadGroups.get(threadId) ?? [],
       repoRoot,
@@ -599,6 +599,23 @@ function formatThreadBlock(
   return blocks.join('\n');
 }
 
+async function formatThreadBlockWithContext(
+  threadId: string,
+  comments: CommentMetadata[],
+  repoRoot: string,
+): Promise<string> {
+  const commentBlocks: string[] = [];
+  for (const meta of comments) {
+    commentBlocks.push(await formatCommentBlock(meta, repoRoot));
+  }
+
+  if (commentBlocks.length === 0) {
+    return formatThreadBlock(threadId, comments, repoRoot);
+  }
+
+  return [`### Thread #${threadId}`, ...commentBlocks].join('\n\n');
+}
+
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {
   const comment = meta.comment;
   const filePath = comment.path ? path.join(repoRoot, comment.path) : '';
@@ -606,8 +623,9 @@ async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Prom
   if (filePath) {
     try {
       fileContent = await fsp.readFile(filePath, 'utf-8');
-    } catch {
+    } catch (error) {
       fileContent = '(File not found)';
+      logger.warn(`Failed to read file for comment ${comment.id}: ${getErrorMessage(error)}`);
     }
   }
 

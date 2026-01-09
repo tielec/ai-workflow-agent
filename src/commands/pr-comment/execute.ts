@@ -189,6 +189,19 @@ async function processComment(
 ): Promise<{ status: string; error?: string }> {
   const commentId = String(commentMeta.comment.id);
 
+  // 既に返信済みのコメントは冪等性のためスキップ
+  if (commentMeta.reply_comment_id) {
+    logger.info(
+      `Comment #${commentId} already has a reply (reply ID: ${commentMeta.reply_comment_id}). Skipping.`,
+    );
+
+    if (!dryRun) {
+      await metadataManager.updateCommentStatus(commentId, 'skipped', undefined, 'Already replied');
+    }
+
+    return { status: 'skipped' };
+  }
+
   try {
     if (!dryRun) {
       await metadataManager.updateCommentStatus(commentId, 'in_progress');
