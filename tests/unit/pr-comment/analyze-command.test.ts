@@ -275,6 +275,100 @@ describe('persistAgentLog', () => {
 });
 
 describe('refreshComments', () => {
+  it('excludes AI reply comments based on reply_comment_id and adds only user comments', async () => {
+    // AI返信(101)を除外し、新規ユーザーコメント(104)のみ追加されることを検証
+    const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+    const metadata = {
+      comments: {
+        100: {
+          comment: { id: 100 },
+          status: 'completed',
+          reply_comment_id: 101,
+          started_at: null,
+          completed_at: null,
+          retry_count: 0,
+          resolution: null,
+          resolved_at: null,
+          error: null,
+        },
+      },
+    };
+    const metadataManager = {
+      getMetadata: jest.fn().mockResolvedValue(metadata),
+      addComments: jest.fn().mockResolvedValue(1),
+    };
+    getUnresolvedPRReviewCommentsMock.mockResolvedValue([
+      {
+        id: 'thread-1',
+        comments: {
+          nodes: [
+            { id: 'node-100', databaseId: 100, body: 'Original', author: { login: 'alice' } },
+            { id: 'node-101', databaseId: 101, body: 'AI reply', author: { login: 'alice' } },
+            { id: 'node-104', databaseId: 104, body: 'New user comment', author: { login: 'bob' } },
+          ],
+        },
+      },
+    ]);
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 104, body: 'New user comment' }),
+    ]);
+    expect(debugSpy).toHaveBeenCalledWith('Excluded 1 AI reply comment(s)');
+  });
+
+  it('excludes multiple AI replies and logs the total count', async () => {
+    // 複数のAI返信(101,103)を除外し、ログ件数も正しく出力されることを検証
+    const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+    const metadata = {
+      comments: {
+        100: {
+          comment: { id: 100 },
+          status: 'completed',
+          reply_comment_id: 101,
+        },
+        102: {
+          comment: { id: 102 },
+          status: 'completed',
+          reply_comment_id: 103,
+        },
+      },
+    };
+    const metadataManager = {
+      getMetadata: jest.fn().mockResolvedValue(metadata),
+      addComments: jest.fn().mockResolvedValue(1),
+    };
+    getUnresolvedPRReviewCommentsMock.mockResolvedValue([
+      {
+        id: 'thread-1',
+        comments: {
+          nodes: [
+            { id: 'node-100', databaseId: 100, body: 'Existing', author: { login: 'alice' } },
+            { id: 'node-101', databaseId: 101, body: 'AI reply 1', author: { login: 'alice' } },
+          ],
+        },
+      },
+      {
+        id: 'thread-2',
+        comments: {
+          nodes: [
+            { id: 'node-102', databaseId: 102, body: 'Existing 2', author: { login: 'bob' } },
+            { id: 'node-103', databaseId: 103, body: 'AI reply 2', author: { login: 'bob' } },
+            { id: 'node-200', databaseId: 200, body: 'New user comment', author: { login: 'carol' } },
+          ],
+        },
+      },
+    ]);
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 200, body: 'New user comment' }),
+    ]);
+    expect(debugSpy).toHaveBeenCalledWith('Excluded 2 AI reply comment(s)');
+  });
+
   it('adds only new comments from the latest fetch', async () => {
     const metadata = {
       comments: {
@@ -321,6 +415,46 @@ describe('refreshComments', () => {
 
     expect(metadataManager.addComments).toHaveBeenCalledWith([
       expect.objectContaining({ id: 200, body: 'New' }),
+    ]);
+  });
+
+  it('handles null or undefined reply_comment_id without excluding new comments', async () => {
+    // reply_comment_id が null/undefined の既存コメントがあっても新規コメント(200)が正しく追加されることを確認
+    const metadata = {
+      comments: {
+        100: {
+          comment: { id: 100 },
+          status: 'pending',
+          reply_comment_id: null,
+        },
+        102: {
+          comment: { id: 102 },
+          status: 'pending',
+          // reply_comment_id is intentionally undefined
+        },
+      },
+    };
+    const metadataManager = {
+      getMetadata: jest.fn().mockResolvedValue(metadata),
+      addComments: jest.fn().mockResolvedValue(1),
+    };
+    getUnresolvedPRReviewCommentsMock.mockResolvedValue([
+      {
+        id: 'thread-1',
+        comments: {
+          nodes: [
+            { id: 'node-100', databaseId: 100, body: 'Existing', author: { login: 'alice' } },
+            { id: 'node-102', databaseId: 102, body: 'Existing 2', author: { login: 'bob' } },
+            { id: 'node-200', databaseId: 200, body: 'Fresh comment', author: { login: 'carol' } },
+          ],
+        },
+      },
+    ]);
+
+    await refreshComments(123, 'owner/repo', metadataManager as any);
+
+    expect(metadataManager.addComments).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 200, body: 'Fresh comment' }),
     ]);
   });
 
