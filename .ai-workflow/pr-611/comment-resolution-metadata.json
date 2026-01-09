@@ -1,0 +1,75 @@
+{
+  "version": "1.0.0",
+  "pr": {
+    "number": 611,
+    "url": "https://github.com/tielec/ai-workflow-agent/pull/611",
+    "title": "auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定",
+    "branch": "ai-workflow/issue-390",
+    "base_branch": "develop",
+    "state": "open"
+  },
+  "repository": {
+    "owner": "tielec",
+    "repo": "ai-workflow-agent",
+    "path": "/tmp/ai-workflow-repos-59-e0defa1d/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git"
+  },
+  "comments": {
+    "2674304789": {
+      "comment": {
+        "id": 2674304789,
+        "node_id": "PRRC_kwDOQEEbbM6fZqcV",
+        "path": "src/commands/execute/agent-setup.ts",
+        "line": 370,
+        "start_line": 326,
+        "end_line": null,
+        "body": "今回の修正によって可読性が悪くなったともう。リファクタリングしたほうが良さそう。",
+        "user": "yuto-takashi",
+        "created_at": "2026-01-09T00:04:38Z",
+        "updated_at": "2026-01-09T00:04:53Z",
+        "diff_hunk": "",
+        "thread_id": "PRRT_kwDOQEEbbM5onfMB",
+        "pr_number": 611
+      },
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "retry_count": 0,
+      "resolution": null,
+      "reply_comment_id": null,
+      "resolved_at": null,
+      "error": null
+    }
+  },
+  "summary": {
+    "total": 1,
+    "by_status": {
+      "pending": 1,
+      "in_progress": 0,
+      "completed": 0,
+      "skipped": 0,
+      "failed": 0
+    },
+    "by_type": {
+      "code_change": 0,
+      "reply": 0,
+      "discussion": 0,
+      "skip": 0
+    }
+  },
+  "cost_tracking": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "total_cost_usd": 0
+  },
+  "created_at": "2026-01-09T00:18:11.445Z",
+  "updated_at": "2026-01-09T00:18:11.479Z",
+  "analyze_completed_at": null,
+  "execute_completed_at": null,
+  "response_plan_path": null,
+  "execution_result_path": null,
+  "analyzer_agent": null,
+  "analyzer_error": null,
+  "analyzer_error_type": null,
+  "base_commit": "4b0c9aa85726468ec777bbb744a5a86325a596a5"
+}
