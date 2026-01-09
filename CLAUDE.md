@@ -682,6 +682,21 @@ node dist/index.js auto-issue \
 - 型: `AgentPriority`（`'codex-first' | 'claude-first'`）
 - `AgentExecutor` コンストラクタに `agentPriority` パラメータを追加（オプショナル）
 
+### auto-issue カテゴリ別エージェント優先順位（Issue #390で追加）
+
+`auto-issue` コマンドで `--agent auto` を使用する場合、カテゴリに応じてエージェントの優先順位を自動設定します。分析・推論が主体のため、全カテゴリを `claude-first` に設定しています。
+
+| カテゴリ | 優先順位 | 理由 |
+|---------|---------|------|
+| bug | claude-first | バグ検出は分析・推論が重要 |
+| refactor | claude-first | リファクタリング機会検出は品質分析が重要 |
+| enhancement | claude-first | 機能拡張提案は創造的思考が重要 |
+| all | claude-first | 全カテゴリを含むため Claude 優先 |
+
+**備考**:
+- `--agent codex` / `--agent claude` を明示指定した場合は従来どおり指定が最優先となり、カテゴリ別優先順位は適用されません。
+- 両方の認証情報が無い場合は従来どおり警告ログを出力します。
+
 ### Claude モデル指定（Issue #301で追加）
 
 ```bash

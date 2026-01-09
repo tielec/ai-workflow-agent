@@ -55,6 +55,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #390**: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
+  - `auto-issue` コマンドで `--agent auto` モード使用時、カテゴリに応じてエージェントの優先順位を自動設定
+  - 全カテゴリ（`bug`, `refactor`, `enhancement`, `all`）で `claude-first` を適用（分析・推論タスクは Claude が得意）
+  - `AgentSetupOptions` インターフェースに `agentPriority` パラメータを追加（オプショナル、デフォルト: `codex-first`）
+  - `setupAgentClients()` に `claude-first` 優先順位ロジックを実装
+  - `CATEGORY_AGENT_PRIORITY` 定数を `auto-issue.ts` に追加
+  - **後方互換性**: `--agent codex` / `--agent claude` を明示指定した場合は従来どおり指定が優先
+  - **フォールバック機能維持**: Claude 認証情報が無い場合は Codex にフォールバック
+  - 修正ファイル: `src/commands/execute/agent-setup.ts`, `src/commands/auto-issue.ts`, `CLAUDE.md`
+  - テストカバレッジ: 1958件のテスト（1957成功、1スキップ）
+
 - **Issue #598**: 認証情報バリデーションコマンド (`validate-credentials`) と Jenkins Job の実装
   - 新規 CLI コマンド `validate-credentials` を追加し、ワークフロー実行前に認証情報の有効性を事前検証
   - **6つの認証カテゴリをサポート**: `git`（環境変数）、`github`（API呼び出し・スコープ確認）、`codex`（auth.json/API キー）、`claude`（OAuth/API キー）、`openai`（API キー）、`anthropic`（API キー）
