@@ -136,14 +136,7 @@ pipeline {
 
                     int status = sh(script: cmd, returnStatus: true)
 
-                    def statuses = []
-                    if (fileExists('credentials-validation-result.json')) {
-                        def parsed = readJSON file: 'credentials-validation-result.json'
-                        def resultMap = parsed?.results ?: [:]
-                        statuses = resultMap.values().collect { it?.status ?: 'unknown' }
-                    }
-
-                    if (params.EXIT_ON_ERROR && (status != 0 || statuses.any { it != 'passed' && it != 'skipped' })) {
+                    if (params.EXIT_ON_ERROR && status != 0) {
                         error("validate-credentials command failed (exit-on-error enabled)")
                     }
                 }

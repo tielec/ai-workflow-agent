@@ -371,8 +371,6 @@ try {
 6. Display execution summary
 ```
 
-補足: `metadataManager.getPendingComments()` は `reply_comment_id` が設定されたコメントを未処理リストから除外し、`processComment()` でも再確認して `Already replied` ログ付きで `skipped` ステータスを付与することで二重返信を防ぎます。`summary.by_status.skipped` にはスキップ件数が反映され、dry-run 時はステータス更新を行わずログのみが出力されます。
-
 **Code Change Application:**
 
 ```typescript
@@ -835,3 +833,4 @@ for (const comment of completedComments) {
   await metadataManager.setResolved(String(comment.comment.id))
 }
 ```
+
