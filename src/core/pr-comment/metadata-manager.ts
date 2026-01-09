@@ -270,15 +270,12 @@ export class PRCommentMetadataManager {
 
   /**
    * 未処理コメントを取得
-   *
-   * @remarks
-   * 返信済みコメント（reply_comment_id が設定済み）はステータスに関わらず除外する。
    */
   public async getPendingComments(): Promise<CommentMetadata[]> {
     await this.ensureLoaded();
 
     return Object.values(this.metadata!.comments).filter(
-      (c) => (c.status === 'pending' || c.status === 'in_progress') && !c.reply_comment_id,
+      (c) => c.status === 'pending' || c.status === 'in_progress',
     );
   }
 

@@ -254,8 +254,6 @@ ai-workflow pr-comment execute --pr <number> | --pr-url <URL> [--dry-run] [--bat
    - フォーマット: Markdown形式（LogFormatterによる統一フォーマット）
    - ドライランモード時はログ保存をスキップ
 
-**補足**: `metadataManager.getPendingComments()` は `reply_comment_id` が設定済みのコメントを未処理リストから除外し、`processComment()` でも再確認して `Comment #${commentId} already has a reply (reply ID: ${reply_comment_id}). Skipping.` というログを出力しつつ `skipped` ステータスを付与することで二重返信を防ぎます。dry-run モードではステータス更新を行わずログのみを出力しますが、実行サマリーの `summary.by_status.skipped` にはスキップ件数が反映されます。
-
 **注意**: Issue #444でリファクタリングされ、executeコマンドはエージェント実行を行わなくなりました。これにより、analyzeフェーズで生成された分析結果が正確に適用され、実行コストが半減します。
 
 **解決タイプ**:

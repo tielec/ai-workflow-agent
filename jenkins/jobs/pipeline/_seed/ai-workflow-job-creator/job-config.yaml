@@ -48,6 +48,13 @@ jenkins-jobs:
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
 
+  ai_workflow_validate_credentials_job:
+    name: 'validate_credentials'
+    displayName: 'Validate Credentials'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_validate_credentials_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile
+    skipJenkinsfileValidation: true
+
   ai_workflow_finalize_job:
     name: 'finalize'
     displayName: 'Finalize Execution'
