@@ -147,6 +147,8 @@ export class PullRequestClient {
    */
   public async updatePullRequest(prNumber: number, body: string): Promise<GenericResult> {
     try {
+      logger.debug(`[updatePullRequest] Updating PR #${prNumber} for repository ${this.owner}/${this.repo}`);
+
       await this.octokit.pulls.update({
         owner: this.owner,
         repo: this.repo,
@@ -154,13 +156,14 @@ export class PullRequestClient {
         body,
       });
 
+      logger.debug(`[updatePullRequest] Successfully updated PR #${prNumber}`);
       return { success: true, error: null };
     } catch (error) {
       const message =
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
           : getErrorMessage(error);
-      logger.error(`Failed to update PR: ${this.encodeWarning(message)}`);
+      logger.error(`[updatePullRequest] Failed for ${this.owner}/${this.repo}#${prNumber}: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
   }
@@ -210,12 +213,21 @@ export class PullRequestClient {
    */
   public async getPullRequestNumber(issueNumber: number): Promise<number | null> {
     try {
+      const query = `repo:${this.repositoryName} type:pr state:open in:body ${issueNumber}`;
+      logger.debug(`[getPullRequestNumber] Searching with query: ${query}`);
+
       const { data } = await this.octokit.search.issuesAndPullRequests({
-        q: `repo:${this.repositoryName} type:pr state:open in:body ${issueNumber}`,
+        q: query,
         per_page: 5,
       });
 
+      logger.debug(`[getPullRequestNumber] Found ${data.items.length} result(s)`);
       const match = data.items.find((item) => item.pull_request);
+
+      if (match) {
+        logger.debug(`[getPullRequestNumber] Matched PR #${match.number} in repository ${this.repositoryName}`);
+      }
+
       return match?.number ?? null;
     } catch (error) {
       const message = getErrorMessage(error);
@@ -235,6 +247,8 @@ export class PullRequestClient {
    */
   public async markPRReady(prNumber: number): Promise<GenericResult> {
     try {
+      logger.debug(`[markPRReady] Marking PR #${prNumber} as ready for repository ${this.owner}/${this.repo}`);
+
       // 1. PR の node_id を取得（GraphQL mutation に必要）
       const { data: prData } = await this.octokit.pulls.get({
         owner: this.owner,
@@ -317,6 +331,8 @@ export class PullRequestClient {
    */
   public async updateBaseBranch(prNumber: number, baseBranch: string): Promise<GenericResult> {
     try {
+      logger.debug(`[updateBaseBranch] Updating PR #${prNumber} base branch to '${baseBranch}' for repository ${this.owner}/${this.repo}`);
+
       await this.octokit.pulls.update({
         owner: this.owner,
         repo: this.repo,
@@ -331,7 +347,7 @@ export class PullRequestClient {
         error instanceof RequestError
           ? `GitHub API error: ${error.status} - ${error.message}`
           : getErrorMessage(error);
-      logger.error(`Failed to update base branch: ${this.encodeWarning(message)}`);
+      logger.error(`[updateBaseBranch] Failed for ${this.owner}/${this.repo}#${prNumber}: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
   }
