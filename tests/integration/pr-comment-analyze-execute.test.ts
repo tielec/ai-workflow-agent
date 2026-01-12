@@ -22,6 +22,7 @@ const parsePullRequestUrlMock = jest.fn(() => ({
   prNumber: 123,
   repositoryName: 'owner/repo',
 }));
+let metadataGetMetadataReturn: any;
 
 let handlePRCommentAnalyzeCommand: typeof import('../../src/commands/pr-comment/analyze.js')['handlePRCommentAnalyzeCommand'];
 let handlePRCommentExecuteCommand: typeof import('../../src/commands/pr-comment/execute.js')['handlePRCommentExecuteCommand'];
@@ -86,7 +87,7 @@ beforeAll(async () => {
         exists: jest.fn().mockResolvedValue(true),
         load: jest.fn().mockResolvedValue(undefined),
         getPendingComments: jest.fn(async () => pendingComments),
-        getMetadata: jest.fn().mockResolvedValue({ pr: { title: 'Integration PR' } }),
+        getMetadata: jest.fn().mockImplementation(async () => metadataGetMetadataReturn ?? { pr: { title: 'Integration PR' }, comments: {} }),
         getSummary: jest.fn().mockResolvedValue({ by_status: { completed: 1, skipped: 0, failed: 0 } }),
       };
       metadataStore = metadataManagerInstance;
@@ -192,6 +193,7 @@ beforeEach(async () => {
 
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pr-comment-int-'));
   getRepoRootMock.mockResolvedValue(tmpDir);
+  metadataGetMetadataReturn = undefined;
 
   await fs.ensureDir(path.join(tmpDir, 'src', 'prompts', 'pr-comment'));
   await fs.writeFile(
@@ -260,6 +262,9 @@ afterEach(async () => {
 
 describe('Analyze → Execute integration flow', () => {
   it('generates response-plan then execution-result with a single agent call per phase', async () => {
+    // Given: analyzeとexecuteが1回ずつエージェントを呼び出す正常系フロー
+    // When: analyzeを実行してからresponse-planをもとにexecuteを流す
+    // Then: 計画ファイルが生成され、実行結果までエラーなく到達する
     await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
 
     const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
@@ -272,7 +277,241 @@ describe('Analyze → Execute integration flow', () => {
     await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
   });
 
+  it('response-planに承認パターンと質問回答パターンのtype/confidence/proposed_changesを反映する', async () => {
+    // Given: 「AI提案→承認」「AI質問→回答」の2スレッドを含むメタデータ
+    // When: analyzeコマンドでエージェント出力をパースしてresponse-plan.mdを生成する
+    // Then: 各コメントにtypeとconfidenceが反映され、proposed_changesが非空で出力される
+    const approvalProposal = {
+      ...buildComment(100, 'code_change'),
+      comment: {
+        ...buildComment(100, 'code_change').comment,
+        thread_id: 'thread-approval',
+        user: 'ai-bot',
+        body: 'ヘルパー関数に分けて進めてよいでしょうか？',
+      },
+      reply_comment_id: 100,
+    };
+    const approvalResponse = {
+      ...buildComment(101, 'code_change'),
+      comment: {
+        ...buildComment(101, 'code_change').comment,
+        thread_id: 'thread-approval',
+        body: 'はい、その方針で進めてください',
+      },
+    };
+    const question = {
+      ...buildComment(300, 'code_change'),
+      comment: {
+        ...buildComment(300, 'code_change').comment,
+        thread_id: 'thread-qa',
+        user: 'ai-bot',
+        body: 'この構成で問題ありませんか？',
+      },
+      reply_comment_id: 300,
+    };
+    const answer = {
+      ...buildComment(301, 'code_change'),
+      comment: {
+        ...buildComment(301, 'code_change').comment,
+        thread_id: 'thread-qa',
+        body: 'Bパターンのほうが良いです。設定読み込みを優先してください。',
+      },
+    };
+    pendingComments = [approvalProposal, approvalResponse, question, answer];
+    metadataGetMetadataReturn = {
+      pr: { title: 'Integration PR' },
+      comments: {
+        [approvalProposal.comment.id]: approvalProposal,
+        [approvalResponse.comment.id]: approvalResponse,
+        [question.comment.id]: question,
+        [answer.comment.id]: answer,
+      },
+    };
+
+    const patternPlan = {
+      pr_number: 123,
+      analyzer_agent: 'codex',
+      analyzed_at: '2025-01-21T01:00:00Z',
+      comments: [
+        {
+          comment_id: String(approvalResponse.comment.id),
+          type: 'code_change',
+          confidence: 'high',
+          rationale: 'ユーザーがAI提案を承認したため、コード変更が必要',
+          proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'ヘルパー関数に分割' }],
+          reply_message: '承認ありがとうございます。リファクタを進めます。',
+        },
+        {
+          comment_id: String(answer.comment.id),
+          type: 'code_change',
+          confidence: 'medium',
+          rationale: 'AI質問に対して具体的な変更指示が返された',
+          proposed_changes: [{ action: 'modify', file: 'src/core/config.ts', changes: 'パターンBに切り替え' }],
+          reply_message: 'Bパターンで対応します。',
+        },
+      ],
+    };
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['```json\n' + JSON.stringify(patternPlan) + '\n```']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+
+    expect(planContent).toContain(`Comment #${approvalResponse.comment.id}`);
+    expect(planContent).toContain('Type: code_change (confidence: high)');
+    expect(planContent).toContain('[modify] src/a.ts');
+    expect(planContent).toContain(`Comment #${answer.comment.id}`);
+    expect(planContent).toContain('Type: code_change (confidence: medium)');
+    expect(planContent).toContain('[modify] src/core/config.ts');
+    expect(planContent).not.toContain('Proposed Changes: (none)');
+  });
+
+  it('単純返信パターンはtype: replyでproposed_changesが空として記録される', async () => {
+    // Given: AI提案を含まないお礼返信のみのスレッド
+    // When: analyzeコマンドを実行してresponse-plan.mdを生成する
+    // Then: 対象コメントがreplyとして扱われ、Proposed Changesが(none)になる
+    const thankYou = buildComment(200, 'reply');
+    thankYou.comment.thread_id = 'thread-reply';
+    thankYou.comment.body = 'この実装で良いと思います';
+    const followUp = buildComment(201, 'reply');
+    followUp.comment.thread_id = 'thread-reply';
+    followUp.comment.body = 'ありがとうございます。';
+    pendingComments = [thankYou, followUp];
+    metadataGetMetadataReturn = {
+      pr: { title: 'Integration PR' },
+      comments: {
+        [thankYou.comment.id]: thankYou,
+        [followUp.comment.id]: followUp,
+      },
+    };
+
+    const replyPlan = {
+      pr_number: 123,
+      analyzer_agent: 'codex',
+      analyzed_at: '2025-01-21T01:00:00Z',
+      comments: [
+        {
+          comment_id: String(followUp.comment.id),
+          type: 'reply',
+          confidence: 'high',
+          rationale: '単純なお礼で追加作業は不要',
+          proposed_changes: [],
+          reply_message: 'ご確認ありがとうございます。',
+        },
+      ],
+    };
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['```json\n' + JSON.stringify(replyPlan) + '\n```']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+
+    expect(planContent).toContain(`Comment #${followUp.comment.id}`);
+    expect(planContent).toContain('Type: reply (confidence: high)');
+    expect(planContent).toContain('Proposed Changes: (none)');
+  });
+
+  it('thread_idなしコメントをunknownスレッドとしてプロンプトとplanに残す', async () => {
+    // Given: REST API経由でthread_idが欠落したコメント
+    // When: analyzeコマンドでプロンプト生成とパースを行う
+    // Then: Thread #unknown-{id}として扱われ、response-planにも対象コメントが出力される
+    const legacyComment = buildComment(400, 'reply');
+    legacyComment.comment.thread_id = undefined;
+    legacyComment.comment.body = 'REST APIから取得した古いコメント';
+    pendingComments = [legacyComment];
+    metadataGetMetadataReturn = {
+      pr: { title: 'Integration PR' },
+      comments: {
+        [legacyComment.comment.id]: legacyComment,
+      },
+    };
+
+    const legacyPlan = {
+      pr_number: 123,
+      analyzer_agent: 'codex',
+      analyzed_at: '2025-01-21T01:00:00Z',
+      comments: [
+        {
+          comment_id: String(legacyComment.comment.id),
+          type: 'reply',
+          confidence: 'medium',
+          rationale: '情報共有のみで追加作業は不要',
+          proposed_changes: [],
+          reply_message: '確認しました。',
+        },
+      ],
+    };
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['```json\n' + JSON.stringify(legacyPlan) + '\n```']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const promptPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'prompt.txt');
+    const promptContent = await fs.readFile(promptPath, 'utf-8');
+    expect(promptContent).toContain(`### Thread #unknown-${legacyComment.comment.id}`);
+
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+    expect(planContent).toContain(`Comment #${legacyComment.comment.id}`);
+    expect(planContent).toContain('Type: reply (confidence: medium)');
+  });
+
+  it('analyzeプロンプトにスレッドコンテキストを含める', async () => {
+    // Given: ユーザーコメントとAI返信を持つ1スレッド
+    // When: analyzeコマンドがプロンプトを生成する
+    // Then: スレッドIDとラベル付きコメントが時系列順で含まれる
+    const userComment = buildComment(200, 'code_change');
+    userComment.comment.thread_id = 'thread-context';
+    userComment.comment.created_at = '2025-01-20T00:00:00Z';
+    userComment.comment.body = 'リファクタを進めてください';
+
+    const aiReply = buildComment(201, 'code_change');
+    aiReply.comment.thread_id = 'thread-context';
+    aiReply.comment.created_at = '2025-01-20T00:05:00Z';
+    aiReply.comment.body = 'ヘルパー関数に分ける案で進めますか？';
+    aiReply.comment.user = 'ai-bot';
+    aiReply.reply_comment_id = 201;
+
+    pendingComments = [aiReply, userComment];
+    metadataGetMetadataReturn = {
+      pr: { title: 'Integration PR' },
+      comments: {
+        [userComment.comment.id]: userComment,
+        [aiReply.comment.id]: aiReply,
+      },
+    };
+
+    const threadResponse = {
+      pr_number: 123,
+      analyzer_agent: 'codex',
+      comments: [
+        { comment_id: String(userComment.comment.id), type: 'reply', confidence: 'high', reply_message: 'ack' },
+      ],
+    };
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce(['```json\n' + JSON.stringify(threadResponse) + '\n```']);
+
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    const promptPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'prompt.txt');
+    const promptContent = await fs.readFile(promptPath, 'utf-8');
+
+    expect(promptContent).toContain('### Thread #thread-context');
+    expect(promptContent).toContain('[User Comment]');
+    expect(promptContent).toContain('[AI Reply]');
+    expect(promptContent.indexOf(`Comment #${userComment.comment.id}`)).toBeLessThan(
+      promptContent.indexOf(`Comment #${aiReply.comment.id} [AI Reply]`),
+    );
+  });
+
   it.skip('reads agent-written response-plan.json and uses it preferentially', async () => {
+    // Given: エージェントがresponse-plan.jsonを直接書き出したケース
+    // When: analyzeコマンドがファイルを優先的に読み取る
+    // Then: ファイルのagent/type情報がMarkdownとメタデータに反映される
     const analyzeOutputPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'response-plan.json');
     agentExecuteTaskMock.mockReset();
     agentExecuteTaskMock.mockImplementationOnce(async () => {
@@ -301,6 +540,9 @@ describe('Analyze → Execute integration flow', () => {
   }, 30000); // Increase timeout to 30 seconds
 
   it('exits during analyze in CI when agent fails and does not write response plan', async () => {
+    // Given: CI環境でエージェントが失敗する
+    // When: analyzeコマンドを実行する
+    // Then: process.exitが発火し、response-planは生成されずエラーが記録される
     configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockReset();
     agentExecuteTaskMock.mockRejectedValue(new Error('Network timeout'));
@@ -321,6 +563,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('parses JSON Lines agent output end-to-end', async () => {
+    // Given: JSON Lines形式のエージェント出力
+    // When: analyzeコマンドがパース処理を行う
+    // Then: 最終行のJSONがresponse-planとして扱われメタデータに保存される
     const jsonLines = [
       '{"event":"start"}',
       '{"event":"progress","data":"analyzing"}',
@@ -340,6 +585,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('exits in CI when parse fails on invalid agent output', async () => {
+    // Given: CI環境で不正なJSONが返る
+    // When: パースに失敗する
+    // Then: エラー種別json_parse_errorでprocess.exitし、ファイルは生成されない
     configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockReset();
     agentExecuteTaskMock.mockResolvedValueOnce(['{not-json']);
@@ -360,6 +608,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('prompts and proceeds with fallback in local mode after parse failure', async () => {
+    // Given: ローカル環境で不正なJSONが返る
+    // When: ユーザー確認でフォールバックを選択する
+    // Then: fallbackエージェントとしてresponse-planが生成され、ログに反映される
     configIsCIMock.mockReturnValue(false);
     agentExecuteTaskMock.mockReset();
     agentExecuteTaskMock.mockResolvedValueOnce(['{not-json']);
@@ -380,6 +631,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('exits in CI when agent returns empty output', async () => {
+    // Given: CI環境で空文字の出力しか得られない
+    // When: analyzeコマンドが出力を検証する
+    // Then: agent_empty_outputとしてプロセス終了し、メタデータにエラーが保存される
     configIsCIMock.mockReturnValue(true);
     agentExecuteTaskMock.mockReset();
     agentExecuteTaskMock.mockResolvedValueOnce(['   ']);
@@ -398,6 +652,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('writes a Markdown agent log file after analyze runs', async () => {
+    // Given: 正常にagentが動作する
+    // When: analyze完了後にログ保存処理を実行する
+    // Then: analyzeディレクトリにMarkdown形式のagent_log.mdが生成される
     await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
 
     const agentLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'analyze', 'agent_log.md');
@@ -411,6 +668,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('does not persist agent_log.md in dry-run mode but shows preview', async () => {
+    // Given: dry-runモードでエージェントを実行する
+    // When: analyzeコマンドを実行する
+    // Then: ファイルは保存されずプレビューのみがログに出力される
     const infoSpy = logger.info as jest.SpyInstance;
     infoSpy.mockClear();
 
@@ -424,6 +684,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('generates agent_log.md in execute directory during execution flow', async () => {
+    // Given: analyzeでresponse-planを生成済み
+    // When: executeを通常モードで実行する
+    // Then: execute配下にagent_log.mdが生成され、必要なセクションを含む
     // First run analyze to create response plan
     await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
 
@@ -451,6 +714,9 @@ describe('Analyze → Execute integration flow', () => {
   });
 
   it('does not create agent_log.md in execute directory during dry-run execution', async () => {
+    // Given: analyze完了後にexecuteをdry-runで動かす
+    // When: 実行フェーズのログ保存を確認する
+    // Then: execute配下にagent_log.mdが生成されない
     // First run analyze to create response plan
     await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
 

@@ -12,6 +12,93 @@
 - 議論が必要なコメントの識別
 - PRレビューサイクルの高速化
 
+## 高度な分析機能（Issue #615で追加）
+
+### スレッドコンテキスト分析
+
+PRコメント分析では、各コメントを独立して判定するのではなく、**スレッド全体の文脈を考慮した分析**を行います。
+
+**主な機能**:
+- コメントを`thread_id`でグループ化し、時系列順に整理
+- AIの返信コメントと人間のコメントを識別（`[AI Reply]`/`[User Comment]`ラベル付け）
+- スレッド内の過去のやりとりを含めた包括的な分析
+
+**従来の問題**:
+```
+ユーザー: 「リファクタリングしたほうが良さそう」
+AI提案: 「ヘルパー関数に分けて進めてよいでしょうか」
+ユーザー: 「はい、その方針で進めていいです」
+→ 従来: type: "reply"（単なる返信として誤判定）
+```
+
+**改善後**:
+```
+ユーザー: 「リファクタリングしたほうが良さそう」
+AI提案: 「ヘルパー関数に分けて進めてよいでしょうか」
+ユーザー: 「はい、その方針で進めていいです」
+→ 改善後: type: "code_change"（承認パターンを正しく検出）
+```
+
+### 承認パターン検出
+
+スレッド全体を分析し、以下のパターンを自動検出します。
+
+**パターン1: AI提案 → ユーザー承認**
+- AI提案キーワード: 「〜してよいでしょうか」「〜の方針で進めます」「〜を実装しましょうか」
+- ユーザー承認キーワード: 「はい」「OK」「その方針で進めて」「お願いします」
+- 結果: `type: "code_change"`, `confidence: "high"`
+
+**パターン2: 質問 → 回答**
+- AIが技術的な質問をし、ユーザーが具体的な指示で回答
+- 結果: `type: "code_change"`, `confidence: "medium"`
+
+**パターン3: 単純な返信**
+- AI提案がない、または承認キーワードがない場合
+- 結果: `type: "reply"` または `type: "discussion"`
+
+**多言語サポート**:
+- 日本語と英語の両方で承認パターンを検出
+- 承認キーワード例（英語）: "yes", "OK", "LGTM", "go ahead", "please proceed"
+
+### 技術的詳細
+
+**スレッドデータの構造**:
+```markdown
+### Thread #thread-ABC123
+
+#### Comment #100 [User Comment]
+- Author: reviewer1
+- Created: 2025-01-20T10:00:00Z
+- File: src/commands/execute/agent-setup.ts
+- Line: 42
+- Body:
+```
+今回の修正によって可読性が悪くなったと思う。リファクタリングしたほうが良さそう。
+```
+
+#### Comment #101 [AI Reply]
+- Author: ai-workflow-bot
+- Created: 2025-01-20T10:05:00Z
+- File: src/commands/execute/agent-setup.ts
+- Line: 42
+- Body:
+```
+ご指摘ありがとうございます。優先度ごとの処理を小さなヘルパー関数に分けて、フォールバックのログ/初期化順序が見通せる形にリファクタする案で進めてよいでしょうか。
+```
+
+#### Comment #102 [User Comment]
+- Author: reviewer1
+- Created: 2025-01-20T10:10:00Z
+- File: src/commands/execute/agent-setup.ts
+- Line: 42
+- Body:
+```
+はい、その方針で進めていいです。
+```
+```
+
+このスレッドコンテキストにより、AIエージェントはComment #102を単なる返信ではなく、具体的なリファクタリング提案への承認として正しく判定できます。
+
 ## クイックスタート
 
 ```bash
@@ -98,6 +185,9 @@ ai-workflow pr-comment analyze --pr <number> | --pr-url <URL> [--dry-run] [--age
 4. `.ai-workflow/pr-{prNumber}/output/response-plan.json` に分析結果を保存
 
 `pr-comment analyze` は実行直前に `refreshComments()` を呼び出し、GitHub から未解決コメントを再取得した上で既存メタデータにない `comment_id` だけを `pending` 状態で追加する `PRCommentMetadataManager.addComments()` を実行するため、`pr-comment init` 実行後や中断再開後に投稿された新規コメントも漏れなく分析対象になります（重複は metadata 内の ID で除外されます）。
+
+**AI返信コメントの自動除外機能（Issue #614で追加）**:
+`refreshComments()` は取得したコメントの中からAI自身の返信コメント（メタデータの `reply_comment_id` に記録されたID）を自動的に除外し、2重返信を防ぎます。除外されたAI返信コメント数は `logger.debug("Excluded N AI reply comment(s)")` 形式でデバッグログに出力されます。
 
 **出力ファイル**:
 
@@ -755,3 +845,4 @@ $REPOS_ROOT/
 | 1.5.0 | 2025-01-21 | コミットスカッシュ機能追加（Issue #450） - `--squash` オプションで複数コミットを1つにまとめる機能、`init` で `base_commit` を記録、`--force-with-lease` による安全な強制プッシュ |
 | 1.6.0 | 2025-01-22 | agent_log.mdのMarkdown化（Issue #441） - LogFormatterによる統一的なMarkdown形式でログ出力、可読性向上とフォーマット統一 |
 | 1.7.0 | 2025-01-22 | executeコマンドでエージェントログをファイル保存（Issue #487） - 各コメント分析時のエージェント実行ログを `agent_log_comment_{comment_id}.md` として保存、Markdown形式、ドライランモード対応 |
+| 1.8.0 | 2025-01-20 | スレッドコンテキストと承認パターン検出機能追加（Issue #615） - コメントを`thread_id`でグループ化し、「AI提案→ユーザー承認」パターンを`code_change`として正しく判定。`[AI Reply]`/`[User Comment]`ラベル付きでスレッド全体の文脈を考慮した分析を実行 |

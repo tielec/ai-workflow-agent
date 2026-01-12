@@ -303,6 +303,10 @@ async function executeStep4And5(
   const githubClient = await createGitHubClient(metadataManager);
   const prClient = githubClient.getPullRequestClient();
 
+  // デバッグ: 対象リポジトリを出力
+  const targetRepo = metadataManager.data.target_repository;
+  logger.info(`Target repository: ${targetRepo?.owner}/${targetRepo?.repo}`);
+
   // PR 番号の取得（メタデータから優先、フォールバックとして検索API）
   let prNumber = metadataManager.data.pr_number;
 
@@ -317,7 +321,7 @@ async function executeStep4And5(
     }
   }
 
-  logger.info(`Found PR #${prNumber}`);
+  logger.info(`Found PR #${prNumber} for repository ${targetRepo?.owner}/${targetRepo?.repo}`);
 
   // Step 4a: PR 本文更新
   const prBody = generateFinalPrBody(metadataManager, issueNumber);

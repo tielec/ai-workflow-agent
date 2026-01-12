@@ -126,4 +126,55 @@ describe('pr-comment refresh integration', () => {
     expect(metadata.summary.total).toBe(1);
     expect(debugSpy).toHaveBeenCalledWith('No unresolved threads from GraphQL, falling back to REST API');
   });
+
+  it('skips AI reply comments stored in reply_comment_id and only persists user comments', async () => {
+    // メタデータに記録されたAI返信(101)を除外し、ユーザー新規コメント(200)のみ保存されることを検証
+    const metadataManager = new PRCommentMetadataManager(tmpDir, prInfo.number);
+    const initialComments: ReviewComment[] = [
+      {
+        id: 100,
+        node_id: 'node-100',
+        path: 'src/app.ts',
+        line: 5,
+        body: 'Initial comment',
+        user: 'alice',
+        created_at: '2025-01-21T00:00:00Z',
+        updated_at: '2025-01-21T00:00:00Z',
+        diff_hunk: '@@ -1,1 +1,1 @@',
+      },
+    ];
+    await metadataManager.initialize({ ...prInfo, state: 'open' }, { ...repoInfo, path: tmpDir }, initialComments);
+    await metadataManager.setReplyCommentId('100', 101);
+    graphqlThreads.push({
+      id: 'thread-1',
+      comments: {
+        nodes: [
+          { id: 'node-100', databaseId: 100, body: 'Initial comment', author: { login: 'alice' } },
+          { id: 'node-101', databaseId: 101, body: 'AI reply', author: { login: 'alice' } },
+          {
+            id: 'node-200',
+            databaseId: 200,
+            body: 'User follow-up',
+            path: 'src/app.ts',
+            line: 12,
+            startLine: 10,
+            author: { login: 'bob' },
+            createdAt: '2025-01-22T00:00:00Z',
+            updatedAt: '2025-01-22T00:00:00Z',
+          },
+        ],
+      },
+    });
+    const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+
+    await refreshComments(prInfo.number, `${repoInfo.owner}/${repoInfo.repo}`, metadataManager);
+    const metadata = await metadataManager.getMetadata();
+
+    expect(Object.keys(metadata.comments)).not.toContain('101');
+    expect(Object.keys(metadata.comments)).toContain('200');
+    expect(metadata.comments['200'].status).toBe('pending');
+    expect(metadata.summary.total).toBe(2);
+    expect(metadata.summary.by_status.pending).toBe(2);
+    expect(debugSpy).toHaveBeenCalledWith('Excluded 1 AI reply comment(s)');
+  });
 });
