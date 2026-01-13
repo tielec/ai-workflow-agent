@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #622**: finalize コマンドの PR 更新で 404 エラーが発生する問題を修正
+  - SecretMasker が metadata.json の `target_repository.repo` フィールドを誤ってマスキングする問題を修正
+  - `maskMetadataFile()` メソッドを新規追加し、metadata.json を構造化データとして処理
+  - リポジトリ情報（owner/repo/remote_url等）を `ignoredPaths` で保護しつつ、実際のシークレットは引き続きマスキング
+  - `maskSecretsInWorkflowDir()` メソッドで metadata.json を特別扱いする分岐を追加
+  - 20文字以上のリポジトリ名が汎用トークンパターンにマッチして `[REDACTED_TOKEN]` に置換される問題を解決
+  - 修正ファイル: `src/core/secret-masker.ts`
+  - テストカバレッジ: 97件のテスト（100%成功）
+
 - **Issue #615**: PRコメント分析でスレッドコンテキストと承認パターン検出機能を追加し、ユーザー承認の誤判定問題を修正
   - `buildAnalyzePrompt()` をスレッド単位でコメントをグループ化するよう拡張（`formatThreadBlock()` 関数追加）
   - AI返信コメントと人間のコメントを識別し、時系列順で整理する `[AI Reply]`/`[User Comment]` ラベル機能を実装

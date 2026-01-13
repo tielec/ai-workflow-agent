@@ -176,9 +176,10 @@ v0.5.1以降では、SecretMaskerクラスが拡張され、ワークフロー�
 - **処理タイミング**: コミット作成時に `.ai-workflow/issue-*/` 内のファイル（agent_log_raw.txt, agent_log.md, prompt.txt, metadata.json）を自動スキャン
 - **マスキング方式**: 環境変数マッチング + 汎用パターンマッチングの2段階処理
 
-**Issue #592・Issue #595 対応**:
+**Issue #592・Issue #595・Issue #622 対応**:
 - `/tmp/.../sd-platform-development` のような長いディレクトリ名は SecretMasker の汎用トークンマスキングから除外され、ログ内のリポジトリパスが保持されることで Claude/Codex が正しい作業ディレクトリを参照できるようになりました。
 - **Issue #595 で更なる改善**: 環境変数値がパス成分のsubstringを含む場合（例: GITHUB_TOKEN = `"ghp_xxxxxxxxxxdevelopmentxxxxxxxxx"`）でも、パス保護が環境変数置換より先に実行されるため、リポジトリパス（例: `/sd-platform-development/`）が誤ってマスクされることがなくなりました。
+- **Issue #622 で metadata.json 特別扱い**: metadata.json の `target_repository.repo` 等のリポジトリ情報が誤ってマスキングされ、finalize コマンドで 404 エラーが発生する問題を修正。metadata.json は構造化データとして処理され、`ignoredPaths` でリポジトリ情報を保護しつつ実際のシークレットはマスキングされます。
 - `working-directory-resolver.ts` は REPOS_ROOT との整合性チェックとパス解決の前後ログを追加しており、REPOS_ROOT 外で解決すると `[Issue #592 Warning] Resolved path (...) is outside REPOS_ROOT (...)` を出力するので、警告が出たら REPOS_ROOT 設定やパスマスキングの影響を確認してください。
 
 ### Execute step writes files to the wrong directory (Issue #603)
