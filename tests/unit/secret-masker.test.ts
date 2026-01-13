@@ -806,6 +806,7 @@ describe('SecretMaskerファイル処理テスト', () => {
           owner: 'owner',
           repo: 'repo',
         },
+        secret_token: process.env.GITHUB_TOKEN,
       }),
     );
 
@@ -818,8 +819,10 @@ describe('SecretMaskerファイル処理テスト', () => {
     expect(result.secretsMasked).toBeGreaterThan(0);
 
     const content = await fs.readFile(metadataFile, 'utf-8');
+    const parsed = JSON.parse(content);
     expect(content.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
-    expect(!content.includes('ghp_secret123456789')).toBeTruthy();
+    expect(parsed.secret_token).toBe('[REDACTED_GITHUB_TOKEN]');
+    expect(parsed.target_repository.remote_url).toContain('ghp_secret123456789');
   });
 
   test('2.2.8: metadata.jsonにトークンが含まれない場合、ファイルを変更しない', async () => {
@@ -844,7 +847,10 @@ describe('SecretMaskerファイル処理テスト', () => {
 
     // Then: metadata.jsonは変更されない
     const content = await fs.readFile(metadataFile, 'utf-8');
-    expect(content).toBe(originalContent);
+    const parsed = JSON.parse(content);
+    expect(result.filesProcessed).toBeGreaterThanOrEqual(1);
+    expect(result.secretsMasked).toBe(0);
+    expect(parsed).toEqual(JSON.parse(originalContent));
   });
 
   test('2.2.9: metadata.jsonが存在しない場合、エラーを発生させない', async () => {
@@ -959,6 +965,601 @@ Email: test@example.com
     const content = await fs.readFile(testFile, 'utf-8');
     expect(content).toContain('Bearer [REDACTED_TOKEN]');
     expect(content).toContain('token=[REDACTED_TOKEN]');
+  });
+
+  describe('Issue #622: metadata.json 専用マスキング', () => {
+    const defaultRepo = {
+      owner: 'plan-b-co-jp',
+      repo: 'sd-platform-development',
+      remote_url: 'https://github.com/plan-b-co-jp/sd-platform-development.git',
+      github_full_name: 'plan-b-co-jp/sd-platform-development',
+      local_path: '/tmp/ai-workflow-repos/sd-platform-development',
+    };
+
+    const buildMetadataPayload = (overrides: any = {}) => {
+      const base = {
+        issue_number: 622,
+        target_repository: { ...defaultRepo },
+        issue_url: 'https://github.com/plan-b-co-jp/sd-platform-development/issues/622',
+        pr_url: 'https://github.com/plan-b-co-jp/sd-platform-development/pull/123',
+      };
+
+      return {
+        ...base,
+        ...overrides,
+        target_repository: {
+          ...base.target_repository,
+          ...(overrides.target_repository ?? {}),
+        },
+      };
+    };
+
+    const writeMetadataFile = async (payload: Record<string, unknown>) => {
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(metadataFile, JSON.stringify(payload, null, 2));
+      return metadataFile;
+    };
+
+    test('TC-U-622-001: 20文字以上のリポジトリ名を保持する', async () => {
+      // Given: リポジトリ情報のみを含む metadata.json
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      const original = {
+        issue_number: 622,
+        target_repository: {
+          owner: 'plan-b-co-jp',
+          repo: 'sd-platform-development',
+          remote_url: 'https://github.com/plan-b-co-jp/sd-platform-development.git',
+          github_full_name: 'plan-b-co-jp/sd-platform-development',
+          local_path: '/tmp/ai-workflow-repos/sd-platform-development',
+        },
+        issue_url: 'https://github.com/plan-b-co-jp/sd-platform-development/issues/622',
+        pr_url: 'https://github.com/plan-b-co-jp/sd-platform-development/pull/123',
+      };
+      await fs.writeFile(metadataFile, JSON.stringify(original, null, 2));
+
+      // When: metadata.json を専用メソッドで処理
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then: リポジトリ情報やURLが保持され、シークレットカウントは0
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(result.errors).toHaveLength(0);
+      expect(parsed.target_repository.repo).toBe('sd-platform-development');
+      expect(parsed.target_repository.owner).toBe('plan-b-co-jp');
+      expect(parsed.target_repository.remote_url).toBe(
+        'https://github.com/plan-b-co-jp/sd-platform-development.git',
+      );
+      expect(parsed.issue_url).toContain('/issues/622');
+      expect(parsed.pr_url).toContain('/pull/123');
+    });
+
+    test('TC-U-622-002: metadata.json 内のシークレットをマスクしつつリポジトリ情報を保持する', async () => {
+      // Given: 環境変数と同じトークンを含む metadata.json
+      process.env.GITHUB_TOKEN = 'ghp_verylongsecrettoken123456789';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      const secretValue = process.env.GITHUB_TOKEN;
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: {
+              owner: 'plan-b-co-jp',
+              repo: 'sd-platform-development',
+              remote_url: 'https://github.com/plan-b-co-jp/sd-platform-development.git',
+            },
+            issue_url: 'https://github.com/plan-b-co-jp/sd-platform-development/issues/622',
+            secret_token: secretValue,
+          },
+          null,
+          2,
+        ),
+      );
+
+      // When: metadata.json を処理
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then: シークレットがマスクされ、リポジトリ情報は保持される
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBeGreaterThanOrEqual(1);
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(content).not.toContain(secretValue ?? '');
+      expect(parsed.target_repository.repo).toBe('sd-platform-development');
+      expect(parsed.target_repository.owner).toBe('plan-b-co-jp');
+      expect(parsed.target_repository.remote_url).toBe(
+        'https://github.com/plan-b-co-jp/sd-platform-development.git',
+      );
+    });
+
+    test('TC-U-622-003: issue_url と pr_url をマスキング対象から除外する', async () => {
+      // Given: URL フィールドのみを持つ metadata.json
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      const payload = {
+        issue_url: 'https://github.com/owner/repo/issues/123',
+        pr_url: 'https://github.com/owner/repo/pull/456',
+        target_repository: {
+          owner: 'owner',
+          repo: 'exactly-20-chars-dir',
+        },
+      };
+      await fs.writeFile(metadataFile, JSON.stringify(payload, null, 2));
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(result.secretsMasked).toBe(0);
+      expect(parsed.issue_url).toBe(payload.issue_url);
+      expect(parsed.pr_url).toBe(payload.pr_url);
+      expect(parsed.target_repository.repo).toBe('exactly-20-chars-dir');
+    });
+
+    test('TC-U-622-004: マスキング後もJSONフォーマットを維持する', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_formatchecktoken123456';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: {
+              owner: 'owner',
+              repo: 'exactly-19-char-dir',
+            },
+            secret_token: process.env.GITHUB_TOKEN,
+          },
+          null,
+          2,
+        ),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(() => JSON.parse(content)).not.toThrow();
+      expect(content.startsWith('{\n  "target_repository"')).toBeTruthy();
+      expect(content).toContain('\n  "target_repository": {\n    "owner": "owner",');
+    });
+
+    test('TC-U-622-005: 不正なJSONはエラーに記録しつつ例外を投げない', async () => {
+      // Given
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      const invalidContent = '{ invalid json content';
+      await fs.writeFile(metadataFile, invalidContent);
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(result.errors.length).toBeGreaterThan(0);
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(content).toBe(invalidContent);
+    });
+
+    test('TC-U-622-006: 存在しないパス指定でも例外を投げない', async () => {
+      // Given
+      const missingPath = path.join(workflowDir, 'missing', 'metadata.json');
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(missingPath);
+
+      // Then
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    test('TC-U-622-007: 空の metadata.json はそのまま保持される', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_dummy_empty_case';
+      const metadataFile = await writeMetadataFile({});
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(result.errors).toHaveLength(0);
+      expect(content.trim()).toBe('{}');
+    });
+
+    test('TC-U-622-008: 20文字のリポジトリ名でも汎用トークンに置換されない', async () => {
+      // Given
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: {
+              owner: 'owner',
+              repo: 'exactly-20-chars-dir',
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const parsed = JSON.parse(await fs.readFile(metadataFile, 'utf-8'));
+      expect(result.filesProcessed).toBe(0);
+      expect(parsed.target_repository.repo).toBe('exactly-20-chars-dir');
+      expect(JSON.stringify(parsed)).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-U-622-009: 19文字のリポジトリ名も変更しない', async () => {
+      // Given
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          target_repository: {
+            owner: 'owner',
+            repo: 'exactly-19-char-dir',
+          },
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const parsed = JSON.parse(await fs.readFile(metadataFile, 'utf-8'));
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(parsed.target_repository.repo).toBe('exactly-19-char-dir');
+      expect(JSON.stringify(parsed)).not.toContain('[REDACTED_TOKEN]');
+    });
+
+    test('TC-U-622-010: 複数種類のシークレットを正しくカウントする', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_testsecretvalue123';
+      process.env.OPENAI_API_KEY = 'sk-proj-test456789';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: { owner: 'owner', repo: 'repo' },
+            github_token: process.env.GITHUB_TOKEN,
+            openai_token: process.env.OPENAI_API_KEY,
+            duplicated: `value=${process.env.GITHUB_TOKEN}`,
+          },
+          null,
+          2,
+        ),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then: GITHUB_TOKEN 2箇所 + OPENAI_API_KEY 1箇所をカウント
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(3);
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(content).toContain('[REDACTED_OPENAI_API_KEY]');
+    });
+
+    test('TC-U-622-011: 同一シークレットが複数回出現してもカウントできる', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_repeat_secret_1234567890';
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          token_one: process.env.GITHUB_TOKEN,
+          token_two: `value=${process.env.GITHUB_TOKEN}`,
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(2);
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(content).not.toContain(process.env.GITHUB_TOKEN ?? '');
+    });
+
+    test('TC-U-622-012: シークレットが存在しない場合はカウント0', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_no_hit_secret_123456789';
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          note: 'このファイルにはシークレットがありません',
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      expect(result.filesProcessed).toBe(0);
+      expect(result.secretsMasked).toBe(0);
+      expect(result.errors).toHaveLength(0);
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(content).toContain('シークレットがありません');
+    });
+
+    test('TC-U-622-013: 異なる種類のシークレットを合算してカウントする', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_multi_secret_123456789';
+      process.env.OPENAI_API_KEY = 'sk-proj-multikey-1';
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          target_repository: { repo: 'sd-platform-development' },
+          github_token: process.env.GITHUB_TOKEN,
+          openai_key: process.env.OPENAI_API_KEY,
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskMetadataFile(metadataFile);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(2);
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(content).toContain('[REDACTED_OPENAI_API_KEY]');
+    });
+
+    test('TC-U-622-014: ignoredPaths を使い選択的にフィールドを保護する', () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_testsecretvalue123';
+      const masker = new SecretMasker();
+      const input = {
+        target_repository: {
+          owner: 'owner',
+          repo: 'public-repo',
+          remote_url: `https://ghp_testsecretvalue123@github.com/owner/public-repo.git`,
+        },
+        issue_url: 'https://github.com/owner/public-repo/issues/1',
+        notes: `Token: ${process.env.GITHUB_TOKEN}`,
+      };
+
+      // When
+      const masked = masker.maskObject(input, {
+        ignoredPaths: ['target_repository.repo', 'issue_url'],
+      }) as typeof input;
+
+      // Then
+      expect(masked.target_repository.repo).toBe('public-repo');
+      expect(masked.issue_url).toBe(input.issue_url);
+      expect(masked.target_repository.remote_url).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(masked.notes).toContain('[REDACTED_GITHUB_TOKEN]');
+    });
+
+    test('TC-U-622-015: ネストした ignoredPaths で owner/repo を保持する', () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_sampletokendata1234567890';
+      const masker = new SecretMasker();
+      const input = {
+        target_repository: {
+          owner: 'plan-b-co-jp',
+          repo: 'sd-platform-development',
+          remote_url:
+            'https://ghp_sampletokendata1234567890@github.com/plan-b-co-jp/sd-platform-development.git',
+        },
+        maintainer: 'owner@example.com',
+      };
+
+      // When
+      const masked = masker.maskObject(input, {
+        ignoredPaths: ['target_repository.owner', 'target_repository.repo'],
+      }) as typeof input;
+
+      // Then
+      expect(masked.target_repository.owner).toBe('plan-b-co-jp');
+      expect(masked.target_repository.repo).toBe('sd-platform-development');
+      expect(masked.target_repository.remote_url).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(masked.maintainer).toContain('[REDACTED_EMAIL]');
+    });
+
+    test('TC-I-622-001: metadata.json と agent_log_raw.txt を統合処理する', async () => {
+      // Given: 両ファイルに同じトークンが含まれる
+      process.env.GITHUB_TOKEN = 'ghp_integrationtoken123456';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      const agentLog = path.join(workflowDir, '01_requirements', 'execute', 'agent_log_raw.txt');
+      await fs.ensureDir(path.dirname(agentLog));
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: {
+              owner: 'plan-b-co-jp',
+              repo: 'sd-platform-development',
+              remote_url: 'https://github.com/plan-b-co-jp/sd-platform-development.git',
+            },
+            secret_token: process.env.GITHUB_TOKEN,
+          },
+          null,
+          2,
+        ),
+      );
+      await fs.writeFile(agentLog, `Using token ${process.env.GITHUB_TOKEN}`);
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      expect(result.filesProcessed).toBe(2);
+      expect(result.secretsMasked).toBeGreaterThanOrEqual(2);
+      const maskedMetadata = await fs.readFile(metadataFile, 'utf-8');
+      const maskedAgentLog = await fs.readFile(agentLog, 'utf-8');
+      expect(maskedMetadata).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(maskedMetadata).toContain('"repo": "sd-platform-development"');
+      expect(maskedAgentLog).toContain('[REDACTED_GITHUB_TOKEN]');
+    });
+
+    test('TC-I-622-002: metadata.json のみでも専用ロジックで処理する', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_metadata_only_1234567890';
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          secret_token: process.env.GITHUB_TOKEN,
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      const parsed = JSON.parse(content);
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(1);
+      expect(parsed.target_repository.repo).toBe('sd-platform-development');
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+    });
+
+    test('TC-I-622-003: 23文字のリポジトリ名を保持しつつトークンをマスクする', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_secrettoken123456789012345';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(
+        metadataFile,
+        JSON.stringify(
+          {
+            target_repository: {
+              owner: 'plan-b-co-jp',
+              repo: 'sd-platform-development',
+              github_full_name: 'plan-b-co-jp/sd-platform-development',
+            },
+            secret_token: process.env.GITHUB_TOKEN,
+            pr_url: 'https://github.com/plan-b-co-jp/sd-platform-development/pull/259',
+          },
+          null,
+          2,
+        ),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBeGreaterThan(0);
+      const content = await fs.readFile(metadataFile, 'utf-8');
+      expect(content).toContain('"repo": "sd-platform-development"');
+      expect(content).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(content).toContain('"pr_url": "https://github.com/plan-b-co-jp/sd-platform-development/pull/259"');
+    });
+
+    test('TC-I-622-004: finalize 相当の metadata.json を安全に処理する', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_finalize_flow_1234567890';
+      const metadataFile = await writeMetadataFile(
+        buildMetadataPayload({
+          target_repository: {
+            remote_url:
+              'https://github.com/plan-b-co-jp/sd-platform-development.git',
+          },
+          deployment_token: process.env.GITHUB_TOKEN,
+        }),
+      );
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      const maskedContent = await fs.readFile(metadataFile, 'utf-8');
+      const parsed = JSON.parse(maskedContent);
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(1);
+      expect(parsed.target_repository.owner).toBe('plan-b-co-jp');
+      expect(parsed.target_repository.repo).toBe('sd-platform-development');
+      expect(parsed.pr_url).toContain('/pull/123');
+      expect(maskedContent).toContain('[REDACTED_GITHUB_TOKEN]');
+    });
+
+    test('TC-I-622-005: agent_log_raw.txt の既存処理への影響なし', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_agentlog_only_1234567890';
+      const agentLog = path.join(workflowDir, '04_testing', 'execute', 'agent_log_raw.txt');
+      await fs.ensureDir(path.dirname(agentLog));
+      await fs.writeFile(agentLog, `Using ${process.env.GITHUB_TOKEN} in logs`);
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      const maskedAgentLog = await fs.readFile(agentLog, 'utf-8');
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(1);
+      expect(maskedAgentLog).toContain('[REDACTED_GITHUB_TOKEN]');
+      expect(maskedAgentLog).toContain('Using [REDACTED_GITHUB_TOKEN] in logs');
+    });
+
+    test('TC-I-622-006: prompt.txt の処理が維持されている', async () => {
+      // Given
+      process.env.OPENAI_API_KEY = 'sk-proj-prompt-only-1234567890';
+      const promptFile = path.join(workflowDir, '05_documentation', 'execute', 'prompt.txt');
+      await fs.ensureDir(path.dirname(promptFile));
+      await fs.writeFile(promptFile, `API key: ${process.env.OPENAI_API_KEY}`);
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      const maskedPrompt = await fs.readFile(promptFile, 'utf-8');
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(1);
+      expect(maskedPrompt).toContain('[REDACTED_OPENAI_API_KEY]');
+    });
+
+    test('TC-I-622-007: metadata.json が不正でも他ファイル処理を継続する', async () => {
+      // Given
+      process.env.GITHUB_TOKEN = 'ghp_invalidjsoncheck123';
+      const metadataFile = path.join(workflowDir, 'metadata.json');
+      await fs.writeFile(metadataFile, '{ invalid json content');
+      const agentLog = path.join(workflowDir, '02_design', 'execute', 'agent_log_raw.txt');
+      await fs.ensureDir(path.dirname(agentLog));
+      await fs.writeFile(agentLog, `Token: ${process.env.GITHUB_TOKEN}`);
+
+      // When
+      const masker = new SecretMasker();
+      const result = await masker.maskSecretsInWorkflowDir(workflowDir);
+
+      // Then
+      expect(result.filesProcessed).toBe(1);
+      expect(result.secretsMasked).toBe(1);
+      expect(result.errors.length).toBeGreaterThan(0);
+      const maskedAgentLog = await fs.readFile(agentLog, 'utf-8');
+      expect(maskedAgentLog).toContain('[REDACTED_GITHUB_TOKEN]');
+    });
   });
 });
 

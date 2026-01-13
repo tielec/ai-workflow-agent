@@ -65,6 +65,17 @@ export class SecretMasker {
     'metadata.json', // Issue #54: Scan metadata.json for tokens
   ];
 
+  // Issue #622: Preserve repository info inside metadata.json
+  private static readonly METADATA_IGNORED_PATHS = [
+    'target_repository.owner',
+    'target_repository.repo',
+    'target_repository.remote_url',
+    'target_repository.github_full_name',
+    'target_repository.local_path',
+    'issue_url',
+    'pr_url',
+  ];
+
   private readonly envVarNames = [
     'GITHUB_TOKEN',
     'OPENAI_API_KEY',
@@ -450,6 +461,20 @@ export class SecretMasker {
     // Process each file
     for (const filePath of files) {
       try {
+        if (path.basename(filePath) === 'metadata.json') {
+          const result = await this.maskMetadataFile(filePath);
+          filesProcessed += result.filesProcessed;
+          totalSecretsMasked += result.secretsMasked;
+          errors.push(...result.errors);
+
+          if (result.errors.length === 0) {
+            logger.info(
+              `[Issue #622] Processed metadata.json with repository info preserved (masked ${result.secretsMasked} secret(s))`,
+            );
+          }
+          continue;
+        }
+
         const result = await this.maskSecretsInFile(filePath, secrets);
         if (result.masked) {
           filesProcessed++;
@@ -470,6 +495,67 @@ export class SecretMasker {
       secretsMasked: totalSecretsMasked,
       errors,
     };
+  }
+
+  /**
+   * Mask secrets in metadata.json while preserving repository information
+   *
+   * Issue #622: Prevent target_repository.repo from being masked as a generic token.
+   * Uses maskObject() with ignoredPaths to selectively preserve public repository fields.
+   */
+  public async maskMetadataFile(metadataPath: string): Promise<MaskingResult> {
+    const errors: string[] = [];
+
+    try {
+      const originalContent = await fs.readFile(metadataPath, 'utf-8');
+      let parsedContent: unknown;
+
+      try {
+        parsedContent = JSON.parse(originalContent);
+      } catch (error) {
+        const errorMsg = `Failed to parse metadata.json at ${metadataPath}: ${getErrorMessage(error)}`;
+        logger.error(errorMsg);
+        errors.push(errorMsg);
+        return {
+          filesProcessed: 0,
+          secretsMasked: 0,
+          errors,
+        };
+      }
+
+      const maskedObject = this.maskObject(parsedContent, {
+        ignoredPaths: SecretMasker.METADATA_IGNORED_PATHS,
+      });
+      const maskedContent = JSON.stringify(maskedObject, null, 2);
+      const secretsMasked = this.countMaskedSecretsInContent(
+        originalContent,
+        maskedContent,
+      );
+
+      if (maskedContent !== originalContent) {
+        await fs.writeFile(metadataPath, maskedContent, 'utf-8');
+        return {
+          filesProcessed: 1,
+          secretsMasked,
+          errors,
+        };
+      }
+
+      return {
+        filesProcessed: 0,
+        secretsMasked,
+        errors,
+      };
+    } catch (error) {
+      const errorMsg = `Failed to process metadata.json at ${metadataPath}: ${getErrorMessage(error)}`;
+      logger.error(errorMsg);
+      errors.push(errorMsg);
+      return {
+        filesProcessed: 0,
+        secretsMasked: 0,
+        errors,
+      };
+    }
   }
 
   /**
@@ -613,6 +699,31 @@ export class SecretMasker {
    */
   private replaceAll(text: string, search: string, replace: string): string {
     return text.split(search).join(replace);
+  }
+
+  /**
+   * Count masked secrets by comparing original and masked content
+   */
+  private countMaskedSecretsInContent(original: string, masked: string): number {
+    let maskedCount = 0;
+
+    for (const secret of this.getSecretList()) {
+      if (!secret.value) continue;
+
+      const originalOccurrences = this.countOccurrences(
+        original,
+        secret.value,
+      );
+      if (originalOccurrences === 0) continue;
+
+      const maskedOccurrences = this.countOccurrences(masked, secret.value);
+      const diff = originalOccurrences - maskedOccurrences;
+      if (diff > 0) {
+        maskedCount += diff;
+      }
+    }
+
+    return maskedCount;
   }
 
   private isPlainObject(value: unknown): value is Record<string, unknown> {
