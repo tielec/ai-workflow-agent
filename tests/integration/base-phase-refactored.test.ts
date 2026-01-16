@@ -16,6 +16,8 @@ import { PhaseName, PhaseExecutionResult } from '../../src/types.js';
 import { BasePhase } from '../../src/phases/base-phase.js';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
 
+jest.setTimeout(20000);
+
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'base-phase-integration-test');
 

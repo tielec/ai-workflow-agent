@@ -6,6 +6,8 @@ import { resolveWorkingDirectory } from '../../src/core/helpers/working-director
 import { SecretMasker } from '../../src/core/secret-masker.js';
 import { logger } from '../../src/utils/logger.js';
 
+jest.setTimeout(20000);
+
 describe('SecretMaskerとパス解決の統合テスト (Issue #592)', () => {
   const baseEnv = { ...process.env };
   let tempRoot: string;

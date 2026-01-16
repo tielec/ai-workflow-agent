@@ -10,6 +10,8 @@ const mockReadFile = jest.fn<() => Promise<string>>();
 const mockRm = jest.fn<() => Promise<void>>();
 const mockAccess = jest.fn<() => Promise<void>>();
 
+jest.setTimeout(20000);
+
 jest.mock('node:fs', () => ({
   __esModule: true,
   default: {

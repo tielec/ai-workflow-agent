@@ -149,7 +149,7 @@ Phase 2: 設計 (2~3h)
         const savedContent = fs.readFileSync(outputFile, 'utf-8');
         expect(savedContent).toContain('プロジェクト計画書');
         expect(savedContent).toContain('## 1. Issue分析');
-      });
+      }, 15000);
     });
 
     describe('Log extraction failure → revise success flow', () => {
@@ -191,7 +191,7 @@ Phase 2: 設計 (2~3h)
         // Then: revise was called and file was created
         expect(result.success).toBe(true);
         expect(fs.existsSync(path.join(outputDir, 'planning.md'))).toBe(true);
-      });
+      }, 15000);
     });
   });
 

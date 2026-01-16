@@ -21,6 +21,7 @@ const simpleGitResetMock = jest.fn();
 const resolveReviewThreadMock = jest.fn();
 const configGetGitCommitUserNameMock = jest.fn(() => 'Configured Bot');
 const configGetGitCommitUserEmailMock = jest.fn(() => 'configured@example.com');
+const fspRmMock = jest.fn<() => Promise<void>>();
 
 const metadataManagerExistsMock = jest.fn();
 const metadataManagerLoadMock = jest.fn();
@@ -73,6 +74,13 @@ beforeAll(async () => {
     },
   }));
 
+  await jest.unstable_mockModule('node:fs', () => ({
+    __esModule: true,
+    promises: {
+      rm: fspRmMock,
+    },
+  }));
+
   await jest.unstable_mockModule('simple-git', () => ({
     __esModule: true,
     default: jest.fn(() => ({
@@ -94,6 +102,9 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
+
+  fspRmMock.mockReset();
+  fspRmMock.mockResolvedValue(undefined);
 
   metadataManagerExistsMock.mockResolvedValue(true);
   metadataManagerLoadMock.mockResolvedValue({ pr: { branch: 'feature/mock-branch' } });
@@ -276,13 +287,21 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
 
     await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
 
+    expect(fspRmMock).toHaveBeenCalledWith(
+      expect.stringContaining('.ai-workflow/pr-123/analyze'),
+      { recursive: true, force: true },
+    );
+    expect(fspRmMock).toHaveBeenCalledWith(
+      expect.stringContaining('.ai-workflow/pr-123/output'),
+      { recursive: true, force: true },
+    );
+    expect(simpleGitAddMock).toHaveBeenCalledWith('.');
     expect(simpleGitResetMock).toHaveBeenCalledWith(['--soft', 'abc123def456789012345678901234567890abcd']);
     expect(simpleGitCommitMock).toHaveBeenCalledWith(
       expect.stringContaining('[pr-comment] Resolve PR #123 review comments'),
     );
     expect(simpleGitPushMock).toHaveBeenCalledWith(['--force-with-lease', 'origin', 'HEAD:feature/mock-branch']);
     expect(metadataManagerCleanupMock).toHaveBeenCalled();
-    expect(simpleGitAddMock).not.toHaveBeenCalled();
     expect(simpleGitStatusMock).not.toHaveBeenCalled();
   });
 
@@ -297,5 +316,79 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
       '[pr-comment] Finalize PR #123: Clean up workflow artifacts (1 threads resolved)',
     );
     expect(simpleGitPushMock).toHaveBeenCalledWith('origin', 'HEAD:feature/mock-branch');
+  });
+
+  it('cleans intermediate workflow files and stages deletions before resetting for squash', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    expect(fspRmMock).toHaveBeenCalledWith(
+      expect.stringContaining('.ai-workflow/pr-123/analyze'),
+      { recursive: true, force: true },
+    );
+    expect(fspRmMock).toHaveBeenCalledWith(
+      expect.stringContaining('.ai-workflow/pr-123/output'),
+      { recursive: true, force: true },
+    );
+
+    const rmCallOrders = fspRmMock.mock.invocationCallOrder;
+    const addOrder = simpleGitAddMock.mock.invocationCallOrder[0];
+    const resetOrder = simpleGitResetMock.mock.invocationCallOrder[0];
+
+    expect(Math.max(...rmCallOrders)).toBeLessThan(addOrder);
+    expect(addOrder).toBeLessThan(resetOrder);
+  });
+
+  it('handles missing intermediate directories gracefully during squash', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await expect(handlePRCommentFinalizeCommand({ ...commandOptions, squash: true })).resolves.not.toThrow();
+    expect(fspRmMock).toHaveBeenCalledTimes(2);
+    expect(fspRmMock).toHaveBeenCalledWith(expect.any(String), { recursive: true, force: true });
+  });
+
+  it('builds squash commit message with co-author footer and no marketing text', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+    metadataManagerGetMetadataMock.mockResolvedValue({
+      summary: {
+        total: 5,
+        by_status: { completed: 4 },
+        by_type: { code_change: 2, reply: 2 },
+      },
+      pr: { branch: 'feature/mock-branch' },
+    });
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    const commitMessage = simpleGitCommitMock.mock.calls[0][0];
+    expect(commitMessage).toContain('[pr-comment] Resolve PR #123 review comments (5 comments)');
+    expect(commitMessage).toContain('- Addressed 4 review comments');
+    expect(commitMessage).toContain('- Applied 2 code changes');
+    expect(commitMessage).toContain('- Posted 2 replies');
+    expect(commitMessage).toContain('Co-Authored-By: Claude <noreply@anthropic.com>');
+    expect(commitMessage).not.toContain('Generated with Claude Code');
+    expect(commitMessage).not.toContain('🤖');
+  });
+
+  it('does not clean intermediate files when squash is not requested', async () => {
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    expect(fspRmMock).not.toHaveBeenCalled();
+    expect(simpleGitCommitMock).toHaveBeenCalledWith(
+      '[pr-comment] Finalize PR #123: Clean up workflow artifacts (1 threads resolved)',
+    );
+  });
+
+  it('skips squash when only a single commit exists after base_commit', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+    simpleGitLogMock.mockResolvedValue({ all: [{ hash: 'single-commit' }] });
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('Only 1 commit(s) found. Skipping squash.'));
+    expect(fspRmMock).not.toHaveBeenCalled();
+    expect(simpleGitResetMock).not.toHaveBeenCalled();
+    expect(simpleGitCommitMock).not.toHaveBeenCalledWith(expect.stringContaining('Resolve PR #123 review comments'));
   });
 });

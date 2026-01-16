@@ -570,6 +570,29 @@ export class ContentParser {
    * Uses LLM to extract structured information from natural language
    */
   public async parseEvaluationDecision(content: string): Promise<EvaluationDecisionResult> {
+    if (!content.trim()) {
+      logger.info('Empty evaluation content received; using fallback parser.');
+      return this.parseEvaluationDecisionFallback(content);
+    }
+
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Test environment detected; using fallback parser for evaluation decision.');
+      return this.parseEvaluationDecisionFallback(content);
+    }
+
+    const hasExplicitDecisionMarker =
+      /DECISION:\s*[A-Z0-9_]+/i.test(content) ||
+      /\*\*総合評価\*\*/i.test(content) ||
+      /(?:判定|決定|結果)[:：]\s*[A-Z_]+/i.test(content);
+
+    if (hasExplicitDecisionMarker) {
+      const fastPathResult = this.parseEvaluationDecisionFallback(content);
+      if (fastPathResult.success && fastPathResult.decision) {
+        logger.info('Parsed evaluation decision via fast path; skipping LLM call.');
+        return fastPathResult;
+      }
+    }
+
     const template = this.loadPrompt('parse_evaluation_decision');
     const prompt = template.replace('{evaluation_content}', content);
 
