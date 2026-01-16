@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #627**: pr-comment finalize --squash で中間ファイルが削除されずコミットメッセージにClaude Code署名が含まれる問題を修正
+  - `squashCommitsIfRequested()` 関数に中間ファイルクリーンアップ処理を追加し、`git reset --soft` 実行前に `analyze/` および `output/` ディレクトリを削除
+  - `generateSquashCommitMessage()` 関数からClaude Code署名（「🤖 Generated with Claude Code」「Co-Authored-By: Claude <noreply@anthropic.com>」）を除去
+  - 中間ファイルが最終的なスカッシュコミットに含まれることを防ぎ、よりクリーンなコミット履歴を実現
+  - コミットメッセージ形式を `[pr-comment] Resolve PR #XXX review comments (N comments)` + サマリーのみに簡素化
+  - 修正ファイル: `src/commands/pr-comment/finalize.ts`
+  - テストカバレッジ: 16件のユニットテスト（100%成功）
+
 - **Issue #622**: finalize コマンドの PR 更新で 404 エラーが発生する問題を修正
   - SecretMasker が metadata.json の `target_repository.repo` フィールドを誤ってマスキングする問題を修正
   - `maskMetadataFile()` メソッドを新規追加し、metadata.json を構造化データとして処理

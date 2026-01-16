@@ -349,24 +349,27 @@ ai-workflow pr-comment finalize --pr <number> | --pr-url <URL> [--dry-run] [--sq
 - 現在のブランチが `main` または `master` でないこと（ブランチ保護）
 - スカッシュ対象のコミットが2件以上存在すること
 
-**スカッシュの流れ**:
+**スカッシュの流れ**（Issue #627でバグ修正）:
 1. `base_commit`（init時に記録）をメタデータから取得
 2. `base_commit` がない場合は警告を表示してスカッシュをスキップ（他の処理は継続）
 3. 現在のブランチが `main`/`master` でないことを確認
-4. `git reset --soft <base_commit>` でコミットをリセット
-5. 以下のフォーマットでコミットメッセージを生成:
+4. **中間ファイルのクリーンアップ**（Issue #627でバグ修正）:
+   - `.ai-workflow/pr-{prNumber}/analyze/` ディレクトリの削除
+   - `.ai-workflow/pr-{prNumber}/output/` ディレクトリの削除
+   - `git add .` で削除をステージング
+   - これにより、中間生成ファイルがスカッシュコミットに含まれないようになりました
+5. `git reset --soft <base_commit>` でコミットをリセット
+6. **クリーンなコミットメッセージの生成**（Issue #627でバグ修正）:
    ```
    [pr-comment] Resolve PR #XXX review comments (N comments)
 
    - Addressed N review comments
    - Applied N code changes
    - Posted N replies
-
-   🤖 Generated with Claude Code
-   Co-Authored-By: Claude <noreply@anthropic.com>
    ```
-6. `git commit -m "<message>"` で新しいコミットを作成
-7. `git push --force-with-lease origin <branch>` で安全に強制プッシュ
+   ※ 以前含まれていた「🤖 Generated with Claude Code」と「Co-Authored-By: Claude」のフッターは削除されました
+7. `git commit -m "<message>"` で新しいコミットを作成
+8. `git push --force-with-lease origin <branch>` で安全に強制プッシュ
 
 **使用例**:
 ```bash
@@ -846,3 +849,4 @@ $REPOS_ROOT/
 | 1.6.0 | 2025-01-22 | agent_log.mdのMarkdown化（Issue #441） - LogFormatterによる統一的なMarkdown形式でログ出力、可読性向上とフォーマット統一 |
 | 1.7.0 | 2025-01-22 | executeコマンドでエージェントログをファイル保存（Issue #487） - 各コメント分析時のエージェント実行ログを `agent_log_comment_{comment_id}.md` として保存、Markdown形式、ドライランモード対応 |
 | 1.8.0 | 2025-01-20 | スレッドコンテキストと承認パターン検出機能追加（Issue #615） - コメントを`thread_id`でグループ化し、「AI提案→ユーザー承認」パターンを`code_change`として正しく判定。`[AI Reply]`/`[User Comment]`ラベル付きでスレッド全体の文脈を考慮した分析を実行 |
+| 1.8.1 | 2025-01-22 | pr-comment finalize --squash バグ修正（Issue #627） - 中間生成ファイル（analyze/、output/ディレクトリ）がスカッシュコミットに含まれる問題を修正。コミットメッセージから「Generated with Claude Code」フッターを削除し、よりクリーンなコミット履歴を実現 |
