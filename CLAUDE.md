@@ -225,6 +225,8 @@ node dist/index.js execute --issue 302 --phase documentation
 
 フルモデルIDを指定した場合はエイリアス解決をスキップしてそのまま渡されるため、新しい Codex リリースにも即応できます。`legacy` エイリアスを使えば既存の `gpt-5-codex` 固定ワークフローを破壊せずに動作確認が可能です。
 
+**補足**: ChatGPT アカウントで Codex CLI（`CODEX_AUTH_JSON` など）を使うと `gpt-4o`/`gpt-4o-mini` は非対応になるため、`resolveCodexModel()` では非対応モデルや未指定値が渡された際に `DEFAULT_CODEX_MODEL`（`gpt-5.1-codex-max`）へ安全にフォールバックします。`--codex-model` や `CODEX_MODEL` では上記エイリアスまたはフルモデル名を使って ChatGPT 対応モデルを明示的に指定してください。詳細やトラブルシュートは `TROUBLESHOOTING.md` の該当セクションを確認してください。
+
 ### モデル自動選択機能（Issue #363で追加）
 
 Issue の難易度に基づいて、各フェーズ・ステップで使用するモデルを自動的に最適化する機能です。

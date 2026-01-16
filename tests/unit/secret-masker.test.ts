@@ -822,7 +822,8 @@ describe('SecretMaskerファイル処理テスト', () => {
     const parsed = JSON.parse(content);
     expect(content.includes('[REDACTED_GITHUB_TOKEN]')).toBeTruthy();
     expect(parsed.secret_token).toBe('[REDACTED_GITHUB_TOKEN]');
-    expect(parsed.target_repository.remote_url).toContain('ghp_secret123456789');
+    expect(parsed.target_repository.remote_url).toContain('[REDACTED_GITHUB_TOKEN]');
+    expect(parsed.target_repository.remote_url).not.toContain('ghp_secret123456789');
   });
 
   test('2.2.8: metadata.jsonにトークンが含まれない場合、ファイルを変更しない', async () => {
