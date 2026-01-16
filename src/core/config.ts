@@ -246,7 +246,7 @@ export class Config implements IConfig {
     if (!token) {
       throw new Error(
         'GITHUB_TOKEN environment variable is required. ' +
-          'Please set your GitHub personal access token with repo scope.',
+          'Please set your GitHub personal access token with repo scopes.',
       );
     }
     return token;

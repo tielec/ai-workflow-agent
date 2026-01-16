@@ -420,6 +420,8 @@ node dist/index.js execute --issue 123 --phase all
 | `5.1` | `gpt-5.1` | 汎用モデル |
 | `legacy` | `gpt-5-codex` | レガシー（後方互換性） |
 
+**補足**: ChatGPT アカウントで Codex CLI（`CODEX_AUTH_JSON` など）を使う場合、`gpt-4o` 系モデルは非対応です。`resolveCodexModel()` により CLI オプションや `CODEX_MODEL` で未指定／非対応の値が渡された際には `DEFAULT_CODEX_MODEL`（`gpt-5.1-codex-max`）へ自動フォールバックし、`gpt-4o` を選ばないよう調整されています。ChatGPT 対応モデルを明示したいときは、上で示したエイリアスまたはフルモデル名を `--codex-model` や `CODEX_MODEL` で指定してください。詳細は `TROUBLESHOOTING.md` の「ChatGPTアカウントでの Codex 非対応モデルエラー」セクションを参照してください。
+
 **優先順位**: CLI オプション `--codex-model` > 環境変数 `CODEX_MODEL` > デフォルト値 `gpt-5.1-codex-max`
 
 ### プリセット

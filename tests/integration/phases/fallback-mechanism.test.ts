@@ -56,6 +56,8 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
         repo_url: 'https://github.com/test/repo',
         design_decisions: {}, // Issue #113: Design/TestScenario/Implementationフェーズが参照
       },
+      // 設計決定の記録を行うためのダミー実装（Issue #113: フォールバック動作で必要）
+      setDesignDecision: jest.fn(),
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn().mockReturnValue(null),
       getPhaseStatus: jest.fn().mockReturnValue('completed'),
