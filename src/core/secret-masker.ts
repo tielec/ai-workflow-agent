@@ -69,7 +69,6 @@ export class SecretMasker {
   private static readonly METADATA_IGNORED_PATHS = [
     'target_repository.owner',
     'target_repository.repo',
-    'target_repository.remote_url',
     'target_repository.github_full_name',
     'target_repository.local_path',
     'issue_url',

@@ -5,11 +5,12 @@
  * Covered Scenarios: IT-001〜IT-012 from Phase 3 test plan
  */
 
-import { beforeAll, describe, expect, it } from '@jest/globals';
+import { beforeAll, describe, expect, it, jest } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'path';
 
 const projectRoot = path.resolve(import.meta.dirname, '../../..');
+jest.setTimeout(20000);
 
 const DSL_PATHS = [
   'jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy',

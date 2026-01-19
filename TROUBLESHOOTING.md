@@ -92,6 +92,72 @@ nvm use --lts
 
 **注意**: v0.5.0 以降（Issue #150）では、stdin パイプ失敗時に即座に明確なエラーメッセージが返されるようになりました。以前のバージョンでは、タイムアウトまでハングしていました。
 
+### `The 'gpt-4o' model is not supported when using Codex with a ChatGPT account.`（Issue #625で修正）
+
+**症状**:
+```
+[ERROR] The 'gpt-4o' model is not supported when using Codex with a ChatGPT account.
+```
+
+全フェーズのreviewステップでこのエラーが発生し、ワークフロー実行が失敗する場合。
+
+**原因**:
+- ChatGPTアカウントでCodex CLI認証を使用している場合、`gpt-4o`モデルは非対応
+- v0.5.0より前では、ContentParserでCodexAgentClientを初期化する際に`gpt-4o`がハードコードされていた
+- 全フェーズのreviewステップで共通して使用されるため、すべてのフェーズで影響が発生
+
+**対処法（v0.5.0以降、Issue #625で修正済み）**:
+
+v0.5.0以降では、この問題は自動的に解決されます：
+
+1. **デフォルトモデルの変更**: `gpt-4o` → `gpt-5.1-codex-max`（ChatGPTアカウント対応）
+2. **環境変数による上書きサポート**: `CODEX_MODEL` 環境変数でモデルを指定可能
+3. **モデルエイリアス対応**: `mini`、`max`、`5.1`、`legacy`などのエイリアスが利用可能
+
+**対処法（v0.4.x以前）**:
+
+v0.4.x以前を使用している場合、以下の回避策を実行してください：
+
+```bash
+# 方法1: 環境変数でCodex対応モデルを指定
+export CODEX_MODEL=gpt-5.1-codex-max  # または mini/5.1/legacy
+node dist/index.js execute --phase all --issue 123
+
+# 方法2: CLI オプションでモデルを指定
+node dist/index.js execute --phase all --issue 123 --codex-model max
+
+# 方法3: 軽量モデルを使用（コスト削減）
+export CODEX_MODEL=mini
+node dist/index.js execute --phase all --issue 123
+```
+
+**ChatGPTアカウント対応モデル一覧**:
+
+| モデルID | エイリアス | 説明 | ChatGPTアカウント対応 |
+|----------|-----------|------|---------------------|
+| `gpt-5.1-codex-max` | `max` | デフォルト、複雑なマルチステップタスク向け | ✅ |
+| `gpt-5.1-codex-mini` | `mini` | 軽量、コスト効率重視 | ✅ |
+| `gpt-5.1` | `5.1` | 汎用 | ✅ |
+| `gpt-5-codex` | `legacy` | レガシー（後方互換用） | ✅ |
+| `gpt-4o` | - | **非対応** | ❌ |
+| `gpt-4o-mini` | - | **非対応** | ❌ |
+
+**確認方法**:
+```bash
+# 使用されているモデルをログで確認
+grep -i "ContentParser initialized with Codex model" .ai-workflow/issue-*/0*_*/execute/agent_log.md
+
+# メタデータで認証情報を確認
+cat .ai-workflow/issue-*/metadata.json | jq '.codex_auth_type'
+```
+
+**予防策**:
+- v0.5.0以降を使用する（根本的解決が含まれる）
+- ChatGPTアカウントではCodex対応モデル（`max`、`mini`、`5.1`、`legacy`）のみ使用する
+- 環境変数 `CODEX_MODEL` でデフォルト動作を設定する
+
+**関連Issue**: Issue #625 - ChatGPTアカウントでの非対応モデルエラーの修正
+
 ## 2. Claude Code 関連
 
 ### `Claude Code credentials are not configured`

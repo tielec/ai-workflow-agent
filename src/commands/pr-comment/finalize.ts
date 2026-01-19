@@ -1,3 +1,5 @@
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
@@ -202,6 +204,21 @@ async function squashCommitsIfRequested(
   await git.addConfig('user.name', gitUserName);
   await git.addConfig('user.email', gitUserEmail);
 
+  const prDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
+  const analyzeDir = path.join(prDir, 'analyze');
+  const outputDir = path.join(prDir, 'output');
+
+  logger.debug('Cleaning up intermediate files before squash...');
+  try {
+    await fsp.rm(analyzeDir, { recursive: true, force: true });
+    await fsp.rm(outputDir, { recursive: true, force: true });
+  } catch (error) {
+    logger.warn(`Failed to remove intermediate files: ${getErrorMessage(error)}`);
+  }
+
+  logger.debug('Staging intermediate file cleanup...');
+  await git.add('.');
+
   logger.debug(`Resetting to ${baseCommit}...`);
   await git.reset(['--soft', baseCommit]);
 
@@ -236,14 +253,15 @@ function generateSquashCommitMessage(prNumber: number, summary: ResolutionSummar
   const codeChangeCount = summary.by_type?.code_change ?? 0;
   const replyCount = summary.by_type?.reply ?? 0;
 
+  const coAuthorLine = 'Co-Authored-By: Claude <noreply@anthropic.com>';
+
   return `[pr-comment] Resolve PR #${prNumber} review comments (${totalComments} comments)
 
 - Addressed ${completedCount} review comments
 - Applied ${codeChangeCount} code changes
 - Posted ${replyCount} replies
 
-🤖 Generated with Claude Code
-Co-Authored-By: Claude <noreply@anthropic.com>`;
+${coAuthorLine}`;
 }
 
 /**

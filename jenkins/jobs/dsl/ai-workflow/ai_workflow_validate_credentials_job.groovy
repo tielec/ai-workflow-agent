@@ -106,8 +106,8 @@ Anthropic API キー（任意）
 
         // ログローテーション
         logRotator {
-            daysToKeep(30)
-            numToKeep(20)
+            numToKeep(30)
+            daysToKeep(90)
         }
 
         definition {

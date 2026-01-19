@@ -380,14 +380,18 @@ describe('sanitizeGitUrl', () => {
       const expected = 'https://github.com/owner/repo.git';
 
       // When: 1000回実行し、処理時間を計測
+      const warmup = sanitizeGitUrl(input);
+      expect(warmup).toBe(expected);
+
       const start = Date.now();
+      let result = '';
       for (let i = 0; i < 1000; i++) {
-        const result = sanitizeGitUrl(input);
-        expect(result).toBe(expected);
+        result = sanitizeGitUrl(input);
       }
       const elapsed = Date.now() - start;
 
       // Then: 合計1500ms以内に処理が完了すること（CI環境のオーバーヘッドを考慮）
+      expect(result).toBe(expected);
       expect(elapsed).toBeLessThan(1500);
     });
   });

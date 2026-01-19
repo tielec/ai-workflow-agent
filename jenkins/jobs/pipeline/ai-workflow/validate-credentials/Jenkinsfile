@@ -135,8 +135,18 @@ pipeline {
                     ].findAll { it?.trim() }.join(' ')
 
                     int status = sh(script: cmd, returnStatus: true)
+                    def statuses = []
+
+                    if (fileExists('credentials-validation-result.json')) {
+                        def parsed = readJSON(file: 'credentials-validation-result.json')
+                        statuses = (parsed?.results?.values()?.collect { it.status } ?: []).findAll { it }
+                    }
 
                     if (params.EXIT_ON_ERROR && status != 0) {
+                        error("validate-credentials command failed (exit-on-error enabled)")
+                    }
+
+                    if (params.EXIT_ON_ERROR && statuses.any { it in ['failed', 'warning'] }) {
                         error("validate-credentials command failed (exit-on-error enabled)")
                     }
                 }

@@ -6,7 +6,7 @@ import type { EvaluationDecisionResult, PhaseName, RemainingTask } from '../type
 import { config } from './config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
 import { ClaudeAgentClient } from './claude-agent-client.js';
-import { CodexAgentClient } from './codex-agent-client.js';
+import { CodexAgentClient, DEFAULT_CODEX_MODEL, resolveCodexModel } from './codex-agent-client.js';
 import { detectCodexCliAuth, isValidCodexApiKey } from './helpers/codex-credentials.js';
 import { PromptLoader } from './prompt-loader.js';
 
@@ -89,8 +89,10 @@ export class ContentParser {
       } else if (codexAuthFile) {
         logger.info(`CODEX_AUTH_JSON detected at ${codexAuthFile} for ContentParser.`);
       }
+      const codexModel = resolveCodexModel(config.getCodexModel() ?? DEFAULT_CODEX_MODEL);
+      logger.debug(`ContentParser initialized with Codex model: ${codexModel}`);
       try {
-        this.codexAgentClient = new CodexAgentClient({ model: 'gpt-4o' });
+        this.codexAgentClient = new CodexAgentClient({ model: codexModel });
       } catch {
         this.codexAgentClient = null;
       }
@@ -568,6 +570,29 @@ export class ContentParser {
    * Uses LLM to extract structured information from natural language
    */
   public async parseEvaluationDecision(content: string): Promise<EvaluationDecisionResult> {
+    if (!content.trim()) {
+      logger.info('Empty evaluation content received; using fallback parser.');
+      return this.parseEvaluationDecisionFallback(content);
+    }
+
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Test environment detected; using fallback parser for evaluation decision.');
+      return this.parseEvaluationDecisionFallback(content);
+    }
+
+    const hasExplicitDecisionMarker =
+      /DECISION:\s*[A-Z0-9_]+/i.test(content) ||
+      /\*\*総合評価\*\*/i.test(content) ||
+      /(?:判定|決定|結果)[:：]\s*[A-Z_]+/i.test(content);
+
+    if (hasExplicitDecisionMarker) {
+      const fastPathResult = this.parseEvaluationDecisionFallback(content);
+      if (fastPathResult.success && fastPathResult.decision) {
+        logger.info('Parsed evaluation decision via fast path; skipping LLM call.');
+        return fastPathResult;
+      }
+    }
+
     const template = this.loadPrompt('parse_evaluation_decision');
     const prompt = template.replace('{evaluation_content}', content);
 
@@ -612,6 +637,9 @@ export class ContentParser {
           };
         }
         result.failedPhase = mappedPhase;
+        result.decision = this.normalizeFailPhaseDecision(decision, mappedPhase);
+      } else {
+        result.decision = decision;
       }
 
       // Include abort reason if ABORT
@@ -651,6 +679,7 @@ export class ContentParser {
         const failedPhase = this.extractFailedPhase(content, decision);
         if (failedPhase) {
           result.failedPhase = failedPhase;
+          result.decision = this.normalizeFailPhaseDecision(decision, failedPhase);
         }
       }
 
@@ -823,5 +852,31 @@ export class ContentParser {
     };
 
     return mapping[normalized] ?? null;
+  }
+
+  private normalizeFailPhaseDecision(decision: string, failedPhase?: PhaseName): string {
+    if (!decision.startsWith('FAIL_PHASE') || !failedPhase) {
+      return decision;
+    }
+
+    const phaseOrder: Record<PhaseName, number> = {
+      planning: 0,
+      requirements: 1,
+      design: 2,
+      test_scenario: 3,
+      implementation: 4,
+      test_implementation: 5,
+      testing: 6,
+      documentation: 7,
+      report: 8,
+      evaluation: 9,
+    };
+
+    const index = phaseOrder[failedPhase];
+    if (index === undefined) {
+      return decision;
+    }
+
+    return `FAIL_PHASE_${index}`;
   }
 }

@@ -504,7 +504,7 @@ async function buildAnalyzePrompt(
 
   for (const [threadId] of threadGroups) {
     const allThreadComments = getAllThreadComments(metadata, threadId);
-    const formatted = formatThreadBlock(
+    const formatted = await formatThreadBlockWithFiles(
       threadId,
       allThreadComments.length > 0 ? allThreadComments : threadGroups.get(threadId) ?? [],
       repoRoot,
@@ -597,6 +597,27 @@ function formatThreadBlock(
   }
 
   return blocks.join('\n');
+}
+
+async function formatThreadBlockWithFiles(
+  threadId: string,
+  comments: CommentMetadata[],
+  repoRoot: string,
+): Promise<string> {
+  const blocks: string[] = [`### Thread #${threadId}`];
+
+  for (const meta of comments) {
+    const commentBlock = await formatCommentBlock(meta, repoRoot);
+    const isAIReply = meta.reply_comment_id !== null && meta.reply_comment_id !== undefined;
+    const label = isAIReply ? '[AI Reply]' : '[User Comment]';
+    const labeledBlock = commentBlock.replace(
+      /^### Comment #[^\n]+/m,
+      `### Comment #${meta.comment.id} ${label}`,
+    );
+    blocks.push(labeledBlock);
+  }
+
+  return blocks.join('\n\n');
 }
 
 async function formatCommentBlock(meta: CommentMetadata, repoRoot: string): Promise<string> {

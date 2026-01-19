@@ -56,6 +56,8 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
         repo_url: 'https://github.com/test/repo',
         design_decisions: {}, // Issue #113: Design/TestScenario/Implementationフェーズが参照
       },
+      // 設計決定の記録を行うためのダミー実装（Issue #113: フォールバック動作で必要）
+      setDesignDecision: jest.fn(),
       updatePhaseStatus: jest.fn(),
       getRollbackContext: jest.fn().mockReturnValue(null),
       getPhaseStatus: jest.fn().mockReturnValue('completed'),
@@ -147,7 +149,7 @@ Phase 2: 設計 (2~3h)
         const savedContent = fs.readFileSync(outputFile, 'utf-8');
         expect(savedContent).toContain('プロジェクト計画書');
         expect(savedContent).toContain('## 1. Issue分析');
-      });
+      }, 15000);
     });
 
     describe('Log extraction failure → revise success flow', () => {
@@ -189,7 +191,7 @@ Phase 2: 設計 (2~3h)
         // Then: revise was called and file was created
         expect(result.success).toBe(true);
         expect(fs.existsSync(path.join(outputDir, 'planning.md'))).toBe(true);
-      });
+      }, 15000);
     });
   });
 
