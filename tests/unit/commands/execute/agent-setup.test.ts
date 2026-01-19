@@ -548,6 +548,89 @@ describe('setupAgentClients - auto モード', () => {
 });
 
 // =============================================================================
+// setupAgentClients() - agentPriority: claude-first（Issue #629）
+// =============================================================================
+
+describe('setupAgentClients - agentPriority: claude-first（Issue #629）', () => {
+  test('両方の認証情報が存在する場合、Claude 優先で初期化し Codex をフォールバックにする', () => {
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'valid-codex-api-key-12345678901234567890',
+      claudeCodeToken: 'valid-claude-token',
+      claudeCredentialsPath: null,
+    };
+
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
+      workingDir,
+      credentialsPath: undefined,
+      model: 'claude-opus-4-5-20251101',
+    });
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({
+      workingDir,
+      model: 'gpt-5.1-codex-max',
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Claude Code agent enabled (auto mode, claude-first priority'),
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Codex credentials detected. Fallback available'),
+    );
+    expect(result.claudeClient).toBeDefined();
+    expect(result.codexClient).toBeDefined();
+  });
+
+  test('Claude 認証情報がない場合、Codex のみ初期化しフォールバックメッセージを出す', () => {
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: 'valid-codex-api-key-12345678901234567890',
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
+
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    expect(ClaudeAgentClientMock).not.toHaveBeenCalled();
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({
+      workingDir,
+      model: 'gpt-5.1-codex-max',
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Claude agent unavailable. Using Codex'),
+    );
+    expect(result.claudeClient).toBeNull();
+    expect(result.codexClient).toBeDefined();
+  });
+
+  test('両方の認証情報が存在しない場合は警告を出して両方 null', () => {
+    const agentMode = 'auto';
+    const workingDir = '/workspace/repo';
+    const credentials: CredentialsResult = {
+      codexApiKey: null,
+      claudeCodeToken: null,
+      claudeCredentialsPath: null,
+    };
+
+    const result: AgentSetupResult = setupAgentClients(agentMode, workingDir, credentials, {
+      agentPriority: 'claude-first',
+    });
+
+    expect(ClaudeAgentClientMock).not.toHaveBeenCalled();
+    expect(CodexAgentClientMock).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith('Both Claude and Codex agents unavailable.');
+    expect(result.claudeClient).toBeNull();
+    expect(result.codexClient).toBeNull();
+  });
+});
+
+// =============================================================================
 // setupAgentClients() - codexModel オプション（Issue #302）
 // =============================================================================
 

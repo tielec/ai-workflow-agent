@@ -72,7 +72,7 @@ await jest.unstable_mockModule('@octokit/rest', () => ({
   },
 }));
 
-const { handleAutoIssueCommand } = await import('../../../src/commands/auto-issue.js');
+const { handleAutoIssueCommand, CATEGORY_AGENT_PRIORITY } = await import('../../../src/commands/auto-issue.js');
 const repositoryUtils = await import('../../../src/core/repository-utils.js');
 const autoIssueOutput = await import('../../../src/commands/auto-issue-output.js');
 const { config } = await import('../../../src/core/config.js');
@@ -121,6 +121,7 @@ describe('auto-issue command handler', () => {
     config.getHomeDir = jest.fn().mockReturnValue('/home/test');
     config.getReposRoot = jest.fn().mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd');
 
+    logger.debug = jest.fn();
     logger.info = jest.fn();
     logger.warn = jest.fn();
     logger.error = jest.fn();
@@ -276,6 +277,25 @@ describe('auto-issue command handler', () => {
           creativeMode: true,
         }),
       );
+    });
+  });
+
+  describe('CATEGORY_AGENT_PRIORITY (Issue #629)', () => {
+    it('全カテゴリで claude-first が設定され、優先順位値が有効である', () => {
+      const expectedCategories = ['bug', 'refactor', 'enhancement', 'all'];
+      const validPriorities = ['codex-first', 'claude-first'];
+
+      expect(Object.keys(CATEGORY_AGENT_PRIORITY).sort()).toEqual(expectedCategories.sort());
+      for (const [category, priority] of Object.entries(CATEGORY_AGENT_PRIORITY)) {
+        expect(validPriorities).toContain(priority);
+        expect(priority).toBe('claude-first');
+        expect(expectedCategories).toContain(category);
+      }
+    });
+
+    it('未定義カテゴリは codex-first にフォールバックする', () => {
+      const priority = CATEGORY_AGENT_PRIORITY['unknown'] ?? 'codex-first';
+      expect(priority).toBe('codex-first');
     });
   });
 
@@ -1741,6 +1761,131 @@ describe('auto-issue command handler', () => {
 
       expect(mockAnalyzeForRefactoring).toHaveBeenCalled();
       expect(mockGenerateRefactorIssue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Agent priority wiring (Issue #629)', () => {
+    it('bug カテゴリで setupAgentClients に claude-first が渡される', async () => {
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'auto',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        "Agent priority for category 'bug': claude-first",
+      );
+    });
+
+    it('refactor カテゴリでも claude-first が渡されてリファクタ解析が呼ばれる', async () => {
+      await handleAutoIssueCommand({
+        category: 'refactor',
+        agent: 'auto',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledTimes(1);
+      expect(logger.debug).toHaveBeenCalledWith(
+        "Agent priority for category 'refactor': claude-first",
+      );
+    });
+
+    it('enhancement カテゴリでも claude-first が渡され、機能拡張解析が実行される', async () => {
+      mockAnalyzeForEnhancements.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'enhancement',
+        agent: 'auto',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(mockAnalyzeForEnhancements).toHaveBeenCalledTimes(1);
+      expect(logger.debug).toHaveBeenCalledWith(
+        "Agent priority for category 'enhancement': claude-first",
+      );
+    });
+
+    it('--agent codex 指定時は codex モードで解析される（優先順位は影響しない）', async () => {
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'codex',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'codex',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'codex',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
+    });
+
+    it('--agent claude 指定時は claude モードで解析される（優先順位は影響しない）', async () => {
+      await handleAutoIssueCommand({
+        category: 'bug',
+        agent: 'claude',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'claude',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.any(String),
+        'claude',
+        expect.objectContaining({ customInstruction: undefined }),
+      );
+    });
+
+    it('all カテゴリで全ての解析フローが実行され、agentPriority が伝播する', async () => {
+      mockAnalyze.mockResolvedValue([]);
+      mockAnalyzeForRefactoring.mockResolvedValue([]);
+      mockAnalyzeForEnhancements.mockResolvedValue([]);
+
+      await handleAutoIssueCommand({
+        category: 'all',
+        agent: 'auto',
+        dryRun: true,
+      });
+
+      expect(mockSetupAgentClients).toHaveBeenCalledWith(
+        'auto',
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({ agentPriority: 'claude-first' }),
+      );
+      expect(mockAnalyze).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForRefactoring).toHaveBeenCalledTimes(1);
+      expect(mockAnalyzeForEnhancements).toHaveBeenCalledTimes(1);
+      expect(logger.debug).toHaveBeenCalledWith(
+        "Agent priority for category 'all': claude-first",
+      );
     });
   });
 });
