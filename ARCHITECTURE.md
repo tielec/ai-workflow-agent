@@ -33,18 +33,19 @@ src/commands/execute.ts (フェーズ実行コマンド処理 - ファサード�
      ├─ resetMetadata (そのまま保持)
      └─ reportExecutionSummary (そのまま保持)
 
-src/commands/execute/options-parser.ts (CLIオプション解析、v0.3.1で追加、Issue #46)
+src/commands/execute/options-parser.ts (CLIオプション解析、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636)
  ├─ parseExecuteOptions() … ExecuteCommandOptions を正規化
- └─ validateExecuteOptions() … 相互排他オプションの検証
+ ├─ parseSkipPhasesOption() … --skip-phases オプションの解析・バリデーション（Issue #636）
+ └─ validateExecuteOptions() … 相互排他オプションの検証（--preset と --skip-phases を含む）
 
 src/commands/execute/agent-setup.ts (エージェント初期化、v0.3.1で追加、Issue #46)
  ├─ setupAgentClients() … Codex/Claude クライアントの初期化
  └─ resolveAgentCredentials() … 認証情報のフォールバック処理
 
-src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46)
- ├─ executePhasesSequential() … フェーズの順次実行
+src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636)
+ ├─ executePhasesSequential() … フェーズの順次実行・スキップ判定
  ├─ executePhasesFrom() … 特定フェーズからの実行
- └─ 依存関係順にフェーズを実行
+ └─ 依存関係順にフェーズを実行・スキップ対象は除外
       ├─ BasePhase.run()
       │    ├─ execute()    … エージェントで成果物生成
       │    ├─ review()     … 可能ならレビューサイクル実施
@@ -310,7 +311,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。 |
 | `src/core/config.ts` | 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジック（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）の統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。Singleton パターンで実装。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
-| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
+| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能とスキップフェーズフィルタリングを提供（約249行、Issue #26で27.2%削減、Issue #636でskipPhases対応）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約325行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90/#271）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision等の型を提供。コマンドハンドラの型安全性を確保。Issue #271で追加された型: `RollbackAutoOptions`（rollback-autoコマンドのCLIオプション: issueNumber, dryRun, force, agent）、`RollbackDecision`（エージェント出力の構造: needs_rollback, to_phase, to_step, reason, confidence, analysis、厳格なバリデーションルール付き）。 |
 | `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約500行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90、v0.5.0でエージェント優先順位対応、Issue #306、Issue #363でモデル最適化対応）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。**エージェント優先順位**: `PHASE_AGENT_PRIORITY` からフェーズ固有の優先順位を取得し、`AgentExecutor` コンストラクタに渡す。**モデル最適化**（Issue #363）: ステップ開始前に `ModelOptimizer.resolveModel()` を呼び出し、review は常に軽量モデル、それ以外は優先順位（CLI/ENV → metadata → デフォルト）に従うモデルを `AgentExecutor` に反映。 |

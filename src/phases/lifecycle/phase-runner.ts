@@ -84,6 +84,7 @@ export class PhaseRunner {
   private readonly progressFormatter: ProgressFormatter;
   private readonly skipDependencyCheck: boolean;
   private readonly ignoreDependencies: boolean;
+  private readonly skipPhases: PhaseName[] | undefined;
   private readonly presetPhases: PhaseName[] | undefined;
   private readonly reviseFn: ((feedback: string) => Promise<PhaseExecutionResult>) | null;
 
@@ -94,6 +95,7 @@ export class PhaseRunner {
    * @param stepExecutor - ステップ実行マネージャー
    * @param skipDependencyCheck - 依存関係検証をスキップするか
    * @param ignoreDependencies - 依存関係違反を無視するか
+   * @param skipPhases - スキップ対象フェーズリスト
    * @param presetPhases - プリセット実行時のフェーズリスト（Issue #396）
    * @param reviseFn - revise メソッドを実行する関数
    */
@@ -104,6 +106,7 @@ export class PhaseRunner {
     stepExecutor: StepExecutor,
     skipDependencyCheck: boolean,
     ignoreDependencies: boolean,
+    skipPhases: PhaseName[] | undefined,
     presetPhases: PhaseName[] | undefined,
     reviseFn: ((feedback: string) => Promise<PhaseExecutionResult>) | null
   ) {
@@ -114,8 +117,10 @@ export class PhaseRunner {
     this.progressFormatter = new ProgressFormatter();
     this.skipDependencyCheck = skipDependencyCheck;
     this.ignoreDependencies = ignoreDependencies;
-    this.presetPhases = presetPhases;
-    this.reviseFn = reviseFn;
+    // 引数の型ずれによる実行時エラーを避けるため、配列と null を正規化する
+    this.skipPhases = Array.isArray(skipPhases) ? skipPhases : undefined;
+    this.presetPhases = Array.isArray(presetPhases) ? presetPhases : undefined;
+    this.reviseFn = reviseFn ?? null;
   }
 
   /**
@@ -264,6 +269,7 @@ export class PhaseRunner {
     return validatePhaseDependencies(this.phaseName, this.metadata, {
       skipCheck: this.skipDependencyCheck,
       ignoreViolations: this.ignoreDependencies,
+      skipPhases: this.skipPhases,
       presetPhases: this.presetPhases,
     });
   }

@@ -224,6 +224,163 @@ describe('parseExecuteOptions - 正常系', () => {
 });
 
 // =============================================================================
+// parseExecuteOptions() - skipPhases オプション
+// =============================================================================
+
+describe('parseExecuteOptions - skipPhases オプション', () => {
+  test('単一フェーズが小文字でパースされる', () => {
+    // Given: skipPhases に単一フェーズを指定
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'test_scenario',
+    };
+
+    // When: オプションを解析
+    const result = parseExecuteOptions(options);
+
+    // Then: skipPhases が配列で返される
+    expect(result.skipPhases).toEqual(['test_scenario']);
+  });
+
+  test('複数フェーズがトリムされて配列化される', () => {
+    // Given: カンマ区切りで複数フェーズを指定（前後にスペースを含む）
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'test_scenario , testing , documentation',
+    };
+
+    // When: オプションを解析
+    const result = parseExecuteOptions(options);
+
+    // Then: すべてトリムされ小文字の配列になる
+    expect(result.skipPhases).toEqual(['test_scenario', 'testing', 'documentation']);
+  });
+
+  test('大文字指定は小文字に正規化される', () => {
+    // Given: 大文字で指定されたフェーズ
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'Test_Scenario,TESTING',
+    };
+
+    // When: オプションを解析
+    const result = parseExecuteOptions(options);
+
+    // Then: 小文字に正規化される
+    expect(result.skipPhases).toEqual(['test_scenario', 'testing']);
+  });
+
+  test('skipPhases 未指定や空文字は undefined になる', () => {
+    // Given: skipPhases 未指定
+    const optionsUndefined: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+    };
+
+    // When: オプションを解析
+    const resultUndefined = parseExecuteOptions(optionsUndefined);
+
+    // Then: undefined が設定される
+    expect(resultUndefined.skipPhases).toBeUndefined();
+
+    // And: 空文字指定でも undefined になる
+    const optionsEmpty: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: '',
+    };
+    const resultEmpty = parseExecuteOptions(optionsEmpty);
+    expect(resultEmpty.skipPhases).toBeUndefined();
+  });
+
+  test('無効なフェーズ名はエラーになる', () => {
+    // Given: 無効なフェーズを含む skipPhases
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'invalid_phase',
+    };
+
+    // When / Then: エラーがスローされる
+    expect(() => parseExecuteOptions(options)).toThrow(
+      /Invalid phase names in --skip-phases: invalid_phase/,
+    );
+  });
+
+  test('複数の無効フェーズ名はすべてメッセージに含まれる', () => {
+    // Given: 複数の無効フェーズを含む skipPhases
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'invalid1,invalid2,test_scenario',
+    };
+
+    // When / Then: すべての無効フェーズが列挙されたエラーになる
+    expect(() => parseExecuteOptions(options)).toThrow(
+      /Invalid phase names in --skip-phases: invalid1, invalid2\. Valid phase names are:/,
+    );
+  });
+
+  test('planning を含む場合はエラーになる', () => {
+    // Given: planning を含む skipPhases
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'planning,test_scenario',
+    };
+
+    // When / Then: planning 禁止エラー
+    expect(() => parseExecuteOptions(options)).toThrow(
+      'Planning phase cannot be skipped as all other phases depend on it.',
+    );
+  });
+
+  test('Planning 以外の全フェーズをスキップできる', () => {
+    // Given: Planning 以外の全フェーズを指定
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases:
+        'requirements,design,test_scenario,implementation,test_implementation,testing,documentation,report,evaluation',
+    };
+
+    // When: オプションを解析
+    const result = parseExecuteOptions(options);
+
+    // Then: 9フェーズすべてが配列で返される
+    expect(result.skipPhases).toEqual([
+      'requirements',
+      'design',
+      'test_scenario',
+      'implementation',
+      'test_implementation',
+      'testing',
+      'documentation',
+      'report',
+      'evaluation',
+    ]);
+  });
+
+  test('重複フェーズはそのまま配列に残る', () => {
+    // Given: 同じフェーズを複数指定
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'testing,testing,testing',
+    };
+
+    // When: オプションを解析
+    const result = parseExecuteOptions(options);
+
+    // Then: 重複も保持したまま配列化される
+    expect(result.skipPhases).toEqual(['testing', 'testing', 'testing']);
+  });
+});
+
+// =============================================================================
 // validateExecuteOptions() - 正常系
 // =============================================================================
 
@@ -289,6 +446,22 @@ describe('validateExecuteOptions - 正常系', () => {
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
+
+  test('skipPhases のみ指定: 検証が成功する', () => {
+    // Given: skipPhases を単独指定
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      phase: 'all',
+      skipPhases: 'test_scenario,documentation',
+    };
+
+    // When: オプションを検証
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    // Then: 相互排他エラーが発生しない
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
 });
 
 // =============================================================================
@@ -328,6 +501,24 @@ describe('validateExecuteOptions - 異常系', () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
       "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
+    );
+  });
+
+  test('--preset と --skip-phases の同時指定はエラー', () => {
+    // Given: preset と skipPhases を同時指定
+    const options: ExecuteCommandOptions = {
+      issue: '636',
+      preset: 'quick-fix',
+      skipPhases: 'testing',
+    };
+
+    // When: オプションを検証
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    // Then: 相互排他エラーとなる
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'Cannot use --preset and --skip-phases together. Use one or the other.',
     );
   });
 

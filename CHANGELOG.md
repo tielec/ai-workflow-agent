@@ -112,6 +112,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #636**: execute コマンドに --skip-phases オプションを追加し特定フェーズをスキップ可能に
+  - `execute --phase all` に `--skip-phases <phase1,phase2,...>` オプションを追加
+  - カンマ区切りでスキップするフェーズ名を指定可能（例: `test_scenario,testing,documentation`）
+  - **制約**: `planning` フェーズのスキップは禁止（他の全フェーズが依存）、`--preset` との同時使用は禁止
+  - **指定可能フェーズ**: requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report, evaluation の9種類
+  - **依存関係検証拡張**: スキップ対象フェーズを依存関係チェックから除外し、後続フェーズの実行可否を正しく判定
+  - **メタデータ記録**: スキップされたフェーズは `metadata.json` に `'skipped'` ステータスで記録
+  - **警告表示**: `evaluation` フェーズをスキップする場合はフォローアップIssue生成が無効になる旨を警告
+  - **主なユースケース**: ドキュメント更新タスクでテスト関連フェーズをスキップ、軽微なバグ修正でTest Scenarioのみスキップ
+  - 修正ファイル: `src/main.ts`, `src/commands/execute/options-parser.ts`, `src/commands/execute.ts`, `src/commands/execute/workflow-executor.ts`, `src/core/phase-dependencies.ts`, `src/types.ts`, `src/types/commands.ts` 他
+  - テストカバレッジ: 62件のテスト（ユニット + 統合、100%成功）
+
 - **Issue #629**: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
   - `auto-issue` コマンドの `--agent auto` モードで、カテゴリに応じて自動的にエージェント優先順位を設定
   - `bug`/`refactor`/`enhancement`/`all` カテゴリでClaude優先（分析・推論タスクに最適化）

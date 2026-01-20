@@ -77,6 +77,9 @@ node dist/index.js execute --phase requirements --issue 1 --agent codex
 # 英語でワークフローを実行
 node dist/index.js execute --phase all --issue 1 --language en
 
+# 特定のフェーズをスキップして実行（テスト関連フェーズを除外）
+node dist/index.js execute --phase all --issue 1 --skip-phases test_scenario,test_implementation,testing
+
 # マルチリポジトリの例: 別リポジトリのIssueに対してワークフローを実行
 node dist/index.js init \
   --issue-url https://github.com/owner/my-app/issues/123
@@ -98,6 +101,7 @@ ai-workflow execute \
   [--phase <name>|--phase all] \
   [--agent auto|codex|claude] \
   [--preset <name>] \
+  [--skip-phases <phases>] \
   [--force-reset] \
   [--skip-dependency-check|--ignore-dependencies] \
   [--cleanup-on-complete] \

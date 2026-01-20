@@ -90,7 +90,7 @@ export class WorkflowState {
     const nowIso = new Date().toISOString();
     if (status === 'in_progress') {
       phaseData.started_at = nowIso;
-    } else if (status === 'completed' || status === 'failed') {
+    } else if (status === 'completed' || status === 'failed' || status === 'skipped') {
       phaseData.completed_at = nowIso;
     }
 

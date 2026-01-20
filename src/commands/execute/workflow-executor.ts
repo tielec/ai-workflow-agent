@@ -44,8 +44,24 @@ export async function executePhasesSequential(
 ): Promise<ExecutionSummary> {
   const results: PhaseResultMap = {} as PhaseResultMap;
 
+  if (context.skipPhases && context.skipPhases.length > 0) {
+    if (context.skipPhases.includes('evaluation')) {
+      logger.warn(
+        '⚠️  WARNING: Skipping Evaluation phase. Follow-up issues will not be generated.',
+      );
+    }
+    logger.info(`ℹ️  Phases to skip: ${context.skipPhases.join(', ')}`);
+  }
+
   for (const phaseName of phases) {
     try {
+      if (context.skipPhases?.includes(phaseName)) {
+        logger.info(`⏭️  Skipped: ${phaseName}`);
+        context.metadataManager.updatePhaseStatus(phaseName, 'skipped');
+        results[phaseName] = { success: true };
+        continue;
+      }
+
       // フェーズインスタンス生成
       const phaseInstance = createPhaseInstance(phaseName, context);
 

@@ -15,6 +15,7 @@ export type PhaseContext = {
   githubClient: GitHubClient;
   skipDependencyCheck: boolean;
   ignoreDependencies: boolean;
+  skipPhases?: PhaseName[];
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
   issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
   modelOptimizer?: import('../core/model-optimizer.js').ModelOptimizer | null;
@@ -146,6 +147,18 @@ export interface ExecuteCommandOptions {
    * true の場合、依存関係の警告を表示しつつ処理を続行
    */
   ignoreDependencies?: boolean;
+
+  /**
+   * スキップするフェーズ名（カンマ区切り文字列、オプション）
+   *
+   * 例: "test_scenario,testing,documentation"
+   *
+   * 制約:
+   * - "planning" は指定不可
+   * - "--preset" と同時使用不可
+   * - 有効なフェーズ名のみ指定可能
+   */
+  skipPhases?: string;
 
   /**
    * エージェントモード（オプション）

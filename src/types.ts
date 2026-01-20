@@ -10,7 +10,7 @@ export type PhaseName =
   | 'report'
   | 'evaluation';
 
-export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
 // Issue #10: ステップ名の型定義
 export type StepName = 'execute' | 'review' | 'revise';
