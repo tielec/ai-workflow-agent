@@ -839,6 +839,8 @@ function normalizeResponsePlan(parsed: ResponsePlan, prNumber: number): Response
 
 function normalizePlanComment(comment: ResponsePlanComment): ResponsePlanComment {
   const proposed = comment.proposed_changes ?? [];
+  const confidence = comment.confidence ?? 'medium';
+  const userApproved = comment.user_approved ?? false;
   const normalizedProposed: ProposedChange[] = proposed.map((c) => ({
     action: c.action,
     file: c.file,
@@ -853,16 +855,34 @@ function normalizePlanComment(comment: ResponsePlanComment): ResponsePlanComment
     author: comment.author,
     body: comment.body,
     type:
-      comment.type === 'code_change' && comment.confidence === 'low'
+      comment.type === 'code_change' && confidence === 'low' && !userApproved
         ? 'discussion'
         : (comment.type ?? 'discussion'),
-    confidence: comment.confidence ?? 'medium',
+    confidence,
     rationale: comment.rationale,
     proposed_changes: normalizedProposed,
     reply_message: comment.reply_message,
+    user_approved: userApproved,
   };
 
+  validateProposedChanges(normalized);
+
   return normalized;
+}
+
+/**
+ * type=code_change かつ proposed_changes が空の場合に警告を出力する。
+ */
+function validateProposedChanges(comment: ResponsePlanComment): void {
+  if (comment.type !== 'code_change') {
+    return;
+  }
+
+  if (!comment.proposed_changes || comment.proposed_changes.length === 0) {
+    logger.warn(
+      `Comment #${comment.comment_id} has type 'code_change' but no proposed_changes. Reply will be posted without code modifications.`,
+    );
+  }
 }
 
 function buildFallbackPlan(prNumber: number, comments: CommentMetadata[]): ResponsePlan {
@@ -1074,4 +1094,5 @@ export const __testables = {
   groupCommentsByThread,
   getAllThreadComments,
   formatThreadBlock,
+  validateProposedChanges,
 };

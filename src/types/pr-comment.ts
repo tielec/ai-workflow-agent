@@ -329,6 +329,8 @@ export interface ResponsePlanComment {
   input_tokens?: number;
   output_tokens?: number;
   cost_usd?: number;
+  /** ユーザーが提案を承認しているか（承認時のダウングレード抑止用） */
+  user_approved?: boolean;
 }
 
 export interface ResponsePlan {
