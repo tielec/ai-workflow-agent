@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #634**: [Refactor] ファイルサイズの削減: analyze.ts
+  - `src/commands/pr-comment/analyze.ts`（985行）を責務ごとに12モジュールへ分割し、エントリーポイントを147行に削減
+  - **新規作成モジュール（`src/commands/pr-comment/analyze/`）**:
+    - `index.ts` - 分割モジュールの再エクスポートと`__testables`集約
+    - `analyze-runner.ts` - コメント分析フロー（エージェント実行・ログ保存・フォールバック処理）
+    - `agent-utils.ts` - エージェントセットアップとログ永続化のユーティリティ
+    - `response-plan-loader.ts` - エージェント出力またはJSONファイルからプランを読み込む処理
+    - `response-parser.ts` - JSONパース戦略と境界検出処理
+    - `response-normalizer.ts` - レスポンスプランの正規化・検証・デフォルト適用
+    - `error-handlers.ts` - エージェント/パース失敗時の処理とフォールバックプラン生成
+    - `comment-formatter.ts` - コメント/スレッド整形とファイル内容付与処理
+    - `comment-fetcher.ts` - GitHubからの未解決コメント取得とメタデータ更新処理
+    - `prompt-builder.ts` - 分析プロンプト生成処理
+    - `markdown-builder.ts` - ResponsePlanのMarkdown生成とフォールバック生成
+    - `git-operations.ts` - コミット判定・実行処理
+  - **後方互換性維持**: `handlePRCommentAnalyzeCommand`のシグネチャおよび`__testables`エクスポートは変更なし
+  - **品質**: 全2738件のテスト成功（ユニット・統合テスト）
+  - **効果**: 単一ファイル985行 → 最大180行以下の12モジュールに分散、保守性・テスト容易性の向上
+
 ### Fixed
 
 - **Issue #632**: pr-comment execute: 2重返信とコード変更未適用の問題を修正
