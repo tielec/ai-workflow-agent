@@ -123,19 +123,49 @@ src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマン�
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
 
-src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加)
+src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加、Issue #634でリファクタリング)
  ├─ handlePRCommentAnalyzeCommand() … pr-comment analyze コマンドハンドラ（2段階ワークフロー対応）
- ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
- ├─ buildAnalyzePrompt() … 分析プロンプト構築
- ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
- ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得し、`metadataManager.addComments()` で新規 `comment_id` だけを `pending` として追加することで init 実行後に投稿されたコメントも取り込む（Issue #475）
- ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
- └─ エラーハンドリング（Issue #428で強化）
-     ├─ handleAgentError() … エージェント実行失敗時の処理
-     ├─ handleEmptyOutputError() … 空出力エラーの処理
-     ├─ handleParseError() … JSONパースエラーの処理
-     ├─ promptUserConfirmation() … ローカル環境での確認プロンプト
-     └─ CI環境では即座にprocess.exit(1)、ローカル環境では確認後フォールバック
+ ├─ resolvePrInfo() … PR情報解決
+ ├─ parseCommentIds() … コメントID解析
+ └─ 分割モジュール（src/commands/pr-comment/analyze/）に責務を委譲
+
+src/commands/pr-comment/analyze/ (Issue #634で追加: analyze.tsのモジュール分割)
+ ├─ index.ts … 分割モジュールの再エクスポートと__testables集約
+ ├─ analyze-runner.ts … コメント分析フロー（エージェント実行・ログ保存・フォールバック処理）
+ ├─ agent-utils.ts … エージェントセットアップとログ永続化のユーティリティ
+ ├─ response-plan-loader.ts … エージェント出力またはJSONファイルからプランを読み込む処理
+ ├─ response-parser.ts … JSONパース戦略と境界検出処理
+ │   ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ │   ├─ tryParseMarkdownCodeBlock() … Markdownコードブロックからの抽出
+ │   ├─ tryParseJsonLines() … JSON Lines形式からの抽出
+ │   ├─ tryParsePlainJson() … プレーンJSON形式からの抽出
+ │   └─ findAllJsonObjectBoundaries() … JSONオブジェクト境界の検出
+ ├─ response-normalizer.ts … レスポンスプランの正規化・検証・デフォルト適用
+ │   ├─ normalizeResponsePlan() … ResponsePlanを正規化
+ │   ├─ normalizePlanComment() … コメントを正規化（デフォルト値、低信頼度ダウングレード）
+ │   ├─ validateProposedChanges() … proposed_changesの検証
+ │   └─ isValidResponsePlanCandidate() … ResponsePlan候補の検証
+ ├─ error-handlers.ts … エージェント/パース失敗時の処理とフォールバックプラン生成
+ │   ├─ handleAgentError() … エージェント実行失敗時の処理
+ │   ├─ handleEmptyOutputError() … 空出力エラーの処理
+ │   ├─ handleParseError() … JSONパースエラーの処理
+ │   └─ promptUserConfirmation() … ローカル環境での確認プロンプト
+ ├─ comment-formatter.ts … コメント/スレッド整形とファイル内容付与処理
+ │   ├─ groupCommentsByThread() … スレッドIDでコメントをグループ化
+ │   ├─ getAllThreadComments() … スレッドの全コメントを時系列順で取得
+ │   ├─ formatThreadBlock() … スレッドブロックをMarkdown形式で整形
+ │   ├─ formatThreadBlockWithFiles() … ファイル内容付きでスレッドブロックを整形
+ │   └─ formatCommentBlock() … 単一コメントをMarkdown形式で整形
+ ├─ comment-fetcher.ts … GitHubからの未解決コメント取得とメタデータ更新処理
+ │   ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得
+ │   └─ fetchLatestUnresolvedComments() … 最新の未解決コメントを取得
+ ├─ prompt-builder.ts … 分析プロンプト生成処理
+ │   └─ buildAnalyzePrompt() … 分析プロンプト構築
+ ├─ markdown-builder.ts … ResponsePlanのMarkdown生成とフォールバック生成
+ │   ├─ buildResponsePlanMarkdown() … ResponsePlanからMarkdown生成
+ │   └─ buildFallbackPlan() … フォールバック用のResponsePlan生成
+ └─ git-operations.ts … コミット判定・実行処理
+     └─ commitIfNeeded() … 変更がある場合にGitコミットを作成
 
 src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張、Issue #444でリファクタリング)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ（--pr-url対応）
