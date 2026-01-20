@@ -5,7 +5,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { logger } from '../../../src/utils/logger.js';
 import { LogFormatter } from '../../../src/phases/formatters/log-formatter.js';
-import type { CommentMetadata } from '../../../src/types/pr-comment.js';
+import type { CommentMetadata, ResponsePlanComment } from '../../../src/types/pr-comment.js';
 import type { PRCommentAnalyzeOptions } from '../../../src/types/commands.js';
 
 const getRepoRootMock = jest.fn<() => Promise<string>>();
@@ -53,6 +53,8 @@ let fetchLatestUnresolvedComments: (
   githubClient: any,
   prNumber: number,
 ) => Promise<import('../../../src/types/pr-comment.js').ReviewComment[]>;
+let normalizePlanComment: (comment: ResponsePlanComment) => ResponsePlanComment;
+let validatePlanProposedChanges: (comment: ResponsePlanComment) => void;
 
 const buildComment = (id: number, body: string, file = 'src/a.ts'): CommentMetadata => ({
   comment: {
@@ -148,6 +150,8 @@ beforeAll(async () => {
   persistAgentLog = module.__testables.persistAgentLog;
   refreshComments = module.__testables.refreshComments;
   fetchLatestUnresolvedComments = module.__testables.fetchLatestUnresolvedComments;
+  normalizePlanComment = module.__testables.normalizePlanComment;
+  validatePlanProposedChanges = module.__testables.validateProposedChanges;
 });
 
 beforeEach(() => {
@@ -602,6 +606,68 @@ describe('fetchLatestUnresolvedComments', () => {
         pr_number: 999,
       }),
     ]);
+  });
+});
+
+describe('normalizePlanComment (__testables)', () => {
+  it('confidenceがlowで承認なしの場合はdiscussionへダウングレードする', () => {
+    const normalized = normalizePlanComment({
+      comment_id: '123',
+      type: 'code_change',
+      confidence: 'low',
+      rationale: 'needs work',
+      proposed_changes: [{ action: 'modify', file: 'src/a.ts', changes: 'refactor' }],
+      reply_message: 'will do',
+      user_approved: false,
+    });
+
+    expect(normalized.type).toBe('discussion');
+  });
+
+  it('ユーザー承認済みならconfidenceがlowでもcode_changeを維持する', () => {
+    const normalized = normalizePlanComment({
+      comment_id: '124',
+      type: 'code_change',
+      confidence: 'low',
+      rationale: 'approved',
+      proposed_changes: [{ action: 'modify', file: 'src/b.ts', changes: 'update' }],
+      reply_message: 'thanks',
+      user_approved: true,
+    });
+
+    expect(normalized.type).toBe('code_change');
+  });
+});
+
+describe('validateProposedChanges (__testables)', () => {
+  it('code_changeでproposed_changesが空なら警告を出す', () => {
+    const warnSpy = logger.warn as jest.SpyInstance;
+    validatePlanProposedChanges({
+      comment_id: '200',
+      type: 'code_change',
+      confidence: 'high',
+      rationale: 'no changes',
+      proposed_changes: [],
+      reply_message: 'ok',
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("has type 'code_change' but no proposed_changes"),
+    );
+  });
+
+  it('code_changeで変更があれば警告しない', () => {
+    const warnSpy = logger.warn as jest.SpyInstance;
+    validatePlanProposedChanges({
+      comment_id: '201',
+      type: 'code_change',
+      confidence: 'high',
+      rationale: 'changes ready',
+      proposed_changes: [{ action: 'modify', file: 'src/c.ts', changes: 'add test' }],
+      reply_message: 'done',
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 

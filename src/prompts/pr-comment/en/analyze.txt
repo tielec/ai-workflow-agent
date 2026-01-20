@@ -20,7 +20,7 @@ Triage **all** provided review comments in one pass and propose a single respons
 ## Security & Safety Guardrails
 - Never change or propose touching: `.env`, `.env.*`, `credentials.*`, `secrets.*`, `*.pem`, `*.key`
 - Use repository-relative paths only (no absolute paths or `..` traversal)
-- If confidence for `code_change` would be `low`, downgrade to `discussion`
+- If confidence for `code_change` would be `low`, downgrade to `discussion` (except when explicit user approval is detected)
 - Replies must be concise, professional, and actionable
 
 ## Output
@@ -50,7 +50,8 @@ Triage **all** provided review comments in one pass and propose a single respons
           "changes": "For modify/create, include full new file content; for delete use an empty string."
         }
       ],
-      "reply_message": "Reply text to post on GitHub"
+      "reply_message": "Reply text to post on GitHub",
+      "user_approved": true
     }
   ]
 }
@@ -89,6 +90,7 @@ When the following patterns appear within a thread, classify the **latest commen
 Decision:
 - `type: "code_change"`
 - `confidence: "high"`
+- `user_approved: true` (always include)
 - `proposed_changes` should include concrete implementation of the AI proposal
 
 ### Pattern 2: Question → Answer
@@ -113,3 +115,5 @@ If there is no AI proposal or no approval keywords:
 - **Always reference the full thread context**, not only the latest comment
 - When a user explicitly approves or instructs, treat it as a code change
 - If approval detection is uncertain, set `confidence: "medium"`
+- When approval is detected, set `user_approved: true`; if you cannot produce code, use `type: "discussion"` and explain why in `rationale`
+- When approval is not detected, set `user_approved: false` and state your reasoning in `rationale`

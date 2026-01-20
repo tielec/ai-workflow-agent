@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #632**: pr-comment execute: 2重返信とコード変更未適用の問題を修正
+  - `execute.ts` に `validateResponsePlan()` 関数を追加し、response-plan.json内の重複`comment_id`を検出・除去
+  - `processComment()` 関数に `reply_comment_id` 事前チェックを追加し、返信済みコメントのスキップ処理を実装
+  - `analyze.ts` に `user_approved` フラグを考慮した type 判定ロジックを追加し、ユーザー承認時の `discussion` へのダウングレードを抑止
+  - `type: "code_change"` かつ `proposed_changes` が空の場合に警告ログを出力する検証機能を追加
+  - 日英両言語のプロンプトにユーザー承認パターン検出時の `code_change` 指示と `user_approved` フラグ出力を追加
+  - 修正ファイル: `src/commands/pr-comment/execute.ts`, `src/commands/pr-comment/analyze.ts`, `src/types/pr-comment.ts`, `src/prompts/pr-comment/ja/analyze.txt`, `src/prompts/pr-comment/en/analyze.txt`
+  - テストカバレッジ: 55件（54件成功、1件スキップ、成功率98.18%）
+
 - **Issue #627**: pr-comment finalize --squash で中間ファイルが削除されずコミットメッセージにClaude Code署名が含まれる問題を修正
   - `squashCommitsIfRequested()` 関数に中間ファイルクリーンアップ処理を追加し、`git reset --soft` 実行前に `analyze/` および `output/` ディレクトリを削除
   - `generateSquashCommitMessage()` 関数からClaude Code署名（「🤖 Generated with Claude Code」「Co-Authored-By: Claude <noreply@anthropic.com>」）を除去
