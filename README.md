@@ -1209,6 +1209,7 @@ ai-workflow auto-issue \
    - コードベース全体を自動分析し、潜在的なバグ、リファクタリング機会、機能拡張提案を検出
    - 30+ のプログラミング言語をサポート（Issue #144で汎用化）
    - AIエージェント（Codex / Claude）による高精度な分析
+   - **カテゴリ別エージェント自動選択**（Issue #629で追加）: 分析・推論タスクでは Claude を優先使用
    - **バグ検出**（`--category bug`、デフォルト）: 潜在的なバグ、エラーハンドリング不足、null参照など
    - **リファクタリング検出**（`--category refactor`）: コード品質、重複、未使用コード、ドキュメント不足など
    - **機能拡張提案**（`--category enhancement`）: 機能改善、統合、自動化、DX向上、品質改善、エコシステム拡張など
@@ -1254,7 +1255,9 @@ ai-workflow auto-issue \
   - 低い値（例: 0.65）: より緩い重複判定（重複を多く判定）
   - **注意**: バグ検出時のみ有効（リファクタリング検出時は無視されます）
 - `--agent <mode>`: 使用するAIエージェント（`auto` | `codex` | `claude`）
-  - `auto`（デフォルト）: Codex優先、なければClaudeにフォールバック
+  - `auto`（デフォルト）: カテゴリに応じて自動的にエージェント優先順位を設定（Issue #629で追加）
+    - `bug`/`refactor`/`enhancement`/`all`: Claude優先（分析・推論タスクに最適）
+    - Claude利用不可時はCodexにフォールバック
   - `codex`: Codexのみ使用（デフォルト: `gpt-5.1-codex-max`、`CODEX_MODEL` で上書き可能）
   - `claude`: Claude Code強制使用
 - `--creative-mode`: 創造的・実験的な提案を有効化（`enhancement` カテゴリのみ有効）

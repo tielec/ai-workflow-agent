@@ -82,6 +82,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #629**: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
+  - `auto-issue` コマンドの `--agent auto` モードで、カテゴリに応じて自動的にエージェント優先順位を設定
+  - `bug`/`refactor`/`enhancement`/`all` カテゴリでClaude優先（分析・推論タスクに最適化）
+  - Claude利用不可時はCodexに自動フォールバック
+  - 明示的な `--agent codex/claude` 指定は引き続き優先（後方互換性維持）
+  - カテゴリ別エージェント自動選択により、各タスクに最適なAIエージェントを使用
+  - 修正ファイル: `src/commands/execute/agent-setup.ts`, `src/commands/auto-issue.ts`
+  - テストカバレッジ: 2710件のテスト（実行: 2688件、スキップ: 22件、成功率: 100%）
+
 - **Issue #598**: 認証情報バリデーションコマンド (`validate-credentials`) と Jenkins Job の実装
   - 新規 CLI コマンド `validate-credentials` を追加し、ワークフロー実行前に認証情報の有効性を事前検証
   - **6つの認証カテゴリをサポート**: `git`（環境変数）、`github`（API呼び出し・スコープ確認）、`codex`（auth.json/API キー）、`claude`（OAuth/API キー）、`openai`（API キー）、`anthropic`（API キー）

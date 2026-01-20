@@ -12,7 +12,7 @@ import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
 import { getErrorMessage } from '../utils/error-utils.js';
-import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setup.js';
+import { resolveAgentCredentials, setupAgentClients, type AgentPriority } from './execute/agent-setup.js';
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { IssueDeduplicator, type ExistingIssue } from '../core/issue-deduplicator.js';
 import { IssueGenerator } from '../core/issue-generator.js';
@@ -26,6 +26,19 @@ import type {
 } from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
+
+/**
+ * カテゴリに応じたエージェント優先順位（Issue #629）
+ *
+ * `--agent auto` モード実行時に、カテゴリの特性に応じて
+ * エージェントの優先順位を自動的に切り替えます。
+ */
+export const CATEGORY_AGENT_PRIORITY: Record<string, AgentPriority> = {
+  bug: 'claude-first',
+  refactor: 'claude-first',
+  enhancement: 'claude-first',
+  all: 'claude-first',
+};
 
 /**
  * auto-issue コマンドのメインハンドラ
@@ -101,18 +114,24 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const homeDir = config.getHomeDir();
     const credentials = resolveAgentCredentials(homeDir, repoPath);
 
-    // 7. エージェントクライアントを初期化（既存の setupAgentClients を活用）
-    const { codexClient, claudeClient } = setupAgentClients(options.agent, repoPath, credentials);
+    // 7. カテゴリに応じたエージェント優先順位を決定（Issue #629）
+    const agentPriority = CATEGORY_AGENT_PRIORITY[options.category] ?? 'codex-first';
+    logger.debug(`Agent priority for category '${options.category}': ${agentPriority}`);
+
+    // 8. エージェントクライアントを初期化（既存の setupAgentClients を活用）
+    const { codexClient, claudeClient } = setupAgentClients(options.agent, repoPath, credentials, {
+      agentPriority,
+    });
 
     if (!codexClient && !claudeClient) {
       throw new Error('Agent mode requires a valid agent configuration.');
     }
 
-    // 8. GitHubクライアントを初期化
+    // 9. GitHubクライアントを初期化
     const githubToken = config.getGitHubToken();
     const octokit = new Octokit({ auth: githubToken });
 
-    // 9. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
+    // 10. リポジトリ探索エンジンで候補を検出（カテゴリに応じて分岐）
     const analyzer = new RepositoryAnalyzer(codexClient, claudeClient);
     let issueResults: IssueCreationResult[] = [];
 
@@ -183,10 +202,66 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
         );
       }
     } else {
-      // 'all' は Phase 4 以降で実装予定
-      throw new Error(
-        `Category "${options.category}" is not yet supported. Please use "bug", "refactor", or "enhancement".`,
+      logger.info('Analyzing repository for all categories (bug, refactor, enhancement)...');
+      logger.info(`Analyzing repository: ${repoPath}`);
+
+      const bugCandidates = await analyzer.analyze(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
+      logger.info(`Found ${bugCandidates.length} bug candidates.`);
+      let bugResults: IssueCreationResult[] = [];
+      if (bugCandidates.length === 0) {
+        logger.info('No bug candidates found. Skipping bug flow.');
+      } else {
+        bugResults = await processBugCandidates(
+          bugCandidates,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
+      }
+
+      const refactorCandidates = await analyzer.analyzeForRefactoring(repoPath, options.agent, {
+        customInstruction: options.customInstruction,
+      });
+      logger.info(`Found ${refactorCandidates.length} refactoring candidates.`);
+      let refactorResults: IssueCreationResult[] = [];
+      if (refactorCandidates.length === 0) {
+        logger.info('No refactoring candidates found. Skipping refactor flow.');
+      } else {
+        refactorResults = await processRefactorCandidates(
+          refactorCandidates,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
+      }
+
+      const enhancementProposals = await analyzer.analyzeForEnhancements(
+        repoPath,
+        options.agent,
+        { creativeMode: options.creativeMode, customInstruction: options.customInstruction },
       );
+      logger.info(`Found ${enhancementProposals.length} enhancement proposals.`);
+      let enhancementResults: IssueCreationResult[] = [];
+      if (enhancementProposals.length === 0) {
+        logger.info('No enhancement proposals found. Skipping enhancement flow.');
+      } else {
+        enhancementResults = await processEnhancementCandidates(
+          enhancementProposals,
+          octokit,
+          githubRepository,
+          codexClient,
+          claudeClient,
+          options,
+        );
+      }
+
+      issueResults = [...bugResults, ...refactorResults, ...enhancementResults];
     }
 
     await exportJsonIfRequested(issueResults, options, githubRepository);
