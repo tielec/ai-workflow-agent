@@ -38,8 +38,8 @@ describe('プリセット実行の統合テスト', () => {
     const phases = getPresetPhases('quick-fix');
 
     // Then: 期待されるPhaseリストが返される
-    expect(phases).toEqual(['implementation', 'documentation', 'report']);
-    expect(phases.length).toBe(3);
+    expect(phases).toEqual(['planning', 'implementation', 'documentation', 'report']);
+    expect(phases.length).toBe(4);
   });
 
   test('2.1.2: review-requirementsプリセットのPhase構成', () => {
@@ -59,13 +59,14 @@ describe('プリセット実行の統合テスト', () => {
 
     // Then: 期待されるPhaseリストが返される（5つのPhase）
     expect(phases).toEqual([
+      'planning',
       'implementation',
       'test_implementation',
       'testing',
       'documentation',
       'report',
     ]);
-    expect(phases.length).toBe(5);
+    expect(phases.length).toBe(6);
   });
 
   test('2.1.4: testingプリセットのPhase構成', () => {
@@ -74,8 +75,8 @@ describe('プリセット実行の統合テスト', () => {
     const phases = getPresetPhases('testing');
 
     // Then: 期待されるPhaseリストが返される
-    expect(phases).toEqual(['test_implementation', 'testing']);
-    expect(phases.length).toBe(2);
+    expect(phases).toEqual(['planning', 'test_implementation', 'testing']);
+    expect(phases.length).toBe(3);
   });
 
   test('2.1.5: finalizeプリセットのPhase構成', () => {
@@ -84,8 +85,8 @@ describe('プリセット実行の統合テスト', () => {
     const phases = getPresetPhases('finalize');
 
     // Then: 期待されるPhaseリストが返される
-    expect(phases).toEqual(['documentation', 'report', 'evaluation']);
-    expect(phases.length).toBe(3);
+    expect(phases).toEqual(['planning', 'documentation', 'report', 'evaluation']);
+    expect(phases.length).toBe(4);
   });
 
   test('存在しないプリセット名でエラーが投げられる', () => {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Issue #640**: すべてのプリセットにPlanning Phaseを必須化
+  - 影響を受けるプリセット: `quick-fix`, `implementation`, `full-test`, `testing`, `finalize`
+  - `planning` フェーズを先頭に追加し、全プリセットで Issue 情報を必ず参照するよう統一
+  - 想定される実行時間への影響: 各プリセットで約5-10分の増加
+  - マイグレーション: 追加作業なし（実行時間増を考慮して運用）
+
 ### Changed
 
 - **Issue #634**: [Refactor] ファイルサイズの削減: analyze.ts

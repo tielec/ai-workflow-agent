@@ -540,6 +540,35 @@ ai-workflow auto-issue --category bugs --custom-instruction "Focus on memory lea
   node dist/index.js execute --phase all --issue 385
   ```
 
+### プリセット実行時間の増加について（Issue #640による変更）
+
+**症状**:
+v0.5.0以降、以下のプリセット実行時間が従来より約5-10分増加します：
+- `quick-fix`
+- `implementation`
+- `full-test`
+- `testing`
+- `finalize`
+
+**原因**:
+- すべてのプリセットにPlanning Phaseが必須化されました（Breaking Change）
+- 以前はPlanning Phaseをスキップしていたプリセットが、Issue情報を適切に参照するためPlanningから開始するようになりました
+
+**対処法**:
+1. **実行時間の増加は正常な動作です** - Issueと無関係な修正が発生する問題を解決するために必要な変更です
+2. Jenkins Job のタイムアウト設定を見直してください:
+   ```groovy
+   timeout(time: 90, unit: 'MINUTES')  // 従来の60分から90分に増加を推奨
+   ```
+3. CI/CDパイプラインの実行時間予算を見直してください
+
+**メリット**:
+- Issue情報がエージェントに正しく伝達され、期待通りの修正が行われます
+- プリセット間の動作が一貫性を持ちます
+- Planning Phase（軽量、maxTurns: 30）により品質が向上します
+
+**注意**: Planning Phase をスキップすることは `--skip-phases` でも禁止されています（Issue #636）
+
 ## 8. ワークフローログクリーンアップ関連
 
 ### デバッグログが見つからない
