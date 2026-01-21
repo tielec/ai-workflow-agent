@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Issue #640**: すべてのプリセットにPlanning Phaseを必須化
+  - 影響を受けるプリセット: `quick-fix`, `implementation`, `full-test`, `testing`, `finalize`
+  - `planning` フェーズを先頭に追加し、全プリセットで Issue 情報を必ず参照するよう統一
+  - 想定される実行時間への影響: 各プリセットで約5-10分の増加
+  - マイグレーション: 追加作業なし（実行時間増を考慮して運用）
+
 ### Changed
 
 - **Issue #634**: [Refactor] ファイルサイズの削減: analyze.ts
@@ -111,6 +119,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
 
 ### Added
+
+- **Issue #638**: プリセットに `prototype` を追加し、プロトタイプ開発の高速化を実現
+  - `PHASE_PRESETS` に `prototype` を追加（Planning + Design + Implementation + Report の最小フロー）
+  - 要件定義・テストシナリオ・テスト実装・テスト実行・ドキュメントフェーズをスキップし、素早くプロトタイプを作成可能
+  - プリセット一覧表示（`--list-presets`）に自動的に含まれ、他のプリセットと同様に使用可能
+  - 使用例: `ai-workflow execute --issue 123 --preset prototype`
+  - 既存のプリセットシステムを拡張する形で実装し、後方互換性を維持
 
 - **Issue #636**: execute コマンドに --skip-phases オプションを追加し特定フェーズをスキップ可能に
   - `execute --phase all` に `--skip-phases <phase1,phase2,...>` オプションを追加

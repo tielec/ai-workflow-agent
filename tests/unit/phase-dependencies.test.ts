@@ -57,10 +57,15 @@ describe('PHASE_PRESETS定義テスト', () => {
     expect(PHASE_PRESETS['review-requirements']).toEqual(['planning', 'requirements']);
     expect(PHASE_PRESETS['review-design']).toEqual(['planning', 'requirements', 'design']);
     expect(PHASE_PRESETS['review-test-scenario']).toEqual(['planning', 'requirements', 'design', 'test_scenario']);
-    expect(PHASE_PRESETS['quick-fix']).toEqual(['implementation', 'documentation', 'report']);
-    expect(PHASE_PRESETS['implementation']).toEqual(['implementation', 'test_implementation', 'testing', 'documentation', 'report']);
-    expect(PHASE_PRESETS['testing']).toEqual(['test_implementation', 'testing']);
-    expect(PHASE_PRESETS['finalize']).toEqual(['documentation', 'report', 'evaluation']);
+    expect(PHASE_PRESETS['analysis-design']).toEqual(['planning', 'requirements', 'design']);
+
+    expect(PHASE_PRESETS['quick-fix']).toEqual(['planning', 'implementation', 'documentation', 'report']);
+    expect(PHASE_PRESETS['implementation']).toEqual(['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report']);
+
+    expect(PHASE_PRESETS['full-test']).toEqual(['planning', 'test_scenario', 'test_implementation']);
+    expect(PHASE_PRESETS['testing']).toEqual(['planning', 'test_implementation', 'testing']);
+
+    expect(PHASE_PRESETS['finalize']).toEqual(['planning', 'documentation', 'report', 'evaluation']);
   });
 
   test('1.1.2: プリセット説明マップの存在確認', () => {
@@ -71,6 +76,42 @@ describe('PHASE_PRESETS定義テスト', () => {
       expect(PRESET_DESCRIPTIONS[presetName]).toBeTruthy();
       expect(PRESET_DESCRIPTIONS[presetName].length > 0).toBeTruthy();
     }
+  });
+
+  test('1.1.3: すべてのプリセットにplanningが含まれる', () => {
+    // Given: PHASE_PRESETSが定義されている
+    // When: 各プリセットのフェーズリストを確認
+    // Then: すべてのプリセットに'planning'が含まれ、先頭が'planning'である
+    for (const phases of Object.values(PHASE_PRESETS)) {
+      expect(phases).toContain('planning');
+      expect(phases[0]).toBe('planning');
+    }
+  });
+
+  test('1.1.4: すべてのプリセット説明がPlanningで始まる', () => {
+    // Given: PRESET_DESCRIPTIONSが定義されている
+    // When: 各プリセットの説明を確認
+    // Then: すべての説明が'Planning +'で始まる
+    for (const description of Object.values(PRESET_DESCRIPTIONS)) {
+      expect(description.startsWith('Planning +')).toBe(true);
+    }
+  });
+
+  test('1.1.5: プリセットと説明のキーが一致する', () => {
+    // Given: PHASE_PRESETSとPRESET_DESCRIPTIONSが定義されている
+    // When: 両方のキー集合を比較
+    // Then: キーが完全に一致する
+    const presetNames = Object.keys(PHASE_PRESETS).sort();
+    const descriptionNames = Object.keys(PRESET_DESCRIPTIONS).sort();
+
+    expect(presetNames).toEqual(descriptionNames);
+  });
+
+  test('1.1.6: プリセット総数が想定どおり', () => {
+    // Given: PHASE_PRESETSが定義されている
+    // When: プリセットの数を数える
+    // Then: 全9プリセットが登録されている
+    expect(Object.keys(PHASE_PRESETS).length).toBe(9);
   });
 });
 

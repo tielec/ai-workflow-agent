@@ -29,16 +29,19 @@ export const PHASE_PRESETS: Record<string, PhaseName[]> = {
   // === 分析・設計パターン ===
   'analysis-design': ['planning', 'requirements', 'design'],
 
+  // === プロトタイプ高速化パターン ===
+  'prototype': ['planning', 'design', 'implementation', 'report'],
+
   // === 実装中心パターン ===
-  'quick-fix': ['implementation', 'documentation', 'report'],
-  'implementation': ['implementation', 'test_implementation', 'testing', 'documentation', 'report'],
+  'quick-fix': ['planning', 'implementation', 'documentation', 'report'],
+  'implementation': ['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report'],
 
   // === テスト中心パターン ===
-  'full-test': ['test_scenario', 'test_implementation'],
-  'testing': ['test_implementation', 'testing'],
+  'full-test': ['planning', 'test_scenario', 'test_implementation'],
+  'testing': ['planning', 'test_implementation', 'testing'],
 
   // === ドキュメント・レポートパターン ===
-  'finalize': ['documentation', 'report', 'evaluation'],
+  'finalize': ['planning', 'documentation', 'report', 'evaluation'],
 };
 
 // 後方互換性のための非推奨プリセット（6ヶ月後に削除予定）
@@ -55,11 +58,12 @@ export const PRESET_DESCRIPTIONS: Record<string, string> = {
   'review-design': 'Planning + Requirements + Design (設計レビュー用)',
   'review-test-scenario': 'Planning + Requirements + Design + TestScenario (テストシナリオレビュー用)',
   'analysis-design': 'Planning + Requirements + Design (分析と設計フェーズのみ実行)',
-  'quick-fix': 'Implementation + Documentation + Report (軽微な修正用)',
-  'implementation': 'Implementation + TestImplementation + Testing + Documentation + Report (通常の実装フロー)',
-  'full-test': 'TestScenario + TestImplementation (テストシナリオとテストコード実装のみ実行)',
-  'testing': 'TestImplementation + Testing (テスト追加用)',
-  'finalize': 'Documentation + Report + Evaluation (最終化用)',
+  'quick-fix': 'Planning + Implementation + Documentation + Report (軽微な修正用)',
+  'implementation': 'Planning + Implementation + TestImplementation + Testing + Documentation + Report (通常の実装フロー)',
+  'full-test': 'Planning + TestScenario + TestImplementation (テストシナリオとテストコード実装のみ実行)',
+  'testing': 'Planning + TestImplementation + Testing (テスト追加用)',
+  'finalize': 'Planning + Documentation + Report + Evaluation (最終化用)',
+  'prototype': 'Planning + Design + Implementation + Report (プロトタイプ作成用の最小フロー)',
 };
 
 export interface DependencyValidationOptions {

@@ -139,7 +139,7 @@ describe('getPresetPhases', () => {
       const result = getPresetPhases(presetName);
 
       // Then: 正しいフェーズリストが返される
-      expect(result).toEqual(['implementation', 'documentation', 'report']);
+      expect(result).toEqual(['planning', 'implementation', 'documentation', 'report']);
     });
 
     test('review-requirementsプリセットのフェーズリストが正しく取得できる', () => {
@@ -161,7 +161,7 @@ describe('getPresetPhases', () => {
       const result = getPresetPhases(presetName);
 
       // Then: 正しいフェーズリストが返される
-      expect(result).toEqual(['implementation', 'test_implementation', 'testing', 'documentation', 'report']);
+      expect(result).toEqual(['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report']);
     });
 
     test('analysis-designプリセットのフェーズリストが正しく取得できる', () => {
@@ -183,7 +183,7 @@ describe('getPresetPhases', () => {
       const result = getPresetPhases(presetName);
 
       // Then: 正しいフェーズリストが返される
-      expect(result).toEqual(['test_scenario', 'test_implementation']);
+      expect(result).toEqual(['planning', 'test_scenario', 'test_implementation']);
     });
   });
 
