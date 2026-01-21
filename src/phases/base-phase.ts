@@ -52,6 +52,7 @@ export type BasePhaseConstructorParams = {
   githubClient: GitHubClient;
   skipDependencyCheck?: boolean;
   ignoreDependencies?: boolean;
+  skipPhases?: PhaseName[];
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
   issueGenerationOptions?: IssueGenerationOptions; // Issue #119: Optional for backward compatibility
   modelOptimizer?: ModelOptimizer | null;
@@ -69,6 +70,7 @@ export abstract class BasePhase {
   protected readonly github: GitHubClient;
   protected readonly skipDependencyCheck: boolean;
   protected readonly ignoreDependencies: boolean;
+  protected readonly skipPhases: PhaseName[] | undefined;
   protected readonly presetPhases: PhaseName[] | undefined; // プリセット実行時のフェーズリスト（Issue #396）
   protected readonly contentParser: ContentParser;
   protected readonly issueGenerationOptions: IssueGenerationOptions;
@@ -208,6 +210,7 @@ export abstract class BasePhase {
     this.github = params.githubClient;
     this.skipDependencyCheck = params.skipDependencyCheck ?? false;
     this.ignoreDependencies = params.ignoreDependencies ?? false;
+    this.skipPhases = params.skipPhases;
     this.presetPhases = params.presetPhases;
     this.contentParser = new ContentParser();
     this.issueGenerationOptions = params.issueGenerationOptions
@@ -297,6 +300,7 @@ export abstract class BasePhase {
         this.stepExecutor,
         this.skipDependencyCheck,
         this.ignoreDependencies,
+        this.skipPhases,
         this.presetPhases,
         wrappedRevise
       );

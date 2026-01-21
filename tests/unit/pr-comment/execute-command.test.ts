@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, jest } from '@jest/globals';
 import fs from 'fs-extra';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../../src/utils/logger.js';
 import type { CommentMetadata } from '../../../src/types/pr-comment.js';
@@ -143,8 +144,19 @@ beforeEach(() => {
   }) as any);
 
   jest.spyOn(logger, 'info').mockImplementation(() => undefined as any);
+  jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'warn').mockImplementation(() => undefined as any);
   jest.spyOn(logger, 'error').mockImplementation(() => undefined as any);
+
+  jest.spyOn(fsp, 'mkdir').mockResolvedValue(undefined as any);
+  jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any);
+  jest.spyOn(fsp, 'readFile').mockImplementation(async (filePath: fs.PathLike) => {
+    const file = String(filePath);
+    if (file.endsWith(path.join('output', 'response-plan.json'))) {
+      return JSON.stringify(responsePlan ?? {});
+    }
+    return 'file content';
+  });
 
   jest.spyOn(fs, 'ensureDir').mockResolvedValue(undefined);
   jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
@@ -167,5 +179,65 @@ describe('handlePRCommentExecuteCommand', () => {
     // Placeholder test to satisfy Jest requirement
     expect(handlePRCommentExecuteCommand).toBeDefined();
     expect(buildComment).toBeDefined();
+  });
+
+  it('response-planのcomment_id重複を検出して警告し、処理対象を一意にする', async () => {
+    pendingComments = [buildComment(100, 'reply')];
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        { comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'first', proposed_changes: [] },
+        { comment_id: '100', type: 'code_change', confidence: 'high', reply_message: 'second', proposed_changes: [] },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', agent: 'auto' });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Duplicate comment_id found in response-plan'),
+    );
+    expect(githubReplyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reply_comment_idが既にあるコメントはスキップし、completedに更新する', async () => {
+    const alreadyReplied = buildComment(100, 'reply');
+    alreadyReplied.reply_comment_id = 555;
+    pendingComments = [alreadyReplied];
+    responsePlan = {
+      pr_number: 123,
+      comments: [{ comment_id: '100', type: 'reply', confidence: 'high', reply_message: 'skip me', proposed_changes: [] }],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', agent: 'auto' });
+
+    expect(githubReplyMock).not.toHaveBeenCalled();
+    expect(currentMetadataManager.updateCommentStatus).toHaveBeenCalledWith('100', 'completed', undefined);
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('already has a reply'),
+    );
+  });
+
+  it('code_changeでproposed_changesが空の場合は警告しつつ返信のみを投稿する', async () => {
+    pendingComments = [buildComment(200, 'code_change')];
+    responsePlan = {
+      pr_number: 123,
+      comments: [
+        {
+          comment_id: '200',
+          type: 'code_change',
+          confidence: 'high',
+          reply_message: 'apply later',
+          proposed_changes: [],
+        },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', agent: 'auto' });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("has type 'code_change' but no proposed_changes"),
+    );
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+    expect(githubReplyMock).toHaveBeenCalledTimes(1);
   });
 });

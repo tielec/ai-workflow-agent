@@ -190,6 +190,15 @@ export interface AgentSetupOptions {
    * 未指定時は環境変数 CODEX_MODEL → デフォルト (gpt-5.1-codex-max) の順で解決
    */
   codexModel?: string;
+
+  /**
+   * エージェント優先順位（Issue #306, #629）
+   * - 'codex-first': Codex 優先、Claude フォールバック（デフォルト）
+   * - 'claude-first': Claude 優先、Codex フォールバック
+   *
+   * auto モードでのみ使用される。codex/claude モードでは無視される。
+   */
+  agentPriority?: AgentPriority;
 }
 
 /**
@@ -200,7 +209,7 @@ export interface AgentSetupOptions {
  * **エージェントモード動作**:
  * - 'codex': Codex のみ使用（codexApiKey 必須、なければエラー）
  * - 'claude': Claude のみ使用（claudeCodeToken または claudeCredentialsPath 必須、なければエラー）
- * - 'auto': Codex 優先、Claude にフォールバック（いずれかが必須）
+ * - 'auto': agentPriority に従って優先順位を決定（未指定時は Codex 優先で Claude にフォールバック）
  *
  * @param agentMode - エージェントモード ('auto' | 'codex' | 'claude')
  * @param workingDir - 作業ディレクトリ
@@ -292,36 +301,71 @@ export function setupAgentClients(
     }
     case 'auto':
     default: {
-      // Auto モード: Codex を優先、Claude にフォールバック
-      if (hasCodexCredentials) {
-        if (isValidCodexApiKey(codexApiKey)) {
-          const trimmed = codexApiKey.trim();
-          process.env.CODEX_API_KEY = trimmed;
-          if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
-            process.env.OPENAI_API_KEY = trimmed;
-          }
-          logger.info(`Codex API key detected. Codex agent enabled (model=${resolvedCodexModel}).`);
-        } else {
-          logger.info(`CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials (model=${resolvedCodexModel}).`);
-        }
-        codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
-      }
+      const priority = options.agentPriority ?? 'codex-first';
 
-      if (hasClaudeCredentials) {
-        if (!codexClient) {
-          logger.info(`Codex agent unavailable (${codexUnavailableReason}). Using Claude Code (model=${resolvedClaudeModel}).`);
-        } else {
-          logger.info(`Claude Code credentials detected. Fallback available (model=${resolvedClaudeModel}).`);
+      if (priority === 'claude-first') {
+        // Claude 優先、Codex フォールバック（Issue #629）
+        if (hasClaudeCredentials) {
+          logger.info(`Claude Code agent enabled (auto mode, claude-first priority, model=${resolvedClaudeModel}).`);
+          claudeClient = new ClaudeAgentClient({
+            workingDir,
+            credentialsPath: claudeCredentialsPath ?? undefined,
+            model: resolvedClaudeModel,
+          });
         }
-        claudeClient = new ClaudeAgentClient({
-          workingDir,
-          credentialsPath: claudeCredentialsPath ?? undefined,
-          model: resolvedClaudeModel,
-        });
-      } else if (!codexClient) {
-        logger.warn(
-          `Codex agent unavailable (${codexUnavailableReason}) and no Claude credentials configured.`,
-        );
+
+        if (hasCodexCredentials) {
+          if (!claudeClient) {
+            logger.info(`Claude agent unavailable. Using Codex (model=${resolvedCodexModel}).`);
+          } else {
+            logger.info(`Codex credentials detected. Fallback available (model=${resolvedCodexModel}).`);
+          }
+
+          if (isValidCodexApiKey(codexApiKey)) {
+            const trimmed = codexApiKey.trim();
+            process.env.CODEX_API_KEY = trimmed;
+            if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+              process.env.OPENAI_API_KEY = trimmed;
+            }
+          } else {
+            logger.info(`CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials (model=${resolvedCodexModel}).`);
+          }
+          codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
+        } else if (!claudeClient) {
+          logger.warn('Both Claude and Codex agents unavailable.');
+        }
+      } else {
+        // Auto モード: Codex を優先、Claude にフォールバック（既存動作）
+        if (hasCodexCredentials) {
+          if (isValidCodexApiKey(codexApiKey)) {
+            const trimmed = codexApiKey.trim();
+            process.env.CODEX_API_KEY = trimmed;
+            if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.trim()) {
+              process.env.OPENAI_API_KEY = trimmed;
+            }
+            logger.info(`Codex API key detected. Codex agent enabled (model=${resolvedCodexModel}).`);
+          } else {
+            logger.info(`CODEX_AUTH_JSON detected. Codex agent enabled via Codex CLI credentials (model=${resolvedCodexModel}).`);
+          }
+          codexClient = new CodexAgentClient({ workingDir, model: resolvedCodexModel });
+        }
+
+        if (hasClaudeCredentials) {
+          if (!codexClient) {
+            logger.info(`Codex agent unavailable (${codexUnavailableReason}). Using Claude Code (model=${resolvedClaudeModel}).`);
+          } else {
+            logger.info(`Claude Code credentials detected. Fallback available (model=${resolvedClaudeModel}).`);
+          }
+          claudeClient = new ClaudeAgentClient({
+            workingDir,
+            credentialsPath: claudeCredentialsPath ?? undefined,
+            model: resolvedClaudeModel,
+          });
+        } else if (!codexClient) {
+          logger.warn(
+            `Codex agent unavailable (${codexUnavailableReason}) and no Claude credentials configured.`,
+          );
+        }
       }
       break;
     }

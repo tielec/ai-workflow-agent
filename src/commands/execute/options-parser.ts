@@ -1,4 +1,4 @@
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../../types.js';
+import { SUPPORTED_LANGUAGES, type PhaseName, type SupportedLanguage } from '../../types.js';
 import type { ExecuteCommandOptions } from '../../types/commands.js';
 
 /**
@@ -36,6 +36,11 @@ export interface ParsedExecuteOptions {
    * 依存関係警告無視フラグ
    */
   ignoreDependencies: boolean;
+
+  /**
+   * スキップ対象フェーズリスト（未指定時は undefined）
+   */
+  skipPhases?: PhaseName[];
 
   /**
    * メタデータリセットフラグ
@@ -113,6 +118,19 @@ export interface ValidationResult {
   errors: string[];
 }
 
+const VALID_PHASE_NAMES: readonly PhaseName[] = [
+  'planning',
+  'requirements',
+  'design',
+  'test_scenario',
+  'implementation',
+  'test_implementation',
+  'testing',
+  'documentation',
+  'report',
+  'evaluation',
+] as const;
+
 /**
  * ExecuteCommandOptions を正規化
  *
@@ -133,6 +151,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
 
   const skipDependencyCheck = Boolean(options.skipDependencyCheck);
   const ignoreDependencies = Boolean(options.ignoreDependencies);
+  const skipPhases = parseSkipPhasesOption(options.skipPhases);
   const forceReset = Boolean(options.forceReset);
   const cleanupOnComplete = Boolean(options.cleanupOnComplete);
   const cleanupOnCompleteForce = Boolean(options.cleanupOnCompleteForce);
@@ -189,6 +208,7 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     agentMode,
     skipDependencyCheck,
     ignoreDependencies,
+    skipPhases,
     forceReset,
     cleanupOnComplete,
     cleanupOnCompleteForce,
@@ -202,6 +222,51 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     codexModel,
     language,
   };
+}
+
+/**
+ * --skip-phases オプションをパース
+ *
+ * @param value - カンマ区切りのフェーズ名文字列
+ * @returns パース済みフェーズ名配列、または undefined
+ * @throws Error - 無効なフェーズ名や planning が含まれる場合
+ */
+function parseSkipPhasesOption(value: string | undefined): PhaseName[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  if (normalized === '') {
+    return undefined;
+  }
+
+  const phases = normalized
+    .split(',')
+    .map((phase) => phase.trim().toLowerCase())
+    .filter((phase) => phase.length > 0);
+
+  if (phases.length === 0) {
+    return undefined;
+  }
+
+  const invalidPhases = phases.filter(
+    (phase) => !VALID_PHASE_NAMES.includes(phase as PhaseName),
+  );
+  if (invalidPhases.length > 0) {
+    throw new Error(
+      `Invalid phase names in --skip-phases: ${invalidPhases.join(', ')}. ` +
+        `Valid phase names are: ${VALID_PHASE_NAMES.join(', ')}`,
+    );
+  }
+
+  if (phases.includes('planning')) {
+    throw new Error(
+      'Planning phase cannot be skipped as all other phases depend on it.',
+    );
+  }
+
+  return phases as PhaseName[];
 }
 
 /**
@@ -229,7 +294,7 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
 
   // 相互排他検証: --preset vs --phase
   if (presetOption && phaseOption !== 'all') {
-    errors.push("Options '--preset' and '--phase' are mutually exclusive.");
+   errors.push("Options '--preset' and '--phase' are mutually exclusive.");
   }
 
   // 必須オプション検証: --phase または --preset のいずれかが必須
@@ -242,6 +307,10 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
     errors.push(
       "Options '--skip-dependency-check' and '--ignore-dependencies' are mutually exclusive.",
     );
+  }
+
+  if (presetOption && typeof options.skipPhases === 'string' && options.skipPhases.trim().length > 0) {
+    errors.push("Cannot use --preset and --skip-phases together. Use one or the other.");
   }
 
   if (options.followupLlmMode) {

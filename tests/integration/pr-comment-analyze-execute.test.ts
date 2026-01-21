@@ -80,12 +80,13 @@ beforeAll(async () => {
         setResponsePlanPath: jest.fn().mockResolvedValue(undefined),
         setExecuteCompletedAt: jest.fn().mockResolvedValue(undefined),
         setExecutionResultPath: jest.fn().mockResolvedValue(undefined),
+        setReplyCommentId: jest.fn().mockResolvedValue(undefined),
         updateCommentStatus: jest.fn().mockResolvedValue(undefined),
         setAnalyzerAgent: jest.fn().mockResolvedValue(undefined),
         setAnalyzerError: jest.fn().mockResolvedValue(undefined),
         clearAnalyzerError: jest.fn().mockResolvedValue(undefined),
         exists: jest.fn().mockResolvedValue(true),
-        load: jest.fn().mockResolvedValue(undefined),
+        load: jest.fn().mockResolvedValue({ pr: { branch: 'feature/mock-branch' } }),
         getPendingComments: jest.fn(async () => pendingComments),
         getMetadata: jest.fn().mockImplementation(async () => metadataGetMetadataReturn ?? { pr: { title: 'Integration PR' }, comments: {} }),
         getSummary: jest.fn().mockResolvedValue({ by_status: { completed: 1, skipped: 0, failed: 0 } }),
@@ -732,5 +733,23 @@ describe('Analyze → Execute integration flow', () => {
     // Verify execute directory's agent_log.md does NOT exist in dry-run
     const executeLogPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'execute', 'agent_log.md');
     expect(await fs.pathExists(executeLogPath)).toBe(false);
+  });
+
+  it('二回目のexecuteではreply_comment_id付きコメントをスキップする', async () => {
+    // Given: response-plan.jsonが存在し、pendingコメントに既存返信が紐付いている
+    const planJsonPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.json');
+    await fs.ensureDir(path.dirname(planJsonPath));
+    await fs.writeJson(planJsonPath, responsePlanData, { spaces: 2 });
+    const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => undefined as any);
+    pendingComments = pendingComments.map((c) => ({ ...c, status: 'pending', reply_comment_id: 321 }));
+
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    expect(githubReplyMock).not.toHaveBeenCalled();
+    const latestManager = metadataManagerInstances[metadataManagerInstances.length - 1];
+    expect(latestManager.setReplyCommentId).not.toHaveBeenCalled();
+    expect(latestManager.getPendingComments).toHaveBeenCalled();
+    expect(codeChangeApplyMock).not.toHaveBeenCalled();
+    expect(pendingComments).toHaveLength(2);
   });
 });

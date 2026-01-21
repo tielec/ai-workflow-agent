@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #634**: [Refactor] ファイルサイズの削減: analyze.ts
+  - `src/commands/pr-comment/analyze.ts`（985行）を責務ごとに12モジュールへ分割し、エントリーポイントを147行に削減
+  - **新規作成モジュール（`src/commands/pr-comment/analyze/`）**:
+    - `index.ts` - 分割モジュールの再エクスポートと`__testables`集約
+    - `analyze-runner.ts` - コメント分析フロー（エージェント実行・ログ保存・フォールバック処理）
+    - `agent-utils.ts` - エージェントセットアップとログ永続化のユーティリティ
+    - `response-plan-loader.ts` - エージェント出力またはJSONファイルからプランを読み込む処理
+    - `response-parser.ts` - JSONパース戦略と境界検出処理
+    - `response-normalizer.ts` - レスポンスプランの正規化・検証・デフォルト適用
+    - `error-handlers.ts` - エージェント/パース失敗時の処理とフォールバックプラン生成
+    - `comment-formatter.ts` - コメント/スレッド整形とファイル内容付与処理
+    - `comment-fetcher.ts` - GitHubからの未解決コメント取得とメタデータ更新処理
+    - `prompt-builder.ts` - 分析プロンプト生成処理
+    - `markdown-builder.ts` - ResponsePlanのMarkdown生成とフォールバック生成
+    - `git-operations.ts` - コミット判定・実行処理
+  - **後方互換性維持**: `handlePRCommentAnalyzeCommand`のシグネチャおよび`__testables`エクスポートは変更なし
+  - **品質**: 全2738件のテスト成功（ユニット・統合テスト）
+  - **効果**: 単一ファイル985行 → 最大180行以下の12モジュールに分散、保守性・テスト容易性の向上
+
 ### Fixed
+
+- **Issue #632**: pr-comment execute: 2重返信とコード変更未適用の問題を修正
+  - `execute.ts` に `validateResponsePlan()` 関数を追加し、response-plan.json内の重複`comment_id`を検出・除去
+  - `processComment()` 関数に `reply_comment_id` 事前チェックを追加し、返信済みコメントのスキップ処理を実装
+  - `analyze.ts` に `user_approved` フラグを考慮した type 判定ロジックを追加し、ユーザー承認時の `discussion` へのダウングレードを抑止
+  - `type: "code_change"` かつ `proposed_changes` が空の場合に警告ログを出力する検証機能を追加
+  - 日英両言語のプロンプトにユーザー承認パターン検出時の `code_change` 指示と `user_approved` フラグ出力を追加
+  - 修正ファイル: `src/commands/pr-comment/execute.ts`, `src/commands/pr-comment/analyze.ts`, `src/types/pr-comment.ts`, `src/prompts/pr-comment/ja/analyze.txt`, `src/prompts/pr-comment/en/analyze.txt`
+  - テストカバレッジ: 55件（54件成功、1件スキップ、成功率98.18%）
 
 - **Issue #627**: pr-comment finalize --squash で中間ファイルが削除されずコミットメッセージにClaude Code署名が含まれる問題を修正
   - `squashCommitsIfRequested()` 関数に中間ファイルクリーンアップ処理を追加し、`git reset --soft` 実行前に `analyze/` および `output/` ディレクトリを削除
@@ -81,6 +111,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
 
 ### Added
+
+- **Issue #636**: execute コマンドに --skip-phases オプションを追加し特定フェーズをスキップ可能に
+  - `execute --phase all` に `--skip-phases <phase1,phase2,...>` オプションを追加
+  - カンマ区切りでスキップするフェーズ名を指定可能（例: `test_scenario,testing,documentation`）
+  - **制約**: `planning` フェーズのスキップは禁止（他の全フェーズが依存）、`--preset` との同時使用は禁止
+  - **指定可能フェーズ**: requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report, evaluation の9種類
+  - **依存関係検証拡張**: スキップ対象フェーズを依存関係チェックから除外し、後続フェーズの実行可否を正しく判定
+  - **メタデータ記録**: スキップされたフェーズは `metadata.json` に `'skipped'` ステータスで記録
+  - **警告表示**: `evaluation` フェーズをスキップする場合はフォローアップIssue生成が無効になる旨を警告
+  - **主なユースケース**: ドキュメント更新タスクでテスト関連フェーズをスキップ、軽微なバグ修正でTest Scenarioのみスキップ
+  - 修正ファイル: `src/main.ts`, `src/commands/execute/options-parser.ts`, `src/commands/execute.ts`, `src/commands/execute/workflow-executor.ts`, `src/core/phase-dependencies.ts`, `src/types.ts`, `src/types/commands.ts` 他
+  - テストカバレッジ: 62件のテスト（ユニット + 統合、100%成功）
+
+- **Issue #629**: auto-issue コマンドでカテゴリに応じたエージェント優先順位の設定
+  - `auto-issue` コマンドの `--agent auto` モードで、カテゴリに応じて自動的にエージェント優先順位を設定
+  - `bug`/`refactor`/`enhancement`/`all` カテゴリでClaude優先（分析・推論タスクに最適化）
+  - Claude利用不可時はCodexに自動フォールバック
+  - 明示的な `--agent codex/claude` 指定は引き続き優先（後方互換性維持）
+  - カテゴリ別エージェント自動選択により、各タスクに最適なAIエージェントを使用
+  - 修正ファイル: `src/commands/execute/agent-setup.ts`, `src/commands/auto-issue.ts`
+  - テストカバレッジ: 2710件のテスト（実行: 2688件、スキップ: 22件、成功率: 100%）
 
 - **Issue #598**: 認証情報バリデーションコマンド (`validate-credentials`) と Jenkins Job の実装
   - 新規 CLI コマンド `validate-credentials` を追加し、ワークフロー実行前に認証情報の有効性を事前検証

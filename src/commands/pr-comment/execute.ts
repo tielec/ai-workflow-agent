@@ -15,6 +15,7 @@ import {
   ExecutionResult,
   ExecutionResultComment,
   ResponsePlan,
+  ResponsePlanComment,
   ResolutionSummary,
 } from '../../types/pr-comment.js';
 import { config } from '../../core/config.js';
@@ -26,6 +27,13 @@ import {
 import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 
 let gitConfigured = false; // Git設定済みフラグ
+
+interface ProcessResult {
+  status: 'completed' | 'skipped' | 'failed';
+  reason?: 'already_replied' | 'dry_run' | 'no_changes' | string;
+  error?: string;
+  reply_comment_id?: number | null;
+}
 
 /**
  * pr-comment execute コマンドハンドラ
@@ -103,8 +111,8 @@ export async function handlePRCommentExecuteCommand(
     let responsePlan: ResponsePlan;
     try {
       const responsePlanContent = await fsp.readFile(responsePlanPath, 'utf-8');
-      responsePlan = JSON.parse(responsePlanContent);
-      logger.info(`Loaded response plan with ${responsePlan.comments.length} comment(s)`);
+      responsePlan = validateResponsePlan(JSON.parse(responsePlanContent));
+      logger.info(`Loaded response plan with ${responsePlan.comments.length} comment(s) after validation`);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         logger.error('response-plan.json not found. Run "pr-comment analyze" first.');
@@ -186,10 +194,20 @@ async function processComment(
   dryRun: boolean,
   prNumber: number,
   _repoRoot: string,
-): Promise<{ status: string; error?: string }> {
+): Promise<ProcessResult> {
   const commentId = String(commentMeta.comment.id);
 
   try {
+    if (commentMeta.reply_comment_id !== null && commentMeta.reply_comment_id !== undefined) {
+      logger.debug(
+        `Comment #${commentId} already has a reply (reply_id: ${commentMeta.reply_comment_id}). Skipping.`,
+      );
+      if (!dryRun && (commentMeta.status === 'pending' || commentMeta.status === 'in_progress')) {
+        await metadataManager.updateCommentStatus(commentId, 'completed', commentMeta.resolution ?? undefined);
+      }
+      return { status: 'skipped', reason: 'already_replied', reply_comment_id: commentMeta.reply_comment_id };
+    }
+
     if (!dryRun) {
       await metadataManager.updateCommentStatus(commentId, 'in_progress');
     }
@@ -211,6 +229,7 @@ async function processComment(
     }
 
     logger.debug(`Processing comment #${commentId} (type: ${planComment.type})`);
+    validateProposedChanges(planComment);
 
     const costTracking = {
       inputTokens: planComment.input_tokens ?? 0,
@@ -252,7 +271,7 @@ async function processComment(
       logger.info(
         `[DRY-RUN] Comment #${commentMeta.comment.id}: ${resolution.type} — ${resolution.reply.slice(0, 80)}`,
       );
-      return { status: 'completed (dry-run)' };
+      return { status: 'completed', reason: 'dry_run' };
     }
 
     logger.debug(`Posting reply to comment #${commentId}...`);
@@ -277,8 +296,12 @@ async function processComment(
       resolution,
     );
     const status = resolution.type === 'skip' ? 'skipped' : 'completed';
+    const reason =
+      resolution.type === 'code_change' && (!resolution.changes || resolution.changes.length === 0)
+        ? 'no_changes'
+        : undefined;
     logger.info(`Comment #${commentId} marked as ${status}`);
-    return { status };
+    return { status, reason };
   } catch (error) {
     logger.error(`Exception while processing comment #${commentId}: ${getErrorMessage(error)}`);
     if (!dryRun) {
@@ -347,6 +370,51 @@ function displayExecutionSummary(summary: ResolutionSummary, dryRun: boolean): v
   logger.info(
     `Execution summary${dryRun ? ' (dry-run)' : ''}: completed=${summary.by_status.completed}, skipped=${summary.by_status.skipped}, failed=${summary.by_status.failed}`,
   );
+}
+
+/**
+ * response-plan.json の整合性を検証し、comment_id の重複を除去する。
+ */
+function validateResponsePlan(plan: ResponsePlan): ResponsePlan {
+  const validatedPlan: ResponsePlan = {
+    ...plan,
+    comments: Array.isArray(plan.comments) ? [...plan.comments] : [],
+  };
+
+  const seen = new Set<string>();
+  const duplicates: string[] = [];
+
+  validatedPlan.comments = validatedPlan.comments.filter((comment) => {
+    const id = String(comment.comment_id);
+    if (seen.has(id)) {
+      duplicates.push(id);
+      return false;
+    }
+    seen.add(id);
+    return true;
+  });
+
+  if (duplicates.length > 0) {
+    const uniqueDuplicates = Array.from(new Set(duplicates));
+    logger.warn(`Duplicate comment_id found in response-plan: ${uniqueDuplicates.join(', ')}`);
+  }
+
+  return validatedPlan;
+}
+
+/**
+ * type=code_change にもかかわらず proposed_changes が空の場合に警告する。
+ */
+function validateProposedChanges(comment: ResponsePlanComment): void {
+  if (comment.type !== 'code_change') {
+    return;
+  }
+
+  if (!comment.proposed_changes || comment.proposed_changes.length === 0) {
+    logger.warn(
+      `Comment #${comment.comment_id} has type 'code_change' but no proposed_changes. Reply will be posted without code modifications.`,
+    );
+  }
 }
 
 function extractJsonFromBlock(rawOutput: string): any {

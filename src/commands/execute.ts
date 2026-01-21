@@ -80,6 +80,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     agentMode,
     skipDependencyCheck,
     ignoreDependencies,
+    skipPhases,
     forceReset,
     cleanupOnComplete,
     cleanupOnCompleteForce,
@@ -359,6 +360,7 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     issueNumber: Number(issueNumber),
     issueInfo,
     language: resolvedLanguage,
+    skipPhases,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）
@@ -422,6 +424,9 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
       const statusSummary = resumeManager.getStatusSummary();
       if (statusSummary.completed.length) {
         logger.info(`Completed phases: ${statusSummary.completed.join(', ')}`);
+      }
+      if (statusSummary.skipped.length) {
+        logger.info(`Skipped phases: ${statusSummary.skipped.join(', ')}`);
       }
       if (statusSummary.failed.length) {
         logger.info(`Failed phases: ${statusSummary.failed.join(', ')}`);

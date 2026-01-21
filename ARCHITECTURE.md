@@ -33,18 +33,19 @@ src/commands/execute.ts (フェーズ実行コマンド処理 - ファサード�
      ├─ resetMetadata (そのまま保持)
      └─ reportExecutionSummary (そのまま保持)
 
-src/commands/execute/options-parser.ts (CLIオプション解析、v0.3.1で追加、Issue #46)
+src/commands/execute/options-parser.ts (CLIオプション解析、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636)
  ├─ parseExecuteOptions() … ExecuteCommandOptions を正規化
- └─ validateExecuteOptions() … 相互排他オプションの検証
+ ├─ parseSkipPhasesOption() … --skip-phases オプションの解析・バリデーション（Issue #636）
+ └─ validateExecuteOptions() … 相互排他オプションの検証（--preset と --skip-phases を含む）
 
 src/commands/execute/agent-setup.ts (エージェント初期化、v0.3.1で追加、Issue #46)
  ├─ setupAgentClients() … Codex/Claude クライアントの初期化
  └─ resolveAgentCredentials() … 認証情報のフォールバック処理
 
-src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46)
- ├─ executePhasesSequential() … フェーズの順次実行
+src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636)
+ ├─ executePhasesSequential() … フェーズの順次実行・スキップ判定
  ├─ executePhasesFrom() … 特定フェーズからの実行
- └─ 依存関係順にフェーズを実行
+ └─ 依存関係順にフェーズを実行・スキップ対象は除外
       ├─ BasePhase.run()
       │    ├─ execute()    … エージェントで成果物生成
       │    ├─ review()     … 可能ならレビューサイクル実施
@@ -123,19 +124,49 @@ src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマン�
  ├─ collectUnresolvedComments() … PR から未解決コメントを収集
  └─ PRCommentMetadataManager.initialize() … メタデータ初期化
 
-src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加)
+src/commands/pr-comment/analyze.ts (PRコメント自動対応: 分析コマンド、Issue #428で追加、Issue #634でリファクタリング)
  ├─ handlePRCommentAnalyzeCommand() … pr-comment analyze コマンドハンドラ（2段階ワークフロー対応）
- ├─ analyzeComments() … AIエージェントによるコメント分析・ResponsePlan生成
- ├─ buildAnalyzePrompt() … 分析プロンプト構築
- ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
- ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得し、`metadataManager.addComments()` で新規 `comment_id` だけを `pending` として追加することで init 実行後に投稿されたコメントも取り込む（Issue #475）
- ├─ buildFallbackPlan() … エージェントエラー時のフォールバック計画生成
- └─ エラーハンドリング（Issue #428で強化）
-     ├─ handleAgentError() … エージェント実行失敗時の処理
-     ├─ handleEmptyOutputError() … 空出力エラーの処理
-     ├─ handleParseError() … JSONパースエラーの処理
-     ├─ promptUserConfirmation() … ローカル環境での確認プロンプト
-     └─ CI環境では即座にprocess.exit(1)、ローカル環境では確認後フォールバック
+ ├─ resolvePrInfo() … PR情報解決
+ ├─ parseCommentIds() … コメントID解析
+ └─ 分割モジュール（src/commands/pr-comment/analyze/）に責務を委譲
+
+src/commands/pr-comment/analyze/ (Issue #634で追加: analyze.tsのモジュール分割)
+ ├─ index.ts … 分割モジュールの再エクスポートと__testables集約
+ ├─ analyze-runner.ts … コメント分析フロー（エージェント実行・ログ保存・フォールバック処理）
+ ├─ agent-utils.ts … エージェントセットアップとログ永続化のユーティリティ
+ ├─ response-plan-loader.ts … エージェント出力またはJSONファイルからプランを読み込む処理
+ ├─ response-parser.ts … JSONパース戦略と境界検出処理
+ │   ├─ parseResponsePlan() … エージェント出力のJSONパース・検証
+ │   ├─ tryParseMarkdownCodeBlock() … Markdownコードブロックからの抽出
+ │   ├─ tryParseJsonLines() … JSON Lines形式からの抽出
+ │   ├─ tryParsePlainJson() … プレーンJSON形式からの抽出
+ │   └─ findAllJsonObjectBoundaries() … JSONオブジェクト境界の検出
+ ├─ response-normalizer.ts … レスポンスプランの正規化・検証・デフォルト適用
+ │   ├─ normalizeResponsePlan() … ResponsePlanを正規化
+ │   ├─ normalizePlanComment() … コメントを正規化（デフォルト値、低信頼度ダウングレード）
+ │   ├─ validateProposedChanges() … proposed_changesの検証
+ │   └─ isValidResponsePlanCandidate() … ResponsePlan候補の検証
+ ├─ error-handlers.ts … エージェント/パース失敗時の処理とフォールバックプラン生成
+ │   ├─ handleAgentError() … エージェント実行失敗時の処理
+ │   ├─ handleEmptyOutputError() … 空出力エラーの処理
+ │   ├─ handleParseError() … JSONパースエラーの処理
+ │   └─ promptUserConfirmation() … ローカル環境での確認プロンプト
+ ├─ comment-formatter.ts … コメント/スレッド整形とファイル内容付与処理
+ │   ├─ groupCommentsByThread() … スレッドIDでコメントをグループ化
+ │   ├─ getAllThreadComments() … スレッドの全コメントを時系列順で取得
+ │   ├─ formatThreadBlock() … スレッドブロックをMarkdown形式で整形
+ │   ├─ formatThreadBlockWithFiles() … ファイル内容付きでスレッドブロックを整形
+ │   └─ formatCommentBlock() … 単一コメントをMarkdown形式で整形
+ ├─ comment-fetcher.ts … GitHubからの未解決コメント取得とメタデータ更新処理
+ │   ├─ refreshComments() … GitHub（GraphQL優先 → RESTフォールバック）から未解決コメントを再取得
+ │   └─ fetchLatestUnresolvedComments() … 最新の未解決コメントを取得
+ ├─ prompt-builder.ts … 分析プロンプト生成処理
+ │   └─ buildAnalyzePrompt() … 分析プロンプト構築
+ ├─ markdown-builder.ts … ResponsePlanのMarkdown生成とフォールバック生成
+ │   ├─ buildResponsePlanMarkdown() … ResponsePlanからMarkdown生成
+ │   └─ buildFallbackPlan() … フォールバック用のResponsePlan生成
+ └─ git-operations.ts … コミット判定・実行処理
+     └─ commitIfNeeded() … 変更がある場合にGitコミットを作成
 
 src/commands/pr-comment/execute.ts (PRコメント自動対応: 実行コマンド、Issue #383で追加、Issue #407で拡張、Issue #444でリファクタリング)
  ├─ handlePRCommentExecuteCommand() … pr-comment execute コマンドハンドラ（--pr-url対応）
@@ -280,7 +311,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。 |
 | `src/core/config.ts` | 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジック（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）の統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。Singleton パターンで実装。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
-| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能を提供（約249行、Issue #26で27.2%削減）。 |
+| `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能とスキップフェーズフィルタリングを提供（約249行、Issue #26で27.2%削減、Issue #636でskipPhases対応）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
 | `src/types/commands.ts` | コマンド関連の型定義（約325行、Issue #45で拡張、v0.4.0でrollback型追加、Issue #90/#271）。PhaseContext, ExecutionSummary, IssueInfo, BranchValidationResult, ExecuteCommandOptions, ReviewCommandOptions, MigrateOptions, RollbackCommandOptions, RollbackContext, RollbackHistoryEntry, RollbackAutoOptions, RollbackDecision等の型を提供。コマンドハンドラの型安全性を確保。Issue #271で追加された型: `RollbackAutoOptions`（rollback-autoコマンドのCLIオプション: issueNumber, dryRun, force, agent）、`RollbackDecision`（エージェント出力の構造: needs_rollback, to_phase, to_step, reason, confidence, analysis、厳格なバリデーションルール付き）。 |
 | `src/phases/base-phase.ts` | フェーズ実行の基底クラス（約500行、v0.3.1で40%削減、Issue #49でさらなるモジュール分解、v0.4.0でrollbackプロンプト注入追加、Issue #90、v0.5.0でエージェント優先順位対応、Issue #306、Issue #363でモデル最適化対応）。execute/review/revise のライフサイクル管理とオーケストレーションを担当。差し戻し時に自動的にROLLBACK_REASON.mdをreviseステッププロンプトに注入し、差し戻し理由を次のフェーズ実行時に伝達する機能を提供。**エージェント優先順位**: `PHASE_AGENT_PRIORITY` からフェーズ固有の優先順位を取得し、`AgentExecutor` コンストラクタに渡す。**モデル最適化**（Issue #363）: ステップ開始前に `ModelOptimizer.resolveModel()` を呼び出し、review は常に軽量モデル、それ以外は優先順位（CLI/ENV → metadata → デフォルト）に従うモデルを `AgentExecutor` に反映。 |
