@@ -949,10 +949,12 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - `review-requirements`: Planning + Requirements
 - `review-design`: Planning + Requirements + Design
 - `review-test-scenario`: Planning + Requirements + Design + TestScenario
-- `quick-fix`: Implementation + Documentation + Report（`--ignore-dependencies` と併用）
-- `implementation`: Implementation + TestImplementation + Testing + Documentation + Report
-- `testing`: TestImplementation + Testing
-- `finalize`: Documentation + Report + Evaluation
+- `analysis-design`: Planning + Requirements + Design
+- `quick-fix`: Planning + Implementation + Documentation + Report（`--ignore-dependencies` と併用）
+- `implementation`: Planning + Implementation + TestImplementation + Testing + Documentation + Report
+- `full-test`: Planning + TestScenario + TestImplementation
+- `testing`: Planning + TestImplementation + Testing
+- `finalize`: Planning + Documentation + Report + Evaluation
 
 ### オプショナルコンテキスト構築
 

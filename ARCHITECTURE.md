@@ -554,9 +554,10 @@ BasePhase クラスは各専門モジュールのインスタンスを保持し�
 
 **主なプリセット**:
 - `review-requirements`, `review-design`, `review-test-scenario` … レビュー駆動パターン
-- `quick-fix`, `implementation` … 実装中心パターン
-- `testing` … テスト中心パターン
-- `finalize` … ドキュメント・レポートパターン
+- `analysis-design` … 分析・設計パターン
+- `quick-fix`, `implementation` … 実装中心パターン（Planning必須）
+- `full-test`, `testing` … テスト中心パターン（Planning必須）
+- `finalize` … ドキュメント・レポートパターン（Planning必須）
 
 プリセット名の解決は `src/commands/execute.ts` の `resolvePresetName()` 関数で行われ、後方互換性のために非推奨プリセット名（`requirements-only`, `design-phase`, `implementation-phase`, `full-workflow`）のエイリアスもサポートします。
 
@@ -571,7 +572,7 @@ BasePhase クラスは各専門モジュールのインスタンスを保持し�
 
 ### オプショナルコンテキスト構築
 
-`BasePhase` クラスの `buildOptionalContext()` メソッドは、前段フェーズの成果物が存在しない場合でもフェーズを実行できるようにします。ファイルが存在する場合は `@filepath` 形式で参照し、存在しない場合はフォールバックメッセージを返します。これにより `quick-fix` プリセットなどで、依存関係を無視した柔軟な実行が可能になります。
+`BasePhase` クラスの `buildOptionalContext()` メソッドは、前段フェーズの成果物が存在しない場合でもフェーズを実行できるようにします。ファイルが存在する場合は `@filepath` 形式で参照し、存在しない場合はフォールバックメッセージを返します。これにより柔軟な実行が可能になります。
 
 **適用済みPhase**:
 - `ImplementationPhase` - requirements、design、test_scenario を参照
