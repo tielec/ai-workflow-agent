@@ -29,6 +29,9 @@ export const PHASE_PRESETS: Record<string, PhaseName[]> = {
   // === 分析・設計パターン ===
   'analysis-design': ['planning', 'requirements', 'design'],
 
+  // === プロトタイプ高速化パターン ===
+  'prototype': ['planning', 'design', 'implementation', 'report'],
+
   // === 実装中心パターン ===
   'quick-fix': ['planning', 'implementation', 'documentation', 'report'],
   'implementation': ['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report'],
@@ -60,6 +63,7 @@ export const PRESET_DESCRIPTIONS: Record<string, string> = {
   'full-test': 'Planning + TestScenario + TestImplementation (テストシナリオとテストコード実装のみ実行)',
   'testing': 'Planning + TestImplementation + Testing (テスト追加用)',
   'finalize': 'Planning + Documentation + Report + Evaluation (最終化用)',
+  'prototype': 'Planning + Design + Implementation + Report (プロトタイプ作成用の最小フロー)',
 };
 
 export interface DependencyValidationOptions {

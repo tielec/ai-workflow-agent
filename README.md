@@ -445,6 +445,7 @@ ai-workflow execute --list-presets
 | `review-design` | Planning + Requirements + Design | 設計のレビュー用 |
 | `review-test-scenario` | Planning + Requirements + Design + TestScenario | テストシナリオのレビュー用 |
 | `analysis-design` | Planning + Requirements + Design | 分析と設計フェーズのみ実行 |
+| `prototype` | Planning + Design + Implementation + Report | プロトタイプ作成用の最小フロー |
 | `quick-fix` | Planning + Implementation + Documentation + Report | 軽微な修正（タイポ、小さなバグ修正） |
 | `implementation` | Planning + Implementation + TestImplementation + Testing + Documentation + Report | 通常の実装フロー |
 | `full-test` | Planning + TestScenario + TestImplementation | テストシナリオとテストコード実装のみ実行 |
@@ -460,8 +461,11 @@ ai-workflow execute --issue 1 --preset quick-fix
 # 要件定義とPlanningのみ実行してレビューを受ける
 ai-workflow execute --issue 2 --preset review-requirements
 
+# プロトタイプを素早く作成（Planning + Design + Implementation + Report）
+ai-workflow execute --issue 3 --preset prototype
+
 # テスト関連フェーズのみ実行
-ai-workflow execute --issue 3 --preset full-test
+ai-workflow execute --issue 4 --preset full-test
 ```
 
 **プリセット vs `--phase` の使い分け**:
