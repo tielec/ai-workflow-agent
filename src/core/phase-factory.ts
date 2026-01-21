@@ -34,6 +34,7 @@ export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext)
     githubClient: context.githubClient,
     skipDependencyCheck: context.skipDependencyCheck,
     ignoreDependencies: context.ignoreDependencies,
+    skipPhases: context.skipPhases,
     presetPhases: context.presetPhases,
     issueGenerationOptions: context.issueGenerationOptions,
     modelOptimizer: context.modelOptimizer,

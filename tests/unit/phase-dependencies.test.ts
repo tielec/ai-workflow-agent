@@ -21,10 +21,33 @@ import {
   DependencyValidationOptions,
 } from '../../src/core/phase-dependencies.js';
 import { MetadataManager } from '../../src/core/metadata-manager.js';
-import { PhaseName } from '../../src/types.js';
+import { WorkflowState } from '../../src/core/workflow-state.js';
+import { PhaseName, type PhaseStatus } from '../../src/types.js';
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'phase-dependencies-test');
+const SKIP_PHASES_TEMP_DIR = path.join(TEST_DIR, 'skip-phases');
+
+/**
+ * skipPhases 用のメタデータを作成
+ */
+function createMetadataManagerWithStatuses(statuses: Partial<Record<PhaseName, PhaseStatus>>): MetadataManager {
+  fs.ensureDirSync(SKIP_PHASES_TEMP_DIR);
+  const tempDir = fs.mkdtempSync(path.join(SKIP_PHASES_TEMP_DIR, 'case-'));
+  const metadataPath = path.join(tempDir, 'metadata.json');
+  WorkflowState.createNew(metadataPath, '123', 'https://example.com/issues/123', 'Skip phases test');
+  const manager = new MetadataManager(metadataPath);
+
+  for (const [phase, status] of Object.entries(statuses)) {
+    if (!status) {
+      continue;
+    }
+    manager.updatePhaseStatus(phase as PhaseName, 'in_progress');
+    manager.updatePhaseStatus(phase as PhaseName, status as PhaseStatus);
+  }
+
+  return manager;
+}
 
 describe('PHASE_PRESETS定義テスト', () => {
   test('1.1.1: 新規プリセット定義の正確性', () => {
@@ -70,6 +93,7 @@ describe('依存関係チェックテスト', () => {
   beforeAll(async () => {
     // テスト用ディレクトリとmetadata.jsonを作成
     await fs.ensureDir(TEST_DIR);
+    await fs.ensureDir(SKIP_PHASES_TEMP_DIR);
     testMetadataPath = path.join(TEST_DIR, 'metadata.json');
 
     const testMetadata = {
@@ -168,6 +192,91 @@ describe('依存関係チェックテスト', () => {
     expect(result.valid).toBe(true);
     expect(result.missing_phases?.length || 0).toBe(0);
     expect(result.missing_files?.length || 0).toBe(0);
+  });
+});
+
+describe('skipPhases オプションの適用', () => {
+  test('スキップ対象は依存関係から除外される', () => {
+    // Given: requirements と design は完了、test_scenario は未完了
+    const manager = createMetadataManagerWithStatuses({
+      requirements: 'completed',
+      design: 'completed',
+    });
+
+    // When: implementation の依存関係を skipPhases でフィルタ
+    const result = validatePhaseDependencies('implementation', manager, {
+      skipPhases: ['test_scenario'],
+    });
+
+    // Then: test_scenario は無視され、バリデーションが成功する
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+  });
+
+  test('skipPhases が空配列の場合は通常の検証が行われる', () => {
+    // Given: requirements のみ完了、design は未完了
+    const manager = createMetadataManagerWithStatuses({
+      requirements: 'completed',
+    });
+
+    // When: test_scenario の依存関係を skipPhases: [] で検証
+    const result = validatePhaseDependencies('test_scenario', manager, {
+      skipPhases: [],
+    });
+
+    // Then: design 未完了のためエラー
+    expect(result.valid).toBe(false);
+    expect(result.missing_phases).toContain('design');
+  });
+
+  test('skipPhases と presetPhases が組み合わさって適用される', () => {
+    // Given: 必須フェーズ requirements/design は完了済み
+    const manager = createMetadataManagerWithStatuses({
+      requirements: 'completed',
+      design: 'completed',
+    });
+
+    // When: implementation で skipPhases と presetPhases を同時指定
+    const result = validatePhaseDependencies('implementation', manager, {
+      skipPhases: ['test_scenario'],
+      presetPhases: ['planning', 'requirements', 'design', 'implementation'],
+    });
+
+    // Then: 両方のフィルタが適用されて成功する
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+  });
+
+  test('全依存フェーズをスキップした場合は依存なしとして扱われる', () => {
+    // Given: 初期状態（すべて pending）
+    const manager = createMetadataManagerWithStatuses({});
+
+    // When: test_scenario の依存 requirements/design をすべてスキップ
+    const result = validatePhaseDependencies('test_scenario', manager, {
+      skipPhases: ['requirements', 'design'],
+    });
+
+    // Then: 依存関係なし扱いで成功する
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+  });
+
+  test('複数フェーズスキップで後続フェーズの依存が解消される', () => {
+    // Given: implementation まで完了済み、test_implementation は未完了
+    const manager = createMetadataManagerWithStatuses({
+      requirements: 'completed',
+      design: 'completed',
+      implementation: 'completed',
+    });
+
+    // When: testing フェーズの依存 test_implementation をスキップ
+    const result = validatePhaseDependencies('testing', manager, {
+      skipPhases: ['test_implementation'],
+    });
+
+    // Then: スキップされた依存はチェックされず成功する
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
   });
 });
 

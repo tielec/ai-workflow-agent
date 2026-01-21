@@ -88,6 +88,10 @@ export async function runCli(): Promise<void> {
         Object.keys(PHASE_PRESETS),
       ),
     )
+    .option(
+      '--skip-phases <phases>',
+      'Comma-separated phase names to skip (e.g., test_scenario,testing). Cannot use with --preset.',
+    )
     .option('--git-user <name>', 'Git commit user name')
     .option('--git-email <email>', 'Git commit user email')
     .option('--force-reset', 'Clear metadata and restart from Phase 1', false)

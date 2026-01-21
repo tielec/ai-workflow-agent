@@ -173,10 +173,11 @@ export class MetadataManager {
   ): void {
     // 許可される遷移パターン
     const allowedTransitions: Record<PhaseStatus, PhaseStatus[]> = {
-      pending: ['in_progress'],
-      in_progress: ['completed', 'failed'],
+      pending: ['in_progress', 'skipped'],
+      in_progress: ['completed', 'failed', 'skipped'],
       completed: [],  // completed からの遷移は通常許可されない
       failed: [],     // failed からの遷移は通常許可されない
+      skipped: [],    // skipped からの遷移は通常許可されない
     };
 
     const allowed = allowedTransitions[fromStatus];

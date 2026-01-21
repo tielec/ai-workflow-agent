@@ -67,6 +67,7 @@ export interface DependencyValidationOptions {
   ignoreViolations?: boolean;
   checkFileExistence?: boolean; // ファイル存在チェック（Issue #396）
   presetPhases?: PhaseName[]; // プリセット実行時のフェーズリスト（Issue #396）
+  skipPhases?: PhaseName[];
 }
 
 export interface DependencyValidationResult {
@@ -83,7 +84,13 @@ export const validatePhaseDependencies = (
   metadataManager: MetadataManager,
   options: DependencyValidationOptions = {},
 ): DependencyValidationResult => {
-  const { skipCheck = false, ignoreViolations = false, checkFileExistence = false, presetPhases } = options;
+  const {
+    skipCheck = false,
+    ignoreViolations = false,
+    checkFileExistence = false,
+    presetPhases,
+    skipPhases,
+  } = options;
 
   if (!(phaseName in PHASE_DEPENDENCIES)) {
     throw new Error(`Invalid phase name: ${phaseName}`);
@@ -99,9 +106,15 @@ export const validatePhaseDependencies = (
   }
 
   // プリセット実行時は、プリセットに含まれるフェーズのみを依存関係としてチェック
-  const filteredRequired = presetPhases
-    ? required.filter(dep => presetPhases.includes(dep))
-    : required;
+  let filteredRequired = required;
+
+  if (skipPhases && skipPhases.length > 0) {
+    filteredRequired = filteredRequired.filter((dep) => !skipPhases.includes(dep));
+  }
+
+  if (presetPhases) {
+    filteredRequired = filteredRequired.filter((dep) => presetPhases.includes(dep));
+  }
 
   if (filteredRequired.length === 0) {
     return { valid: true, missing_files: [] };

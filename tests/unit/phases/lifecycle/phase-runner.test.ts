@@ -176,6 +176,7 @@ function createPhaseRunnerForChecklist(
     false,
     false,
     undefined,
+    undefined,
     null
   );
 
@@ -220,6 +221,7 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       mockStepExecutor,
       false, // skipDependencyCheck
       false, // ignoreDependencies
+      undefined, // skipPhases
       undefined, // presetPhases
       reviseFn
     );
@@ -259,6 +261,7 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
+      undefined,
       undefined,
       reviseFn
     );
@@ -312,6 +315,7 @@ describe('PhaseRunner - 多言語対応（Issue #590）', () => {
       stepExecutor,
       true,
       false,
+      undefined,
       undefined,
       jest.fn<any>().mockResolvedValue({ success: true })
     );
@@ -709,7 +713,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
       mockStepExecutor,
       false, // skipDependencyCheck
       false, // ignoreDependencies
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -741,7 +746,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
       mockStepExecutor,
       false,
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -767,7 +773,8 @@ describe('PhaseRunner - validateDependencies() 依存関係検証', () => {
       mockStepExecutor,
       true, // skipDependencyCheck
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -809,7 +816,8 @@ describe('PhaseRunner - handleFailure() フェーズ失敗時の処理', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -850,7 +858,8 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -882,7 +891,8 @@ describe('PhaseRunner - postProgress() 進捗投稿', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -924,7 +934,8 @@ describe('PhaseRunner - エラーハンドリング', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       null // reviseFn が null
     );
 
@@ -951,7 +962,8 @@ describe('PhaseRunner - エラーハンドリング', () => {
       mockStepExecutor,
       true, // skipDependencyCheck = true に変更
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -1000,7 +1012,8 @@ describe('PhaseRunner - Issue #248: フェーズステータス更新の確実�
       mockStepExecutor,
       true, // skipDependencyCheck
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -1029,7 +1042,8 @@ describe('PhaseRunner - Issue #248: フェーズステータス更新の確実�
       mockStepExecutor,
       true, // skipDependencyCheck
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 
@@ -1057,7 +1071,8 @@ describe('PhaseRunner - Issue #248: フェーズステータス更新の確実�
       mockStepExecutor,
       true, // skipDependencyCheck
       false,
-      undefined,
+      undefined, // skipPhases
+      undefined, // presetPhases
       reviseFn
     );
 

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import path from 'node:path';
 import { MetadataManager } from '../core/metadata-manager.js';
-import { PhaseName, StepName } from '../types.js';
+import { PhaseName, PhaseStatus, StepName } from '../types.js';
 
 export class ResumeManager {
   private readonly metadata: MetadataManager;
@@ -17,6 +17,7 @@ export class ResumeManager {
     'report',
     'evaluation',
   ];
+  private readonly completedStatuses: PhaseStatus[] = ['completed', 'skipped'];
 
   constructor(metadataManager: MetadataManager) {
     this.metadata = metadataManager;
@@ -34,13 +35,17 @@ export class ResumeManager {
     const phasesData = this.metadata.data.phases;
     return this.phases.some((phase) => {
       const status = phasesData[phase].status;
-      return status === 'completed' || status === 'failed' || status === 'in_progress';
+      return (
+        this.completedStatuses.includes(status) ||
+        status === 'failed' ||
+        status === 'in_progress'
+      );
     });
   }
 
   public isCompleted(): boolean {
     const phasesData = this.metadata.data.phases;
-    return this.phases.every((phase) => phasesData[phase].status === 'completed');
+    return this.phases.every((phase) => this.completedStatuses.includes(phasesData[phase].status));
   }
 
   public getResumePhase(): PhaseName | null {
@@ -71,12 +76,13 @@ export class ResumeManager {
     return null;
   }
 
-  public getStatusSummary(): Record<string, PhaseName[]> {
+  public getStatusSummary(): Record<'completed' | 'failed' | 'in_progress' | 'pending' | 'skipped', PhaseName[]> {
     return {
       completed: this.getPhasesByStatus('completed'),
       failed: this.getPhasesByStatus('failed'),
       in_progress: this.getPhasesByStatus('in_progress'),
       pending: this.getPhasesByStatus('pending'),
+      skipped: this.getPhasesByStatus('skipped'),
     };
   }
 
@@ -145,7 +151,7 @@ export class ResumeManager {
     return 'execute';
   }
 
-  private getPhasesByStatus(status: 'completed' | 'failed' | 'in_progress' | 'pending'): PhaseName[] {
+  private getPhasesByStatus(status: PhaseStatus): PhaseName[] {
     const phasesData = this.metadata.data.phases;
     return this.phases.filter((phase) => phasesData[phase].status === status);
   }
