@@ -110,8 +110,8 @@ describe('PHASE_PRESETS定義テスト', () => {
   test('1.1.6: プリセット総数が想定どおり', () => {
     // Given: PHASE_PRESETSが定義されている
     // When: プリセットの数を数える
-    // Then: 全9プリセットが登録されている
-    expect(Object.keys(PHASE_PRESETS).length).toBe(9);
+    // Then: 全10プリセットが登録されている（prototype追加後）
+    expect(Object.keys(PHASE_PRESETS).length).toBe(10);
   });
 });
 

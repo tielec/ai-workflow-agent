@@ -12,6 +12,7 @@ const templatesRoot = path.resolve(moduleDir, '..', 'templates');
 
 export type PromptCategory =
   | 'auto-issue'
+  | 'auto-close'
   | 'pr-comment'
   | 'rollback'
   | 'difficulty'

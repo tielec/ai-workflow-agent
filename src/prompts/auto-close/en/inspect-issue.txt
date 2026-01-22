@@ -1,0 +1,69 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are a GitHub Issue lifecycle specialist. Review the Issue below and decide whether it should be closed.
+
+## Evaluation Criteria
+
+### 1. Completion
+- Are all tasks already addressed in the codebase?
+- Is the original objective fulfilled?
+- Are related PRs merged?
+
+### 2. Importance & Urgency
+- Is this Issue still important despite inactivity?
+- Does it involve security or performance?
+- Is it blocking other work?
+
+### 3. Relevance
+- Is it aligned with the current roadmap?
+- Is it a duplicate of another Issue?
+- Is there active discussion?
+
+### 4. Closure Risk
+- Would closing lose important information?
+- Is it likely to be needed soon?
+- Are there stakeholders who must be notified?
+
+## Issue Details
+- Issue #: #{issue_number}
+- Title: {title}
+- Created: {created_at}
+- Updated: {updated_at}
+- Labels: {labels}
+- URL: {url}
+
+### Body
+{body}
+
+### Recent Comments (latest 10)
+{comments}
+
+### Related
+{parent_issue_info}
+{mentioned_files}
+
+## Output Format
+Write the result as JSON to `{output_file_path}` (do not print JSON to stdout).
+
+```json
+{
+  "issue_number": {issue_number},
+  "recommendation": "close" | "keep" | "needs_discussion",
+  "confidence": 0.0-1.0,
+  "reasoning": "Detailed explanation (min 200 chars)",
+  "close_comment": "Comment to post when closing (only for recommendation=close)",
+  "suggested_actions": ["Optional follow-up suggestions"]
+}
+```
+
+### Important Notes
+1. Use the Write tool to create the JSON file (avoid heredoc/cat redirection).
+2. Ensure valid JSON with proper escaping.
+3. Do not emit extra text outside the JSON file.
+
+## Recommendation Guide
+- Recommend "close" when tasks are done, source Issue is closed, relevance is low, or it is a duplicate.
+- Recommend "keep" when active, important (security/performance), or has clear remaining tasks.
+- Recommend "needs_discussion" when uncertain or stakeholder confirmation is required.
+
+Focus on clear reasoning, honest confidence scoring, and respectful close_comment content.

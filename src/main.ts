@@ -9,6 +9,7 @@ import { listPresets } from './commands/list-presets.js';
 import { handleMigrateCommand } from './commands/migrate.js';
 import { handleRollbackCommand, handleRollbackAutoCommand } from './commands/rollback.js';
 import { handleAutoIssueCommand } from './commands/auto-issue.js';
+import { handleAutoCloseIssueCommand } from './commands/auto-close-issue.js';
 import { handleCleanupCommand } from './commands/cleanup.js';
 import { handleFinalizeCommand } from './commands/finalize.js';
 import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
@@ -240,6 +241,44 @@ export async function runCli(): Promise<void> {
           force: options.force,
           agent: options.agent,
         });
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // auto-close-issue コマンド (Issue #645)
+  program
+    .command('auto-close-issue')
+    .description('Inspect existing GitHub Issues and close them automatically')
+    .option('--category <type>', 'Target category (followup|stale|old|all)', 'followup')
+    .option('--limit <number>', 'Maximum number of issues to process', '10')
+    .option('--dry-run', 'Preview mode (do not close issues)', true)
+    .option(
+      '--confidence-threshold <number>',
+      'Confidence threshold for closing (0.0-1.0)',
+      '0.7',
+    )
+    .option(
+      '--days-threshold <number>',
+      'Days threshold for stale/old filtering (stale: N days, old: 2N days)',
+      '90',
+    )
+    .option('--require-approval', 'Ask for confirmation before closing', false)
+    .option(
+      '--exclude-labels <labels>',
+      'Comma separated labels to exclude from processing',
+      'do-not-close,pinned',
+    )
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleAutoCloseIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
