@@ -120,6 +120,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #645**: auto-close-issue コマンドを追加し、既存Issueの検品と安全な自動クローズを実装
+  - CLIオプション: `--category followup|stale|old|all`（followup既定）、`--limit 10`、`--dry-run`（既定ON）、`--confidence-threshold 0.7`、`--days-threshold 90`、`--exclude-labels do-not-close,pinned`、`--require-approval`、`--agent auto|codex|claude`
+  - フィルタリング: `[FOLLOW-UP]` タイトル判定、stale/old日数判定（oldは2×閾値）、更新7日以内/除外ラベルのIssueをスキップ、親Issue解決状況・最新コメントを併せて検品
+  - 実行: Codex/Claudeで検品プロンプトを実行しJSONをパース、信頼度閾値未満のclose推奨は自動スキップ、dry-runでプレビュー、実行モードではクローズ理由コメントと`auto-closed`ラベルを付与してサマリを出力
+
 - **Issue #638**: プリセットに `prototype` を追加し、プロトタイプ開発の高速化を実現
   - `PHASE_PRESETS` に `prototype` を追加（Planning + Design + Implementation + Report の最小フロー）
   - 要件定義・テストシナリオ・テスト実装・テスト実行・ドキュメントフェーズをスキップし、素早くプロトタイプを作成可能

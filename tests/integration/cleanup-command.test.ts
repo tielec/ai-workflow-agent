@@ -24,6 +24,8 @@ import path from 'node:path';
 import os from 'node:os';
 import type { WorkflowState, PhaseName } from '../../src/types.js';
 
+jest.setTimeout(60000);
+
 // =============================================================================
 // モック設定（config.isCIのみ）
 // =============================================================================

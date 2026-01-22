@@ -30,6 +30,12 @@ export interface IssueInfo {
   updated_at: string;
 }
 
+export interface ListIssuesOptions {
+  labels?: string[];
+  since?: string;
+  perPage?: number;
+}
+
 export interface CommentDict {
   id: number;
   user: string;
@@ -108,18 +114,7 @@ export class IssueClient {
    */
   public async getIssueInfo(issueNumber: number): Promise<IssueInfo> {
     const issue = await this.getIssue(issueNumber);
-    return {
-      number: issue.number,
-      title: issue.title ?? '',
-      body: issue.body ?? '',
-      state: issue.state ?? 'open',
-      labels: (issue.labels ?? []).map((label) =>
-        typeof label === 'string' ? label : label.name ?? '',
-      ),
-      url: issue.html_url ?? '',
-      created_at: issue.created_at ?? new Date().toISOString(),
-      updated_at: issue.updated_at ?? new Date().toISOString(),
-    };
+    return this.mapIssueInfo(issue);
   }
 
   /**
@@ -209,6 +204,90 @@ export class IssueClient {
   }
 
   /**
+   * オープンIssueを一覧取得する（Pull Requestを除外）
+   */
+  public async listOpenIssues(options?: ListIssuesOptions): Promise<IssueInfo[]> {
+    try {
+      const perPage = options?.perPage ?? 100;
+      const issues = await this.octokit.paginate(this.octokit.issues.listForRepo, {
+        owner: this.owner,
+        repo: this.repo,
+        state: 'open',
+        per_page: perPage,
+        labels: options?.labels?.length ? options.labels.join(',') : undefined,
+        since: options?.since,
+      });
+
+      const filtered = issues.filter((issue) => !('pull_request' in issue));
+      return filtered.map((issue) => this.mapIssueInfo(issue));
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to list open issues: ${this.encodeWarning(message)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Issueをクローズする（必要に応じて理由コメントを投稿）
+   */
+  public async closeIssue(issueNumber: number, comment?: string): Promise<GenericResult> {
+    try {
+      if (comment) {
+        await this.postComment(issueNumber, comment);
+      }
+
+      await this.octokit.issues.update({
+        owner: this.owner,
+        repo: this.repo,
+        issue_number: issueNumber,
+        state: 'closed',
+      });
+
+      logger.info(`Closed issue #${issueNumber}`);
+      return { success: true, error: null };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to close issue #${issueNumber}: ${this.encodeWarning(message)}`);
+      return { success: false, error: message };
+    }
+  }
+
+  /**
+   * Issueにラベルを追加する
+   */
+  public async addLabels(issueNumber: number, labels: string[]): Promise<GenericResult> {
+    if (!labels || labels.length === 0) {
+      return { success: true, error: null };
+    }
+
+    try {
+      await this.octokit.issues.addLabels({
+        owner: this.owner,
+        repo: this.repo,
+        issue_number: issueNumber,
+        labels,
+      });
+      logger.info(`Added labels to issue #${issueNumber}: ${labels.join(', ')}`);
+      return { success: true, error: null };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(
+        `Failed to add labels to issue #${issueNumber}: ${this.encodeWarning(message)}`,
+      );
+      return { success: false, error: message };
+    }
+  }
+
+  /**
    * 残タスクから主要なキーワードを抽出する
    *
    * @param tasks - 残タスクのリスト
@@ -239,6 +318,30 @@ export class IssueClient {
     }
 
     return keywords;
+  }
+
+  private mapIssueInfo(issue: {
+    number: number;
+    title?: string | null;
+    body?: string | null;
+    state?: string | null;
+    labels?: Array<string | { name?: string | null }> | null;
+    html_url?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }): IssueInfo {
+    return {
+      number: issue.number,
+      title: issue.title ?? '',
+      body: issue.body ?? '',
+      state: issue.state ?? 'open',
+      labels: (issue.labels ?? []).map((label) =>
+        typeof label === 'string' ? label : label?.name ?? '',
+      ),
+      url: issue.html_url ?? '',
+      created_at: issue.created_at ?? new Date().toISOString(),
+      updated_at: issue.updated_at ?? new Date().toISOString(),
+    };
   }
 
   /**
