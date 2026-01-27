@@ -851,3 +851,4 @@ $REPOS_ROOT/
 | 1.8.0 | 2025-01-20 | スレッドコンテキストと承認パターン検出機能追加（Issue #615） - コメントを`thread_id`でグループ化し、「AI提案→ユーザー承認」パターンを`code_change`として正しく判定。`[AI Reply]`/`[User Comment]`ラベル付きでスレッド全体の文脈を考慮した分析を実行 |
 | 1.8.1 | 2025-01-22 | pr-comment finalize --squash バグ修正（Issue #627） - 中間生成ファイル（analyze/、output/ディレクトリ）がスカッシュコミットに含まれる問題を修正。コミットメッセージから「Generated with Claude Code」フッターを削除し、よりクリーンなコミット履歴を実現 |
 | 1.8.2 | 2025-01-20 | 2重返信とコード変更未適用問題の修正（Issue #632） - response-plan.jsonの重複comment_id検出・除去、返信済みコメントのスキップ機構追加、user_approvedフラグによるダウングレード抑止、proposed_changes空の警告出力 |
+| 1.8.3 | 2025-01-27 | squash時のメタデータファイル削除修正（Issue #647） - `pr-comment finalize --squash`実行時にメタデータファイルがリモートリポジトリに残る問題を修正。メタデータ削除タイミングをgit add前に移動し、スカッシュコミットに適切に含まれるよう改善 |

@@ -170,12 +170,13 @@ describe('プリセットの依存関係整合性', () => {
 
 describe('全プリセットの網羅性テスト', () => {
   test('全てのプリセットが定義されている', () => {
-    // Given: 期待される9個のプリセット
+    // Given: 期待される10個のプリセット
     const expectedPresets = [
       'review-requirements',
       'review-design',
       'review-test-scenario',
       'analysis-design',
+      'prototype',
       'quick-fix',
       'implementation',
       'full-test',

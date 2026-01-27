@@ -340,6 +340,44 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     expect(addOrder).toBeLessThan(resetOrder);
   });
 
+  it('invokes metadata cleanup before staging files when squashing', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    const cleanupOrder = metadataManagerCleanupMock.mock.invocationCallOrder[0];
+    const addOrder = simpleGitAddMock.mock.invocationCallOrder[0];
+
+    expect(metadataManagerCleanupMock).toHaveBeenCalledTimes(1);
+    expect(cleanupOrder).toBeLessThan(addOrder);
+  });
+
+  it('skips metadata cleanup when skipCleanup flag is true', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true, skipCleanup: true });
+
+    expect(metadataManagerCleanupMock).not.toHaveBeenCalled();
+    expect(simpleGitAddMock).toHaveBeenCalledWith('.');
+    expect(simpleGitCommitMock).toHaveBeenCalledWith(
+      expect.stringContaining('[pr-comment] Resolve PR #123 review comments'),
+    );
+  });
+
+  it('does not perform squash-side effects in dry-run mode', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true, dryRun: true });
+
+    expect(infoSpy).toHaveBeenCalledWith('[DRY-RUN] Would squash commits into a single commit.');
+    expect(fspRmMock).not.toHaveBeenCalled();
+    expect(metadataManagerCleanupMock).not.toHaveBeenCalled();
+    expect(simpleGitAddMock).not.toHaveBeenCalled();
+    expect(simpleGitResetMock).not.toHaveBeenCalled();
+    expect(simpleGitCommitMock).not.toHaveBeenCalled();
+    expect(simpleGitPushMock).not.toHaveBeenCalled();
+  });
+
   it('handles missing intermediate directories gracefully during squash', async () => {
     metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
 

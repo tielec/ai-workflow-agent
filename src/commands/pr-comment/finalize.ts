@@ -216,6 +216,12 @@ async function squashCommitsIfRequested(
     logger.warn(`Failed to remove intermediate files: ${getErrorMessage(error)}`);
   }
 
+  // メタデータをgit add前に削除してスカッシュコミットに含める
+  if (!options.skipCleanup) {
+    await metadataManager.cleanup();
+    logger.debug('Metadata directory removed for squash commit.');
+  }
+
   logger.debug('Staging intermediate file cleanup...');
   await git.add('.');
 
@@ -231,7 +237,6 @@ async function squashCommitsIfRequested(
   await git.push(['--force-with-lease', 'origin', `HEAD:${prBranch}`]);
 
   if (!options.skipCleanup) {
-    await metadataManager.cleanup();
     logger.info('Metadata cleaned up after successful squash.');
   }
 

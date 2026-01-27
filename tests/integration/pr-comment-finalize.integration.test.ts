@@ -298,5 +298,91 @@ describe('Integration: pr-comment finalize command', () => {
     await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
     const cloneLog = await simpleGit(cloneDir).log({ maxCount: 1 });
     expect(cloneLog.latest?.message).toContain('[pr-comment] Resolve PR #');
+
+    const cloneMetadataDir = path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`);
+    expect(await fs.pathExists(cloneMetadataDir)).toBe(false);
+    expect(await fs.pathExists(path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`, 'analyze'))).toBe(false);
+    expect(await fs.pathExists(path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`, 'output'))).toBe(false);
+  });
+
+  test('preserves metadata when --skip-cleanup is provided during squash', async () => {
+    const repoName = 'pr-comment-finalize-skip-cleanup';
+    const { repoDir, metadataDir, remoteDir, branch, prNumber, baseCommit } = await setupTestRepo(repoName, {
+      commentsCount: 2,
+      recordBaseCommit: true,
+    });
+    if (!baseCommit) {
+      throw new Error('baseCommit not recorded for skip-cleanup squash test setup.');
+    }
+    const git = simpleGit(repoDir);
+
+    await fs.writeFile(path.join(repoDir, 'file1.ts'), 'change 1');
+    await git.add('.').commit('[ai-workflow] PR Comment: Analyze completed');
+    await fs.writeFile(path.join(repoDir, 'file2.ts'), 'change 2');
+    await git.add('.').commit('[ai-workflow] PR Comment: Resolve batch 1');
+
+    const metadataFile = path.join(metadataDir, 'comment-resolution-metadata.json');
+    expect(await fs.pathExists(metadataFile)).toBe(true);
+
+    const commandOptions: PRCommentFinalizeOptions = {
+      prUrl: `https://github.com/owner/${repoName}/pull/${prNumber}`,
+      squash: true,
+      skipCleanup: true,
+    };
+
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    expect(await fs.pathExists(metadataDir)).toBe(true);
+    expect(await fs.pathExists(path.join(metadataDir, 'analyze'))).toBe(false);
+    expect(await fs.pathExists(path.join(metadataDir, 'output'))).toBe(false);
+    expect(await fs.pathExists(metadataFile)).toBe(true);
+
+    const cloneDir = path.join(CLONES_ROOT, `${repoName}-clone-skip-cleanup`);
+    await fs.remove(cloneDir);
+    await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
+
+    const cloneMetadataFile = path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`, 'comment-resolution-metadata.json');
+    expect(await fs.pathExists(cloneMetadataFile)).toBe(true);
+    expect(await fs.pathExists(path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`, 'analyze'))).toBe(false);
+    expect(await fs.pathExists(path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`, 'output'))).toBe(false);
+  });
+
+  test('does not modify repository in dry-run mode when squashing', async () => {
+    const repoName = 'pr-comment-finalize-dry-run';
+    const { repoDir, metadataDir, remoteDir, branch, prNumber, baseCommit } = await setupTestRepo(repoName, {
+      commentsCount: 2,
+      recordBaseCommit: true,
+    });
+    if (!baseCommit) {
+      throw new Error('baseCommit not recorded for dry-run squash test setup.');
+    }
+    const git = simpleGit(repoDir);
+
+    await fs.writeFile(path.join(repoDir, 'file1.ts'), 'change 1');
+    await git.add('.').commit('[ai-workflow] PR Comment: Analyze completed');
+    await fs.writeFile(path.join(repoDir, 'file2.ts'), 'change 2');
+    await git.add('.').commit('[ai-workflow] PR Comment: Resolve batch 1');
+
+    const headBefore = (await git.revparse(['HEAD'])).trim();
+    const commandOptions: PRCommentFinalizeOptions = {
+      prUrl: `https://github.com/owner/${repoName}/pull/${prNumber}`,
+      squash: true,
+      dryRun: true,
+    };
+
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    const headAfter = (await git.revparse(['HEAD'])).trim();
+    expect(headAfter).toBe(headBefore);
+    expect(await fs.pathExists(metadataDir)).toBe(true);
+    expect(await fs.pathExists(path.join(metadataDir, 'comment-resolution-metadata.json'))).toBe(true);
+    expect(await fs.pathExists(path.join(metadataDir, 'analyze'))).toBe(true);
+    expect(await fs.pathExists(path.join(metadataDir, 'output'))).toBe(true);
+
+    const cloneDir = path.join(CLONES_ROOT, `${repoName}-clone-dry-run`);
+    await fs.remove(cloneDir);
+    await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
+    const cloneHead = await simpleGit(cloneDir).revparse(['HEAD']);
+    expect(cloneHead.trim()).not.toBe('');
   });
 });
