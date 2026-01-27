@@ -299,4 +299,70 @@ describe('Integration: pr-comment finalize command', () => {
     const cloneLog = await simpleGit(cloneDir).log({ maxCount: 1 });
     expect(cloneLog.latest?.message).toContain('[pr-comment] Resolve PR #');
   });
+
+  test('removes metadata from remote after squash', async () => {
+    const repoName = 'pr-comment-finalize-squash-metadata';
+    const { repoDir, metadataDir, remoteDir, branch, prNumber, baseCommit } = await setupTestRepo(repoName, {
+      commentsCount: 2,
+      recordBaseCommit: true,
+    });
+
+    if (!baseCommit) {
+      throw new Error('baseCommit not recorded for squash test setup.');
+    }
+
+    const git = simpleGit(repoDir);
+    await fs.writeFile(path.join(repoDir, 'file1.ts'), 'change 1');
+    await git.add('.').commit('[ai-workflow] PR Comment: Analyze completed');
+
+    const commandOptions: PRCommentFinalizeOptions = {
+      prUrl: `https://github.com/owner/${repoName}/pull/${prNumber}`,
+      squash: true,
+    };
+
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    // ローカルでメタデータが削除されていること
+    expect(await fs.pathExists(metadataDir)).toBe(false);
+
+    // リモートをクローンしてメタデータが存在しないことを確認
+    const cloneDir = path.join(CLONES_ROOT, `${repoName}-clone-metadata-check`);
+    await fs.remove(cloneDir);
+    await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
+
+    const remoteMetadataDir = path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`);
+    expect(await fs.pathExists(remoteMetadataDir)).toBe(false);
+  });
+
+  test('keeps metadata on remote when skipCleanup is true during squash', async () => {
+    const repoName = 'pr-comment-finalize-skip-cleanup-squash';
+    const { repoDir, remoteDir, branch, prNumber, baseCommit } = await setupTestRepo(repoName, {
+      commentsCount: 2,
+      recordBaseCommit: true,
+    });
+
+    if (!baseCommit) {
+      throw new Error('baseCommit not recorded for skip-cleanup squash test setup.');
+    }
+
+    const git = simpleGit(repoDir);
+    await fs.writeFile(path.join(repoDir, 'file1.ts'), 'change 1');
+    await git.add('.').commit('[ai-workflow] PR Comment: Analyze completed');
+
+    const commandOptions: PRCommentFinalizeOptions = {
+      prUrl: `https://github.com/owner/${repoName}/pull/${prNumber}`,
+      squash: true,
+      skipCleanup: true,
+    };
+
+    await handlePRCommentFinalizeCommand(commandOptions);
+
+    const cloneDir = path.join(CLONES_ROOT, `${repoName}-clone-skip-cleanup`);
+    await fs.remove(cloneDir);
+    await simpleGit().clone(remoteDir, cloneDir, ['--branch', branch, '--single-branch']);
+
+    const remoteMetadataDir = path.join(cloneDir, '.ai-workflow', `pr-${prNumber}`);
+    expect(await fs.pathExists(remoteMetadataDir)).toBe(true);
+    expect(await fs.pathExists(path.join(remoteMetadataDir, 'comment-resolution-metadata.json'))).toBe(true);
+  });
 });

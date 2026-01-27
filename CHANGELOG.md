@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #649**: pr-comment finalize --squash でメタデータファイルが削除されずリモートに残る問題を修正
+  - `squashCommitsIfRequested()` 関数の処理順序を修正し、`metadataManager.cleanup()` を `git push` の前に実行するよう変更
+  - メタデータディレクトリ（`.ai-workflow/pr-{n}/`）の削除がスカッシュコミットに正しく含まれ、リモートブランチにメタデータファイルが残らないよう修正
+  - **修正前の問題**: cleanup 処理が git push の後に実行されるため、ローカルでは削除されるがリモートのコミットには削除が含まれない
+  - **修正後の動作**: cleanup → git add → git reset --soft → git commit → git push の順序で実行され、メタデータ削除が確実にコミットに含まれる
+  - `skipCleanup`、`dryRun`、非スカッシュフローの既存動作は引き続き正常に維持
+  - 修正ファイル: `src/commands/pr-comment/finalize.ts`
+  - テストカバレッジ: 27件のテスト（ユニット21件、統合6件、100%成功）
+
 - **Issue #632**: pr-comment execute: 2重返信とコード変更未適用の問題を修正
   - `execute.ts` に `validateResponsePlan()` 関数を追加し、response-plan.json内の重複`comment_id`を検出・除去
   - `processComment()` 関数に `reply_comment_id` 事前チェックを追加し、返信済みコメントのスキップ処理を実装
