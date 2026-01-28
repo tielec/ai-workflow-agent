@@ -689,6 +689,25 @@ node dist/index.js auto-issue \
 - ✅ **Phase 3 (Issue #128)**: `enhancement` カテゴリ（機能拡張提案とIssue生成）
 - ⏳ **Phase 4**: `all` カテゴリ（将来実装予定）
 
+### InstructionValidator の動作と環境変数（Issue #655）
+
+- **エージェント優先順**: `codex-agent (mini) → claude-agent (haiku) → OpenAI gpt-4o-mini → pattern` の順で検証し、使用した経路は `validationMethod` に記録されます。
+- **必要な認証情報**: `CODEX_API_KEY` または `~/.codex/auth.json` があれば Codex が有効、`CLAUDE_CODE_OAUTH_TOKEN` もしくは `CLAUDE_CODE_API_KEY` があれば Claude が有効、`OPENAI_API_KEY` があれば LLM 検証を実行します。すべて無い場合はパターン検証のみ（警告付き続行）。
+- **SAFE_PATTERNS / DANGEROUS_PATTERNS**: `execute --phase` や `npm run` などの CLI 操作は安全パターンとして許容し、削除・上書き・Git操作・任意コマンド実行は危険パターンとしてブロックします。
+- **信頼度と継続条件**: `confidence='low'` でパターン検証のみとなった場合は警告を出しつつ続行し、より厳密な検証を行うには上記の認証情報を設定してください。
+- **キャッシュ**: 指示文字列の SHA-256 をキーに 1時間TTL / 最大1000件の LRU キャッシュを保持し、同一指示の再検証を高速化します。
+- **CLI での利用例**:
+  - `node dist/index.js auto-issue --category bug --custom-instruction "N+1クエリを重点的に検出"`
+  - 検証結果はログに `validationMethod` と `confidence` を出力し、危険判定時は即時エラー、低信頼パターン時は警告のみで続行します。
+
+**推奨環境変数セット**（例）:
+
+```bash
+export CODEX_API_KEY="sk-..."          # Codex 優先
+export CLAUDE_CODE_OAUTH_TOKEN="sess..." # Codex が無い場合のフォールバック
+export OPENAI_API_KEY="sk-..."          # Codex/Claude が両方失敗したときの最終LLM
+```
+
 ### エージェントモード
 - `--agent auto`（デフォルト）: `CODEX_API_KEY` が設定されていれば Codex を使用、なければ Claude にフォールバック
 - `--agent codex`: Codex を強制使用（`CODEX_API_KEY` または `OPENAI_API_KEY` が必要）

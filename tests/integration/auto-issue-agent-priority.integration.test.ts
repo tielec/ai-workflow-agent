@@ -119,6 +119,8 @@ await jest.unstable_mockModule('../../src/core/issue-generator.js', () => ({
 await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
   __esModule: true,
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  // findWorkflowMetadata が無いと依存先 import で落ちるため追加
+  findWorkflowMetadata: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../src/core/instruction-validator.js', () => ({
