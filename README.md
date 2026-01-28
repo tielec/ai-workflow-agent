@@ -228,6 +228,7 @@ ai-workflow validate-credentials \
 - 除外: 更新から7日以内のIssue、`--exclude-labels`（既定`do-not-close,pinned`）を含むIssue
 - 実行時は `GITHUB_REPOSITORY` からリポジトリを決定し、`REPOS_ROOT` を用いてローカルパスを解決（Codex/Claudeがワークツリーを参照）
 - `--require-approval` で対話確認を追加可能。実行モードではクローズ理由をコメント投稿し、`auto-closed` ラベルを付与
+- **Jenkins統合**: Issue #652で `auto-close-issue` コマンドのJenkinsパイプライン化を実現。CI環境から安全に既存Issueを自動クローズ可能
 
 ### ブランチ名のカスタマイズ
 
