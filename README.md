@@ -13,10 +13,50 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 - **GitHub & Jenkins 対応** … 個人アクセストークンと Jenkins Job DSL に対応し、Docker コンテナ内で TypeScript CLI を実行できます。
 - **CI/CD 統合** … GitHub Actions による自動テスト・ビルド検証を提供し、PRマージ前の品質保証を実現します。
 
+## Claude Code Skills（推奨）
+
+Claude Code 2.1.0 以降の Skills 機能に対応しており、スラッシュコマンドで主要な操作を簡潔に実行できます。
+
+### 基本的な使い方
+
+```
+# ワークフロー初期化
+/init-workflow https://github.com/owner/repo/issues/123
+
+# フェーズ実行（プリセット）
+/execute-phase 123 --preset implementation
+
+# トラブルシューティング
+/troubleshoot 123
+
+# フェーズ差し戻し
+/rollback-phase 123
+```
+
+### Skills のメリット
+
+| 従来の CLI | Skills |
+|-----------|--------|
+| `node dist/index.js execute --issue 123 --preset implementation --agent auto...` | `/execute-phase 123 --preset implementation` |
+| 長いコマンド、オプションを暗記 | 短いコマンド、対話的に選択 |
+| エラー発生時は手動でログ確認 | 自動診断と解決策提案 |
+| コンテキストを手動で指定 | メタデータを自動読み込み |
+
+### 利用可能な Skills
+
+- **`/init-workflow`**: ワークフロー初期化（[詳細](.claude/skills/init-workflow/SKILL.md)）
+- **`/execute-phase`**: フェーズ実行（[詳細](.claude/skills/execute-phase/SKILL.md)）
+- **`/rollback-phase`**: フェーズ差し戻し（[詳細](.claude/skills/rollback-phase/SKILL.md)）
+- **`/troubleshoot`**: トラブルシューティング（[詳細](.claude/skills/troubleshoot/SKILL.md)）
+
+詳細は [CLAUDE.md の Skills セクション](CLAUDE.md#claude-code-skills-の使用方法推奨) を参照してください。
+
 ## リポジトリ構成
 
 ```
 ai-workflow-agent/
+├── .claude/
+│   └── skills/                # Claude Code Skills（/init-workflow, /execute-phase 等）
 ├── Dockerfile                 # Node 20 ベースの Codex 対応イメージ
 ├── package.json               # CLI エントリーポイント（bin: ai-workflow）
 ├── scripts/
