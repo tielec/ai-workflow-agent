@@ -25,9 +25,60 @@ npm run test:integration   # 統合テストのみ
 npm run test:coverage      # カバレッジレポート付き
 ```
 
+## Claude Code Skills の使用方法（推奨）
+
+このリポジトリは Claude Code Skills をサポートしており、スラッシュコマンドで主要な操作を実行できます。
+
+### 利用可能な Skills
+
+| スキル名 | 説明 | 使用例 |
+|---------|------|--------|
+| `/init-workflow` | ワークフローを初期化（ブランチ、メタデータ、ドラフトPR作成） | `/init-workflow 658` |
+| `/execute-phase` | フェーズを実行（プリセットまたは個別フェーズ） | `/execute-phase 658 --preset implementation` |
+| `/rollback-phase` | フェーズを差し戻し（手動または AI 自動判定） | `/rollback-phase 658` |
+| `/troubleshoot` | トラブルシューティング（エラー診断と解決策提案） | `/troubleshoot 658` |
+
+### Skills のメリット
+
+- **簡潔なコマンド**: 長い CLI 引数を覚える必要なし
+- **対話的な操作**: デフォルト値と選択肢を提示
+- **コンテキスト理解**: メタデータを自動読み込み
+- **エラー診断**: 自動的に問題を検出して解決策を提案
+
+### Skills 詳細ドキュメント
+
+各 Skill の詳細は `.claude/skills/{skill-name}/SKILL.md` を参照してください：
+
+- **init-workflow**: [.claude/skills/init-workflow/SKILL.md](.claude/skills/init-workflow/SKILL.md)
+- **execute-phase**: [.claude/skills/execute-phase/SKILL.md](.claude/skills/execute-phase/SKILL.md)
+- **rollback-phase**: [.claude/skills/rollback-phase/SKILL.md](.claude/skills/rollback-phase/SKILL.md)
+- **troubleshoot**: [.claude/skills/troubleshoot/SKILL.md](.claude/skills/troubleshoot/SKILL.md)
+
+### 基本的なワークフロー例
+
+```
+1. ワークフロー初期化
+   /init-workflow https://github.com/owner/repo/issues/123
+
+2. フェーズ実行（プリセット使用）
+   /execute-phase 123 --preset implementation
+
+3. 問題が発生した場合
+   /troubleshoot 123
+
+4. 必要に応じて差し戻し
+   /rollback-phase 123
+```
+
+**注意**: Skills は Claude Code 2.1.0 以降で利用可能です。CLI コマンドも引き続き利用できます。
+
+---
+
 ## CLI の使用方法
 
 CLI バイナリは `ai-workflow` です（ローカル実行時は `node dist/index.js`）。
+
+**注意**: 通常は上記の [Claude Code Skills](#claude-code-skills-の使用方法推奨) を使用することを推奨します。CLI は技術的な詳細や自動化スクリプト向けです。
 
 ### ワークフロー初期化
 ```bash
