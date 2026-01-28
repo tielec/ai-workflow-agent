@@ -133,6 +133,17 @@ ai-workflow auto-issue \
   [--custom-instruction <text>] \
   [--language <ja|en>]
 
+ai-workflow auto-close-issue \
+  [--category followup|stale|old|all] \
+  [--limit <number>] \
+  [--dry-run] \
+  [--confidence-threshold <0.0-1.0>] \
+  [--days-threshold <number>] \
+  [--require-approval] \
+  [--exclude-labels <labels>] \
+  [--agent auto|codex|claude] \
+  [--language <ja|en>]
+
 ai-workflow review \
   --phase <name> \
   --issue <number> \
@@ -209,6 +220,14 @@ ai-workflow validate-credentials \
   [--exit-on-error] \
   [--language <ja|en>]
 ```
+
+### auto-close-issue の利用ポイント
+
+- デフォルトは `--dry-run` 有効。信頼度 `--confidence-threshold`（既定0.7）を下回る `close` 判定はスキップ
+- カテゴリ: `followup`（`[FOLLOW-UP]` タイトル）、`stale`（最終更新が `--days-threshold` 日以上）、`old`（作成から `--days-threshold`×2 日以上）、`all`
+- 除外: 更新から7日以内のIssue、`--exclude-labels`（既定`do-not-close,pinned`）を含むIssue
+- 実行時は `GITHUB_REPOSITORY` からリポジトリを決定し、`REPOS_ROOT` を用いてローカルパスを解決（Codex/Claudeがワークツリーを参照）
+- `--require-approval` で対話確認を追加可能。実行モードではクローズ理由をコメント投稿し、`auto-closed` ラベルを付与
 
 ### ブランチ名のカスタマイズ
 

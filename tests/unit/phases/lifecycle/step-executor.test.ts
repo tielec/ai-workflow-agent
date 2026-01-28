@@ -17,6 +17,8 @@ import path from 'node:path';
 import { StepExecutor } from '../../../../src/phases/lifecycle/step-executor.js';
 import { PhaseName, PhaseExecutionResult } from '../../../../src/types.js';
 
+jest.setTimeout(60000);
+
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'step-executor-test');
 

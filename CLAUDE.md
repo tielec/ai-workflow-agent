@@ -99,6 +99,44 @@ node dist/index.js execute --issue 123 --phase all
 - **Config.getLanguage()** (`src/core/config.ts`): 環境変数 `AI_WORKFLOW_LANGUAGE` からの取得とバリデーション
 - **MetadataManager** (`src/core/metadata-manager.ts`): 言語設定の永続化/取得
 
+### auto-close-issue コマンド（Issue #645）
+
+GitHub Issue をエージェントが検品し、条件を満たすものを安全にクローズするコマンドです。デフォルトではドライランで実行され、`GITHUB_TOKEN` と `GITHUB_REPOSITORY`（`owner/repo` 形式）が必須です。作業ディレクトリは `REPOS_ROOT` を基に自動解決され、Codex/Claude がローカルワークツリーを参照します。
+
+**主なオプションとデフォルト**:
+- `--category followup|stale|old|all`（既定: `followup`）: `[FOLLOW-UP]` タイトル / 更新が `--days-threshold` 日以上 / 作成が `--days-threshold`×2 日以上 / すべて
+- `--limit <1-50>`（既定: `10`）: 検品するIssue件数の上限
+- `--dry-run`（既定: 有効）: クローズせずに判定のみ表示
+- `--confidence-threshold <0.0-1.0>`（既定: `0.7`）: `close` 推奨がこの閾値未満ならスキップ
+- `--days-threshold <number>`（既定: `90`）: `stale`/`old` 判定の経過日数（`old` は2倍）
+- `--exclude-labels <labels>`（既定: `do-not-close,pinned`）: 付与されているIssueは検品対象外
+- `--require-approval`（既定: 無効）: `close` 推奨時に `yes/no/skip` を対話確認
+- `--agent auto|codex|claude`（既定: `auto`）: どのエージェントで検品/実行するかを指定
+
+**使用例**:
+```bash
+# プレビュー実行（デフォルトのフォローアップ対象、ドライラン）
+node dist/index.js auto-close-issue --category followup --limit 20
+
+# Stale/Old を日数しきい値 120 日でまとめて確認（承認フロー付き）
+node dist/index.js auto-close-issue \
+  --category all \
+  --days-threshold 120 \
+  --confidence-threshold 0.8 \
+  --require-approval
+
+# Codex を固定し、特定ラベルを除外して実行
+node dist/index.js auto-close-issue \
+  --agent codex \
+  --exclude-labels "security,do-not-close" \
+  --dry-run
+```
+
+**安全運用のヒント**:
+- まずドライランで確認し、`--require-approval` で手動確認を挟んでから本実行する
+- プロジェクト固有の保護ラベル（例: `security`, `pinned`）を `--exclude-labels` で指定して誤クローズを防ぐ
+- `GITHUB_REPOSITORY` と `REPOS_ROOT` の整合を事前にチェックし、誤ったリポジトリで動かさない
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。

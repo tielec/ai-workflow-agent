@@ -305,6 +305,64 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     expect(simpleGitStatusMock).not.toHaveBeenCalled();
   });
 
+  it('invokes metadata cleanup before staging changes when squashing', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    const cleanupOrder = metadataManagerCleanupMock.mock.invocationCallOrder[0];
+    const addOrder = simpleGitAddMock.mock.invocationCallOrder[0];
+
+    expect(cleanupOrder).toBeDefined();
+    expect(addOrder).toBeDefined();
+    expect(cleanupOrder).toBeLessThan(addOrder);
+  });
+
+  it('calls cleanup before pushing during squash flow', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    const cleanupOrder = metadataManagerCleanupMock.mock.invocationCallOrder[0];
+    const pushOrder = simpleGitPushMock.mock.invocationCallOrder[0];
+
+    expect(cleanupOrder).toBeDefined();
+    expect(pushOrder).toBeDefined();
+    expect(cleanupOrder).toBeLessThan(pushOrder);
+  });
+
+  it('skips metadata cleanup when skipCleanup is true during squash', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true, skipCleanup: true });
+
+    expect(metadataManagerCleanupMock).not.toHaveBeenCalled();
+    expect(simpleGitPushMock).toHaveBeenCalledWith(['--force-with-lease', 'origin', 'HEAD:feature/mock-branch']);
+  });
+
+  it('does not run cleanup or git commands when dry-run squash is requested', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true, dryRun: true });
+
+    expect(metadataManagerCleanupMock).not.toHaveBeenCalled();
+    expect(simpleGitAddMock).not.toHaveBeenCalled();
+    expect(simpleGitPushMock).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith('[DRY-RUN] Would squash commits into a single commit.');
+  });
+
+  it('continues squash and push even if metadata cleanup fails', async () => {
+    metadataManagerGetBaseCommitMock.mockReturnValue('abc123def456789012345678901234567890abcd');
+    metadataManagerCleanupMock.mockRejectedValueOnce(new Error('Disk I/O error'));
+
+    await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to cleanup metadata before squash'),
+    );
+    expect(simpleGitPushMock).toHaveBeenCalledWith(['--force-with-lease', 'origin', 'HEAD:feature/mock-branch']);
+  });
+
   it('warns and falls back to standard finalize flow when base_commit is missing with --squash', async () => {
     metadataManagerGetBaseCommitMock.mockReturnValue(undefined);
 

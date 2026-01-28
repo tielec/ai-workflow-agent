@@ -147,6 +147,9 @@ export async function handlePRCommentFinalizeCommand(
  *
  * --squash オプション指定時に、ワークフローで作成されたコミットを1つにまとめる。
  *
+ * メタデータ削除は git add の前に実行し、削除をスカッシュコミットに含める必要がある。
+ * （Issue #649: push 後に cleanup してもリモートに反映されないため）
+ *
  * @param repoRoot - リポジトリルートパス
  * @param prNumber - PR番号
  * @param metadataManager - メタデータマネージャー
@@ -204,6 +207,17 @@ async function squashCommitsIfRequested(
   await git.addConfig('user.name', gitUserName);
   await git.addConfig('user.email', gitUserEmail);
 
+  let metadataCleaned = false;
+  if (!options.skipCleanup) {
+    try {
+      await metadataManager.cleanup();
+      metadataCleaned = true;
+      logger.debug('Metadata directory removed for inclusion in squash commit.');
+    } catch (error) {
+      logger.warn(`Failed to cleanup metadata before squash: ${getErrorMessage(error)}`);
+    }
+  }
+
   const prDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`);
   const analyzeDir = path.join(prDir, 'analyze');
   const outputDir = path.join(prDir, 'output');
@@ -230,14 +244,13 @@ async function squashCommitsIfRequested(
   logger.info(`Force pushing to branch: ${prBranch}...`);
   await git.push(['--force-with-lease', 'origin', `HEAD:${prBranch}`]);
 
-  if (!options.skipCleanup) {
-    await metadataManager.cleanup();
+  if (!options.skipCleanup && metadataCleaned) {
     logger.info('Metadata cleaned up after successful squash.');
   }
 
   logger.info('✓ Squashed commits and pushed to remote.');
 
-  return { squashed: true, metadataCleaned: !options.skipCleanup };
+  return { squashed: true, metadataCleaned };
 }
 
 /**

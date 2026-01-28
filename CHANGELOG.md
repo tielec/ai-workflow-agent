@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #649**: pr-comment finalize --squash でメタデータファイルが削除されずリモートに残る問題を修正
+  - `squashCommitsIfRequested()` 関数の処理順序を修正し、`metadataManager.cleanup()` を `git push` の前に実行するよう変更
+  - メタデータディレクトリ（`.ai-workflow/pr-{n}/`）の削除がスカッシュコミットに正しく含まれ、リモートブランチにメタデータファイルが残らないよう修正
+  - **修正前の問題**: cleanup 処理が git push の後に実行されるため、ローカルでは削除されるがリモートのコミットには削除が含まれない
+  - **修正後の動作**: cleanup → git add → git reset --soft → git commit → git push の順序で実行され、メタデータ削除が確実にコミットに含まれる
+  - `skipCleanup`、`dryRun`、非スカッシュフローの既存動作は引き続き正常に維持
+  - 修正ファイル: `src/commands/pr-comment/finalize.ts`
+  - テストカバレッジ: 27件のテスト（ユニット21件、統合6件、100%成功）
+
 - **Issue #632**: pr-comment execute: 2重返信とコード変更未適用の問題を修正
   - `execute.ts` に `validateResponsePlan()` 関数を追加し、response-plan.json内の重複`comment_id`を検出・除去
   - `processComment()` 関数に `reply_comment_id` 事前チェックを追加し、返信済みコメントのスキップ処理を実装
@@ -119,6 +128,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: ユニット + 統合テスト（71件中70件成功、1件は既知の Issue #514 に起因）
 
 ### Added
+
+- **Issue #645**: auto-close-issue コマンドを追加し、既存Issueの検品と安全な自動クローズを実装
+  - CLIオプション: `--category followup|stale|old|all`（followup既定）、`--limit 10`、`--dry-run`（既定ON）、`--confidence-threshold 0.7`、`--days-threshold 90`、`--exclude-labels do-not-close,pinned`、`--require-approval`、`--agent auto|codex|claude`
+  - フィルタリング: `[FOLLOW-UP]` タイトル判定、stale/old日数判定（oldは2×閾値）、更新7日以内/除外ラベルのIssueをスキップ、親Issue解決状況・最新コメントを併せて検品
+  - 実行: Codex/Claudeで検品プロンプトを実行しJSONをパース、信頼度閾値未満のclose推奨は自動スキップ、dry-runでプレビュー、実行モードではクローズ理由コメントと`auto-closed`ラベルを付与してサマリを出力
 
 - **Issue #638**: プリセットに `prototype` を追加し、プロトタイプ開発の高速化を実現
   - `PHASE_PRESETS` に `prototype` を追加（Planning + Design + Implementation + Report の最小フロー）
