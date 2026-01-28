@@ -6,6 +6,9 @@ import type {
   ResponsePlanComment,
 } from '../../../types/pr-comment.js';
 
+const MAX_PROPOSED_WARNING = 5;
+let missingProposedWarningCount = 0;
+
 export function isValidResponsePlanCandidate(obj: unknown): obj is ResponsePlan {
   if (typeof obj !== 'object' || obj === null) {
     return false;
@@ -74,9 +77,16 @@ export function validateProposedChanges(comment: ResponsePlanComment): void {
   }
 
   if (!comment.proposed_changes || comment.proposed_changes.length === 0) {
-    logger.warn(
-      `Comment #${comment.comment_id} has type 'code_change' but no proposed_changes. Reply will be posted without code modifications.`,
-    );
+    missingProposedWarningCount += 1;
+    if (missingProposedWarningCount <= MAX_PROPOSED_WARNING) {
+      logger.warn(
+        `Comment #${comment.comment_id} has type 'code_change' but no proposed_changes. Reply will be posted without code modifications.`,
+      );
+    } else if (missingProposedWarningCount === MAX_PROPOSED_WARNING + 1) {
+      logger.warn(
+        `[parseResponsePlan] Similar warnings exceeded ${MAX_PROPOSED_WARNING} entries; further messages will be suppressed.`,
+      );
+    }
   }
 }
 
