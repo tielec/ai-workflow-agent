@@ -1264,6 +1264,32 @@ if (config.isCI()) {
   - `claude-code-oauth-token`: Jenkins Credentialsから取得
 - **マルチリポジトリ**: REPOS_ROOT を `/tmp/ai-workflow-repos-${BUILD_ID}` に設定し、対象リポジトリをクローン
 
+### All Phases ジョブのパラメータ（SKIP_PHASES 追加）
+
+| パラメータ | 説明 | デフォルト |
+|-----------|------|----------|
+| `ISSUE_URL` | GitHub Issue の URL（必須） | なし |
+| `DRY_RUN` | ドライランモード。API 呼び出しや Git 操作を行わず動作確認のみ実施 | `false` |
+| `SKIP_PHASES` | スキップするフェーズ（カンマ区切り）。空欄の場合はすべて実行。planning はスキップ不可 | `''` |
+| `SKIP_REVIEW` | AI レビューをスキップ（検証・デバッグ用途） | `false` |
+| `FORCE_RESET` | メタデータを初期化して最初から実行 | `false` |
+| `CLEANUP_ON_COMPLETE_FORCE` | Evaluation 完了後にワークフローディレクトリを強制削除 | `false` |
+| `SQUASH_ON_COMPLETE` | ワークフロー完了時にコミットをスカッシュ | `false` |
+| `LANGUAGE` | ワークフロー言語 (`ja` / `en`) | `ja` |
+| その他 | Git 設定、API キー、Webhook 設定など | ― |
+
+#### SKIP_PHASES の使用例
+
+```
+# Phase 3 (Test Scenario) と Phase 6 (Testing) をスキップ
+SKIP_PHASES: test_scenario,testing
+
+# Phase 7 (Documentation) と Phase 8 (Report) をスキップ
+SKIP_PHASES: documentation,report
+```
+
+> 注意: `planning` フェーズは依存関係のためスキップ不可。CLI 側でエラーになります。
+
 ## テスト関連の注意事項
 
 - テストフレームワーク: Jest with ES modules（`NODE_OPTIONS=--experimental-vm-modules`）
