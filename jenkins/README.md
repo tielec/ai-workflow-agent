@@ -82,6 +82,24 @@ jenkins/
 
 この設定により、プロンプト、出力メッセージ、生成されるドキュメントが指定した言語で作成されます。
 
+### All Phases ジョブの主要機能
+
+**SKIP_PHASES パラメータ**（Issue #656 で追加）:
+- **機能**: 特定のフェーズをスキップして全フェーズワークフローを実行
+- **設定方法**: パラメータ「SKIP_PHASES」にカンマ区切りでフェーズ名を入力（例: `test_scenario,testing`）
+- **対応フェーズ**: requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report, evaluation
+- **制約**: planning フェーズはスキップ不可（他フェーズが依存）
+- **空欄時**: すべてのフェーズを実行（従来動作）
+
+**使用例**:
+```
+# テスト関連フェーズを除外して実行
+SKIP_PHASES: test_scenario,test_implementation,testing
+
+# ドキュメント生成のみスキップ
+SKIP_PHASES: documentation,report
+```
+
 ### Webhook通知
 
 - すべてのジョブに以下のオプションパラメータを追加しました（Lavable通知向け）:
