@@ -1,7 +1,8 @@
 import { describe, it, expect, jest, beforeAll, beforeEach, afterEach } from '@jest/globals';
 
 let handleAutoIssueCommand: typeof import('../../src/commands/auto-issue.js').handleAutoIssueCommand;
-let InstructionValidator: { validate: jest.Mock };
+let InstructionValidatorMock: jest.Mock;
+let validateMock: jest.Mock;
 let RepositoryAnalyzer: jest.Mock;
 let resolveAgentCredentials: jest.Mock;
 let setupAgentClients: jest.Mock;
@@ -41,9 +42,8 @@ beforeAll(async () => {
     getOpenAiApiKey: jest.fn(),
   };
 
-  InstructionValidator = {
-    validate: jest.fn(),
-  };
+  validateMock = jest.fn();
+  InstructionValidatorMock = jest.fn(() => ({ validate: validateMock }));
 
   const RepositoryAnalyzerMock = jest.fn();
   const resolveAgentCredentialsMock = jest.fn();
@@ -60,7 +60,7 @@ beforeAll(async () => {
     logger,
   }));
   jest.unstable_mockModule('../../src/core/instruction-validator.js', () => ({
-    InstructionValidator,
+    InstructionValidator: InstructionValidatorMock,
   }));
   jest.unstable_mockModule('../../src/core/repository-analyzer.js', () => ({
     RepositoryAnalyzer: RepositoryAnalyzerMock,
@@ -106,7 +106,7 @@ beforeEach(() => {
     () => analyzerMock as unknown as import('../../src/core/repository-analyzer.js').RepositoryAnalyzer,
   );
 
-  InstructionValidator.validate.mockResolvedValue({
+  validateMock.mockResolvedValue({
     isValid: true,
     confidence: 'medium',
     reason: 'safe instruction',
@@ -170,13 +170,14 @@ describe('auto-issue integration with InstructionValidator', () => {
       customInstruction: '削除候補を検出してください',
     });
 
-    expect(InstructionValidator.validate).toHaveBeenCalledWith('削除候補を検出してください');
+    expect(InstructionValidatorMock).toHaveBeenCalledWith('/repos/repo');
+    expect(validateMock).toHaveBeenCalledWith('削除候補を検出してください');
     expect(analyzerMock.analyze).toHaveBeenCalledTimes(1);
   });
 
   it('blocks workflow when validation reports unsafe instruction', async () => {
     // 危険な指示が検出された場合にワークフロー全体が中断され、後続処理が行われないことを確認
-    InstructionValidator.validate.mockResolvedValueOnce({
+    validateMock.mockResolvedValueOnce({
       isValid: false,
       confidence: 'high',
       reason: 'execution instruction',
@@ -209,13 +210,13 @@ describe('auto-issue integration with InstructionValidator', () => {
       dryRun: true,
     });
 
-    expect(InstructionValidator.validate).not.toHaveBeenCalled();
+    expect(validateMock).not.toHaveBeenCalled();
     expect(analyzerMock.analyze).toHaveBeenCalledTimes(1);
   });
 
   it('continues workflow when LLM validation falls back to pattern matching', async () => {
     // LLM 検証失敗時にフォールバック結果を受け取り、ワークフローが継続することを確認
-    InstructionValidator.validate.mockImplementationOnce(async () => {
+    validateMock.mockImplementationOnce(async () => {
       logger.warn('LLM validation failed, falling back to pattern matching: timeout');
       return {
         isValid: true,
@@ -242,7 +243,7 @@ describe('auto-issue integration with InstructionValidator', () => {
 
   it('logs warning for low confidence validation and proceeds', async () => {
     // confidence: low の場合に警告ログが出力され、処理が継続することを確認
-    InstructionValidator.validate.mockResolvedValueOnce({
+    validateMock.mockResolvedValueOnce({
       isValid: true,
       confidence: 'low',
       reason: '曖昧な指示',
@@ -284,7 +285,7 @@ describe('auto-issue integration with InstructionValidator', () => {
       customInstruction: 'セキュリティ脆弱性を検出してください',
     });
 
-    expect(InstructionValidator.validate).toHaveBeenCalledWith('セキュリティ脆弱性を検出してください');
+    expect(validateMock).toHaveBeenCalledWith('セキュリティ脆弱性を検出してください');
     expect(analyzerMock.analyze).toHaveBeenCalledTimes(1);
     expect(deduplicatorMock.filterDuplicates).toHaveBeenCalledTimes(1);
     expect(issueGeneratorMock.generate).toHaveBeenCalledTimes(1);

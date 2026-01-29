@@ -96,6 +96,29 @@ GitHub Issue URL（必須）
 ドライランモード（API 呼び出しや Git 操作を行わず動作確認のみ実施）
             '''.stripIndent().trim())
 
+            stringParam('SKIP_PHASES', '', '''
+スキップするフェーズ（カンマ区切り、任意）
+
+特定のフェーズをスキップして実行します。
+複数のフェーズをスキップする場合はカンマで区切って指定してください。
+
+例: test_scenario,testing
+
+対応フェーズ名:
+- planning（※スキップ不可）
+- requirements
+- design
+- test_scenario
+- implementation
+- test_implementation
+- testing
+- documentation
+- report
+- evaluation
+
+注: 空欄の場合はすべてのフェーズを実行します
+            '''.stripIndent().trim())
+
             booleanParam('SKIP_REVIEW', false, '''
 AI レビューをスキップする（検証・デバッグ用）
             '''.stripIndent().trim())

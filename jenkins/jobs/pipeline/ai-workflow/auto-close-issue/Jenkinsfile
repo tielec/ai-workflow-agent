@@ -1,0 +1,307 @@
+/**
+ * AI Workflow - Auto Close Issue Mode
+ *
+ * 既存のオープンIssueをAIエージェントが検品し、安全にクローズするJenkinsfile。
+ * auto-issueパイプラインのパターンを踏襲しつつ、クローズ専用のパラメータを追加。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - GITHUB_REPOSITORY: owner/repo形式（必須）
+ * - AUTO_CLOSE_CATEGORY: Issue分類（followup/stale/old/all、デフォルト: followup）
+ * - AUTO_CLOSE_LIMIT: 処理対象Issue上限（1-50、デフォルト: 10）
+ * - CONFIDENCE_THRESHOLD: クローズ推奨の信頼度閾値（0.0-1.0、デフォルト: 0.7）
+ * - DAYS_THRESHOLD: 経過日数の閾値（デフォルト: 90）
+ * - EXCLUDE_LABELS: 除外ラベル（カンマ区切り、デフォルト: do-not-close,pinned）
+ * - REQUIRE_APPROVAL: 承認要否（デフォルト: false）
+ * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
+ * - DRY_RUN: ドライランモード（デフォルト: true）
+ * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
+ *
+ * 注意:
+ * - REPOS_ROOT配下に対象リポジトリをクローンして実行する（auto_issue同様）
+ * - DRY_RUNのデフォルトをtrueとし、安全性を優先
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet-micro'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
+        EXECUTION_MODE = 'auto_close_issue'
+        CODEX_HOME = ''
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY}"
+
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Auto Close Issue (${params.AUTO_CLOSE_CATEGORY ?: 'followup'})"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.GITHUB_REPOSITORY) {
+                        error("GITHUB_REPOSITORY parameter is required for auto_close_issue mode")
+                    }
+
+                    def repoParts = params.GITHUB_REPOSITORY.split('/')
+                    if (repoParts.length != 2) {
+                        error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
+                    }
+
+                    env.REPO_OWNER = repoParts[0]
+                    env.REPO_NAME = repoParts[1]
+                    env.ISSUE_NUMBER = 'auto_close_issue'
+
+                    def limit = params.AUTO_CLOSE_LIMIT ?: '10'
+                    if (!limit.isInteger() || limit.toInteger() < 1 || limit.toInteger() > 50) {
+                        error("AUTO_CLOSE_LIMIT must be an integer between 1 and 50: ${limit}")
+                    }
+
+                    def confidenceThreshold = params.CONFIDENCE_THRESHOLD ?: '0.7'
+                    if (!confidenceThreshold.isFloat() || confidenceThreshold.toFloat() < 0 || confidenceThreshold.toFloat() > 1) {
+                        error("CONFIDENCE_THRESHOLD must be a decimal between 0.0 and 1.0: ${confidenceThreshold}")
+                    }
+
+                    def daysThreshold = params.DAYS_THRESHOLD ?: '90'
+                    if (!daysThreshold.isInteger() || daysThreshold.toInteger() < 1) {
+                        error("DAYS_THRESHOLD must be a positive integer: ${daysThreshold}")
+                    }
+
+                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                    def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Auto Close Issue | ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Auto Close Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
+                    echo "Auto Close Limit: ${limit}"
+                    echo "Confidence Threshold: ${confidenceThreshold}"
+                    echo "Days Threshold: ${daysThreshold}"
+                    echo "Exclude Labels: ${params.EXCLUDE_LABELS ?: 'do-not-close,pinned'}"
+                    echo "Require Approval: ${params.REQUIRE_APPROVAL ?: false}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Dry Run: ${dryRunDefault}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Execute Auto Close Issue') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Auto Close Issue"
+                    echo "========================================="
+                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                    echo "Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
+                    echo "Limit: ${params.AUTO_CLOSE_LIMIT ?: '10'}"
+                    echo "Confidence Threshold: ${params.CONFIDENCE_THRESHOLD ?: '0.7'}"
+                    echo "Days Threshold: ${params.DAYS_THRESHOLD ?: '90'}"
+                    echo "Exclude Labels: ${params.EXCLUDE_LABELS ?: 'do-not-close,pinned'}"
+                    echo "Require Approval: ${params.REQUIRE_APPROVAL ?: false}"
+                    echo "Dry Run: ${dryRunDefault}"
+
+                    def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Auto Close Issue | Executing: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def category = params.AUTO_CLOSE_CATEGORY ?: 'followup'
+                        def limit = params.AUTO_CLOSE_LIMIT ?: '10'
+                        def confidenceThreshold = params.CONFIDENCE_THRESHOLD ?: '0.7'
+                        def daysThreshold = params.DAYS_THRESHOLD ?: '90'
+                        def agentMode = params.AGENT_MODE ?: 'auto'
+
+                        def excludeLabelsFlag = params.EXCLUDE_LABELS?.trim() ? "--exclude-labels '${params.EXCLUDE_LABELS}'" : ''
+                        def requireApprovalFlag = params.REQUIRE_APPROVAL ? '--require-approval' : ''
+                        def dryRunFlag = dryRunDefault ? '--dry-run' : ''
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+
+                        sh """
+                            node dist/index.js auto-close-issue \\
+                                --category ${category} \\
+                                --limit ${limit} \\
+                                --confidence-threshold ${confidenceThreshold} \\
+                                --days-threshold ${daysThreshold} \\
+                                ${excludeLabelsFlag} \\
+                                ${requireApprovalFlag} \\
+                                --agent ${agentMode} \\
+                                ${languageOption} \\
+                                ${dryRunFlag}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
+                currentBuild.description = "Auto Close Issue | ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                archiveArtifacts artifacts: 'auto-close-issue-results.json', allowEmptyArchive: true
+
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - Auto Close Issue Success"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
+                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                def dryRunNote = dryRunDefault ? ' (dry run mode, no issues closed)' : ''
+                echo "Result: Auto close issue completed${dryRunNote}"
+
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'success',
+                    buildUrl: env.BUILD_URL,
+                    branchName: env.BRANCH_NAME ?: '',
+                    prUrl: '',
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - Auto Close Issue Failure"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
+                echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+    }
+}

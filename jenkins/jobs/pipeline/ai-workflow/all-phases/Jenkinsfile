@@ -167,6 +167,7 @@ pipeline {
                     echo "Cleanup On Complete Force: ${params.CLEANUP_ON_COMPLETE_FORCE ?: false}"
                     echo "Squash On Complete: ${params.SQUASH_ON_COMPLETE ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Skip Phases: ${params.SKIP_PHASES ?: '(none)'}"
                 }
             }
         }
@@ -235,6 +236,7 @@ pipeline {
                             def cleanupFlags = params.CLEANUP_ON_COMPLETE_FORCE ? '--cleanup-on-complete --cleanup-on-complete-force' : ''
                             def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
                             def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                            def skipPhasesOption = params.SKIP_PHASES?.trim() ? "--skip-phases ${params.SKIP_PHASES.trim()}" : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -245,7 +247,8 @@ pipeline {
                                     ${forceResetFlag} \
                                     ${cleanupFlags} \
                                     ${squashFlag} \
-                                    ${languageOption}
+                                    ${languageOption} \
+                                    ${skipPhasesOption}
                             """
 
                             // metadata.json から PR URL を直接読み込み（readJSON を使用して SecretMasker を回避）

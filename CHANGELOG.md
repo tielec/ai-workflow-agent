@@ -129,6 +129,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #652**: auto-close-issue コマンドのJenkinsパイプライン化を実装し、CI環境から安全に既存Issueを自動クローズ可能に
+  - 新規Jenkinsfile: `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile`（7ステージ構成）
+  - 新規Job DSL: `jenkins/jobs/dsl/ai-workflow/ai_workflow_auto_close_issue_job.groovy`（20パラメータ定義）
+  - パラメータマッピング: Job DSLパラメータ（9個の基本設定 + 6個のAPIキー + 5個のWebhook設定）をCLIオプションへ自動変換
+  - 安全機能: DRY_RUNデフォルトtrue、パラメータ検証（リポジトリ形式・件数・閾値レンジ）、Webhook通知、アーティファクト保存
+  - フォルダ構成: develop + stable-1〜9環境での並行実行対応
+  - 共通ライブラリ統合: `jenkins/shared/common.groovy`の既存関数を再利用
+
 - **Issue #645**: auto-close-issue コマンドを追加し、既存Issueの検品と安全な自動クローズを実装
   - CLIオプション: `--category followup|stale|old|all`（followup既定）、`--limit 10`、`--dry-run`（既定ON）、`--confidence-threshold 0.7`、`--days-threshold 90`、`--exclude-labels do-not-close,pinned`、`--require-approval`、`--agent auto|codex|claude`
   - フィルタリング: `[FOLLOW-UP]` タイトル判定、stale/old日数判定（oldは2×閾値）、更新7日以内/除外ラベルのIssueをスキップ、親Issue解決状況・最新コメントを併せて検品

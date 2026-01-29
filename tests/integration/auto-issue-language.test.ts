@@ -58,6 +58,7 @@ await jest.unstable_mockModule('../../src/commands/execute/agent-setup.js', () =
 await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
   __esModule: true,
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  findWorkflowMetadata: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../src/core/config.js', () => ({

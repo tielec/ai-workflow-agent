@@ -26,6 +26,8 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── auto-issue/
 │   │       │   └── Jenkinsfile
+│   │       ├── auto-close-issue/
+│   │       │   └── Jenkinsfile
 │   │       ├── finalize/
 │   │       │   └── Jenkinsfile
 │   │       ├── pr-comment-execute/
@@ -43,6 +45,7 @@ jenkins/
 │           ├── ai_workflow_single_phase_job.groovy
 │           ├── ai_workflow_rollback_job.groovy
 │           ├── ai_workflow_auto_issue_job.groovy
+│           ├── ai_workflow_auto_close_issue_job.groovy
 │           ├── ai_workflow_finalize_job.groovy
 │           ├── ai_workflow_pr_comment_execute_job.groovy
 │           ├── ai_workflow_pr_comment_finalize_job.groovy
@@ -63,6 +66,7 @@ jenkins/
 | **single_phase** | 単一フェーズ実行（デバッグ用） | 29 |
 | **rollback** | フェーズ差し戻し実行 | 27 |
 | **auto_issue** | 自動Issue作成 | 20 |
+| **auto_close_issue** | 既存Issue自動クローズ（AIによる安全なIssue整理） | 20 |
 | **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 24 |
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 19 |
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 18 |
@@ -77,6 +81,24 @@ jenkins/
   - `en`: English
 
 この設定により、プロンプト、出力メッセージ、生成されるドキュメントが指定した言語で作成されます。
+
+### All Phases ジョブの主要機能
+
+**SKIP_PHASES パラメータ**（Issue #656 で追加）:
+- **機能**: 特定のフェーズをスキップして全フェーズワークフローを実行
+- **設定方法**: パラメータ「SKIP_PHASES」にカンマ区切りでフェーズ名を入力（例: `test_scenario,testing`）
+- **対応フェーズ**: requirements, design, test_scenario, implementation, test_implementation, testing, documentation, report, evaluation
+- **制約**: planning フェーズはスキップ不可（他フェーズが依存）
+- **空欄時**: すべてのフェーズを実行（従来動作）
+
+**使用例**:
+```
+# テスト関連フェーズを除外して実行
+SKIP_PHASES: test_scenario,test_implementation,testing
+
+# ドキュメント生成のみスキップ
+SKIP_PHASES: documentation,report
+```
 
 ### Webhook通知
 
@@ -126,6 +148,7 @@ AI_Workflow/
 │   ├── single_phase
 │   ├── rollback
 │   ├── auto_issue
+│   ├── auto_close_issue
 │   ├── finalize
 │   ├── pr_comment_execute
 │   ├── pr_comment_finalize
@@ -158,7 +181,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（9種類 × 10フォルダ = 90ジョブ）
+- 各実行モード用のジョブ（10種類 × 10フォルダ = 100ジョブ）
 
 ## 共通処理モジュール
 
@@ -218,12 +241,61 @@ common.archiveArtifacts(env.ISSUE_NUMBER)
 - **GitHub Actions**: 軽量なCI（テスト・ビルドチェック）にフォーカス
 - **Jenkins**: AI Workflow の実行基盤として継続利用
 
+## auto-close-issue パイプライン詳細
+
+### 概要と利用場面
+
+**auto-close-issue** パイプラインは、AIエージェントを活用してリポジトリ内の既存オープンIssueを検品し、適切にクローズできるIssueを安全に自動クローズするジョブです。
+
+**主な利用場面**:
+- プロジェクトのIssueメンテナンス作業
+- 長期間更新のないIssueの整理
+- フォローアップが必要なIssueの定期チェック
+- プロジェクトのクリーンアップ作業
+
+### 主要パラメータ
+
+| パラメータ | 説明 | デフォルト値 | 推奨設定 |
+|-----------|------|------------|----------|
+| **AUTO_CLOSE_CATEGORY** | Issue分類（followup/stale/old/all） | followup | 初回は `followup` |
+| **AUTO_CLOSE_LIMIT** | 処理対象上限数（1-50） | 10 | 初回は5以下 |
+| **CONFIDENCE_THRESHOLD** | AI判定の信頼度閾値（0.0-1.0） | 0.7 | 保守的: 0.8以上 |
+| **DAYS_THRESHOLD** | 更新からの経過日数閾値 | 90 | アクティブ: 30日 |
+| **EXCLUDE_LABELS** | 除外ラベル（カンマ区切り） | do-not-close,pinned | 必要に応じて追加 |
+| **DRY_RUN** | ドライランモード | **true** | **初回は必ずtrue** |
+
+### 安全機能
+
+- **ドライランデフォルト**: 実際のクローズ前に結果プレビュー
+- **除外ラベル機能**: 特定ラベル付きIssueの処理除外
+- **信頼度閾値**: AIの判定精度による自動フィルタリング
+- **処理数制限**: 一度に大量のIssueを処理することを防止
+
+### 実行フロー
+
+1. **パラメータ検証**: 必須項目・形式の確認
+2. **Issue候補取得**: 指定条件に基づく対象Issue抽出
+3. **AI検品実行**: 各Issueのクローズ可否をAI判定
+4. **結果出力**: ドライランの場合は候補表示、実行の場合はクローズ実行
+
+### 注意事項
+
+⚠️ **必ず最初はドライランで実行してください**
+- `DRY_RUN: true` で候補Issueの確認
+- AI判定の妥当性をマニュアルチェック
+- 問題がなければ `DRY_RUN: false` で本実行
+
+⚠️ **重要なIssueの保護**
+- `do-not-close`, `pinned` 等の除外ラベルを活用
+- 組織の重要なIssueには事前にラベル付与を推奨
+
 ## 詳細ドキュメント
 
 各ジョブの詳細な使い方については、以下を参照してください：
 
 - [AI Workflow README](../README.md) - ワークフロー全体の説明
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - アーキテクチャ詳細
+- [auto-close-issue パイプライン利用ガイド](../docs/AUTO_CLOSE_ISSUE_PIPELINE_GUIDE.md) - **auto-close-issue 詳細マニュアル**
 - [TEST_PLAN.md](jobs/dsl/ai-workflow/TEST_PLAN.md) - テスト計画
 
 ## 関連Issue
