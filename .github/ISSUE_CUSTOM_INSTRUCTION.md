@@ -2,7 +2,7 @@
 
 `auto-issue` コマンドに `--custom-instruction` オプションを追加し、ユーザーがバグ検出・リファクタリング検出時に追加指示を与えられるようにする。同時に、破壊的操作を含む危険な指示をブロックする安全性検証機能を実装する。
 
-> **✅ 実装完了（Issue #422）**: LLMベースのカスタム指示検証機能が実装されました。従来の静的パターンマッチング方式から、OpenAI API（gpt-4o-mini）を使用した文脈理解型検証に移行しました。
+> **✅ 実装完了（Issue #655）**: InstructionValidator をエージェント優先（Codex → Claude → OpenAI → パターン）のフォールバックチェーンに統一し、OpenAI キーなしでも検証できるようにした。CLI コマンド誤検出を抑制する SAFE_PATTERNS と、信頼度 low 時に警告のみで続行する挙動を追加。
 
 ## 背景
 
@@ -90,36 +90,13 @@ program
 
 ### 2. 安全性検証モジュール
 
-#### `src/core/instruction-validator.ts` (Issue #422で実装)
+#### `src/core/instruction-validator.ts`（Issue #655でリファクタリング）
 
-**LLMベース検証（プライマリ）**:
-- OpenAI API（gpt-4o-mini）を使用した文脈理解型検証
-- 「分析指示」と「実行指示」を文脈から正確に区別
-- JSON形式の応答（`isSafe`, `reason`, `category`, `confidence`）
-
-**静的パターンマッチング（フォールバック）**:
-危険なパターンとして以下をブロック：
-- ファイル操作: 削除、上書き、書き換え
-- Git操作: commit、push、reset、rebase、merge、delete
-- システムコマンド: npm、yarn、pip、実行
-- 設定変更: config、env
-- データベース操作: DROP、DELETE、TRUNCATE
-- 自動修正: 検出のみ許可、修正は不可
-
-許可されるパターン（ホワイトリスト）:
-- 重点的、focus、priority、emphasize
-- 検出、detect、find、identify、look for
-- 調査、analyze、investigate、examine
-- 優先、prioritize、prefer
-- 詳細、detailed、thorough
-
-**キャッシュ機構**:
-- インメモリMap-basedキャッシュ（TTL: 1時間、最大1000エントリ）
-- 同一指示の重複LLM呼び出しを防止
-
-**リトライ機構**:
-- 最大3回のリトライ（指数バックオフ: 1秒、2秒、4秒）
-- LLM呼び出し失敗時は静的パターンマッチングにフォールバック
+- **エージェント優先のフォールバック**: `codex-agent (mini) → claude-agent (haiku) → openai gpt-4o-mini → pattern` の順に検証し、`validationMethod` に実際の経路（`'codex-agent' | 'claude-agent' | 'llm' | 'pattern'`）を記録。
+- **応答パース強化**: `parseAgentResponse()` でコードブロック内JSON、複数メッセージ、ネストしたオブジェクトを抽出して正規化。
+- **パターンマッチング改善**: `SAFE_PATTERNS` で `execute --phase` や `npm/yarn/pnpm run` といったCLI操作を安全扱いし、Issue #654 の誤検出を低減。`DANGEROUS_PATTERNS` は従来の削除/Git/システムコマンド/設定変更/DB/自動修正を継続。`confidence='low'` は警告ログを出しつつ処理続行。
+- **キャッシュとリトライ**: TTL 1時間・最大1000件のLRUキャッシュを維持。LLM 呼び出しは指数バックオフ付きで最大3回リトライ。
+- **CLI側ガード**: `auto-issue.ts` のオプションパーサで500文字上限と明示的な削除指示を事前に拒否してから、インスタンス化した `InstructionValidator` で検証する。
 
 ### 3. プロンプトへの統合
 
@@ -137,10 +114,10 @@ program
 
 ### 4. 検証フロー
 
-1. ユーザーがカスタム指示を入力
-2. `InstructionValidator.validate()` で検証
-3. 危険なパターンが検出された場合はエラーを返す
-4. 安全な指示の場合はプロンプトに注入
+1. ユーザーがカスタム指示を入力（500文字超や明示的削除指示は CLI パーサで即時エラー）
+2. `new InstructionValidator(repoPath).validate()` で検証（codex-agent → claude-agent → OpenAI → pattern）
+3. 危険パターンはエラー／`confidence='low'` は警告のみで続行し、`validationMethod` をログ出力
+4. 安全と判定された指示をプロンプトへ注入
 5. エージェント実行
 
 ## 実装手順

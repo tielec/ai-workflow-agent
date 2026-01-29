@@ -279,7 +279,22 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
 | `src/core/credential-validator.ts` | 認証情報バリデーションモジュール（Issue #598で追加）。`CredentialValidator` クラスで6カテゴリの認証情報を検証。各カテゴリのチェッカー（`GitChecker`, `GitHubChecker`, `CodexChecker`, `ClaudeChecker`, `OpenAIChecker`, `AnthropicChecker`）を管理し、並列バリデーションを実行。`validate()`, `maskValue()` を提供。API呼び出しは10秒タイムアウト、機密情報は最初の4文字 + `****` でマスキング。 |
 | `src/core/model-optimizer.ts` | モデル最適化モジュール（約300行、Issue #363で追加）。難易度×フェーズ×ステップのマッピングに基づいて最適なモデルを自動選択。難易度別デフォルトマッピング（`simple`: 全軽量、`moderate`: 設計系フェーズは revise も軽量 / 実装系フェーズは revise 高品質 / ドキュメント系は全軽量、`complex`: execute/revise 高品質 + review 軽量）を提供。**review ステップは常に軽量モデルで、CLI/ENV オーバーライドは review には適用しない**。CLI/ENV 優先オーバーライドと metadata.json の既存設定を考慮。`resolveModel()`, `generateModelConfig()`, `applyOverrides()` を提供。型定義: `DifficultyLevel`, `StepModelConfig`, `PhaseModelConfig`, `ModelConfigByPhase`。 |
-| `src/core/safety/instruction-validator.ts` | カスタム指示の安全性検証モジュール（約170行、Issue #380で追加）。`auto-issue` コマンドの `--custom-instruction` オプションで指定された指示の安全性を検証。`InstructionValidator.validate()` で文字数制限（500文字）と危険パターン検出を実施。`DANGEROUS_PATTERNS`（Git操作、ファイル操作、システムコマンド、設定変更、DB操作、自動修正）と `ALLOWED_PATTERNS`（分析・検出・調査系キーワード）を定義。単語境界マッチング（英語）と含有チェック（日本語）で誤検知を軽減。 |
+| `src/core/instruction-validator.ts` | カスタム指示の安全性検証モジュール（Issue #655でインスタンスベースにリファクタリング）。`auto-issue --custom-instruction` で利用され、`codex-agent → claude-agent → openai-api → pattern` の順でフォールバック検証を実行し、`validationMethod` に経路を記録。`SAFE_PATTERNS` 追加により `execute --phase` や `npm run` などのCLI操作を安全扱いし、`confidence='low'` は警告のみで続行。`DANGEROUS_PATTERNS` を維持しつつ、キャッシュ（TTL 1h / LRU 1000件）と `parseAgentResponse()` によるコードブロック内JSON抽出を実装。500文字上限のチェックは CLI オプションパーサ (`auto-issue.ts`) 側で実施。エージェント優先順・フォールバックの流れを下図に示す。 |
+
+#### InstructionValidator のフォールバックフロー（Issue #655）
+
+```
+┌────────┐   OK    ┌────────┐   OK    ┌────────┐   OK    ┌────────────┐
+│ Codex  │ ─────► │ Claude │ ─────► │ OpenAI │ ─────► │ Pattern     │
+│ agent  │        │ agent  │        │ gpt-4o │        │ matching    │
+└────────┘   NG    └────────┘   NG    └────────┘   NG    └────────────┘
+      │                │                │
+      └──────ログ出力──┴──────ログ出力──┴──────ログ出力──► `validationMethod` に経路記録
+```
+
+- Codex/Claude が利用可能なら優先的に使用し、APIキーが無い場合は自動スキップ。
+- すべて失敗した場合はパターン検証のみを実行し、`confidence='low'` なら警告のみで続行。
+- フロー全体でキャッシュ（1時間/1000件）と `parseAgentResponse()` によるコードブロック JSON 抽出を共有。 
 | `src/core/codex-agent-client.ts` | Codex CLI を起動し JSON イベントをストリーム処理。認証エラー検知・利用量記録も実施（約200行、Issue #26で25.4%削減）。 |
 | `src/core/claude-agent-client.ts` | Claude Agent SDK を利用してイベントを取得し、Codex と同様の JSON 形式で保持（約206行、Issue #26で23.7%削減）。 |
 | `src/core/helpers/agent-event-parser.ts` | Codex/Claude共通のイベントパースロジック（74行、Issue #26で追加）。`parseCodexEvent()`, `parseClaudeEvent()`, `determineCodexEventType()`, `determineClaudeEventType()` を提供。 |

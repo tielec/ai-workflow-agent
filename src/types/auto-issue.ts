@@ -256,8 +256,8 @@ export interface ValidationResult {
   /** フォールバック時の検出パターン */
   detectedPattern?: string;
 
-  /** 検証方法 */
-  validationMethod: 'llm' | 'pattern';
+  /** 検証方法（拡張: codex-agent, claude-agent を追加） */
+  validationMethod: 'codex-agent' | 'claude-agent' | 'llm' | 'pattern';
 
   /** 検証日時（ISO8601形式） */
   validatedAt: string;

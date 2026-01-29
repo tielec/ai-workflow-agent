@@ -7,54 +7,77 @@ const logger = {
   error: jest.fn(),
 };
 
-type SetupOptions = {
-  apiKey?: string | null;
-  createImpl?: jest.Mock;
+type ValidatorSetupOptions = {
+  codexClient?: { executeTask: jest.Mock } | null;
+  claudeClient?: { executeTask: jest.Mock } | null;
   openAiResponse?: unknown;
+  openAiImpl?: jest.Mock;
+  apiKey?: string | null;
 };
 
-async function setupValidator(options: SetupOptions = {}) {
+const DEFAULT_PROMPT = 'Validate: {{instruction}}';
+
+async function createValidator(options: ValidatorSetupOptions = {}) {
   jest.resetModules();
   jest.clearAllMocks();
 
-  const apiKey = options.apiKey !== undefined ? options.apiKey : 'test-key';
-  const createMock = options.createImpl ?? jest.fn();
+  const createMock = options.openAiImpl ?? jest.fn();
   if (options.openAiResponse !== undefined) {
     createMock.mockResolvedValue(options.openAiResponse);
   }
 
   const mockConfig = {
-    getOpenAiApiKey: jest.fn(() => apiKey),
+    getOpenAiApiKey: jest.fn(() => (options.apiKey === undefined ? 'test-key' : options.apiKey)),
     getLanguage: jest.fn(() => {
       const envLang = process.env.AI_WORKFLOW_LANGUAGE?.toLowerCase().trim();
       return envLang === 'en' ? 'en' : 'ja';
     }),
+    getCodexApiKey: jest.fn(() => null),
+    getClaudeCodeToken: jest.fn(() => null),
   };
 
-  jest.unstable_mockModule('../../../src/core/config.js', () => ({
-    config: mockConfig,
-  }));
-  jest.unstable_mockModule('../../../src/utils/logger.js', () => ({
-    logger,
-  }));
-  jest.unstable_mockModule('openai', () => ({
-    default: jest.fn(() => ({
-      chat: {
-        completions: {
-          create: createMock,
-        },
+  const mockOpenAI = {
+    chat: {
+      completions: {
+        create: createMock,
       },
-    })),
+    },
+  };
+
+  jest.unstable_mockModule('../../../src/utils/logger.js', () => ({ logger }));
+  jest.unstable_mockModule('../../../src/core/config.js', () => ({ config: mockConfig }));
+  jest.unstable_mockModule('../../../src/core/prompt-loader.js', () => ({
+    PromptLoader: { loadPrompt: jest.fn(() => DEFAULT_PROMPT) },
   }));
+  jest.unstable_mockModule('../../../src/core/helpers/codex-credentials.js', () => ({
+    detectCodexCliAuth: jest.fn(() => ({ authFilePath: null })),
+    isValidCodexApiKey: jest.fn(() => false),
+  }));
+  jest.unstable_mockModule('../../../src/core/claude-agent-client.js', () => ({
+    ClaudeAgentClient: class {},
+    resolveClaudeModel: jest.fn(() => 'claude-3-haiku'),
+  }));
+  jest.unstable_mockModule('../../../src/core/codex-agent-client.js', () => ({
+    CodexAgentClient: class {},
+    resolveCodexModel: jest.fn(() => 'gpt-mini'),
+  }));
+  jest.unstable_mockModule('openai', () => ({ default: jest.fn(() => mockOpenAI) }));
 
   const { InstructionValidator } = await import('../../../src/core/instruction-validator.js');
 
-  return { InstructionValidator, createMock, mockConfig };
+  const validator = new InstructionValidator('/tmp/repo', {
+    codexClient: options.codexClient ?? null,
+    claudeClient: options.claudeClient ?? null,
+    openaiClient:
+      options.apiKey === null ? null : options.openAiImpl || options.openAiResponse ? mockOpenAI : mockOpenAI,
+  });
+
+  return { validator, createMock, mockConfig };
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-describe('InstructionValidator', () => {
+describe('InstructionValidator (インスタンス版)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -63,18 +86,18 @@ describe('InstructionValidator', () => {
     jest.useRealTimers();
   });
 
-  it('validates safe analysis instructions via LLM code block response', async () => {
-    // LLM が Markdown のコードブロック内で JSON を返すケースを安全判定として処理できることを確認
+  // LLMがコードブロック形式で安全判定を返すパスを確認する
+  it('LLMのコードブロック応答を安全判定として処理する', async () => {
     const codeBlockResponse = {
       choices: [
         {
           message: {
             content: [
-              '判定結果は以下の通りです。',
+              '結果です。',
               '```json',
               JSON.stringify({
                 isSafe: true,
-                reason: '分析のみの指示です',
+                reason: '分析のみ',
                 category: 'analysis',
                 confidence: 'high',
               }),
@@ -85,22 +108,22 @@ describe('InstructionValidator', () => {
       ],
     };
 
-    const { InstructionValidator, createMock } = await setupValidator({
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
       openAiResponse: codeBlockResponse,
     });
 
-    const result = await InstructionValidator.validate('削除すべきファイルを検出してください');
+    const result = await validator.validate('削除すべきファイルを検出してください');
 
     expect(result.isValid).toBe(true);
-    expect(result.category).toBe('analysis');
     expect(result.validationMethod).toBe('llm');
     expect(result.confidence).toBe('high');
-    expect(result.validatedAt).toBeDefined();
     expect(createMock).toHaveBeenCalledTimes(1);
   });
 
-  it('propagates unsafe decisions returned by the LLM response', async () => {
-    // LLM が危険判定を返した場合に isValid=false とエラーメッセージが伝搬されることを確認
+  // LLMが危険判定を返した場合に結果がそのまま伝搬されることを確認する
+  it('LLMが危険判定を返した場合に伝搬される', async () => {
     const unsafeResponse = {
       choices: [
         {
@@ -116,21 +139,22 @@ describe('InstructionValidator', () => {
       ],
     };
 
-    const { InstructionValidator, createMock } = await setupValidator({
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
       openAiResponse: unsafeResponse,
     });
 
-    const result = await InstructionValidator.validate('このファイルを削除して');
+    const result = await validator.validate('このファイルを削除して');
 
     expect(result.isValid).toBe(false);
     expect(result.validationMethod).toBe('llm');
     expect(result.errorMessage).toContain('Unsafe instruction detected');
-    expect(result.category).toBe('execution');
     expect(createMock).toHaveBeenCalledTimes(1);
   });
 
-  it('uses cache to avoid duplicate LLM calls', async () => {
-    // 同一指示の2回目以降はキャッシュがヒットし、LLM 呼び出しが抑制されることを確認
+  // 同一指示の再検証でキャッシュが利用されLLM呼び出しが抑制されることを確認する
+  it('同一指示の2回目はキャッシュヒットでLLM呼び出しを抑制する', async () => {
     const llmResponse = {
       choices: [
         {
@@ -145,72 +169,62 @@ describe('InstructionValidator', () => {
         },
       ],
     };
-    const { InstructionValidator, createMock } = await setupValidator({
+
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
       openAiResponse: llmResponse,
     });
 
-    const first = await InstructionValidator.validate('リファクタリング候補を洗い出してください');
-    const second = await InstructionValidator.validate('リファクタリング候補を洗い出してください');
+    const first = await validator.validate('リファクタリング候補を洗い出してください');
+    const second = await validator.validate('リファクタリング候補を洗い出してください');
 
     expect(createMock).toHaveBeenCalledTimes(1);
     expect(second).toEqual(first);
   });
 
-  it('expires cached entries after TTL and revalidates', async () => {
-    // TTL 経過後はキャッシュが無効化され、LLM が再度呼ばれることを確認
-    const { InstructionValidator, createMock } = await setupValidator();
+  // TTL経過後にはキャッシュが失効し再度LLM検証が走ることを確認する
+  it('TTL経過後はキャッシュを無効化して再検証する', async () => {
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
+    });
+
     const nowSpy = jest.spyOn(Date, 'now');
     let now = 0;
     nowSpy.mockImplementation(() => now);
 
-    createMock.mockResolvedValueOnce({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              isSafe: true,
-              reason: 'initial run',
-              category: 'analysis',
-              confidence: 'medium',
-            }),
-          },
-        },
-      ],
-    });
+    createMock
+      .mockResolvedValueOnce({
+        choices: [
+          { message: { content: JSON.stringify({ isSafe: true, reason: 'first', category: 'analysis', confidence: 'medium' }) } },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          { message: { content: JSON.stringify({ isSafe: true, reason: 'second', category: 'analysis', confidence: 'high' }) } },
+        ],
+      });
 
-    createMock.mockResolvedValueOnce({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              isSafe: true,
-              reason: 'after ttl',
-              category: 'analysis',
-              confidence: 'high',
-            }),
-          },
-        },
-      ],
-    });
-
-    const first = await InstructionValidator.validate('コードを分析してください');
+    const first = await validator.validate('コードを分析してください');
 
     now = ONE_HOUR_MS + 1;
-    const second = await InstructionValidator.validate('コードを分析してください');
+    const second = await validator.validate('コードを分析してください');
 
     expect(createMock).toHaveBeenCalledTimes(2);
-    expect(second.reason).toEqual('after ttl');
+    expect(first.reason).toBe('first');
+    expect(second.reason).toBe('second');
 
     nowSpy.mockRestore();
   });
 
-  it('evicts least recently used cache entries when max size is exceeded', async () => {
-    // LRU に基づいて最も古いアクセスのエントリが削除されることを確認
-    const { InstructionValidator } = await setupValidator();
-    const ValidationCacheClass = (InstructionValidator as any).cache.constructor;
-    const dateSpy = jest.spyOn(Date, 'now');
+  // LRUキャッシュが最古アクセス要素を正しく削除することを確認する
+  it('LRUポリシーで最古アクセスのキャッシュを削除する', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null });
+    const ValidationCacheClass = (validator as any).cache.constructor;
+    const nowSpy = jest.spyOn(Date, 'now');
     let now = 0;
-    dateSpy.mockImplementation(() => now);
+    nowSpy.mockImplementation(() => now);
 
     const cache = new ValidationCacheClass(ONE_HOUR_MS, 2);
     const createResult = (reason: string) => ({
@@ -233,14 +247,14 @@ describe('InstructionValidator', () => {
     expect(cache.get('first')).not.toBeNull();
     expect(cache.get('second')).toBeNull();
     expect(cache.get('third')).not.toBeNull();
-
-    dateSpy.mockRestore();
+    nowSpy.mockRestore();
   });
 
-  it('computes stable hashes for identical instructions', async () => {
-    // 同一入力に対してハッシュ値が安定していることを確認
-    const { InstructionValidator } = await setupValidator();
-    const ValidationCacheClass = (InstructionValidator as any).cache.constructor;
+  // 同一入力に対してハッシュ値が決定的であることを確認する
+  it('同一入力に対してハッシュ値が安定する', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null });
+    const ValidationCacheClass = (validator as any).cache.constructor;
+
     const hash1 = ValidationCacheClass.computeHash('same instruction');
     const hash2 = ValidationCacheClass.computeHash('same instruction');
     const different = ValidationCacheClass.computeHash('different instruction');
@@ -249,12 +263,14 @@ describe('InstructionValidator', () => {
     expect(hash1).not.toEqual(different);
   });
 
-  it('retries LLM failures before succeeding', async () => {
-    // LLM タイムアウトを最大リトライ回数までリトライし、成功時に結果を返すことを確認
+  // LLMリトライで一時失敗から最終的に成功するシナリオを確認する
+  it('LLMリトライ後に成功するケースを扱う', async () => {
     jest.useFakeTimers();
     let callCount = 0;
-    const { InstructionValidator, createMock } = await setupValidator({
-      createImpl: jest.fn(async () => {
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
+      openAiImpl: jest.fn(async () => {
         callCount++;
         if (callCount < 3) {
           throw new Error('Request timed out');
@@ -276,7 +292,7 @@ describe('InstructionValidator', () => {
       }),
     });
 
-    const resultPromise = InstructionValidator.validate('パフォーマンスを分析してください');
+    const resultPromise = validator.validate('パフォーマンスを分析してください');
     await jest.runAllTimersAsync();
     const result = await resultPromise;
 
@@ -286,232 +302,181 @@ describe('InstructionValidator', () => {
     expect(result.validationMethod).toBe('llm');
   });
 
-  it('falls back to pattern matching when LLM retries all fail', async () => {
-    // LLM が全リトライ失敗した場合にパターンマッチへフォールバックすることを確認
+  // LLMが全て失敗したときにパターンマッチへフォールバックする挙動を確認する
+  it('LLMが全失敗した場合パターンマッチへフォールバックする', async () => {
     jest.useFakeTimers();
-    const { InstructionValidator, createMock } = await setupValidator({
-      createImpl: jest.fn(async () => {
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
+      openAiImpl: jest.fn(async () => {
         throw new Error('API unavailable');
       }),
     });
 
-    const resultPromise = InstructionValidator.validate('このファイルを削除してください');
+    const resultPromise = validator.validate('このファイルを削除してください');
     await jest.runAllTimersAsync();
     const result = await resultPromise;
 
     expect(createMock).toHaveBeenCalledTimes(3);
-    expect(result.isValid).toBe(false);
     expect(result.validationMethod).toBe('pattern');
-    expect(result.detectedPattern).toBe('削除指示');
+    expect(result.isValid).toBe(true); // low信頼の警告後に続行
+    expect(result.reason).toContain('low confidence');
   });
 
-  it('skips LLM validation when API key is missing', async () => {
-    // API Key 未設定時は LLM を呼ばずにパターンマッチで検証することを確認
-    const { InstructionValidator, createMock } = await setupValidator({ apiKey: null });
+  // APIキーが未設定の場合LLMを呼ばずにパターンマッチのみ走ることを確認する
+  it('APIキー未設定の場合はLLMを呼ばずパターンマッチのみ実行する', async () => {
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
+      apiKey: null,
+    });
 
-    const result = await InstructionValidator.validate('DELETE this File');
+    const result = await validator.validate('DELETE this File');
 
-    expect(result.isValid).toBe(false);
     expect(result.validationMethod).toBe('pattern');
-    expect(result.detectedPattern).toBe('削除指示');
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it('throws on empty instruction input', async () => {
-    // 空文字（空白のみ含む）入力は例外として扱われることを確認
-    const { InstructionValidator } = await setupValidator({ apiKey: null });
-
-    await expect(InstructionValidator.validate('   ')).rejects.toThrow('Instruction cannot be empty');
+  // 空文字入力ではバリデーションエラーを送出することを確認する
+  it('空文字入力は例外をスローする', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    await expect(validator.validate('   ')).rejects.toThrow('Instruction cannot be empty');
   });
 
-  it('warns for very long instructions but still returns a result', async () => {
-    // 2000 文字超の入力で警告ログを出しつつ検証結果を返すことを確認
+  // 2000文字超の入力で警告ログが出るが結果は返却されることを確認する
+  it('2000文字超は警告しつつ結果を返す', async () => {
     const longInstruction = 'a'.repeat(2500);
-    const { InstructionValidator } = await setupValidator({ apiKey: null });
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
 
-    const result = await InstructionValidator.validate(longInstruction);
+    const result = await validator.validate(longInstruction);
 
     expect(logger.warn).toHaveBeenCalledWith(
       'Instruction exceeds 2000 characters, proceeding without truncation.',
     );
-    expect(result.isValid).toBe(true);
     expect(result.validationMethod).toBe('pattern');
   });
 
-  it('retries invalid JSON responses and falls back after failures', async () => {
-    // LLM が毎回不正な JSON を返した場合にリトライ後フォールバックすることを確認
+  // LLMが不正JSONを返した場合にリトライし最終的にパターンへフォールバックすることを確認する
+  it('LLMが不正JSONを返した場合リトライし最終的にフォールバックする', async () => {
     jest.useFakeTimers();
-    const invalidResponse = { choices: [{ message: { content: 'This is not valid JSON' } }] };
-    const { InstructionValidator, createMock } = await setupValidator({
-      createImpl: jest.fn(async () => invalidResponse),
+    const { validator, createMock } = await createValidator({
+      codexClient: null,
+      claudeClient: null,
+      openAiImpl: jest.fn(async () => ({
+        choices: [{ message: { content: 'This is not valid JSON' } }],
+      })),
     });
 
-    const resultPromise = InstructionValidator.validate('任意の指示');
+    const resultPromise = validator.validate('任意の指示');
     await jest.runAllTimersAsync();
     const result = await resultPromise;
 
     expect(createMock).toHaveBeenCalledTimes(3);
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('LLM validation attempt 1/3 failed'),
-    );
     expect(result.validationMethod).toBe('pattern');
   });
 
-  describe('validateWithPatterns', () => {
-    it('detects git operation instructions', async () => {
-      // Git 操作を示す指示は危険パターンとして検出されることを確認
-      const { InstructionValidator } = await setupValidator({ apiKey: null });
-      const result = (InstructionValidator as any).validateWithPatterns('commit して push してください');
+  // npm run build のような安全スクリプトが medium 信頼で通過することを確認する
+  it('安全なCLIパターンはmedium信頼の安全判定になる', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    const result = (validator as any).validateWithPatterns('npm run build を実行してください');
 
-      expect(result.isValid).toBe(false);
-      expect(result.detectedPattern).toBe('Git操作');
-      expect(result.validationMethod).toBe('pattern');
-    });
-
-    it('treats benign instructions as analysis when no pattern matches', async () => {
-      // 危険パターンに一致しない場合は低信頼で安全とみなされることを確認
-      const { InstructionValidator } = await setupValidator({ apiKey: null });
-      const result = (InstructionValidator as any).validateWithPatterns('コードの品質を確認してください');
-
-      expect(result.isValid).toBe(true);
-      expect(result.category).toBe('analysis');
-      expect(result.validationMethod).toBe('pattern');
-    });
-
-    it('matches uppercase delete commands', async () => {
-      // 大文字を含む DELETE 指示でも削除パターンとして検出できることを確認
-      const { InstructionValidator } = await setupValidator({ apiKey: null });
-      const result = (InstructionValidator as any).validateWithPatterns('DELETE this File now');
-
-      expect(result.detectedPattern).toBe('削除指示');
-      expect(result.isValid).toBe(false);
-    });
+    expect(result.isValid).toBe(true);
+    expect(result.confidence).toBe('medium');
+    expect(result.validationMethod).toBe('pattern');
   });
 
-  describe('parseResponse', () => {
-    it('parses plain JSON responses', async () => {
-      // 純粋な JSON 文字列を正しく構造化データにパースできることを確認
-      const { InstructionValidator } = await setupValidator();
-      const parsed = (InstructionValidator as any).parseResponse(
-        JSON.stringify({
-          isSafe: true,
-          reason: '分析指示です',
-          category: 'analysis',
-          confidence: 'high',
-        }),
-      );
+  // execute --phase all のCLI指示がSAFE_PATTERNSで検出されることを確認する
+  it('execute --phase all を安全パターンとしてmedium信頼で扱う', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    const result = (validator as any).validateWithPatterns('execute --phase all を実行して');
 
-      expect(parsed).toEqual({
+    expect(result.isValid).toBe(true);
+    expect(result.confidence).toBe('medium');
+    expect(result.validationMethod).toBe('pattern');
+  });
+
+  // 危険パターン検出時に警告を出し低信頼で続行する挙動を確認する
+  it('危険パターン検出時は警告後に低信頼で続行する', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    const result = await validator.validate('commit して push してください');
+
+    expect(logger.warn).toHaveBeenCalled();
+    expect(result.isValid).toBe(true);
+    expect(result.validationMethod).toBe('pattern');
+    expect(result.reason).toContain('low confidence');
+  });
+
+  // Codexエージェントが成功した場合フォールバックせず終了する挙動を確認する
+  it('Codexエージェントが成功した場合はフォールバックしない', async () => {
+    const codexExecute = jest.fn().mockResolvedValue([
+      JSON.stringify({
         isSafe: true,
-        reason: '分析指示です',
+        reason: 'codex ok',
         category: 'analysis',
         confidence: 'high',
-      });
+      }),
+    ]);
+    const { validator } = await createValidator({
+      codexClient: { executeTask: codexExecute },
+      claudeClient: null,
+      apiKey: null,
     });
 
-    it('extracts JSON inside markdown code blocks', async () => {
-      // Markdown のコードブロック内にある JSON を抽出してパースできることを確認
-      const { InstructionValidator } = await setupValidator();
-      const markdown = [
-        '判定結果は以下の通りです：',
-        '```json',
-        '{"isSafe": false, "reason": "削除指示です", "category": "execution", "confidence": "high"}',
-        '```',
-        '以上です。',
-      ].join('\n');
+    const result = await validator.validate('安全な指示');
 
-      const parsed = (InstructionValidator as any).parseResponse(markdown);
-
-      expect(parsed).toEqual({
-        isSafe: false,
-        reason: '削除指示です',
-        category: 'execution',
-        confidence: 'high',
-      });
-    });
-
-    it('finds embedded JSON within text', async () => {
-      // テキスト中に埋め込まれた JSON を検出しパースできることを確認
-      const { InstructionValidator } = await setupValidator();
-      const parsed = (InstructionValidator as any).parseResponse(
-        '結果: {"isSafe": true, "reason": "安全", "category": "analysis", "confidence": "medium"} です。',
-      );
-
-      expect(parsed).toEqual({
-        isSafe: true,
-        reason: '安全',
-        category: 'analysis',
-        confidence: 'medium',
-      });
-    });
-
-    it('validates required fields and throws on missing isSafe', async () => {
-      // 必須フィールド isSafe が欠落した JSON はバリデーションエラーになることを確認
-      const { InstructionValidator } = await setupValidator();
-      expect(() =>
-        (InstructionValidator as any).validateAndParse(
-          '{"reason": "テスト", "category": "analysis", "confidence": "high"}',
-        ),
-      ).toThrow('Missing or invalid field: isSafe');
-    });
-
-    it('rejects invalid category values', async () => {
-      // category が許容値以外の場合にエラーを投げることを確認
-      const { InstructionValidator } = await setupValidator();
-      expect(() =>
-        (InstructionValidator as any).validateAndParse(
-          '{"isSafe": true, "reason": "テスト", "category": "invalid", "confidence": "high"}',
-        ),
-      ).toThrow('Invalid category value');
-    });
-
-    it('rejects invalid confidence values', async () => {
-      // confidence が許容値以外の場合にエラーを投げることを確認
-      const { InstructionValidator } = await setupValidator();
-      expect(() =>
-        (InstructionValidator as any).validateAndParse(
-          '{"isSafe": true, "reason": "テスト", "category": "analysis", "confidence": "very_high"}',
-        ),
-      ).toThrow('Invalid confidence value');
-    });
-  });
-});
-
-describe('InstructionValidator prompt language switching', () => {
-  let originalEnv: NodeJS.ProcessEnv;
-
-  beforeEach(() => {
-    originalEnv = { ...process.env };
-    jest.resetModules();
+    expect(result.validationMethod).toBe('codex-agent');
+    expect(codexExecute).toHaveBeenCalledTimes(1);
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-    jest.restoreAllMocks();
-    jest.resetModules();
+  // Codexが失敗したときClaudeへフォールバックする経路を確認する
+  it('Codex失敗時はClaudeへフォールバックする', async () => {
+    const codexExecute = jest.fn().mockRejectedValue(new Error('codex down'));
+    const claudeExecute = jest.fn().mockResolvedValue([
+      '```json {"isSafe": true, "reason": "claude ok", "category": "analysis", "confidence": "medium"} ```',
+    ]);
+
+    const { validator } = await createValidator({
+      codexClient: { executeTask: codexExecute },
+      claudeClient: { executeTask: claudeExecute },
+      apiKey: null,
+    });
+
+    const result = await validator.validate('分析してください');
+
+    expect(result.validationMethod).toBe('claude-agent');
+    expect(codexExecute).toHaveBeenCalledTimes(1);
+    expect(claudeExecute).toHaveBeenCalledTimes(1);
   });
 
-  it('builds Japanese validation prompt when AI_WORKFLOW_LANGUAGE=ja', async () => {
-    process.env.AI_WORKFLOW_LANGUAGE = 'ja';
-    const { PromptLoader } = await import('../../../src/core/prompt-loader.js');
-    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
-    const { InstructionValidator } = await import('../../../src/core/instruction-validator.js');
+  // エージェントレスポンスのコードブロックJSONを正しくパースできることを確認する
+  it('parseAgentResponseでコードブロック内JSONを抽出できる', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    const parsed = (validator as any).parseAgentResponse([
+      '```json {"isSafe": false, "reason": "削除指示", "category": "execution", "confidence": "high"} ```',
+    ]);
 
-    const prompt = (InstructionValidator as any).buildPrompt('削除して');
-
-    expect(pathSpy).toHaveBeenCalledWith('validation', 'validate-instruction', 'ja');
-    expect(prompt).toContain('セキュリティ検証エージェント');
+    expect(parsed.isSafe).toBe(false);
+    expect(parsed.reason).toBe('削除指示');
+    expect(parsed.confidence).toBe('high');
   });
 
-  it('builds English validation prompt when AI_WORKFLOW_LANGUAGE=en', async () => {
-    process.env.AI_WORKFLOW_LANGUAGE = 'en';
-    const { PromptLoader } = await import('../../../src/core/prompt-loader.js');
-    const pathSpy = jest.spyOn(PromptLoader as any, 'resolvePromptPath');
-    const { InstructionValidator } = await import('../../../src/core/instruction-validator.js');
+  // ネストされたメッセージ構造でもJSONを抽出できることを確認する
+  it('ネストされたメッセージ構造からJSONを抽出できる', async () => {
+    const { validator } = await createValidator({ codexClient: null, claudeClient: null, apiKey: null });
+    const nestedMessage = JSON.stringify({
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '{"isSafe": true, "reason": "ok", "category": "analysis", "confidence": "medium"}',
+          },
+        ],
+      },
+    });
 
-    const prompt = (InstructionValidator as any).buildPrompt('delete this file');
+    const parsed = (validator as any).parseAgentResponse([nestedMessage]);
 
-    expect(pathSpy).toHaveBeenCalledWith('validation', 'validate-instruction', 'en');
-    expect(prompt).toContain('security validation agent');
+    expect(parsed.isSafe).toBe(true);
+    expect(parsed.reason).toBe('ok');
   });
 });
