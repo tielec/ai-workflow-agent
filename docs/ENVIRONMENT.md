@@ -303,19 +303,22 @@ env:
 
 | Jenkinsfile | 説明 |
 |------------|------|
-| `jenkins/Jenkinsfile.all-phases` | 全フェーズ実行（Phase 0-9） |
-| `jenkins/Jenkinsfile.preset` | プリセットワークフロー実行（7種類） |
-| `jenkins/Jenkinsfile.single-phase` | 単一フェーズ実行（10種類） |
-| `jenkins/Jenkinsfile.rollback` | フェーズ差し戻し実行 |
-| `jenkins/Jenkinsfile.auto-issue` | 自動Issue生成 |
-| `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` | PRコメント自動対応（init + execute） |
-| `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` | PRコメント解決処理（finalize） |
+| `jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile` | 全フェーズ実行（Phase 0-9） |
+| `jenkins/jobs/pipeline/ai-workflow/preset/Jenkinsfile` | プリセットワークフロー実行（推奨モード） |
+| `jenkins/jobs/pipeline/ai-workflow/single-phase/Jenkinsfile` | 単一フェーズ実行 |
+| `jenkins/jobs/pipeline/ai-workflow/rollback/Jenkinsfile` | フェーズ差し戻し実行 |
+| `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` | 自動Issue生成 |
+| `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` | ワークフロー完了処理 |
+| `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` | 認証情報検証 |
+| `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` | Issue自動クローズ |
+| `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` | PRコメント自動対応（実行） |
+| `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` | PRコメント自動対応（最終化） |
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
 
-**非推奨ファイル**:
-- `Jenkinsfile`（ルートディレクトリ） … 非推奨（削除予定: 2025年3月以降、並行運用期間終了後）
+**旧Jenkinsfile（非推奨）**:
+- `Jenkinsfile` - 汎用Jenkinsfile（Issue #211により非推奨、2025年3月以降削除予定）
 
 ### 実行設定
 
