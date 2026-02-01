@@ -176,11 +176,19 @@ export REPOS_ROOT="$HOME/projects"
 実行モード別に分割されたJenkinsfileがDocker コンテナ内でワークフローを実行します（v0.4.0、Issue #211）。
 
 **実行モード専用Jenkinsfile**:
-- `jenkins/Jenkinsfile.all-phases` - 全フェーズ実行（Phase 0-9）
-- `jenkins/Jenkinsfile.preset` - プリセットワークフロー実行
-- `jenkins/Jenkinsfile.single-phase` - 単一フェーズ実行
-- `jenkins/Jenkinsfile.rollback` - フェーズ差し戻し実行
-- `jenkins/Jenkinsfile.auto-issue` - 自動Issue生成
+- `jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile` - 全フェーズ実行（Phase 0-9）
+- `jenkins/jobs/pipeline/ai-workflow/preset/Jenkinsfile` - プリセットワークフロー実行（推奨モード、事前定義済みのパラメータセット）
+- `jenkins/jobs/pipeline/ai-workflow/single-phase/Jenkinsfile` - 単一フェーズ実行（対象フェーズを限定して手動再実行）
+- `jenkins/jobs/pipeline/ai-workflow/rollback/Jenkinsfile` - フェーズ差し戻し実行（途中フェーズからロールバック）
+- `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` - 自動Issue生成（エラー検出時のIssue化）
+- `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` - ワークフロー完了処理（成果物の集約と通知）
+- `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` - 認証情報検証（必要な資格情報の事前チェック）
+- `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` - Issue自動クローズ（完了済みIssueの片付け）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` - PRコメント自動対応（コメント内容で実行）
+- `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` - PRコメント自動対応（最終結果・クローズ処理）
+
+**旧Jenkinsfile（非推奨）**:
+- `Jenkinsfile` - 汎用Jenkinsfile（Issue #211により非推奨、2025年3月以降削除予定。既存の手動実行環境からは実行モード専用ファイルへの移行を推奨）
 
 詳細は [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md#jenkins統合) を参照してください。
 

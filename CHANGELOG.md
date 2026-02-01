@@ -46,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #664**: [Refactor] ドキュメントの追加: README.md
+  - README.mdのJenkins統合セクションを現行の `jenkins/jobs/pipeline/ai-workflow` 配下のJenkinsfile構成に合わせて再構成
+  - 存在しない旧パス（`jenkins/Jenkinsfile.*`）の記述を削除し、実在するパス（`jenkins/jobs/pipeline/ai-workflow/*/Jenkinsfile`）に更新
+  - 各Jenkinsfileの役割や推奨モードを補足説明し、ルートの汎用 `Jenkinsfile` を非推奨扱いとして明記
+  - docs/ENVIRONMENT.md#Jenkins統合セクションも同様に更新し、ドキュメント間の整合性を確保
+  - 技術的負債（ドキュメントとリポジトリ構成の不整合）を解消し、CI設定手順の信頼性と保守性を向上
+  - 修正ファイル: `README.md`、`docs/ENVIRONMENT.md`
+
 - **Issue #649**: pr-comment finalize --squash でメタデータファイルが削除されずリモートに残る問題を修正
   - `squashCommitsIfRequested()` 関数の処理順序を修正し、`metadataManager.cleanup()` を `git push` の前に実行するよう変更
   - メタデータディレクトリ（`.ai-workflow/pr-{n}/`）の削除がスカッシュコミットに正しく含まれ、リモートブランチにメタデータファイルが残らないよう修正
