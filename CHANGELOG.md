@@ -38,6 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #670**: pr-comment execute の文字化け問題を修正
+  - 新規ユーティリティ: `src/utils/encoding-utils.ts` - UTF-8文字化け検出・修正・サニタイズ機能を追加
+  - Claude Agent SDKからの出力処理時のエンコーディング検証・修正機能を `claude-agent-client.ts` に追加
+  - JSON解析前のMojibake修正と制御文字除去を `response-parser.ts` に追加
+  - ファイル書き込み前のエンコーディング検証・警告ログ出力を `change-applier.ts` に追加
+  - GitHubコメント送信前の文字化け検出・修正処理を `comment-client.ts` に追加
+  - **修正前の問題**: 日本語を含むPRコメントの返信が `Ã£ÂÂÃ¦ÂÂ...` のような文字化け、ファイル内の日本語文字列も `è­¦åã¯æ¤åº...` として破損
+  - **修正後の動作**: UTF-8/Latin-1誤解釈パターンの自動検出と修正により、日本語文字列が正しく処理される
+  - 修正ファイル: `src/utils/encoding-utils.ts`（新規）、`src/core/claude-agent-client.ts`、`src/commands/pr-comment/analyze/response-parser.ts`、`src/commands/pr-comment/analyze/analyze-runner.ts`、`src/core/pr-comment/change-applier.ts`、`src/core/github/comment-client.ts`
+  - テストカバレッジ: 全2853件のテスト（100%成功）
+
 - **Issue #664**: [Refactor] ドキュメントの追加: README.md
   - README.mdのJenkins統合セクションを現行の `jenkins/jobs/pipeline/ai-workflow` 配下のJenkinsfile構成に合わせて再構成
   - 存在しない旧パス（`jenkins/Jenkinsfile.*`）の記述を削除し、実在するパス（`jenkins/jobs/pipeline/ai-workflow/*/Jenkinsfile`）に更新

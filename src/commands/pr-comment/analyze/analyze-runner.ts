@@ -19,6 +19,7 @@ import {
 } from './error-handlers.js';
 import { applyPlanDefaults } from './response-normalizer.js';
 import { resolveResponsePlan } from './response-plan-loader.js';
+import { sanitizeForJson } from '../../../utils/encoding-utils.js';
 
 export async function analyzeComments(
   prNumber: number,
@@ -78,7 +79,7 @@ export async function analyzeComments(
       workingDirectory: repoRoot,
     });
     endTime = Date.now();
-    rawOutput = messages.join('\n');
+    rawOutput = sanitizeForJson(messages.join('\n'));
 
     await persistAgentLog(
       {
