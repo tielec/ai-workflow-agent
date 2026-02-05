@@ -323,6 +323,13 @@ node dist/index.js init \
   --auto-model-selection
 ```
 
+#### Jenkins パラメータ: AUTO_MODEL_SELECTION（Issue #379）
+- パラメータ名: `AUTO_MODEL_SELECTION`（自動モデル選択フラグ）。Jenkins ジョブのパラメータ/環境変数として利用。
+- `AUTO_MODEL_SELECTION` デフォルト: **true**（標準設定）。
+- true の挙動: 難易度分析を自動実行し、フェーズ難易度に応じてモデルを割り当てる（simple/moderate/complex のマッピングを使用）。
+- false の挙動: 難易度分析を行わず、`AGENT_MODE` など手動で設定したモデル構成をそのまま使用。
+- 参考: Issue #379（Jenkins 統合で AUTO_MODEL_SELECTION を明示）
+
 **難易度別モデルマッピング**:
 - `simple`: 全フェーズで execute/review/revise ともに Sonnet/Mini
 - `moderate`: planning/requirements/design/test_scenario/evaluation は Opus/Max、implementation/test_implementation/testing は execute=Opus/Max, revise=Opus/Max

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { FileChange, ChangeApplyResult } from '../../types/pr-comment.js';
+import { fixMojibake, isMojibake } from '../../utils/encoding-utils.js';
 
 /**
  * 機密ファイルパターン（変更禁止）
@@ -101,13 +102,15 @@ export class CodeChangeApplier {
   private async createFile(fullPath: string, content: string): Promise<void> {
     const dir = path.dirname(fullPath);
     await fs.ensureDir(dir);
-    await fs.writeFile(fullPath, content, 'utf-8');
+    const sanitized = this.sanitizeContent(content, fullPath);
+    await fs.writeFile(fullPath, sanitized, 'utf-8');
   }
 
   private async modifyFile(fullPath: string, change: FileChange): Promise<void> {
     if (change.content !== undefined) {
       await fs.ensureDir(path.dirname(fullPath));
-      await fs.writeFile(fullPath, change.content, 'utf-8');
+      const sanitized = this.sanitizeContent(change.content, fullPath);
+      await fs.writeFile(fullPath, sanitized, 'utf-8');
       return;
     }
 
@@ -116,6 +119,16 @@ export class CodeChangeApplier {
     }
 
     throw new Error('Either content or diff is required for modify');
+  }
+
+  private sanitizeContent(content: string, fullPath: string): string {
+    if (isMojibake(content)) {
+      logger.warn(`Detected mojibake in file content: ${fullPath}`);
+      const fixed = fixMojibake(content);
+      return fixed;
+    }
+
+    return content;
   }
 
   private async deleteFile(fullPath: string): Promise<void> {

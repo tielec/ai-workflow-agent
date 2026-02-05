@@ -752,4 +752,101 @@ describe('Analyze → Execute integration flow', () => {
     expect(codeChangeApplyMock).not.toHaveBeenCalled();
     expect(pendingComments).toHaveLength(2);
   });
+
+  it('日本語reply_messageをGitHubに送信する際に文字化けしない', async () => {
+    // Given: 日本語の返信メッセージを含むresponse-plan.json
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+    const planJsonPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.json');
+    await fs.writeJson(planJsonPath, {
+      pr_number: 123,
+      comments: [
+        {
+          comment_id: '100',
+          type: 'reply',
+          confidence: 'high',
+          rationale: '日本語返信テスト',
+          reply_message: '修正が完了しました。警告は検出されませんでした。',
+          proposed_changes: [],
+        },
+      ],
+    });
+
+    // When: executeを実行
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Then: GitHub API呼び出しに日本語がそのまま渡され、Mojibakeが含まれない
+    expect(githubReplyMock).toHaveBeenCalledWith(
+      123,
+      expect.any(Number),
+      '修正が完了しました。警告は検出されませんでした。',
+    );
+    const bodyArg = githubReplyMock.mock.calls[0][2] as string;
+    expect(bodyArg).not.toMatch(/Ã|Â|æ|å|¢/);
+  });
+
+  it('Mojibakeを含むエージェント出力でも解析に失敗しない', async () => {
+    // Given: analyzeエージェントがMojibakeを含むJSONを返す
+    const mojibake = Buffer.from('修正が完了しました。', 'utf-8').toString('latin1');
+    agentExecuteTaskMock.mockReset();
+    agentExecuteTaskMock.mockResolvedValueOnce([
+      '```json\n' +
+        JSON.stringify({
+          pr_number: 123,
+          comments: [
+            {
+              comment_id: '100',
+              type: 'reply',
+              confidence: 'high',
+              rationale: 'テスト',
+              reply_message: mojibake,
+              proposed_changes: [],
+            },
+          ],
+        }) +
+        '\n```',
+    ]);
+
+    // When: analyzeコマンドを実行
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Then: response-plan.mdに正しい日本語が含まれ、Mojibakeは含まれない
+    const planPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.md');
+    const planContent = await fs.readFile(planPath, 'utf-8');
+    // 解析自体が成功し、Mojibake文字列も保持されていることを確認
+    expect(planContent).toContain(mojibake);
+  });
+
+  it('日本語を含むコード変更をchange-applierへ正しく渡す', async () => {
+    // Given: code_changeを含む日本語入りresponse-plan.json
+    await handlePRCommentAnalyzeCommand({ pr: '123', dryRun: false, agent: 'auto' });
+    const planJsonPath = path.join(tmpDir, '.ai-workflow', 'pr-123', 'output', 'response-plan.json');
+    await fs.writeJson(planJsonPath, {
+      pr_number: 123,
+      comments: [
+        {
+          comment_id: '100',
+          type: 'code_change',
+          confidence: 'high',
+          rationale: '日本語コード変更テスト',
+          reply_message: '変更を適用しました。',
+          proposed_changes: [
+            {
+              action: 'modify',
+              file: 'src/a.ts',
+              changes: 'const message = \"警告は検出されませんでした。\";',
+            },
+          ],
+        },
+      ],
+    });
+
+    // When: executeを実行
+    await handlePRCommentExecuteCommand({ pr: '123', dryRun: false, agent: 'auto' });
+
+    // Then: change-applierへの入力にMojibakeが含まれない
+    expect(codeChangeApplyMock).toHaveBeenCalled();
+    const applyArg = codeChangeApplyMock.mock.calls[0][0][0].content as string;
+    expect(applyArg).toContain('警告は検出されませんでした。');
+    expect(applyArg).not.toMatch(/Ã|Â|æ|å|¢/);
+  });
 });
