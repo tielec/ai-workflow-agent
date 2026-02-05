@@ -1,0 +1,53 @@
+You are a GitHub Issue expert. Please redesign the following Issue based on the repository code context.
+
+## Input Information
+
+### Existing Issue Title
+{ORIGINAL_TITLE}
+
+### Existing Issue Body
+{ORIGINAL_BODY}
+
+### Repository Context
+{REPOSITORY_CONTEXT}
+
+## Output Format
+
+Please output in the following JSON format:
+
+```json
+{
+  "title": "New title (80 characters or less)",
+  "body": "New body (Markdown format)",
+  "metrics": {
+    "completeness": 85,
+    "specificity": 70
+  }
+}
+```
+
+## Redesign Guidelines
+
+1. **Title**
+   - Make it specific and concise
+   - Include scope of impact and nature of changes
+   - Keep within 80 characters
+
+2. **Body Structure**
+   - ## Overview: Clear background and purpose
+   - ## Current Situation: Specific current problems
+   - ## Proposal: Detailed solution
+   - ## Target Files: File paths identified from code context
+   - ## Implementation Hints: Specific implementation approach
+   - ## Action Items: Task checklist
+
+3. **Ensuring Specificity**
+   - Use specific file paths like `src/commands/xxx.ts`
+   - Include function and class names
+   - Add line numbers where appropriate
+
+4. **Metrics**
+   - completeness: Coverage of required sections (0-100)
+   - specificity: Inclusion rate of specific information (0-100)
+
+**IMPORTANT: Write all document content in English.**

@@ -110,6 +110,84 @@ node dist/index.js auto-close-issue \
 - プロジェクト固有の保護ラベル（例: `security`, `pinned`）を `--exclude-labels` で指定して誤クローズを防ぐ
 - `GITHUB_REPOSITORY` と `REPOS_ROOT` の整合を事前にチェックし、誤ったリポジトリで動かさない
 
+### rewrite-issue コマンド（Issue #669で追加）
+
+リポジトリのコード文脈を参照して既存GitHub Issue本文を再設計し、差分プレビューを表示するコマンドです。デフォルトではdry-runモードで動作し、`--apply` オプションで実際にIssueを更新します。
+
+```bash
+# プレビューモード（デフォルト）: 差分を確認するのみ
+node dist/index.js rewrite-issue --issue 123
+
+# 英語で出力
+node dist/index.js rewrite-issue --issue 123 --language en
+
+# Claude エージェントを指定
+node dist/index.js rewrite-issue --issue 123 --agent claude
+
+# 実際にIssueを更新
+node dist/index.js rewrite-issue --issue 123 --apply
+
+# すべてのオプションを組み合わせ
+node dist/index.js rewrite-issue \
+  --issue 456 \
+  --language ja \
+  --agent auto \
+  --apply
+```
+
+**オプション**:
+- `--issue <number>`: 対象Issue番号（**必須**）
+- `--language <ja|en>`: 出力言語（デフォルト: `ja`）
+- `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
+- `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
+- `--apply`: 実際にIssueを更新（dry-runと排他）
+
+**主な機能**:
+- **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
+- **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造・主要ファイル・依存関係などのコンテキストを取得
+- **Issue再生成**: AIエージェント（Codex/Claude）がコード文脈を踏まえた新しいタイトル・本文を生成
+- **差分プレビュー**: 変更前後の差分をunified diff形式で標準出力に表示
+- **採点指標表示**: 完全性スコア（0-100）と具体性スコア（0-100）を表示
+- **Issue更新**: `--apply` オプション指定時に、GitHub APIを通じてIssueを更新
+
+**出力例（dry-runモード）**:
+```
+========================================
+  REWRITE-ISSUE PREVIEW (dry-run)
+========================================
+
+=== Title ===
+- 旧タイトル
++ 新しいタイトル: 具体的な改善内容
+
+=== Body ===
+- 旧本文の行
++ 新本文の行（概要、現在の状況、提案内容などのセクションを含む）
+
+========================================
+  METRICS
+========================================
+  Completeness Score: 80/100
+  Specificity Score:  70/100
+
+To apply these changes, run with --apply option.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/rewrite-issue.ts`
+- **型定義**: `src/types/rewrite-issue.ts`
+- **プロンプトテンプレート**: `src/prompts/rewrite-issue/{ja|en}/rewrite-issue.txt`
+- **IssueClient拡張**: `updateIssue()` メソッドでIssueのタイトル・本文を部分更新
+
+**安全運用のヒント**:
+- まずdry-run（デフォルト）で差分を確認し、問題がなければ `--apply` で更新する
+- 重要なIssueは事前にバックアップ（コメント等で元の内容を保存）することを推奨
+- `GITHUB_TOKEN` にはIssue更新権限（`repo` スコープ）が必要
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。

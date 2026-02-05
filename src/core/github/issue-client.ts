@@ -144,6 +144,51 @@ export class IssueClient {
   }
 
   /**
+   * Issueのタイトル・本文を更新する
+   *
+   * @param issueNumber - Issue番号
+   * @param update - 更新内容（タイトル・本文の部分更新対応）
+   * @returns 更新結果
+   */
+  public async updateIssue(
+    issueNumber: number,
+    update: { title?: string; body?: string },
+  ): Promise<GenericResult> {
+    try {
+      // 更新内容がない場合は早期リターン
+      if (update.title === undefined && update.body === undefined) {
+        logger.warn(`No update content provided for issue #${issueNumber}`);
+        return { success: true, error: null };
+      }
+
+      const updatePayload: { title?: string; body?: string } = {};
+      if (update.title !== undefined) {
+        updatePayload.title = update.title;
+      }
+      if (update.body !== undefined) {
+        updatePayload.body = update.body;
+      }
+
+      await this.octokit.issues.update({
+        owner: this.owner,
+        repo: this.repo,
+        issue_number: issueNumber,
+        ...updatePayload,
+      });
+
+      logger.info(`Successfully updated issue #${issueNumber}`);
+      return { success: true, error: null };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.error(`Failed to update issue #${issueNumber}: ${this.encodeWarning(message)}`);
+      return { success: false, error: message };
+    }
+  }
+
+  /**
    * Posts a comment to an issue.
    */
   public async postComment(issueNumber: number, body: string) {

@@ -19,7 +19,8 @@ export type PromptCategory =
   | 'followup'
   | 'squash'
   | 'content_parser'
-  | 'validation';
+  | 'validation'
+  | 'rewrite-issue';
 
 export class PromptLoader {
   static loadPrompt(
