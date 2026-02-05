@@ -101,6 +101,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新） |
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
+| `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |
 

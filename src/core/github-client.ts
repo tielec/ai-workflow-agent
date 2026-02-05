@@ -166,6 +166,13 @@ export class GitHubClient {
     return this.issueClient.postComment(issueNumber, body);
   }
 
+  public async updateIssue(
+    issueNumber: number,
+    update: { title?: string; body?: string },
+  ): Promise<GenericResult> {
+    return this.issueClient.updateIssue(issueNumber, update);
+  }
+
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {
     return this.issueClient.closeIssueWithReason(issueNumber, reason);
   }

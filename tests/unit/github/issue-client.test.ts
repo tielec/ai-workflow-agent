@@ -192,6 +192,88 @@ describe('IssueClient', () => {
     });
   });
 
+  describe('updateIssue', () => {
+    it('updates title and body when both are provided (TC-UNIT-033)', async () => {
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const result = await issueClient.updateIssue(42, {
+        title: 'New Title',
+        body: 'New Body',
+      });
+
+      expect(mockOctokit.issues.update).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 42,
+        title: 'New Title',
+        body: 'New Body',
+      });
+      expect(result).toEqual({ success: true, error: null });
+    });
+
+    it('updates only title when body is omitted (TC-UNIT-034)', async () => {
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const result = await issueClient.updateIssue(10, { title: 'Only Title' });
+
+      expect(mockOctokit.issues.update).toHaveBeenCalledTimes(1);
+      expect(mockOctokit.issues.update.mock.calls[0][0]).toEqual({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 10,
+        title: 'Only Title',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('updates only body when title is omitted (TC-UNIT-035)', async () => {
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const result = await issueClient.updateIssue(11, { body: 'Only Body' });
+
+      expect(mockOctokit.issues.update.mock.calls[0][0]).toEqual({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 11,
+        body: 'Only Body',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('returns success without calling API when no update content is provided (TC-UNIT-036)', async () => {
+      const result = await issueClient.updateIssue(12, {});
+
+      expect(mockOctokit.issues.update).not.toHaveBeenCalled();
+      expect(result).toEqual({ success: true, error: null });
+    });
+
+    it('handles GitHub RequestError (TC-UNIT-037)', async () => {
+      const mockError = new RequestError('Not Found', 404, {
+        request: {
+          method: 'PATCH',
+          url: 'https://api.github.com/repos/owner/repo/issues/99',
+          headers: { authorization: 'token xxx' },
+        },
+        response: { status: 404, url: '', headers: {}, data: {} },
+      });
+      mockOctokit.issues.update.mockRejectedValue(mockError);
+
+      const result = await issueClient.updateIssue(99, { title: 'x' });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('GitHub API error: 404');
+    });
+
+    it('handles generic errors (TC-UNIT-039)', async () => {
+      mockOctokit.issues.update.mockRejectedValue(new Error('network down'));
+
+      const result = await issueClient.updateIssue(13, { body: 'b' });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('network down');
+    });
+  });
+
   describe('postComment', () => {
     it('should post a comment successfully', async () => {
       // Given: Mock comment creation response
