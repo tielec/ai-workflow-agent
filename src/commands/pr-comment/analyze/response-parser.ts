@@ -2,6 +2,7 @@ import { logger } from '../../../utils/logger.js';
 import { getErrorMessage } from '../../../utils/error-utils.js';
 import type { ResponsePlan } from '../../../types/pr-comment.js';
 import { isValidResponsePlanCandidate, normalizeResponsePlan } from './response-normalizer.js';
+import { fixMojibake, sanitizeForJson } from '../../../utils/encoding-utils.js';
 
 export function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan {
   logger.debug(`Parsing agent response (${rawOutput.length} chars)`);
@@ -39,7 +40,8 @@ export function tryParseMarkdownCodeBlock(rawOutput: string, prNumber: number): 
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[1]) as ResponsePlan;
+    const sanitized = sanitizeForJson(jsonMatch[1]);
+    const parsed = JSON.parse(sanitized) as ResponsePlan;
     return normalizeResponsePlan(parsed, prNumber);
   } catch (error) {
     logger.debug(`Strategy 1 failed: JSON parse error - ${getErrorMessage(error)}`);
@@ -103,7 +105,7 @@ export function parseFromBoundaryCandidates(
     const candidateStr = rawOutput.substring(start, end + 1);
 
     try {
-      const parsed = JSON.parse(candidateStr);
+      const parsed = JSON.parse(fixMojibake(candidateStr));
       if (isValidResponsePlanCandidate(parsed)) {
         logger.debug(`${context}: Valid JSON at position ${start}-${end}`);
         return normalizeResponsePlan(parsed, prNumber);

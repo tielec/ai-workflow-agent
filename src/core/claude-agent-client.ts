@@ -6,6 +6,7 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
 import { validateWorkingDirectoryPath } from './helpers/working-directory-resolver.js';
+import { sanitizeObjectStrings } from '../utils/encoding-utils.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -125,7 +126,8 @@ export class ClaudeAgentClient {
     const messages: string[] = [];
 
     for await (const message of stream) {
-      messages.push(JSON.stringify(message));
+      const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
+      messages.push(JSON.stringify(sanitizedMessage));
       if (verbose) {
         this.logMessage(message);
       }

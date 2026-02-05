@@ -2,6 +2,7 @@ import { Octokit } from '@octokit/rest';
 import { logger } from '../../utils/logger.js';
 import { RequestError } from '@octokit/request-error';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { fixMojibake, isMojibake } from '../../utils/encoding-utils.js';
 import { MetadataManager } from '../metadata-manager.js';
 import { SupportedLanguage } from '../../types.js';
 
@@ -400,12 +401,13 @@ export class CommentClient {
     body: string,
   ): Promise<{ id: number; html_url: string }> {
     try {
+      const sanitizedBody = this.sanitizeBody(body);
       const { data } = await this.octokit.pulls.createReplyForReviewComment({
         owner: this.owner,
         repo: this.repo,
         pull_number: prNumber,
         comment_id: commentId,
-        body,
+        body: sanitizedBody,
       });
 
       return {
@@ -416,7 +418,7 @@ export class CommentClient {
       // 422エラー（pending review制限）の場合、通常のissue commentにフォールバック
       if (error instanceof RequestError && error.status === 422) {
         logger.warn(`Failed to create review comment reply (422), falling back to issue comment`);
-        return this.createIssueComment(prNumber, body);
+        return this.createIssueComment(prNumber, this.sanitizeBody(body));
       }
 
       const message =
@@ -492,5 +494,13 @@ export class CommentClient {
    */
   private encodeWarning(message: string): string {
     return Buffer.from(message, 'utf-8').toString();
+  }
+
+  private sanitizeBody(body: string): string {
+    if (isMojibake(body)) {
+      logger.warn('Detected mojibake in comment body, attempting to fix');
+      return fixMojibake(body);
+    }
+    return body;
   }
 }
