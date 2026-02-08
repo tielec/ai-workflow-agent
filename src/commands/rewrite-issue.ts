@@ -258,7 +258,8 @@ async function executeRewriteWithAgent(
   if (tryClaude) {
     try {
       logger.info('Executing with Claude agent...');
-      response = await claudeClient!.execute(prompt);
+      const result = await claudeClient!.executeTask({ prompt });
+      response = result.join('\n');
     } catch (error) {
       logger.warn(`Claude agent failed: ${getErrorMessage(error)}`);
     }
@@ -267,7 +268,8 @@ async function executeRewriteWithAgent(
   if (!response && tryCodex) {
     try {
       logger.info('Executing with Codex agent...');
-      response = await codexClient!.execute(prompt);
+      const result = await codexClient!.executeTask({ prompt });
+      response = result.join('\n');
     } catch (error) {
       logger.warn(`Codex agent failed: ${getErrorMessage(error)}`);
     }

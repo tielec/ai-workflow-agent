@@ -1,3 +1,5 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
 You are a GitHub Issue expert. Please redesign the following Issue based on the repository code context.
 
 ## Input Information
@@ -49,5 +51,3 @@ Please output in the following JSON format:
 4. **Metrics**
    - completeness: Coverage of required sections (0-100)
    - specificity: Inclusion rate of specific information (0-100)
-
-**IMPORTANT: Write all document content in English.**

@@ -259,8 +259,8 @@ describe('Prompt language switching integration', () => {
   });
 
   test('prompt inventory matches expected counts by language', () => {
-    expect(collectPromptFiles('en').length).toBe(47);
-    expect(collectPromptFiles('ja').length).toBe(47);
+    expect(collectPromptFiles('en').length).toBe(48);
+    expect(collectPromptFiles('ja').length).toBe(48);
   });
 
   test('auto-issue and utility prompts include language instructions', () => {
@@ -284,6 +284,8 @@ describe('Prompt language switching integration', () => {
         'extract_design_decisions',
       ],
       validation: ['validate-instruction'],
+      'auto-close': ['inspect-issue'],
+      'rewrite-issue': ['rewrite-issue'],
     };
 
     languages.forEach((lang) => {
