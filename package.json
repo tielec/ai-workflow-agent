@@ -37,6 +37,7 @@
     "test:unit": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/unit",
     "test:integration": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/integration",
     "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest --coverage",
+    "validate": "npm run lint && npm test && npm run build",
     "monitor:tokens": "tsx scripts/monitor-token-detection.ts"
   },
   "dependencies": {

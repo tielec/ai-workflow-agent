@@ -11,6 +11,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 - **自動PR作成** - Issue タイトルを PR タイトルとして使用、リアルタイム進捗表示（Issue #325）
 - **Jenkins統合** - Docker コンテナ内で TypeScript CLI を実行、実行モード別Jenkinsfileをサポート
 - **多言語対応** - 日本語/英語でワークフローを実行可能（Issue #526）
+- **Agent Teams 対応** - Claude Code の Agent Teams による並列開発をサポート（詳細は [AGENT_TEAMS.md](./AGENT_TEAMS.md) 参照）
 
 ## リポジトリ構成
 
@@ -239,6 +240,7 @@ Claude Code で開発する際は、以下の規約を厳守してください�
 | ドキュメント | 説明 |
 |-------------|------|
 | [CLAUDE.md](./CLAUDE.md) | Claude Code 向けガイダンス、コーディング規約、制約事項 |
+| [AGENT_TEAMS.md](./AGENT_TEAMS.md) | Agent Teams 実践ガイド、具体的なタスク例、トラブルシューティング |
 | DOCKER_AUTH_SETUP.md | Codex/Claude 認証のセットアップ |
 | SETUP_TYPESCRIPT.md | ローカル開発環境のセットアップ手順 |
 | TROUBLESHOOTING.md | よくある問題と解決方法 |
@@ -248,6 +250,7 @@ Claude Code で開発する際は、以下の規約を厳守してください�
 
 | タスク | ドキュメント |
 |-------|-------------|
+| Agent Teams を使う | [AGENT_TEAMS.md](./AGENT_TEAMS.md) |
 | CLI コマンドを調べる | [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) |
 | 環境変数を設定する | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) |
 | 開発環境をセットアップする | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) |
