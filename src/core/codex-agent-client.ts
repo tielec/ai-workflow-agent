@@ -20,15 +20,15 @@ const DEFAULT_MAX_TURNS = 50;
 
 /**
  * Default Codex model for agent execution.
- * gpt-5.1-codex-max is optimized for long-running agent tasks.
+ * gpt-5.2-codex is optimized for long-running agent tasks.
  */
-export const DEFAULT_CODEX_MODEL = 'gpt-5.1-codex-max';
+export const DEFAULT_CODEX_MODEL = 'gpt-5.2-codex';
 
 /**
  * Codex model aliases for user-friendly model selection.
  */
 export const CODEX_MODEL_ALIASES: Record<string, string> = {
-  max: 'gpt-5.1-codex-max', // Default, for complex multi-step projects
+  max: 'gpt-5.2-codex', // Default, for complex multi-step projects
   mini: 'gpt-5.1-codex-mini', // Lightweight, cost-effective
   '5.1': 'gpt-5.1', // General-purpose
   legacy: 'gpt-5-codex', // Legacy (backward compatibility)
@@ -44,10 +44,10 @@ export const CODEX_MODEL_ALIASES: Record<string, string> = {
  * @returns Resolved model ID
  *
  * @example
- * resolveCodexModel('max')           // → 'gpt-5.1-codex-max'
+ * resolveCodexModel('max')           // → 'gpt-5.2-codex'
  * resolveCodexModel('MINI')          // → 'gpt-5.1-codex-mini' (case-insensitive)
  * resolveCodexModel('gpt-5.1-codex') // → 'gpt-5.1-codex' (passthrough)
- * resolveCodexModel(undefined)       // → 'gpt-5.1-codex-max' (default)
+ * resolveCodexModel(undefined)       // → 'gpt-5.2-codex' (default)
  */
 export function resolveCodexModel(modelOrAlias: string | undefined | null): string {
   if (!modelOrAlias || !modelOrAlias.trim()) {

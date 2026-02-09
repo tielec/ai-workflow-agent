@@ -17,7 +17,7 @@
 TypeScript ベースの AI Workflow 自動化ツールキットで、デュアルエージェント（Codex + Claude）をサポートしています。GitHub Issue に対して planning から evaluation までの 10 フェーズのワークフローを実行し、マルチリポジトリワークフロー、Jenkins 統合、永続的なメタデータ管理をサポートします。
 
 **主要機能**:
-- **デュアルエージェント**: Codex（gpt-5.1-codex-max）と Claude（Opus 4.5）の自動フォールバック
+- **デュアルエージェント**: Codex（gpt-5.2-codex）と Claude（Opus 4.5）の自動フォールバック
 - **10フェーズワークフロー**: Planning → Requirements → Design → Test Scenario → Implementation → Test Implementation → Testing → Documentation → Report → Evaluation
 - **永続化メタデータ**: `.ai-workflow/issue-*/metadata.json` でワークフロー状態を管理
 - **マルチリポジトリ対応**: Issue URL から対象リポジトリを自動判定（v0.2.0）

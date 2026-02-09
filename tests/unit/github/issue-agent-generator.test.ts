@@ -368,7 +368,7 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     await generator.generate(context, 'codex', 'max');
 
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+      expect.objectContaining({ model: 'gpt-5.2-codex' }),
     );
   });
 
@@ -378,7 +378,7 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     await generator.generate(context, 'codex');
 
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+      expect.objectContaining({ model: 'gpt-5.2-codex' }),
     );
   });
 
