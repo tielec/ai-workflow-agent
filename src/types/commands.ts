@@ -257,7 +257,7 @@ export interface ExecuteCommandOptions {
    * Claude モデル指定（Issue #301）
    *
    * エイリアス（opus, sonnet, haiku）またはフルモデルIDで指定
-   * デフォルト: opus（claude-opus-4-5-20251101）
+   * デフォルト: opus（claude-opus-4-6）
    */
   claudeModel?: string;
 

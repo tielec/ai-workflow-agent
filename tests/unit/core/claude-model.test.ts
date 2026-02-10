@@ -8,12 +8,12 @@
 import { describe, test, expect } from '@jest/globals';
 
 // Inline the constants and function to avoid ESM import issues with chalk
-const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-5-20251101';
+const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-6';
 
 const CLAUDE_MODEL_ALIASES: Record<string, string> = {
-  opus: 'claude-opus-4-5-20251101',
-  sonnet: 'claude-sonnet-4-20250514',
-  haiku: 'claude-haiku-3-5-20241022',
+  opus: 'claude-opus-4-6',
+  sonnet: 'claude-sonnet-4-5',
+  haiku: 'claude-haiku-4-5',
 };
 
 function resolveClaudeModel(modelOrAlias: string | undefined | null): string {
@@ -56,40 +56,40 @@ describe('resolveClaudeModel', () => {
   describe('alias resolution', () => {
     test('resolves "opus" alias to full model ID', () => {
       const result = resolveClaudeModel('opus');
-      expect(result).toBe('claude-opus-4-5-20251101');
+      expect(result).toBe('claude-opus-4-6');
     });
 
     test('resolves "sonnet" alias to full model ID', () => {
       const result = resolveClaudeModel('sonnet');
-      expect(result).toBe('claude-sonnet-4-20250514');
+      expect(result).toBe('claude-sonnet-4-5');
     });
 
     test('resolves "haiku" alias to full model ID', () => {
       const result = resolveClaudeModel('haiku');
-      expect(result).toBe('claude-haiku-3-5-20241022');
+      expect(result).toBe('claude-haiku-4-5');
     });
 
     test('resolves aliases case-insensitively (uppercase)', () => {
-      expect(resolveClaudeModel('OPUS')).toBe('claude-opus-4-5-20251101');
-      expect(resolveClaudeModel('SONNET')).toBe('claude-sonnet-4-20250514');
-      expect(resolveClaudeModel('HAIKU')).toBe('claude-haiku-3-5-20241022');
+      expect(resolveClaudeModel('OPUS')).toBe('claude-opus-4-6');
+      expect(resolveClaudeModel('SONNET')).toBe('claude-sonnet-4-5');
+      expect(resolveClaudeModel('HAIKU')).toBe('claude-haiku-4-5');
     });
 
     test('resolves aliases case-insensitively (mixed case)', () => {
-      expect(resolveClaudeModel('Opus')).toBe('claude-opus-4-5-20251101');
-      expect(resolveClaudeModel('SoNnEt')).toBe('claude-sonnet-4-20250514');
-      expect(resolveClaudeModel('HaIkU')).toBe('claude-haiku-3-5-20241022');
+      expect(resolveClaudeModel('Opus')).toBe('claude-opus-4-6');
+      expect(resolveClaudeModel('SoNnEt')).toBe('claude-sonnet-4-5');
+      expect(resolveClaudeModel('HaIkU')).toBe('claude-haiku-4-5');
     });
 
     test('trims whitespace from aliases', () => {
-      expect(resolveClaudeModel('  opus  ')).toBe('claude-opus-4-5-20251101');
-      expect(resolveClaudeModel('\tsonnet\t')).toBe('claude-sonnet-4-20250514');
+      expect(resolveClaudeModel('  opus  ')).toBe('claude-opus-4-6');
+      expect(resolveClaudeModel('\tsonnet\t')).toBe('claude-sonnet-4-5');
     });
   });
 
   describe('full model ID passthrough', () => {
     test('returns full model ID as-is when not an alias', () => {
-      const fullModelId = 'claude-opus-4-5-20251101';
+      const fullModelId = 'claude-opus-4-6';
       const result = resolveClaudeModel(fullModelId);
       expect(result).toBe(fullModelId);
     });
@@ -101,7 +101,7 @@ describe('resolveClaudeModel', () => {
     });
 
     test('preserves exact casing for full model IDs', () => {
-      const modelId = 'Claude-Opus-4-5-20251101';
+      const modelId = 'Claude-Opus-4-6';
       const result = resolveClaudeModel(modelId);
       expect(result).toBe(modelId);
     });
@@ -115,21 +115,21 @@ describe('CLAUDE_MODEL_ALIASES', () => {
     expect(CLAUDE_MODEL_ALIASES).toHaveProperty('haiku');
   });
 
-  test('opus alias maps to Opus 4.5 model', () => {
-    expect(CLAUDE_MODEL_ALIASES.opus).toBe('claude-opus-4-5-20251101');
+  test('opus alias maps to Opus 4.6 model', () => {
+    expect(CLAUDE_MODEL_ALIASES.opus).toBe('claude-opus-4-6');
   });
 
-  test('sonnet alias maps to Sonnet 4 model', () => {
-    expect(CLAUDE_MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-20250514');
+  test('sonnet alias maps to Sonnet 4.5 model', () => {
+    expect(CLAUDE_MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-5');
   });
 
-  test('haiku alias maps to Haiku 3.5 model', () => {
-    expect(CLAUDE_MODEL_ALIASES.haiku).toBe('claude-haiku-3-5-20241022');
+  test('haiku alias maps to Haiku 4.5 model', () => {
+    expect(CLAUDE_MODEL_ALIASES.haiku).toBe('claude-haiku-4-5');
   });
 });
 
 describe('DEFAULT_CLAUDE_MODEL', () => {
-  test('is set to Opus 4.5', () => {
-    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-opus-4-5-20251101');
+  test('is set to Opus 4.6', () => {
+    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-opus-4-6');
   });
 });

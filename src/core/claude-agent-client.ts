@@ -21,17 +21,17 @@ const DEFAULT_MAX_TURNS = 50;
 
 /**
  * Default Claude model for agent execution.
- * Opus 4.5 provides the highest capability for complex tasks.
+ * Opus 4.6 provides the highest capability for complex tasks.
  */
-export const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-5-20251101';
+export const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-6';
 
 /**
  * Claude model aliases for user-friendly model selection.
  */
 export const CLAUDE_MODEL_ALIASES: Record<string, string> = {
-  opus: 'claude-opus-4-5-20251101',
-  sonnet: 'claude-sonnet-4-20250514',
-  haiku: 'claude-haiku-3-5-20241022',
+  opus: 'claude-opus-4-6',
+  sonnet: 'claude-sonnet-4-5',
+  haiku: 'claude-haiku-4-5',
 };
 
 /**

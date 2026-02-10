@@ -83,16 +83,16 @@
    export CLAUDE_MODEL="sonnet"  # opus, sonnet, haiku
 
    # フルモデルIDを使用
-   export CLAUDE_MODEL="claude-sonnet-4-20250514"
+   export CLAUDE_MODEL="claude-sonnet-4-5"
    ```
 
 **モデルエイリアス**:
 
 | エイリアス | 実際のモデル ID | 説明 |
 |-----------|----------------|------|
-| `opus` | `claude-opus-4-5-20251101` | **デフォルト**。最高性能、複雑なタスク向け |
-| `sonnet` | `claude-sonnet-4-20250514` | バランス型、コスト効率良好 |
-| `haiku` | `claude-haiku-3-5-20241022` | 高速・低コスト、シンプルなタスク向け |
+| `opus` | `claude-opus-4-6` | **デフォルト**。最高性能、複雑なタスク向け |
+| `sonnet` | `claude-sonnet-4-5` | バランス型、コスト効率良好 |
+| `haiku` | `claude-haiku-4-5` | 高速・低コスト、シンプルなタスク向け |
 
 ### Codex モデル指定（Issue #302）
 
@@ -217,7 +217,7 @@ export OPENAI_API_KEY="sk-..."
 
 # Claude を使用
 export FOLLOWUP_LLM_MODE="claude"
-export FOLLOWUP_LLM_MODEL="claude-3-sonnet-20240229"
+export FOLLOWUP_LLM_MODEL="claude-sonnet-4-5"
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 

@@ -621,7 +621,7 @@ node dist/index.js execute \
   --issue <NUM> \
   --phase evaluation \
   --followup-llm-mode claude \
-  --followup-llm-model claude-3-sonnet-20240229
+  --followup-llm-model claude-sonnet-4-5
 
 # LLM生成を無効化（既存テンプレートを使用）
 node dist/index.js execute \
@@ -631,7 +631,7 @@ node dist/index.js execute \
 ```
 
 **主な機能**:
-- **LLM統合**: OpenAI（gpt-4o-mini）またはAnthropic（claude-3-sonnet-20240229）を使用してフォローアップIssueのタイトル/本文を生成
+- **LLM統合**: OpenAI（gpt-4o-mini）またはAnthropic（claude-sonnet-4-5）を使用してフォローアップIssueのタイトル/本文を生成
 - **自動フォールバック**: LLM呼び出し失敗時は既存テンプレートへ自動的にフォールバック
 - **セキュリティ**: プロンプト送信前にシークレット（APIキー、メールアドレス、トークン）を自動マスキング
 - **リトライ制御**: 指数バックオフ戦略で最大3回までリトライ
@@ -639,7 +639,7 @@ node dist/index.js execute \
 
 **オプション**:
 - `--followup-llm-mode <mode>`: LLMプロバイダ（`auto` | `openai` | `claude` | `off`、デフォルト: `off`）
-- `--followup-llm-model <model>`: 使用モデル（`gpt-4o-mini` | `claude-3-sonnet-20240229` 等）
+- `--followup-llm-model <model>`: 使用モデル（`gpt-4o-mini` | `claude-sonnet-4-5` 等）
 - `--followup-llm-timeout <ms>`: タイムアウト（ミリ秒、デフォルト: 30000）
 - `--followup-llm-max-retries <count>`: 最大リトライ回数（デフォルト: 3）
 - `--followup-llm-append-metadata`: Issue本文末尾に生成メタデータを追記
@@ -830,7 +830,7 @@ node dist/index.js execute --issue 123 --phase all --claude-model sonnet
 node dist/index.js execute --issue 123 --phase all --claude-model haiku
 
 # フルモデルIDで指定
-node dist/index.js execute --issue 123 --phase all --claude-model claude-opus-4-5-20251101
+node dist/index.js execute --issue 123 --phase all --claude-model claude-opus-4-6
 
 # 環境変数でデフォルト動作を設定
 export CLAUDE_MODEL=sonnet
@@ -841,14 +841,14 @@ node dist/index.js execute --issue 123 --phase all
 
 | エイリアス | 実際のモデル ID | 説明 |
 |-----------|----------------|------|
-| `opus` | `claude-opus-4-5-20251101` | **デフォルト**。最高性能、複雑なタスク向け |
-| `sonnet` | `claude-sonnet-4-20250514` | バランス型、コスト効率良好 |
-| `haiku` | `claude-haiku-3-5-20241022` | 高速・低コスト、シンプルなタスク向け |
+| `opus` | `claude-opus-4-6` | **デフォルト**。最高性能、複雑なタスク向け |
+| `sonnet` | `claude-sonnet-4-5` | バランス型、コスト効率良好 |
+| `haiku` | `claude-haiku-4-5` | 高速・低コスト、シンプルなタスク向け |
 
 **優先順位**:
 1. CLI オプション `--claude-model`（最優先）
 2. 環境変数 `CLAUDE_MODEL`
-3. デフォルト値 `opus`（`claude-opus-4-5-20251101`）
+3. デフォルト値 `opus`（`claude-opus-4-6`）
 
 ### Codex モデル指定（Issue #302で追加）
 
