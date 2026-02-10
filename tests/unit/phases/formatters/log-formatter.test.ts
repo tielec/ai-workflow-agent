@@ -17,7 +17,7 @@ describe('LogFormatter - Claude Agent ログフォーマット', () => {
   test('1-1: Claude Agent の正常系ログが正しくMarkdownに変換される', () => {
     // Given: Claude エージェントの生ログ
     const messages = [
-      JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session_123', model: 'claude-3-5-sonnet-20241022', permissionMode: 'auto', tools: ['Read', 'Write', 'Glob'] }),
+      JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session_123', model: 'claude-sonnet-4-5', permissionMode: 'auto', tools: ['Read', 'Write', 'Glob'] }),
       JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'ファイルを読み込みます' }] } }),
       JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/path/to/file.ts' } }] } }),
       JSON.stringify({ type: 'result', subtype: 'success', duration_ms: 120000, num_turns: 3, result: 'ファイル読み込み成功' }),
@@ -34,7 +34,7 @@ describe('LogFormatter - Claude Agent ログフォーマット', () => {
     // Then: Markdown 形式のログが返される
     expect(result).toContain('# Claude Agent 実行ログ');
     expect(result).toContain('session_123');
-    expect(result).toContain('claude-3-5-sonnet-20241022');
+    expect(result).toContain('claude-sonnet-4-5');
     expect(result).toContain('Read, Write, Glob');
     expect(result).toContain('ファイルを読み込みます');
     expect(result).toContain('Read');

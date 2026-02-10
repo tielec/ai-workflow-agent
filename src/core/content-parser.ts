@@ -61,7 +61,7 @@ export class ContentParser {
     } else {
       this.anthropicClient = null;
     }
-    this.anthropicModel = options.anthropicModel ?? 'claude-3-5-sonnet-20241022';
+    this.anthropicModel = options.anthropicModel ?? 'claude-sonnet-4-5';
 
     // Claude Agent クライアントの初期化
     const claudeToken = config.getClaudeCodeToken();

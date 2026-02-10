@@ -1904,7 +1904,7 @@ node dist/index.js execute --issue 123 --phase evaluation \
 
 # 方法3: claude モードを使用（Anthropic API キーが必要）
 node dist/index.js execute --issue 123 --phase evaluation \
-  --followup-llm-mode claude --followup-llm-model claude-3-sonnet-20240229
+  --followup-llm-mode claude --followup-llm-model claude-sonnet-4-5
 ```
 
 **確認方法**:

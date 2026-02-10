@@ -502,7 +502,7 @@ export class AnthropicAdapter implements LlmProviderAdapter {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: options.model ?? 'claude-3-sonnet-20240229',
+          model: options.model ?? 'claude-sonnet-4-5',
           max_tokens: options.maxOutputTokens ?? 1500,
           temperature: options.temperature ?? 0.2,
           messages: [
@@ -536,7 +536,7 @@ export class AnthropicAdapter implements LlmProviderAdapter {
 
       return {
         text,
-        model: json.model ?? options.model ?? 'claude-3-sonnet-20240229',
+        model: json.model ?? options.model ?? 'claude-sonnet-4-5',
         inputTokens: json.usage?.input_tokens,
         outputTokens: json.usage?.output_tokens,
         retryCount: 0,

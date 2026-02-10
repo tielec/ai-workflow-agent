@@ -65,7 +65,7 @@ describe('Integration: IssueClient with IssueAIGenerator', () => {
       hasCredentials: () => false,
       complete: async () => ({
         text: '',
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-sonnet-4-5',
         retryCount: 0,
         durationMs: 0,
       }),

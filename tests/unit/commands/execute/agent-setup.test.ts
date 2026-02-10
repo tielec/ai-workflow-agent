@@ -71,11 +71,11 @@ beforeAll(async () => {
 
   await jest.unstable_mockModule('../../../../src/core/claude-agent-client.js', async () => {
     const CLAUDE_MODEL_ALIASES = {
-      opus: 'claude-opus-4-5-20251101',
-      sonnet: 'claude-sonnet-4-20250514',
-      haiku: 'claude-haiku-3-5-20241022',
+      opus: 'claude-opus-4-6',
+      sonnet: 'claude-sonnet-4-5',
+      haiku: 'claude-haiku-4-5',
     };
-    const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-5-20251101';
+    const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-6';
 
     function resolveClaudeModel(modelOrAlias: string | undefined | null): string {
       if (!modelOrAlias || !modelOrAlias.trim()) {
@@ -384,7 +384,7 @@ describe('setupAgentClients - claude モード', () => {
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: undefined,
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
@@ -407,7 +407,7 @@ describe('setupAgentClients - claude モード', () => {
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: '/home/user/.claude-code/credentials.json',
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
@@ -453,7 +453,7 @@ describe('setupAgentClients - auto モード', () => {
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: undefined,
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(result.codexClient).toBeDefined();
     expect(result.claudeClient).toBeDefined();
@@ -478,7 +478,7 @@ describe('setupAgentClients - auto モード', () => {
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: undefined,
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
@@ -502,7 +502,7 @@ describe('setupAgentClients - auto モード', () => {
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: undefined,
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(result.codexClient).toBeNull();
     expect(result.claudeClient).toBeDefined();
@@ -568,7 +568,7 @@ describe('setupAgentClients - agentPriority: claude-first（Issue #629）', () =
     expect(ClaudeAgentClientMock).toHaveBeenCalledWith({
       workingDir,
       credentialsPath: undefined,
-      model: 'claude-opus-4-5-20251101',
+      model: 'claude-opus-4-6',
     });
     expect(CodexAgentClientMock).toHaveBeenCalledWith({
       workingDir,
