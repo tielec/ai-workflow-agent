@@ -47,9 +47,9 @@ describe('RepositoryAnalyzer - collectRepositoryCode integration', () => {
       collectRepositoryCode: (repoPath: string) => Promise<string>;
     }).collectRepositoryCode(tempDir);
 
-    expect(collected).toContain('// File: src/index.ts');
+    expect(collected).toMatch(/\/\/ File: src[/\\]index\.ts/);
     expect(collected).toContain('console.log("keep me");');
-    expect(collected).toContain('// File: pkg/service/user.go');
+    expect(collected).toMatch(/\/\/ File: pkg[/\\]service[/\\]user\.go/);
     expect(collected).not.toContain('node_modules');
     expect(collected).not.toContain('logo.png');
   });

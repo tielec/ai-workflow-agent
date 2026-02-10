@@ -187,7 +187,7 @@ export interface AgentSetupOptions {
 
   /**
    * Codex モデル指定（エイリアスまたはフルモデルID）（Issue #302）
-   * 未指定時は環境変数 CODEX_MODEL → デフォルト (gpt-5.1-codex-max) の順で解決
+   * 未指定時は環境変数 CODEX_MODEL → デフォルト (gpt-5.2-codex) の順で解決
    */
   codexModel?: string;
 

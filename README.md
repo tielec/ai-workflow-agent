@@ -4,13 +4,14 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 
 ## 特長
 
-- **Codex + Claude のデュアルエージェント** - Codex（gpt-5.1-codex-max）と Claude（Opus 4.5）の自動フォールバック
+- **Codex + Claude のデュアルエージェント** - Codex（gpt-5.2-codex）と Claude（Opus 4.5）の自動フォールバック
 - **10フェーズワークフロー** - Planning → Requirements → Design → Test Scenario → Implementation → Test Implementation → Testing → Documentation → Report → Evaluation
 - **永続化メタデータ** - `.ai-workflow/issue-*/metadata.json` でワークフロー状態を管理、途中再開とコスト集計が可能
 - **マルチリポジトリ対応** - Issue URL から対象リポジトリを自動判定し、別のリポジトリに対してもワークフローを実行（v0.2.0）
 - **自動PR作成** - Issue タイトルを PR タイトルとして使用、リアルタイム進捗表示（Issue #325）
 - **Jenkins統合** - Docker コンテナ内で TypeScript CLI を実行、実行モード別Jenkinsfileをサポート
 - **多言語対応** - 日本語/英語でワークフローを実行可能（Issue #526）
+- **Agent Teams 対応** - Claude Code の Agent Teams による並列開発をサポート（詳細は [AGENT_TEAMS.md](./AGENT_TEAMS.md) 参照）
 
 ## リポジトリ構成
 
@@ -101,6 +102,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新） |
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
+| `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |
 
@@ -181,6 +183,7 @@ export REPOS_ROOT="$HOME/projects"
 - `jenkins/jobs/pipeline/ai-workflow/single-phase/Jenkinsfile` - 単一フェーズ実行（対象フェーズを限定して手動再実行）
 - `jenkins/jobs/pipeline/ai-workflow/rollback/Jenkinsfile` - フェーズ差し戻し実行（途中フェーズからロールバック）
 - `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` - 自動Issue生成（エラー検出時のIssue化）
+- `jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile` - Issue本文再設計実行（リポジトリ文脈を参照した既存Issue改善）
 - `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` - ワークフロー完了処理（成果物の集約と通知）
 - `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` - 認証情報検証（必要な資格情報の事前チェック）
 - `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` - Issue自動クローズ（完了済みIssueの片付け）
@@ -238,6 +241,7 @@ Claude Code で開発する際は、以下の規約を厳守してください�
 | ドキュメント | 説明 |
 |-------------|------|
 | [CLAUDE.md](./CLAUDE.md) | Claude Code 向けガイダンス、コーディング規約、制約事項 |
+| [AGENT_TEAMS.md](./AGENT_TEAMS.md) | Agent Teams 実践ガイド、具体的なタスク例、トラブルシューティング |
 | DOCKER_AUTH_SETUP.md | Codex/Claude 認証のセットアップ |
 | SETUP_TYPESCRIPT.md | ローカル開発環境のセットアップ手順 |
 | TROUBLESHOOTING.md | よくある問題と解決方法 |
@@ -247,6 +251,7 @@ Claude Code で開発する際は、以下の規約を厳守してください�
 
 | タスク | ドキュメント |
 |-------|-------------|
+| Agent Teams を使う | [AGENT_TEAMS.md](./AGENT_TEAMS.md) |
 | CLI コマンドを調べる | [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) |
 | 環境変数を設定する | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) |
 | 開発環境をセットアップする | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) |

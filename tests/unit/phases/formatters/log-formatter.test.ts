@@ -302,8 +302,8 @@ describe('LogFormatter - エッジケース', () => {
   });
 
   test('4-3: タイムスタンプが未来日時でも正常にフォーマットされる', () => {
-    // Given: 未来の日時
-    const futureTime = new Date('2099-12-31T23:59:59Z').getTime();
+    // Given: 未来の日時 (UTC+9でも2099年のまま)
+    const futureTime = Date.UTC(2099, 0, 1, 0, 0, 0); // 2099-01-01 00:00:00 UTC
     const messages = [
       JSON.stringify({ type: 'system', subtype: 'init', session_id: 'future' }),
     ];

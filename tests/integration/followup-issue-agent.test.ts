@@ -272,7 +272,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       );
 
       expect(codexClient.executeTask).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-5.1-codex-max' }),
+        expect.objectContaining({ model: 'gpt-5.2-codex' }),
       );
       expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
     });

@@ -18,6 +18,7 @@ import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js'
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
+import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -312,6 +313,32 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handleAutoIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // rewrite-issue コマンド
+  program
+    .command('rewrite-issue')
+    .description('Rewrite existing GitHub Issue with repository context')
+    .requiredOption('--issue <number>', 'Issue number to rewrite')
+    .addOption(
+      new Option('--language <lang>', 'Output language')
+        .choices(['ja', 'en'])
+        .default('ja'),
+    )
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .option('--apply', 'Apply changes to GitHub Issue', false)
+    .option('--dry-run', 'Preview mode (default)', false)
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleRewriteIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

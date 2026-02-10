@@ -288,11 +288,11 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
 
     expect(fspRmMock).toHaveBeenCalledWith(
-      expect.stringContaining('.ai-workflow/pr-123/analyze'),
+      expect.stringMatching(/\.ai-workflow[/\\]pr-123[/\\]analyze/),
       { recursive: true, force: true },
     );
     expect(fspRmMock).toHaveBeenCalledWith(
-      expect.stringContaining('.ai-workflow/pr-123/output'),
+      expect.stringMatching(/\.ai-workflow[/\\]pr-123[/\\]output/),
       { recursive: true, force: true },
     );
     expect(simpleGitAddMock).toHaveBeenCalledWith('.');
@@ -382,11 +382,11 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     await handlePRCommentFinalizeCommand({ ...commandOptions, squash: true });
 
     expect(fspRmMock).toHaveBeenCalledWith(
-      expect.stringContaining('.ai-workflow/pr-123/analyze'),
+      expect.stringMatching(/\.ai-workflow[/\\]pr-123[/\\]analyze/),
       { recursive: true, force: true },
     );
     expect(fspRmMock).toHaveBeenCalledWith(
-      expect.stringContaining('.ai-workflow/pr-123/output'),
+      expect.stringMatching(/\.ai-workflow[/\\]pr-123[/\\]output/),
       { recursive: true, force: true },
     );
 

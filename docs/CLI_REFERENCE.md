@@ -110,6 +110,109 @@ node dist/index.js auto-close-issue \
 - プロジェクト固有の保護ラベル（例: `security`, `pinned`）を `--exclude-labels` で指定して誤クローズを防ぐ
 - `GITHUB_REPOSITORY` と `REPOS_ROOT` の整合を事前にチェックし、誤ったリポジトリで動かさない
 
+### rewrite-issue コマンド（Issue #669で追加）
+
+リポジトリのコード文脈を参照して既存GitHub Issue本文を再設計し、差分プレビューを表示するコマンドです。デフォルトではdry-runモードで動作し、`--apply` オプションで実際にIssueを更新します。
+
+```bash
+# プレビューモード（デフォルト）: 差分を確認するのみ
+node dist/index.js rewrite-issue --issue 123
+
+# 英語で出力
+node dist/index.js rewrite-issue --issue 123 --language en
+
+# Claude エージェントを指定
+node dist/index.js rewrite-issue --issue 123 --agent claude
+
+# 実際にIssueを更新
+node dist/index.js rewrite-issue --issue 123 --apply
+
+# すべてのオプションを組み合わせ
+node dist/index.js rewrite-issue \
+  --issue 456 \
+  --language ja \
+  --agent auto \
+  --apply
+```
+
+**オプション**:
+- `--issue <number>`: 対象Issue番号（**必須**）
+- `--language <ja|en>`: 出力言語（デフォルト: `ja`）
+- `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
+- `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
+- `--apply`: 実際にIssueを更新（dry-runと排他）
+
+**主な機能**:
+- **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
+- **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造・主要ファイル・依存関係などのコンテキストを取得
+- **Issue再生成**: AIエージェント（Codex/Claude）がコード文脈を踏まえた新しいタイトル・本文を生成
+- **差分プレビュー**: 変更前後の差分をunified diff形式で標準出力に表示
+- **採点指標表示**: 完全性スコア（0-100）と具体性スコア（0-100）を表示
+- **Issue更新**: `--apply` オプション指定時に、GitHub APIを通じてIssueを更新
+
+**出力例（dry-runモード）**:
+```
+========================================
+  REWRITE-ISSUE PREVIEW (dry-run)
+========================================
+
+=== Title ===
+- 旧タイトル
++ 新しいタイトル: 具体的な改善内容
+
+=== Body ===
+- 旧本文の行
++ 新本文の行（概要、現在の状況、提案内容などのセクションを含む）
+
+========================================
+  METRICS
+========================================
+  Completeness Score: 80/100
+  Specificity Score:  70/100
+
+To apply these changes, run with --apply option.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/rewrite-issue.ts`
+- **型定義**: `src/types/rewrite-issue.ts`
+- **プロンプトテンプレート**: `src/prompts/rewrite-issue/{ja|en}/rewrite-issue.txt`
+- **IssueClient拡張**: `updateIssue()` メソッドでIssueのタイトル・本文を部分更新
+
+**Jenkins統合**:
+
+Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョブとして実行できます。Jenkins UIパラメータとCLIオプションの対応：
+
+| Jenkins パラメータ | CLI オプション | デフォルト値 |
+|------------------|--------------|-------------|
+| ISSUE_NUMBER | --issue | - (必須) |
+| LANGUAGE | --language | ja |
+| AGENT_MODE | --agent | auto |
+| APPLY | --apply | false |
+| DRY_RUN | - | true (CLIデフォルト動作) |
+
+**パイプライン実行例**:
+```
+# Jenkins でパラメータ設定
+ISSUE_NUMBER: 123
+LANGUAGE: ja
+AGENT_MODE: auto
+APPLY: false (プレビューモード)
+
+# 上記は以下のCLI実行と等価
+node dist/index.js rewrite-issue --issue 123 --language ja --agent auto
+```
+
+**安全運用のヒント**:
+- まずdry-run（デフォルト）で差分を確認し、問題がなければ `--apply` で更新する
+- 重要なIssueは事前にバックアップ（コメント等で元の内容を保存）することを推奨
+- `GITHUB_TOKEN` にはIssue更新権限（`repo` スコープ）が必要
+- Jenkins実行時は、Docker エージェント内でリポジトリが自動クローンされます
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。
@@ -209,7 +312,7 @@ node dist/index.js validate-credentials --check all --exit-on-error
 
 ### Codex モデル選択（Issue #302で追加）
 
-Codex エージェントは `gpt-5.1-codex-max` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。
+Codex エージェントは `gpt-5.2-codex` をデフォルトで使用しますが、CLI オプションまたは環境変数でモデルを切り替えられます。`resolveCodexModel()`（`src/core/codex-agent-client.ts`）がエイリアスを大文字・小文字を区別せずに解決し、未指定時は `DEFAULT_CODEX_MODEL` にフォールバックします。
 
 ```bash
 # CLI オプションでエイリアスを指定
@@ -223,20 +326,20 @@ node dist/index.js execute --issue 302 --phase documentation
 **優先順位**:
 - CLI オプション `--codex-model <alias|model>` が最優先
 - 環境変数 `CODEX_MODEL=<alias|model>` は CLI 未指定時に使用
-- どちらも未指定の場合は `gpt-5.1-codex-max` を使用
+- どちらも未指定の場合は `gpt-5.2-codex` を使用
 
 **モデルエイリアス**（`CODEX_MODEL_ALIASES` 定数で定義）:
 
 | エイリアス | 実際のモデルID | 用途 |
 |-----------|---------------|------|
-| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間・高負荷タスク向け |
+| `max` | `gpt-5.2-codex` | **デフォルト**。長時間・高負荷タスク向け |
 | `mini` | `gpt-5.1-codex-mini` | 軽量／コスト重視の検証タスク |
 | `5.1` | `gpt-5.1` | 汎用プロンプト向け |
 | `legacy` | `gpt-5-codex` | 旧デフォルトとの後方互換性 |
 
 フルモデルIDを指定した場合はエイリアス解決をスキップしてそのまま渡されるため、新しい Codex リリースにも即応できます。`legacy` エイリアスを使えば既存の `gpt-5-codex` 固定ワークフローを破壊せずに動作確認が可能です。
 
-**補足**: ChatGPT アカウントで Codex CLI（`CODEX_AUTH_JSON` など）を使うと `gpt-4o`/`gpt-4o-mini` は非対応になるため、`resolveCodexModel()` では非対応モデルや未指定値が渡された際に `DEFAULT_CODEX_MODEL`（`gpt-5.1-codex-max`）へ安全にフォールバックします。`--codex-model` や `CODEX_MODEL` では上記エイリアスまたはフルモデル名を使って ChatGPT 対応モデルを明示的に指定してください。詳細やトラブルシュートは `TROUBLESHOOTING.md` の該当セクションを確認してください。
+**補足**: ChatGPT アカウントで Codex CLI（`CODEX_AUTH_JSON` など）を使うと `gpt-4o`/`gpt-4o-mini` は非対応になるため、`resolveCodexModel()` では非対応モデルや未指定値が渡された際に `DEFAULT_CODEX_MODEL`（`gpt-5.2-codex`）へ安全にフォールバックします。`--codex-model` や `CODEX_MODEL` では上記エイリアスまたはフルモデル名を使って ChatGPT 対応モデルを明示的に指定してください。詳細やトラブルシュートは `TROUBLESHOOTING.md` の該当セクションを確認してください。
 
 ### モデル自動選択機能（Issue #363で追加）
 
@@ -750,7 +853,7 @@ node dist/index.js execute --issue 123 --phase all
 ### Codex モデル指定（Issue #302で追加）
 
 ```bash
-# デフォルト（gpt-5.1-codex-max）を使用
+# デフォルト（gpt-5.2-codex）を使用
 node dist/index.js execute --issue 123 --phase all
 
 # mini モデルを明示的に指定（軽量・経済的）
@@ -760,7 +863,7 @@ node dist/index.js execute --issue 123 --phase all --codex-model mini
 node dist/index.js execute --issue 123 --phase all --codex-model legacy
 
 # フルモデルIDで指定
-node dist/index.js execute --issue 123 --phase all --codex-model gpt-5.1-codex-max
+node dist/index.js execute --issue 123 --phase all --codex-model gpt-5.2-codex
 
 # 環境変数でデフォルト動作を設定
 export CODEX_MODEL=mini
@@ -771,7 +874,7 @@ node dist/index.js execute --issue 123 --phase all
 
 | エイリアス | 実際のモデル ID | 説明 |
 |-----------|----------------|------|
-| `max` | `gpt-5.1-codex-max` | **デフォルト**。長時間エージェントタスク向けに最適化 |
+| `max` | `gpt-5.2-codex` | **デフォルト**。長時間エージェントタスク向けに最適化 |
 | `mini` | `gpt-5.1-codex-mini` | 軽量・経済的 |
 | `5.1` | `gpt-5.1` | 汎用モデル |
 | `legacy` | `gpt-5-codex` | レガシー（後方互換性） |
@@ -779,7 +882,7 @@ node dist/index.js execute --issue 123 --phase all
 **優先順位**:
 1. CLI オプション `--codex-model`（最優先）
 2. 環境変数 `CODEX_MODEL`
-3. デフォルト値 `max`（`gpt-5.1-codex-max`）
+3. デフォルト値 `max`（`gpt-5.2-codex`）
 
 ### PRコメント自動対応（Issue #383で追加、Issue #444でリファクタリング）
 

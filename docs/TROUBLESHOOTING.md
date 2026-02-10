@@ -46,7 +46,7 @@ nvm use --lts
 
 ### `exceeded retry limit, last status: 401 Unauthorized`
 
-- `CODEX_API_KEY`（または `OPENAI_API_KEY`）がデフォルトの `gpt-5.1-codex-max`（エイリアス: `max`）に対応した高推論キーか確認します。旧モデルしか利用できない場合は CLI 実行時に `--codex-model legacy` を付与するか、環境変数 `CODEX_MODEL=legacy` を設定してください。
+- `CODEX_API_KEY`（または `OPENAI_API_KEY`）がデフォルトの `gpt-5.2-codex`（エイリアス: `max`）に対応した高推論キーか確認します。旧モデルしか利用できない場合は CLI 実行時に `--codex-model legacy` を付与するか、環境変数 `CODEX_MODEL=legacy` を設定してください。
 - 旧来の `auth.json` は使用せず、API キーのみを渡してください。
 - CLI の疎通チェック:
   ```bash
@@ -110,7 +110,7 @@ nvm use --lts
 
 v0.5.0以降では、この問題は自動的に解決されます：
 
-1. **デフォルトモデルの変更**: `gpt-4o` → `gpt-5.1-codex-max`（ChatGPTアカウント対応）
+1. **デフォルトモデルの変更**: `gpt-4o` → `gpt-5.2-codex`（ChatGPTアカウント対応）
 2. **環境変数による上書きサポート**: `CODEX_MODEL` 環境変数でモデルを指定可能
 3. **モデルエイリアス対応**: `mini`、`max`、`5.1`、`legacy`などのエイリアスが利用可能
 
@@ -120,7 +120,7 @@ v0.4.x以前を使用している場合、以下の回避策を実行してく�
 
 ```bash
 # 方法1: 環境変数でCodex対応モデルを指定
-export CODEX_MODEL=gpt-5.1-codex-max  # または mini/5.1/legacy
+export CODEX_MODEL=gpt-5.2-codex  # または mini/5.1/legacy
 node dist/index.js execute --phase all --issue 123
 
 # 方法2: CLI オプションでモデルを指定
@@ -135,7 +135,7 @@ node dist/index.js execute --phase all --issue 123
 
 | モデルID | エイリアス | 説明 | ChatGPTアカウント対応 |
 |----------|-----------|------|---------------------|
-| `gpt-5.1-codex-max` | `max` | デフォルト、複雑なマルチステップタスク向け | ✅ |
+| `gpt-5.2-codex` | `max` | デフォルト、複雑なマルチステップタスク向け | ✅ |
 | `gpt-5.1-codex-mini` | `mini` | 軽量、コスト効率重視 | ✅ |
 | `gpt-5.1` | `5.1` | 汎用 | ✅ |
 | `gpt-5-codex` | `legacy` | レガシー（後方互換用） | ✅ |
@@ -1921,7 +1921,7 @@ cat .ai-workflow/issue-123/metadata.json | jq '.followup_issue_generation'
 | モデル | 用途 | 指定方法 |
 |--------|------|----------|
 | `gpt-5.1-codex-mini` | 軽量・経済的なフォローアップIssue生成 | `--followup-llm-model mini` |
-| `gpt-5.1-codex-max` | 高精度なフォローアップIssue生成（デフォルト） | `--followup-llm-model max` |
+| `gpt-5.2-codex` | 高精度なフォローアップIssue生成（デフォルト） | `--followup-llm-model max` |
 | `gpt-5.1` | 汎用モデル | `--followup-llm-model 5.1` |
 
 **注意事項**:

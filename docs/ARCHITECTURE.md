@@ -118,6 +118,20 @@ src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド
      ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
      └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
 
+src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #669で追加)
+ ├─ handleRewriteIssueCommand() … rewrite-issue コマンドハンドラ
+ ├─ validateRewriteIssueOptions() … rewrite-issue オプションのバリデーション
+ ├─ fetchIssueContent() … GitHub APIから現在のIssue情報を取得
+ ├─ generateRewrittenIssue() … AIエージェント（Codex/Claude）でIssue本文を再設計
+ ├─ displayDiff() … 変更前後の差分をunified diff形式で表示
+ ├─ calculateMetrics() … 完全性スコア、具体性スコアの算出
+ ├─ applyIssueUpdate() … --apply オプション時にGitHub APIでIssueを更新
+ └─ 関連モジュール利用
+     ├─ RepositoryAnalyzer.analyzeRepository() … リポジトリコンテキスト取得
+     ├─ IssueClient.getIssue() / updateIssue() … GitHub API操作
+     ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
+     └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
+
 src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）
@@ -264,6 +278,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/auto-close-issue.ts` | 既存Issueの検品と自動クローズコマンド（Issue #645）。`handleAutoCloseIssueCommand()` でカテゴリ別フィルタ（followup/stale/old/all）、信頼度閾値、dry-run（既定ON）、除外ラベル、対話承認、Codex/Claude選択を制御し、結果サマリーを出力。 |
+| `src/commands/rewrite-issue.ts` | Issue本文再設計コマンド処理（Issue #669で追加）。`handleRewriteIssueCommand()` でリポジトリコンテキストを参照して既存Issue本文を再設計。`parseOptions()`, `validateEnvironment()`, `getRepositoryContext()`, `executeRewriteWithAgent()`, `parseAgentResponse()`, `generateUnifiedDiff()`, `calculateDefaultMetrics()`, `displayDiffPreview()` を提供。dry-runモード（デフォルト）で差分プレビューを表示、`--apply` で実際にIssueを更新。完全性スコア・具体性スコアの採点指標も表示。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約930行、v0.4.0、Issue #90/#271で追加）。**手動rollback**（Issue #90）と**自動rollback**（Issue #271）の2つのモードを提供。手動rollbackは `handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供し、差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。自動rollbackは `handleRollbackAutoCommand()` を提供し、AIエージェント（Codex/Claude）による自動差し戻し判定機能を実現。コンテキスト収集（`collectAnalysisContext()`, `findLatestReviewResult()`, `findLatestTestResult()`）、プロンプト構築（`buildAgentPrompt()`）、JSON パース（`parseRollbackDecision()`, 3つのフォールバックパターン）、バリデーション（`validateRollbackDecision()`）、信頼度ベース確認（`confirmRollbackAuto()`）を含む。エージェントは metadata.json, review results, test results を分析し、needs_rollback, to_phase, to_step, confidence, reason, analysis を含む RollbackDecision を返す。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
@@ -356,6 +371,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
 | `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
 | `src/types/auto-close-issue.ts` | auto-close-issue関連の型定義（Issue #645で追加）。オプション（カテゴリ/閾値/除外ラベル/エージェント/require-approval）、候補Issue、検品結果、クローズ結果、コメント情報、親Issue情報の型を提供し、CLIとIssueInspectorの型安全性を担保。 |
+| `src/types/rewrite-issue.ts` | rewrite-issue関連の型定義（Issue #669で追加）。`RewriteIssueOptions`（Issue番号、言語、エージェント、dry-run/apply）、`RewriteResult`（新タイトル/ボディ、完全性スコア、具体性スコア、改善理由）、`RewriteMetrics`（完全性/具体性スコア）、`DiffLine`（差分行情報）の型を提供し、CLIとエージェント処理の型安全性を担保。 |
 | `src/types/validation.ts` | 認証情報バリデーション関連の型定義（Issue #598で追加）。`CheckStatus`（passed/failed/warning/skipped）、`CategoryStatus`、`CheckCategory`（git/github/codex/claude/openai/anthropic）、`ValidationCheck`、`CategoryResult`、`ValidationResult`、`ValidationSummary`、`RawValidateCredentialsOptions`、`ValidateCredentialsOptions`、`Checker` インターフェースを定義。 |
 | `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md` を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
