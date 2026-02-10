@@ -93,15 +93,15 @@ describe('rewrite-issue command (unit)', () => {
     mockUpdateIssue.mockResolvedValue({ success: true, error: null });
     mockResolveAgentCredentials.mockReturnValue({});
     mockSetupAgentClients.mockReturnValue({
-      codexClient: { execute: mockCodexExecute },
-      claudeClient: { execute: mockClaudeExecute },
+      codexClient: { executeTask: mockCodexExecute },
+      claudeClient: { executeTask: mockClaudeExecute },
     });
-    mockClaudeExecute.mockResolvedValue(
+    mockClaudeExecute.mockResolvedValue([
       '{"title":"New Title","body":"## 概要\\n新しい本文","metrics":{"completeness":80,"specificity":70}}',
-    );
-    mockCodexExecute.mockResolvedValue(
+    ]);
+    mockCodexExecute.mockResolvedValue([
       '{"title":"Codex Title","body":"Codex Body","metrics":{"completeness":70,"specificity":60}}',
-    );
+    ]);
   });
 
   afterEach(() => {
@@ -109,7 +109,7 @@ describe('rewrite-issue command (unit)', () => {
   });
 
   it('デフォルトオプションでdry-runプレビューとデフォルトメトリクス計算が行われる (TC-UNIT-001/015/021)', async () => {
-    mockClaudeExecute.mockResolvedValueOnce('{"title":"New","body":"## 概要\\n本文"}'); // metricsなし
+    mockClaudeExecute.mockResolvedValueOnce(['{"title":"New","body":"## 概要\\n本文"}']); // metricsなし
 
     await handleRewriteIssueCommand({ issue: '123' });
 
@@ -163,9 +163,9 @@ describe('rewrite-issue command (unit)', () => {
 
   it('Claude失敗時にCodexへフォールバックする (TC-INT-006)', async () => {
     mockClaudeExecute.mockRejectedValueOnce(new Error('claude down'));
-    mockCodexExecute.mockResolvedValueOnce(
+    mockCodexExecute.mockResolvedValueOnce([
       '{"title":"Codex Fallback","body":"Codex Body Fallback"}',
-    );
+    ]);
 
     await handleRewriteIssueCommand({ issue: 77, agent: 'auto' });
 

@@ -93,15 +93,15 @@ describe('rewrite-issue command (integration)', () => {
     mockUpdateIssue.mockResolvedValue({ success: true, error: null });
     mockResolveAgentCredentials.mockReturnValue({});
     mockSetupAgentClients.mockReturnValue({
-      codexClient: { execute: mockCodexExecute },
-      claudeClient: { execute: mockClaudeExecute },
+      codexClient: { executeTask: mockCodexExecute },
+      claudeClient: { executeTask: mockClaudeExecute },
     });
-    mockClaudeExecute.mockResolvedValue(
+    mockClaudeExecute.mockResolvedValue([
       '{"title":"New Title","body":"Line 1\\nModified Line 2\\nLine 3","metrics":{"completeness":90,"specificity":80}}',
-    );
-    mockCodexExecute.mockResolvedValue(
+    ]);
+    mockCodexExecute.mockResolvedValue([
       '{"title":"Codex","body":"Codex Body","metrics":{"completeness":80,"specificity":70}}',
-    );
+    ]);
   });
 
   afterEach(() => {
