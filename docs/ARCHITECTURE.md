@@ -118,6 +118,20 @@ src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド
      ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
      └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
 
+src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #669で追加)
+ ├─ handleRewriteIssueCommand() … rewrite-issue コマンドハンドラ
+ ├─ validateRewriteIssueOptions() … rewrite-issue オプションのバリデーション
+ ├─ fetchIssueContent() … GitHub APIから現在のIssue情報を取得
+ ├─ generateRewrittenIssue() … AIエージェント（Codex/Claude）でIssue本文を再設計
+ ├─ displayDiff() … 変更前後の差分をunified diff形式で表示
+ ├─ calculateMetrics() … 完全性スコア、具体性スコアの算出
+ ├─ applyIssueUpdate() … --apply オプション時にGitHub APIでIssueを更新
+ └─ 関連モジュール利用
+     ├─ RepositoryAnalyzer.analyzeRepository() … リポジトリコンテキスト取得
+     ├─ IssueClient.getIssue() / updateIssue() … GitHub API操作
+     ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
+     └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
+
 src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）

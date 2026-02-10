@@ -183,10 +183,35 @@ To apply these changes, run with --apply option.
 - **プロンプトテンプレート**: `src/prompts/rewrite-issue/{ja|en}/rewrite-issue.txt`
 - **IssueClient拡張**: `updateIssue()` メソッドでIssueのタイトル・本文を部分更新
 
+**Jenkins統合**:
+
+Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョブとして実行できます。Jenkins UIパラメータとCLIオプションの対応：
+
+| Jenkins パラメータ | CLI オプション | デフォルト値 |
+|------------------|--------------|-------------|
+| ISSUE_NUMBER | --issue | - (必須) |
+| LANGUAGE | --language | ja |
+| AGENT_MODE | --agent | auto |
+| APPLY | --apply | false |
+| DRY_RUN | - | true (CLIデフォルト動作) |
+
+**パイプライン実行例**:
+```
+# Jenkins でパラメータ設定
+ISSUE_NUMBER: 123
+LANGUAGE: ja
+AGENT_MODE: auto
+APPLY: false (プレビューモード)
+
+# 上記は以下のCLI実行と等価
+node dist/index.js rewrite-issue --issue 123 --language ja --agent auto
+```
+
 **安全運用のヒント**:
 - まずdry-run（デフォルト）で差分を確認し、問題がなければ `--apply` で更新する
 - 重要なIssueは事前にバックアップ（コメント等で元の内容を保存）することを推奨
 - `GITHUB_TOKEN` にはIssue更新権限（`repo` スコープ）が必要
+- Jenkins実行時は、Docker エージェント内でリポジトリが自動クローンされます
 
 ### 認証情報の検証（validate-credentials コマンド）
 
