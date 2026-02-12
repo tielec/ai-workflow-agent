@@ -48,6 +48,13 @@ jenkins-jobs:
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
 
+  ai_workflow_auto_close_issue_job:
+    name: 'auto_close_issue'
+    displayName: 'Auto Close Issue'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_auto_close_issue_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile
+    skipJenkinsfileValidation: true
+
   ai_workflow_rewrite_issue_job:
     name: 'rewrite_issue'
     displayName: 'Rewrite Issue'
