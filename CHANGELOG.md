@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #678**: Jenkinsシード設定にauto-close-issueジョブを登録し、生成ジョブから確実に呼び出せるようにする
+  - `job-config.yaml`の`jenkins-jobs`セクションに`ai_workflow_auto_close_issue_job`エントリを追加
+  - シード実行により、全10フォルダ（develop + stable-1〜9）でauto-close-issueジョブが自動生成されるよう設定
+  - 既存のJob DSL（`ai_workflow_auto_close_issue_job.groovy`）とJenkinsfile（`auto-close-issue/Jenkinsfile`）を活用
+  - Jenkins UIからのauto-close-issueジョブの直接実行が可能になり、運用フローの断線を復旧
+  - 修正ファイル: `jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml`
+  - テストカバレッジ: 6件の統合テスト（100%成功、job-config.yaml構成検証、DSL整合性検証、パラメータ定義検証）
+
 ### Breaking Changes
 
 - **Issue #640**: すべてのプリセットにPlanning Phaseを必須化
