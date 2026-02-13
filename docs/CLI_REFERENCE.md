@@ -192,7 +192,7 @@ Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョ�
 | ISSUE_NUMBER | --issue | - (必須) |
 | LANGUAGE | --language | ja |
 | AGENT_MODE | --agent | auto |
-| APPLY | --apply | false |
+| APPLY | --apply | true |
 | DRY_RUN | - | true (CLIデフォルト動作) |
 
 **パイプライン実行例**:
@@ -201,7 +201,7 @@ Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョ�
 ISSUE_NUMBER: 123
 LANGUAGE: ja
 AGENT_MODE: auto
-APPLY: false (プレビューモード)
+APPLY: true (更新モード)
 
 # 上記は以下のCLI実行と等価
 node dist/index.js rewrite-issue --issue 123 --language ja --agent auto
