@@ -89,7 +89,7 @@ describe('Integration: auto-close-issue Jenkinsfile / Job DSL (Issue #652)', () 
     expect(jobDslContent).toMatch(/stringParam\('CONFIDENCE_THRESHOLD'\s*,\s*'0\.7'/);
     expect(jobDslContent).toMatch(/stringParam\('DAYS_THRESHOLD'\s*,\s*'90'/);
     expect(jobDslContent).toMatch(/stringParam\('EXCLUDE_LABELS'\s*,\s*'do-not-close,pinned'/);
-    expect(jobDslContent).toMatch(/booleanParam\('DRY_RUN'\s*,\s*true/);
+    expect(jobDslContent).toMatch(/booleanParam\('DRY_RUN'\s*,\s*false/);
     expect(jobDslContent).toMatch(/booleanParam\('REQUIRE_APPROVAL'\s*,\s*false/);
     expect(jobDslContent).toMatch(/choiceParam\('LANGUAGE'[\s\S]*'ja'[\s\S]*'en'/);
   });

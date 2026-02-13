@@ -44,7 +44,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |- all: 全カテゴリ
             |
             |## 安全対策
-            |- DRY_RUNデフォルトtrue（誤クローズ防止）
+            |- DRY_RUNデフォルトfalse
             |- EXCLUDE_LABELSで保護ラベルを除外
             |- REQUIRE_APPROVALで追加確認（CIでは非推奨）
             |
@@ -132,13 +132,11 @@ Issue分類カテゴリ
             // ========================================
             // 実行オプション
             // ========================================
-            booleanParam('DRY_RUN', true, '''
-ドライランモード（デフォルト: true）
+            booleanParam('DRY_RUN', false, '''
+ドライランモード（デフォルト: false）
 
 true: Issueをクローズせず、クローズ候補の検出結果のみ表示
 false: 実際にIssueをクローズ
-
-安全のため、デフォルトは true に設定されています。
             '''.stripIndent().trim())
 
             // ========================================
