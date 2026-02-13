@@ -234,29 +234,25 @@ pipeline {
                 def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : false)
                 def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
                 currentBuild.description = "Auto Close Issue | ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
-            }
-            // node ブロックでノードコンテキストを確保（Docker エージェント消失時の対策）
-            node('ec2-fleet-micro') {
-                script {
-                    archiveArtifacts artifacts: 'auto-close-issue-results.json', allowEmptyArchive: true
 
-                    if (env.REPOS_ROOT) {
-                        sh """
-                            rm -rf ${env.REPOS_ROOT}
-                        """
-                        echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
-                    }
+                archiveArtifacts artifacts: 'auto-close-issue-results.json', allowEmptyArchive: true
 
-                    if (env.CODEX_HOME?.trim()) {
-                        sh """
-                            rm -rf ${env.CODEX_HOME}
-                        """
-                        echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
-                    }
-
-                    cleanWs()
-                    echo "Workspace cleaned up"
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
                 }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                cleanWs()
+                echo "Workspace cleaned up"
             }
         }
 
