@@ -9,7 +9,7 @@
  * - GITHUB_REPOSITORY: owner/repo形式（必須）
  * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
  * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
- * - APPLY: Issue更新フラグ（true/false、デフォルト: false）
+ * - APPLY: Issue更新フラグ（true/false、デフォルト: true）
  * - DRY_RUN: プレビューモード（true/false、デフォルト: false）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - 認証情報（Codex/Claude系、auto-issueと同様）

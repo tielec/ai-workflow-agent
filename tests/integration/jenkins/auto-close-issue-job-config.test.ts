@@ -130,7 +130,7 @@ describe('Integration: auto-close-issue job-config entry (Issue #678)', () => {
     expect(findDef('DAYS_THRESHOLD')?.defaultValue).toBe('90');
     expect(findDef('EXCLUDE_LABELS')?.defaultValue).toBe('do-not-close,pinned');
     expect(findDef('REQUIRE_APPROVAL')?.defaultValue).toBe(false);
-    expect(findDef('DRY_RUN')?.defaultValue).toBe(true);
+    expect(findDef('DRY_RUN')?.defaultValue).toBe(false);
     expect(findDef('COST_LIMIT_USD')?.defaultValue).toBe('10');
 
     expect(findDef('LOG_LEVEL')?.kind).toBe('choice');
