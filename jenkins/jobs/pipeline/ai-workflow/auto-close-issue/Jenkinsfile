@@ -13,12 +13,12 @@
  * - EXCLUDE_LABELS: 除外ラベル（カンマ区切り、デフォルト: do-not-close,pinned）
  * - REQUIRE_APPROVAL: 承認要否（デフォルト: false）
  * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
- * - DRY_RUN: ドライランモード（デフォルト: true）
+ * - DRY_RUN: ドライランモード（デフォルト: false）
  * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
  *
  * 注意:
  * - REPOS_ROOT配下に対象リポジトリをクローンして実行する（auto_issue同様）
- * - DRY_RUNのデフォルトをtrueとし、安全性を優先
+ * - DRY_RUNのデフォルトはfalse（実際にクローズを実行）
  */
 
 def common
@@ -141,7 +141,7 @@ pipeline {
                         error("DAYS_THRESHOLD must be a positive integer: ${daysThreshold}")
                     }
 
-                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : false)
                     def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
                     currentBuild.description = "Auto Close Issue | ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
@@ -182,7 +182,7 @@ pipeline {
                     echo "========================================="
                     echo "Stage: Execute Auto Close Issue"
                     echo "========================================="
-                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                    def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : false)
                     echo "Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
                     echo "Limit: ${params.AUTO_CLOSE_LIMIT ?: '10'}"
                     echo "Confidence Threshold: ${params.CONFIDENCE_THRESHOLD ?: '0.7'}"
@@ -231,7 +231,7 @@ pipeline {
                 echo "Post Processing"
                 echo "========================================="
 
-                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : false)
                 def dryRunLabel = dryRunDefault ? ' [DRY RUN]' : ''
                 currentBuild.description = "Auto Close Issue | ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}${dryRunDefault ? ' [DRY RUN]' : ''} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
@@ -263,7 +263,7 @@ pipeline {
                 echo "========================================="
                 echo "Repository: ${params.GITHUB_REPOSITORY}"
                 echo "Category: ${params.AUTO_CLOSE_CATEGORY ?: 'followup'}"
-                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : true)
+                def dryRunDefault = (params.DRY_RUN != null ? params.DRY_RUN : false)
                 def dryRunNote = dryRunDefault ? ' (dry run mode, no issues closed)' : ''
                 echo "Result: Auto close issue completed${dryRunNote}"
 
