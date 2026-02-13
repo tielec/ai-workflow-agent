@@ -27,7 +27,7 @@ pipeline {
             label 'ec2-fleet-micro'
             dir '.'
             filename 'Dockerfile'
-            args "-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 
