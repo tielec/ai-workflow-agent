@@ -78,8 +78,8 @@ GitHub リポジトリ（owner/repo）（必須）
             // ========================================
             // 実行オプション
             // ========================================
-            booleanParam('APPLY', false, '''
-Issue本文を更新する（trueで更新）
+            booleanParam('APPLY', true, '''
+Issue本文を更新する（デフォルト: true）
             '''.stripIndent().trim())
 
             booleanParam('DRY_RUN', false, '''
