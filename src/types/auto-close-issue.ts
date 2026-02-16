@@ -22,7 +22,7 @@ export interface RawAutoCloseIssueOptions {
   category?: string;
   /** 検品対象件数の上限（文字列でも可） */
   limit?: string;
-  /** ドライラン指定（省略時は true が適用される） */
+  /** ドライラン指定（省略時は false が適用される） */
   dryRun?: boolean;
   /** close 推奨の信頼度しきい値（0.0-1.0） */
   confidenceThreshold?: string;

@@ -243,7 +243,7 @@ function parseOptions(rawOptions: RawAutoCloseIssueOptions): AutoCloseIssueOptio
   return {
     category: category as AutoCloseIssueOptions['category'],
     limit,
-    dryRun: rawOptions.dryRun !== undefined ? rawOptions.dryRun : true,
+    dryRun: rawOptions.dryRun !== undefined ? rawOptions.dryRun : false,
     confidenceThreshold,
     daysThreshold,
     requireApproval: rawOptions.requireApproval ?? false,
