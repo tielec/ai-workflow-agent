@@ -88,7 +88,7 @@ GitHub リポジトリ（owner/repo）（必須）
             // ========================================
             // Auto Close Issue 設定
             // ========================================
-            choiceParam('AUTO_CLOSE_CATEGORY', ['followup', 'stale', 'old', 'all'], '''
+            choiceParam('AUTO_CLOSE_CATEGORY', ['all', 'followup', 'stale', 'old'], '''
 Issue分類カテゴリ
 
 - followup: フォローアップが必要なIssue
