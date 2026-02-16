@@ -253,7 +253,9 @@ export async function runCli(): Promise<void> {
     .description('Inspect existing GitHub Issues and close them automatically')
     .option('--category <type>', 'Target category (followup|stale|old|all)', 'followup')
     .option('--limit <number>', 'Maximum number of issues to process', '10')
-    .option('--dry-run', 'Preview mode (do not close issues)', true)
+    .option('--output-file <path>', 'Write execution summary JSON to the specified path')
+    .option('--dry-run', 'Preview mode (do not close issues)')
+    .option('--no-dry-run', 'Execute mode (actually close issues)')
     .option(
       '--confidence-threshold <number>',
       'Confidence threshold for closing (0.0-1.0)',

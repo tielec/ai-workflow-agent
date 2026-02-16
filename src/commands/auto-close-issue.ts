@@ -1,3 +1,4 @@
+import path from 'node:path';
 import readline from 'node:readline';
 import { Octokit } from '@octokit/rest';
 import { logger } from '../utils/logger.js';
@@ -18,6 +19,7 @@ import type {
   IssueCandidate,
   RawAutoCloseIssueOptions,
 } from '../types/auto-close-issue.js';
+import { buildAutoCloseIssueJsonPayload, writeAutoCloseIssueOutputFile } from './auto-close-issue-output.js';
 
 const DEFAULT_EXCLUDE_LABELS = ['do-not-close', 'pinned'];
 const DEFAULT_AGENT_PRIORITY: AgentPriority = 'claude-first';
@@ -182,6 +184,7 @@ export async function handleAutoCloseIssueCommand(
     }
 
     reportResults(results, options);
+    await exportJsonIfRequested(results, options, githubRepository);
     logger.info('auto-close-issue command completed successfully.');
   } catch (error) {
     logger.error(`auto-close-issue command failed: ${getErrorMessage(error)}`);
@@ -240,15 +243,27 @@ function parseOptions(rawOptions: RawAutoCloseIssueOptions): AutoCloseIssueOptio
     throw new Error('agent must be one of: auto, codex, claude');
   }
 
+  // outputFile（オプション）
+  const outputFileRaw = rawOptions.outputFile;
+  let outputFile: string | undefined;
+  if (typeof outputFileRaw === 'string') {
+    const trimmed = outputFileRaw.trim();
+    if (!trimmed) {
+      throw new Error('output-file must not be empty.');
+    }
+    outputFile = path.resolve(process.cwd(), trimmed);
+  }
+
   return {
     category: category as AutoCloseIssueOptions['category'],
     limit,
-    dryRun: rawOptions.dryRun !== undefined ? rawOptions.dryRun : true,
+    dryRun: rawOptions.dryRun !== undefined ? rawOptions.dryRun : false,
     confidenceThreshold,
     daysThreshold,
     requireApproval: rawOptions.requireApproval ?? false,
     excludeLabels,
     agent,
+    outputFile,
   };
 }
 
@@ -324,5 +339,35 @@ function reportResults(
 
   if (options.dryRun) {
     logger.info('Dry-run mode: no issues were closed.');
+  }
+}
+
+/**
+ * JSON出力を必要に応じて実行
+ */
+async function exportJsonIfRequested(
+  results: CloseIssueResult[],
+  options: AutoCloseIssueOptions,
+  repository: string,
+): Promise<void> {
+  if (!options.outputFile) {
+    return;
+  }
+
+  const execution = {
+    timestamp: new Date().toISOString(),
+    repository,
+    category: options.category,
+    dryRun: options.dryRun,
+    confidenceThreshold: options.confidenceThreshold,
+  };
+
+  try {
+    const payload = buildAutoCloseIssueJsonPayload({ execution, results });
+    await writeAutoCloseIssueOutputFile(options.outputFile, payload);
+    logger.info(`auto-close-issue JSON output written to ${options.outputFile}`);
+  } catch (error) {
+    logger.error(`Failed to write auto-close-issue JSON output: ${getErrorMessage(error)}`);
+    throw error;
   }
 }

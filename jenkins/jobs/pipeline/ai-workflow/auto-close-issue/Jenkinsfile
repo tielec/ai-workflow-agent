@@ -203,7 +203,7 @@ pipeline {
 
                         def excludeLabelsFlag = params.EXCLUDE_LABELS?.trim() ? "--exclude-labels '${params.EXCLUDE_LABELS}'" : ''
                         def requireApprovalFlag = params.REQUIRE_APPROVAL ? '--require-approval' : ''
-                        def dryRunFlag = dryRunDefault ? '--dry-run' : ''
+                        def dryRunFlag = dryRunDefault ? '--dry-run' : '--no-dry-run'
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
 
                         sh """
@@ -216,7 +216,8 @@ pipeline {
                                 ${requireApprovalFlag} \\
                                 --agent ${agentMode} \\
                                 ${languageOption} \\
-                                ${dryRunFlag}
+                                ${dryRunFlag} \\
+                                --output-file auto-close-issue-results.json
                         """
                     }
                 }

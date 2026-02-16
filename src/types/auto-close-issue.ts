@@ -22,7 +22,7 @@ export interface RawAutoCloseIssueOptions {
   category?: string;
   /** 検品対象件数の上限（文字列でも可） */
   limit?: string;
-  /** ドライラン指定（省略時は true が適用される） */
+  /** ドライラン指定（省略時は false が適用される） */
   dryRun?: boolean;
   /** close 推奨の信頼度しきい値（0.0-1.0） */
   confidenceThreshold?: string;
@@ -34,6 +34,8 @@ export interface RawAutoCloseIssueOptions {
   excludeLabels?: string;
   /** 使用するエージェント */
   agent?: 'auto' | 'codex' | 'claude';
+  /** JSON結果を出力するファイルパス */
+  outputFile?: string;
 }
 
 /**
@@ -56,6 +58,8 @@ export interface AutoCloseIssueOptions {
   excludeLabels: string[];
   /** 検品・実行で使用するエージェント（auto|codex|claude） */
   agent: 'auto' | 'codex' | 'claude';
+  /** JSON結果を出力するファイルパス（未指定時はファイル出力しない） */
+  outputFile?: string;
 }
 
 /**
@@ -134,4 +138,56 @@ export interface FilterOptions {
   daysThreshold: number;
   excludeLabels: string[];
   limit: number;
+}
+
+/**
+ * JSON出力用の実行情報
+ */
+export interface AutoCloseIssueExecutionInfo {
+  /** 実行タイムスタンプ（ISO8601 UTC） */
+  timestamp: string;
+  /** 対象リポジトリ (owner/repo) */
+  repository: string;
+  /** 検品対象カテゴリ */
+  category: IssueCategory;
+  /** ドライラン実行かどうか */
+  dryRun: boolean;
+  /** close 推奨を採用する信頼度しきい値 */
+  confidenceThreshold: number;
+}
+
+/**
+ * JSON出力用のサマリー
+ */
+export interface AutoCloseIssueSummary {
+  totalInspected: number;
+  recommendedClose: number;
+  actualClosed: number;
+  skipped: number;
+  errors: number;
+}
+
+/**
+ * JSON出力用のIssue詳細
+ */
+export interface AutoCloseIssueIssueEntry {
+  issueNumber: number;
+  title: string;
+  action: CloseIssueResult['action'];
+  skipReason?: string;
+  error?: string;
+  inspection?: {
+    recommendation: IssueRecommendation;
+    confidence: number;
+    reasoning: string;
+  };
+}
+
+/**
+ * auto-close-issueコマンドのJSON出力スキーマ
+ */
+export interface AutoCloseIssueJsonOutput {
+  execution: AutoCloseIssueExecutionInfo;
+  summary: AutoCloseIssueSummary;
+  issues: AutoCloseIssueIssueEntry[];
 }
