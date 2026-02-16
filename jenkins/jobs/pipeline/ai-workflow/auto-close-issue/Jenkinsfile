@@ -216,7 +216,8 @@ pipeline {
                                 ${requireApprovalFlag} \\
                                 --agent ${agentMode} \\
                                 ${languageOption} \\
-                                ${dryRunFlag}
+                                ${dryRunFlag} \\
+                                --output-file auto-close-issue-results.json
                         """
                     }
                 }
