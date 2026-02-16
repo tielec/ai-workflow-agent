@@ -5,6 +5,7 @@
  * 差分プレビューを表示する。--apply オプションで実際に更新。
  */
 import * as fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { config } from '../core/config.js';
@@ -76,7 +77,7 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
     // 7. リポジトリコンテキスト取得（ベーシック概要）
     const repositoryContext = await getRepositoryContext(new RepositoryAnalyzer(codexClient, claudeClient), repoPath);
 
-    // 8. エージェント実行
+    // 8. エージェント実行（JSON出力ファイル経由）
     const agentResponse = await executeRewriteWithAgent(
       issueInfo.title,
       issueInfo.body,
@@ -85,6 +86,7 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
       claudeClient,
       options.language,
       options.agent,
+      repoPath,
     );
 
     // 9. 差分生成
@@ -233,6 +235,25 @@ async function getRepositoryContext(
 }
 
 /**
+ * エージェント出力用の一時ファイルパスを生成
+ */
+function createOutputFilePath(repoPath: string): string {
+  const filename = `rewrite-issue-${Date.now()}.json`;
+
+  // repoPath 配下に .ai-workflow/tmp/ を使用（エージェントのcwdからアクセスしやすい）
+  // 失敗時はシステムtmpディレクトリにフォールバック
+  try {
+    const tmpDir = path.join(repoPath, '.ai-workflow', 'tmp');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    return path.join(tmpDir, filename);
+  } catch {
+    const tmpDir = path.join(os.tmpdir(), 'ai-workflow');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    return path.join(tmpDir, filename);
+  }
+}
+
+/**
  * エージェントでIssueを再設計
  */
 async function executeRewriteWithAgent(
@@ -243,12 +264,17 @@ async function executeRewriteWithAgent(
   claudeClient: ClaudeAgentClient | null,
   language: SupportedLanguage,
   agentMode: 'auto' | 'codex' | 'claude',
+  repoPath: string,
 ): Promise<RewriteAgentResponse> {
+  const outputFilePath = createOutputFilePath(repoPath);
+  logger.info(`Agent output file: ${outputFilePath}`);
+
   const promptTemplate = PromptLoader.loadPrompt('rewrite-issue', 'rewrite-issue', language);
   const prompt = promptTemplate
     .replaceAll('{ORIGINAL_TITLE}', originalTitle)
     .replaceAll('{ORIGINAL_BODY}', originalBody)
-    .replaceAll('{REPOSITORY_CONTEXT}', repoContext);
+    .replaceAll('{REPOSITORY_CONTEXT}', repoContext)
+    .replaceAll('{OUTPUT_FILE_PATH}', outputFilePath);
 
   let response: string | null = null;
 
@@ -279,48 +305,162 @@ async function executeRewriteWithAgent(
     throw new Error('All agents failed to generate rewritten issue content.');
   }
 
-  return parseAgentResponse(response, originalTitle, originalBody);
+  // 1. ファイルからJSON読み込みを優先
+  const fileResult = readOutputFile(outputFilePath, originalTitle, originalBody);
+  if (fileResult) {
+    logger.info('Successfully parsed agent response from output file.');
+    return fileResult;
+  }
+
+  // 2. フォールバック: エージェントのテキスト応答からパース
+  logger.warn('Output file not found or invalid, falling back to text response parsing.');
+  return parseAgentResponseText(response, originalTitle, originalBody);
 }
 
 /**
- * エージェント応答をパース
+ * エージェントが書き出したJSONファイルを読み込んでパース
  */
-function parseAgentResponse(
+function readOutputFile(
+  outputFilePath: string,
+  fallbackTitle: string,
+  fallbackBody: string,
+): RewriteAgentResponse | null {
+  try {
+    if (!fs.existsSync(outputFilePath)) {
+      logger.debug(`Output file not found: ${outputFilePath}`);
+      return null;
+    }
+
+    const content = fs.readFileSync(outputFilePath, 'utf-8').trim();
+    if (!content) {
+      logger.warn('Output file is empty.');
+      return null;
+    }
+
+    const parsed = JSON.parse(content);
+    const result = buildResponseFromParsed(parsed, fallbackTitle, fallbackBody);
+
+    // 一時ファイルをクリーンアップ
+    try {
+      fs.unlinkSync(outputFilePath);
+    } catch {
+      // ignore cleanup errors
+    }
+
+    return result;
+  } catch (error) {
+    logger.warn(`Failed to read/parse output file: ${getErrorMessage(error)}`);
+    return null;
+  }
+}
+
+/**
+ * エージェントのテキスト応答からパース（フォールバック）
+ */
+function parseAgentResponseText(
   response: string,
   fallbackTitle: string,
   fallbackBody: string,
 ): RewriteAgentResponse {
-  try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        newTitle: parsed.title ?? parsed.newTitle ?? fallbackTitle,
-        newBody: parsed.body ?? parsed.newBody ?? fallbackBody,
-        metrics: parsed.metrics
-          ? {
-              completenessScore:
-                parsed.metrics.completeness ?? parsed.metrics.completenessScore ?? 50,
-              specificityScore: parsed.metrics.specificity ?? parsed.metrics.specificityScore ?? 50,
-            }
-          : undefined,
-      };
+  // 1. マークダウンコードブロックからJSON抽出を試行
+  const codeBlockMatch = response.match(/```(?:json)?\s*\n([\s\S]*?)\n\s*```/);
+  if (codeBlockMatch) {
+    try {
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      return buildResponseFromParsed(parsed, fallbackTitle, fallbackBody);
+    } catch (error) {
+      logger.debug(`Failed to parse code block JSON: ${getErrorMessage(error)}`);
     }
+  }
 
-    const titleMatch = response.match(/##?\\s*(?:タイトル|Title)[:\\s]*\\n?(.+)/i);
-    const bodyMatch = response.match(/##?\\s*(?:本文|Body)[:\\s]*\\n([\\s\\S]+?)(?=##|$)/i);
+  // 2. ブレースのネストを追跡してJSON抽出を試行
+  const jsonStr = extractJsonObject(response);
+  if (jsonStr) {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      return buildResponseFromParsed(parsed, fallbackTitle, fallbackBody);
+    } catch (error) {
+      logger.debug(`Failed to parse extracted JSON: ${getErrorMessage(error)}`);
+    }
+  }
 
+  // 3. 構造化テキスト形式のフォールバック
+  const titleMatch = response.match(/##?\s*(?:タイトル|Title)[:\s]*\n?(.+)/i);
+  const bodyMatch = response.match(/##?\s*(?:本文|Body)[:\s]*\n([\s\S]+?)(?=##|$)/i);
+
+  if (titleMatch || bodyMatch) {
     return {
       newTitle: titleMatch?.[1]?.trim() ?? fallbackTitle,
       newBody: bodyMatch?.[1]?.trim() ?? response.trim(),
     };
-  } catch (error) {
-    logger.warn(`Failed to parse agent response as JSON: ${getErrorMessage(error)}`);
-    return {
-      newTitle: fallbackTitle,
-      newBody: response.trim(),
-    };
   }
+
+  // 4. 最終フォールバック
+  logger.warn('Failed to parse agent response in any format: using raw response as body.');
+  return {
+    newTitle: fallbackTitle,
+    newBody: response.trim(),
+  };
+}
+
+/**
+ * パース済みJSONオブジェクトからRewriteAgentResponseを構築
+ */
+function buildResponseFromParsed(
+  parsed: Record<string, any>,
+  fallbackTitle: string,
+  fallbackBody: string,
+): RewriteAgentResponse {
+  return {
+    newTitle: parsed.title ?? parsed.newTitle ?? fallbackTitle,
+    newBody: parsed.body ?? parsed.newBody ?? fallbackBody,
+    metrics: parsed.metrics
+      ? {
+          completenessScore:
+            parsed.metrics.completeness ?? parsed.metrics.completenessScore ?? 50,
+          specificityScore: parsed.metrics.specificity ?? parsed.metrics.specificityScore ?? 50,
+        }
+      : undefined,
+  };
+}
+
+/**
+ * テキストからブレースのネストを追跡してJSONオブジェクトを抽出
+ */
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (ch === '{') depth++;
+      if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          return text.slice(start, i + 1);
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -344,8 +484,8 @@ function generateUnifiedDiff(
   lines.push('');
 
   lines.push('=== Body ===');
-  const oldLines = oldBody.split('\\n');
-  const newLines = newBody.split('\\n');
+  const oldLines = oldBody.split('\n');
+  const newLines = newBody.split('\n');
   const maxLines = Math.max(oldLines.length, newLines.length);
 
   for (let i = 0; i < maxLines; i += 1) {
@@ -363,17 +503,17 @@ function generateUnifiedDiff(
     }
   }
 
-  return lines.join('\\n');
+  return lines.join('\n');
 }
 
 /**
  * デフォルトの採点指標を計算
  */
 function calculateDefaultMetrics(body: string): RewriteMetrics {
-  const sectionCount = (body.match(/^##\\s+/gm) ?? []).length;
-  const hasFilePaths = /`[^\\s`]+\\.(ts|js|tsx|jsx|py|go|rs)`/.test(body);
-  const hasLineNumbers = /行\\s*\\d+|line\\s*\\d+/i.test(body);
-  const hasCodeBlocks = /```[\\s\\S]+?```/.test(body);
+  const sectionCount = (body.match(/^##\s+/gm) ?? []).length;
+  const hasFilePaths = /`[^\s`]+\.(ts|js|tsx|jsx|py|go|rs)`/.test(body);
+  const hasLineNumbers = /行\s*\d+|line\s*\d+/i.test(body);
+  const hasCodeBlocks = /```[\s\S]+?```/.test(body);
 
   const completenessScore = Math.min(100, sectionCount * 20);
   const specificityScore = Math.min(
@@ -397,7 +537,7 @@ function displayDiffPreview(result: RewriteIssueResult): void {
   logger.info('========================================');
   logger.info('');
 
-  for (const line of result.diff.split('\\n')) {
+  for (const line of result.diff.split('\n')) {
     if (line.startsWith('+')) {
       logger.info(`${COLOR_GREEN}${line}${COLOR_RESET}`);
     } else if (line.startsWith('-')) {

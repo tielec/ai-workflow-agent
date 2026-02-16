@@ -15,7 +15,9 @@ You are a GitHub Issue expert. Please redesign the following Issue based on the 
 
 ## Output Format
 
-Please output in the following JSON format:
+Please write the result in the following JSON format **to the specified file path**:
+
+**Output file path**: `{OUTPUT_FILE_PATH}`
 
 ```json
 {
@@ -27,6 +29,8 @@ Please output in the following JSON format:
   }
 }
 ```
+
+**IMPORTANT**: You MUST write the JSON file to the exact absolute path above using the Write tool. Do NOT just output to console — save it as a file. Do NOT use relative paths or `/workspace` prefixes.
 
 ## Redesign Guidelines
 
