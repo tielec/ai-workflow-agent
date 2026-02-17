@@ -19,9 +19,9 @@
     "test_code_strategy": "BOTH_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 30,
-    "total_output_tokens": 47354,
-    "total_cost_usd": 11.5014956
+    "total_input_tokens": 40,
+    "total_output_tokens": 53717,
+    "total_cost_usd": 12.56728235
   },
   "difficulty_analysis": {
     "level": "complex",
@@ -210,7 +210,10 @@
       "started_at": "2026-02-17T07:13:09.188Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute"
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "test_scenario": {
       "status": "pending",
@@ -268,7 +271,7 @@
     }
   },
   "created_at": "2026-02-17T07:01:19.493Z",
-  "updated_at": "2026-02-17T07:21:21.085Z",
+  "updated_at": "2026-02-17T07:24:50.753Z",
   "branch_name": "ai-workflow/issue-692",
   "base_commit": "1604a0efe182916d447130ed3246a642e5965a2e",
   "pr_number": 696,
