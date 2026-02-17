@@ -70,6 +70,7 @@ describeOrSkip('EvaluationPhase - ファイル存在チェックロジック', (
         test_scenario: { status: 'completed', started_at: new Date().toISOString() },
         implementation: { status: 'completed', started_at: new Date().toISOString() },
         test_implementation: { status: 'completed', started_at: new Date().toISOString() },
+        test_preparation: { status: 'completed', started_at: new Date().toISOString() },
         testing: { status: 'completed', started_at: new Date().toISOString() },
         documentation: { status: 'completed', started_at: new Date().toISOString() },
         report: { status: 'completed', started_at: new Date().toISOString() },
@@ -87,7 +88,7 @@ describeOrSkip('EvaluationPhase - ファイル存在チェックロジック', (
 
   test('2-1: ファイルが存在する場合（正常系）', async () => {
     // Given: evaluation_report.md が存在する
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
     const content = `# 評価レポート
@@ -111,7 +112,7 @@ All phases completed successfully.
 
   test('2-2: ファイルが存在しない場合（異常系）- エラーメッセージ検証', async () => {
     // Given: evaluation_report.md が存在しない
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
 
@@ -122,7 +123,7 @@ All phases completed successfully.
     expect(exists).toBe(false);
 
     // エージェントログのパスを取得（実装コードと同じロジック）
-    const executeDir = path.join(workflowDir, '09_evaluation', 'execute');
+    const executeDir = path.join(workflowDir, '10_evaluation', 'execute');
     const agentLogPath = path.join(executeDir, 'agent_log.md');
     const agentLogExists = fs.existsSync(agentLogPath);
 
@@ -142,7 +143,7 @@ All phases completed successfully.
 
   test('2-3: デバッグログの出力検証（正常系）', async () => {
     // Given: テスト環境が準備されている
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
 
@@ -210,7 +211,7 @@ describeOrSkip('EvaluationPhase - 評価決定の解析と MetadataManager へ�
 
   test('3-1: PASS_WITH_ISSUES 決定の解析と保存', async () => {
     // Given: PASS_WITH_ISSUES を含む evaluation_report.md
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
     const content = `# 評価レポート
@@ -254,7 +255,7 @@ Implementation is complete but minor improvements needed.
 
   test('3-2: FAIL_PHASE_2 決定の解析と保存', async () => {
     // Given: FAIL_PHASE_2 を含む evaluation_report.md
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
     const content = `# 評価レポート
@@ -297,7 +298,7 @@ Design phase has critical issues.
 
   test('3-3: ABORT 決定の解析と保存', async () => {
     // Given: ABORT を含む evaluation_report.md
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     await fs.ensureDir(outputDir);
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
     const content = `# 評価レポート
@@ -353,30 +354,30 @@ describeOrSkip('EvaluationPhase - ファイルパス検証', () => {
   test('4-1: 評価レポートファイルパスの構築', () => {
     // Given: ワークフローディレクトリとフェーズ情報
     const workflowDir = path.join(tempDir, '.ai-workflow', 'issue-5');
-    const outputDir = path.join(workflowDir, '09_evaluation', 'output');
+    const outputDir = path.join(workflowDir, '10_evaluation', 'output');
     const evaluationFile = path.join(outputDir, 'evaluation_report.md');
 
     // When: ファイルパスを検証
-    const expectedPath = path.join(tempDir, '.ai-workflow', 'issue-5', '09_evaluation', 'output', 'evaluation_report.md');
+    const expectedPath = path.join(tempDir, '.ai-workflow', 'issue-5', '10_evaluation', 'output', 'evaluation_report.md');
 
     // Then: ファイルパスが正しく構築されている
     expect(evaluationFile).toBe(expectedPath);
     expect(path.basename(evaluationFile)).toBe('evaluation_report.md');
-    expect(path.dirname(evaluationFile)).toContain(path.join('09_evaluation', 'output'));
+    expect(path.dirname(evaluationFile)).toContain(path.join('10_evaluation', 'output'));
   });
 
   test('4-2: エージェントログファイルパスの構築', () => {
     // Given: ワークフローディレクトリとフェーズ情報
     const workflowDir = path.join(tempDir, '.ai-workflow', 'issue-5');
-    const executeDir = path.join(workflowDir, '09_evaluation', 'execute');
+    const executeDir = path.join(workflowDir, '10_evaluation', 'execute');
     const agentLogPath = path.join(executeDir, 'agent_log.md');
 
     // When: ファイルパスを検証
-    const expectedPath = path.join(tempDir, '.ai-workflow', 'issue-5', '09_evaluation', 'execute', 'agent_log.md');
+    const expectedPath = path.join(tempDir, '.ai-workflow', 'issue-5', '10_evaluation', 'execute', 'agent_log.md');
 
     // Then: ファイルパスが正しく構築されている
     expect(agentLogPath).toBe(expectedPath);
     expect(path.basename(agentLogPath)).toBe('agent_log.md');
-    expect(path.dirname(agentLogPath)).toContain(path.join('09_evaluation', 'execute'));
+    expect(path.dirname(agentLogPath)).toContain(path.join('10_evaluation', 'execute'));
   });
 });

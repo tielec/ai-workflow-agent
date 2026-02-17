@@ -110,6 +110,7 @@ describe('PHASE_ORDER 定義の検証', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',
@@ -125,7 +126,7 @@ describe('PHASE_ORDER 定義の検証', () => {
       // executePhasesFrom は PHASE_ORDER に存在しないフェーズでエラーを返す
       // 存在するフェーズは indexOf が -1 を返さないため、エラーにならない
       expect(['planning', 'requirements', 'design', 'test_scenario',
-              'implementation', 'test_implementation', 'testing',
+              'implementation', 'test_implementation', 'test_preparation', 'testing',
               'documentation', 'report', 'evaluation']).toContain(phaseName);
     }
   });

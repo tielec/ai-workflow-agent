@@ -365,7 +365,7 @@ describe('Evaluation Phaseクリーンアップの統合テスト - Issue #16', 
     await fs.writeFile(path.join(planningDir, 'output', 'planning.md'), '# Planning Output');
 
     // Evaluation Phase (Phase 9)
-    const evalDir = path.join(issueDir, '09_evaluation');
+    const evalDir = path.join(issueDir, '10_evaluation');
     await fs.ensureDir(path.join(evalDir, 'execute'));
     await fs.ensureDir(path.join(evalDir, 'review'));
     await fs.ensureDir(path.join(evalDir, 'revise'));
@@ -504,7 +504,7 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     const phases = [
       { name: '00_planning', num: 0 },
       { name: '01_requirements', num: 1 },
-      { name: '08_report', num: 8 },
+      { name: '09_report', num: 8 },
     ];
 
     for (const phase of phases) {
@@ -537,12 +537,12 @@ describe('エンドツーエンドテスト - Issue #16', () => {
     // Phase 0-8の実行ログが削除されている
     expect(await fs.pathExists(path.join(issueDir, '00_planning', 'execute'))).toBe(false);
     expect(await fs.pathExists(path.join(issueDir, '01_requirements', 'execute'))).toBe(false);
-    expect(await fs.pathExists(path.join(issueDir, '08_report', 'execute'))).toBe(false);
+    expect(await fs.pathExists(path.join(issueDir, '09_report', 'execute'))).toBe(false);
 
     // output/*.mdが保持されている
     expect(await fs.pathExists(path.join(issueDir, '00_planning', 'output', 'output.md'))).toBe(true);
     expect(await fs.pathExists(path.join(issueDir, '01_requirements', 'output', 'output.md'))).toBe(true);
-    expect(await fs.pathExists(path.join(issueDir, '08_report', 'output', 'output.md'))).toBe(true);
+    expect(await fs.pathExists(path.join(issueDir, '09_report', 'output', 'output.md'))).toBe(true);
 
     // metadata.jsonが保持されている
     expect(await fs.pathExists(metadataPath)).toBe(true);

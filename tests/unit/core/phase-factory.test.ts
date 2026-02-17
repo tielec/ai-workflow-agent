@@ -23,6 +23,7 @@ import { DesignPhase } from '../../../src/phases/design.js';
 import { TestScenarioPhase } from '../../../src/phases/test-scenario.js';
 import { ImplementationPhase } from '../../../src/phases/implementation.js';
 import { TestImplementationPhase } from '../../../src/phases/test-implementation.js';
+import { TestPreparationPhase } from '../../../src/phases/test-preparation.js';
 import { TestingPhase } from '../../../src/phases/testing.js';
 import { DocumentationPhase } from '../../../src/phases/documentation.js';
 import { ReportPhase } from '../../../src/phases/report.js';
@@ -70,7 +71,7 @@ function createMockContext(): PhaseContext {
 }
 
 // =============================================================================
-// createPhaseInstance() - 正常系: 全10フェーズ
+// createPhaseInstance() - 正常系: 全11フェーズ
 // =============================================================================
 
 describe('createPhaseInstance - 正常系', () => {
@@ -146,6 +147,18 @@ describe('createPhaseInstance - 正常系', () => {
     expect(result).toBeInstanceOf(TestImplementationPhase);
   });
 
+  test('test_preparation フェーズのインスタンスが正しく生成される', () => {
+    // Given: phaseName = 'test_preparation'
+    const phaseName: PhaseName = 'test_preparation';
+    const context = createMockContext();
+
+    // When: createPhaseInstance() を呼び出し
+    const result = createPhaseInstance(phaseName, context);
+
+    // Then: TestPreparationPhase インスタンスが返される
+    expect(result).toBeInstanceOf(TestPreparationPhase);
+  });
+
   test('testing フェーズのインスタンスが正しく生成される', () => {
     // Given: phaseName = 'testing'
     const phaseName: PhaseName = 'testing';
@@ -194,7 +207,7 @@ describe('createPhaseInstance - 正常系', () => {
     expect(result).toBeInstanceOf(EvaluationPhase);
   });
 
-  test('全10フェーズに対してインスタンス生成が成功する', () => {
+  test('全11フェーズに対してインスタンス生成が成功する', () => {
     // Given: すべてのフェーズ名
     const allPhaseNames: PhaseName[] = [
       'planning',
@@ -203,6 +216,7 @@ describe('createPhaseInstance - 正常系', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',

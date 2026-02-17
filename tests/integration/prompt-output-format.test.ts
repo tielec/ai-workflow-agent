@@ -135,7 +135,7 @@ describe('Phase 5 (Test Implementation) Output Format Validation', () => {
 });
 
 describe('Phase 6 (Testing) Output Format Validation - Success Case', () => {
-  const outputPath = path.join(WORKFLOW_DIR, '06_testing', 'output', 'test-result.md');
+  const outputPath = path.join(WORKFLOW_DIR, '07_testing', 'output', 'test-result.md');
 
   // IT-3: Phase 6（Testing）出力フォーマット検証（成功時）
   maybeTest(
@@ -170,7 +170,7 @@ describe('Phase 6 (Testing) Output Format Validation - Success Case', () => {
 describe('Phase 7 (Documentation) Output Format Validation', () => {
   const outputPath = path.join(
     WORKFLOW_DIR,
-    '07_documentation',
+    '08_documentation',
     'output',
     'documentation.md'
   );
@@ -211,7 +211,7 @@ describe('Phase 7 (Documentation) Output Format Validation', () => {
 });
 
 describe('Phase 8 (Report) Output Format Validation', () => {
-  const outputPath = path.join(WORKFLOW_DIR, '08_report', 'output', 'report.md');
+  const outputPath = path.join(WORKFLOW_DIR, '09_report', 'output', 'report.md');
 
   // IT-6: Phase 8（Report）出力フォーマット検証（エグゼクティブサマリー）
   maybeTest(
@@ -280,14 +280,15 @@ describe('Phase 8 (Report) Output Format Validation', () => {
       expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/02_design/i);
       expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/04_implementation/i);
       expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/05_test_implementation/i);
-      expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/06_testing/i);
-      expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/07_documentation/i);
+      expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/06_test_preparation/i);
+      expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/07_testing/i);
+      expect(content).toMatch(/@\.ai-workflow\/issue-\d+\/08_documentation/i);
     }
   );
 });
 
 describe('Context Consumption Reduction Validation', () => {
-  const outputPath = path.join(WORKFLOW_DIR, '08_report', 'output', 'report.md');
+  const outputPath = path.join(WORKFLOW_DIR, '09_report', 'output', 'report.md');
 
   // IT-8: コンテキスト消費量削減効果検証
   maybeTest(
@@ -427,7 +428,12 @@ describe('Backward Compatibility - Output File Names', () => {
   maybeTest(
     'Phase 6 output filename should not change',
     () => {
-      const outputPath = path.join(WORKFLOW_DIR, '06_testing', 'output', 'test-result.md');
+      const outputPath = path.join(
+        WORKFLOW_DIR,
+        '06_test_preparation',
+        'output',
+        'test-preparation.md'
+      );
       expect(fs.existsSync(outputPath)).toBe(true);
     }
   );
@@ -435,9 +441,17 @@ describe('Backward Compatibility - Output File Names', () => {
   maybeTest(
     'Phase 7 output filename should not change',
     () => {
+      const outputPath = path.join(WORKFLOW_DIR, '07_testing', 'output', 'test-result.md');
+      expect(fs.existsSync(outputPath)).toBe(true);
+    }
+  );
+
+  maybeTest(
+    'Phase 8 output filename should not change',
+    () => {
       const outputPath = path.join(
         WORKFLOW_DIR,
-        '07_documentation',
+        '08_documentation',
         'output',
         'documentation.md'
       );
@@ -446,9 +460,9 @@ describe('Backward Compatibility - Output File Names', () => {
   );
 
   maybeTest(
-    'Phase 8 output filename should not change',
+    'Phase 9 output filename should not change',
     () => {
-      const outputPath = path.join(WORKFLOW_DIR, '08_report', 'output', 'report.md');
+      const outputPath = path.join(WORKFLOW_DIR, '09_report', 'output', 'report.md');
       expect(fs.existsSync(outputPath)).toBe(true);
     }
   );

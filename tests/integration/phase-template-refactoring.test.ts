@@ -143,9 +143,9 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       jest.spyOn(phase as any, 'loadPrompt').mockReturnValue('Revise {review_feedback}');
       jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
       jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
-      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/06_testing/output/test-result.md');
+      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/07_testing/output/test-result.md');
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial', 'utf-8');
 
@@ -178,9 +178,9 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       jest.spyOn(phase as any, 'loadPrompt').mockReturnValue('Revise {review_feedback}');
       jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
       jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
-      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/06_testing/output/test-result.md');
+      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/07_testing/output/test-result.md');
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial', 'utf-8');
 
@@ -439,7 +439,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       // buildOptionalContext() のモック
       jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial test result', 'utf-8');
       jest.spyOn(phase as any, 'executePhaseTemplate').mockImplementation(async () => {
@@ -469,7 +469,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
       jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial test result', 'utf-8');
       jest.spyOn(phase as any, 'executePhaseTemplate').mockResolvedValue({
@@ -596,9 +596,9 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       jest.spyOn(phase as any, 'loadPrompt').mockReturnValue('Revise {review_feedback}');
       jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
       jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
-      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/06_testing/output/test-result.md');
+      jest.spyOn(phase as any, 'getAgentFileReference').mockReturnValue('@.ai-workflow/issue-47/07_testing/output/test-result.md');
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
 
       let updateCount = 0;
@@ -636,7 +636,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
         skipDependencyCheck: true,
       });
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial', 'utf-8');
 
@@ -670,7 +670,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
         skipDependencyCheck: true,
       });
 
-      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
       fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
       fs.writeFileSync(outputFilePath, 'initial', 'utf-8');
 
@@ -728,7 +728,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
           skipDependencyCheck: true,
         });
 
-        const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+        const outputFilePath = path.join(testWorkflowDir, '07_testing', 'output', 'test-result.md');
         fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
         fs.writeFileSync(outputFilePath, `test content ${i}`, 'utf-8');
 

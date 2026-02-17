@@ -80,7 +80,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -135,7 +135,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -171,7 +171,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -209,7 +209,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -243,7 +243,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -284,7 +284,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -321,7 +321,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result = await issueClient.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );
@@ -360,7 +360,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const result = await issueClientWithoutAgent.createIssueFromEvaluation(
         123,
         NORMAL_REMAINING_TASKS,
-        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
         ISSUE_CONTEXT_NORMAL,
         options,
       );

@@ -54,12 +54,12 @@ describe('Cleanup コマンド - parsePhaseRange() 正常系', () => {
   });
 
   // =============================================================================
-  // parsePhaseRange_正常系_数値範囲（0-9）
+  // parsePhaseRange_正常系_数値範囲（0-10）
   // =============================================================================
-  describe('parsePhaseRange_正常系_数値範囲（0-9）', () => {
-    test('数値範囲「0-9」が全フェーズ名配列に変換される', () => {
-      // Given: 数値範囲「0-9」
-      const rangeStr = '0-9';
+  describe('parsePhaseRange_正常系_数値範囲（0-10）', () => {
+    test('数値範囲「0-10」が全フェーズ名配列に変換される', () => {
+      // Given: 数値範囲「0-10」
+      const rangeStr = '0-10';
 
       // When: parsePhaseRange()を呼び出す
       const result = parsePhaseRange(rangeStr);
@@ -72,6 +72,7 @@ describe('Cleanup コマンド - parsePhaseRange() 正常系', () => {
         'test_scenario',
         'implementation',
         'test_implementation',
+        'test_preparation',
         'testing',
         'documentation',
         'report',
@@ -131,16 +132,16 @@ describe('Cleanup コマンド - parsePhaseRange() 正常系', () => {
 
 describe('Cleanup コマンド - parsePhaseRange() 異常系', () => {
   // =============================================================================
-  // parsePhaseRange_異常系_無効な範囲（10-12）
+  // parsePhaseRange_異常系_無効な範囲（11-12）
   // =============================================================================
   describe('parsePhaseRange_異常系_無効な範囲（10-12）', () => {
     test('範囲外の数値範囲が指定された場合にエラーがスローされる', () => {
       // Given: 範囲外の数値範囲
-      const rangeStr = '10-12';
+      const rangeStr = '11-12';
 
       // When & Then: エラーがスローされる
       expect(() => parsePhaseRange(rangeStr))
-        .toThrow(/Invalid phase range: 10-12. Valid range is 0-9/);
+        .toThrow(/Invalid phase range: 11-12. Valid range is 0-10/);
     });
   });
 
@@ -219,12 +220,12 @@ describe('Cleanup コマンド - parsePhaseRange() 異常系', () => {
   // =============================================================================
   describe('parsePhaseRange_異常系_範囲外の開始値', () => {
     test('開始値が範囲外の場合にエラーがスローされる（境界値テスト）', () => {
-      // Given: 開始値10（範囲外）
-      const rangeStr = '10-10';
+      // Given: 開始値11（範囲外）
+      const rangeStr = '11-11';
 
       // When & Then: エラーがスローされる
       expect(() => parsePhaseRange(rangeStr))
-        .toThrow(/Invalid phase range: 10-10. Valid range is 0-9/);
+        .toThrow(/Invalid phase range: 11-11. Valid range is 0-10/);
     });
   });
 });
@@ -269,18 +270,18 @@ describe('Cleanup コマンド - エッジケーステスト', () => {
   });
 
   // =============================================================================
-  // parsePhaseRange_エッジケース_最大範囲（0-9）
+  // parsePhaseRange_エッジケース_最大範囲（0-10）
   // =============================================================================
-  describe('parsePhaseRange_エッジケース_最大範囲（0-9）', () => {
-    test('最大範囲「0-9」が正しく処理される', () => {
+  describe('parsePhaseRange_エッジケース_最大範囲（0-10）', () => {
+    test('最大範囲「0-10」が正しく処理される', () => {
       // Given: 最大範囲
-      const rangeStr = '0-9';
+      const rangeStr = '0-10';
 
       // When: parsePhaseRange()を呼び出す
       const result = parsePhaseRange(rangeStr);
 
-      // Then: 全10フェーズが返される
-      expect(result.length).toBe(10);
+      // Then: 全11フェーズが返される
+      expect(result.length).toBe(11);
       expect(result).toEqual([
         'planning',
         'requirements',
@@ -288,6 +289,7 @@ describe('Cleanup コマンド - エッジケーステスト', () => {
         'test_scenario',
         'implementation',
         'test_implementation',
+        'test_preparation',
         'testing',
         'documentation',
         'report',

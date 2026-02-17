@@ -82,10 +82,11 @@ describe('CommitMessageBuilder - createCommitMessage', () => {
       { name: 'test_scenario', number: 4 },
       { name: 'implementation', number: 5 },
       { name: 'test_implementation', number: 6 },
-      { name: 'testing', number: 7 },
-      { name: 'documentation', number: 8 },
-      { name: 'report', number: 9 },
-      { name: 'evaluation', number: 10 },
+      { name: 'test_preparation', number: 7 },
+      { name: 'testing', number: 8 },
+      { name: 'documentation', number: 9 },
+      { name: 'report', number: 10 },
+      { name: 'evaluation', number: 11 },
     ];
 
     // When/Then: 各フェーズに対して正しい Phase番号が計算される

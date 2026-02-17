@@ -16,9 +16,11 @@ const uncheckedChecklist = [
   '- [ ] Phase 3: Test Scenario',
   '- [ ] Phase 4: Implementation',
   '- [ ] Phase 5: Test Implementation',
-  '- [ ] Phase 6: Testing',
-  '- [ ] Phase 7: Documentation',
-  '- [ ] Phase 8: Report',
+  '- [ ] Phase 6: Test Preparation',
+  '- [ ] Phase 7: Testing',
+  '- [ ] Phase 8: Documentation',
+  '- [ ] Phase 9: Report',
+  '- [ ] Phase 10: Evaluation',
 ].join('\n');
 
 const basePrBody = `${WORKFLOW_HEADER_EN}\n\n${uncheckedChecklist}`;
@@ -32,6 +34,7 @@ describe('PHASE_CHECKLIST_MAP', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',
@@ -41,7 +44,7 @@ describe('PHASE_CHECKLIST_MAP', () => {
     expect(Object.keys(PHASE_CHECKLIST_MAP).sort()).toEqual(expectedPhases.sort());
     expect(Object.values(PHASE_CHECKLIST_MAP)).toContain('Phase 0: Planning');
     expect(PHASE_CHECKLIST_MAP.requirements).toBe('Phase 1: Requirements');
-    expect(PHASE_CHECKLIST_MAP.report).toBe('Phase 8: Report');
+    expect(PHASE_CHECKLIST_MAP.report).toBe('Phase 9: Report');
   });
 });
 
@@ -54,9 +57,11 @@ describe('updatePhaseChecklistInPrBody', () => {
     ['test_scenario', 'Phase 3: Test Scenario'],
     ['implementation', 'Phase 4: Implementation'],
     ['test_implementation', 'Phase 5: Test Implementation'],
-    ['testing', 'Phase 6: Testing'],
-    ['documentation', 'Phase 7: Documentation'],
-    ['report', 'Phase 8: Report'],
+    ['test_preparation', 'Phase 6: Test Preparation'],
+    ['testing', 'Phase 7: Testing'],
+    ['documentation', 'Phase 8: Documentation'],
+    ['report', 'Phase 9: Report'],
+    ['evaluation', 'Phase 10: Evaluation'],
   ] as const)(
     'marks %s as completed when unchecked',
     (phaseName, displayName) => {

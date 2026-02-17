@@ -81,6 +81,13 @@ const baseMetadata = {
       completed_at: null,
       review_result: null,
     },
+    test_preparation: {
+      status: 'pending',
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+      review_result: null,
+    },
     testing: {
       status: 'pending',
       retry_count: 0,
@@ -155,7 +162,7 @@ describe('MetadataManager - Rollback機能', () => {
         from_phase: 'testing',
         from_step: 'review',
         reason: 'Type definition missing: PhaseExecutionResult needs approved and feedback fields',
-        review_result: '@.ai-workflow/issue-49/06_testing/review/result.md',
+        review_result: '@.ai-workflow/issue-49/07_testing/review/result.md',
         details: {
           blocker_count: 2,
           suggestion_count: 4,
@@ -253,7 +260,7 @@ describe('MetadataManager - Rollback機能', () => {
         to_step: 'revise',
         reason: 'Type definition missing...',
         triggered_by: 'manual',
-        review_result_path: '.ai-workflow/issue-49/06_testing/review/result.md'
+        review_result_path: '.ai-workflow/issue-49/07_testing/review/result.md'
       };
 
       // When: addRollbackHistory()を呼び出す

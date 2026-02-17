@@ -64,6 +64,7 @@ describe('Rollback コマンド - バリデーション', () => {
         test_scenario: { ...basePhase },
         implementation: { ...basePhase, status: 'completed', completed_steps: ['execute', 'review'] },
         test_implementation: { ...basePhase },
+        test_preparation: { ...basePhase },
         testing: { ...basePhase },
         documentation: { ...basePhase },
         report: { ...basePhase },
@@ -376,7 +377,7 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
         issue: '49',
         toPhase: 'implementation',
         fromPhase: 'testing',
-        reasonFile: '.ai-workflow/issue-49/06_testing/review/result.md'
+        reasonFile: '.ai-workflow/issue-49/07_testing/review/result.md'
       };
       const reason = 'Type definition missing...';
       const details = {
@@ -392,7 +393,7 @@ describe('Rollback コマンド - ROLLBACK_REASON.md生成', () => {
       expect(markdown).toContain('# Phase 04 (implementation) への差し戻し理由');
       expect(markdown).toContain('**差し戻し元**: Phase testing');
       expect(markdown).toContain('Type definition missing...');
-      expect(markdown).toContain('@.ai-workflow/issue-49/06_testing/review/result.md');
+      expect(markdown).toContain('@.ai-workflow/issue-49/07_testing/review/result.md');
     });
   });
 
@@ -434,10 +435,11 @@ describe('Rollback コマンド - ヘルパー関数', () => {
       expect(getPhaseNumber('test_scenario')).toBe('03');
       expect(getPhaseNumber('implementation')).toBe('04');
       expect(getPhaseNumber('test_implementation')).toBe('05');
-      expect(getPhaseNumber('testing')).toBe('06');
-      expect(getPhaseNumber('documentation')).toBe('07');
-      expect(getPhaseNumber('report')).toBe('08');
-      expect(getPhaseNumber('evaluation')).toBe('09');
+      expect(getPhaseNumber('test_preparation')).toBe('06');
+      expect(getPhaseNumber('testing')).toBe('07');
+      expect(getPhaseNumber('documentation')).toBe('08');
+      expect(getPhaseNumber('report')).toBe('09');
+      expect(getPhaseNumber('evaluation')).toBe('10');
     });
   });
 });

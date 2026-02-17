@@ -246,7 +246,7 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
 
   test('2.2.2: commitCleanupLogs_正常系_Evaluation Phase', async () => {
     // Given: クリーンアップによる変更ファイルが存在する
-    const phaseDir = path.join(testRepoDir, '.ai-workflow', 'issue-16', '09_evaluation');
+    const phaseDir = path.join(testRepoDir, '.ai-workflow', 'issue-16', '10_evaluation');
     await fs.ensureDir(phaseDir);
     const testFile = path.join(phaseDir, 'output', 'evaluation.md');
     await fs.ensureDir(path.dirname(testFile));
@@ -266,7 +266,7 @@ describe('GitManager.commitCleanupLogs() - Issue #16', () => {
 
   test('2.2.3: commitCleanupLogs_正常系_ファイルなし', async () => {
     // Given: 変更ファイルが存在しない状態
-    const phaseDir = path.join(testRepoDir, '.ai-workflow', 'issue-16', '08_report');
+    const phaseDir = path.join(testRepoDir, '.ai-workflow', 'issue-16', '09_report');
     await fs.ensureDir(phaseDir);
     const testFile = path.join(phaseDir, 'output', 'report.md');
     await fs.ensureDir(path.dirname(testFile));

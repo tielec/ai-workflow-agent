@@ -434,7 +434,7 @@ BasePhase クラスの拡張について説明します。
         skipDependencyCheck: true,
       });
 
-      const executeDir = path.join(mockMetadata.workflowDir, '08_report', 'execute');
+      const executeDir = path.join(mockMetadata.workflowDir, '09_report', 'execute');
       fs.ensureDirSync(executeDir);
 
       const validReportLog = `
@@ -460,7 +460,7 @@ BasePhase クラスの拡張について説明します。
       // Then: Fallback succeeds
       expect(result.success).toBe(true);
 
-      const outputFile = path.join(mockMetadata.workflowDir, '08_report', 'output', 'report.md');
+      const outputFile = path.join(mockMetadata.workflowDir, '09_report', 'output', 'report.md');
       expect(fs.existsSync(outputFile)).toBe(true);
 
       const savedContent = fs.readFileSync(outputFile, 'utf-8');

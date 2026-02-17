@@ -116,7 +116,7 @@ Issue #123 では FOLLOW-UP Issue 生成機能をエージェントベースに�
 ## 参考情報
 
 - 元Issue: #123
-- Evaluation Report: \`.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md\`
+- Evaluation Report: \`.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md\`
 `;
 
 describe('IssueAgentGenerator prompt language switching', () => {
@@ -125,7 +125,7 @@ describe('IssueAgentGenerator prompt language switching', () => {
     remainingTasks: NORMAL_REMAINING_TASKS,
     issueContext: ISSUE_CONTEXT_NORMAL,
     issueNumber: 999,
-    evaluationReportPath: '.ai-workflow/issue-999/09_evaluation/output/evaluation_report.md',
+    evaluationReportPath: '.ai-workflow/issue-999/10_evaluation/output/evaluation_report.md',
   };
 
   beforeEach(() => {
@@ -189,7 +189,7 @@ describe('IssueAgentGenerator.generate - Codex success', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
@@ -246,7 +246,7 @@ describe('IssueAgentGenerator.generate - Claude success', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     claudeClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
@@ -301,7 +301,7 @@ describe('IssueAgentGenerator.generate - auto mode with Codex priority', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     codexClient.executeTask.mockImplementation(async (options: { prompt: string }) => {
@@ -332,7 +332,7 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     remainingTasks: NORMAL_REMAINING_TASKS,
     issueContext: ISSUE_CONTEXT_NORMAL,
     issueNumber: 123,
-    evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+    evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
   };
 
   beforeEach(() => {
@@ -412,7 +412,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     codexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
@@ -440,7 +440,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     codexClient.executeTask.mockRejectedValue(new Error('Codex API failed'));
@@ -461,7 +461,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     codexClient.executeTask.mockResolvedValue([]);
@@ -485,7 +485,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     let tempFilePath = '';
@@ -517,7 +517,7 @@ describe('IssueAgentGenerator.generate - error handling', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     const invalidBody = `## 背景\n\nテキスト\n\n## 目的\n\nテキスト`;
@@ -657,7 +657,7 @@ describe('IssueAgentGenerator.createFallbackBody', () => {
       remainingTasks: NORMAL_REMAINING_TASKS,
       issueContext: ISSUE_CONTEXT_NORMAL,
       issueNumber: 123,
-      evaluationReportPath: '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+      evaluationReportPath: '.ai-workflow/issue-123/10_evaluation/output/evaluation_report.md',
     };
 
     // When: createFallbackBody() is called

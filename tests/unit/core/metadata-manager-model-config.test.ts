@@ -22,6 +22,7 @@ const createMockMetadata = () => {
     test_scenario: createPhase(),
     implementation: createPhase(),
     test_implementation: createPhase(),
+    test_preparation: createPhase(),
     testing: createPhase(),
     documentation: createPhase(),
     report: createPhase(),

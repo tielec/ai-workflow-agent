@@ -227,7 +227,7 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
     // MetadataManagerインスタンスを作成（実際のファイルを読み込む）
     metadataManager = new MetadataManager(metadataPath);
 
-    // ワークフローログを作成（Phase 0-8）
+    // ワークフローログを作成（Phase 0-9）
     await createWorkflowLogs(workflowDir, [
       '00_planning',
       '01_requirements',
@@ -235,9 +235,10 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ]);
 
     // 初期コミットを作成（ファイルをGit追跡下に置く）
@@ -257,7 +258,7 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
   // リファクタリング例：通常クリーンアップのテスト
   // ===========================================================================
   test('通常クリーンアップが正しく動作する', async () => {
-    // Given: Phase 0-8のログが存在する状態
+    // Given: Phase 0-9のログが存在する状態
     const options: CleanupCommandOptions = {
       issue: '123',
       dryRun: false,
@@ -281,9 +282,10 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ]) {
       const phaseDir = path.join(workflowDir, phaseName);
       expect(await fs.pathExists(path.join(phaseDir, 'execute'))).toBe(false);
@@ -302,7 +304,7 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
   // リファクタリング例：ドライランモードのテスト
   // ===========================================================================
   test('ドライランモードでプレビューのみ表示される', async () => {
-    // Given: Phase 0-8のログが存在する状態
+    // Given: Phase 0-9のログが存在する状態
     const options: CleanupCommandOptions = {
       issue: '123',
       dryRun: true,
@@ -319,9 +321,10 @@ describe('Integration: Cleanup Command - 基本的なクリーンアップ', () 
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ]) {
       const phaseDir = path.join(workflowDir, phaseName);
       expect(await fs.pathExists(path.join(phaseDir, 'execute'))).toBe(true);
@@ -367,7 +370,7 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
     // MetadataManagerインスタンスを作成
     metadataManager = new MetadataManager(metadataPath);
 
-    // ワークフローログを作成（Phase 0-8）
+    // ワークフローログを作成（Phase 0-9）
     await createWorkflowLogs(workflowDir, [
       '00_planning',
       '01_requirements',
@@ -375,9 +378,10 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ]);
 
     // 初期コミットを作成（ファイルをGit追跡下に置く）
@@ -397,7 +401,7 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
   // リファクタリング例：数値範囲指定（0-4）
   // ===========================================================================
   test('数値範囲指定（0-4）で部分クリーンアップが動作する', async () => {
-    // Given: Phase 0-8のログが存在する状態
+    // Given: Phase 0-9のログが存在する状態
     const options: CleanupCommandOptions = {
       issue: '456',
       dryRun: false,
@@ -423,7 +427,7 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
     }
 
     // Then: Phase 5-8 のログは保持されている
-    for (const phaseName of ['05_test_implementation', '06_testing', '07_documentation', '08_report']) {
+    for (const phaseName of ['05_test_implementation', '06_test_preparation', '07_testing', '08_documentation', '09_report']) {
       const phaseDir = path.join(workflowDir, phaseName);
       expect(await fs.pathExists(path.join(phaseDir, 'execute'))).toBe(true);
       expect(await fs.pathExists(path.join(phaseDir, 'review'))).toBe(true);
@@ -435,7 +439,7 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
   // リファクタリング例：フェーズ名リスト指定（planning,requirements）
   // ===========================================================================
   test('フェーズ名リスト指定（planning,requirements）で部分クリーンアップが動作する', async () => {
-    // Given: Phase 0-8のログが存在する状態
+    // Given: Phase 0-9のログが存在する状態
     const options: CleanupCommandOptions = {
       issue: '456',
       dryRun: false,
@@ -466,9 +470,10 @@ describe('Integration: Cleanup Command - 部分クリーンアップ', () => {
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ]) {
       const phaseDir = path.join(workflowDir, phaseName);
       expect(await fs.pathExists(path.join(phaseDir, 'execute'))).toBe(true);
@@ -521,10 +526,11 @@ describe('Integration: Cleanup Command - 完全クリーンアップ', () => {
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
-      '09_evaluation',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
+      '10_evaluation',
     ]);
 
     // 初期コミットを作成（ファイルをGit追跡下に置く）

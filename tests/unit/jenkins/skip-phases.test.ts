@@ -47,6 +47,7 @@ describe('Jenkins Job DSL: SKIP_PHASES パラメータ', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',
@@ -83,4 +84,3 @@ describe('Jenkinsfile (all-phases): skipPhasesOption の組み込み', () => {
     expect(content).toMatch(/node dist\/index\.js execute[\s\S]*\n\s+\$\{skipPhasesOption}/);
   });
 });
-

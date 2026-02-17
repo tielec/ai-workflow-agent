@@ -83,9 +83,10 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
     ];
 
     const targetSubdirs = ['execute', 'review', 'revise'];
@@ -392,7 +393,7 @@ describe('クリーンアップ機能のエッジケーステスト', () => {
   test('3.2: ネストされたファイル構造も正しく削除される', async () => {
     // Given: execute/review/reviseディレクトリにネストされたファイル構造が存在する
     const baseDir = path.resolve(workflowDir, '..', `issue-${TEST_ISSUE_NUMBER}`);
-    const testingDir = path.join(baseDir, '06_testing');
+    const testingDir = path.join(baseDir, '07_testing');
     const reviewDir = path.join(testingDir, 'review');
     const nestedDir = path.join(reviewDir, 'nested', 'deeply', 'nested');
 

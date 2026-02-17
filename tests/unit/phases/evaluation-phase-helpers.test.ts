@@ -41,6 +41,7 @@ describe('EvaluationPhase helper behaviors', () => {
         test_scenario: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
         implementation: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
         test_implementation: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
+        test_preparation: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
         testing: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
         documentation: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },
         report: { status: 'completed', started_at: '', completed_at: '', retry_count: 0 },

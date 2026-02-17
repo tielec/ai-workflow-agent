@@ -113,7 +113,7 @@ describe('skip-phases 統合動作', () => {
 
   test('IT-002: テスト関連フェーズスキップ_ワークフロー実行', async () => {
     // Given: テスト関連フェーズをまとめてスキップ
-    const skipTargets: PhaseName[] = ['test_scenario', 'test_implementation', 'testing'];
+    const skipTargets: PhaseName[] = ['test_scenario', 'test_implementation', 'test_preparation', 'testing'];
     const { context, metadataManager, gitManager } = createTestContext(skipTargets);
     tempDirs.push(context.workingDir);
     const infoSpy = jest.spyOn(logger, 'info');
@@ -125,6 +125,7 @@ describe('skip-phases 統合動作', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',
@@ -138,10 +139,12 @@ describe('skip-phases 統合動作', () => {
     expect(result.success).toBe(true);
     expect(metadataManager.getPhaseStatus('test_scenario')).toBe('skipped');
     expect(metadataManager.getPhaseStatus('test_implementation')).toBe('skipped');
+    expect(metadataManager.getPhaseStatus('test_preparation')).toBe('skipped');
     expect(metadataManager.getPhaseStatus('testing')).toBe('skipped');
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('ℹ️  Phases to skip'));
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('⏭️  Skipped: test_scenario'));
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('⏭️  Skipped: test_implementation'));
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('⏭️  Skipped: test_preparation'));
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('⏭️  Skipped: testing'));
     expect(mockPhaseRuns.has('planning')).toBe(true);
     expect(mockPhaseRuns.has('requirements')).toBe(true);
@@ -152,6 +155,7 @@ describe('skip-phases 統合動作', () => {
     expect(mockPhaseRuns.has('evaluation')).toBe(true);
     expect(mockPhaseRuns.has('test_scenario')).toBe(false);
     expect(mockPhaseRuns.has('test_implementation')).toBe(false);
+    expect(mockPhaseRuns.has('test_preparation')).toBe(false);
     expect(mockPhaseRuns.has('testing')).toBe(false);
   });
 

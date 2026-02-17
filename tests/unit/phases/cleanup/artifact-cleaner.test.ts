@@ -51,8 +51,8 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
     delete process.env.CI;
   });
 
-  test('UC-AC-01: cleanupWorkflowLogs() - phases 00-09 の execute/review/revise が削除され、metadata.json と output/*.md が保持される', async () => {
-    // Given: phases 00-09 のディレクトリが存在する
+  test('UC-AC-01: cleanupWorkflowLogs() - phases 00-10 の execute/review/revise が削除され、metadata.json と output/*.md が保持される', async () => {
+    // Given: phases 00-10 のディレクトリが存在する
     const phaseDirs = [
       '00_planning',
       '01_requirements',
@@ -60,10 +60,11 @@ describe('ArtifactCleaner - cleanupWorkflowLogs() 正常系', () => {
       '03_test_scenario',
       '04_implementation',
       '05_test_implementation',
-      '06_testing',
-      '07_documentation',
-      '08_report',
-      '09_evaluation',
+      '06_test_preparation',
+      '07_testing',
+      '08_documentation',
+      '09_report',
+      '10_evaluation',
     ];
 
     for (const phaseDir of phaseDirs) {

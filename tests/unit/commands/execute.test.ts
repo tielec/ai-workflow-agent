@@ -161,7 +161,7 @@ describe('getPresetPhases', () => {
       const result = getPresetPhases(presetName);
 
       // Then: 正しいフェーズリストが返される
-      expect(result).toEqual(['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report']);
+      expect(result).toEqual(['planning', 'implementation', 'test_implementation', 'test_preparation', 'testing', 'documentation', 'report']);
     });
 
     test('analysis-designプリセットのフェーズリストが正しく取得できる', () => {

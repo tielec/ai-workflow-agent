@@ -412,9 +412,10 @@ describe('ヘルパー関数 - getPhaseNumber()', () => {
     expect(getPhaseNumber('test_scenario')).toBe('03');
     expect(getPhaseNumber('implementation')).toBe('04');
     expect(getPhaseNumber('test_implementation')).toBe('05');
-    expect(getPhaseNumber('testing')).toBe('06');
-    expect(getPhaseNumber('documentation')).toBe('07');
-    expect(getPhaseNumber('report')).toBe('08');
-    expect(getPhaseNumber('evaluation')).toBe('09');
+    expect(getPhaseNumber('test_preparation')).toBe('06');
+    expect(getPhaseNumber('testing')).toBe('07');
+    expect(getPhaseNumber('documentation')).toBe('08');
+    expect(getPhaseNumber('report')).toBe('09');
+    expect(getPhaseNumber('evaluation')).toBe('10');
   });
 });

@@ -186,7 +186,7 @@ describe('metadata-io', () => {
 
     it('正常系: testingフェーズでreview/result.mdが存在すればそのパスを返す', () => {
       const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-38');
-      const reviewPath = path.resolve(workflowDir, '06_testing', 'review', 'result.md');
+      const reviewPath = path.resolve(workflowDir, '07_testing', 'review', 'result.md');
       const existsSyncSpy = jest
         .spyOn(fs, 'existsSync')
         .mockImplementation((targetPath) => targetPath === reviewPath);
@@ -199,8 +199,8 @@ describe('metadata-io', () => {
 
     it('正常系: testingフェーズでreview/result.mdが無ければ従来パスを返す', () => {
       const workflowDir = path.join('path', 'to', '.ai-workflow', 'issue-26');
-      const reviewPath = path.resolve(workflowDir, '06_testing', 'review', 'result.md');
-      const legacyPath = path.resolve(workflowDir, '06_testing', 'output', 'test-result.md');
+      const reviewPath = path.resolve(workflowDir, '07_testing', 'review', 'result.md');
+      const legacyPath = path.resolve(workflowDir, '07_testing', 'output', 'test-result.md');
       const existsSyncSpy = jest
         .spyOn(fs, 'existsSync')
         .mockImplementation(() => false);

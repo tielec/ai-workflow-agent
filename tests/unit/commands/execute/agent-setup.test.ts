@@ -823,10 +823,10 @@ describe('環境変数設定の検証', () => {
 
 describe('PHASE_AGENT_PRIORITY - 正常系（Issue #306）', () => {
   test('すべてのフェーズに優先順位が定義されている', () => {
-    // Given: 全10フェーズのリスト
+    // Given: 全11フェーズのリスト
     const phaseNames: PhaseName[] = [
       'planning', 'requirements', 'design', 'test_scenario',
-      'implementation', 'test_implementation', 'testing',
+      'implementation', 'test_implementation', 'test_preparation', 'testing',
       'documentation', 'report', 'evaluation',
     ];
 
@@ -860,6 +860,7 @@ describe('PHASE_AGENT_PRIORITY - 正常系（Issue #306）', () => {
     const codexFirstPhases: PhaseName[] = [
       'implementation',        // 具体的なコード実装
       'test_implementation',   // テストコード生成
+      'test_preparation',      // テスト実行前の環境準備
       'testing',               // テスト実行、デバッグ
     ];
 
@@ -869,7 +870,7 @@ describe('PHASE_AGENT_PRIORITY - 正常系（Issue #306）', () => {
     }
   });
 
-  test('claude-first フェーズは7つ、codex-first フェーズは3つ', () => {
+  test('claude-first フェーズは7つ、codex-first フェーズは4つ', () => {
     // Given: PHASE_AGENT_PRIORITY マッピング
     const allPhases = Object.entries(PHASE_AGENT_PRIORITY);
 
@@ -879,8 +880,8 @@ describe('PHASE_AGENT_PRIORITY - 正常系（Issue #306）', () => {
 
     // Then: 期待どおりのカウント
     expect(claudeFirstCount).toBe(7);
-    expect(codexFirstCount).toBe(3);
-    expect(allPhases.length).toBe(10); // 全10フェーズ
+    expect(codexFirstCount).toBe(4);
+    expect(allPhases.length).toBe(11); // 全11フェーズ
   });
 });
 
@@ -892,7 +893,7 @@ describe('PHASE_AGENT_PRIORITY - 型安全性（Issue #306）', () => {
 
     const expectedPhases: PhaseName[] = [
       'planning', 'requirements', 'design', 'test_scenario',
-      'implementation', 'test_implementation', 'testing',
+      'implementation', 'test_implementation', 'test_preparation', 'testing',
       'documentation', 'report', 'evaluation',
     ];
 

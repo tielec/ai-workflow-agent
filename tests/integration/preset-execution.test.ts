@@ -57,16 +57,17 @@ describe('プリセット実行の統合テスト', () => {
     // When: プリセットのPhaseリストを取得
     const phases = getPresetPhases('implementation');
 
-    // Then: 期待されるPhaseリストが返される（5つのPhase）
+    // Then: 期待されるPhaseリストが返される（7つのPhase）
     expect(phases).toEqual([
       'planning',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',
     ]);
-    expect(phases.length).toBe(6);
+    expect(phases.length).toBe(7);
   });
 
   test('2.1.4: testingプリセットのPhase構成', () => {
@@ -75,8 +76,8 @@ describe('プリセット実行の統合テスト', () => {
     const phases = getPresetPhases('testing');
 
     // Then: 期待されるPhaseリストが返される
-    expect(phases).toEqual(['planning', 'test_implementation', 'testing']);
-    expect(phases.length).toBe(3);
+    expect(phases).toEqual(['planning', 'test_implementation', 'test_preparation', 'testing']);
+    expect(phases.length).toBe(4);
   });
 
   test('2.1.5: finalizeプリセットのPhase構成', () => {

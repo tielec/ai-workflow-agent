@@ -32,6 +32,7 @@ function createMockMetadataManager(completedSteps: StepName[] = [], retryCount =
       test_scenario: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
       implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
       test_implementation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
+      test_preparation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
       testing: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
       documentation: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },
       report: { status: 'pending', started_at: null, completed_at: null, retry_count: 0, review_result: null, output_files: [], completed_steps: [], current_step: null },

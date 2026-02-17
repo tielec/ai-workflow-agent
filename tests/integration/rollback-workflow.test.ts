@@ -96,6 +96,16 @@ describe('Integration: Rollback Workflow', () => {
         retry_count: 0,
         rollback_context: null,
       },
+      test_preparation: {
+        status: 'completed',
+        completed_steps: ['execute', 'review'],
+        current_step: null,
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        review_result: null,
+        retry_count: 0,
+        rollback_context: null,
+      },
       testing: {
         status: 'completed',
         completed_steps: ['execute', 'review'],
@@ -219,6 +229,7 @@ describe('Integration: Rollback Workflow', () => {
 
       // 3. 後続フェーズがリセットされている
       expect(reloadedManager.data.phases.test_implementation.status).toBe('pending');
+      expect(reloadedManager.data.phases.test_preparation.status).toBe('pending');
       expect(reloadedManager.data.phases.testing.status).toBe('pending');
     });
   });
@@ -351,6 +362,7 @@ describe('Integration: Rollback Workflow - エラーハンドリング', () => {
         test_scenario: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         implementation: { status: 'in_progress', completed_steps: ['execute'], current_step: 'review', started_at: new Date().toISOString(), completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         test_implementation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_preparation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         testing: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         documentation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         report: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
@@ -463,6 +475,7 @@ describe('Integration: Rollback Workflow - 後方互換性', () => {
         test_scenario: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         implementation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         test_implementation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
+        test_preparation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         testing: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         documentation: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },
         report: { status: 'pending', completed_steps: [], current_step: null, started_at: null, completed_at: null, review_result: null, retry_count: 0, rollback_context: null },

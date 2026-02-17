@@ -210,6 +210,48 @@ FR-1: BasePhaseへの汎用フォールバック機構の実装
       });
     });
 
+    describe('Test Preparation Phase - Header pattern matching', () => {
+      it('should extract content from log with Japanese header pattern', () => {
+        // Given: Agent log contains valid test preparation document
+        const agentLog = `
+Agent output...
+
+# テスト準備
+
+## 環境セットアップ
+Node.js 20 をインストール
+`;
+
+        // When: Extracting content for test_preparation phase
+        const result = testPhase.exposeExtractContentFromLog(agentLog, 'test_preparation');
+
+        // Then: Content is successfully extracted
+        expect(result).not.toBeNull();
+        expect(result).toContain('テスト準備');
+        expect(result).toContain('## 環境セットアップ');
+      });
+
+      it('should extract content from log with English header pattern', () => {
+        // Given: Agent log contains valid test preparation document
+        const agentLog = `
+Agent output...
+
+# Test Preparation
+
+## Environment Setup
+Install Node.js 20
+`;
+
+        // When: Extracting content for test_preparation phase
+        const result = testPhase.exposeExtractContentFromLog(agentLog, 'test_preparation');
+
+        // Then: Content is successfully extracted
+        expect(result).not.toBeNull();
+        expect(result).toContain('Test Preparation');
+        expect(result).toContain('## Environment Setup');
+      });
+    });
+
     describe('No header found - Fallback to markdown sections', () => {
       it('should extract content when header is not found but multiple markdown sections exist', () => {
         // Given: Agent log without header but with multiple markdown sections

@@ -60,10 +60,10 @@ describe('PHASE_PRESETS定義テスト', () => {
     expect(PHASE_PRESETS['analysis-design']).toEqual(['planning', 'requirements', 'design']);
 
     expect(PHASE_PRESETS['quick-fix']).toEqual(['planning', 'implementation', 'documentation', 'report']);
-    expect(PHASE_PRESETS['implementation']).toEqual(['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report']);
+    expect(PHASE_PRESETS['implementation']).toEqual(['planning', 'implementation', 'test_implementation', 'test_preparation', 'testing', 'documentation', 'report']);
 
     expect(PHASE_PRESETS['full-test']).toEqual(['planning', 'test_scenario', 'test_implementation']);
-    expect(PHASE_PRESETS['testing']).toEqual(['planning', 'test_implementation', 'testing']);
+    expect(PHASE_PRESETS['testing']).toEqual(['planning', 'test_implementation', 'test_preparation', 'testing']);
 
     expect(PHASE_PRESETS['finalize']).toEqual(['planning', 'documentation', 'report', 'evaluation']);
   });
@@ -95,6 +95,14 @@ describe('PHASE_PRESETS定義テスト', () => {
     for (const description of Object.values(PRESET_DESCRIPTIONS)) {
       expect(description.startsWith('Planning +')).toBe(true);
     }
+  });
+
+  test('1.1.4-1: implementation の説明に TestPreparation が含まれる', () => {
+    expect(PRESET_DESCRIPTIONS['implementation']).toContain('TestPreparation');
+  });
+
+  test('1.1.4-2: testing の説明に TestPreparation が含まれる', () => {
+    expect(PRESET_DESCRIPTIONS['testing']).toContain('TestPreparation');
   });
 
   test('1.1.5: プリセットと説明のキーが一致する', () => {
@@ -234,6 +242,60 @@ describe('依存関係チェックテスト', () => {
     expect(result.missing_phases?.length || 0).toBe(0);
     expect(result.missing_files?.length || 0).toBe(0);
   });
+
+  test('1.4.6: test_preparation の依存関係が満たされている場合', () => {
+    // Given: test_implementation が完了済み
+    const manager = createMetadataManagerWithStatuses({
+      test_implementation: 'completed',
+    });
+
+    // When: test_preparation の依存関係をチェック
+    const result = validatePhaseDependencies('test_preparation', manager);
+
+    // Then: チェックが成功する
+    expect(result.valid).toBe(true);
+    expect(result.missing_phases?.length || 0).toBe(0);
+  });
+
+  test('1.4.7: test_preparation の依存関係が不足している場合', () => {
+    // Given: test_implementation が未完了
+    const manager = createMetadataManagerWithStatuses({});
+
+    // When: test_preparation の依存関係をチェック
+    const result = validatePhaseDependencies('test_preparation', manager);
+
+    // Then: エラーが返される
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(result.error).toContain('test_implementation');
+  });
+
+  test('1.4.8: testing の依存が test_preparation に変更されている（正常系）', () => {
+    // Given: test_preparation が完了済み
+    const manager = createMetadataManagerWithStatuses({
+      test_preparation: 'completed',
+    });
+
+    // When: testing の依存関係をチェック
+    const result = validatePhaseDependencies('testing', manager);
+
+    // Then: チェックが成功する
+    expect(result.valid).toBe(true);
+  });
+
+  test('1.4.9: testing の依存が test_preparation に変更されている（異常系）', () => {
+    // Given: test_preparation が未完了、test_implementation は完了済み
+    const manager = createMetadataManagerWithStatuses({
+      test_implementation: 'completed',
+    });
+
+    // When: testing の依存関係をチェック
+    const result = validatePhaseDependencies('testing', manager);
+
+    // Then: エラーに test_preparation が含まれる
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('test_preparation');
+  });
 });
 
 describe('skipPhases オプションの適用', () => {
@@ -303,16 +365,16 @@ describe('skipPhases オプションの適用', () => {
   });
 
   test('複数フェーズスキップで後続フェーズの依存が解消される', () => {
-    // Given: implementation まで完了済み、test_implementation は未完了
+    // Given: implementation まで完了済み、test_preparation は未完了
     const manager = createMetadataManagerWithStatuses({
       requirements: 'completed',
       design: 'completed',
       implementation: 'completed',
     });
 
-    // When: testing フェーズの依存 test_implementation をスキップ
+    // When: testing フェーズの依存 test_preparation をスキップ
     const result = validatePhaseDependencies('testing', manager, {
-      skipPhases: ['test_implementation'],
+      skipPhases: ['test_preparation'],
     });
 
     // Then: スキップされた依存はチェックされず成功する
@@ -331,6 +393,7 @@ describe('PHASE_DEPENDENCIES定義の整合性', () => {
       'test_scenario',
       'implementation',
       'test_implementation',
+      'test_preparation',
       'testing',
       'documentation',
       'report',

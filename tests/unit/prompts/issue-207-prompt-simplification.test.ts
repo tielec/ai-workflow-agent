@@ -374,7 +374,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
   describe('Issue #388 Integration: DocumentationPhase prompt loading', () => {
     const tempRoot = path.join(projectRoot, 'tests', 'temp', 'documentation-phase-issue-388');
     const workflowDir = path.join(tempRoot, '.ai-workflow', 'issue-388');
-    const documentationOutputDir = path.join(workflowDir, '07_documentation', 'output');
+    const documentationOutputDir = path.join(workflowDir, '08_documentation', 'output');
     const documentationLogPath = path.join(documentationOutputDir, 'documentation-update-log.md');
     let phase: DocumentationPhase;
 
@@ -447,7 +447,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
 
     it('should build review prompt that resolves documentation log reference', () => {
       const reviewPrompt = (phase as any).buildPrompt('review', 388, documentationLogPath);
-      expect(reviewPrompt).toMatch(/@\.ai-workflow\/issue-388\/07_documentation\/output\/documentation-update-log\.md/);
+      expect(reviewPrompt).toMatch(/@\.ai-workflow\/issue-388\/08_documentation\/output\/documentation-update-log\.md/);
       expect(reviewPrompt).toContain('Readツール使用時の注意');
       expect(reviewPrompt).not.toContain('{documentation_update_log_path}');
     });

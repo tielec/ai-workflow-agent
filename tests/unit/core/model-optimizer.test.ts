@@ -31,6 +31,17 @@ describe('ModelOptimizer', () => {
       expect(result).toEqual({ claudeModel: 'sonnet', codexModel: 'mini' });
     });
 
+    it('returns lightweight models for simple test_preparation execute (TC-MO-018)', () => {
+      // Given
+      const optimizer = new ModelOptimizer('simple');
+
+      // When
+      const result = optimizer.resolveModel('test_preparation', 'execute');
+
+      // Then
+      expect(result).toEqual({ claudeModel: 'sonnet', codexModel: 'mini' });
+    });
+
     it('returns high quality models for moderate planning execute (TC-MO-003)', () => {
       // Given
       const optimizer = new ModelOptimizer('moderate');
@@ -42,12 +53,34 @@ describe('ModelOptimizer', () => {
       expect(result).toEqual({ claudeModel: 'opus', codexModel: 'max' });
     });
 
+    it('returns high quality models for moderate test_preparation execute (TC-MO-019)', () => {
+      // Given
+      const optimizer = new ModelOptimizer('moderate');
+
+      // When
+      const result = optimizer.resolveModel('test_preparation', 'execute');
+
+      // Then
+      expect(result).toEqual({ claudeModel: 'opus', codexModel: 'max' });
+    });
+
     it('returns high quality models for moderate revise steps in code phases (TC-MO-004)', () => {
       // Given
       const optimizer = new ModelOptimizer('moderate');
 
       // When
       const result = optimizer.resolveModel('implementation', 'revise');
+
+      // Then
+      expect(result).toEqual({ claudeModel: 'opus', codexModel: 'max' });
+    });
+
+    it('returns high quality models for complex test_preparation execute (TC-MO-020)', () => {
+      // Given
+      const optimizer = new ModelOptimizer('complex');
+
+      // When
+      const result = optimizer.resolveModel('test_preparation', 'execute');
 
       // Then
       expect(result).toEqual({ claudeModel: 'opus', codexModel: 'max' });

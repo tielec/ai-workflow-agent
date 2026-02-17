@@ -328,10 +328,10 @@ describe('CommitManager - Commit Operations', () => {
       mockGit.status.mockResolvedValue({
         current: 'feature/issue-25',
         files: [
-          { path: '.ai-workflow/issue-25/08_report/execute/agent_log.md', working_dir: 'M' },
+          { path: '.ai-workflow/issue-25/09_report/execute/agent_log.md', working_dir: 'M' },
         ],
         not_added: [],
-        modified: ['.ai-workflow/issue-25/08_report/execute/agent_log.md'],
+        modified: ['.ai-workflow/issue-25/09_report/execute/agent_log.md'],
         deleted: [],
       } as any);
 

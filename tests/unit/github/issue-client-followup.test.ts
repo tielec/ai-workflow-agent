@@ -462,7 +462,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
         91,
         remainingTasks,
-        '.ai-workflow/issue-91/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-91/10_evaluation/output/evaluation_report.md',
         issueContext,
       );
 
@@ -510,7 +510,7 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
       const result = await issueClient.createIssueFromEvaluation(
         52,
         remainingTasks,
-        '.ai-workflow/issue-52/09_evaluation/output/evaluation_report.md',
+        '.ai-workflow/issue-52/10_evaluation/output/evaluation_report.md',
         // issueContext 未指定
       );
 
