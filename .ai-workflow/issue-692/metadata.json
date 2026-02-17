@@ -5,7 +5,7 @@
   "language": "ja",
   "repository": "tielec/ai-workflow-agent",
   "target_repository": {
-    "path": "/tmp/ai-workflow-repos-199-30fecc5d/ai-workflow-agent",
+    "path": "/tmp/ai-workflow-repos-200-07c939b7/ai-workflow-agent",
     "github_name": "tielec/ai-workflow-agent",
     "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
     "owner": "tielec",
@@ -33,7 +33,7 @@
       "requires_architecture_change": true,
       "complexity_score": 0.88
     },
-    "analyzed_at": "2026-02-17T12:56:02.524Z",
+    "analyzed_at": "2026-02-17T13:45:10.520Z",
     "analyzer_agent": "claude",
     "analyzer_model": "sonnet"
   },
@@ -299,7 +299,7 @@
     }
   },
   "created_at": "2026-02-17T07:01:19.493Z",
-  "updated_at": "2026-02-17T12:56:09.801Z",
+  "updated_at": "2026-02-17T13:45:10.522Z",
   "branch_name": "ai-workflow/issue-692",
   "base_commit": "1604a0efe182916d447130ed3246a642e5965a2e",
   "pr_number": 696,
