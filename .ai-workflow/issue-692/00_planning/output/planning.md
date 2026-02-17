@@ -177,34 +177,34 @@ Docker コンテナ内でテスト実行時に、対象リポジトリの開発�
   - PHASE_AGENT_PRIORITY のマッピングテスト（test_preparation: 'codex-first'）
   - model-optimizer のマッピングテスト（全難易度レベルで test_preparation の設定存在）
 
-### Phase 4: 実装 (見積もり: 6〜8h)
+-### Phase 4: 実装 (見積もり: 6〜8h)
 
-- [ ] Task 4-1: 型定義の更新 (0.5h)
+- [x] Task 4-1: 型定義の更新 (0.5h)
   - `src/types.ts` の `PhaseName` 型に `'test_preparation'` を追加
 
-- [ ] Task 4-2: フェーズ順序・依存関係の更新 (1〜1.5h)
+- [x] Task 4-2: フェーズ順序・依存関係の更新 (1〜1.5h)
   - `src/commands/execute.ts` の `PHASE_ORDER` に `'test_preparation'` を追加
   - `src/core/phase-dependencies.ts` の `PHASE_DEPENDENCIES` に `test_preparation: ['test_implementation']` を追加
   - `src/core/phase-dependencies.ts` の `testing` の依存を `['test_preparation']` に変更
   - `src/core/phase-dependencies.ts` の `PHASE_PRESETS` を更新（`implementation`, `testing`, `full-test` プリセット）
   - `src/core/phase-dependencies.ts` の `PRESET_DESCRIPTIONS` を更新
 
-- [ ] Task 4-3: フェーズファクトリ・番号マッピングの更新 (1h)
+- [x] Task 4-3: フェーズファクトリ・番号マッピングの更新 (1h)
   - `src/core/phase-factory.ts` に `TestPreparationPhase` の import と case 追加
   - `src/phases/base-phase.ts` の `getPhaseNumber()` にマッピング追加（`test_preparation: '06'`）
   - 既存フェーズ番号のシフト（testing: '07', documentation: '08', report: '09', evaluation: '10'）
 
-- [ ] Task 4-4: エージェント優先順位・モデル設定の更新 (0.5h)
+- [x] Task 4-4: エージェント優先順位・モデル設定の更新 (0.5h)
   - `src/commands/execute/agent-setup.ts` の `PHASE_AGENT_PRIORITY` に `test_preparation: 'codex-first'` を追加
   - `src/core/model-optimizer.ts` の全難易度マッピングに `test_preparation` を追加
 
-- [ ] Task 4-5: TestPreparationPhase クラスの実装 (2〜3h)
+- [x] Task 4-5: TestPreparationPhase クラスの実装 (2〜3h)
   - `src/phases/test-preparation.ts` の新規作成
   - `execute()` メソッドの実装（test_implementation, implementation, test_scenario コンテキストの参照、executePhaseTemplate 呼び出し）
   - `review()` メソッドの実装（test-preparation.md の存在チェック、レビュープロンプトの実行、結果パース・GitHub投稿）
   - `revise()` メソッドの実装（レビューフィードバックに基づく再実行、ファイル更新確認）
 
-- [ ] Task 4-6: プロンプトファイルの作成 (2〜3h)
+- [x] Task 4-6: プロンプトファイルの作成 (2〜3h)
   - `src/prompts/test_preparation/ja/execute.txt` の作成（言語検出、ランタイムインストール、依存解決、環境検証の指示）
   - `src/prompts/test_preparation/ja/review.txt` の作成（環境準備完了の判定基準）
   - `src/prompts/test_preparation/ja/revise.txt` の作成（レビューフィードバックに基づく修正指示）
