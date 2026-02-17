@@ -9,7 +9,7 @@
 **このタスクの最終ステップとして、評価レポートを以下のパスに必ず保存してください：**
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 **Write ツールを使用してファイル保存すること。このファイルが存在しない場合、Evaluation Phase は失敗します。**
@@ -27,7 +27,7 @@
 
 ## ⚠️ 重要：コンテキスト制限への対応
 
-**Report Phase（Phase 8）の成果物を主たる情報源として使用してください。**
+**Report Phase（Phase 9）の成果物を主たる情報源として使用してください。**
 
 Report Phase の `report.md` には、全フェーズ（Phase 0〜8）の実施内容、成果物、テスト結果が包括的にまとめられています。評価には基本的にこのファイルのみを読み込んでください。
 
@@ -192,7 +192,7 @@ RECOMMENDED_ACTIONS:
 
 ```
 Write tool:
-- file_path: .ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+- file_path: .ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 - content: [上記で生成した評価レポート全文（Markdownフォーマット）]
 ```
 
@@ -216,7 +216,7 @@ Write tool:
 評価レポートを作成したら、**必ず Write ツールを使用して以下のパスに保存してください**：
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 **このファイルが存在しない場合、Evaluation Phase は失敗します。評価内容の生成とファイル保存の両方が必須です。**

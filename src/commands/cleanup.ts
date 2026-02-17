@@ -147,16 +147,17 @@ export function parsePhaseRange(rangeStr: string): PhaseName[] {
     3: 'test_scenario',
     4: 'implementation',
     5: 'test_implementation',
-    6: 'testing',
-    7: 'documentation',
-    8: 'report',
-    9: 'evaluation',
+    6: 'test_preparation',
+    7: 'testing',
+    8: 'documentation',
+    9: 'report',
+    10: 'evaluation',
   };
 
   const validPhaseNames: PhaseName[] = [
     'planning', 'requirements', 'design', 'test_scenario',
-    'implementation', 'test_implementation', 'testing',
-    'documentation', 'report', 'evaluation'
+    'implementation', 'test_implementation', 'test_preparation',
+    'testing', 'documentation', 'report', 'evaluation'
   ];
 
   // パターン1: 数値範囲（例: "0-4"）
@@ -168,8 +169,8 @@ export function parsePhaseRange(rangeStr: string): PhaseName[] {
     const end = parseInt(rangeMatch[2], 10);
 
     // 範囲チェック
-    if (start < 0 || start > 9 || end < 0 || end > 9) {
-      throw new Error(`Invalid phase range: ${rangeStr}. Valid range is 0-9`);
+    if (start < 0 || start > 10 || end < 0 || end > 10) {
+      throw new Error(`Invalid phase range: ${rangeStr}. Valid range is 0-10`);
     }
 
     // 逆順チェック
@@ -359,10 +360,11 @@ function scanTargetFiles(
     'test_scenario': '03_test_scenario',
     'implementation': '04_implementation',
     'test_implementation': '05_test_implementation',
-    'testing': '06_testing',
-    'documentation': '07_documentation',
-    'report': '08_report',
-    'evaluation': '09_evaluation',
+    'test_preparation': '06_test_preparation',
+    'testing': '07_testing',
+    'documentation': '08_documentation',
+    'report': '09_report',
+    'evaluation': '10_evaluation',
   };
 
   const allPhaseDirs = Object.values(phaseNameToDir);

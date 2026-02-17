@@ -5,6 +5,7 @@ export type PhaseName =
   | 'test_scenario'
   | 'implementation'
   | 'test_implementation'
+  | 'test_preparation'
   | 'testing'
   | 'documentation'
   | 'report'

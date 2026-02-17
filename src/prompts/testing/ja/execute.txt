@@ -33,7 +33,7 @@ Phase 5で実装したテストコードを実行し、結果を記録してく�
 - 例: ドキュメント修正のみのため、テスト実行は不要
 
 ## 次フェーズへの推奨
-Phase 7（Documentation）へ進んでください。
+Phase 8（Documentation）へ進んでください。
 ```
 
 **注意**: Phase 5でtest-implementation.mdにスキップ判定が記載されている場合は、このフェーズもスキップすることを推奨します。
@@ -131,9 +131,9 @@ behave tests/features/
 **注意**: 成功したテストの詳細リストは記載しないでください。
 ```
 
-このログを `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` として保存してください。
+このログを `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` として保存してください。
 
-## 品質ゲート（Phase 6）
+## 品質ゲート（Phase 7）
 
 テスト実行は以下の品質ゲートを満たす必要があります：
 

@@ -843,12 +843,16 @@ export class ContentParser {
       '4': 'implementation',
       testimplementation: 'test_implementation',
       '5': 'test_implementation',
+      testpreparation: 'test_preparation',
+      '6': 'test_preparation',
       testing: 'testing',
-      '6': 'testing',
+      '7': 'testing',
       documentation: 'documentation',
-      '7': 'documentation',
+      '8': 'documentation',
       report: 'report',
-      '8': 'report',
+      '9': 'report',
+      evaluation: 'evaluation',
+      '10': 'evaluation',
     };
 
     return mapping[normalized] ?? null;
@@ -866,10 +870,11 @@ export class ContentParser {
       test_scenario: 3,
       implementation: 4,
       test_implementation: 5,
-      testing: 6,
-      documentation: 7,
-      report: 8,
-      evaluation: 9,
+      test_preparation: 6,
+      testing: 7,
+      documentation: 8,
+      report: 9,
+      evaluation: 10,
     };
 
     const index = phaseOrder[failedPhase];

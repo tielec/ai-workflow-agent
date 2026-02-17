@@ -7,7 +7,7 @@ Implement the test code based on the Phase 3 test scenario and Phase 4 implement
 
 **🚨 Most important task: Creating the actual test file is the top priority**
 - Be sure to create not only the test implementation log (test-implementation.md) but also the **actual executable test file**
-- If you write only the log without creating the test file, the test will not be able to run in Phase 6 and will fail
+- If you write only the log without creating the test file, the test will not be able to run in Phase 7 and will fail
 - Where to place the test file: Appropriate test directory according to the project structure
 - Supported languages: Python (.py), JavaScript (.test.js), TypeScript (.test.ts), Go (_test.go), Java (Test*.java), etc.
 - Examples: `tests/unit/test_xxx.py`, `src/tests/test_xxx.py`, `scripts/ai-workflow/tests/test_xxx.py`, etc.
@@ -37,10 +37,10 @@ It has been determined that test code implementation is not necessary for this i
 - Example: Only file deletion, no new test code required
 
 ## Recommendation for the next phase
-It is also recommended to skip Phase 6 (Testing).
+It is also recommended to skip Phase 6 (Test Preparation) and Phase 7 (Testing).
 ```
 
-**Note**: If you create a file using this template, it may be skipped in Phase 6 (Testing) as well.
+**Note**: If you create a file using this template, it may be skipped in Phase 6 (Test Preparation) and Phase 7 (Testing) as well.
 
 ## Input Information
 

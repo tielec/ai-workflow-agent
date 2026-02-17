@@ -101,11 +101,11 @@ export class ArtifactCleaner {
   /**
    * ワークフローログをクリーンアップ（Issue #2、Issue #212で拡張）
    *
-   * Report Phase 完了後に実行され、phases 00-09 の execute/review/revise ディレクトリを削除します。
+   * Report Phase 完了後に実行され、phases 00-10 の execute/review/revise ディレクトリを削除します。
    * metadata.json と output/*.md は保持されます。
    *
    * @param phaseRange - 削除対象のフェーズ範囲（オプション）
-   *   - 未指定時: phases 00-09 を削除（既存動作）
+   *   - 未指定時: phases 00-10 を削除（既存動作）
    *   - 指定時: 指定されたフェーズのみ削除
    *
    * @example
@@ -132,10 +132,11 @@ export class ArtifactCleaner {
         '03_test_scenario',
         '04_implementation',
         '05_test_implementation',
-        '06_testing',
-        '07_documentation',
-        '08_report',
-        '09_evaluation',
+        '06_test_preparation',
+        '07_testing',
+        '08_documentation',
+        '09_report',
+        '10_evaluation',
       ];
 
       // Issue #212: PhaseName → ディレクトリ名のマッピング
@@ -146,10 +147,11 @@ export class ArtifactCleaner {
         'test_scenario': '03_test_scenario',
         'implementation': '04_implementation',
         'test_implementation': '05_test_implementation',
-        'testing': '06_testing',
-        'documentation': '07_documentation',
-        'report': '08_report',
-        'evaluation': '09_evaluation',
+        'test_preparation': '06_test_preparation',
+        'testing': '07_testing',
+        'documentation': '08_documentation',
+        'report': '09_report',
+        'evaluation': '10_evaluation',
       };
 
       // Issue #212: 削除対象フェーズの決定
@@ -161,7 +163,7 @@ export class ArtifactCleaner {
       } else {
         // 全フェーズ（既存動作）
         phaseDirs = allPhaseDirs;
-        logger.info('Cleanup target: all phases (00-09)');
+        logger.info('Cleanup target: all phases (00-10)');
       }
 
       for (const phaseDir of phaseDirs) {

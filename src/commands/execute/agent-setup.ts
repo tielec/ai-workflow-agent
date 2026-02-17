@@ -39,7 +39,7 @@ export type AgentPriority = 'codex-first' | 'claude-first';
  * | 優先順位 | 対象フェーズ | 理由 |
  * |---------|-------------|------|
  * | claude-first | planning, requirements, design, test_scenario, documentation, report, evaluation | 情報整理・戦略立案・ドキュメント作成が得意 |
- * | codex-first | implementation, test_implementation, testing | 具体的なコード実装・テスト実行が得意 |
+ * | codex-first | implementation, test_implementation, test_preparation, testing | 具体的なコード実装・テスト実行が得意 |
  *
  * @example
  * const priority = PHASE_AGENT_PRIORITY['planning']; // 'claude-first'
@@ -52,6 +52,7 @@ export const PHASE_AGENT_PRIORITY: Record<PhaseName, AgentPriority> = {
   test_scenario: 'claude-first',
   implementation: 'codex-first',
   test_implementation: 'codex-first',
+  test_preparation: 'codex-first',
   testing: 'codex-first',
   documentation: 'claude-first',
   report: 'claude-first',

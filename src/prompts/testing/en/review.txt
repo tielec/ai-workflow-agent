@@ -30,7 +30,7 @@ Please load the following file:
 
 ### 2. Extract the checklist for the relevant phase
 
-From Planning.md, find the section for the current phase ("### Phase 6:" or "## Phase 6:") and extract the task checklist.
+From Planning.md, find the section for the current phase ("### Phase 7:" or "## Phase 7:") and extract the task checklist.
 
 **Note**: If you can't find the checklist, please skip this check.
 

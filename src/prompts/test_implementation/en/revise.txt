@@ -116,7 +116,7 @@ After completing the modification, please check the following:
 
 5. **Preparation for the next phase**
 - Is the modified test code executable?
-- Should I proceed to Phase 6 (test execution)?
+- Should I proceed to Phase 7 (test execution)?
 
 ## Update test implementation log
 

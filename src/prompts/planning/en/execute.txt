@@ -130,19 +130,24 @@ Break down subtasks for each phase:
 - [ ] Task 5-1: [Task Name] (Estimated time)
   - Subtask 1
 
-#### Phase 6: Test Execution (Estimate: Xh)
+#### Phase 6: Test Preparation (Estimate: Xh)
 
 - [ ] Task 6-1: [Task Name] (Estimated time)
   - Subtask 1
 
-#### Phase 7: Documentation (Estimate: Xh)
+#### Phase 7: Test Execution (Estimate: Xh)
 
 - [ ] Task 7-1: [Task Name] (Estimated time)
   - Subtask 1
 
-#### Phase 8: Report (Estimate: Xh)
+#### Phase 8: Documentation (Estimate: Xh)
 
 - [ ] Task 8-1: [Task Name] (Estimated time)
+  - Subtask 1
+
+#### Phase 9: Report (Estimate: Xh)
+
+- [ ] Task 9-1: [Task Name] (Estimated time)
   - Subtask 1
 
 **Task Granularity Rules**:
@@ -163,6 +168,8 @@ graph TD
     P4 --> P5[Phase 5]
     P5 --> P6[Phase 6]
     P6 --> P7[Phase 7]
+    P7 --> P8[Phase 8]
+    P8 --> P9[Phase 9]
 ```
 
 ### 6. Risks and Mitigations

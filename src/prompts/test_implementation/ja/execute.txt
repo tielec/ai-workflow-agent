@@ -7,7 +7,7 @@ Phase 3のテストシナリオとPhase 4の実装に基づいて、テストコ
 
 **🚨 最重要タスク: 実際のテストファイルの作成が最優先です**
 - テスト実装ログ（test-implementation.md）だけでなく、**実際に実行可能なテストファイル**を必ず作成してください
-- テストファイルを作成せずにログだけ書いても、Phase 6でテストが実行できず失敗します
+- テストファイルを作成せずにログだけ書いても、Phase 7でテストが実行できず失敗します
 - テストファイルの配置場所: プロジェクト構造に応じた適切なテストディレクトリ
 - 対応言語: Python (.py), JavaScript (.test.js), TypeScript (.test.ts), Go (_test.go), Java (Test*.java) など
 - 例: `tests/unit/test_xxx.py`、`src/tests/test_xxx.py`、`scripts/ai-workflow/tests/test_xxx.py` など
@@ -39,10 +39,10 @@ Phase 3のテストシナリオとPhase 4の実装に基づいて、テストコ
 - 例: ファイル削除のみのため、新規テストコードは不要
 
 ## 次フェーズへの推奨
-Phase 6（Testing）もスキップを推奨します。
+Phase 6（Test Preparation）とPhase 7（Testing）もスキップを推奨します。
 ```
 
-**注意**: このテンプレートでファイルを作成した場合、Phase 6（Testing）でも同様にスキップ判定される可能性があります。
+**注意**: このテンプレートでファイルを作成した場合、Phase 6（Test Preparation）とPhase 7（Testing）でも同様にスキップ判定される可能性があります。
 
 ## 入力情報
 

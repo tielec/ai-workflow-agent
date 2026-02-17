@@ -115,7 +115,7 @@
   {
     "type": "integration",
     "title": "Slack 通知機能の追加 - ワークフロー完了時の自動通知",
-    "description": "AI Workflow Agent のワークフロー完了時（Phase 9: Evaluation 完了）に、Slack チャンネルへ自動通知を送信する機能。Issue タイトル、PR リンク、実行時間、コスト情報をリッチメッセージで表示。",
+    "description": "AI Workflow Agent のワークフロー完了時（Phase 10: Evaluation 完了）に、Slack チャンネルへ自動通知を送信する機能。Issue タイトル、PR リンク、実行時間、コスト情報をリッチメッセージで表示。",
     "rationale": "チームメンバーがワークフロー完了をリアルタイムで把握でき、レビュー依頼の見落としを防止。非同期コミュニケーションの効率化により、開発速度が向上する。",
     "implementation_hints": [
       "Slack Incoming Webhook を使用",

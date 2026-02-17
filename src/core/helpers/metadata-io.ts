@@ -82,6 +82,7 @@ function normalizePhaseKey(phaseName: PhaseName | string): PhaseName | null {
     test_scenario: 'test_scenario',
     implementation: 'implementation',
     test_implementation: 'test_implementation',
+    test_preparation: 'test_preparation',
     testing: 'testing',
     documentation: 'documentation',
     report: 'report',
@@ -104,10 +105,11 @@ export function getPhaseOutputFilePath(phaseName: PhaseName | string, workflowDi
     test_scenario: '03_test_scenario',
     implementation: '04_implementation',
     test_implementation: '05_test_implementation',
-    testing: '06_testing',
-    documentation: '07_documentation',
-    report: '08_report',
-    evaluation: '09_evaluation',
+    test_preparation: '06_test_preparation',
+    testing: '07_testing',
+    documentation: '08_documentation',
+    report: '09_report',
+    evaluation: '10_evaluation',
   };
 
   const fileNameMap: Record<PhaseName, string> = {
@@ -117,6 +119,7 @@ export function getPhaseOutputFilePath(phaseName: PhaseName | string, workflowDi
     test_scenario: 'test-scenario.md',
     implementation: 'implementation.md',
     test_implementation: 'test-implementation.md',
+    test_preparation: 'test-preparation.md',
     testing: 'test-result.md',
     documentation: 'documentation-update-log.md',
     report: 'report.md',

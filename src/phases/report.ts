@@ -258,10 +258,10 @@ export class ReportPhase extends BasePhase {
         'output',
         'test-implementation.md',
       ),
-      test_result: path.join(baseDir, '06_testing', 'output', 'test-result.md'),
+      test_result: path.join(baseDir, '07_testing', 'output', 'test-result.md'),
       documentation: path.join(
         baseDir,
-        '07_documentation',
+        '08_documentation',
         'output',
         'documentation-update-log.md',
       ),

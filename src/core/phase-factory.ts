@@ -8,6 +8,7 @@ import { DesignPhase } from '../phases/design.js';
 import { TestScenarioPhase } from '../phases/test-scenario.js';
 import { ImplementationPhase } from '../phases/implementation.js';
 import { TestImplementationPhase } from '../phases/test-implementation.js';
+import { TestPreparationPhase } from '../phases/test-preparation.js';
 import { TestingPhase } from '../phases/testing.js';
 import { DocumentationPhase } from '../phases/documentation.js';
 import { ReportPhase } from '../phases/report.js';
@@ -55,6 +56,8 @@ export function createPhaseInstance(phaseName: PhaseName, context: PhaseContext)
       return new ImplementationPhase(baseParams);
     case 'test_implementation':
       return new TestImplementationPhase(baseParams);
+    case 'test_preparation':
+      return new TestPreparationPhase(baseParams);
     case 'testing':
       return new TestingPhase(baseParams);
     case 'documentation':

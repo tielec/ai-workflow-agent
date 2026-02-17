@@ -1,0 +1,150 @@
+# テスト準備フェーズ - 実行プロンプト
+
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
+## タスク概要
+テスト実行前に、対象リポジトリの環境を自動準備してください。
+
+### このフェーズの目的
+- 言語ランタイムのインストール
+- 依存パッケージの解決
+- テストフレームワークのセットアップ
+- 実行環境の検証
+
+## ⚠️ このフェーズが不要と判断した場合の対応（Issue #411）
+
+**重要**: このIssueでテスト準備が不要と判断した場合でも、**必ずtest-preparation.mdファイルを作成**してください。
+ファイルが作成されないと、ワークフローがエラーで停止します。
+
+### スキップ判断の基準
+以下のような場合、テスト準備をスキップすることが適切です：
+- テスト実行が不要なIssue（ドキュメントのみ、設定のみ等）
+- Phase 5でテストコード実装がスキップされた場合
+- テスト対象の実装が存在しない場合
+
+### スキップ時のファイル作成（必須）
+スキップすると判断した場合、以下のテンプレートで必ずtest-preparation.mdを作成してください：
+
+```markdown
+# テスト準備
+
+## スキップ判定
+このIssueではテスト準備が不要と判断しました。
+
+## 判定理由
+- （具体的な理由を箇条書きで記載）
+- 例: ドキュメント修正のみのため、テスト実行が不要
+- 例: Phase 5でテストコード実装がスキップされたため、環境準備が不要
+
+## 次フェーズへの推奨
+Phase 7（Testing）もスキップを推奨します。
+```
+
+## 入力情報
+
+### Planning Phase成果物
+- Planning Document: {planning_document_path}
+
+**注意**: Planning Phaseが実行されている場合、開発計画（実装戦略、テスト戦略、リスク、スケジュール）を必ず確認してください。
+
+### テスト実装ログ（利用可能な場合）
+{test_implementation_context}
+<!--
+  存在する場合: @test-implementation.md への参照
+  存在しない場合: "テストコード実装ログは利用できません。実装コードとリポジトリ構成から環境準備を行ってください。"
+-->
+
+### 実装ログ（利用可能な場合）
+{implementation_context}
+<!--
+  存在する場合: @implementation.md への参照
+  存在しない場合: "実装ログは利用できません。リポジトリの実装内容を直接確認して環境準備を行ってください。"
+-->
+
+## テスト準備の手順
+
+### 1. 言語・フレームワークの検出
+以下のファイルを確認し、対象言語を特定してください：
+- Node.js: package.json
+- Python: requirements.txt / pyproject.toml
+- Go: go.mod
+- Java: pom.xml / build.gradle
+- Ruby: Gemfile
+- Rust: Cargo.toml
+
+### 2. 言語ランタイムのインストール
+対象言語に応じて、必要なランタイムをインストールしてください：
+- Python: `apt-get update && apt-get install -y python3 python3-pip`
+- Go: `apt-get update && apt-get install -y golang-go`
+- Java: `apt-get update && apt-get install -y default-jdk`
+- Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- Ruby: `apt-get update && apt-get install -y ruby ruby-dev`
+
+### 3. 依存パッケージのインストール
+マニフェストに応じて依存解決を行ってください：
+- Python: `pip install -r requirements.txt`
+- Node.js: `npm install` / `npm ci`
+- Go: `go mod download`
+- Ruby: `bundle install`
+- Java: `mvn dependency:resolve` / `./gradlew dependencies`
+
+### 4. テストフレームワークのセットアップ確認
+以下のようにテストランナーが利用可能か確認してください：
+- pytest: `pytest --version`
+- Jest: `npx jest --version` / `npm test -- --help`
+- Go test: `go test ./... -list .`
+- JUnit: `mvn -q -DskipTests=false test -Dtest=DummyTest`（必要なら）
+
+### 5. 環境検証
+簡易的にテストが実行可能な状態であることを確認してください：
+- 言語バージョンの確認（`python --version`, `node --version` など）
+- テストコマンドのヘルプ表示（`npm test -- --help` など）
+
+## 結果の記録
+
+テスト準備結果を以下の形式で記録してください：
+
+```markdown
+# テスト準備
+
+## 検出した言語・フレームワーク
+- 言語: （例: Python 3.11）
+- フレームワーク: （例: pytest）
+
+## インストール・セットアップ結果
+- ランタイム: （インストール結果）
+- 依存パッケージ: （インストール結果）
+- テストランナー: （確認結果）
+
+## 検証結果
+- バージョン確認: （結果）
+- テストコマンド確認: （結果）
+
+## 追加の注意事項
+- （警告・制限事項があれば記載）
+```
+
+このログを `.ai-workflow/issue-{issue_number}/06_test_preparation/output/test-preparation.md` として保存してください。
+
+## 品質ゲート（Phase 6）
+
+テスト準備は以下の品質ゲートを満たす必要があります：
+
+- [ ] **言語ランタイムが正しくインストールされている**
+- [ ] **依存パッケージが解決されている**
+- [ ] **テストフレームワークが利用可能である**
+
+これらの品質ゲートは**必須要件**です。準備後、クリティカルシンキングレビューが実施されます。
+
+## 注意事項
+
+1. **安全性**: インストールは必要最低限に
+   - 不要なパッケージはインストールしない
+   - プロジェクトのマニフェストに記載された依存のみを対象にする
+
+2. **再現性**: 実行したコマンドを記録
+   - test-preparation.md に実行コマンドを簡潔に記載
+   - 失敗した場合も原因と対処を記載
+
+3. **後続フェーズへの引き継ぎ**
+   - テスト実行に必要な追加手順があれば明記

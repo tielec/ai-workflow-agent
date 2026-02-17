@@ -13,7 +13,8 @@ export const PHASE_DEPENDENCIES: Record<PhaseName, PhaseName[]> = {
   test_scenario: ['requirements', 'design'],
   implementation: ['requirements', 'design', 'test_scenario'],
   test_implementation: ['implementation'],
-  testing: ['test_implementation'],
+  test_preparation: ['test_implementation'],
+  testing: ['test_preparation'],
   documentation: ['implementation'],
   report: ['requirements', 'design', 'implementation', 'testing', 'documentation'],
   evaluation: ['report'],
@@ -34,11 +35,19 @@ export const PHASE_PRESETS: Record<string, PhaseName[]> = {
 
   // === 実装中心パターン ===
   'quick-fix': ['planning', 'implementation', 'documentation', 'report'],
-  'implementation': ['planning', 'implementation', 'test_implementation', 'testing', 'documentation', 'report'],
+  'implementation': [
+    'planning',
+    'implementation',
+    'test_implementation',
+    'test_preparation',
+    'testing',
+    'documentation',
+    'report',
+  ],
 
   // === テスト中心パターン ===
   'full-test': ['planning', 'test_scenario', 'test_implementation'],
-  'testing': ['planning', 'test_implementation', 'testing'],
+  'testing': ['planning', 'test_implementation', 'test_preparation', 'testing'],
 
   // === ドキュメント・レポートパターン ===
   'finalize': ['planning', 'documentation', 'report', 'evaluation'],
@@ -59,9 +68,9 @@ export const PRESET_DESCRIPTIONS: Record<string, string> = {
   'review-test-scenario': 'Planning + Requirements + Design + TestScenario (テストシナリオレビュー用)',
   'analysis-design': 'Planning + Requirements + Design (分析と設計フェーズのみ実行)',
   'quick-fix': 'Planning + Implementation + Documentation + Report (軽微な修正用)',
-  'implementation': 'Planning + Implementation + TestImplementation + Testing + Documentation + Report (通常の実装フロー)',
+  'implementation': 'Planning + Implementation + TestImplementation + TestPreparation + Testing + Documentation + Report (通常の実装フロー)',
   'full-test': 'Planning + TestScenario + TestImplementation (テストシナリオとテストコード実装のみ実行)',
-  'testing': 'Planning + TestImplementation + Testing (テスト追加用)',
+  'testing': 'Planning + TestImplementation + TestPreparation + Testing (テスト追加用)',
   'finalize': 'Planning + Documentation + Report + Evaluation (最終化用)',
   'prototype': 'Planning + Design + Implementation + Report (プロトタイプ作成用の最小フロー)',
 };

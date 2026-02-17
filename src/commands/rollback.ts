@@ -102,8 +102,8 @@ export function validateRollbackOptions(
   // 1. to-phase の有効性チェック
   const validPhases: PhaseName[] = [
     'planning', 'requirements', 'design', 'test_scenario',
-    'implementation', 'test_implementation', 'testing',
-    'documentation', 'report', 'evaluation'
+    'implementation', 'test_implementation', 'test_preparation',
+    'testing', 'documentation', 'report', 'evaluation'
   ];
 
   const toPhase = options.toPhase as PhaseName;
@@ -495,10 +495,11 @@ export function getPhaseNumber(phase: PhaseName): string {
     test_scenario: '03',
     implementation: '04',
     test_implementation: '05',
-    testing: '06',
-    documentation: '07',
-    report: '08',
-    evaluation: '09',
+    test_preparation: '06',
+    testing: '07',
+    documentation: '08',
+    report: '09',
+    evaluation: '10',
   };
   return mapping[phase];
 }
@@ -764,6 +765,7 @@ async function findLatestReviewResult(workflowDir: string): Promise<string | nul
  */
 async function findLatestTestResult(workflowDir: string): Promise<string | null> {
   const testPatterns = [
+    '**/07_testing/output/test-result.md',
     '**/06_testing/output/test-result.md',
     '**/testing/output/test-result.md',
     '**/testing/execute/test-result.md',
@@ -898,8 +900,8 @@ export function validateRollbackDecision(decision: RollbackDecision): void {
     // to_phase の有効性チェック
     const validPhases: PhaseName[] = [
       'planning', 'requirements', 'design', 'test_scenario',
-      'implementation', 'test_implementation', 'testing',
-      'documentation', 'report', 'evaluation'
+      'implementation', 'test_implementation', 'test_preparation',
+      'testing', 'documentation', 'report', 'evaluation'
     ];
 
     if (!validPhases.includes(decision.to_phase)) {

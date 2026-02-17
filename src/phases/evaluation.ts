@@ -418,14 +418,20 @@ export class EvaluationPhase extends BasePhase {
         'output',
         'test-implementation.md',
       ),
-      testing: path.join(baseDir, '06_testing', 'output', 'test-result.md'),
+      test_preparation: path.join(
+        baseDir,
+        '06_test_preparation',
+        'output',
+        'test-preparation.md',
+      ),
+      testing: path.join(baseDir, '07_testing', 'output', 'test-result.md'),
       documentation: path.join(
         baseDir,
-        '07_documentation',
+        '08_documentation',
         'output',
         'documentation-update-log.md',
       ),
-      report: path.join(baseDir, '08_report', 'output', 'report.md'),
+      report: path.join(baseDir, '09_report', 'output', 'report.md'),
     };
 
     return Object.fromEntries(

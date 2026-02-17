@@ -1,0 +1,150 @@
+# Test Preparation Phase - Execute Prompt
+
+**Important: Write all document content in English. All sections, descriptions, and explanations must be written in English.**
+
+## Task Overview
+Prepare the execution environment before running tests.
+
+### Purpose of this phase
+- Install language runtimes
+- Resolve dependencies
+- Set up test frameworks
+- Validate the execution environment
+
+## ⚠️ If This Phase Is Not Needed (Issue #411)
+
+**Important**: Even if test preparation is not needed, **you must create the test-preparation.md file**.
+If the file is not created, the workflow will stop with an error.
+
+### Skip criteria
+It is appropriate to skip test preparation when:
+- The issue does not require testing (docs-only, config-only, etc.)
+- Test implementation was skipped in Phase 5
+- There is no executable code to test
+
+### Required output when skipped
+If you decide to skip, create test-preparation.md with the following template:
+
+```markdown
+# Test Preparation
+
+## Skip Decision
+Test preparation is not required for this issue.
+
+## Reasons
+- (List specific reasons)
+- Example: Docs-only change, no tests to run
+- Example: Test implementation was skipped in Phase 5
+
+## Recommendation for Next Phase
+Recommend skipping Phase 7 (Testing).
+```
+
+## Inputs
+
+### Planning Phase artifact
+- Planning Document: {planning_document_path}
+
+**Note**: If the Planning phase has been executed, review the plan (implementation strategy, test strategy, risks, schedule).
+
+### Test implementation log (if available)
+{test_implementation_context}
+<!--
+  If available: reference to @test-implementation.md
+  If not: "Test implementation log is not available. Prepare the environment based on repository structure and code."
+-->
+
+### Implementation log (if available)
+{implementation_context}
+<!--
+  If available: reference to @implementation.md
+  If not: "Implementation log is not available. Prepare the environment by inspecting the repository."
+-->
+
+## Preparation Steps
+
+### 1. Detect language and framework
+Check the following files to identify the target language:
+- Node.js: package.json
+- Python: requirements.txt / pyproject.toml
+- Go: go.mod
+- Java: pom.xml / build.gradle
+- Ruby: Gemfile
+- Rust: Cargo.toml
+
+### 2. Install language runtimes
+Install required runtimes based on the detected language:
+- Python: `apt-get update && apt-get install -y python3 python3-pip`
+- Go: `apt-get update && apt-get install -y golang-go`
+- Java: `apt-get update && apt-get install -y default-jdk`
+- Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`
+- Ruby: `apt-get update && apt-get install -y ruby ruby-dev`
+
+### 3. Install dependencies
+Resolve dependencies based on the manifest files:
+- Python: `pip install -r requirements.txt`
+- Node.js: `npm install` / `npm ci`
+- Go: `go mod download`
+- Ruby: `bundle install`
+- Java: `mvn dependency:resolve` / `./gradlew dependencies`
+
+### 4. Verify test frameworks
+Check that test runners are available:
+- pytest: `pytest --version`
+- Jest: `npx jest --version` / `npm test -- --help`
+- Go test: `go test ./... -list .`
+- JUnit: `mvn -q -DskipTests=false test -Dtest=DummyTest` (if needed)
+
+### 5. Validate environment
+Confirm the environment is ready:
+- Check language versions (`python --version`, `node --version`, etc.)
+- Verify test command help output (`npm test -- --help`, etc.)
+
+## Record the Result
+
+Record the preparation results in the following format:
+
+```markdown
+# Test Preparation
+
+## Detected Language/Framework
+- Language: (e.g., Python 3.11)
+- Framework: (e.g., pytest)
+
+## Installation & Setup Results
+- Runtime: (result)
+- Dependencies: (result)
+- Test runner: (result)
+
+## Validation Results
+- Version check: (result)
+- Test command check: (result)
+
+## Additional Notes
+- (Warnings or limitations)
+```
+
+Save this log to `.ai-workflow/issue-{issue_number}/06_test_preparation/output/test-preparation.md`.
+
+## Quality Gates (Phase 6)
+
+Test preparation must satisfy the following quality gates:
+
+- [ ] **Language runtime is installed correctly**
+- [ ] **Dependencies are resolved**
+- [ ] **Test framework is available**
+
+These are **mandatory requirements**. A critical thinking review will follow.
+
+## Notes
+
+1. **Safety**: Install only what is necessary
+   - Do not install unrelated packages
+   - Limit to dependencies listed in manifests
+
+2. **Reproducibility**: Record the executed commands
+   - Briefly list commands in test-preparation.md
+   - If failures occur, record causes and mitigations
+
+3. **Handoff to next phase**
+   - If extra steps are needed for testing, document them clearly

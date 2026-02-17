@@ -4,7 +4,7 @@
 
 ## ⚠️ 必須タスク
 **レポートの更新は最優先です。**
-Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を**上書き保存**し、最新のレポートのみを残してください。ファイルが存在しない場合は Write ツールで新規作成してください。
+Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issue_number}/09_report/output/report.md` を**上書き保存**し、最新のレポートのみを残してください。ファイルが存在しない場合は Write ツールで新規作成してください。
 
 ---
 
@@ -33,8 +33,8 @@ Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issu
 - Phase 3 (Test Scenario): {test_scenario_context}
 - Phase 4 (Implementation): {implementation_context}
 - Phase 5 (Test Implementation): {test_implementation_context}
-- Phase 6 (Testing): {testing_context}
-- Phase 7 (Documentation): {documentation_context}
+- Phase 7 (Testing): {testing_context}
+- Phase 8 (Documentation): {documentation_context}
 
 ## 修正指示
 
@@ -78,7 +78,7 @@ Write ツールまたは Edit ツールを使用して `.ai-workflow/issue-{issu
 ## 修正方針
 
 ### ⚠️ 最重要: レポートの上書き
-Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を最優先で更新してください。要点を簡潔に記載し、不要な追記は避けてください。
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/09_report/output/report.md` を最優先で更新してください。要点を簡潔に記載し、不要な追記は避けてください。
 
 ### 1. 必須情報の確認
 
@@ -123,7 +123,7 @@ Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/o
 - **Phase 3（テストシナリオ）**: 主要テストケース
 - **Phase 4（実装）**: 実装内容、新規/修正ファイル
 - **Phase 5（テスト）**: テスト結果、成功/失敗数
-- **Phase 6（ドキュメント）**: 更新されたドキュメント、更新内容
+- **Phase 8（ドキュメント）**: 更新されたドキュメント、更新内容
 
 ### 3. 簡潔性と可読性
 
@@ -146,7 +146,7 @@ Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/o
 - [ ] 1. 必須情報と改善提案を整理する
 - [ ] 2. 各フェーズ成果物の要点を抽出して記載する
 - [ ] 3. レポート全体の構成と整合性を確認する
-- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を上書き保存**（必須）
+- [ ] 4. **Write/Edit ツールで `.ai-workflow/issue-{issue_number}/09_report/output/report.md` を上書き保存**（必須）
 - [ ] 5. リスク・マージ判断・次ステップの記載を再確認する
 
 ## 修正後の確認事項
@@ -166,7 +166,7 @@ Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/o
 
 ## レポート更新
 
-Write または Edit ツールで `.ai-workflow/issue-{issue_number}/08_report/output/report.md` を**上書き保存**してください。
+Write または Edit ツールで `.ai-workflow/issue-{issue_number}/09_report/output/report.md` を**上書き保存**してください。
 
 ## 修正開始
 

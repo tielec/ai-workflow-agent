@@ -117,7 +117,7 @@ Write または Edit ツールで `.ai-workflow/issue-{issue_number}/05_test_imp
 
 5. **次フェーズへの準備**
    - 修正後のテストコードが実行可能か
-   - Phase 6（テスト実行）に進めるか
+   - Phase 7（テスト実行）に進めるか
 
 ## テスト実装ログの更新
 

@@ -117,7 +117,7 @@ For documents that need to be updated:
 
 ### Step 5: Log updates
 
-documentation-update-log.md Please create it as `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md` and include the following content:
+documentation-update-log.md Please create it as `.ai-workflow/issue-{issue_number}/08_documentation/output/documentation-update-log.md` and include the following content:
 
 ```markdown
 # Documentation update report
@@ -133,7 +133,7 @@ Please list only the updated documents in the following table format:
 * Detailed changes are described in each document itself, so there is no need to describe them here.
 ```
 
-## Quality Gates (Phase 7: Documentation)
+## Quality Gates (Phase 8: Documentation)
 
 Document updates must meet the following quality gates:
 
@@ -146,7 +146,7 @@ These quality gates are **requirements**. After creation, a critical thinking re
 ## Output format
 
 1. Directly update project documentation (README.md, ARCHITECTURE.md, etc.)
-2. Save update log as `.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md`
+2. Save update log as `.ai-workflow/issue-{issue_number}/08_documentation/output/documentation-update-log.md`
 
 ## Notes
 

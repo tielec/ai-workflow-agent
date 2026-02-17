@@ -1,0 +1,123 @@
+# Test Preparation Phase - Review Prompt
+
+**Important: Write all document content in English. All sections, descriptions, and explanations must be written in English.**
+
+## Review Targets
+
+### Test preparation document
+{test_preparation_document_path}
+
+### Implementation log (reference)
+{implementation_document_path}
+
+### Test implementation log (reference)
+{test_implementation_document_path}
+
+## Quality Gates (Phase 6)
+
+Test preparation must satisfy the following quality gates:
+
+- [ ] **Language runtime is installed correctly**
+- [ ] **Dependencies are resolved**
+- [ ] **Test framework is available**
+
+## ⚠️ Important: Cross-check with Planning Phase checklist (Required)
+
+### 1. Read planning.md
+
+Read the following file:
+- {planning_document_path}
+
+### 2. Extract the relevant checklist section
+
+Find the section for the current phase ("### Phase 6:" or "## Phase 6:") and extract the task checklist.
+
+**Note**: If no checklist is found, skip this check.
+
+### 3. Cross-check with test preparation content
+
+Compare the checklist with test-preparation.md and verify each task is completed.
+
+**Completion criteria**:
+- Required runtimes are installed
+- Dependency installation is complete
+- Validation steps are recorded
+
+### 4. Update planning.md
+
+Update the checkboxes based on the comparison:
+
+- Completed tasks: `- [ ]` → `- [x]`
+- Incomplete tasks: leave `- [ ]`
+
+**Use the Edit tool** to update the relevant section.
+
+### 5. Reflect in review decision
+
+- **All tasks completed** (all `[x]`): PASS or PASS_WITH_SUGGESTIONS
+- **Any tasks incomplete** (`[ ]` remains): FAIL
+  - List the incomplete tasks in the feedback
+  - Explain what is missing
+
+**Example (FAIL feedback)**:
+```
+## Planning Phase checklist result: FAIL
+
+The following tasks are incomplete:
+
+- [ ] Task 6-1: Test runner setup
+  - Missing: pytest installation is not recorded
+- [ ] Task 6-2: Dependency resolution
+  - Missing: npm install results are not documented
+
+Complete these tasks and resubmit.
+```
+
+### ⚠️ Important: Do not include planning.md content in the review result
+
+Reading and updating planning.md is required, but **do not include the full planning.md content** in the review output.
+
+Only include:
+- Evaluation of test-preparation.md
+- Incomplete tasks found via planning.md (only when FAIL)
+- Improvement suggestions specific to test preparation
+
+## Review Stance
+
+Follow the "80 points is enough" principle:
+
+1. **Aim for sufficient, not perfect**
+   - If testing can proceed, pass the review
+   - Minor optimizations go into suggestions
+
+2. **Separate blockers from suggestions**
+   - Blocker: cannot proceed to Testing
+   - Suggestion: can proceed but improvements are desirable
+
+3. **Practical and balanced judgment**
+   - Prioritize moving the project forward
+
+4. **Constructive feedback**
+   - Provide concrete improvement guidance
+
+## Review Criteria
+
+### 1. Runtime readiness (most important)
+
+- Required runtimes are installed
+- Version checks are recorded
+
+### 2. Dependency resolution
+
+- Dependency installation completed
+- No unresolved installation errors
+
+### 3. Test readiness
+
+- Test framework is available
+- Test command checks are recorded
+
+### 4. Accuracy of records
+
+- Commands and results are accurately captured
+- Risks or limitations are noted for the next phase

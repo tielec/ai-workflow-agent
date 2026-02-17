@@ -4,7 +4,7 @@
 
 ## ⚠️ Required task
 **Make sure to update test-result.md. Use the **
-Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.
+Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.
 Omitting this update will result in an error in the workflow.
 
 ## Task Summary
@@ -29,7 +29,7 @@ Correct the issues identified in the review and rerun the test.
 ## Correction instructions
 
 ### ⚠️ Most important: Required file update
-**Please overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool as a top priority. Please only include the latest test results and do not keep old records.
+**Please overwrite and save `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` with the Write tool as a top priority. Please only include the latest test results and do not keep old records.
 
 ### Resolving BLOCKER
 
@@ -72,7 +72,7 @@ In this case, please record the following:
 (Where and how to fix the implementation)
 ```
 
-Overwrite and save this in `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Please do not keep old content and record only the latest decisions and reasons for corrections.
+Overwrite and save this in `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md`. Please do not keep old content and record only the latest decisions and reasons for corrections.
 
 #### Choice 2: Modify the test environment and rerun the test
 
@@ -88,7 +88,7 @@ If there is a problem with the test environment, modify the environment and reru
 - [ ] 1. Check review results and organize blockers/improvement suggestions
 - [ ] 2. Phase 4 as necessary Clarify the decision to return to
 - [ ] 3. Prepare the test environment and prepare for re-execution
-- [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool** (required)
+- [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` with the Write tool** (required)
 - [ ] 5. Check the quality gates after modification (blockers removed, major tests passed, preparation for next phase)
 
 ## Things to check after modification
@@ -102,12 +102,12 @@ After the modification is completed, please check the following:
 - Are the tests on the critical path successful?
 
 3. **Prepare for the next phase**
-- Do you want to proceed to Phase 6 (documentation)?
+- Do you want to proceed to Phase 8 (documentation)?
 - Or do you need to go back to Phase 4?
 
 ## Update test results
 
-If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Be sure to completely replace the old content and record only the latest test-result.md. The following template is an example of the content structure (must be overwritten, not appended):
+If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md`. Be sure to completely replace the old content and record only the latest test-result.md. The following template is an example of the content structure (must be overwritten, not appended):
 
 ```markdown
 ## Re-execution result
@@ -120,7 +120,7 @@ If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-
 ```
 
 ## Output format
-**Important**: Be sure to **overwrite** the modified test results as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. If you have an existing file, completely replace the old contents and record only the latest test results.
+**Important**: Be sure to **overwrite** the modified test results as `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md`. If you have an existing file, completely replace the old contents and record only the latest test results.
 
 ## ⚠️ Important: Don'ts of running test processes (Issue #267)
 

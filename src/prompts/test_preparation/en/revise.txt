@@ -1,0 +1,45 @@
+# Test Preparation Phase - Revise Prompt
+
+**Important: Write all document content in English. All sections, descriptions, and explanations must be written in English.**
+
+## Revision Targets
+
+### Review feedback
+{review_feedback}
+
+### Test preparation document
+{test_preparation_document_path}
+
+### Implementation log (reference)
+{implementation_document_path}
+
+### Test implementation log (reference)
+{test_implementation_document_path}
+
+## Revision Policy
+
+1. **Fix BLOCKER items first**
+2. **Fill in missing runtimes/dependencies/test runners**
+3. **Update test-preparation.md and document the fixes**
+
+## Revision Steps
+
+### 1. Additional preparation steps
+- Install or configure missing items
+- Re-run failed steps if needed
+
+### 2. Re-validate
+- Check runtime versions
+- Re-verify dependency installation
+- Confirm test runner availability
+
+### 3. Update test-preparation.md
+- Record additional commands and results
+- Add brief notes on what changed and why
+
+## Output
+
+Save the updated document to:
+- `.ai-workflow/issue-{issue_number}/06_test_preparation/output/test-preparation.md`
+
+**Note**: Do not delete existing content. Append or reorganize as needed.

@@ -33,7 +33,7 @@ We have determined that test execution is not necessary for this issue.
 - Example: Test execution is not necessary as the document is only modified.
 
 ## Recommendation for the next phase
-Proceed to Phase 7 (Documentation).
+Proceed to Phase 8 (Documentation).
 ```
 
 **Note**: If a skip judgment is written in test-implementation.md in Phase 5, it is recommended to skip this phase as well.
@@ -122,9 +122,9 @@ Please only write the details of the failed test in the following format:
 **Note**: Do not include a detailed list of successful tests.
 ```
 
-Please save this log as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`.
+Please save this log as `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md`.
 
-## Quality Gates (Phase 6)
+## Quality Gates (Phase 7)
 
 Test execution must meet the following quality gates:
 

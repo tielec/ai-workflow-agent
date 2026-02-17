@@ -3,7 +3,7 @@
 **IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
 
 ## Task Summary
-Assemble all deliverables from Phase 1-7 and create a final report for the merge decision. This report contains all the information a human can use to decide whether to merge the PR.
+Assemble all deliverables from Phase 1-8 and create a final report for the merge decision. This report contains all the information a human can use to decide whether to merge the PR.
 
 ## Input Information
 
@@ -92,11 +92,11 @@ If there are any special points to be noted, please briefly describe them in bul
 - **Design**: @.ai-workflow/issue-{issue_number}/02_design/output/design.md
 - **Implementation**: @.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
 - **Test implementation**: @.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md
-- **Test results**: @.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md
-- **Documentation update**: @.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md
+- **Test results**: @.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md
+- **Documentation update**: @.ai-workflow/issue-{issue_number}/08_documentation/output/documentation-update-log.md
 ```
 
-## Quality Gate (Phase 8: Report)
+## Quality Gate (Phase 9: Report)
 
 Reports must meet the following quality gates:
 
@@ -108,7 +108,7 @@ These quality gates are **requirements**. After creation, a critical thinking re
 
 ## Output Format
 
-Save the final report as `.ai-workflow/issue-{issue_number}/08_report/output/report.md`.
+Save the final report as `.ai-workflow/issue-{issue_number}/09_report/output/report.md`.
 Please use Markdown format, use headings appropriately, and create highly readable reports.
 
 ## Notes

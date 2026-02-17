@@ -15,13 +15,13 @@
 - Phase 2: {design_document_path}
 - Phase 3: {test_scenario_document_path}
 - Phase 4: {implementation_document_path}
-- Phase 5: {test_result_document_path}
+- Phase 7: {test_result_document_path}
 
 ## ⚠️ Notes when using Read tool (prompt length suppression)
 - `CLAUDE.md` (repository root) and `~/.claude/CLAUDE.md` has already been automatically read by Claude Code, so do not reread it with the Read tool.
 - Even if additional reading is required for review confirmation, limit reading to **3-5 files or less**, and limit large files to partial reading by specifying `limit: 1000-2000`
 
-## Quality gate (Phase 6: Documentation）
+## Quality gate (Phase 8: Documentation）
 
 Document updates must pass the following quality gates:
 
@@ -38,7 +38,7 @@ Please load the following file:
 
 ### 2. Extract the checklist for the relevant phase
 
-From Planning.md, find the section for the current phase ("### Phase 7:" or "## Phase 7:") and extract the task checklist.
+From Planning.md, find the section for the current phase ("### Phase 8:" or "## Phase 8:") and extract the task checklist.
 
 **Note**: If you can't find the checklist, please skip this check.
 

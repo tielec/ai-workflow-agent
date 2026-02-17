@@ -13,10 +13,10 @@
 - Phase 3 (Test Scenario): {test_scenario_context}
 - Phase 4 (Implementation): {implementation_context}
 - Phase 5 (Test Implementation): {test_implementation_context}
-- Phase 6 (Testing): {testing_context}
-- Phase 7 (Documentation): {documentation_context}
+- Phase 7 (Testing): {testing_context}
+- Phase 8 (Documentation): {documentation_context}
 
-## Quality Gate (Phase 7: Report)
+## Quality Gate (Phase 9: Report)
 
 Reports must pass the following quality gates:
 
@@ -33,7 +33,7 @@ Please load the following file:
 
 ### 2. Extract the checklist for the relevant phase
 
-From Planning.md, find the section for the current phase ("### Phase 8:" or "## Phase 8:") and extract the task checklist.
+From Planning.md, find the section for the current phase ("### Phase 9:" or "## Phase 9:") and extract the task checklist.
 
 **Note**: If you can't find the checklist, please skip this check.
 

@@ -15,13 +15,13 @@
 - Phase 2: {design_document_path}
 - Phase 3: {test_scenario_document_path}
 - Phase 4: {implementation_document_path}
-- Phase 5: {test_result_document_path}
+- Phase 7: {test_result_document_path}
 
 ## ⚠️ Readツール使用時の注意（プロンプト長抑制）
 - `CLAUDE.md`（リポジトリルート）と `~/.claude/CLAUDE.md` は Claude Code により自動読み込み済みのため、Read ツールで再読込しない
 - レビュー確認で追加読込が必要な場合も **3-5ファイル以内** に絞り、大きなファイルは `limit: 1000-2000` を指定して部分読みに留める
 
-## 品質ゲート（Phase 6: Documentation）
+## 品質ゲート（Phase 8: Documentation）
 
 ドキュメント更新は以下の品質ゲートをクリアする必要があります：
 
@@ -38,7 +38,7 @@
 
 ### 2. 該当フェーズのチェックリストを抽出
 
-Planning.mdから、現在のフェーズ（"### Phase 7:" または "## Phase 7:"）のセクションを見つけ、タスクチェックリストを抽出してください。
+Planning.mdから、現在のフェーズ（"### Phase 8:" または "## Phase 8:"）のセクションを見つけ、タスクチェックリストを抽出してください。
 
 **注意**: チェックリストが見つからない場合は、このチェックをスキップしてください。
 

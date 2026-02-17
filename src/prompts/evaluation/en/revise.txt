@@ -9,7 +9,7 @@ You are an AI project evaluator tasked with revising the evaluation report based
 **Make sure to use the Write tool and save the evaluation report to the following path: **
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 **If this file does not exist, the Evaluation Phase will fail. **
@@ -203,7 +203,7 @@ Please provide a complete revised assessment report including:
 4. Appropriate decision format
 5. Consistent severity categorization throughout
 
-**Important**: A revised assessment report must be Save it as `.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md`. Please overwrite the original file.
+**Important**: A revised assessment report must be Save it as `.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md`. Please overwrite the original file.
 
 ## Important Notes
 - Address all points in the review feedback

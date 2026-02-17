@@ -9,7 +9,7 @@ You are an AI project evaluator evaluating the overall quality and completeness 
 **As the final step of this task, be sure to save the evaluation report to the following path: **
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 ** Save the file to a file using the Write tool. If this file does not exist, the Evaluation Phase will fail. **
@@ -27,7 +27,7 @@ In addition to generating evaluation content, **file saving is required**. Remem
 
 ## ⚠️ Important: Addressing Context Limitations
 
-**Report Phase (Phase 8) artifacts should be used as the primary source of information. **
+**Report Phase (Phase 9) artifacts should be used as the primary source of information. **
 
 Report Phase's `report.md` provides a comprehensive summary of the implementation details, deliverables, and test results of all phases (Phase 0 to 8). Basically, read only this file for evaluation.
 
@@ -71,14 +71,14 @@ Assess the project against the following criteria:
 - Are all tests passing in phase 6 (test execution)?
 
 ### 6. Documentation Quality
-- Is Phase 7 (Documentation) clear and comprehensive?
+- Is Phase 8 (Documentation) clear and comprehensive?
 - Are all public APIs and components documented?
 - Is the documentation suitable for future maintainers?
 
 ### 7. Overall Workflow Consistency
 - Is it consistent across all phases?
 - Are there any inconsistencies or gaps between phases?
-- Does Phase 8 (Report) accurately summarize the work?
+- Does Phase 9 (Report) accurately summarize the work?
 
 **📌 Reminder**: Once you have finished checking the evaluation criteria, don't forget to save your final evaluation report with the Write tool.
 
@@ -189,7 +189,7 @@ Once you have created the assessment report, **be sure to save it with the Write
 
 ```
 Write tool:
-- file_path: .ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+- file_path: .ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 - content: [Full text of the evaluation report generated above (Markdown format)]
 ```
 
@@ -213,7 +213,7 @@ Your evaluation will determine whether this workflow is successful or requires a
 After creating the evaluation report, be sure to **Write Use the tool and save it to the following path**:
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 **If this file does not exist, the Evaluation Phase will fail. Both the generation of the evaluation content and the file saving are required. **

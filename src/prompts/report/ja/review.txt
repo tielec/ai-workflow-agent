@@ -13,10 +13,10 @@
 - Phase 3 (Test Scenario): {test_scenario_context}
 - Phase 4 (Implementation): {implementation_context}
 - Phase 5 (Test Implementation): {test_implementation_context}
-- Phase 6 (Testing): {testing_context}
-- Phase 7 (Documentation): {documentation_context}
+- Phase 7 (Testing): {testing_context}
+- Phase 8 (Documentation): {documentation_context}
 
-## 品質ゲート（Phase 7: Report）
+## 品質ゲート（Phase 9: Report）
 
 レポートは以下の品質ゲートをクリアする必要があります：
 
@@ -33,7 +33,7 @@
 
 ### 2. 該当フェーズのチェックリストを抽出
 
-Planning.mdから、現在のフェーズ（"### Phase 8:" または "## Phase 8:"）のセクションを見つけ、タスクチェックリストを抽出してください。
+Planning.mdから、現在のフェーズ（"### Phase 9:" または "## Phase 9:"）のセクションを見つけ、タスクチェックリストを抽出してください。
 
 **注意**: チェックリストが見つからない場合は、このチェックをスキップしてください。
 

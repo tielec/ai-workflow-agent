@@ -97,7 +97,7 @@ JSON array format:
   {
     "type": "integration",
     "title": "Add Slack notifications when workflows finish",
-    "description": "Send a rich Slack message after Phase 9 (Evaluation) with issue title, PR link, runtime, and cost.",
+    "description": "Send a rich Slack message after Phase 10 (Evaluation) with issue title, PR link, runtime, and cost.",
     "rationale": "Team sees completion in real time and avoids missing review requests; improves async coordination.",
     "implementation_hints": [
       "Use Slack Incoming Webhook",

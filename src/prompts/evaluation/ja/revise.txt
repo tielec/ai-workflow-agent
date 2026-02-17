@@ -9,7 +9,7 @@
 **Write ツールを使用して、評価レポートを以下のパスに必ず保存してください：**
 
 ```
-.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md
+.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md
 ```
 
 **このファイルが存在しない場合、Evaluation Phase は失敗します。**
@@ -206,7 +206,7 @@ RECOMMENDED_ACTIONS:
 4. 適切な決定フォーマット
 5. 全体を通した一貫した重大度分類
 
-**重要**: 修正された評価レポートは必ず `.ai-workflow/issue-{issue_number}/09_evaluation/output/evaluation_report.md` として保存してください。元のファイルを上書きしてください。
+**重要**: 修正された評価レポートは必ず `.ai-workflow/issue-{issue_number}/10_evaluation/output/evaluation_report.md` として保存してください。元のファイルを上書きしてください。
 
 ## 重要な注意事項
 

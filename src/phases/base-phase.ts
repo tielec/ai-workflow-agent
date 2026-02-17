@@ -673,10 +673,11 @@ export abstract class BasePhase {
       test_scenario: '03',
       implementation: '04',
       test_implementation: '05',
-      testing: '06',
-      documentation: '07',
-      report: '08',
-      evaluation: '09',
+      test_preparation: '06',
+      testing: '07',
+      documentation: '08',
+      report: '09',
+      evaluation: '10',
     };
     return mapping[phase];
   }
@@ -847,6 +848,7 @@ export abstract class BasePhase {
       report: /^#+ (プロジェクトレポート|Project Report|レポート|Report)/im,
       // 以下は対象外（フォールバック機構を導入しないフェーズ）
       test_implementation: /^#+ (テスト実装|Test Implementation)/im,
+      test_preparation: /^#+ (テスト準備|Test Preparation|環境準備|Environment Setup)/im,
       testing: /^#+ (テスト実行結果|Test Result)/im,
       documentation: /^#+ (ドキュメント更新ログ|Documentation Update Log)/im,
       evaluation: /^#+ (評価レポート|Evaluation Report)/im,

@@ -3,7 +3,7 @@
 **重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
 
 ## タスク概要
-Phase 1-7の全成果物をまとめて、マージ判断用の最終レポートを作成してください。このレポートは、人間がPRをマージするかどうかを判断するための情報をすべて含みます。
+Phase 1-8の全成果物をまとめて、マージ判断用の最終レポートを作成してください。このレポートは、人間がPRをマージするかどうかを判断するための情報をすべて含みます。
 
 ## 入力情報
 
@@ -93,11 +93,11 @@ Phase 1-7の全成果物をまとめて、マージ判断用の最終レポー�
 - **設計**: @.ai-workflow/issue-{issue_number}/02_design/output/design.md
 - **実装**: @.ai-workflow/issue-{issue_number}/04_implementation/output/implementation.md
 - **テスト実装**: @.ai-workflow/issue-{issue_number}/05_test_implementation/output/test-implementation.md
-- **テスト結果**: @.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md
-- **ドキュメント更新**: @.ai-workflow/issue-{issue_number}/07_documentation/output/documentation-update-log.md
+- **テスト結果**: @.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md
+- **ドキュメント更新**: @.ai-workflow/issue-{issue_number}/08_documentation/output/documentation-update-log.md
 ```
 
-## 品質ゲート（Phase 8: Report）
+## 品質ゲート（Phase 9: Report）
 
 レポートは以下の品質ゲートを満たす必要があります：
 
@@ -109,7 +109,7 @@ Phase 1-7の全成果物をまとめて、マージ判断用の最終レポー�
 
 ## 出力形式
 
-最終レポートを `.ai-workflow/issue-{issue_number}/08_report/output/report.md` として保存してください。
+最終レポートを `.ai-workflow/issue-{issue_number}/09_report/output/report.md` として保存してください。
 
 Markdown形式で、見出しを適切に使用し、可読性の高いレポートを作成してください。
 

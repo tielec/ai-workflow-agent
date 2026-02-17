@@ -4,7 +4,7 @@
 
 ## ⚠️ 必須タスク
 **test-result.md を必ず更新してください。**
-Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` を**上書き保存**し、古い内容は完全に置き換えて最新のテスト結果のみを記録してください。
+Write ツールを使用して `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` を**上書き保存**し、古い内容は完全に置き換えて最新のテスト結果のみを記録してください。
 この更新を省略するとワークフローがエラーになります。
 
 ## タスク概要
@@ -29,7 +29,7 @@ Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/out
 ## 修正指示
 
 ### ⚠️ 最重要: 必須ファイル更新
-**Write ツールで `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` を上書き保存**することを最優先で実行してください。内容は最新のテスト結果のみとし、古い記録は残さないでください。
+**Write ツールで `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` を上書き保存**することを最優先で実行してください。内容は最新のテスト結果のみとし、古い記録は残さないでください。
 
 ### ブロッカー（BLOCKER）の解消
 
@@ -73,7 +73,7 @@ Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/out
 （実装のどこをどう修正すべきか）
 ```
 
-これを `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` に上書き保存してください。古い内容は残さず、最新の判断と修正理由のみを記録してください。
+これを `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` に上書き保存してください。古い内容は残さず、最新の判断と修正理由のみを記録してください。
 
 #### 選択肢2: テスト環境を修正してテストを再実行
 
@@ -89,7 +89,7 @@ Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/out
 - [ ] 1. レビュー結果を確認し、ブロッカー/改善提案を整理
 - [ ] 2. 必要に応じて Phase 4 に戻る判断を明確にする
 - [ ] 3. テスト環境を整備し、再実行の準備をする
-- [ ] 4. **Write ツールで `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` を上書き保存**（必須）
+- [ ] 4. **Write ツールで `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` を上書き保存**（必須）
 - [ ] 5. 修正後の品質ゲート（ブロッカー解消・主要テスト成功・次フェーズ準備）を確認
 
 ## 修正後の確認事項
@@ -103,12 +103,12 @@ Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/out
    - クリティカルパスのテストが成功しているか
 
 3. **次フェーズへの準備**
-   - Phase 6（ドキュメント作成）に進めるか
+   - Phase 8（ドキュメント作成）に進めるか
    - またはPhase 4に戻る必要があるか
 
 ## テスト結果の更新
 
-テストを再実行した場合は、`Write` ツールを使って `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` を**上書き保存**してください。古い内容は完全に置き換え、最新の test-result.md のみを記録するようにしてください。以下のテンプレートは内容の構成例です（追記ではなく上書き前提です）：
+テストを再実行した場合は、`Write` ツールを使って `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` を**上書き保存**してください。古い内容は完全に置き換え、最新の test-result.md のみを記録するようにしてください。以下のテンプレートは内容の構成例です（追記ではなく上書き前提です）：
 
 ```markdown
 ## 再実行結果
@@ -122,7 +122,7 @@ Write ツールを使用して `.ai-workflow/issue-{issue_number}/06_testing/out
 
 ## 出力形式
 
-**重要**: 修正後のテスト結果を `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` として**必ず上書き保存**してください。既存のファイルがある場合は、古い内容を完全に置き換えて、最新のテスト結果のみを記録してください。
+**重要**: 修正後のテスト結果を `.ai-workflow/issue-{issue_number}/07_testing/output/test-result.md` として**必ず上書き保存**してください。既存のファイルがある場合は、古い内容を完全に置き換えて、最新のテスト結果のみを記録してください。
 
 ## ⚠️ 重要: テストプロセスの実行に関する禁止事項（Issue #267）
 
