@@ -19,7 +19,7 @@ TypeScript ベースの AI Workflow 自動化ツールキットで、デュア�
 **主要機能**:
 - **デュアルエージェント**: Codex（gpt-5.2-codex）と Claude（Opus 4.5）の自動フォールバック
 - **10フェーズワークフロー**: Planning → Requirements → Design → Test Scenario → Implementation → Test Implementation → Testing → Documentation → Report → Evaluation
-- **永続化メタデータ**: `.ai-workflow/issue-*/metadata.json` でワークフロー状態を管理（サンプル: issue-7/issue-10/issue-105 をリファレンスとして保持）
+- **永続化メタデータ**: `.ai-workflow/issue-*/metadata.json` でワークフロー状態を管理
 - **マルチリポジトリ対応**: Issue URL から対象リポジトリを自動判定（v0.2.0）
 - **Jenkins統合**: Docker コンテナ内で TypeScript CLI を実行
 
@@ -522,7 +522,7 @@ describe('My Test Suite', () => {
 
 1. **プロンプトは決定的**: `src/prompts/` 内のすべてのテンプレートはビルド時に `dist/` へコピーされる
 
-2. **メタデータはバージョン管理対象**: `.ai-workflow/` はフィーチャーブランチにコミットされる（サンプル: issue-7/issue-10/issue-105 は参照用に保持）
+2. **メタデータはバージョン管理対象**: `.ai-workflow/` はフィーチャーブランチにコミットされる
 
 3. **PR の手動編集不可**: PR 本文は Report phase（Phase 8）で生成される
 

@@ -19,7 +19,6 @@ const JOB_DSL_PATHS = {
   rollback: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_rollback_job.groovy',
   finalize: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy',
   autoIssue: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_auto_issue_job.groovy',
-  autoClose: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_auto_close_issue_job.groovy',
   validateCredentials: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_validate_credentials_job.groovy',
   prCommentExecute:
     'jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_execute_job.groovy',
@@ -53,7 +52,6 @@ const EXPECTED_SEED_JOB_KEYS = [
   'ai_workflow_rollback_job',
   'ai_workflow_finalize_job',
   'ai_workflow_auto_issue_job',
-  'ai_workflow_auto_close_issue_job',
   'ai_workflow_validate_credentials_job',
   'ai_workflow_pr_comment_execute_job',
   'ai_workflow_pr_comment_finalize_job',
@@ -67,7 +65,6 @@ const SEED_JOB_KEY_TO_PATH: Record<(typeof EXPECTED_SEED_JOB_KEYS)[number], stri
   ai_workflow_rollback_job: JOB_DSL_PATHS.rollback,
   ai_workflow_finalize_job: JOB_DSL_PATHS.finalize,
   ai_workflow_auto_issue_job: JOB_DSL_PATHS.autoIssue,
-  ai_workflow_auto_close_issue_job: JOB_DSL_PATHS.autoClose,
   ai_workflow_validate_credentials_job: JOB_DSL_PATHS.validateCredentials,
   ai_workflow_pr_comment_execute_job: JOB_DSL_PATHS.prCommentExecute,
   ai_workflow_pr_comment_finalize_job: JOB_DSL_PATHS.prCommentFinalize,
