@@ -214,14 +214,14 @@ Docker コンテナ内でテスト実行時に、対象リポジトリの開発�
 
 ### Phase 5: テストコード実装 (見積もり: 3〜4h)
 
-- [ ] Task 5-1: TestPreparationPhase ユニットテストの作成 (2〜2.5h)
+- [x] Task 5-1: TestPreparationPhase ユニットテストの作成 (2〜2.5h)
   - `tests/unit/phases/test-preparation.test.ts` の新規作成
   - コンストラクタテスト（phaseName の検証）
   - execute() のテスト（モック環境でのコンテキスト構築・テンプレート実行の検証）
   - review() のテスト（出力ファイルチェック、レビュー結果パースの検証）
   - revise() のテスト（フィードバック適用の検証）
 
-- [ ] Task 5-2: 既存テストの修正 (1〜1.5h)
+- [x] Task 5-2: 既存テストの修正 (1〜1.5h)
   - `tests/unit/commands/execute.test.ts` のフェーズ順序テスト更新
   - フェーズ依存関係テストへの test_preparation ケース追加
   - フェーズ番号マッピングテストの更新（番号シフトの反映）
