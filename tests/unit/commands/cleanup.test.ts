@@ -304,13 +304,13 @@ describe('Cleanup コマンド - エッジケーステスト', () => {
   describe('parsePhaseRange_エッジケース_全フェーズ名リスト', () => {
     test('全フェーズ名をリストで指定した場合に正しく処理される', () => {
       // Given: 全フェーズ名のリスト
-      const rangeStr = 'planning,requirements,design,test_scenario,implementation,test_implementation,testing,documentation,report,evaluation';
+      const rangeStr = 'planning,requirements,design,test_scenario,implementation,test_implementation,test_preparation,testing,documentation,report,evaluation';
 
       // When: parsePhaseRange()を呼び出す
       const result = parsePhaseRange(rangeStr);
 
-      // Then: 全10フェーズが返される
-      expect(result.length).toBe(10);
+      // Then: 全11フェーズが返される
+      expect(result.length).toBe(11);
       expect(result).toEqual([
         'planning',
         'requirements',
@@ -318,6 +318,7 @@ describe('Cleanup コマンド - エッジケーステスト', () => {
         'test_scenario',
         'implementation',
         'test_implementation',
+        'test_preparation',
         'testing',
         'documentation',
         'report',
@@ -342,10 +343,10 @@ describe('Cleanup コマンド - 複数フェーズ範囲のテスト', () => {
       // Then: 期待通りのフェーズ名配列が返される
       expect(result).toEqual([
         'test_implementation',
+        'test_preparation',
         'testing',
         'documentation',
-        'report',
-        'evaluation'
+        'report'
       ]);
     });
   });
@@ -366,7 +367,7 @@ describe('Cleanup コマンド - 複数フェーズ範囲のテスト', () => {
         'test_scenario',
         'implementation',
         'test_implementation',
-        'testing'
+        'test_preparation'
       ]);
     });
   });

@@ -10,10 +10,11 @@ export const PHASE_CHECKLIST_MAP: Record<PhaseName, string> = {
   test_scenario: 'Phase 3: Test Scenario',
   implementation: 'Phase 4: Implementation',
   test_implementation: 'Phase 5: Test Implementation',
-  testing: 'Phase 6: Testing',
-  documentation: 'Phase 7: Documentation',
-  report: 'Phase 8: Report',
-  evaluation: 'Phase 9: Evaluation',
+  test_preparation: 'Phase 6: Test Preparation',
+  testing: 'Phase 7: Testing',
+  documentation: 'Phase 8: Documentation',
+  report: 'Phase 9: Report',
+  evaluation: 'Phase 10: Evaluation',
 };
 
 /**

@@ -100,7 +100,7 @@ describe('updatePhaseChecklistInPrBody', () => {
 
     expect(updated).toContain('- [x] Phase 2: Design');
     expect(updated).toContain('- [ ] Phase 1: Requirements');
-    expect(updated).toContain('- [ ] Phase 8: Report');
+    expect(updated).toContain('- [ ] Phase 9: Report');
   });
 
   it('preserves non-checklist content in the PR body', () => {

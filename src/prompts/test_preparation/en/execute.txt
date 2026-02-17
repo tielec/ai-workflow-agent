@@ -1,6 +1,6 @@
 # Test Preparation Phase - Execute Prompt
 
-**Important: Write all document content in English. All sections, descriptions, and explanations must be written in English.**
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
 
 ## Task Overview
 Prepare the execution environment before running tests.

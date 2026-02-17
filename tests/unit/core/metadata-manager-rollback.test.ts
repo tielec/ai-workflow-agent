@@ -371,6 +371,7 @@ describe('MetadataManager - Rollback機能', () => {
       // Then: 後続フェーズがすべてpendingにリセットされる
       expect(resetPhases).toEqual([
         'test_implementation',
+        'test_preparation',
         'testing',
         'documentation',
         'report',

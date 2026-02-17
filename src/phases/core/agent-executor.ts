@@ -438,10 +438,11 @@ export class AgentExecutor {
       test_scenario: '03',
       implementation: '04',
       test_implementation: '05',
-      testing: '06',
-      documentation: '07',
-      report: '08',
-      evaluation: '09',
+      test_preparation: '06',
+      testing: '07',
+      documentation: '08',
+      report: '09',
+      evaluation: '10',
     };
     return mapping[phase];
   }

@@ -207,7 +207,7 @@ describe('Issue #207: Prompt Simplification for Phase 4-8', () => {
       requiredPlaceholders.forEach((placeholder) => {
         expect(documentationPrompt).toContain(placeholder);
       });
-      expect(documentationPrompt).toMatch(/品質ゲート（Phase 7: Documentation）/);
+      expect(documentationPrompt).toMatch(/品質ゲート（Phase 8: Documentation）/);
       expect(documentationPrompt).toContain('ドキュメント更新手順');
     });
 

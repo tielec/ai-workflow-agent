@@ -147,8 +147,7 @@ export class TestPreparationPhase extends BasePhase {
       testImplementationReference = 'テストコード実装ログは利用できません。テスト準備内容からテスト方針を推測して修正してください。';
     }
 
-    const oldMtime = fs.statSync(testPreparationFile).mtimeMs;
-    const oldSize = fs.statSync(testPreparationFile).size;
+    const oldContent = fs.readFileSync(testPreparationFile, 'utf-8');
 
     const revisePrompt = this.loadPrompt('revise')
       .replace('{test_preparation_document_path}', testPreparationReference)
@@ -166,10 +165,9 @@ export class TestPreparationPhase extends BasePhase {
       };
     }
 
-    const newMtime = fs.statSync(testPreparationFile).mtimeMs;
-    const newSize = fs.statSync(testPreparationFile).size;
+    const newContent = fs.readFileSync(testPreparationFile, 'utf-8');
 
-    if (newMtime === oldMtime && newSize === oldSize) {
+    if (newContent === oldContent) {
       return {
         success: false,
         error: 'test-preparation.md が更新されていません。レビュー指摘を反映してください。',

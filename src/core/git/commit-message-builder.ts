@@ -19,6 +19,7 @@ export class CommitMessageBuilder {
     'test_scenario',
     'implementation',
     'test_implementation',
+    'test_preparation',
     'testing',
     'documentation',
     'report',
@@ -146,9 +147,9 @@ export class CommitMessageBuilder {
     // Calculate correct phase number
     let phaseNumber: number;
     if (phase === 'report') {
-      phaseNumber = 8;
+      phaseNumber = 10;
     } else if (phase === 'evaluation') {
-      phaseNumber = 9;
+      phaseNumber = 11;
     } else {
       // finalize は全フェーズ完了後なので、フェーズ番号は特になし
       phaseNumber = 0;

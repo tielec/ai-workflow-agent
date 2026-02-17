@@ -228,7 +228,7 @@ describe('createPhaseInstance - 正常系', () => {
     const instances = allPhaseNames.map((phaseName) => createPhaseInstance(phaseName, context));
 
     // Then: すべてのインスタンスが正しく生成される
-    expect(instances).toHaveLength(10);
+    expect(instances).toHaveLength(11);
     instances.forEach((instance) => {
       expect(instance).toBeDefined();
       expect(typeof instance.run).toBe('function');

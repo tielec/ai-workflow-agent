@@ -87,6 +87,7 @@ describe('cleanupWorkflowLogs メソッドテスト（Issue #405）', () => {
       '07_testing',
       '08_documentation',
       '09_report',
+      '10_evaluation',
     ];
 
     const targetSubdirs = ['execute', 'review', 'revise'];
