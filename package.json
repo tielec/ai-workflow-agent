@@ -33,6 +33,7 @@
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "pretest": "node ./scripts/copy-static-assets.mjs",
     "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest",
     "test:unit": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/unit",
     "test:integration": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/integration",
