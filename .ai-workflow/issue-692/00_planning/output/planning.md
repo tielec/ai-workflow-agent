@@ -122,19 +122,19 @@ Docker コンテナ内でテスト実行時に、対象リポジトリの開発�
 
 ### Phase 1: 要件定義 (見積もり: 2〜3h)
 
-- [ ] Task 1-1: 機能要件の明確化 (1〜2h)
+- [x] Task 1-1: 機能要件の明確化 (1〜2h)
   - `test_preparation` フェーズの責務を定義（言語ランタイムのインストール、依存パッケージの解決、テストフレームワークのセットアップ、環境検証）
   - 入力コンテキスト（どのフェーズの成果物を参照するか）の定義
   - 出力成果物（`test-preparation.md`）のフォーマット定義
   - フェーズ間のデータフロー仕様（implementation → test_implementation → test_preparation → testing）
 
-- [ ] Task 1-2: 非機能要件の明確化 (0.5〜1h)
+- [x] Task 1-2: 非機能要件の明確化 (0.5〜1h)
   - エージェント実行のタイムアウト設定（maxTurns: 80 を推奨）
   - フォールバック機構の適用要否（enableFallback: true を推奨）
   - 後方互換性要件（既存ワークフローへの非影響）
   - 多言語対応要件（日本語/英語プロンプト）
 
-- [ ] Task 1-3: 受け入れ基準の定義 (0.5h)
+- [x] Task 1-3: 受け入れ基準の定義 (0.5h)
   - `npm run validate` が全件パスすること
   - `--phase all` 実行時に test_preparation が test_implementation と testing の間で実行されること
   - `implementation` プリセットに test_preparation が含まれること
