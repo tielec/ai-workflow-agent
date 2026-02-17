@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #682**: `.ai-workflow/` ディレクトリを整理し、リポジトリの見通しを改善
+  - 完了済みワークフロー成果物 61件（`issue-2` 〜 `issue-271`）と `pr-626/` ディレクトリを `git rm -r` で削除
+  - `metadata.json.backup_*` バックアップファイル 32件を削除
+  - リファレンス用サンプル（`issue-7`、`issue-10`、`issue-105`）を保持し、各ディレクトリに `README.md` を新規作成
+  - ワーキングツリーの `.ai-workflow/` サイズを約 37MB から約 2MB（約 95%削減）に削減
+  - テストカバレッジ: `npm run validate`（lint + test + build）全項目 PASS（208 suites / 2871 tests）
+
 ### Fixed
 
 - **Issue #678**: Jenkinsシード設定にauto-close-issueジョブを登録し、生成ジョブから確実に呼び出せるようにする
