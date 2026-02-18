@@ -105,7 +105,10 @@ export class WorkflowState {
 
     const current = phases[phase].retry_count;
     if (current >= 3) {
-      throw new Error(`Max retry count exceeded for phase: ${phase}`);
+      logger.warn(
+        `Phase ${phase}: Retry count already at maximum (${current}). Skipping increment.`,
+      );
+      return current;
     }
 
     phases[phase].retry_count = current + 1;

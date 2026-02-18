@@ -124,7 +124,7 @@ describe('Integration: auto-close-issue job-config entry (Issue #678)', () => {
     expect(findDef('GITHUB_REPOSITORY')?.kind).toBe('string');
 
     expect(findDef('AUTO_CLOSE_CATEGORY')?.choices).toContain('followup');
-    expect(findDef('AUTO_CLOSE_CATEGORY')?.defaultValue).toBe('followup');
+    expect(findDef('AUTO_CLOSE_CATEGORY')?.defaultValue).toBe('all');
     expect(findDef('AUTO_CLOSE_LIMIT')?.defaultValue).toBe('10');
     expect(findDef('CONFIDENCE_THRESHOLD')?.defaultValue).toBe('0.7');
     expect(findDef('DAYS_THRESHOLD')?.defaultValue).toBe('90');
