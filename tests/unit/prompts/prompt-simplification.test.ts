@@ -126,6 +126,108 @@ describe('Phase 6 (Testing) Prompt Simplification', () => {
   });
 });
 
+describe('Phase 6 (Testing) execute prompt - Test Environment Setup step (Issue #701)', () => {
+  const jaExecutePath = path.join(PROMPTS_DIR, 'testing', 'ja', 'execute.txt');
+  const enExecutePath = path.join(PROMPTS_DIR, 'testing', 'en', 'execute.txt');
+  let jaContent: string;
+  let enContent: string;
+
+  beforeAll(() => {
+    expect(fs.existsSync(jaExecutePath)).toBe(true);
+    expect(fs.existsSync(enExecutePath)).toBe(true);
+    jaContent = fs.readFileSync(jaExecutePath, 'utf-8');
+    enContent = fs.readFileSync(enExecutePath, 'utf-8');
+  });
+
+  it('日本語版: 「テスト環境の準備」ステップが存在する (TC-JA-001)', () => {
+    expect(jaContent).toContain('### 2. テスト環境の準備');
+  });
+
+  it('日本語版: 「テストの実行」が3番にリナンバリングされている (TC-JA-002)', () => {
+    expect(jaContent).toContain('### 3. テストの実行');
+    expect(jaContent).not.toContain('### 2. テストの実行');
+  });
+
+  it('日本語版: 「テスト結果の記録」が4番にリナンバリングされている (TC-JA-003)', () => {
+    expect(jaContent).toContain('### 4. テスト結果の記録');
+    expect(jaContent).not.toContain('### 3. テスト結果の記録');
+  });
+
+  it('日本語版: テスト実行手順が4ステップ構成になっている (TC-JA-004)', () => {
+    expect(jaContent).toContain('### 1. テストコードの確認');
+    expect(jaContent).toContain('### 2. テスト環境の準備');
+    expect(jaContent).toContain('### 3. テストの実行');
+    expect(jaContent).toContain('### 4. テスト結果の記録');
+  });
+
+  it('日本語版: 言語・ランタイム確認の指示が含まれる (TC-JA-005)', () => {
+    expect(jaContent).toContain('言語・ランタイム');
+  });
+
+  it('日本語版: 依存パッケージインストールコマンドが含まれる (TC-JA-006)', () => {
+    expect(jaContent).toContain('pip install');
+    expect(jaContent).toContain('npm install');
+    expect(jaContent).toContain('go mod download');
+  });
+
+  it('日本語版: テストフレームワーク確認の指示が含まれる (TC-JA-007)', () => {
+    expect(jaContent).toContain('テストフレームワーク');
+  });
+
+  it('日本語版: 前提条件チェックの指示が含まれる (TC-JA-008)', () => {
+    expect(jaContent).toContain('前提条件');
+  });
+
+  it('日本語版: 環境準備結果記録の指示が含まれる (TC-JA-009)', () => {
+    expect(jaContent).toContain('環境準備サマリー');
+  });
+
+  it('日本語版: テスト結果フォーマットに「環境準備サマリー」が含まれる (TC-JA-010)', () => {
+    expect(jaContent).toContain('## 環境準備サマリー');
+  });
+
+  it('英語版: 「Test Environment Setup」ステップが存在する (TC-EN-001)', () => {
+    expect(enContent).toContain('### 2. Test Environment Setup');
+  });
+
+  it('英語版: 「Executing the test」が3番にリナンバリングされている (TC-EN-002)', () => {
+    expect(enContent).toContain('### 3. Executing the test');
+    expect(enContent).not.toContain('### 2. Executing the test');
+  });
+
+  it('英語版: 「Recording test results」が4番にリナンバリングされている (TC-EN-003)', () => {
+    expect(enContent).toContain('### 4. Recording test results');
+    expect(enContent).not.toContain('### 3. Recording test results');
+  });
+
+  it('英語版: テスト実行手順が4ステップ構成になっている (TC-EN-004)', () => {
+    expect(enContent).toContain('### 1. ');
+    expect(enContent).toContain('### 2. Test Environment Setup');
+    expect(enContent).toContain('### 3. Executing the test');
+    expect(enContent).toContain('### 4. Recording test results');
+  });
+
+  it('英語版: テスト結果フォーマットに「Environment Setup Summary」が含まれる (TC-EN-005)', () => {
+    expect(enContent).toContain('## Environment Setup Summary');
+  });
+
+  it('日本語版: テンプレート変数が維持されている (TC-COMPAT-001)', () => {
+    expect(jaContent).toContain('{planning_document_path}');
+    expect(jaContent).toContain('{test_implementation_context}');
+    expect(jaContent).toContain('{implementation_context}');
+    expect(jaContent).toContain('{test_scenario_context}');
+    expect(jaContent).toContain('{issue_number}');
+  });
+
+  it('英語版: テンプレート変数が維持されている (TC-COMPAT-002)', () => {
+    expect(enContent).toContain('{planning_document_path}');
+    expect(enContent).toContain('{test_implementation_context}');
+    expect(enContent).toContain('{implementation_context}');
+    expect(enContent).toContain('{test_scenario_context}');
+    expect(enContent).toContain('{issue_number}');
+  });
+});
+
 describe('Phase 7 (Documentation) Prompt Simplification', () => {
   let promptContent: string;
 

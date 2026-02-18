@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加
+  - `src/prompts/testing/{ja,en}/execute.txt` の「## テスト実行手順」を3ステップから4ステップ構成に再構成
+  - **新規ステップ「テスト環境の準備（Test Environment Setup）」を挿入**: 言語・ランタイム確認、依存パッケージインストール（pip/npm/go mod/bundle/mvn）、テストフレームワーク確認、前提条件チェック、環境準備結果の記録 の5項目を含む
+  - 既存ステップのリナンバリング: 「テストの実行」(2→3)、「テスト結果の記録」(3→4)
+  - テスト結果フォーマット（`test-result.md`）に「## 環境準備サマリー（Environment Setup Summary）」セクションを追加
+  - `src/prompts/testing/{ja,en}/review.txt` の品質ゲートに「テスト環境が適切に準備されている」チェック項目を追加
+  - ユニットテスト追加: `tests/unit/prompts/prompt-simplification.test.ts` に新規セクション・リナンバリング・テンプレート変数互換性を検証するテストケースを追加（テスト合計50件、全件成功）
+  - TypeScript コードの変更なし（プロンプトテキストファイルのみの変更）
+  - **改善効果**: Docker コンテナ内でのテスト実行前に言語ランタイム・依存パッケージが適切にセットアップされ、環境起因のテスト失敗を防止
+
 - **Issue #682**: `.ai-workflow/` ディレクトリを整理し、リポジトリの見通しを改善
   - 完了済みワークフロー成果物 61件（`issue-2` 〜 `issue-271`）と `pr-626/` ディレクトリを `git rm -r` で削除
   - `metadata.json.backup_*` バックアップファイル 32件を削除

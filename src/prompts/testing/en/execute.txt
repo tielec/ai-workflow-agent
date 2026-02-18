@@ -74,7 +74,81 @@ Check the test files listed in the test implementation log:
 - Test framework (pytest, unittest, behave, etc.)
 - Test execution command
 
-### 2. Executing the test
+### 2. Test Environment Setup
+
+Before executing the test commands, prepare the environment using the following steps.
+
+#### 2-1. Verify and prepare the required language runtime
+
+Identify the language/runtime version required by the project and install it if necessary:
+- Check `README.md`, `.python-version`, `.nvmrc`, `.tool-versions`, or similar files for requirements.
+- Refer to the preceding **🛠️ Development Environment Info** section and install the required runtime using the provided commands.
+
+#### 2-2. Install dependency packages
+
+Install the dependencies for the relevant language:
+
+**Python**:
+```bash
+pip install -r requirements.txt
+# or
+pip install -e .
+```
+
+**Node.js**:
+```bash
+npm install
+# or
+yarn install
+```
+
+**Go**:
+```bash
+go mod download
+```
+
+**Ruby**:
+```bash
+bundle install
+```
+
+**Java**:
+```bash
+mvn install -DskipTests
+# or
+gradle build -x test
+```
+
+#### 2-3. Verify and set up the test framework
+
+Review the Phase 5 test implementation log to determine which test framework is used and install it if it is missing:
+
+```bash
+# Python: pytest
+pip install pytest
+
+# Node.js: Jest
+npm install --save-dev jest
+
+# Install any other required framework packages as needed
+```
+
+#### 2-4. Check prerequisites for running tests
+
+Ensure the following prerequisites are met:
+- Configuration files such as `pytest.ini`, `jest.config.js`, `.env.test`, and similar exist.
+- Test-specific environment variables (for example, test database connection strings) are configured.
+- Test data such as fixtures or seed data is prepared.
+
+#### 2-5. Record environment setup results
+
+Document environment preparation in the `test-result.md` file under the **Environment Setup Summary** section:
+- Installed languages and their versions
+- Installed packages and versions
+- Test frameworks used
+- Any issues encountered during preparation and how they were resolved
+
+### 3. Executing the test
 
 Run the appropriate test command:
 
@@ -97,12 +171,18 @@ behave tests/features/
 - @README.md or @CONTRIBUTION.md
 - Please refer to any existing test scripts
 
-### 3. Recording test results
+### 4. Recording test results
 
 Please record the test results in the following format:
 
 ```markdown
 # Test execution results
+
+## Environment Setup Summary
+- Installed language: (e.g., Python 3.11, or "No changes")
+- Installed packages: (e.g., requirements.txt (42 packages))
+- Test framework: (e.g., pytest 7.4.0)
+- Issues during setup: (None, or provide details about issues and resolutions)
 
 ## Test result summary
 
