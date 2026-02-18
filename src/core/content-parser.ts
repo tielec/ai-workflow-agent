@@ -221,6 +221,58 @@ export class ContentParser {
   }
 
   /**
+   * Review解析専用: Codex 失敗時に Claude へフォールバック
+   */
+  private async callLlmForReview(prompt: string, maxTokens: number): Promise<string> {
+    try {
+      return await this.callLlm(prompt, maxTokens);
+    } catch (error) {
+      const effectiveMode = this.getEffectiveMode();
+      if (effectiveMode !== 'codex-agent') {
+        throw error;
+      }
+
+      const message = getErrorMessage(error);
+      logger.warn(`Codex agent failed during review parsing: ${message}`);
+
+      const fallbackContent = await this.tryClaudeFallback(prompt, maxTokens);
+      if (fallbackContent !== null) {
+        return fallbackContent;
+      }
+
+      throw error;
+    }
+  }
+
+  private async tryClaudeFallback(prompt: string, maxTokens: number): Promise<string | null> {
+    if (this.claudeAgentClient) {
+      try {
+        logger.info('Falling back to Claude Agent for review parsing.');
+        return await this.callClaudeAgentLlm(prompt);
+      } catch (error) {
+        logger.warn(`Claude Agent fallback failed: ${getErrorMessage(error)}`);
+      }
+    }
+
+    if (this.anthropicClient) {
+      try {
+        logger.info('Falling back to Anthropic API for review parsing.');
+        const response = await this.anthropicClient.messages.create({
+          model: this.anthropicModel,
+          max_tokens: maxTokens,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        const textBlock = response.content.find((block): block is Anthropic.TextBlock => block.type === 'text');
+        return textBlock ? textBlock.text : '{}';
+      } catch (error) {
+        logger.warn(`Anthropic API fallback failed: ${getErrorMessage(error)}`);
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Claude Agent SDK を使用して LLM を呼び出す
    * テキスト解析専用のため、maxTurns=1 で単一応答を取得
    */
@@ -432,7 +484,7 @@ export class ContentParser {
     const prompt = template.replace('{full_text}', fullText);
 
     try {
-      const content = await this.callLlm(prompt, 256);
+      const content = await this.callLlmForReview(prompt, 256);
 
       // Step 1: JSON抽出前処理（NEW）
       const jsonString = this.extractJsonFromResponse(content);

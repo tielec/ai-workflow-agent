@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #706**: ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗を修正
+  - `Dockerfile` の Codex CLI インストール処理をベストエフォート化し、ARM64 環境でもビルドが継続できるよう変更
+  - `src/core/codex-agent-client.ts` に `Missing optional dependency @openai/codex-linux-*` を `CODEX_CLI_NOT_FOUND` 相当として検知する分岐を追加
+  - `src/phases/core/agent-executor.ts` に Codex CLI の事前可用性チェックを追加し、利用不可時は Claude へ即時フォールバックするロジックを実装
+  - `src/core/content-parser.ts` の `parseReviewResult()` で Codex 解析失敗時に Claude/Regex フォールバックを優先する処理を追加
+  - `src/phases/testing.ts` に testing フェーズ開始時の環境事前チェック（不足ランタイム検出・セットアップ指示注入）を追加
+  - `src/phases/base-phase.ts` の環境情報注入範囲を review/revise ステップに拡張
+  - **修正前の問題**: ARM64 環境で `execute --phase all` 実行時に Codex CLI 依存エラーとテスト環境不足が連鎖し、リトライ上限到達でワークフローが停止
+  - **修正後の動作**: Codex CLI が利用不可でも Claude フォールバックにより testing フェーズが完走し、環境不足時はエージェントへセットアップ手順を注入
+  - 修正ファイル: `Dockerfile`、`src/core/codex-agent-client.ts`、`src/core/content-parser.ts`、`src/phases/core/agent-executor.ts`、`src/phases/testing.ts`、`src/phases/base-phase.ts`
+  - テストカバレッジ: 48件の新規テスト（ユニット・統合）追加、全体 2991件中 2969件成功
+
 - **Issue #698**: reportフェーズでエージェントが`maxTurns`到達時に`revise()`がファイル未存在で即座に失敗する循環依存バグを修正
   - `report.ts`の`revise()`メソッドにファイル未存在時の新規作成モードを追加し、`execute()`と同一のコンテキスト変数で`executePhaseTemplate()`を呼び出してレポートを新規生成できるようにした
   - 無限再帰防止のため、`revise()`内の`executePhaseTemplate()`呼び出しで`enableFallback: false`を明示的に指定し、`handleMissingOutputFile() → revise() → executePhaseTemplate() → handleMissingOutputFile()`の無限ループを防止

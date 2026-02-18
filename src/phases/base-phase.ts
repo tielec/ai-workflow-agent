@@ -336,12 +336,12 @@ export abstract class BasePhase {
 
     let prompt = fs.readFileSync(actualPromptPath, 'utf-8');
 
-    // Issue #177: 環境情報の注入（execute ステップのみ、パッケージインストール可能時）
-    if (promptType === 'execute' && config.canAgentInstallPackages()) {
+    // Issue #177: 環境情報の注入（execute/review/revise、パッケージインストール可能時）
+    if (['execute', 'review', 'revise'].includes(promptType) && config.canAgentInstallPackages()) {
       const environmentInfo = this.buildEnvironmentInfoSection();
       prompt = environmentInfo + '\n\n' + prompt;
 
-      logger.info(`Environment info injected into execute prompt for phase ${this.phaseName}`);
+      logger.info(`Environment info injected into ${promptType} prompt for phase ${this.phaseName}`);
     }
 
     // Issue #90: 差し戻しコンテキストがある場合、プロンプトの先頭に追加
@@ -456,42 +456,12 @@ export abstract class BasePhase {
   }
 
   /**
-   * フェーズ実行の共通パターンをテンプレート化したメソッド（Issue #47）
-   * Issue #113: フォールバック機構を追加
-   *
-   * @template T - プロンプトテンプレート変数のマップ型（Record<string, string> を継承）
-   * @param phaseOutputFile - 出力ファイル名（例: 'requirements.md', 'design.md'）
-   * @param templateVariables - プロンプトテンプレートの変数マップ
-   *   - キー: プロンプト内の変数名（例: 'planning_document_path', 'issue_info'）
-   *   - 値: 置換後の文字列
-   * @param options - エージェント実行オプション
-   *   - maxTurns: エージェントの最大ターン数（デフォルト: 30）
-   *   - verbose: 詳細ログ出力フラグ（オプション、将来拡張用）
-   *   - logDir: ログディレクトリパス（オプション、将来拡張用）
-   *   - enableFallback: フォールバック機構を有効化（NEW、デフォルト: false）
-   * @returns PhaseExecutionResult - 実行結果
-   *   - success: true の場合、output にファイルパスが格納される
-   *   - success: false の場合、error にエラーメッセージが格納される
-   *
-   * @example
-   * ```typescript
-   * protected async execute(): Promise<PhaseExecutionResult> {
-   *   const issueInfo = await this.getIssueInfo();
-   *   return this.executePhaseTemplate('requirements.md', {
-   *     planning_document_path: this.getPlanningDocumentReference(issueInfo.number),
-   *     issue_info: this.formatIssueInfo(issueInfo),
-   *     issue_number: String(issueInfo.number)
-   *   }, {
-   *     maxTurns: 30,
-   *     enableFallback: true  // NEW: フォールバック機構を有効化
-   *   });
-   * }
-   * ```
+   * フェーズ実行の共通テンプレート処理（Issue #47、#113）。
    */
   protected async executePhaseTemplate<T extends Record<string, string>>(
     phaseOutputFile: string,
     templateVariables: T,
-    options?: { maxTurns?: number; verbose?: boolean; logDir?: string; enableFallback?: boolean }
+    options?: { maxTurns?: number; verbose?: boolean; logDir?: string; enableFallback?: boolean; promptPrefix?: string }
   ): Promise<PhaseExecutionResult> {
     // 1. プロンプトテンプレートを読み込む
     let prompt = this.loadPrompt('execute');
@@ -504,6 +474,10 @@ export abstract class BasePhase {
     }
 
     prompt = this.injectOutputPathInstruction(prompt, outputFilePath);
+
+    if (options?.promptPrefix && options.promptPrefix.trim().length > 0) {
+      prompt = this.injectAfterOutputPathInstruction(prompt, options.promptPrefix.trim());
+    }
 
     // 3. エージェントを実行
     const agentOptions = {
@@ -664,7 +638,6 @@ export abstract class BasePhase {
       issueNumberOverride
     );
   }
-
   private getPhaseNumber(phase: PhaseName): string {
     const mapping: Record<PhaseName, string> = {
       planning: '00',
@@ -680,7 +653,6 @@ export abstract class BasePhase {
     };
     return mapping[phase];
   }
-
   private ensureDirectories() {
     fs.mkdirSync(this.outputDir, { recursive: true });
     fs.mkdirSync(this.executeDir, { recursive: true });
@@ -689,19 +661,12 @@ export abstract class BasePhase {
   }
 
   /**
-   * ワークフローアーティファクト全体をクリーンアップ（Issue #2）
-   *
-   * Evaluation Phase完了後に実行され、.ai-workflow/issue-<NUM>/ ディレクトリ全体を削除します。
-   * Report Phaseのクリーンアップ（cleanupWorkflowLogs）とは異なり、metadata.jsonや
-   * output/*.mdファイルを含むすべてのファイルを削除します。
-   *
-   * @param force - 確認プロンプトをスキップする場合は true（CI環境用）
+   * ワークフロー全体のアーティファクトを削除（Issue #2）。
    */
   protected async cleanupWorkflowArtifacts(force: boolean = false): Promise<void> {
     // ArtifactCleaner に委譲（Issue #49）
     await this.artifactCleaner.cleanupWorkflowArtifacts(force);
   }
-
   /**
    * CI 環境かどうかを判定（ArtifactCleaner の判定をラップ）
    */
@@ -714,19 +679,12 @@ export abstract class BasePhase {
   }
 
   /**
-   * ワークフローログをクリーンアップ（Issue #2）
-   *
-   * Report Phase 完了後に実行され、phases 00-08 の execute/review/revise ディレクトリを削除します。
-   * metadata.json と output/*.md は保持されます。
-   *
-   * @param phaseRange - クリーンアップ対象のフェーズ範囲（オプション、Issue #212）
+   * ワークフローの実行ログを削除（Issue #2）。
    */
   protected async cleanupWorkflowLogs(phaseRange?: PhaseName[]): Promise<void> {
     // ArtifactCleaner に委譲（Issue #49）
     await this.artifactCleaner.cleanupWorkflowLogs(phaseRange);
   }
-
-
   /**
    * ファイルが作成されなかった場合のフォールバック処理（Issue #113）
    *
@@ -1000,14 +958,23 @@ export abstract class BasePhase {
     // 1. 100文字以上（極端に短いものは除外）
     // 2. Markdownセクションヘッダー（## または ###）が複数ある
 
-    if (content.length < 100) {
+    const minLengthByPhase: Partial<Record<PhaseName, number>> = {
+      report: 40,
+    };
+    const minSectionCountByPhase: Partial<Record<PhaseName, number>> = {
+      report: 1,
+    };
+    const minLength = minLengthByPhase[phaseName] ?? 100;
+
+    if (content.length < minLength) {
       logger.debug(`Phase ${phaseName}: Content too short: ${content.length} chars`);
       return false;
     }
 
     // セクションヘッダーのカウント
     const sectionCount = (content.match(/^##+ /gm) || []).length;
-    if (sectionCount < 2) {
+    const minSections = minSectionCountByPhase[phaseName] ?? 2;
+    if (sectionCount < minSections) {
       logger.debug(`Phase ${phaseName}: Insufficient sections: ${sectionCount}`);
       return false;
     }
@@ -1090,6 +1057,31 @@ export abstract class BasePhase {
       ...lines.slice(0, insertIndex),
       '',
       instruction,
+      '',
+      ...lines.slice(insertIndex),
+    ].join('\n');
+  }
+
+  private injectAfterOutputPathInstruction(prompt: string, addition: string): string {
+    const marker = '**IMPORTANT: Output File Path**';
+    const lines = prompt.split('\n');
+    const markerIndex = lines.findIndex((line) => line.trim() === marker);
+
+    if (markerIndex === -1) {
+      return [addition, '', prompt].join('\n');
+    }
+
+    let insertIndex = markerIndex + 1;
+    while (insertIndex < lines.length && lines[insertIndex].trim().startsWith('-')) {
+      insertIndex += 1;
+    }
+    if (insertIndex < lines.length && lines[insertIndex].trim() === '') {
+      insertIndex += 1;
+    }
+
+    return [
+      ...lines.slice(0, insertIndex),
+      addition,
       '',
       ...lines.slice(insertIndex),
     ].join('\n');

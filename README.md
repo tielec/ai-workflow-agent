@@ -12,6 +12,8 @@ TypeScript ベースの AI Workflow 自動化ツールキットです。Codex �
 - **Jenkins統合** - Docker コンテナ内で TypeScript CLI を実行、実行モード別Jenkinsfileをサポート
 - **多言語対応** - 日本語/英語でワークフローを実行可能（Issue #526）
 - **Agent Teams 対応** - Claude Code の Agent Teams による並列開発をサポート（詳細は [AGENT_TEAMS.md](./AGENT_TEAMS.md) 参照）
+- **Codex 可用性チェック + Claude/Regex フォールバック** - ARM64 などで Codex CLI が利用できない場合でも事前検知して Claude に切り替え、ContentParser は Claude/Regex でレビュー解析を継続します
+- **Testing フェーズの環境事前チェック** - Python などのランタイム不足を検出し、プロンプトにセットアップ手順や警告を注入して `AGENT_CAN_INSTALL_PACKAGES` の設定に応じた対応を促します
 
 ## リポジトリ構成
 
@@ -54,7 +56,9 @@ ai-workflow-agent/
   - Claude: `CLAUDE_CODE_OAUTH_TOKEN` または `CLAUDE_CODE_API_KEY`
 - **Docker**: 24 以上（コンテナ内で実行する場合）
 
-詳細な環境変数設定は [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) を参照してください。
+Testing フェーズでは `checkTestEnvironment` による事前チェックが実行され、主要ランタイム（例: Python 3.11）が不足するとプロンプトにセットアップ手順や警告が追加されます。`AGENT_CAN_INSTALL_PACKAGES=true` なら自動インストール手順を含めて案内し、`false` の場合は警告中心に出力します。Codex CLI の可用性は `AgentExecutor` によって事前に確認され、`CODEX_CLI_NOT_FOUND` 相当と判定された場合は Claude に切り替えるため、ARM64 環境でもフェーズ中断を回避しやすくなっています。
+
+ 詳細な環境変数設定は [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) を参照してください。
 
 ## クイックスタート
 

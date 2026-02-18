@@ -11,10 +11,20 @@ import { CodexAgentClient } from '../../src/core/codex-agent-client.js';
 import { RequirementsPhase } from '../../src/phases/requirements.js';
 import { DesignPhase } from '../../src/phases/design.js';
 import { ImplementationPhase } from '../../src/phases/implementation.js';
-import { TestingPhase } from '../../src/phases/testing.js';
+import { config } from '../../src/core/config.js';
 import fs from 'fs-extra';
 import * as path from 'node:path';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { jest, describe } from '@jest/globals';
+
+const mockSpawnSync = jest.fn();
+const mockSpawn = jest.fn();
+jest.unstable_mockModule('node:child_process', () => ({
+  spawnSync: mockSpawnSync,
+  spawn: mockSpawn,
+}));
+
+const { TestingPhase } = await import('../../src/phases/testing.js');
 
 // Skip tests in CI with dummy API keys (ContentParser requires valid API keys)
 const isDummyKey =
@@ -33,6 +43,7 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSpawnSync.mockReset();
 
     // 書き込み可能なテストワークスペースを確保
     fs.rmSync(testWorkingDir, { recursive: true, force: true });
@@ -453,6 +464,47 @@ describeOrSkip('Integration Test: Phase Template Refactoring (Issue #47)', () =>
       // Then: 成功が返される
       expect(result.success).toBe(true);
       expect(result.output).toBe(outputFilePath);
+    });
+
+    it('環境不足時にセットアップ指示がpromptPrefixへ注入される', async () => {
+      // Given: TestingPhase のインスタンスと環境不足
+      const phase = new TestingPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        githubClient: mockGithub,
+        skipDependencyCheck: true,
+      });
+
+      mockSpawnSync.mockReturnValue({
+        status: 1,
+        error: new Error('ENOENT'),
+      } as unknown as SpawnSyncReturns<Buffer>);
+      const canInstallSpy = jest.spyOn(config, 'canAgentInstallPackages').mockReturnValue(true);
+
+      jest.spyOn(phase as any, 'loadPrompt').mockReturnValue('Test prompt');
+      jest.spyOn(phase as any, 'getPlanningDocumentReference').mockReturnValue('@planning.md');
+      jest.spyOn(phase as any, 'buildOptionalContext').mockReturnValue('Context');
+
+      const outputFilePath = path.join(testWorkflowDir, '06_testing', 'output', 'test-result.md');
+      fs.mkdirSync(path.dirname(outputFilePath), { recursive: true });
+      fs.writeFileSync(outputFilePath, 'initial test result', 'utf-8');
+
+      jest.spyOn(phase as any, 'executePhaseTemplate').mockImplementation(async (_file: string, _vars: any, options: any) => {
+        expect(options?.promptPrefix).toContain('テスト環境の事前チェック結果');
+        expect(options?.promptPrefix).toContain('python3');
+        fs.writeFileSync(outputFilePath, 'updated test result version 2', 'utf-8');
+        return { success: true, output: outputFilePath };
+      });
+
+      // When: execute() を実行
+      const result = await (phase as any).execute();
+
+      // Then: 成功が返される
+      expect(result.success).toBe(true);
+      expect(result.output).toBe(outputFilePath);
+
+      canInstallSpy.mockRestore();
     });
 
     it('ファイルが更新されない場合、エラーを返す', async () => {
