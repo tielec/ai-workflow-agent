@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #698**: reportフェーズでエージェントが`maxTurns`到達時に`revise()`がファイル未存在で即座に失敗する循環依存バグを修正
+  - `report.ts`の`revise()`メソッドにファイル未存在時の新規作成モードを追加し、`execute()`と同一のコンテキスト変数で`executePhaseTemplate()`を呼び出してレポートを新規生成できるようにした
+  - 無限再帰防止のため、`revise()`内の`executePhaseTemplate()`呼び出しで`enableFallback: false`を明示的に指定し、`handleMissingOutputFile() → revise() → executePhaseTemplate() → handleMissingOutputFile()`の無限ループを防止
+  - `report.ts`の`execute()`メソッドの`maxTurns`を`30`から`50`に増加し、7つのフェーズ成果物を統合するターン不足を緩和（`documentation.ts`の`maxTurns: 70`と標準値`30`の中間値として選定）
+  - `base-phase.ts`の`handleMissingOutputFile()`でログ抽出失敗時に`revise()`呼び出し前にスケルトンファイルを生成する防御的処理を追加し、他フェーズが将来`enableFallback: true`を有効化した際の安全網として機能
+  - 新規プライベートメソッド`generateSkeletonContent()`を`base-phase.ts`に追加し、フェーズ名に基づく動的なスケルトン内容を生成
+  - **修正前の問題**: `execute()`でmaxTurns到達 → `handleMissingOutputFile()`発動 → ログ抽出失敗 → `revise()`呼び出し → `report.md`未存在チェック（L172）で即座に失敗
+  - **修正後の動作**: `revise()`がファイル未存在時に新規作成モードへ切り替え、`enableFallback: false`により再帰的フォールバックは発生しない
+  - 修正ファイル: `src/phases/report.ts`、`src/phases/base-phase.ts`
+  - 新規テストファイル: `tests/unit/phases/report-revise-fallback.test.ts`（47件のテスト、100%成功）
+  - 拡張テストファイル: `tests/unit/phases/base-phase-fallback.test.ts`
+
 ### Changed
 
 - **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加

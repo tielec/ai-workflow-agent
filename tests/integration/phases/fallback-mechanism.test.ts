@@ -252,6 +252,206 @@ Then: ログから抽出される
     });
   });
 
+  describe('Report Phase - Fallback Integration (Issue #698)', () => {
+    it('should recover via skeleton + revise when log extraction fails (IT-1)', async () => {
+      // Given: Report phase with invalid log content
+      const reportPhase = new ReportPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        claudeClient: null,
+        githubClient: mockGitHub,
+      });
+
+      const executeDir = path.join(mockMetadata.workflowDir, '08_report', 'execute');
+      const outputDir = path.join(mockMetadata.workflowDir, '08_report', 'output');
+      fs.ensureDirSync(executeDir);
+      fs.ensureDirSync(outputDir);
+
+      fs.writeFileSync(path.join(executeDir, 'agent_log.md'), 'Agent output with no valid report', 'utf-8');
+
+      jest.spyOn(reportPhase as any, 'updatePullRequestSummary').mockResolvedValue(undefined);
+
+      const reportFile = path.join(outputDir, 'report.md');
+      let callCount = 0;
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockImplementation(async () => {
+        callCount += 1;
+        if (callCount === 2) {
+          // revise should see skeleton already created
+          const skeleton = fs.readFileSync(reportFile, 'utf-8');
+          expect(skeleton).toContain('スケルトンファイルです');
+          fs.writeFileSync(reportFile, '# プロジェクトレポート\n\n## サマリー\n生成成功', 'utf-8');
+        }
+        return [] as any[];
+      });
+
+      const handleMissingSpy = jest.spyOn(reportPhase as any, 'handleMissingOutputFile');
+
+      // When: execute is called
+      const result = await (reportPhase as any).execute();
+
+      // Then: fallback succeeds and output is created
+      expect(result.success).toBe(true);
+      expect(handleMissingSpy).toHaveBeenCalledTimes(1);
+      expect(fs.existsSync(reportFile)).toBe(true);
+    }, 15000);
+
+    it('should fail safely without recursion when revise does not produce output (IT-2)', async () => {
+      // Given: Report phase with invalid log content
+      const reportPhase = new ReportPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        claudeClient: null,
+        githubClient: mockGitHub,
+      });
+
+      const executeDir = path.join(mockMetadata.workflowDir, '08_report', 'execute');
+      const outputDir = path.join(mockMetadata.workflowDir, '08_report', 'output');
+      fs.ensureDirSync(executeDir);
+      fs.ensureDirSync(outputDir);
+
+      fs.writeFileSync(path.join(executeDir, 'agent_log.md'), 'Agent output with no valid report', 'utf-8');
+
+      jest.spyOn(reportPhase as any, 'updatePullRequestSummary').mockResolvedValue(undefined);
+
+      const reportFile = path.join(outputDir, 'report.md');
+      let callCount = 0;
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockImplementation(async () => {
+        callCount += 1;
+        if (callCount === 2) {
+          // Simulate revise failure by removing file
+          if (fs.existsSync(reportFile)) {
+            fs.removeSync(reportFile);
+          }
+        }
+        return [] as any[];
+      });
+
+      const handleMissingSpy = jest.spyOn(reportPhase as any, 'handleMissingOutputFile');
+
+      // When: execute is called
+      const result = await (reportPhase as any).execute();
+
+      // Then: failure is returned without recursion
+      expect(result.success).toBe(false);
+      expect(handleMissingSpy).toHaveBeenCalledTimes(1);
+      expect(callCount).toBe(2);
+    }, 15000);
+
+    it('should not trigger fallback when execute creates report.md (IT-3)', async () => {
+      // Given: Report phase creates output on first attempt
+      const reportPhase = new ReportPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        claudeClient: null,
+        githubClient: mockGitHub,
+      });
+
+      const outputDir = path.join(mockMetadata.workflowDir, '08_report', 'output');
+      fs.ensureDirSync(outputDir);
+
+      const reportFile = path.join(outputDir, 'report.md');
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockImplementation(async () => {
+        fs.writeFileSync(reportFile, '# プロジェクトレポート\n\n## サマリー\n正常生成', 'utf-8');
+        return [] as any[];
+      });
+
+      jest.spyOn(reportPhase as any, 'updatePullRequestSummary').mockResolvedValue(undefined);
+      const handleMissingSpy = jest.spyOn(reportPhase as any, 'handleMissingOutputFile');
+      const reviseSpy = jest.spyOn(reportPhase as any, 'revise');
+
+      // When: execute is called
+      const result = await (reportPhase as any).execute();
+
+      // Then: fallback is not triggered
+      expect(result.success).toBe(true);
+      expect(handleMissingSpy).not.toHaveBeenCalled();
+      expect(reviseSpy).not.toHaveBeenCalled();
+      expect(fs.existsSync(reportFile)).toBe(true);
+    }, 15000);
+
+    it('should save extracted content and skip revise when log extraction succeeds (IT-4)', async () => {
+      // Given: Report phase with valid log content
+      const reportPhase = new ReportPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        claudeClient: null,
+        githubClient: mockGitHub,
+      });
+
+      const executeDir = path.join(mockMetadata.workflowDir, '08_report', 'execute');
+      const outputDir = path.join(mockMetadata.workflowDir, '08_report', 'output');
+      fs.ensureDirSync(executeDir);
+      fs.ensureDirSync(outputDir);
+
+      const validReportLog = `
+# プロジェクトレポート - Issue #113
+
+## サマリー
+本プロジェクトは循環依存バグの修正を実施しました。
+`;
+      fs.writeFileSync(path.join(executeDir, 'agent_log.md'), validReportLog, 'utf-8');
+
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockResolvedValue([] as any[]);
+      jest.spyOn(reportPhase as any, 'updatePullRequestSummary').mockResolvedValue(undefined);
+      const reviseSpy = jest.spyOn(reportPhase as any, 'revise');
+
+      // When: execute is called
+      const result = await (reportPhase as any).execute();
+
+      // Then: extracted content is saved and revise is not called
+      expect(result.success).toBe(true);
+      expect(reviseSpy).not.toHaveBeenCalled();
+      const reportFile = path.join(outputDir, 'report.md');
+      const savedContent = fs.readFileSync(reportFile, 'utf-8');
+      expect(savedContent).toContain('プロジェクトレポート');
+    }, 15000);
+
+    it('should use revise file-exists path after skeleton generation (IT-5)', async () => {
+      // Given: Report phase with invalid log content
+      const reportPhase = new ReportPhase({
+        workingDir: testWorkingDir,
+        metadataManager: mockMetadata,
+        codexClient: mockCodex,
+        claudeClient: null,
+        githubClient: mockGitHub,
+      });
+
+      const executeDir = path.join(mockMetadata.workflowDir, '08_report', 'execute');
+      const outputDir = path.join(mockMetadata.workflowDir, '08_report', 'output');
+      fs.ensureDirSync(executeDir);
+      fs.ensureDirSync(outputDir);
+
+      fs.writeFileSync(path.join(executeDir, 'agent_log.md'), 'Agent output with no valid report', 'utf-8');
+
+      jest.spyOn(reportPhase as any, 'updatePullRequestSummary').mockResolvedValue(undefined);
+
+      const reportFile = path.join(outputDir, 'report.md');
+      let callCount = 0;
+      jest.spyOn(reportPhase as any, 'executeWithAgent').mockImplementation(async () => {
+        callCount += 1;
+        if (callCount === 2) {
+          // revise should use file-exists path (skeleton exists)
+          expect(fs.existsSync(reportFile)).toBe(true);
+          fs.writeFileSync(reportFile, '# プロジェクトレポート\n\n## サマリー\n改訂成功', 'utf-8');
+        }
+        return [] as any[];
+      });
+
+      const executePhaseTemplateSpy = jest.spyOn(reportPhase as any, 'executePhaseTemplate');
+
+      // When: execute is called
+      const result = await (reportPhase as any).execute();
+
+      // Then: executePhaseTemplate is only called for execute, not revise
+      expect(result.success).toBe(true);
+      expect(executePhaseTemplateSpy).toHaveBeenCalledTimes(1);
+    }, 15000);
+  });
+
   describe('Design Phase - Fallback Integration', () => {
     it('should successfully execute with fallback when log has valid design document', async () => {
       // Given: Design phase with fallback enabled

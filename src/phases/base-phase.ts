@@ -790,6 +790,15 @@ export abstract class BasePhase {
         `前回のログから成果物内容を抽出するか、新たに作成してファイルを保存してください。`,
       ].join('\n');
 
+      // Issue #698: revise() がファイル存在を前提とする場合の防御策
+      if (!fs.existsSync(outputFilePath)) {
+        const skeleton = this.generateSkeletonContent(phaseOutputFile);
+        fs.writeFileSync(outputFilePath, skeleton, 'utf-8');
+        logger.info(
+          `Phase ${this.phaseName}: Generated skeleton file for revise fallback: ${outputFilePath}`
+        );
+      }
+
       // revise() メソッドを使用（BasePhase のパターンに従う）
       const reviseFunction = this.getReviseFunction();
       if (!reviseFunction) {
@@ -812,6 +821,27 @@ export abstract class BasePhase {
         error: `フォールバック処理中にエラーが発生しました: ${message}`,
       };
     }
+  }
+
+  /**
+   * スケルトンファイルの内容を生成（Issue #698）
+   */
+  private generateSkeletonContent(phaseOutputFile: string): string {
+    const titleMapping: Partial<Record<PhaseName, string>> = {
+      planning: 'プロジェクト計画書',
+      requirements: '要件定義書',
+      design: '詳細設計書',
+      test_scenario: 'テストシナリオ',
+      implementation: '実装ログ',
+      test_implementation: 'テスト実装ログ',
+      testing: 'テスト実行結果',
+      documentation: 'ドキュメント更新ログ',
+      report: 'プロジェクトレポート',
+      evaluation: '評価レポート',
+    };
+
+    const title = titleMapping[this.phaseName] ?? phaseOutputFile;
+    return `# ${title}\n\n（フォールバックにより自動生成されたスケルトンファイルです。revise ステップで内容が更新されます。）\n`;
   }
 
   /**
