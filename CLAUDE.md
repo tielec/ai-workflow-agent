@@ -546,6 +546,7 @@ describe('My Test Suite', () => {
     - **セクション数**: 2個以上のセクションヘッダー（`##`）を含む
     - **キーワード**: フェーズ固有キーワードが少なくとも1つ含まれる
     - **revise実装**: ログ抽出失敗時にreviseメソッドが実装されていること
+    - **循環依存防止（Issue #698）**: `handleMissingOutputFile()` から `revise()` を呼び出す際に、`revise()` 内の `executePhaseTemplate()` では **必ず `enableFallback: false` を指定**すること。`true` にすると `handleMissingOutputFile() → revise() → executePhaseTemplate() → handleMissingOutputFile()` の無限再帰が発生する。現在 `enableFallback: true` を使用しているのは `report` フェーズのみ。`handleMissingOutputFile()` はログ抽出失敗時に `revise()` 呼び出し前にスケルトンファイルを生成する（他フェーズが `enableFallback: true` を有効化する際の安全網）。
 
 12. **InstructionValidator の動作（Issue #655）**: エージェント優先順は `codex-agent (mini) → claude-agent (haiku) → OpenAI gpt-4o-mini → pattern` の順で検証し、使用した経路は `validationMethod` に記録される。`CODEX_API_KEY`、`CLAUDE_CODE_OAUTH_TOKEN`/`CLAUDE_CODE_API_KEY`、`OPENAI_API_KEY` のいずれかが設定されていれば LLM 検証を実行し、すべて無い場合はパターン検証のみ（警告付き続行）。
 
