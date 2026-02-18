@@ -60,6 +60,20 @@ nvm use --lts
 - グローバルにインストールします: `npm install -g @openai/codex`
 - PATH を通すか、`CODEX_CLI_PATH` に実行ファイルのパスを指定します（Jenkins / Docker でも同様）。
 
+### `Missing optional dependency @openai/codex-linux-*`
+
+**症状**:
+- `Missing optional dependency @openai/codex-linux-arm64` などのエラーがログに出力される
+- `codex --version` が失敗し、Testing フェーズで Codex 実行が進まない
+
+**原因**:
+- ARM64 などで `@openai/codex` のネイティブバイナリが見つからない（可用性が OS 依存）
+
+**対処法**:
+1. `Docker` やローカルで `codex --version` を実行し、失敗している場合はログに `CODEX_CLI_NOT_FOUND` や `Codex CLI not ready` などのメッセージが出ているか確認します。出ていれば `AgentExecutor` が Codex CLI をスキップして Claude に切り替えているため、処理を継続させたい場合は追加対応を検討してください。
+2. Codex を必須にする場合は `AGENT_CAN_INSTALL_PACKAGES=true` にして `npm install -g @openai/codex@latest` や `apt-get install` などで依存を事前に用意するか、x86_64 ベースのイメージを利用してください。Dockerfile には失敗してもビルドを継続する `|| true` な流れが組み込まれています。
+3. Codex なしでも `ContentParser` は Claude → Regex の順でレビュー解析を継続するため、review/revise のログや `agent_log.md` で Claude の実行と解析結果が出力されていることを確認してください。
+
 ### `Failed to open stdin pipe for child process`
 
 **症状**:
@@ -366,6 +380,78 @@ git push
 
 - `CODEX_CLI_PATH=/usr/local/bin/codex` など、実際のパスを設定します。
 - Docker イメージ内で Codex CLI がインストールされているか（`Dockerfile` の `npm install -g @openai/codex`）を確認。
+
+### ARM64 環境（Apple Silicon / AWS Graviton 等）で Codex CLI が動作しない（Issue #706）
+
+**症状**:
+```
+Missing optional dependency @openai/codex-linux-arm64
+```
+または testing フェーズで Codex CLI 実行が失敗し、ワークフローが停止する。
+
+**原因**:
+- `@openai/codex` の ARM64 向けネイティブバイナリ（`@openai/codex-linux-arm64`）が提供されていないか、インストールに失敗している。
+
+**対処法（Issue #706 以降）**:
+- v0.6.0 以降では、以下の変更により ARM64 環境でも安定して動作します：
+  1. **Dockerfile のベストエフォートインストール**: Codex CLI のインストール失敗時も警告ログのみでビルドが継続します。
+  2. **AgentExecutor の事前可用性チェック**: Codex CLI が利用不可の場合、Claude エージェントへ自動的にフォールバックします。
+  3. **ARM64 依存エラーの自動検知**: `Missing optional dependency @openai/codex-linux-*` を `CODEX_CLI_NOT_FOUND` として扱い、フォールバックが確実に機能します。
+
+**対処法（v0.6.0 より前のバージョン）**:
+```bash
+# Claude エージェントを primary として設定
+export AGENT_MODE=claude
+node dist/index.js execute --phase all --issue 123
+```
+
+**確認方法**:
+```bash
+# ARM64 依存エラーの有無を確認
+codex --version || echo "Codex CLI not available on this platform"
+
+# エージェントログで自動フォールバックを確認
+grep -i "codex.*not available\|fallback.*claude" .ai-workflow/issue-*/0*_*/execute/agent_log.md
+```
+
+**予防策**:
+- ARM64 環境では `AGENT_MODE=claude` または `AGENT_MODE=auto` を設定して Claude をフォールバック先として保持する。
+- Issue #706 以降のバージョンでは自動フォールバックが機能するため、手動設定不要。
+
+**関連Issue**: Issue #706 - ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗の修正
+
+### testing フェーズで Python 等のランタイム未インストールによりテストが実行されない（Issue #706）
+
+**症状**:
+- testing フェーズで `python3: command not found` 等のエラーが発生し、テストが実行されない。
+- execute フェーズは成功するが、テスト結果が生成されない。
+
+**原因**:
+- Docker コンテナ内に対象言語のランタイム（Python、Go、Java 等）がインストールされていない。
+
+**対処法（Issue #706 以降）**:
+- v0.6.0 以降では、testing フェーズ開始時に環境事前チェックが自動的に実行されます。
+  - 不足ランタイムが検出された場合、エージェントへのプロンプトにセットアップ手順が注入されます。
+  - `AGENT_CAN_INSTALL_PACKAGES=true` の場合、エージェントが自動的にランタイムをインストールします。
+  - `AGENT_CAN_INSTALL_PACKAGES=false` の場合、警告のみが通知され手動インストールを促します。
+
+**対処法（手動）**:
+```bash
+# Python をインストール（Docker コンテナ内）
+apt-get update && apt-get install -y python3 python3-pip
+
+# Go をインストール
+apt-get update && apt-get install -y golang-go
+
+# Java をインストール
+apt-get update && apt-get install -y default-jdk
+```
+
+**予防策**:
+- Dockerfile に必要なランタイムをプリインストールする。
+- `AGENT_CAN_INSTALL_PACKAGES=true` を設定し、自動インストールを有効化する。
+
+**関連Issue**: Issue #706 - ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗の修正
 
 ### Jenkins パラメータが表示されない
 

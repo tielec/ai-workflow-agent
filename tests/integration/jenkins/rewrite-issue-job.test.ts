@@ -246,6 +246,7 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
           cwd: projectRoot,
           env: { ...process.env, SKIP_VALIDATE_TEST: '1' },
           timeout: commandTimeoutMs,
+          maxBuffer: 50 * 1024 * 1024, // 50MB: VM Modules 警告等で stderr が大きくなるため
         });
 
         // Then: 検証コマンドが正常終了する

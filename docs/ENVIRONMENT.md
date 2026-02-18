@@ -379,6 +379,16 @@ Jenkins で以下の認証情報を設定してください：
    - 種類: AWS Credentials
    - Access Key ID と Secret Access Key を設定
 
+## テストフェーズの事前チェック
+
+テストフェーズでは `src/phases/testing.ts` の `checkTestEnvironment()` による事前チェックがフェーズ開始直後に走り、Python 3 系や追加ランタイムが不足していないかを `{ ready: boolean; missing: string[] }` の形式で返します。`missing` に値があると execute 用プロンプトに不足ランタイムの説明・インストール手順・警告を `buildEnvironmentInfoSection()` 経由で注入し、テスト実行前に必要な対応を明示します。
+
+`AGENT_CAN_INSTALL_PACKAGES=true` では Docker 内で必要ランタイムのインストール手順（apt や npm コマンドなど）をプロンプトに含めて提示し、`false` の場合は警告メッセージのみを出力します。誤検出が疑われるときはログに出る `Environment check result:` の `missing` 内容を確認し、それらを手動でセットアップするか再実行時に `AGENT_CAN_INSTALL_PACKAGES=true` を渡してください。review/revise のプロンプトにも同じ環境情報セクションが展開されるので、進捗中のフェーズでも不足項目を再確認できます。
+
+## Codex CLI の可用性判定とフォールバック
+
+`AgentExecutor` は Codex CLI の可用性を起動前に確認し、`codex --version` が失敗したり `Missing optional dependency @openai/codex-linux-` を含むエラーが発生した場合は `CODEX_CLI_NOT_FOUND` 相当として扱われ、Codex をスキップして Claude に切り替えます。一度 Codex を見送った実行でも ContentParser が Claude → Regex の順で解析を継続するため、レビューの中断を回避できます。ログに `CODEX_CLI_NOT_FOUND` や `Codex CLI not ready` などのメッセージが出ていればフォールバックが動作している合図です。
+
 ## Docker環境
 
 ### Dockerfile での環境変数設定

@@ -10,6 +10,7 @@
 
 import fs from 'fs-extra';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { logger } from '../../utils/logger.js';
 import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient, resolveClaudeModel } from '../../core/claude-agent-client.js';
@@ -39,6 +40,8 @@ export class AgentExecutor {
   private readonly agentPriority: AgentPriority;
   // NEW: ステップ単位のモデル設定（Issue #363）
   private stepModelConfig: StepModelConfig | null = null;
+  // NEW: Codex CLI 可用性キャッシュ（Issue #706）
+  private codexCliAvailability: { available: boolean; reason?: string } | null = null;
 
   /**
    * @param codex - Codex エージェントクライアント
@@ -92,6 +95,14 @@ export class AgentExecutor {
     prompt: string,
     options?: { maxTurns?: number; verbose?: boolean; logDir?: string },
   ): Promise<string[]> {
+    // NEW: Codex CLI 可用性チェック（Issue #706）
+    const codexAvailable = this.isCodexCliAvailable();
+    if (!codexAvailable && this.codex) {
+      const reason = this.codexCliAvailability?.reason ?? 'unknown reason';
+      logger.warn(`Codex CLI unavailable; skipping Codex agent. Reason: ${reason}`);
+      this.codex = null;
+    }
+
     // NEW: 優先順位に基づいてプライマリエージェントを選択（Issue #306）
     const primaryAgent =
       this.agentPriority === 'claude-first'
@@ -182,6 +193,46 @@ export class AgentExecutor {
     }
 
     return finalResult.messages;
+  }
+
+  private isCodexCliAvailable(): boolean {
+    if (!this.codex) {
+      return false;
+    }
+
+    if (this.codexCliAvailability) {
+      return this.codexCliAvailability.available;
+    }
+
+    const binaryPath = this.codex.getBinaryPath();
+    try {
+      const result = spawnSync(binaryPath, ['--version'], { encoding: 'utf-8' });
+      if (result.error) {
+        const code = (result.error as NodeJS.ErrnoException).code ?? 'unknown';
+        this.codexCliAvailability = {
+          available: false,
+          reason: `spawn failed (${code})`,
+        };
+        return false;
+      }
+
+      if (result.status !== 0) {
+        this.codexCliAvailability = {
+          available: false,
+          reason: `non-zero exit (${result.status})`,
+        };
+        return false;
+      }
+
+      this.codexCliAvailability = { available: true };
+      return true;
+    } catch (error) {
+      this.codexCliAvailability = {
+        available: false,
+        reason: getErrorMessage(error),
+      };
+      return false;
+    }
   }
 
   /**

@@ -76,7 +76,7 @@ beforeAll(async () => {
 
   commonContent = await fs.readFile(path.join(projectRoot, 'jenkins/shared/common.groovy'), 'utf8');
   jenkinsReadme = await fs.readFile(path.join(projectRoot, 'jenkins/README.md'), 'utf8');
-});
+}, 30000);
 
 describe('Integration: Jenkins webhook notifications (Issue #512)', () => {
   describe('IT-019〜IT-026, IT-033: common.groovy sendWebhook implementation', () => {

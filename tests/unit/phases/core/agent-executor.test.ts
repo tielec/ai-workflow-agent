@@ -11,11 +11,32 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import fs from 'fs-extra';
 import path from 'node:path';
-import { AgentExecutor } from '../../../../src/phases/core/agent-executor.js';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { PhaseName } from '../../../../src/types.js';
+
+const mockSpawnSync = jest.fn();
+const mockSpawn = jest.fn();
+jest.unstable_mockModule('node:child_process', () => ({
+  spawnSync: mockSpawnSync,
+  spawn: mockSpawn,
+}));
+
+const { AgentExecutor } = await import('../../../../src/phases/core/agent-executor.js');
 
 // テスト用の一時ディレクトリ
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'agent-executor-test');
+beforeEach(() => {
+  // Codex CLI 可用性チェックが実行されるため、既定では成功として扱う
+  mockSpawnSync.mockReset();
+  mockSpawnSync.mockReturnValue({
+    status: 0,
+    error: null,
+  } as unknown as SpawnSyncReturns<Buffer>);
+});
+
+afterEach(() => {
+  mockSpawnSync.mockReset();
+});
 
 /**
  * モック AgentClient を作成
@@ -105,6 +126,69 @@ describe('AgentExecutor - 基本的なエージェント実行', () => {
     await expect(
       executor.executeWithAgent('Test prompt')
     ).rejects.toThrow('No agent client configured for this phase.');
+  });
+});
+
+describe('AgentExecutor - Codex CLI 可用性チェック（Issue #706）', () => {
+  let testWorkflowDir: string;
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-codex-availability');
+    await fs.ensureDir(testWorkflowDir);
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('Codex CLIが利用不可の場合、CodexをスキップしてClaudeを実行する', async () => {
+    // Given: Codex CLIが起動できない
+    mockSpawnSync.mockReturnValueOnce({
+      status: null,
+      error: new Error('spawn ENOENT'),
+    } as unknown as SpawnSyncReturns<Buffer>);
+
+    const mockCodex = createMockAgentClient([
+      JSON.stringify({ type: 'response.completed', content: 'Codex result' }),
+    ]);
+    const mockClaude = createMockAgentClient([
+      JSON.stringify({ type: 'result', subtype: 'success', content: 'Claude result' }),
+    ]);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(mockCodex, mockClaude, mockMetadata, 'testing', process.cwd());
+
+    // When: executeWithAgent を呼び出す
+    const result = await executor.executeWithAgent('Test prompt', { logDir: path.join(testWorkflowDir, 'testing-execute') });
+
+    // Then: Codexは実行されず、Claudeが使用される
+    expect(mockCodex.executeTask).not.toHaveBeenCalled();
+    expect(mockClaude.executeTask).toHaveBeenCalledTimes(1);
+    expect(result[0]).toContain('Claude result');
+  });
+
+  test('Codex CLIが利用可能な場合、Codexがプライマリとして実行される', async () => {
+    // Given: Codex CLIが利用可能
+    mockSpawnSync.mockReturnValueOnce({
+      status: 0,
+      error: null,
+    } as unknown as SpawnSyncReturns<Buffer>);
+
+    const mockCodex = createMockAgentClient([
+      JSON.stringify({ type: 'response.completed', content: 'Codex primary' }),
+    ]);
+    const mockClaude = createMockAgentClient([
+      JSON.stringify({ type: 'result', subtype: 'success', content: 'Claude fallback' }),
+    ]);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(mockCodex, mockClaude, mockMetadata, 'testing', process.cwd());
+
+    // When: executeWithAgent を呼び出す
+    const result = await executor.executeWithAgent('Test prompt', { logDir: path.join(testWorkflowDir, 'testing-execute') });
+
+    // Then: Codexが実行され、Claudeは呼ばれない
+    expect(mockCodex.executeTask).toHaveBeenCalledTimes(1);
+    expect(mockClaude.executeTask).not.toHaveBeenCalled();
+    expect(result[0]).toContain('Codex primary');
   });
 });
 

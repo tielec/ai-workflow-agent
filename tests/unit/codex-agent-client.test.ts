@@ -66,6 +66,20 @@ describe('CodexAgentClient', () => {
         })
       ).rejects.toThrow();
     });
+
+    it('異常系: ARM64依存エラーはCODEX_CLI_NOT_FOUNDとして扱われる', async () => {
+      // Given: ARM64依存のオプションパッケージ欠落エラー
+      const dependencyError = new Error('Missing optional dependency @openai/codex-linux-arm64') as NodeJS.ErrnoException;
+      spyOnRunCodexProcess().mockRejectedValue(dependencyError);
+
+      // When/Then: executeTask関数を呼び出すとCODEX_CLI_NOT_FOUND相当でスローされる
+      await expect(
+        client.executeTask({
+          prompt: 'Test prompt',
+          workingDirectory: workingDir,
+        })
+      ).rejects.toMatchObject({ code: 'CODEX_CLI_NOT_FOUND' });
+    });
   });
 
   describe('executeTaskFromFile', () => {
