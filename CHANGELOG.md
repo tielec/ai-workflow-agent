@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #697**: executeコマンドで3回リトライ失敗後にmetadata.jsonのstatusがin_progressのまま残るバグを修正
+  - `WorkflowState.incrementRetryCount()` の `retry_count >= 3` 時の挙動を例外スローから警告ログ出力+現在値返却に変更
+  - `ReviewCycleManager.performReviseStepWithRetry()` にリトライループ開始前の `retry_count` 事前チェックを追加
+  - レジューム時に `retry_count` が既に上限（3）に達している場合、即座に `failed` ステータスに更新して処理を中断する防御的チェックを追加
+  - `postProgressFn`（GitHub API通信）の失敗がメタデータ更新を妨げないよう `try-catch` で保護
+  - **修正前の問題**: ワークフローのレジューム時に `retry_count` が3の状態で `incrementRetryCount()` が呼ばれ例外スロー → `updatePhaseStatus('failed')` がバイパスされ `in_progress` のまま残る
+  - **修正後の動作**: 事前チェックで `retry_count >= maxRetries` を検出し、`updatePhaseStatus('failed')` + ディスク永続化を確実に実行してから例外をスロー
+  - 修正ファイル: `src/core/workflow-state.ts`、`src/phases/core/review-cycle-manager.ts`
+  - テストカバレッジ: 2132件のユニットテスト（138スイート、100%成功）
+
 - **Issue #678**: Jenkinsシード設定にauto-close-issueジョブを登録し、生成ジョブから確実に呼び出せるようにする
   - `job-config.yaml`の`jenkins-jobs`セクションに`ai_workflow_auto_close_issue_job`エントリを追加
   - シード実行により、全10フォルダ（develop + stable-1〜9）でauto-close-issueジョブが自動生成されるよう設定
