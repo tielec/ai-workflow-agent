@@ -56,7 +56,26 @@ export class ReviewCycleManager {
       return;
     }
 
-    let retryCount = 0;
+    const phaseData = this.metadata.data.phases[this.phaseName];
+    const currentRetryCount = phaseData?.retry_count ?? 0;
+
+    if (currentRetryCount >= this.maxRetries) {
+      logger.error(
+        `Phase ${this.phaseName}: Retry count already at maximum (${currentRetryCount}/${this.maxRetries})`,
+      );
+      this.metadata.updatePhaseStatus(this.phaseName, 'failed');
+      try {
+        await postProgressFn(
+          'failed',
+          `最大リトライ回数（${this.maxRetries}回）に到達しています。レビューが合格しませんでした。`,
+        );
+      } catch (error) {
+        logger.warn(`Phase ${this.phaseName}: Failed to post progress: ${String(error)}`);
+      }
+      throw new Error('retry count already at maximum');
+    }
+
+    let retryCount = currentRetryCount;
     let reviewResult = initialReviewResult;
 
     while (retryCount < this.maxRetries) {

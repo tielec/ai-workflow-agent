@@ -15,6 +15,7 @@ import { BasePhase } from '../../../src/phases/base-phase.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import { GitHubClient } from '../../../src/core/github-client.js';
 import { PhaseExecutionResult, PhaseName } from '../../../src/types.js';
+import { logger } from '../../../src/utils/logger.js';
 
 // Concrete implementation of BasePhase for testing
 class TestPhase extends BasePhase {
@@ -56,6 +57,24 @@ class TestPhase extends BasePhase {
     options?: { maxTurns?: number; verbose?: boolean; logDir?: string; enableFallback?: boolean }
   ): Promise<PhaseExecutionResult> {
     return this.executePhaseTemplate(phaseOutputFile, templateVariables, options);
+  }
+}
+
+class FlexiblePhase extends BasePhase {
+  constructor(params: any, phaseName: PhaseName) {
+    super({ ...params, phaseName });
+  }
+
+  protected async execute(): Promise<PhaseExecutionResult> {
+    return { success: true, output: 'test-output.md' };
+  }
+
+  protected async review(): Promise<PhaseExecutionResult> {
+    return { success: true, output: null };
+  }
+
+  public async revise(_: string): Promise<PhaseExecutionResult> {
+    return { success: true, output: 'dummy.md' };
   }
 }
 
@@ -508,6 +527,7 @@ Additional content to meet validation requirements.
         const savedContent = fs.readFileSync(path.join(outputDir, 'planning.md'), 'utf-8');
         expect(savedContent).toContain('プロジェクト計画書');
         expect(savedContent).toContain('## 1. Issue分析');
+        expect(savedContent).not.toContain('スケルトンファイルです');
       });
     });
 
@@ -533,7 +553,9 @@ Additional content to meet validation requirements.
       it('should call revise() when log extraction fails', async () => {
         // Given: Agent log exists but contains invalid content
         const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
+        const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
         ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
 
         const invalidLog = `
 Agent execution started.
@@ -555,6 +577,9 @@ Agent finished.
         // Then: revise() was called
         expect(reviseSpy).toHaveBeenCalled();
         expect(result.success).toBe(true);
+        const savedContent = fs.readFileSync(path.join(outputDir, 'planning.md'), 'utf-8');
+        expect(savedContent).toContain('# プロジェクト計画書');
+        expect(savedContent).toContain('スケルトンファイルです');
       });
 
       it('should return error when revise() method is not implemented', async () => {
@@ -574,6 +599,147 @@ Agent finished.
         // Then: Error is returned
         expect(result.success).toBe(false);
         expect(result.error).toContain('revise() メソッドが実装されていません');
+      });
+    });
+
+    describe('Skeleton generation for revise fallback', () => {
+      it('should generate skeleton file before revise when output file is missing', async () => {
+        // Given: Agent log exists but contains invalid content
+        const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
+        const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
+
+        const invalidLog = `Agent execution started.\nNo valid content generated.\nAgent finished.`;
+        fs.writeFileSync(path.join(executeDir, 'agent_log.md'), invalidLog, 'utf-8');
+
+        // Mock revise method to keep skeleton content
+        jest.spyOn(testPhase as any, 'getReviseFunction').mockReturnValue(async () => ({
+          success: true,
+          output: 'planning.md',
+        }));
+
+        // When: Handling missing output file
+        const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
+
+        // Then: Skeleton file is created before revise
+        expect(result.success).toBe(true);
+        const savedContent = fs.readFileSync(path.join(outputDir, 'planning.md'), 'utf-8');
+        expect(savedContent).toContain('# プロジェクト計画書');
+        expect(savedContent).toContain('フォールバックにより自動生成されたスケルトンファイルです');
+      });
+
+      it('should not overwrite existing output file with skeleton', async () => {
+        // Given: Output file already exists
+        const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
+        const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
+
+        const existingContent = '# 既存の計画書\n## 既存セクション\n既存の内容';
+        fs.writeFileSync(path.join(outputDir, 'planning.md'), existingContent, 'utf-8');
+
+        const invalidLog = `Agent execution started.\nNo valid content generated.\nAgent finished.`;
+        fs.writeFileSync(path.join(executeDir, 'agent_log.md'), invalidLog, 'utf-8');
+
+        // Mock revise method
+        jest.spyOn(testPhase as any, 'getReviseFunction').mockReturnValue(async () => ({
+          success: true,
+          output: 'planning.md',
+        }));
+
+        // When: Handling missing output file
+        const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
+
+        // Then: Existing content remains
+        expect(result.success).toBe(true);
+        const savedContent = fs.readFileSync(path.join(outputDir, 'planning.md'), 'utf-8');
+        expect(savedContent).toBe(existingContent);
+      });
+
+      it('should generate skeleton header based on phase name', () => {
+        // Given: Multiple phases
+        const phaseTitles: Array<[PhaseName, string]> = [
+          ['planning', 'プロジェクト計画書'],
+          ['requirements', '要件定義書'],
+          ['design', '詳細設計書'],
+          ['test_scenario', 'テストシナリオ'],
+          ['implementation', '実装ログ'],
+          ['test_implementation', 'テスト実装ログ'],
+          ['testing', 'テスト実行結果'],
+          ['documentation', 'ドキュメント更新ログ'],
+          ['report', 'プロジェクトレポート'],
+          ['evaluation', '評価レポート'],
+        ];
+
+        for (const [phaseName, title] of phaseTitles) {
+          const phase = new FlexiblePhase({
+            workingDir: testWorkingDir,
+            metadataManager: mockMetadata,
+            githubClient: mockGitHub,
+          }, phaseName);
+
+          // When: Generating skeleton content
+          const skeleton = (phase as any).generateSkeletonContent(`${phaseName}.md`);
+
+          // Then: Header matches phase title
+          expect(skeleton).toContain(`# ${title}`);
+        }
+      });
+
+      it('should call revise after skeleton generation', async () => {
+        // Given: Invalid log and missing output file
+        const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
+        const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
+
+        const invalidLog = `Agent execution started.\nNo valid content generated.\nAgent finished.`;
+        fs.writeFileSync(path.join(executeDir, 'agent_log.md'), invalidLog, 'utf-8');
+
+        const reviseSpy = jest.fn(async (feedback: string) => {
+          expect(feedback).toContain('planning.md が見つかりません');
+          expect(feedback).toContain('エージェントが Write ツールを呼び出していない可能性があります');
+          return { success: true, output: 'planning.md' };
+        });
+
+        jest.spyOn(testPhase as any, 'getReviseFunction').mockReturnValue(reviseSpy);
+
+        // When: Handling missing output file
+        const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
+
+        // Then: revise is called and skeleton exists
+        expect(result.success).toBe(true);
+        expect(reviseSpy).toHaveBeenCalled();
+        const savedContent = fs.readFileSync(path.join(outputDir, 'planning.md'), 'utf-8');
+        expect(savedContent).toContain('スケルトンファイルです');
+      });
+
+      it('should log skeleton generation', async () => {
+        // Given: Invalid log and missing output file
+        const executeDir = path.join(mockMetadata.workflowDir, '00_planning', 'execute');
+        const outputDir = path.join(mockMetadata.workflowDir, '00_planning', 'output');
+        ensureDirectory(executeDir);
+        ensureDirectory(outputDir);
+
+        const invalidLog = `Agent execution started.\nNo valid content generated.\nAgent finished.`;
+        fs.writeFileSync(path.join(executeDir, 'agent_log.md'), invalidLog, 'utf-8');
+
+        jest.spyOn(testPhase as any, 'getReviseFunction').mockReturnValue(async () => ({
+          success: true,
+          output: 'planning.md',
+        }));
+
+        const infoSpy = jest.spyOn(logger, 'info');
+
+        // When: Handling missing output file
+        const result = await testPhase.exposeHandleMissingOutputFile('planning.md', executeDir);
+
+        // Then: Skeleton log is emitted
+        expect(result.success).toBe(true);
+        expect(infoSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Generated skeleton file for revise fallback')
+        );
       });
     });
 

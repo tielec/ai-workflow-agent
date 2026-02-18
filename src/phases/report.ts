@@ -115,7 +115,7 @@ export class ReportPhase extends BasePhase {
       test_implementation_context: testImplementationContext,
       issue_number: String(issueNumber),
     }, {
-      maxTurns: 30,
+      maxTurns: 50,
       enableFallback: true  // Issue #113: フォールバック機構を有効化
     });
 
@@ -170,10 +170,64 @@ export class ReportPhase extends BasePhase {
     const reportFile = path.join(this.outputDir, 'report.md');
 
     if (!fs.existsSync(reportFile)) {
-      return {
-        success: false,
-        error: 'report.md が存在しません。execute() を先に実行してください。',
-      };
+      logger.warn(`Phase ${this.phaseName}: report.md not found, creating from scratch via revise`);
+
+      const requirementsContext = this.buildOptionalContext(
+        'requirements',
+        'requirements.md',
+        '要件定義書は利用できません。Issue情報から要件を推測してください。',
+        issueNumber,
+      );
+      const designContext = this.buildOptionalContext(
+        'design',
+        'design.md',
+        '設計書は利用できません。Issue情報から設計内容を推測してください。',
+        issueNumber,
+      );
+      const implementationContext = this.buildOptionalContext(
+        'implementation',
+        'implementation.md',
+        '実装ログは利用できません。リポジトリの実装内容を確認してください。',
+        issueNumber,
+      );
+      const testingContext = this.buildOptionalContext(
+        'testing',
+        'test-result.md',
+        'テスト結果は利用できません。実装内容から推測してください。',
+        issueNumber,
+      );
+      const documentationContext = this.buildOptionalContext(
+        'documentation',
+        'documentation-update-log.md',
+        'ドキュメント更新ログは利用できません。',
+        issueNumber,
+      );
+      const scenarioContext = this.buildOptionalContext('test_scenario', 'test-scenario.md', '', issueNumber);
+      const testImplementationContext = this.buildOptionalContext(
+        'test_implementation',
+        'test-implementation.md',
+        '',
+        issueNumber,
+      );
+
+      // Issue #698: 無限再帰防止
+      // handleMissingOutputFile() → revise() → executePhaseTemplate() → handleMissingOutputFile()
+      // の無限再帰を防止するため、revise() 内では enableFallback: false を必ず指定する。
+      // enableFallback: true に変更すると無限再帰が発生するため、変更禁止。
+      return this.executePhaseTemplate('report.md', {
+        planning_document_path: this.getPlanningDocumentReference(issueNumber),
+        requirements_context: requirementsContext,
+        design_context: designContext,
+        implementation_context: implementationContext,
+        testing_context: testingContext,
+        documentation_context: documentationContext,
+        test_scenario_context: scenarioContext,
+        test_implementation_context: testImplementationContext,
+        issue_number: String(issueNumber),
+      }, {
+        maxTurns: 50,
+        enableFallback: false,
+      });
     }
 
     // Issue #113: 前回のログスニペットを取得

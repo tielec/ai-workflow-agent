@@ -103,7 +103,7 @@ describe('Integration: auto-close-issue Jenkinsfile / Job DSL (Issue #652)', () 
       /def\s+requireApprovalFlag\s*=\s*params\.REQUIRE_APPROVAL\s*\?\s*'--require-approval'\s*:\s*''/
     );
     expect(jenkinsfileContent).toMatch(
-      /def\s+dryRunFlag\s*=\s*dryRunDefault\s*\?\s*'--dry-run'\s*:\s*''/
+      /def\s+dryRunFlag\s*=\s*dryRunDefault\s*\?\s*'--dry-run'\s*:\s*'--no-dry-run'/
     );
     expect(jenkinsfileContent).toMatch(/--category\s+\$\{category\}/);
     expect(jenkinsfileContent).toMatch(/--limit\s+\$\{limit\}/);

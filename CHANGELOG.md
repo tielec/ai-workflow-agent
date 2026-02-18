@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #698**: reportフェーズでエージェントが`maxTurns`到達時に`revise()`がファイル未存在で即座に失敗する循環依存バグを修正
+  - `report.ts`の`revise()`メソッドにファイル未存在時の新規作成モードを追加し、`execute()`と同一のコンテキスト変数で`executePhaseTemplate()`を呼び出してレポートを新規生成できるようにした
+  - 無限再帰防止のため、`revise()`内の`executePhaseTemplate()`呼び出しで`enableFallback: false`を明示的に指定し、`handleMissingOutputFile() → revise() → executePhaseTemplate() → handleMissingOutputFile()`の無限ループを防止
+  - `report.ts`の`execute()`メソッドの`maxTurns`を`30`から`50`に増加し、7つのフェーズ成果物を統合するターン不足を緩和（`documentation.ts`の`maxTurns: 70`と標準値`30`の中間値として選定）
+  - `base-phase.ts`の`handleMissingOutputFile()`でログ抽出失敗時に`revise()`呼び出し前にスケルトンファイルを生成する防御的処理を追加し、他フェーズが将来`enableFallback: true`を有効化した際の安全網として機能
+  - 新規プライベートメソッド`generateSkeletonContent()`を`base-phase.ts`に追加し、フェーズ名に基づく動的なスケルトン内容を生成
+  - **修正前の問題**: `execute()`でmaxTurns到達 → `handleMissingOutputFile()`発動 → ログ抽出失敗 → `revise()`呼び出し → `report.md`未存在チェック（L172）で即座に失敗
+  - **修正後の動作**: `revise()`がファイル未存在時に新規作成モードへ切り替え、`enableFallback: false`により再帰的フォールバックは発生しない
+  - 修正ファイル: `src/phases/report.ts`、`src/phases/base-phase.ts`
+  - 新規テストファイル: `tests/unit/phases/report-revise-fallback.test.ts`（47件のテスト、100%成功）
+  - 拡張テストファイル: `tests/unit/phases/base-phase-fallback.test.ts`
+
 ### Changed
+
+- **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加
+  - `src/prompts/testing/{ja,en}/execute.txt` の「## テスト実行手順」を3ステップから4ステップ構成に再構成
+  - **新規ステップ「テスト環境の準備（Test Environment Setup）」を挿入**: 言語・ランタイム確認、依存パッケージインストール（pip/npm/go mod/bundle/mvn）、テストフレームワーク確認、前提条件チェック、環境準備結果の記録 の5項目を含む
+  - 既存ステップのリナンバリング: 「テストの実行」(2→3)、「テスト結果の記録」(3→4)
+  - テスト結果フォーマット（`test-result.md`）に「## 環境準備サマリー（Environment Setup Summary）」セクションを追加
+  - `src/prompts/testing/{ja,en}/review.txt` の品質ゲートに「テスト環境が適切に準備されている」チェック項目を追加
+  - ユニットテスト追加: `tests/unit/prompts/prompt-simplification.test.ts` に新規セクション・リナンバリング・テンプレート変数互換性を検証するテストケースを追加（テスト合計50件、全件成功）
+  - TypeScript コードの変更なし（プロンプトテキストファイルのみの変更）
+  - **改善効果**: Docker コンテナ内でのテスト実行前に言語ランタイム・依存パッケージが適切にセットアップされ、環境起因のテスト失敗を防止
 
 - **Issue #682**: `.ai-workflow/` ディレクトリを整理し、リポジトリの見通しを改善
   - 完了済みワークフロー成果物 61件（`issue-2` 〜 `issue-271`）と `pr-626/` ディレクトリを `git rm -r` で削除
@@ -17,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: `npm run validate`（lint + test + build）全項目 PASS（208 suites / 2871 tests）
 
 ### Fixed
+
+- **Issue #697**: executeコマンドで3回リトライ失敗後にmetadata.jsonのstatusがin_progressのまま残るバグを修正
+  - `WorkflowState.incrementRetryCount()` の `retry_count >= 3` 時の挙動を例外スローから警告ログ出力+現在値返却に変更
+  - `ReviewCycleManager.performReviseStepWithRetry()` にリトライループ開始前の `retry_count` 事前チェックを追加
+  - レジューム時に `retry_count` が既に上限（3）に達している場合、即座に `failed` ステータスに更新して処理を中断する防御的チェックを追加
+  - `postProgressFn`（GitHub API通信）の失敗がメタデータ更新を妨げないよう `try-catch` で保護
+  - **修正前の問題**: ワークフローのレジューム時に `retry_count` が3の状態で `incrementRetryCount()` が呼ばれ例外スロー → `updatePhaseStatus('failed')` がバイパスされ `in_progress` のまま残る
+  - **修正後の動作**: 事前チェックで `retry_count >= maxRetries` を検出し、`updatePhaseStatus('failed')` + ディスク永続化を確実に実行してから例外をスロー
+  - 修正ファイル: `src/core/workflow-state.ts`、`src/phases/core/review-cycle-manager.ts`
+  - テストカバレッジ: 2132件のユニットテスト（138スイート、100%成功）
 
 - **Issue #678**: Jenkinsシード設定にauto-close-issueジョブを登録し、生成ジョブから確実に呼び出せるようにする
   - `job-config.yaml`の`jenkins-jobs`セクションに`ai_workflow_auto_close_issue_job`エントリを追加
