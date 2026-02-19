@@ -43,8 +43,10 @@ RUN git config --global --add safe.directory '*' && \
 COPY package.json tsconfig.json ./
 
 # Install Node dependencies and Codex CLI (used by CodexAgentClient)
+# Codex CLI install is best-effort to support multi-arch builds (Issue #706)
 RUN npm install \
-    && npm install -g @openai/codex
+    && (npm install -g @openai/codex@latest || echo "WARNING: Codex CLI install failed (continuing without Codex)") \
+    && (codex --version || echo "WARNING: Codex CLI not available on this platform")
 
 # Copy the rest of the source tree (prompts, phases, etc.)
 COPY . .

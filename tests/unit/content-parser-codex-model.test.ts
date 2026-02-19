@@ -14,6 +14,9 @@ const originalEnv = {
 const codexClientInstance = {
   executeTask: jest.fn(),
 } as unknown as jest.Mocked<CodexAgentClient>;
+const claudeClientInstance = {
+  executeTask: jest.fn(),
+} as unknown as { executeTask: jest.Mock };
 
 let CodexAgentClientMock: jest.Mock;
 let loggerRef: typeof import('../../src/utils/logger.js')['logger'];
@@ -116,7 +119,7 @@ async function importContentParserWithMocks(options: { codexAuthPath?: string | 
     return {
       __esModule: true,
       ClaudeAgentClient: jest.fn().mockImplementation(() => ({
-        executeTask: jest.fn().mockResolvedValue(['{"type":"assistant","message":{"content":[]} }']),
+        executeTask: claudeClientInstance.executeTask,
       })),
     };
   });
@@ -178,6 +181,7 @@ describe('ContentParser - Codexモデル選択', () => {
     jest.resetModules();
     jest.clearAllMocks();
     codexClientInstance.executeTask.mockReset();
+    claudeClientInstance.executeTask.mockReset();
     process.env.CODEX_API_KEY = 'test-codex-api-key-1234567890';
     delete process.env.CODEX_MODEL;
     delete process.env.CODEX_AUTH_JSON;
@@ -347,5 +351,59 @@ describe('ContentParser - Codexモデル選択', () => {
     expect(result.result).toBe('PASS');
     expect(openAiCreateMock).toHaveBeenCalledTimes(1);
     expect(codexClientInstance.executeTask).not.toHaveBeenCalled();
+  });
+
+  test('parseReviewResultでCodex失敗時にClaudeへフォールバックする', async () => {
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'dummy-claude-token';
+    const { ContentParser } = await importContentParserWithMocks({
+      codexAuthPath: '/home/node/.codex/auth.json',
+    });
+    const parser = new ContentParser();
+
+    codexClientInstance.executeTask.mockRejectedValueOnce(new Error('Codex failed'));
+    claudeClientInstance.executeTask.mockResolvedValueOnce([
+      JSON.stringify({ type: 'result', result: '{"result":"PASS"}' }),
+    ]);
+
+    const reviewMessages = [
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: '## 品質ゲート評価\n判定: PASS' }] },
+      }),
+    ];
+
+    // When: Codex失敗時にparseReviewResultを実行
+    const result = await parser.parseReviewResult(reviewMessages);
+
+    // Then: ClaudeフォールバックでPASSが解析される
+    expect(result.result).toBe('PASS');
+    expect(codexClientInstance.executeTask).toHaveBeenCalledTimes(1);
+    expect(claudeClientInstance.executeTask).toHaveBeenCalledTimes(1);
+  });
+
+  test('parseReviewResultでCodex/Claude失敗時はRegexフォールバックが使われる', async () => {
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'dummy-claude-token';
+    const { ContentParser } = await importContentParserWithMocks({
+      codexAuthPath: '/home/node/.codex/auth.json',
+    });
+    const parser = new ContentParser();
+
+    codexClientInstance.executeTask.mockRejectedValueOnce(new Error('Codex failed'));
+    claudeClientInstance.executeTask.mockRejectedValueOnce(new Error('Claude failed'));
+
+    const reviewMessages = [
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: '## 品質ゲート評価\n判定: FAIL' }] },
+      }),
+    ];
+
+    // When: Codex/Claude両方が失敗
+    const result = await parser.parseReviewResult(reviewMessages);
+
+    // Then: RegexフォールバックでFAILが判定される
+    expect(result.result).toBe('FAIL');
+    expect(codexClientInstance.executeTask).toHaveBeenCalledTimes(1);
+    expect(claudeClientInstance.executeTask).toHaveBeenCalledTimes(1);
   });
 });

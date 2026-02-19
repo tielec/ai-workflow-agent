@@ -140,10 +140,13 @@ export class CodexAgentClient {
         err?.code === 'ENOENT' ||
         message.includes('ENOENT') ||
         message.includes('spawn codex ENOENT');
+      const missingOptionalDependency = message.includes('Missing optional dependency @openai/codex-linux-');
 
-      if (missingBinary) {
+      if (missingBinary || missingOptionalDependency) {
         const helpMessage = [
-          `Codex CLI binary not found at "${this.binaryPath}".`,
+          missingOptionalDependency
+            ? 'Codex CLI optional dependency for this platform is missing.'
+            : `Codex CLI binary not found at "${this.binaryPath}".`,
           'Install the Codex CLI or set CODEX_CLI_PATH to the executable path before running the workflow.',
         ].join(' ');
         const wrapped = new Error(helpMessage) as NodeJS.ErrnoException & { cause?: unknown };

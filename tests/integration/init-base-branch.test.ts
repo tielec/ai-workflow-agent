@@ -111,7 +111,7 @@ describe('Integration: init command base branch option', () => {
     if (testRoot) {
       await fs.remove(testRoot);
     }
-  });
+  }, 30000);
 
   test(
     '指定した baseBranch(main) から新規ブランチを分岐する',

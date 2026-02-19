@@ -15,7 +15,7 @@
  * - TC-011: AGENT_CAN_INSTALL_PACKAGES=true の場合、環境情報が注入される
  * - TC-012: AGENT_CAN_INSTALL_PACKAGES=false の場合、環境情報が注入されない
  * - TC-013: AGENT_CAN_INSTALL_PACKAGES が未設定の場合、環境情報が注入されない（デフォルト動作）
- * - TC-014: review と revise ステップには環境情報が注入されない
+ * - TC-014: review と revise ステップにも環境情報が注入される
  * - TC-015: buildEnvironmentInfoSection() が正しいMarkdown形式を返す
  */
 
@@ -149,8 +149,8 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       if (fs.existsSync(promptPath)) {
         const content = fs.readFileSync(promptPath, 'utf-8');
 
-        // Simulate environment info injection for execute step only
-        if (promptType === 'execute') {
+        // Simulate environment info injection for execute/review/revise
+        if (['execute', 'review', 'revise'].includes(promptType)) {
           const canInstallPackages = config.canAgentInstallPackages();
           if (canInstallPackages) {
             const envInfo = (testPhase as any).buildEnvironmentInfoSection();
@@ -244,10 +244,10 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
   });
 
   // ============================================================
-  // TC-014: review と revise ステップには環境情報が注入されない
+  // TC-014: review と revise ステップにも環境情報が注入される
   // ============================================================
-  describe('TC-014: review と revise ステップには環境情報が注入されない', () => {
-    test('Given AGENT_CAN_INSTALL_PACKAGES=true, When loadPrompt("review") is called, Then environment info is NOT injected', () => {
+  describe('TC-014: review と revise ステップにも環境情報が注入される', () => {
+    test('Given AGENT_CAN_INSTALL_PACKAGES=true, When loadPrompt("review") is called, Then environment info is injected', () => {
       // Given: AGENT_CAN_INSTALL_PACKAGES=true を設定
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
       jest.spyOn(config, 'canAgentInstallPackages').mockReturnValue(true);
@@ -255,14 +255,14 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       // When: loadPrompt('review') を呼び出す
       const prompt = testPhase.testLoadPrompt('review');
 
-      // Then: 環境情報が注入されていない（review ステップは対象外）
-      expect(prompt).not.toContain('## 🛠️ 開発環境情報');
+      // Then: 環境情報が注入されている
+      expect(prompt).toContain('## 🛠️ 開発環境情報');
 
-      // Then: プロンプトテンプレートのみが含まれている
+      // Then: プロンプトテンプレートの内容も含まれている
       expect(prompt).toContain('Review planning phase');
     });
 
-    test('Given AGENT_CAN_INSTALL_PACKAGES=true, When loadPrompt("revise") is called, Then environment info is NOT injected', () => {
+    test('Given AGENT_CAN_INSTALL_PACKAGES=true, When loadPrompt("revise") is called, Then environment info is injected', () => {
       // Given: AGENT_CAN_INSTALL_PACKAGES=true を設定
       process.env.AGENT_CAN_INSTALL_PACKAGES = 'true';
       jest.spyOn(config, 'canAgentInstallPackages').mockReturnValue(true);
@@ -270,10 +270,10 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       // When: loadPrompt('revise') を呼び出す
       const prompt = testPhase.testLoadPrompt('revise');
 
-      // Then: 環境情報が注入されていない（revise ステップは対象外）
-      expect(prompt).not.toContain('## 🛠️ 開発環境情報');
+      // Then: 環境情報が注入されている
+      expect(prompt).toContain('## 🛠️ 開発環境情報');
 
-      // Then: プロンプトテンプレートのみが含まれている
+      // Then: プロンプトテンプレートの内容も含まれている
       expect(prompt).toContain('Revise planning phase');
     });
   });

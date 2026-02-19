@@ -1,8 +1,10 @@
 import * as fs from 'node:fs';
 import { logger } from '../utils/logger.js';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { BasePhase, type PhaseInitializationParams } from './base-phase.js';
 import { PhaseExecutionResult } from '../types.js';
+import { config } from '../core/config.js';
 
 export class TestingPhase extends BasePhase {
   constructor(params: PhaseInitializationParams) {
@@ -11,6 +13,8 @@ export class TestingPhase extends BasePhase {
 
   protected async execute(): Promise<PhaseExecutionResult> {
     const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+    const environmentStatus = this.checkTestEnvironment();
+    const environmentNotice = this.buildEnvironmentSetupNotice(environmentStatus);
 
     // オプショナルコンテキストを構築（Issue #398, #396）
     const testImplementationContext = this.buildOptionalContext(
@@ -46,7 +50,7 @@ export class TestingPhase extends BasePhase {
       implementation_context: implementationContext,
       test_scenario_context: scenarioContext,
       issue_number: String(issueNumber),
-    }, { maxTurns: 80 });
+    }, { maxTurns: 80, promptPrefix: environmentNotice ?? undefined });
 
     // 特殊ロジック: ファイル更新チェック（Testing Phase 特有のロジック）
     if (result.success && oldMtime !== null && oldSize !== null) {
@@ -231,5 +235,62 @@ export class TestingPhase extends BasePhase {
       success: true,
       output: testResultFile,
     };
+  }
+
+  private checkTestEnvironment(): { ready: boolean; missing: string[] } {
+    const requiredCommands = ['python3'];
+    const missing = requiredCommands.filter((command) => !this.isCommandAvailable(command));
+
+    if (missing.length === 0) {
+      logger.info('Testing environment check: all required runtimes are available.');
+      return { ready: true, missing: [] };
+    }
+
+    logger.warn(`Testing environment check: missing runtimes detected: ${missing.join(', ')}`);
+    return { ready: false, missing };
+  }
+
+  private isCommandAvailable(command: string): boolean {
+    try {
+      const result = spawnSync(command, ['--version'], { encoding: 'utf-8' });
+      if (result.error) {
+        return false;
+      }
+      return result.status === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  private buildEnvironmentSetupNotice(status: { ready: boolean; missing: string[] }): string | null {
+    if (status.ready || status.missing.length === 0) {
+      return null;
+    }
+
+    const missingList = status.missing.map((item) => `- ${item}`).join('\n');
+    const canInstall = config.canAgentInstallPackages();
+
+    const lines: string[] = [
+      '## ⚠️ テスト環境の事前チェック結果',
+      '',
+      '以下のランタイムが不足しています:',
+      missingList,
+      '',
+    ];
+
+    if (canInstall) {
+      lines.push('不足ランタイムのインストール手順（例）:');
+      if (status.missing.includes('python3')) {
+        lines.push('- Python: `apt-get update && apt-get install -y python3 python3-pip`');
+      }
+      lines.push('', 'インストール後にテストを実行し、結果を記録してください。');
+    } else {
+      lines.push(
+        'この環境ではパッケージインストールが許可されていません（AGENT_CAN_INSTALL_PACKAGES=false）。',
+        '必要なランタイムが不足している場合は、テストをスキップし理由を記録してください。',
+      );
+    }
+
+    return lines.join('\n');
   }
 }
