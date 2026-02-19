@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #715**: 複雑なGitHub Issueを機能単位で複数の子Issueに分割する `split-issue` コマンドを新規追加
+  - `src/commands/split-issue.ts` を新規作成し、CLIオプション解析・環境検証・エージェント実行・結果表示・Issue作成の一連のパイプラインを実装
+  - AIエージェント（Codex/Claude）による機能分割分析を実行し、多段フォールバックJSONパース（ファイル読込→直接パース→Markdownコードブロック抽出→テキスト抽出→空レスポンス）で応答を安全に処理
+  - `--dry-run`（デフォルト）でプレビュー表示、`--apply` で実際にGitHub Issueを逐次作成（レート制限対策の1秒間隔）し、元Issueにコメントを投稿
+  - `--dry-run` と `--apply` の排他バリデーション、`--max-splits`（1〜20、デフォルト10）の範囲バリデーションを実装
+  - `IssueClient.createMultipleIssues()` および `GitHubClient.createMultipleIssues()` ファサードメソッドを新規追加
+  - `PromptLoader` に `'split-issue'` カテゴリを追加し、`src/prompts/split-issue/{ja,en}/split-issue.txt` プロンプトテンプレートを新規作成
+  - プロンプトで「機能単位の分割」を明示的に指示し、要件定義/設計/実装/テストといったプロセス分割を禁止
+  - 修正・新規ファイル: `src/commands/split-issue.ts`、`src/core/issue-client.ts`、`src/core/github-client.ts`、`src/prompts/split-issue/{ja,en}/split-issue.txt`、`src/index.ts`
+  - テストカバレッジ: ユニットテスト19件 + 統合テスト7件を新規追加、全体 `npm run validate`（lint + test + build）PASS（218 suites / 2995 tests）
+
 ### Fixed
 
 - **Issue #706**: ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗を修正

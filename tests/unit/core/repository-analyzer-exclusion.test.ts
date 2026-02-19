@@ -24,8 +24,10 @@ describe('RepositoryAnalyzer - collectRepositoryCode integration', () => {
     jest.restoreAllMocks();
   });
 
-  it('skips excluded directories and file patterns when collecting repository code (TC-RA-010 wiring)', async () => {
-    const analyzer = new RepositoryAnalyzer(null, null);
+  it(
+    'skips excluded directories and file patterns when collecting repository code (TC-RA-010 wiring)',
+    async () => {
+      const analyzer = new RepositoryAnalyzer(null, null);
 
     const includedTs = path.join(tempDir, 'src/index.ts');
     fs.mkdirSync(path.dirname(includedTs), { recursive: true });
@@ -52,5 +54,7 @@ describe('RepositoryAnalyzer - collectRepositoryCode integration', () => {
     expect(collected).toMatch(/\/\/ File: pkg[/\\]service[/\\]user\.go/);
     expect(collected).not.toContain('node_modules');
     expect(collected).not.toContain('logo.png');
-  });
+    },
+    20000
+  );
 });

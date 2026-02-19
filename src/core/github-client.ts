@@ -173,6 +173,16 @@ export class GitHubClient {
     return this.issueClient.updateIssue(issueNumber, update);
   }
 
+  public async createMultipleIssues(
+    issues: Array<{ title: string; body: string; labels?: string[] }>,
+  ): Promise<{
+    results: IssueCreationResult[];
+    successCount: number;
+    failureCount: number;
+  }> {
+    return this.issueClient.createMultipleIssues(issues);
+  }
+
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {
     return this.issueClient.closeIssueWithReason(issueNumber, reason);
   }

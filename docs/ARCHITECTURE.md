@@ -132,6 +132,24 @@ src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #6
      ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
      └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
 
+src/commands/split-issue.ts (Issue機能分割コマンド処理、Issue #715で追加)
+ ├─ handleSplitIssueCommand() … split-issue コマンドハンドラ
+ ├─ parseOptions() … CLIオプションパース・バリデーション（--issue, --language, --agent, --apply, --dry-run, --max-splits）
+ ├─ validateEnvironment() … 環境変数検証（GITHUB_REPOSITORY）
+ ├─ executeSplitWithAgent() … AIエージェント（Codex/Claude）でIssueの機能分割分析を実行
+ ├─ readOutputFile() … エージェント出力ファイルの読み込み
+ ├─ parseAgentResponseText() … 多段フォールバックJSON パース（コードブロック → テキスト抽出 → 空レスポンス）
+ ├─ buildSplitResponseFromParsed() … パース結果からSplitAgentResponseを構築（maxSplits制限・デフォルト値適用）
+ ├─ displaySplitPreview() … dry-runモードでの分割プレビュー表示
+ ├─ applySplitIssues() … applyモードでの子Issue一括作成 + 元Issueへのコメント投稿
+ ├─ buildSplitComment() … 元Issueへの分割コメント本文生成
+ └─ 関連モジュール利用
+     ├─ RepositoryAnalyzer … リポジトリコンテキスト取得
+     ├─ IssueClient.createMultipleIssues() … 子Issue逐次作成（Issue #715で追加）
+     ├─ GitHubClient.createMultipleIssues() … ファサードメソッド（Issue #715で追加）
+     ├─ PromptLoader.loadPrompt() … 言語別プロンプトテンプレート読み込み（split-issueカテゴリ）
+     └─ agent-setup.ts … Codex/Claudeエージェント初期化
+
 src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）

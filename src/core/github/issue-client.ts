@@ -202,6 +202,61 @@ export class IssueClient {
   }
 
   /**
+   * 複数の Issue を逐次作成する
+   * GitHub API レート制限対策として、Promise.all ではなく for ループで逐次実行する
+   */
+  public async createMultipleIssues(
+    issues: Array<{ title: string; body: string; labels?: string[] }>,
+  ): Promise<{
+    results: IssueCreationResult[];
+    successCount: number;
+    failureCount: number;
+  }> {
+    const results: IssueCreationResult[] = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const issue of issues) {
+      try {
+        const { data } = await this.octokit.issues.create({
+          owner: this.owner,
+          repo: this.repo,
+          title: issue.title,
+          body: issue.body,
+          labels: issue.labels ?? [],
+        });
+
+        results.push({
+          success: true,
+          issue_url: data.html_url ?? null,
+          issue_number: data.number ?? null,
+          error: null,
+        });
+        successCount++;
+
+        logger.info(`Created issue #${data.number}: ${issue.title}`);
+      } catch (error: unknown) {
+        const message =
+          error instanceof RequestError
+            ? `GitHub API error: ${error.status} - ${error.message}`
+            : getErrorMessage(error);
+
+        results.push({
+          success: false,
+          issue_url: null,
+          issue_number: null,
+          error: message,
+        });
+        failureCount++;
+
+        logger.error(`Failed to create issue "${issue.title}": ${this.encodeWarning(message)}`);
+      }
+    }
+
+    return { results, successCount, failureCount };
+  }
+
+  /**
    * Closes an issue with a reason comment.
    */
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {

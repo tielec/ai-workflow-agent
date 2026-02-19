@@ -1,0 +1,77 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are a GitHub Issue splitting expert. Split the following issue into multiple child issues by feature, using the repository context.
+
+## Input
+
+### Original Issue Title
+{ORIGINAL_TITLE}
+
+### Original Issue Body
+{ORIGINAL_BODY}
+
+### Repository Context
+{REPOSITORY_CONTEXT}
+
+## Critical Constraint: Split by Feature
+
+Split by feature only. Follow these rules:
+
+### ✅ Correct (feature-based)
+Each child issue should be a self-contained feature that can be implemented and merged independently.
+Examples:
+- Child Issue A: CLI option parsing and validation
+- Child Issue B: Agent integration and JSON parsing
+- Child Issue C: GitHub API operations (issue creation, comment posting)
+
+### ❌ Forbidden (process-based)
+Do NOT split by process steps like “requirements”, “implementation”, or “testing”.
+Testing must be included as completion criteria within each feature issue.
+Forbidden examples:
+- Child Issue 1: Requirements for X
+- Child Issue 2: Implementation of X
+- Child Issue 3: Testing of X
+
+## Max Splits
+Maximum splits: {MAX_SPLITS} (do not exceed this limit)
+
+## Child Issue Body Guidelines
+Include these sections in each child issue:
+- ## Overview
+- ## Current State
+- ## Proposal
+- ## Target Files
+- ## Implementation Hints
+- ## Action Items (checklist)
+- ## Done Criteria (include testing requirements)
+
+## Output Format
+
+Write the result in JSON **to the specified file path**:
+
+**Output file path**: `{OUTPUT_FILE_PATH}`
+
+```json
+{
+  "summary": "Split summary (1-3 sentences)",
+  "issues": [
+    {
+      "title": "Child issue title (<= 80 chars)",
+      "body": "Child issue body (Markdown)",
+      "labels": ["enhancement"],
+      "priority": "high | medium | low",
+      "relatedFeatures": ["Title of related child issue"]
+    }
+  ],
+  "metrics": {
+    "completeness": 85,
+    "specificity": 70
+  }
+}
+```
+
+**IMPORTANT**: You must write the JSON file to the absolute path above using the Write tool. Do not print the JSON in the console. Do not use relative paths or `/workspace` prefixes.
+
+## Metrics
+- completeness: section coverage (0-100)
+- specificity: presence of concrete details (0-100)

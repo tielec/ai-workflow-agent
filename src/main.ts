@@ -19,6 +19,7 @@ import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.j
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
+import { handleSplitIssueCommand } from './commands/split-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -341,6 +342,33 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handleRewriteIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // split-issue コマンド
+  program
+    .command('split-issue')
+    .description('Split complex GitHub Issue into feature-based sub-issues')
+    .requiredOption('--issue <number>', 'Issue number to split')
+    .addOption(
+      new Option('--language <lang>', 'Output language')
+        .choices(['ja', 'en'])
+        .default('ja'),
+    )
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .option('--apply', 'Create GitHub Issues', false)
+    .option('--dry-run', 'Preview mode (default)', false)
+    .option('--max-splits <number>', 'Maximum number of split issues', '10')
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleSplitIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
