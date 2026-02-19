@@ -199,6 +199,32 @@ describe('RemoteManager - Push Operations', () => {
       expect(result.error).toContain('authentication failed');
     });
   });
+
+  describe('pullLatest', () => {
+    test('pullLatest_コンフリクト発生_ConflictErrorがスローされる', async () => {
+      // Given: pull でコンフリクトエラーが発生
+      const conflictError = new Error('CONFLICT (content): Merge conflict');
+      mockGit.raw.mockRejectedValueOnce(conflictError);
+
+      // When: pullLatest を実行
+      const promise = remoteManager.pullLatest('main');
+
+      // Then: ConflictError がスローされる
+      await expect(promise).rejects.toMatchObject({ name: 'ConflictError' });
+    });
+
+    test('pullLatest_異常系_コンフリクト以外のエラーを返す', async () => {
+      // Given: pull がその他のエラーで失敗
+      mockGit.raw.mockRejectedValueOnce(new Error('network error'));
+
+      // When: pullLatest を実行
+      const result = await remoteManager.pullLatest('main');
+
+      // Then: success=false が返る
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('network error');
+    });
+  });
 });
 
 describe('RemoteManager - Pull Operations', () => {

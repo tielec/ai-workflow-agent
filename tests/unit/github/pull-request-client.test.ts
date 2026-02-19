@@ -478,4 +478,61 @@ describe('PullRequestClient', () => {
       consoleWarnSpy.mockRestore();
     });
   });
+
+  describe('getMergeableStatus', () => {
+    it('getMergeableStatus_mergeabletrue_cleanを返す', async () => {
+      // Given: mergeable true のレスポンス
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { mergeable: true, mergeable_state: 'clean' },
+      } as any);
+
+      // When: mergeable status を取得
+      const result = await pullRequestClient.getMergeableStatus(42);
+
+      // Then: mergeable 情報が正しく返る
+      expect(result).toEqual({ mergeable: true, mergeableState: 'clean' });
+      expect(mockOctokit.pulls.get).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        pull_number: 42,
+      });
+    });
+
+    it('getMergeableStatus_mergeablefalse_dirtyを返す', async () => {
+      // Given: mergeable false のレスポンス
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { mergeable: false, mergeable_state: 'dirty' },
+      } as any);
+
+      // When: mergeable status を取得
+      const result = await pullRequestClient.getMergeableStatus(43);
+
+      // Then: mergeable false が返る
+      expect(result).toEqual({ mergeable: false, mergeableState: 'dirty' });
+    });
+
+    it('getMergeableStatus_mergeable未確定_nullを返す', async () => {
+      // Given: mergeable が null のレスポンス
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { mergeable: null, mergeable_state: 'unknown' },
+      } as any);
+
+      // When: mergeable status を取得
+      const result = await pullRequestClient.getMergeableStatus(44);
+
+      // Then: null が返る
+      expect(result).toEqual({ mergeable: null, mergeableState: 'unknown' });
+    });
+
+    it('getMergeableStatus_API失敗_nullを返す', async () => {
+      // Given: API エラー
+      mockOctokit.pulls.get.mockRejectedValue(new Error('Not Found'));
+
+      // When: mergeable status を取得
+      const result = await pullRequestClient.getMergeableStatus(999);
+
+      // Then: null が返る
+      expect(result).toEqual({ mergeable: null, mergeableState: null });
+    });
+  });
 });
