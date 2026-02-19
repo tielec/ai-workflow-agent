@@ -21,7 +21,8 @@ export type PromptCategory =
   | 'content_parser'
   | 'validation'
   | 'rewrite-issue'
-  | 'split-issue';
+  | 'split-issue'
+  | 'conflict';
 
 export class PromptLoader {
   static loadPrompt(
