@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #720**: `execute` コマンドで各ステップ（execute/review/revise）およびフェーズ開始時に `metadata.json` をGitコミット＆プッシュする機能を追加
+  - `CommitMessageBuilder.buildStepStartCommitMessage()` を新規追加し、`[ai-workflow] Phase {number} ({name}) - {step} started` 形式の開始時コミットメッセージを生成
+  - `CommitManager.commitStepStart()` を新規追加し、`metadata.json` のみを対象とした軽量コミット処理を実装（`FileSelector`・`SecretMasker` 省略によりオーバーヘッドを最小化）
+  - `GitManager.commitStepStart()` プロキシメソッドを新規追加
+  - `StepExecutor.commitAndPushStepStart()` プライベートメソッドを追加し、`executeStep()` / `reviewStep()` の `updateCurrentStep()` 直後に開始時コミット＆プッシュ処理を挿入
+  - `ReviewCycleManager.performReviseStepWithRetry()` にオプショナルパラメータ `commitAndPushStepStartFn` を追加し、revise ステップ開始時のコミット処理を後方互換性を維持しながら実現
+  - `PhaseRunner.commitAndPushPhaseStart()` プライベートメソッドを追加し、フェーズのステータスが `pending` → `in_progress` に変わった直後にコミット＆プッシュを実施（再開時はスキップ）
+  - 開始時コミットはすべて `try-catch` でエラーを吸収し、失敗時も `logger.warn()` でログ出力のみでワークフローをブロックしない設計を採用
+  - これにより「どのフェーズのどのステップが現在実行中か」をリモートリポジトリから確認可能になり、Jenkins パイプラインや外部監視ツールでの進捗把握が可能
+  - 修正ファイル: `src/core/git/commit-message-builder.ts`、`src/core/git/commit-manager.ts`、`src/core/git-manager.ts`、`src/phases/lifecycle/step-executor.ts`、`src/phases/lifecycle/phase-runner.ts`、`src/phases/core/review-cycle-manager.ts`
+  - テストカバレッジ: ユニットテスト23件（`commit-message-builder.test.ts` 5件、`step-executor.test.ts` 12件、`phase-runner.test.ts` 6件）を既存テストファイルに追加、全体 `npm run validate`（lint + test + build）PASS
+
 - **Issue #719**: PRのマージコンフリクトをAIで自動解消する `resolve-conflict` コマンドを新規追加
   - 4フェーズ構成（`init` → `analyze` → `execute` → `finalize`）で、PR URLを入力として受け取りコンフリクト解消を自動化
   - `src/commands/resolve-conflict/{init,analyze,execute,finalize}.ts` を新規作成し、各フェーズのコマンドハンドラを実装

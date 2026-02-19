@@ -351,8 +351,8 @@ node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
 
 **フェーズライフサイクル**:
 - `src/phases/base-phase.ts`: execute/review/revise ライフサイクルを持つ抽象基底クラス（476行）
-- `src/phases/lifecycle/step-executor.ts`: ステップ実行ロジック（233行）
-- `src/phases/lifecycle/phase-runner.ts`: フェーズライフサイクル管理（244行）
+- `src/phases/lifecycle/step-executor.ts`: ステップ実行ロジック（233行）。**Issue #720**: ステップ開始時（`updateCurrentStep()` 直後）に `metadata.json` をコミット＆プッシュする機能を追加。失敗時もワークフローをブロックしない。
+- `src/phases/lifecycle/phase-runner.ts`: フェーズライフサイクル管理（244行）。**Issue #720**: フェーズ開始時（`pending` → `in_progress`）に `metadata.json` をコミット＆プッシュする機能を追加（再開時はスキップ）。
 
 **エージェント統合**:
 - `src/core/codex-agent-client.ts`: Codex CLI ラッパー（200行）
