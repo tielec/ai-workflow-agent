@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
+  - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
+  - `auto-issue` コマンドと同一のバリデーションパターンを採用（空文字・空白のみ不可、500文字超過はエラー）
+  - カスタムインストラクション指定時に「追加の指示」セクションをプロンプトに条件付き注入（日本語/英語対応）
+  - `{CUSTOM_INSTRUCTION}` プレースホルダーを `src/prompts/rewrite-issue/{ja,en}/rewrite-issue.txt` に追加
+  - 未指定時は従来どおりの汎用リライトを実行（後方互換性維持）
+  - テストカバレッジ: ユニットテスト16件を追加、全体 `npm run test:unit` 2239件中 2239件成功
+
 - **Issue #715**: 複雑なGitHub Issueを機能単位で複数の子Issueに分割する `split-issue` コマンドを新規追加
   - `src/commands/split-issue.ts` を新規作成し、CLIオプション解析・環境検証・エージェント実行・結果表示・Issue作成の一連のパイプラインを実装
   - AIエージェント（Codex/Claude）による機能分割分析を実行し、多段フォールバックJSONパース（ファイル読込→直接パース→Markdownコードブロック抽出→テキスト抽出→空レスポンス）で応答を安全に処理
