@@ -144,30 +144,35 @@ export class PhaseRunner {
     const gitManager = options.gitManager ?? null;
     let executionSuccess = false;
 
-    // 依存関係検証
-    const dependencyResult = this.validateDependencies();
-    if (!dependencyResult.valid) {
-      const error =
-        dependencyResult.error ??
-        'Dependency validation failed. Use --skip-dependency-check to bypass.';
-      logger.error(`${error}`);
-      await this.handlePhaseError(error);
-      return false;
-    }
-
-    if (dependencyResult.warning) {
-      logger.warn(`${dependencyResult.warning}`);
-    }
-
     // Issue #90: current_step と completed_steps を確認してレジューム
     const currentStatus = this.metadata.getPhaseStatus(this.phaseName);
     const currentStep = this.metadata.getCurrentStep(this.phaseName);
     const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
     const messages = this.getMessages();
 
+    // 依存関係検証（in_progress の再開時は再検証しない）
+    if (currentStatus !== 'in_progress') {
+      const dependencyResult = this.validateDependencies();
+      if (!dependencyResult.valid) {
+        const error =
+          dependencyResult.error ??
+          'Dependency validation failed. Use --skip-dependency-check to bypass.';
+        logger.error(`${error}`);
+        await this.handlePhaseError(error);
+        return false;
+      }
+
+      if (dependencyResult.warning) {
+        logger.warn(`${dependencyResult.warning}`);
+      }
+    }
+
     // フェーズが pending の場合のみステータス更新
     if (currentStatus === 'pending') {
       this.updatePhaseStatus('in_progress');
+      if (gitManager) {
+        await this.commitAndPushPhaseStart(gitManager);
+      }
       await this.postProgress('in_progress', messages.phaseStarted(this.phaseName));
     } else if (currentStatus === 'in_progress') {
       // ロールバック等で in_progress の場合
@@ -439,6 +444,65 @@ export class PhaseRunner {
     }
 
     this.metadata.updatePhaseStatus(this.phaseName, status, payload);
+  }
+
+  /**
+   * Issue #720: フェーズ開始時に metadata.json を Git コミット＆プッシュ
+   *
+   * 進捗通知目的のため、失敗してもワークフローをブロックしない。
+   */
+  private async commitAndPushPhaseStart(gitManager: GitManager): Promise<void> {
+    try {
+      const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+      if (Number.isNaN(issueNumber)) {
+        logger.warn(`Phase ${this.phaseName}: Invalid issue number for phase start commit`);
+        return;
+      }
+
+      const phaseOrder: PhaseName[] = [
+        'planning',
+        'requirements',
+        'design',
+        'test_scenario',
+        'implementation',
+        'test_implementation',
+        'testing',
+        'documentation',
+        'report',
+        'evaluation',
+      ];
+      const phaseNumber = phaseOrder.indexOf(this.phaseName);
+
+      logger.info(`Phase ${this.phaseName}: Committing phase start...`);
+
+      const commitResult = await gitManager.commitStepStart(
+        this.phaseName,
+        phaseNumber,
+        'execute',
+        issueNumber,
+      );
+
+      if (!commitResult.success) {
+        logger.warn(
+          `Phase ${this.phaseName}: Failed to commit phase start: ${commitResult.error ?? 'unknown error'}`
+        );
+        return;
+      }
+
+      const pushResult = await gitManager.pushToRemote(3);
+      if (!pushResult.success) {
+        logger.warn(
+          `Phase ${this.phaseName}: Failed to push phase start: ${pushResult.error ?? 'unknown error'}`
+        );
+        return;
+      }
+
+      logger.info(`Phase ${this.phaseName}: Phase start committed and pushed`);
+    } catch (error) {
+      logger.warn(
+        `Phase ${this.phaseName}: Failed to commit phase start: ${getErrorMessage(error)}`
+      );
+    }
   }
 
   /**

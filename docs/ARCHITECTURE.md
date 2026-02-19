@@ -543,8 +543,8 @@ BasePhase クラスは各モジュールを依存性注入により統合し、�
 Issue #49では、BasePhase クラスを676行から445行へさらにリファクタリングし（約40%削減）、4つの専門モジュールに責務を分離しました：
 
 **ライフサイクルモジュール**:
-- **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。
-- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。**Issue #325**: `finalizePhase()`にPR bodyチェックリスト自動更新機能（`updatePrBodyChecklist()`）を追加。各フェーズ完了時にPR本文のワークフロー進捗を自動的に更新し、ユーザーがPRを確認するだけで進捗状況を把握できるよう改善。
+- **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。**Issue #720**: `commitAndPushStepStart()` を追加し、`executeStep()` / `reviewStep()` 開始時（`updateCurrentStep()` 直後）にも `metadata.json` をコミット＆プッシュするように拡張。開始時コミットは失敗してもワークフローをブロックしない設計（`try-catch` + `logger.warn()`）。
+- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。**Issue #325**: `finalizePhase()`にPR bodyチェックリスト自動更新機能（`updatePrBodyChecklist()`）を追加。各フェーズ完了時にPR本文のワークフロー進捗を自動的に更新し、ユーザーがPRを確認するだけで進捗状況を把握できるよう改善。**Issue #720**: `commitAndPushPhaseStart()` を追加し、フェーズのステータスが `pending` → `in_progress` に変わった直後に `metadata.json` をコミット＆プッシュするように拡張（再開時はスキップ）。
 
 **コンテキスト構築モジュール**:
 - **ContextBuilder** (`src/phases/context/context-builder.ts`, 223行): コンテキスト構築を担当。オプショナルコンテキスト構築（`buildOptionalContext`）、ファイル参照生成（`@filepath` 形式、`buildFileReference`）、Planning Document参照（`buildPlanningDocumentReference`）を実施。ファイルが存在しない場合は適切なフォールバックメッセージを返し、依存関係を無視した柔軟な実行を可能にする。

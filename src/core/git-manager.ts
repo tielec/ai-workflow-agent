@@ -129,6 +129,23 @@ export class GitManager {
   }
 
   /**
+   * Issue #720: ステップ開始時のmetadata.jsonをコミット
+   */
+  public async commitStepStart(
+    phaseName: PhaseName,
+    phaseNumber: number,
+    step: StepName,
+    issueNumber: number,
+  ): Promise<CommitResult> {
+    return this.commitManager.commitStepStart(
+      phaseName,
+      phaseNumber,
+      step,
+      issueNumber,
+    );
+  }
+
+  /**
    * Issue #16: ワークフロー初期化用のコミットを作成
    */
   public async commitWorkflowInit(
