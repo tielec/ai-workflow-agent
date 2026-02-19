@@ -1,0 +1,302 @@
+/**
+ * AI Workflow - ECR Image Build & Push
+ *
+ * ECRへのDockerイメージビルド・プッシュと古いイメージの自動削除を行うJenkinsfile。
+ * 1日1回のcronトリガーで自動実行。手動実行もサポート。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - AWS_ACCOUNT_ID: AWSアカウントID（必須）
+ * - AWS_REGION: AWSリージョン（デフォルト: ap-northeast-1）
+ * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
+ * - IMAGE_RETENTION_COUNT: 保持するイメージ世代数（デフォルト: 2）
+ * - AWS_ACCESS_KEY_ID: AWSアクセスキーID（任意）
+ * - AWS_SECRET_ACCESS_KEY: AWSシークレットアクセスキー（任意）
+ * - AWS_SESSION_TOKEN: AWSセッショントークン（任意）
+ */
+
+pipeline {
+    agent {
+        label 'ec2-fleet-micro'
+    }
+
+    triggers {
+        cron('H 2 * * *')
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        // AWS設定
+        AWS_DEFAULT_REGION = "${params.AWS_REGION ?: 'ap-northeast-1'}"
+        AWS_REGION_VALUE = "${params.AWS_REGION ?: 'ap-northeast-1'}"
+        AWS_ACCOUNT_ID_VALUE = "${params.AWS_ACCOUNT_ID ?: ''}"
+        ECR_REPOSITORY_NAME_VALUE = "${params.ECR_REPOSITORY_NAME ?: 'ai-workflow-agent'}"
+        IMAGE_RETENTION_COUNT_VALUE = "${params.IMAGE_RETENTION_COUNT ?: '2'}"
+
+        // AWS認証情報（パラメータが空でない場合のみ環境変数に設定）
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        // ECR関連の導出値
+        ECR_REGISTRY = "${params.AWS_ACCOUNT_ID ?: ''}.dkr.ecr.${params.AWS_REGION ?: 'ap-northeast-1'}.amazonaws.com"
+        ECR_IMAGE_NAME = "${params.AWS_ACCOUNT_ID ?: ''}.dkr.ecr.${params.AWS_REGION ?: 'ap-northeast-1'}.amazonaws.com/${params.ECR_REPOSITORY_NAME ?: 'ai-workflow-agent'}"
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow - ECR Image Build & Push"
+                    echo "========================================="
+
+                    if (!env.AWS_ACCOUNT_ID_VALUE?.trim()) {
+                        error("AWS_ACCOUNT_ID は必須パラメータです。AWSアカウントIDを指定してください。")
+                    }
+
+                    def retentionCount = env.IMAGE_RETENTION_COUNT_VALUE?.trim() ?: '2'
+                    try {
+                        def count = retentionCount.toInteger()
+                        if (count < 1) {
+                            error("IMAGE_RETENTION_COUNT は1以上の整数を指定してください。指定値: ${retentionCount}")
+                        }
+                    } catch (NumberFormatException e) {
+                        error("IMAGE_RETENTION_COUNT は整数を指定してください。指定値: ${retentionCount}")
+                    }
+
+                    currentBuild.description = "ECR Build | ${env.ECR_REPOSITORY_NAME_VALUE} | ${env.AWS_REGION_VALUE}"
+
+                    echo "AWS Account ID: ${env.AWS_ACCOUNT_ID_VALUE}"
+                    echo "AWS Region: ${env.AWS_REGION_VALUE}"
+                    echo "ECR Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                    echo "Image Retention Count: ${env.IMAGE_RETENTION_COUNT_VALUE}"
+                    echo "ECR Registry: ${env.ECR_REGISTRY}"
+                    echo "Build Number: ${env.BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage('ECR Login') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: ECR Login"
+                    echo "========================================="
+
+                    def loginResult = sh(
+                        script: """
+                            aws ecr get-login-password \
+                                --region ${env.AWS_REGION_VALUE} \
+                            | docker login \
+                                --username AWS \
+                                --password-stdin \
+                                ${env.ECR_REGISTRY}
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (loginResult != 0) {
+                        error("ECRログインに失敗しました。AWSリージョン: ${env.AWS_REGION_VALUE}, アカウントID: ${env.AWS_ACCOUNT_ID_VALUE}")
+                    }
+
+                    echo "ECRログイン成功: ${env.ECR_REGISTRY}"
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Docker Build"
+                    echo "========================================="
+
+                    echo "Building Docker image: ${env.ECR_IMAGE_NAME}"
+                    echo "Tags: latest, build-${env.BUILD_NUMBER}"
+
+                    sh """
+                        docker build \
+                            -t ${env.ECR_IMAGE_NAME}:latest \
+                            -t ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
+                            .
+                    """
+
+                    echo "Docker build completed successfully"
+                    sh "docker images | grep ${env.ECR_REPOSITORY_NAME_VALUE} || true"
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Docker Push"
+                    echo "========================================="
+
+                    sh """
+                        echo "Pushing latest tag..."
+                        docker push ${env.ECR_IMAGE_NAME}:latest
+
+                        echo "Pushing build-${env.BUILD_NUMBER} tag..."
+                        docker push ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}
+                    """
+
+                    echo "Docker push completed successfully"
+                    echo "Pushed images:"
+                    echo "  - ${env.ECR_IMAGE_NAME}:latest"
+                    echo "  - ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}"
+
+                    sh """
+                        aws ecr describe-images \
+                            --repository-name ${env.ECR_REPOSITORY_NAME_VALUE} \
+                            --region ${env.AWS_REGION_VALUE} \
+                            --image-ids imageTag=build-${env.BUILD_NUMBER} \
+                            --query 'imageDetails[0].{digest:imageDigest,tags:imageTags,pushedAt:imagePushedAt}' \
+                            --output table \
+                        || echo "Warning: Could not retrieve image details"
+                    """
+                }
+            }
+        }
+
+        stage('Cleanup Old Images') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Cleanup Old Images"
+                    echo "========================================="
+
+                    def retentionCount = env.IMAGE_RETENTION_COUNT_VALUE.toInteger()
+
+                    echo "Applying ECR lifecycle policy (retain latest ${retentionCount} images)..."
+
+                    def policyJson = """
+                    {
+                        "rules": [
+                            {
+                                "rulePriority": 1,
+                                "description": "最新${retentionCount}世代のみ保持",
+                                "selection": {
+                                    "tagStatus": "any",
+                                    "countType": "imageCountMoreThan",
+                                    "countNumber": ${retentionCount}
+                                },
+                                "action": {
+                                    "type": "expire"
+                                }
+                            }
+                        ]
+                    }
+                    """
+
+                    def policyResult = sh(
+                        script: """
+                            aws ecr put-lifecycle-policy \
+                                --repository-name ${env.ECR_REPOSITORY_NAME_VALUE} \
+                                --region ${env.AWS_REGION_VALUE} \
+                                --lifecycle-policy-text '${policyJson.replaceAll("'", "'\\\\''").trim()}'
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (policyResult == 0) {
+                        echo "ECRライフサイクルポリシーの適用に成功しました"
+                        sh """
+                            aws ecr get-lifecycle-policy \
+                                --repository-name ${env.ECR_REPOSITORY_NAME_VALUE} \
+                                --region ${env.AWS_REGION_VALUE} \
+                                --query 'lifecyclePolicyText' \
+                                --output text \
+                            | python3 -m json.tool 2>/dev/null \
+                            || echo "Policy applied (details not parseable)"
+                        """
+                    } else {
+                        echo "WARNING: ライフサイクルポリシーの適用に失敗しました。手動削除にフォールバックします。"
+
+                        sh """
+                            echo "Fetching image list..."
+                            IMAGES=\$(aws ecr describe-images \
+                                --repository-name ${env.ECR_REPOSITORY_NAME_VALUE} \
+                                --region ${env.AWS_REGION_VALUE} \
+                                --query 'sort_by(imageDetails, &imagePushedAt)[].imageDigest' \
+                                --output text)
+
+                            TOTAL=\$(echo "\${IMAGES}" | wc -w)
+                            KEEP=${retentionCount}
+
+                            echo "Total images: \${TOTAL}, Keeping: \${KEEP}"
+
+                            if [ "\${TOTAL}" -le "\${KEEP}" ]; then
+                                echo "削除対象のイメージはありません（現在 \${TOTAL} 個、保持数 \${KEEP} 個）"
+                            else
+                                DELETE_COUNT=$((TOTAL - KEEP))
+                                echo "Deleting \${DELETE_COUNT} old image(s)..."
+
+                                DELETE_DIGESTS=\$(echo "\${IMAGES}" | tr ' ' '\n' | head -n \${DELETE_COUNT})
+
+                                for DIGEST in \${DELETE_DIGESTS}; do
+                                    echo "Deleting image: \${DIGEST}"
+                                    aws ecr batch-delete-image \
+                                        --repository-name ${env.ECR_REPOSITORY_NAME_VALUE} \
+                                        --region ${env.AWS_REGION_VALUE} \
+                                        --image-ids imageDigest=\${DIGEST} \
+                                    || echo "Warning: Failed to delete image \${DIGEST}"
+                                done
+
+                                echo "Old images cleanup completed"
+                            fi
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing: Cleanup"
+                echo "========================================="
+
+                sh """
+                    echo "Cleaning up local Docker images..."
+                    docker rmi ${env.ECR_IMAGE_NAME}:latest || true
+                    docker rmi ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} || true
+                    echo "Local Docker images cleaned up"
+                """
+
+                echo "Build result: ${currentBuild.currentResult}"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "ECR Image Build & Push - SUCCESS"
+                echo "========================================="
+                echo "Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                echo "Tags pushed: latest, build-${env.BUILD_NUMBER}"
+                echo "Registry: ${env.ECR_REGISTRY}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "ECR Image Build & Push - FAILURE"
+                echo "========================================="
+                echo "Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                echo "Build Number: ${env.BUILD_NUMBER}"
+                echo "Please check the build logs for error details."
+            }
+        }
+    }
+}
