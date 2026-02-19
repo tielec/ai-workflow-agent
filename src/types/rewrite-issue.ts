@@ -14,6 +14,8 @@ export interface RawRewriteIssueOptions {
   dryRun?: boolean;
   /** 実際にIssueを更新するフラグ */
   apply?: boolean;
+  /** リライトの追加指示 */
+  customInstruction?: string;
 }
 
 /**
@@ -28,6 +30,8 @@ export interface RewriteIssueOptions {
   agent: 'auto' | 'codex' | 'claude';
   /** 実際にIssueを更新するかどうか（false = dry-run） */
   apply: boolean;
+  /** リライトの追加指示 */
+  customInstruction?: string;
 }
 
 /**

@@ -342,6 +342,10 @@ export async function runCli(): Promise<void> {
     )
     .option('--apply', 'Apply changes to GitHub Issue', false)
     .option('--dry-run', 'Preview mode (default)', false)
+    .option(
+      '--custom-instruction <text>',
+      'Custom instruction for rewrite guidance (max 500 chars)',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);

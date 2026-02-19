@@ -29,6 +29,7 @@ import type {
 const COLOR_GREEN = '\x1b[32m';
 const COLOR_RED = '\x1b[31m';
 const COLOR_RESET = '\x1b[0m';
+const MAX_CUSTOM_INSTRUCTION_LENGTH = 500;
 
 /**
  * メインハンドラ
@@ -40,8 +41,11 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
     // 1. オプションパース
     const options = parseOptions(rawOptions);
     logger.info(
-      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}`,
+      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
+    if (options.customInstruction) {
+      logger.info(`Custom instruction: ${options.customInstruction}`);
+    }
 
     // 2. 環境変数の検証とリポジトリ名取得
     const githubRepository = validateEnvironment();
@@ -87,6 +91,7 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
       options.language,
       options.agent,
       repoPath,
+      options.customInstruction,
     );
 
     // 9. 差分生成
@@ -160,11 +165,27 @@ function parseOptions(rawOptions: RawRewriteIssueOptions): RewriteIssueOptions {
 
   const apply = rawOptions.apply === true;
 
+  const customInstructionRaw = rawOptions.customInstruction;
+  let customInstruction: string | undefined;
+  if (typeof customInstructionRaw === 'string') {
+    const trimmed = customInstructionRaw.trim();
+    if (!trimmed) {
+      throw new Error('custom-instruction must not be empty.');
+    }
+    if (trimmed.length > MAX_CUSTOM_INSTRUCTION_LENGTH) {
+      throw new Error(
+        `Custom instruction exceeds maximum length (${MAX_CUSTOM_INSTRUCTION_LENGTH} characters).`,
+      );
+    }
+    customInstruction = trimmed;
+  }
+
   return {
     issueNumber,
     language,
     agent,
     apply,
+    customInstruction,
   };
 }
 
@@ -265,16 +286,32 @@ async function executeRewriteWithAgent(
   language: SupportedLanguage,
   agentMode: 'auto' | 'codex' | 'claude',
   repoPath: string,
+  customInstruction?: string,
 ): Promise<RewriteAgentResponse> {
   const outputFilePath = createOutputFilePath(repoPath);
   logger.info(`Agent output file: ${outputFilePath}`);
 
   const promptTemplate = PromptLoader.loadPrompt('rewrite-issue', 'rewrite-issue', language);
+  let customInstructionBlock = '';
+  if (customInstruction) {
+    if (language === 'ja') {
+      customInstructionBlock =
+        `\n## 追加の指示\n\n` +
+        `以下のユーザーからの追加指示に従ってリライトしてください:\n\n` +
+        `${customInstruction}\n`;
+    } else {
+      customInstructionBlock =
+        `\n## Additional Instructions\n\n` +
+        `Please follow these additional instructions when rewriting:\n\n` +
+        `${customInstruction}\n`;
+    }
+  }
   const prompt = promptTemplate
     .replaceAll('{ORIGINAL_TITLE}', originalTitle)
     .replaceAll('{ORIGINAL_BODY}', originalBody)
     .replaceAll('{REPOSITORY_CONTEXT}', repoContext)
-    .replaceAll('{OUTPUT_FILE_PATH}', outputFilePath);
+    .replaceAll('{OUTPUT_FILE_PATH}', outputFilePath)
+    .replaceAll('{CUSTOM_INSTRUCTION}', customInstructionBlock);
 
   let response: string | null = null;
 

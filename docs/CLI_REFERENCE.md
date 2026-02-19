@@ -127,6 +127,12 @@ node dist/index.js rewrite-issue --issue 123 --agent claude
 # 実際にIssueを更新
 node dist/index.js rewrite-issue --issue 123 --apply
 
+# カスタム指示でリライト観点を指定（Issue #716で追加）
+node dist/index.js rewrite-issue --issue 123 --custom-instruction "セキュリティ観点を重視してください"
+
+# 初心者向けに書き直す
+node dist/index.js rewrite-issue --issue 123 --custom-instruction "初心者でも理解しやすいように書き直してください" --apply
+
 # すべてのオプションを組み合わせ
 node dist/index.js rewrite-issue \
   --issue 456 \
@@ -141,6 +147,16 @@ node dist/index.js rewrite-issue \
 - `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
 - `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
 - `--apply`: 実際にIssueを更新（dry-runと排他）
+- `--custom-instruction <text>`: リライトの追加指示（最大500文字、Issue #716で追加）
+
+**`--custom-instruction` オプション**（Issue #716で追加）:
+- **用途**: リライトの方向性や重点を指定する追加指示テキスト（最大500文字）
+- **任意**: 未指定時は従来どおり汎用リライトを実行
+- **バリデーション**: 空文字・空白のみは不可、500文字超過はエラー
+- **使用例**:
+  - `"セキュリティ観点を重視してください"` — セキュリティ脆弱性やリスクを明確化
+  - `"パフォーマンス改善に焦点を当ててください"` — 性能ボトルネックや改善策を強調
+  - `"初心者でも理解しやすいように書き直してください"` — 専門用語を減らし背景説明を追加
 
 **主な機能**:
 - **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
@@ -194,6 +210,7 @@ Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョ�
 | AGENT_MODE | --agent | auto |
 | APPLY | --apply | true |
 | DRY_RUN | - | true (CLIデフォルト動作) |
+| CUSTOM_INSTRUCTION | --custom-instruction | - (任意) |
 
 **パイプライン実行例**:
 ```
