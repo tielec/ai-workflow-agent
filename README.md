@@ -121,6 +121,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
+| `split-issue` | 複雑なIssueを複数の子Issueに分割（1 Issue = 1 Task） |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |
 
@@ -202,6 +203,7 @@ export REPOS_ROOT="$HOME/projects"
 - `jenkins/jobs/pipeline/ai-workflow/rollback/Jenkinsfile` - フェーズ差し戻し実行（途中フェーズからロールバック）
 - `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` - 自動Issue生成（エラー検出時のIssue化）
 - `jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile` - Issue本文再設計実行（リポジトリ文脈を参照した既存Issue改善）
+- `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` - Issue分割実行（複雑なIssueを1 Issue = 1 Taskの原則で子Issue化）
 - `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` - ワークフロー完了処理（成果物の集約と通知）
 - `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` - 認証情報検証（必要な資格情報の事前チェック）
 - `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` - Issue自動クローズ（完了済みIssueの片付け）

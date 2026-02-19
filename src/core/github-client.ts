@@ -5,6 +5,7 @@ import { Octokit } from '@octokit/rest';
 import { MetadataManager } from './metadata-manager.js';
 import { RemainingTask, IssueContext, type IssueGenerationOptions } from '../types.js';
 import { IssueClient, type IssueCreationResult } from './github/issue-client.js';
+import type { BulkIssueResult } from '../types/split-issue.js';
 import { PullRequestClient, type PullRequestSummary, type PullRequestResult } from './github/pull-request-client.js';
 import { CommentClient, type ProgressCommentResult } from './github/comment-client.js';
 import { ReviewClient } from './github/review-client.js';
@@ -26,6 +27,7 @@ export type {
   IssueCreationResult,
   GenericResult as IssueGenericResult,
 } from './github/issue-client.js';
+export type { BulkIssueResult } from '../types/split-issue.js';
 export type {
   PullRequestSummary,
   PullRequestResult,
@@ -175,6 +177,12 @@ export class GitHubClient {
 
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {
     return this.issueClient.closeIssueWithReason(issueNumber, reason);
+  }
+
+  public async createMultipleIssues(
+    issues: Array<{ title: string; body: string; labels?: string[] }>,
+  ): Promise<BulkIssueResult> {
+    return this.issueClient.createMultipleIssues(issues);
   }
 
   public async createIssueFromEvaluation(

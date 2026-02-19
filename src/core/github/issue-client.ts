@@ -18,6 +18,7 @@ import {
   type FollowUpContext,
   type GeneratedIssue,
 } from './issue-agent-generator.js';
+import type { BulkIssueResult } from '../../types/split-issue.js';
 
 export interface IssueInfo {
   number: number;
@@ -186,6 +187,58 @@ export class IssueClient {
       logger.error(`Failed to update issue #${issueNumber}: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
     }
+  }
+
+  /**
+   * 複数Issueを逐次作成する
+   */
+  public async createMultipleIssues(
+    issues: Array<{ title: string; body: string; labels?: string[] }>,
+  ): Promise<BulkIssueResult> {
+    const created: BulkIssueResult['created'] = [];
+    const failed: BulkIssueResult['failed'] = [];
+
+    for (let i = 0; i < issues.length; i += 1) {
+      const issue = issues[i];
+      try {
+        const { data } = await this.octokit.issues.create({
+          owner: this.owner,
+          repo: this.repo,
+          title: issue.title,
+          body: issue.body,
+          labels: issue.labels?.length ? issue.labels : undefined,
+        });
+
+        created.push({
+          issueNumber: data.number,
+          issueUrl: data.html_url ?? '',
+          title: issue.title,
+        });
+
+        logger.info(`Created issue #${data.number}: ${issue.title}`);
+      } catch (error) {
+        const message =
+          error instanceof RequestError
+            ? `GitHub API error: ${error.status} - ${error.message}`
+            : getErrorMessage(error);
+
+        failed.push({
+          index: i,
+          title: issue.title,
+          error: message,
+        });
+
+        logger.error(
+          `Failed to create issue ${i + 1}/${issues.length}: ${this.encodeWarning(message)}`,
+        );
+      }
+    }
+
+    return {
+      success: failed.length === 0,
+      created,
+      failed,
+    };
   }
 
   /**

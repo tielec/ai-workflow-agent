@@ -474,4 +474,129 @@ describe('IssueClient', () => {
       consoleErrorSpy.mockRestore();
     });
   });
+
+  describe('createMultipleIssues', () => {
+    it('全件成功で作成結果を返す (TC-UNIT-IC001)', async () => {
+      // 意図: 全件成功時の戻り値を確認する
+      mockOctokit.issues.create
+        .mockResolvedValueOnce({ data: { number: 101, html_url: 'https://example.com/1' } } as any)
+        .mockResolvedValueOnce({ data: { number: 102, html_url: 'https://example.com/2' } } as any)
+        .mockResolvedValueOnce({ data: { number: 103, html_url: 'https://example.com/3' } } as any);
+
+      const result = await issueClient.createMultipleIssues([
+        { title: 'Issue 1', body: 'Body 1', labels: ['bug'] },
+        { title: 'Issue 2', body: 'Body 2', labels: ['enhancement'] },
+        { title: 'Issue 3', body: 'Body 3' },
+      ]);
+
+      expect(mockOctokit.issues.create).toHaveBeenCalledTimes(3);
+      expect(mockOctokit.issues.create).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        title: 'Issue 1',
+        body: 'Body 1',
+        labels: ['bug'],
+      });
+      expect(result).toEqual({
+        success: true,
+        created: [
+          { issueNumber: 101, issueUrl: 'https://example.com/1', title: 'Issue 1' },
+          { issueNumber: 102, issueUrl: 'https://example.com/2', title: 'Issue 2' },
+          { issueNumber: 103, issueUrl: 'https://example.com/3', title: 'Issue 3' },
+        ],
+        failed: [],
+      });
+    });
+
+    it('部分的失敗でも継続して結果を返す (TC-UNIT-IC002)', async () => {
+      // 意図: 途中失敗でも残りが続行されることを確認する
+      const requestError = new RequestError('rate limit', 403, {
+        request: { method: 'POST', url: 'https://api.github.com/repos/owner/repo/issues', headers: {} },
+        response: { status: 403, url: '', headers: {}, data: {} },
+      });
+      mockOctokit.issues.create
+        .mockResolvedValueOnce({ data: { number: 101, html_url: 'https://example.com/1' } } as any)
+        .mockRejectedValueOnce(requestError)
+        .mockResolvedValueOnce({ data: { number: 103, html_url: 'https://example.com/3' } } as any);
+
+      const result = await issueClient.createMultipleIssues([
+        { title: 'Issue 1', body: 'Body 1' },
+        { title: 'Issue 2', body: 'Body 2' },
+        { title: 'Issue 3', body: 'Body 3' },
+      ]);
+
+      expect(mockOctokit.issues.create).toHaveBeenCalledTimes(3);
+      expect(result.success).toBe(false);
+      expect(result.created).toHaveLength(2);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0]).toEqual({
+        index: 1,
+        title: 'Issue 2',
+        error: expect.stringContaining('GitHub API error'),
+      });
+    });
+
+    it('全件失敗時の結果を返す (TC-UNIT-IC003)', async () => {
+      // 意図: 全件失敗時の結果を確認する
+      const requestError = new RequestError('bad', 500, {
+        request: { method: 'POST', url: 'https://api.github.com/repos/owner/repo/issues', headers: {} },
+        response: { status: 500, url: '', headers: {}, data: {} },
+      });
+      mockOctokit.issues.create.mockRejectedValue(requestError);
+
+      const result = await issueClient.createMultipleIssues([
+        { title: 'Issue 1', body: 'Body 1' },
+        { title: 'Issue 2', body: 'Body 2' },
+      ]);
+
+      expect(result.success).toBe(false);
+      expect(result.created).toEqual([]);
+      expect(result.failed).toHaveLength(2);
+    });
+
+    it('空配列ならAPIを呼ばない (TC-UNIT-IC004)', async () => {
+      // 意図: 空配列時にAPIが呼ばれないことを確認する
+      const result = await issueClient.createMultipleIssues([]);
+
+      expect(mockOctokit.issues.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ success: true, created: [], failed: [] });
+    });
+
+    it('ラベル付きIssue作成の引数を検証する (TC-UNIT-IC005/006)', async () => {
+      // 意図: labels指定/未指定の扱いを確認する
+      mockOctokit.issues.create.mockResolvedValue({ data: { number: 1, html_url: 'https://example.com/1' } } as any);
+
+      await issueClient.createMultipleIssues([
+        { title: 'Issue 1', body: 'Body 1', labels: ['bug', 'priority:high'] },
+        { title: 'Issue 2', body: 'Body 2' },
+      ]);
+
+      expect(mockOctokit.issues.create).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        title: 'Issue 1',
+        body: 'Body 1',
+        labels: ['bug', 'priority:high'],
+      });
+      expect(mockOctokit.issues.create).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        title: 'Issue 2',
+        body: 'Body 2',
+        labels: undefined,
+      });
+    });
+
+    it('一般エラーを適切にハンドリングする (TC-UNIT-IC007)', async () => {
+      // 意図: RequestError以外のエラーを検証する
+      mockOctokit.issues.create.mockRejectedValue(new TypeError('Network error'));
+
+      const result = await issueClient.createMultipleIssues([
+        { title: 'Issue 1', body: 'Body 1' },
+      ]);
+
+      expect(result.success).toBe(false);
+      expect(result.failed[0].error).toContain('Network error');
+    });
+  });
 });

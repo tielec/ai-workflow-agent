@@ -259,8 +259,8 @@ describe('Prompt language switching integration', () => {
   });
 
   test('prompt inventory matches expected counts by language', () => {
-    expect(collectPromptFiles('en').length).toBe(48);
-    expect(collectPromptFiles('ja').length).toBe(48);
+    expect(collectPromptFiles('en').length).toBe(49);
+    expect(collectPromptFiles('ja').length).toBe(49);
   });
 
   test('auto-issue and utility prompts include language instructions', () => {

@@ -132,6 +132,27 @@ src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #6
      ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
      └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
 
+src/commands/split-issue.ts (Issue分割コマンド処理、Issue #710で追加)
+ ├─ handleSplitIssueCommand() … split-issue コマンドハンドラ
+ ├─ parseOptions() … CLIオプションパース（issue, language, agent, apply, dryRun, maxSplits）
+ ├─ parseSplitResponseText() … エージェント出力テキストのJSON解析（4段階フォールバック）
+ │   ├─ ファイルパスからの読み込み
+ │   ├─ Markdownコードブロック抽出
+ │   ├─ ブレース追跡による抽出
+ │   └─ 構造化テキストからの抽出
+ ├─ buildSplitResponseFromParsed() … パース結果からSplitResponse構築
+ ├─ validateSplitResponse() … SplitResponse の必須フィールド検証
+ ├─ calculateDefaultMetrics() … デフォルトメトリクス（複雑度・依存度・優先度）の算出
+ ├─ displaySplitPreview() … 分割プレビュー表示（子Issue一覧、依存関係グラフ）
+ ├─ buildParentComment() … 親Issueへのコメント本文生成（チェックリスト形式）
+ ├─ createOutputFilePath() … 出力ファイルパス生成
+ └─ 関連モジュール利用
+     ├─ IssueClient.getIssue() … 親Issue情報取得
+     ├─ IssueClient.createMultipleIssues() … 子Issue一括作成（部分失敗許容）
+     ├─ IssueClient.postComment() … 親Issueへコメント投稿
+     ├─ PromptLoader.loadPrompt() … 言語別プロンプト読み込み
+     └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
+
 src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）
@@ -279,6 +300,8 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/auto-close-issue.ts` | 既存Issueの検品と自動クローズコマンド（Issue #645）。`handleAutoCloseIssueCommand()` でカテゴリ別フィルタ（followup/stale/old/all）、信頼度閾値、dry-run（既定ON）、除外ラベル、対話承認、Codex/Claude選択を制御し、結果サマリーを出力。 |
 | `src/commands/rewrite-issue.ts` | Issue本文再設計コマンド処理（Issue #669で追加）。`handleRewriteIssueCommand()` でリポジトリコンテキストを参照して既存Issue本文を再設計。`parseOptions()`, `validateEnvironment()`, `getRepositoryContext()`, `executeRewriteWithAgent()`, `parseAgentResponse()`, `generateUnifiedDiff()`, `calculateDefaultMetrics()`, `displayDiffPreview()` を提供。dry-runモード（デフォルト）で差分プレビューを表示、`--apply` で実際にIssueを更新。完全性スコア・具体性スコアの採点指標も表示。 |
+| `src/commands/split-issue.ts` | Issue分割コマンド処理（Issue #710で追加）。`handleSplitIssueCommand()` で複雑なIssueを「1 Issue = 1 Task」の原則に基づいて複数の子Issueに自動分割。`parseOptions()`, `parseSplitResponseText()`, `buildSplitResponseFromParsed()`, `validateSplitResponse()`, `calculateDefaultMetrics()`, `displaySplitPreview()`, `buildParentComment()`, `createOutputFilePath()` を提供。dry-runモード（デフォルト）で分割プレビューを表示、`--apply` で子Issue作成＋親Issueコメント投稿。4段階JSONパースフォールバック（ファイル→コードブロック→ブレース追跡→構造化テキスト）、`IssueClient.createMultipleIssues()` による部分失敗許容の一括作成、`--max-splits` で分割数上限制御をサポート。 |
+| `src/types/split-issue.ts` | Issue分割コマンドの型定義（Issue #710で追加）。`SplitIssueOptions`（CLIオプション）、`SplitResponse`（エージェント出力全体）、`ChildIssue`（子Issue定義）、`ChildIssueMetrics`（複雑度・依存度・優先度）、`BulkIssueResult`（一括作成結果: created/failed配列）等の型を提供。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約930行、v0.4.0、Issue #90/#271で追加）。**手動rollback**（Issue #90）と**自動rollback**（Issue #271）の2つのモードを提供。手動rollbackは `handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供し、差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。自動rollbackは `handleRollbackAutoCommand()` を提供し、AIエージェント（Codex/Claude）による自動差し戻し判定機能を実現。コンテキスト収集（`collectAnalysisContext()`, `findLatestReviewResult()`, `findLatestTestResult()`）、プロンプト構築（`buildAgentPrompt()`）、JSON パース（`parseRollbackDecision()`, 3つのフォールバックパターン）、バリデーション（`validateRollbackDecision()`）、信頼度ベース確認（`confirmRollbackAuto()`）を含む。エージェントは metadata.json, review results, test results を分析し、needs_rollback, to_phase, to_step, confidence, reason, analysis を含む RollbackDecision を返す。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
@@ -318,10 +341,10 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
 | `src/utils/pr-body-checklist-utils.ts` | PR本文チェックリスト更新ユーティリティ（約150行、Issue #325で追加）。PR bodyのワークフロー進捗チェックリストを自動更新する純粋関数群を提供。`updatePhaseChecklistInPrBody()`, `hasWorkflowChecklist()`, `PHASE_CHECKLIST_MAP` を提供。フェーズ名（`planning`〜`report`）から表示名（`Phase 0: Planning`〜`Phase 8: Report`）へのマッピング、正規表現による安全な置換処理（特殊文字エスケープ）、冪等性保証（既チェック項目の保護）を実装。PhaseRunner の `finalizePhase()` から呼び出され、各フェーズ完了時にPR本文を自動更新。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。Issue #243でパースロジックを改善：`extractJsonFromResponse()`（JSON抽出前処理）と`inferDecisionFromText()`（マーカーパターン優先判定）を追加し、LLMレスポンス形式の多様性に対応。 |
-| `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、auto-close、pr-comment、rollback、difficulty、followup、squash、content_parser、validation の各モジュールで利用。 |
+| `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、auto-close、pr-comment、rollback、difficulty、followup、squash、content_parser、validation、split-issue の各モジュールで利用。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
 | `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
-| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合）。Issue取得、オープンIssue一覧取得、コメント投稿、クローズ、ラベル追加、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）** を担当。auto-close-issue では `listOpenIssues()`/`closeIssue()`/`addLabels()` を再利用。 |
+| `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合、Issue #710で一括作成追加）。Issue取得、オープンIssue一覧取得、コメント投稿、クローズ、ラベル追加、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）**、**`createMultipleIssues()` による一括Issue作成（部分失敗許容、BulkIssueResult返却）** を担当。auto-close-issue では `listOpenIssues()`/`closeIssue()`/`addLabels()` を再利用。split-issue では `getIssue()`/`createMultipleIssues()`/`postComment()` を利用。 |
 | `src/core/issue-inspector.ts` | Issue検品ロジック（Issue #645）。カテゴリ別フィルタ（followup/stale/old/all）、除外ラベル・直近更新除外（7日以内）、親Issue/最新コメント収集を行い、Codex/Claudeで検品プロンプトを実行。JSON出力をパース・信頼度フィルタし、dry-runプレビュー or クローズ＋`auto-closed` ラベル付与を実施。 |
 | `src/core/github/issue-ai-generator.ts` | フォローアップIssue用LLM生成エンジン（約450行、Issue #119で追加）。プロンプト生成、OpenAI/Anthropicアダプタ、レスポンス検証、リトライ制御、サニタイズ処理を担当。 |
 | `src/core/github/issue-agent-generator.ts` | フォローアップIssue用エージェント生成エンジン（約385行、Issue #174で追加）。エージェント（Codex/Claude）を使用してフォローアップIssueのタイトル・本文を生成。ファイルベース出力方式、2段階フォールバック（Codex→Claude、Agent→LLM API）、5必須セクション検証、テンプレートベースフォールバック生成を提供。 |
