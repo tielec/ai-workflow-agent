@@ -16,6 +16,7 @@ type IssuesApiMock = {
 type PullsApiMock = {
   create: MockedFunction<Method<Octokit['pulls']['create']>>;
   list: MockedFunction<Method<Octokit['pulls']['list']>>;
+  get: MockedFunction<Method<Octokit['pulls']['get']>>;
   update: MockedFunction<Method<Octokit['pulls']['update']>>;
 };
 
@@ -59,6 +60,7 @@ export function createMockOctokit(overrides?: MockOctokitApis): MockOctokit {
   const pulls: PullsApiMock = {
     create: createFunctionMock<Method<Octokit['pulls']['create']>>(),
     list: createFunctionMock<Method<Octokit['pulls']['list']>>(),
+    get: createFunctionMock<Method<Octokit['pulls']['get']>>(),
     update: createFunctionMock<Method<Octokit['pulls']['update']>>(),
     ...overrides?.pulls,
   };

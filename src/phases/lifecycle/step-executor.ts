@@ -82,6 +82,9 @@ export class StepExecutor {
 
     logger.info(`Phase ${this.phaseName}: Starting execute step...`);
     this.metadata.updateCurrentStep(this.phaseName, 'execute');
+    if (gitManager) {
+      await this.commitAndPushStepStart(gitManager, 'execute');
+    }
 
     try {
       // BasePhase.execute() を呼び出し
@@ -188,6 +191,9 @@ export class StepExecutor {
 
     logger.info(`Phase ${this.phaseName}: Starting review step...`);
     this.metadata.updateCurrentStep(this.phaseName, 'review');
+    if (gitManager) {
+      await this.commitAndPushStepStart(gitManager, 'review');
+    }
 
     try {
       // BasePhase.review() を呼び出し
@@ -253,6 +259,11 @@ export class StepExecutor {
       async (step: 'execute' | 'review' | 'revise') => {
         if (gitManager) {
           await this.commitAndPushStep(gitManager, step);
+        }
+      },
+      async (step: 'execute' | 'review' | 'revise') => {
+        if (gitManager) {
+          await this.commitAndPushStepStart(gitManager, step);
         }
       }
     );
@@ -332,6 +343,59 @@ export class StepExecutor {
       this.metadata.updateCurrentStep(this.phaseName, step);
 
       throw error;
+    }
+  }
+
+  /**
+   * Issue #720: ステップ開始時に metadata.json を Git コミット＆プッシュ
+   *
+   * 進捗通知目的のため、失敗してもワークフローをブロックしない。
+   *
+   * @param gitManager - Git マネージャー
+   * @param step - 開始するステップ（'execute' | 'review' | 'revise'）
+   */
+  private async commitAndPushStepStart(
+    gitManager: GitManager,
+    step: 'execute' | 'review' | 'revise'
+  ): Promise<void> {
+    try {
+      const issueNumber = parseInt(this.metadata.data.issue_number, 10);
+      if (Number.isNaN(issueNumber)) {
+        logger.warn(`Phase ${this.phaseName}: Invalid issue number for step start commit`);
+        return;
+      }
+
+      const phaseNumber = this.getPhaseNumberInt(this.phaseName);
+
+      logger.info(`Phase ${this.phaseName}: Committing ${step} step start...`);
+
+      const commitResult = await gitManager.commitStepStart(
+        this.phaseName,
+        phaseNumber,
+        step,
+        issueNumber,
+      );
+
+      if (!commitResult.success) {
+        logger.warn(
+          `Phase ${this.phaseName}: Failed to commit step start (${step}): ${commitResult.error ?? 'unknown error'}`
+        );
+        return;
+      }
+
+      const pushResult = await gitManager.pushToRemote(3);
+      if (!pushResult.success) {
+        logger.warn(
+          `Phase ${this.phaseName}: Failed to push step start (${step}): ${pushResult.error ?? 'unknown error'}`
+        );
+        return;
+      }
+
+      logger.info(`Phase ${this.phaseName}: Step ${step} start committed and pushed`);
+    } catch (error) {
+      logger.warn(
+        `Phase ${this.phaseName}: Failed to commit step start (${step}): ${getErrorMessage(error)}`
+      );
     }
   }
 

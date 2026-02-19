@@ -1049,6 +1049,40 @@ node dist/index.js pr-comment execute --pr 123 --batch-size 10
 - **プロンプト**: `src/prompts/pr-comment/analyze.txt`
 - **GitHub API**: PRレビューコメント取得（REST）、スレッド解決（GraphQL mutation）、返信投稿
 
+### resolve-conflict コマンド（Issue #719）
+
+Pull Request のマージコンフリクトを AI で分析・解消する 4 フェーズコマンドです。
+
+```bash
+# init: メタデータ作成とブランチ fetch
+node dist/index.js resolve-conflict init --pr-url <PR_URL>
+
+# analyze: コンフリクト解析と解消計画の生成
+node dist/index.js resolve-conflict analyze --pr-url <PR_URL> --agent auto
+
+# execute: 解消計画に従って解消（dry-run でプレビュー）
+node dist/index.js resolve-conflict execute --pr-url <PR_URL> --dry-run
+
+# finalize: push と PR コメント投稿
+node dist/index.js resolve-conflict finalize --pr-url <PR_URL> --push
+```
+
+**主なオプション**:
+- `--pr-url <url>`: PR URL（必須）
+- `--agent <auto|codex|claude>`: 使用エージェント（analyze/execute）
+- `--dry-run`: 変更のプレビューのみ（execute）
+- `--push`: リモートへ push（finalize）
+- `--squash`: 1コミット前提のガイド表示（finalize）
+- `--language <ja|en>`: 出力言語
+
+**生成される成果物**:
+- `.ai-workflow/conflict-<pr>/metadata.json`
+- `.ai-workflow/conflict-<pr>/resolution-plan.json`
+- `.ai-workflow/conflict-<pr>/resolution-result.json`
+
+**詳細**:
+- `docs/CONFLICT_RESOLUTION.md` を参照
+
 ### コミットスカッシュ（Issue #194で追加）
 ```bash
 # ワークフロー完了後にコミットをスカッシュ
@@ -1078,4 +1112,3 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）
 - `--ignore-dependencies`: 警告を表示するが実行を継続
 - `--force-reset`: メタデータをクリアして Phase 0 から再開
-

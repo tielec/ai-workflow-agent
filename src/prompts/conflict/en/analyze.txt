@@ -1,0 +1,29 @@
+# Merge Conflict Resolution Plan (Analyze)
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Analyze the merge conflict context below and output a JSON resolution plan.
+
+## Input (JSON)
+{merge_context_json}
+
+## Rules
+- Sensitive files (.env, *.pem, *.key, etc.) must be placed in `skippedFiles`
+- `resolutions` must include per-file strategies
+- `strategy` must be one of `both | ours | theirs | manual-merge`
+- `resolvedContent` must contain the full resolved file content
+- Output **JSON only** (no extra explanations or code blocks)
+
+## Output Format
+{
+  "resolutions": [
+    {
+      "filePath": "src/example.ts",
+      "strategy": "manual-merge",
+      "resolvedContent": "...",
+      "notes": "Reasoning or notes"
+    }
+  ],
+  "skippedFiles": [".env"],
+  "warnings": [".env requires manual resolution"]
+}

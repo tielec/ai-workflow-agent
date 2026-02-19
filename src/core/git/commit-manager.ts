@@ -258,6 +258,63 @@ export class CommitManager {
   }
 
   /**
+   * Issue #720: Commit metadata.json at step start
+   *
+   * metadata.json のみを対象とした軽量コミットを実行する。
+   * FileSelector/SecretMasker は使用しない。
+   */
+  public async commitStepStart(
+    phaseName: PhaseName,
+    phaseNumber: number,
+    step: StepName,
+    issueNumber: number,
+  ): Promise<CommitResult> {
+    try {
+      const metadataPath = `.ai-workflow/issue-${issueNumber}/metadata.json`;
+      const fullPath = join(this.repoPath, metadataPath);
+      if (!existsSync(fullPath)) {
+        logger.warn(`Step start commit: metadata.json not found at ${metadataPath}`);
+        return {
+          success: false,
+          commit_hash: null,
+          files_committed: [],
+          error: `metadata.json not found: ${metadataPath}`,
+        };
+      }
+
+      await this.git.add([metadataPath]);
+      await this.ensureGitConfig();
+
+      const message = this.messageBuilder.buildStepStartCommitMessage(
+        phaseName,
+        phaseNumber,
+        step,
+        issueNumber,
+      );
+
+      const commitResponse = await this.git.commit(message, [metadataPath], {
+        '--no-verify': null,
+      });
+
+      logger.info(`Step start commit created: ${commitResponse.commit ?? 'unknown'}`);
+
+      return {
+        success: true,
+        commit_hash: commitResponse.commit ?? null,
+        files_committed: [metadataPath],
+      };
+    } catch (error) {
+      logger.error(`Step start commit failed: ${getErrorMessage(error)}`);
+      return {
+        success: false,
+        commit_hash: null,
+        files_committed: [],
+        error: `Step start commit failed: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  /**
    * Issue #16: Commit workflow initialization files
    */
   public async commitWorkflowInit(

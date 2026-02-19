@@ -1,0 +1,18 @@
+# Merge Conflict Resolution (Generate)
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+Generate the fully resolved file content based on the details below.
+
+## Target File
+{file_path}
+
+## Strategy
+{strategy}
+
+## Current Content
+{current_content}
+
+## Output
+- Output the **entire file content only**
+- Do not include conflict markers (<<<<<<<, =======, >>>>>>>)
