@@ -213,6 +213,85 @@ node dist/index.js rewrite-issue --issue 123 --language ja --agent auto
 - `GITHUB_TOKEN` にはIssue更新権限（`repo` スコープ）が必要
 - Jenkins実行時は、Docker エージェント内でリポジトリが自動クローンされます
 
+### split-issue コマンド（Issue #715で追加）
+
+複雑なGitHub Issueを機能単位で複数の子Issueに分割するコマンドです。AIエージェント（Codex/Claude）がIssueを分析し、各子Issueが独立して完結できる粒度に分割します。デフォルトではdry-runモードで動作し、`--apply` オプションで実際にIssueを作成します。
+
+```bash
+# プレビューモード（デフォルト: dry-run）
+node dist/index.js split-issue --issue 123
+
+# 実際にIssueを作成
+node dist/index.js split-issue --issue 123 --apply
+
+# 分割数の上限を5に制限
+node dist/index.js split-issue --issue 123 --max-splits 5 --apply
+
+# 英語出力・Claude指定
+node dist/index.js split-issue --issue 123 --language en --agent claude --apply
+```
+
+**オプション**:
+- `--issue <number>`: 分割対象のIssue番号（**必須**）
+- `--language <ja|en>`: 出力言語（デフォルト: `ja`）
+- `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
+- `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
+- `--apply`: 実際にGitHub Issueを作成（dry-runと排他）
+- `--max-splits <number>`: 分割Issueの最大数（デフォルト: `10`、範囲: 1〜20）
+
+**主な機能**:
+- **Issue情報取得**: GitHub APIを通じて対象Issueのタイトル・本文を取得
+- **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造情報を取得
+- **機能単位分割**: AIエージェントが「1 Issue = 1 機能」の原則で分割を提案
+- **工程分割の禁止**: 「要件定義」「実装」「テスト」のような工程単位での分割は行わない
+- **プレビュー表示**: dry-runモードで分割結果のプレビュー（タイトル、本文抜粋、ラベル、優先度、品質メトリクス）を表示
+- **子Issue一括作成**: `--apply` オプションで子Issueを逐次作成（GitHub APIレート制限対策）
+- **元Issueへのコメント投稿**: 作成された子Issueへのリンク一覧を元Issueにコメントとして自動投稿
+- **部分失敗許容**: 一部のIssue作成に失敗しても、成功した分は保持して処理を継続
+
+**出力例（dry-runモード）**:
+```
+╔══════════════════════════════════════════════════════════════╗
+║             SPLIT-ISSUE PREVIEW (dry-run)                   ║
+╠══════════════════════════════════════════════════════════════╣
+
+📋 分割概要: このIssueを3つの機能Issueに分割しました
+📊 分割数: 3 件
+
+────────────────────────────────────────────────────────────────
+Issue #1: CLIオプションのパースとバリデーション機能
+  本文: ## 概要 CLIオプションのパースとバリデーション機能を実装する...
+  ラベル: enhancement
+  優先度: high
+────────────────────────────────────────────────────────────────
+
+📈 METRICS
+  Completeness: 85/100
+  Specificity:  70/100
+
+╚══════════════════════════════════════════════════════════════╝
+
+💡 To apply these changes, run with --apply option.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（Issue作成・コメント投稿権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/split-issue.ts`
+- **型定義**: `src/types/split-issue.ts`
+- **プロンプトテンプレート**: `src/prompts/split-issue/{ja|en}/split-issue.txt`
+- **IssueClient拡張**: `createMultipleIssues()` メソッドで子Issueを逐次作成
+- **GitHubClientファサード**: `createMultipleIssues()` ファサードメソッドを追加
+
+**安全運用のヒント**:
+- まずdry-run（デフォルト）で分割プレビューを確認し、問題がなければ `--apply` で実行する
+- `--max-splits` オプションで分割数を制限し、過度な分割を防ぐ
+- 一部のIssue作成に失敗した場合、成功した子Issueの一覧がログに出力される
+- 元Issueへのコメント投稿に失敗しても、子Issueの作成結果は保持される
+- `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。
