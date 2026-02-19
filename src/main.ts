@@ -16,9 +16,14 @@ import { handlePRCommentInitCommand } from './commands/pr-comment/init.js';
 import { handlePRCommentAnalyzeCommand } from './commands/pr-comment/analyze.js';
 import { handlePRCommentExecuteCommand } from './commands/pr-comment/execute.js';
 import { handlePRCommentFinalizeCommand } from './commands/pr-comment/finalize.js';
+import { handleResolveConflictInitCommand } from './commands/resolve-conflict/init.js';
+import { handleResolveConflictAnalyzeCommand } from './commands/resolve-conflict/analyze.js';
+import { handleResolveConflictExecuteCommand } from './commands/resolve-conflict/execute.js';
+import { handleResolveConflictFinalizeCommand } from './commands/resolve-conflict/finalize.js';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
+import { handleSplitIssueCommand } from './commands/split-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -337,10 +342,41 @@ export async function runCli(): Promise<void> {
     )
     .option('--apply', 'Apply changes to GitHub Issue', false)
     .option('--dry-run', 'Preview mode (default)', false)
+    .option(
+      '--custom-instruction <text>',
+      'Custom instruction for rewrite guidance (max 500 chars)',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);
         await handleRewriteIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // split-issue コマンド
+  program
+    .command('split-issue')
+    .description('Split complex GitHub Issue into feature-based sub-issues')
+    .requiredOption('--issue <number>', 'Issue number to split')
+    .addOption(
+      new Option('--language <lang>', 'Output language')
+        .choices(['ja', 'en'])
+        .default('ja'),
+    )
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .option('--apply', 'Create GitHub Issues', false)
+    .option('--dry-run', 'Preview mode (default)', false)
+    .option('--max-splits <number>', 'Maximum number of split issues', '10')
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleSplitIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }
@@ -479,6 +515,76 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handlePRCommentFinalizeCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // resolve-conflict コマンド
+  const resolveConflict = program
+    .command('resolve-conflict')
+    .description('AI-powered merge conflict resolution for Pull Requests');
+
+  resolveConflict
+    .command('init')
+    .requiredOption('--pr-url <url>', 'Pull Request URL')
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleResolveConflictInitCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  resolveConflict
+    .command('analyze')
+    .requiredOption('--pr-url <url>', 'Pull Request URL')
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleResolveConflictAnalyzeCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  resolveConflict
+    .command('execute')
+    .requiredOption('--pr-url <url>', 'Pull Request URL')
+    .option('--dry-run', 'Preview mode (do not apply changes)', false)
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleResolveConflictExecuteCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  resolveConflict
+    .command('finalize')
+    .requiredOption('--pr-url <url>', 'Pull Request URL')
+    .option('--push', 'Push resolved commits to remote', false)
+    .option('--squash', 'Squash commits into a single commit', false)
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleResolveConflictFinalizeCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

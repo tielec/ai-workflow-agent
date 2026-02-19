@@ -38,6 +38,7 @@ export class ReviewCycleManager {
    * @param reviseFn - Revise 関数
    * @param postProgressFn - 進捗投稿関数
    * @param commitAndPushStepFn - ステップ単位のコミット＆プッシュ関数
+   * @param commitAndPushStepStartFn - ステップ開始時のコミット＆プッシュ関数
    * @throws エラー時は例外をスロー
    */
   async performReviseStepWithRetry(
@@ -47,6 +48,7 @@ export class ReviewCycleManager {
     reviseFn: (feedback: string) => Promise<PhaseExecutionResult>,
     postProgressFn: (status: PhaseStatus, details?: string) => Promise<void>,
     commitAndPushStepFn: (step: 'execute' | 'review' | 'revise') => Promise<void>,
+    commitAndPushStepStartFn?: (step: 'execute' | 'review' | 'revise') => Promise<void>,
   ): Promise<void> {
     const completedSteps = this.metadata.getCompletedSteps(this.phaseName);
 
@@ -81,6 +83,9 @@ export class ReviewCycleManager {
     while (retryCount < this.maxRetries) {
       logger.info(`Phase ${this.phaseName}: Starting revise step (attempt ${retryCount + 1}/${this.maxRetries})...`);
       this.metadata.updateCurrentStep(this.phaseName, 'revise');
+      if (commitAndPushStepStartFn) {
+        await commitAndPushStepStartFn('revise');
+      }
 
       // Increment retry count in metadata
       const currentRetryCount = this.metadata.incrementRetryCount(this.phaseName);

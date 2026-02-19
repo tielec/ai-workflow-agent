@@ -1,0 +1,29 @@
+# マージコンフリクト解消計画（分析）
+
+**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**
+
+以下のマージコンフリクト文脈を分析し、解消計画をJSONで出力してください。
+
+## 入力（JSON）
+{merge_context_json}
+
+## ルール
+- 機密ファイル（.env, *.pem, *.key など）は `skippedFiles` に入れてください
+- `resolutions` にはファイルごとの解消戦略を記載してください
+- `strategy` は `both | ours | theirs | manual-merge`
+- `resolvedContent` には解消後のファイル全体の内容を記載してください
+- 出力は **JSONのみ**、前後に説明文やコードブロックを付けないでください
+
+## 出力フォーマット
+{
+  "resolutions": [
+    {
+      "filePath": "src/example.ts",
+      "strategy": "manual-merge",
+      "resolvedContent": "...",
+      "notes": "理由や注意点"
+    }
+  ],
+  "skippedFiles": [".env"],
+  "warnings": [".env は手動解消が必要です"]
+}

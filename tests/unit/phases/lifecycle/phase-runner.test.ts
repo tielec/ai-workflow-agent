@@ -92,6 +92,16 @@ function createMockGitHubClient(): any {
 }
 
 /**
+ * モック GitManager を作成
+ */
+function createMockGitManager(): any {
+  return {
+    commitStepStart: jest.fn<any>().mockResolvedValue({ success: true }),
+    pushToRemote: jest.fn<any>().mockResolvedValue({ success: true }),
+  };
+}
+
+/**
  * モック StepExecutor を作成
  */
 function createMockStepExecutor(
@@ -281,6 +291,206 @@ describe('PhaseRunner - run() 正常系（全ステップ成功）', () => {
       expect.any(Function) // postProgressFn
     );
     expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('implementation', 'completed', {});
+  });
+});
+
+describe('PhaseRunner - フェーズ開始時コミット＆プッシュ（Issue #720）', () => {
+  let testWorkflowDir: string;
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-phase-start-commit');
+    await fs.ensureDir(testWorkflowDir);
+    jest.clearAllMocks();
+    mockValidatePhaseDependencies.mockImplementation(() => ({
+      valid: true,
+      violations: [],
+      warnings: []
+    }));
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('TC-720-PR-01: フェーズ開始時にコミット＆プッシュが実行される', async () => {
+    // Given: pending フェーズで gitManager が存在する
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const mockGitManager = createMockGitManager();
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: mockGitManager });
+
+    // Then: フェーズ開始時コミットが実行される
+    expect(result).toBe(true);
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'in_progress', {});
+    expect(mockGitManager.commitStepStart).toHaveBeenCalledTimes(1);
+    expect(mockGitManager.commitStepStart).toHaveBeenCalledWith('design', 2, 'execute', 1);
+    expect(mockGitManager.pushToRemote).toHaveBeenCalledTimes(1);
+
+    const updateOrder = mockMetadata.updatePhaseStatus.mock.invocationCallOrder[0];
+    const commitOrder = mockGitManager.commitStepStart.mock.invocationCallOrder[0];
+    expect(updateOrder).toBeLessThan(commitOrder);
+  });
+
+  test('TC-720-PR-02: フェーズ再開時は開始時コミットがスキップされる', async () => {
+    // Given: フェーズが in_progress の状態
+    const mockMetadata = createMockMetadataManager();
+    mockMetadata.getPhaseStatus = jest.fn<any>().mockReturnValue('in_progress');
+    mockMetadata.getCurrentStep = jest.fn<any>().mockReturnValue('review');
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const mockGitManager = createMockGitManager();
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: mockGitManager });
+
+    // Then: 開始時コミットは実行されない
+    expect(result).toBe(true);
+    expect(mockGitManager.commitStepStart).not.toHaveBeenCalled();
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
+  });
+
+  test('TC-720-PR-03: フェーズ開始時コミット失敗時にワークフローが継続する', async () => {
+    // Given: commitStepStart が失敗する
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const mockGitManager = createMockGitManager();
+    mockGitManager.commitStepStart.mockResolvedValue({ success: false, error: 'Commit error' });
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: mockGitManager });
+
+    // Then: ステップ実行が継続される
+    expect(result).toBe(true);
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
+    expect(mockMetadata.updatePhaseStatus).toHaveBeenCalledWith('design', 'completed', {});
+  });
+
+  test('TC-720-PR-04: gitManager が null の場合は開始時コミットがスキップされる', async () => {
+    // Given: gitManager が null
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: null });
+
+    // Then: 開始時コミットは実行されず、ステップは続行される
+    expect(result).toBe(true);
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
+  });
+
+  test('TC-720-PR-05: フェーズ開始時プッシュ失敗時にワークフローが継続する', async () => {
+    // Given: pushToRemote が失敗する
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const mockGitManager = createMockGitManager();
+    mockGitManager.pushToRemote.mockResolvedValue({ success: false, error: 'Push error' });
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: mockGitManager });
+
+    // Then: ステップ実行が継続される
+    expect(result).toBe(true);
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
+  });
+
+  test('TC-720-PR-06: フェーズ開始時コミットで例外がスローされてもワークフローが継続する', async () => {
+    // Given: commitStepStart が例外をスローする
+    const mockMetadata = createMockMetadataManager();
+    const mockGitHub = createMockGitHubClient();
+    const mockStepExecutor = createMockStepExecutor();
+    const mockGitManager = createMockGitManager();
+    mockGitManager.commitStepStart.mockRejectedValue(new Error('Network error'));
+    const reviseFn = jest.fn<any>().mockResolvedValue({ success: true });
+
+    const phaseRunner = new PhaseRunner(
+      'design',
+      mockMetadata,
+      mockGitHub,
+      mockStepExecutor,
+      false,
+      false,
+      undefined,
+      undefined,
+      reviseFn
+    );
+
+    // When: run() を呼び出す
+    const result = await phaseRunner.run({ skipReview: false, gitManager: mockGitManager });
+
+    // Then: ステップ実行が継続される
+    expect(result).toBe(true);
+    expect(mockStepExecutor.executeStep).toHaveBeenCalledTimes(1);
   });
 });
 

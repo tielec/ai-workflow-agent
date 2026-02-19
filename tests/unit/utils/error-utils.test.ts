@@ -9,10 +9,14 @@
  * - Never throw guarantee: All functions must not throw exceptions
  */
 
-import { describe, it, expect } from '@jest/globals';
-import { getErrorMessage, getErrorStack, isError } from '../../../src/utils/error-utils.js';
+import { describe, it, expect, afterEach, jest } from '@jest/globals';
+import { ConflictError, getErrorMessage, getErrorStack, isError } from '../../../src/utils/error-utils.js';
 
 describe('Error Utils Module', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('getErrorMessage()', () => {
     describe('Normal Cases', () => {
       it('should extract message from Error object (TC-U001)', () => {
@@ -140,7 +144,7 @@ describe('Error Utils Module', () => {
       });
     });
 
-    describe('Edge Cases', () => {
+  describe('Edge Cases', () => {
       it('should handle Symbol (TC-U008)', () => {
         // Given: Symbol error
         const error = Symbol('test');
@@ -587,6 +591,34 @@ describe('Error Utils Module', () => {
 
       // Note: (error as Error).message would return undefined at runtime
       // and cause potential issues
+    });
+  });
+
+  describe('ConflictError', () => {
+    it('ConflictError_インスタンス生成_Errorを継承', () => {
+      // Given: ConflictError
+      const error = new ConflictError('Merge conflict detected', ['src/a.ts']);
+
+      // When / Then: Error を継承し、メッセージと名前が正しい
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(ConflictError);
+      expect(error.message).toBe('Merge conflict detected');
+      expect(error.name).toBe('ConflictError');
+      expect(error.conflictFiles).toEqual(['src/a.ts']);
+      expect(isError(error)).toBe(true);
+      expect(getErrorMessage(error)).toBe('Merge conflict detected');
+    });
+
+    it('ConflictError_スタックトレース_正しく取得される', () => {
+      // Given: ConflictError
+      const error = new ConflictError('conflict');
+
+      // When: スタックトレースを取得
+      const stack = getErrorStack(error);
+
+      // Then: スタックトレースが存在する
+      expect(stack).toBeDefined();
+      expect(typeof stack).toBe('string');
     });
   });
 });

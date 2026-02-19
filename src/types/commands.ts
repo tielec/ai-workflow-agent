@@ -617,3 +617,40 @@ export interface PRCommentFinalizeOptions {
   squash?: boolean;
   language?: string;
 }
+
+/**
+ * resolve-conflict init コマンドオプション
+ */
+export interface ResolveConflictInitOptions {
+  prUrl: string;
+  language?: string;
+}
+
+/**
+ * resolve-conflict analyze コマンドオプション
+ */
+export interface ResolveConflictAnalyzeOptions {
+  prUrl: string;
+  agent?: 'auto' | 'codex' | 'claude';
+  language?: string;
+}
+
+/**
+ * resolve-conflict execute コマンドオプション
+ */
+export interface ResolveConflictExecuteOptions {
+  prUrl: string;
+  agent?: 'auto' | 'codex' | 'claude';
+  dryRun?: boolean;
+  language?: string;
+}
+
+/**
+ * resolve-conflict finalize コマンドオプション
+ */
+export interface ResolveConflictFinalizeOptions {
+  prUrl: string;
+  push?: boolean;
+  squash?: boolean;
+  language?: string;
+}

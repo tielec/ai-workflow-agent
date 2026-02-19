@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
+  - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
+  - `auto-issue` コマンドと同一のバリデーションパターンを採用（空文字・空白のみ不可、500文字超過はエラー）
+  - カスタムインストラクション指定時に「追加の指示」セクションをプロンプトに条件付き注入（日本語/英語対応）
+  - `{CUSTOM_INSTRUCTION}` プレースホルダーを `src/prompts/rewrite-issue/{ja,en}/rewrite-issue.txt` に追加
+  - 未指定時は従来どおりの汎用リライトを実行（後方互換性維持）
+  - テストカバレッジ: ユニットテスト16件を追加、全体 `npm run test:unit` 2239件中 2239件成功
+
+- **Issue #720**: `execute` コマンドで各ステップ（execute/review/revise）およびフェーズ開始時に `metadata.json` をGitコミット＆プッシュする機能を追加
+  - `CommitMessageBuilder.buildStepStartCommitMessage()` を新規追加し、`[ai-workflow] Phase {number} ({name}) - {step} started` 形式の開始時コミットメッセージを生成
+  - `CommitManager.commitStepStart()` を新規追加し、`metadata.json` のみを対象とした軽量コミット処理を実装（`FileSelector`・`SecretMasker` 省略によりオーバーヘッドを最小化）
+  - `GitManager.commitStepStart()` プロキシメソッドを新規追加
+  - `StepExecutor.commitAndPushStepStart()` プライベートメソッドを追加し、`executeStep()` / `reviewStep()` の `updateCurrentStep()` 直後に開始時コミット＆プッシュ処理を挿入
+  - `ReviewCycleManager.performReviseStepWithRetry()` にオプショナルパラメータ `commitAndPushStepStartFn` を追加し、revise ステップ開始時のコミット処理を後方互換性を維持しながら実現
+  - `PhaseRunner.commitAndPushPhaseStart()` プライベートメソッドを追加し、フェーズのステータスが `pending` → `in_progress` に変わった直後にコミット＆プッシュを実施（再開時はスキップ）
+  - 開始時コミットはすべて `try-catch` でエラーを吸収し、失敗時も `logger.warn()` でログ出力のみでワークフローをブロックしない設計を採用
+  - これにより「どのフェーズのどのステップが現在実行中か」をリモートリポジトリから確認可能になり、Jenkins パイプラインや外部監視ツールでの進捗把握が可能
+  - 修正ファイル: `src/core/git/commit-message-builder.ts`、`src/core/git/commit-manager.ts`、`src/core/git-manager.ts`、`src/phases/lifecycle/step-executor.ts`、`src/phases/lifecycle/phase-runner.ts`、`src/phases/core/review-cycle-manager.ts`
+  - テストカバレッジ: ユニットテスト23件（`commit-message-builder.test.ts` 5件、`step-executor.test.ts` 12件、`phase-runner.test.ts` 6件）を既存テストファイルに追加、全体 `npm run validate`（lint + test + build）PASS
+
+- **Issue #719**: PRのマージコンフリクトをAIで自動解消する `resolve-conflict` コマンドを新規追加
+  - 4フェーズ構成（`init` → `analyze` → `execute` → `finalize`）で、PR URLを入力として受け取りコンフリクト解消を自動化
+  - `src/commands/resolve-conflict/{init,analyze,execute,finalize}.ts` を新規作成し、各フェーズのコマンドハンドラを実装
+  - `src/core/git/conflict-parser.ts`（コンフリクトマーカー解析、通常形式/diff3形式対応、不完全マーカー検出で `ConflictError` スロー）を新規追加
+  - `src/core/git/merge-context-collector.ts`（マージ文脈収集: gitログ、PR本文、コードスニペット）を新規追加
+  - `src/core/git/conflict-resolver.ts`（AI解消エンジン: 解消計画生成、計画実行、マーカー残存検証、ours/theirs/both戦略対応）を新規追加
+  - `src/core/conflict/metadata-manager.ts`（`.ai-workflow/conflict-<pr>/metadata.json` の永続化管理）を新規追加
+  - `src/types/conflict.ts`（ConflictFile、ResolutionPlan、ConflictMetadata等の型定義）を新規追加
+  - `src/utils/error-utils.ts` に `ConflictError` クラス（`conflictedFiles: string[]` プロパティ付き）と `isConflictError()` 型ガードを追加
+  - `src/core/git/remote-manager.ts` の `pullLatest()` にコンフリクト検出時の `ConflictError` スロー処理を追加
+  - `src/core/github/pull-request-client.ts` に `getMergeableStatus()` メソッド（GraphQL で `mergeable` フィールド取得）を追加
+  - `src/core/github-client.ts` に `getMergeableStatus()` ファサードメソッドを追加
+  - `src/core/git-manager.ts` に `mergeNoCommit()` / `abortMerge()` / `getConflictedFiles()` メソッドを追加
+  - `src/core/pr-comment/change-applier.ts` に unified diff 適用サポートを追加
+  - `src/prompts/conflict/{ja,en}/{analyze,resolve}.txt` プロンプトテンプレートを新規作成（多言語対応）
+  - `PromptLoader` に `'conflict'` カテゴリを追加
+  - `--squash`（スカッシュコミット）、`--agent`（エージェント選択）、`--language`（言語設定）オプションをサポート
+  - 機密ファイル・バイナリファイルのスキップ、マーカー残存チェック等の安全機構を実装
+  - ドキュメント: `docs/CONFLICT_RESOLUTION.md`（利用ガイド）を新規作成、`docs/CLI_REFERENCE.md` に CLI 例を追記、`README.md` にコマンド説明とリンクを追記
+  - 修正・新規ファイル: `src/commands/resolve-conflict/{init,analyze,execute,finalize}.ts`、`src/core/git/{conflict-parser,merge-context-collector,conflict-resolver}.ts`、`src/core/conflict/metadata-manager.ts`、`src/types/conflict.ts`、`src/prompts/conflict/{ja,en}/{analyze,resolve}.txt`、`src/utils/error-utils.ts`、`src/core/git/remote-manager.ts`、`src/core/github/pull-request-client.ts`、`src/core/github-client.ts`、`src/core/git-manager.ts`、`src/core/pr-comment/change-applier.ts`、`src/main.ts`
+  - テストカバレッジ: ユニットテスト117件（9ファイル）+ 統合テスト9件を新規追加、全体 `npm run validate`（lint + test + build）PASS（223 suites / 3043 tests）
+
+- **Issue #715**: 複雑なGitHub Issueを機能単位で複数の子Issueに分割する `split-issue` コマンドを新規追加
+  - `src/commands/split-issue.ts` を新規作成し、CLIオプション解析・環境検証・エージェント実行・結果表示・Issue作成の一連のパイプラインを実装
+  - AIエージェント（Codex/Claude）による機能分割分析を実行し、多段フォールバックJSONパース（ファイル読込→直接パース→Markdownコードブロック抽出→テキスト抽出→空レスポンス）で応答を安全に処理
+  - `--dry-run`（デフォルト）でプレビュー表示、`--apply` で実際にGitHub Issueを逐次作成（レート制限対策の1秒間隔）し、元Issueにコメントを投稿
+  - `--dry-run` と `--apply` の排他バリデーション、`--max-splits`（1〜20、デフォルト10）の範囲バリデーションを実装
+  - `IssueClient.createMultipleIssues()` および `GitHubClient.createMultipleIssues()` ファサードメソッドを新規追加
+  - `PromptLoader` に `'split-issue'` カテゴリを追加し、`src/prompts/split-issue/{ja,en}/split-issue.txt` プロンプトテンプレートを新規作成
+  - プロンプトで「機能単位の分割」を明示的に指示し、要件定義/設計/実装/テストといったプロセス分割を禁止
+  - 修正・新規ファイル: `src/commands/split-issue.ts`、`src/core/issue-client.ts`、`src/core/github-client.ts`、`src/prompts/split-issue/{ja,en}/split-issue.txt`、`src/index.ts`
+  - テストカバレッジ: ユニットテスト19件 + 統合テスト7件を新規追加、全体 `npm run validate`（lint + test + build）PASS（218 suites / 2995 tests）
+
 ### Fixed
 
 - **Issue #706**: ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗を修正

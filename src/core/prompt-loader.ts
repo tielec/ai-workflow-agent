@@ -20,7 +20,9 @@ export type PromptCategory =
   | 'squash'
   | 'content_parser'
   | 'validation'
-  | 'rewrite-issue';
+  | 'rewrite-issue'
+  | 'split-issue'
+  | 'conflict';
 
 export class PromptLoader {
   static loadPrompt(

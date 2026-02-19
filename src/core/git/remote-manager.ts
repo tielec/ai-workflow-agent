@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { logger } from '../../utils/logger.js';
 import { config } from '../config.js';
-import { getErrorMessage } from '../../utils/error-utils.js';
+import { ConflictError, getErrorMessage } from '../../utils/error-utils.js';
 import { sanitizeGitUrl } from '../../utils/git-url-utils.js';
 import type { SimpleGit, PushResult } from 'simple-git';
 import type { MetadataManager } from '../metadata-manager.js';
@@ -218,9 +218,18 @@ export class RemoteManager {
       await this.git.raw(['pull', '--no-rebase', 'origin', targetBranch]);
       return { success: true };
     } catch (error) {
+      const message = getErrorMessage(error);
+      const lowered = message.toLowerCase();
+      if (
+        lowered.includes('merge conflict') ||
+        lowered.includes('conflict') ||
+        lowered.includes('automatic merge failed')
+      ) {
+        throw new ConflictError('Merge conflict detected during pull', undefined);
+      }
       return {
         success: false,
-        error: getErrorMessage(error),
+        error: message,
       };
     }
   }

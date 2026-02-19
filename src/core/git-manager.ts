@@ -129,6 +129,23 @@ export class GitManager {
   }
 
   /**
+   * Issue #720: ステップ開始時のmetadata.jsonをコミット
+   */
+  public async commitStepStart(
+    phaseName: PhaseName,
+    phaseNumber: number,
+    step: StepName,
+    issueNumber: number,
+  ): Promise<CommitResult> {
+    return this.commitManager.commitStepStart(
+      phaseName,
+      phaseNumber,
+      step,
+      issueNumber,
+    );
+  }
+
+  /**
    * Issue #16: ワークフロー初期化用のコミットを作成
    */
   public async commitWorkflowInit(
@@ -208,6 +225,28 @@ export class GitManager {
     branchName?: string,
   ): Promise<{ success: boolean; error?: string | null }> {
     return this.remoteManager.pullLatest(branchName);
+  }
+
+  /**
+   * Resolve-conflict: merge without commit to surface conflicts.
+   */
+  public async mergeNoCommit(branchName: string): Promise<void> {
+    await this.git.raw(['merge', '--no-commit', '--no-ff', branchName]);
+  }
+
+  /**
+   * Resolve-conflict: abort merge to restore clean state.
+   */
+  public async abortMerge(): Promise<void> {
+    await this.git.raw(['merge', '--abort']);
+  }
+
+  /**
+   * Resolve-conflict: list conflicted files.
+   */
+  public async getConflictedFiles(): Promise<string[]> {
+    const status = await this.git.status();
+    return status.conflicted ?? [];
   }
 
   // Squash operations delegation (Issue #194)

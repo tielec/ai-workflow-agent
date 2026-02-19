@@ -132,6 +132,76 @@ src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #6
      ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
      └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
 
+src/commands/split-issue.ts (Issue機能分割コマンド処理、Issue #715で追加)
+ ├─ handleSplitIssueCommand() … split-issue コマンドハンドラ
+ ├─ parseOptions() … CLIオプションパース・バリデーション（--issue, --language, --agent, --apply, --dry-run, --max-splits）
+ ├─ validateEnvironment() … 環境変数検証（GITHUB_REPOSITORY）
+ ├─ executeSplitWithAgent() … AIエージェント（Codex/Claude）でIssueの機能分割分析を実行
+ ├─ readOutputFile() … エージェント出力ファイルの読み込み
+ ├─ parseAgentResponseText() … 多段フォールバックJSON パース（コードブロック → テキスト抽出 → 空レスポンス）
+ ├─ buildSplitResponseFromParsed() … パース結果からSplitAgentResponseを構築（maxSplits制限・デフォルト値適用）
+ ├─ displaySplitPreview() … dry-runモードでの分割プレビュー表示
+ ├─ applySplitIssues() … applyモードでの子Issue一括作成 + 元Issueへのコメント投稿
+ ├─ buildSplitComment() … 元Issueへの分割コメント本文生成
+ └─ 関連モジュール利用
+     ├─ RepositoryAnalyzer … リポジトリコンテキスト取得
+     ├─ IssueClient.createMultipleIssues() … 子Issue逐次作成（Issue #715で追加）
+     ├─ GitHubClient.createMultipleIssues() … ファサードメソッド（Issue #715で追加）
+     ├─ PromptLoader.loadPrompt() … 言語別プロンプトテンプレート読み込み（split-issueカテゴリ）
+     └─ agent-setup.ts … Codex/Claudeエージェント初期化
+
+src/commands/resolve-conflict/init.ts (コンフリクト解消: 初期化コマンド、Issue #719で追加)
+ ├─ handleResolveConflictInitCommand() … resolve-conflict init コマンドハンドラ
+ ├─ PR URL解析 → getMergeableStatus() → base/head fetch → メタデータ初期化
+ └─ ConflictMetadataManager.initialize() … メタデータ保存
+
+src/commands/resolve-conflict/analyze.ts (コンフリクト解消: 分析コマンド、Issue #719で追加)
+ ├─ handleResolveConflictAnalyzeCommand() … resolve-conflict analyze コマンドハンドラ
+ ├─ git merge --no-commit でコンフリクト再現
+ ├─ ConflictParser でコンフリクトマーカー解析
+ ├─ MergeContextCollector で文脈収集
+ ├─ ConflictResolver.createResolutionPlan() で解消計画生成
+ └─ resolution-plan の保存とメタデータ更新
+
+src/commands/resolve-conflict/execute.ts (コンフリクト解消: 実行コマンド、Issue #719で追加)
+ ├─ handleResolveConflictExecuteCommand() … resolve-conflict execute コマンドハンドラ
+ ├─ ConflictResolver.resolve() で解消結果を生成
+ ├─ CodeChangeApplier でファイルに適用
+ ├─ --dry-run ではプレビューのみ（コミットなし）
+ └─ resolution-result の保存とメタデータ更新
+
+src/commands/resolve-conflict/finalize.ts (コンフリクト解消: 完了コマンド、Issue #719で追加)
+ ├─ handleResolveConflictFinalizeCommand() … resolve-conflict finalize コマンドハンドラ
+ ├─ --push 指定時にリモートへ push
+ ├─ PR に解消レポートコメントを投稿
+ └─ ConflictMetadataManager.cleanup() … メタデータクリーンアップ
+
+src/core/git/conflict-parser.ts (コンフリクトマーカー解析、Issue #719で追加)
+ ├─ parseConflictMarkers() … 通常形式・diff3形式のコンフリクトマーカーをパース
+ ├─ hasConflictMarkers() … コンフリクトマーカー有無を判定
+ └─ isBinaryFile() … バイナリファイル判定
+
+src/core/git/merge-context-collector.ts (マージ文脈収集、Issue #719で追加)
+ └─ MergeContextCollector.collect() … Git履歴・PR/Issue情報からAI用文脈を生成
+
+src/core/git/conflict-resolver.ts (AI駆動コンフリクト解消エンジン、Issue #719で追加)
+ ├─ ConflictResolver.createResolutionPlan() … 解消計画を生成
+ ├─ ConflictResolver.resolve() … 解消計画に基づきAIで解消
+ └─ ConflictResolver.validateResolution() … マーカー残存チェック
+
+src/core/conflict/metadata-manager.ts (コンフリクト解消: メタデータ管理、Issue #719で追加)
+ ├─ ConflictMetadataManager.initialize() … メタデータ初期化
+ ├─ ConflictMetadataManager.load() … メタデータ読み込み
+ ├─ ConflictMetadataManager.updateStatus() … ステータス更新
+ └─ ConflictMetadataManager.cleanup() … クリーンアップ
+
+src/types/conflict.ts (コンフリクト解消: 型定義、Issue #719で追加)
+ ├─ ConflictBlock … コンフリクトブロック情報
+ ├─ ConflictResolution … 解消結果
+ ├─ MergeContext … マージ文脈情報
+ ├─ ConflictResolutionPlan … 解消計画
+ └─ ConflictMetadata … メタデータ構造
+
 src/commands/pr-comment/init.ts (PRコメント自動対応: 初期化コマンド、Issue #383で追加、Issue #407で拡張)
  ├─ handlePRCommentInitCommand() … pr-comment init コマンドハンドラ
  ├─ buildRepositoryInfo() … リポジトリ情報構築（Issue #407で--pr-url対応）
@@ -287,8 +357,19 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/pr-comment/finalize.ts` | PRコメント自動対応: 完了コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentFinalizeCommand()` で完了したコメントスレッドをGraphQL mutationで解決し、メタデータをクリーンアップ。`--pr`, `--pr-url`, `--dry-run` オプションをサポート。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下のリポジトリを使用してfinalize処理を実行。 |
 | `src/core/pr-comment/metadata-manager.ts` | PRコメント: メタデータ管理（Issue #383で追加）。`PRCommentMetadataManager` クラスでコメントごとのステータス管理、サマリー計算、コスト追跡を実施。`initialize()`, `load()`, `save()`, `exists()`, `updateStatus()`, `incrementRetry()`, `getPendingComments()`, `addCost()`, `setResolved()`, `cleanup()` を提供。 |
 | `src/core/pr-comment/comment-analyzer.ts` | PRコメント: コメント分析エンジン（Issue #383で追加）。`ReviewCommentAnalyzer` クラスでAIエージェントを使用してコメントを分析し、4種類の解決タイプ（`code_change`, `reply`, `discussion`, `skip`）を判定。`analyze()`, `classifyComment()`, `buildPrompt()`, `parseResult()` を提供。confidence レベルによる自動スキップ機能付き。 |
-| `src/core/pr-comment/change-applier.ts` | PRコメント: コード変更適用エンジン（Issue #383で追加）。`CodeChangeApplier` クラスでファイル変更適用（modify, create, delete）を実施。`apply()`, `validatePath()`, `isExcluded()`, `applyModification()` を提供。セキュリティ機能（パストラバーサル防止、機密ファイル除外）を実装。 |
+| `src/core/pr-comment/change-applier.ts` | PRコメント: コード変更適用エンジン（Issue #383で追加、Issue #719で unified diff 適用サポート追加）。`CodeChangeApplier` クラスでファイル変更適用（modify, create, delete）を実施。`apply()`, `validatePath()`, `isExcluded()`, `applyModification()` を提供。セキュリティ機能（パストラバーサル防止、機密ファイル除外）を実装。**Issue #719で追加**: `diff` フィールドによる unified diff 形式の差分適用をサポート。 |
 | `src/types/pr-comment.ts` | PRコメント: 型定義（Issue #383で追加）。`PRCommentInitOptions`, `PRCommentExecuteOptions`, `PRCommentFinalizeOptions`, `CommentResolutionMetadata`, `CommentMetadata`, `ResolutionMetadata`, `CommentResolution`, `FileChange` 等の型を定義。 |
+| `src/commands/resolve-conflict/init.ts` | コンフリクト解消: 初期化コマンド処理（Issue #719で追加）。`handleResolveConflictInitCommand()` でPR URLからmergeable状態・コンフリクトファイル一覧を取得し、base/headブランチをfetchしてメタデータを初期化。`--pr-url`, `--language` オプションをサポート。 |
+| `src/commands/resolve-conflict/analyze.ts` | コンフリクト解消: 分析コマンド処理（Issue #719で追加）。`handleResolveConflictAnalyzeCommand()` で `git merge --no-commit` によりコンフリクトを再現し、`ConflictParser` でマーカー解析、`MergeContextCollector` で文脈収集、`ConflictResolver.createResolutionPlan()` で解消計画を生成。失敗時は `git merge --abort` で安全にロールバック。 |
+| `src/commands/resolve-conflict/execute.ts` | コンフリクト解消: 実行コマンド処理（Issue #719で追加）。`handleResolveConflictExecuteCommand()` で解消計画に基づきAIで解消し、`CodeChangeApplier` でファイルに適用。`--dry-run` ではプレビューのみ。解消後にコンフリクトマーカー残存チェックを実施。 |
+| `src/commands/resolve-conflict/finalize.ts` | コンフリクト解消: 完了コマンド処理（Issue #719で追加）。`handleResolveConflictFinalizeCommand()` で `--push` 指定時にリモートへpush、PRに解消レポートコメントを投稿、メタデータをクリーンアップ。`--squash` オプションもサポート。 |
+| `src/core/git/conflict-parser.ts` | コンフリクトマーカー解析モジュール（Issue #719で追加）。`parseConflictMarkers()` で通常形式（`<<<<<<<`/`=======`/`>>>>>>>`）とdiff3形式（`|||||||` 含む）の両方を解析。`hasConflictMarkers()` でマーカー有無を判定。不完全マーカー検出時は `ConflictError` をスロー。バイナリファイルはスキップ。 |
+| `src/core/git/merge-context-collector.ts` | マージ文脈収集モジュール（Issue #719で追加）。`MergeContextCollector` クラスで `simple-git` によるGit履歴収集とGitHub APIによるPR/Issue情報取得を統合し、AIエージェント用の `MergeContext` を生成。ログ取得件数は制限あり。 |
+| `src/core/git/conflict-resolver.ts` | AI駆動コンフリクト解消エンジン（Issue #719で追加）。`ConflictResolver` クラスで解消計画生成（`createResolutionPlan()`）、解消実行（`resolve()`）、結果検証（`validateResolution()`）を提供。解消戦略（both/ours/theirs/manual-merge）をサポート。`AgentExecutor` パターンでデュアルエージェント対応。 |
+| `src/core/conflict/metadata-manager.ts` | コンフリクト解消: メタデータ管理（Issue #719で追加）。`ConflictMetadataManager` クラスで `.ai-workflow/conflict-<pr>/metadata.json` の読み書きを担当。`initialize()`, `load()`, `updateStatus()`, `setResolutionPlan()`, `setResolutionResult()`, `cleanup()` を提供。`PRCommentMetadataManager` パターンを踏襲。 |
+| `src/types/conflict.ts` | コンフリクト解消: 型定義（Issue #719で追加）。`ConflictBlock`, `ConflictResolution`, `MergeContext`, `ConflictResolutionPlan`, `ConflictMetadata`, `ResolutionStrategy` 等の型を定義。 |
+| `src/prompts/conflict/{lang}/analyze.txt` | コンフリクト分析プロンプトテンプレート（Issue #719で追加）。コンフリクト文脈情報から解消計画をJSON形式で生成するためのプロンプト。日本語（`ja`）・英語（`en`）の両方を提供。 |
+| `src/prompts/conflict/{lang}/resolve.txt` | コンフリクト解消プロンプトテンプレート（Issue #719で追加）。解消計画に基づいてコンフリクトを解消するためのプロンプト。日本語（`ja`）・英語（`en`）の両方を提供。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約200行、Issue #407で拡張）。Issue/PR URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `parsePullRequestUrl()`, `resolveLocalRepoPath()`, `resolveRepoPathFromPrUrl()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。**Issue #407で追加**: `resolveRepoPathFromPrUrl()`によりPR URLからREPOS_ROOT配下のローカルパスを解決し、`pr-comment`コマンドのマルチリポジトリ対応を実現。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
 | `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
@@ -318,29 +399,29 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/utils/git-url-utils.ts` | Git URLサニタイゼーション（約60行、Issue #54で追加）。`sanitizeGitUrl()` を提供。HTTPS形式のURLからPersonal Access Tokenを除去し、SSH形式は変更せずに返す。 |
 | `src/utils/pr-body-checklist-utils.ts` | PR本文チェックリスト更新ユーティリティ（約150行、Issue #325で追加）。PR bodyのワークフロー進捗チェックリストを自動更新する純粋関数群を提供。`updatePhaseChecklistInPrBody()`, `hasWorkflowChecklist()`, `PHASE_CHECKLIST_MAP` を提供。フェーズ名（`planning`〜`report`）から表示名（`Phase 0: Planning`〜`Phase 8: Report`）へのマッピング、正規表現による安全な置換処理（特殊文字エスケープ）、冪等性保証（既チェック項目の保護）を実装。PhaseRunner の `finalizePhase()` から呼び出され、各フェーズ完了時にPR本文を自動更新。 |
 | `src/core/content-parser.ts` | レビュー結果の解釈や判定を担当（OpenAI API を利用）。Issue #243でパースロジックを改善：`extractJsonFromResponse()`（JSON抽出前処理）と`inferDecisionFromText()`（マーカーパターン優先判定）を追加し、LLMレスポンス形式の多様性に対応。 |
-| `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、auto-close、pr-comment、rollback、difficulty、followup、squash、content_parser、validation の各モジュールで利用。 |
+| `src/core/prompt-loader.ts` | プロンプト・テンプレート読み込みユーティリティ（約200行、Issue #575で追加）。言語設定に基づいたプロンプト・テンプレートの読み込みとフォールバック処理を共通化。`loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供。`BasePhase.loadPrompt()` と同一のパターンで、指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。auto-issue、auto-close、pr-comment、conflict、rollback、difficulty、followup、squash、content_parser、validation、split-issue の各モジュールで利用。 |
 | `src/core/logger.ts` | Logger抽象化（約158行、Issue #50で追加）。LogLevel enum、ILogger interface、ConsoleLogger class、logger singleton instanceを提供。環境変数 LOG_LEVEL でログレベルを制御可能。 |
-| `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減）。各専門クライアントを統合し、後方互換性を維持。 |
+| `src/core/github-client.ts` | Octokit ラッパー（ファサードパターン、約402行、Issue #24で42.7%削減、Issue #719で拡張）。各専門クライアントを統合し、後方互換性を維持。**Issue #719で追加**: `getMergeableStatus()` ファサードメソッドで PullRequestClient の同名メソッドに委譲し、PR のマージ可否状態（mergeable/conflicting/unknown）を取得。 |
 | `src/core/github/issue-client.ts` | Issue操作の専門クライアント（約385行、Issue #24で追加、Issue #104で拡張、Issue #119でLLM統合、Issue #174でエージェントベース生成統合）。Issue取得、オープンIssue一覧取得、コメント投稿、クローズ、ラベル追加、残タスクIssue作成、タイトル生成、キーワード抽出、詳細フォーマット機能、**LLM統合によるフォローアップIssue生成とフォールバック制御**、**エージェントベースIssue生成（IssueAgentGenerator連携）** を担当。auto-close-issue では `listOpenIssues()`/`closeIssue()`/`addLabels()` を再利用。 |
 | `src/core/issue-inspector.ts` | Issue検品ロジック（Issue #645）。カテゴリ別フィルタ（followup/stale/old/all）、除外ラベル・直近更新除外（7日以内）、親Issue/最新コメント収集を行い、Codex/Claudeで検品プロンプトを実行。JSON出力をパース・信頼度フィルタし、dry-runプレビュー or クローズ＋`auto-closed` ラベル付与を実施。 |
 | `src/core/github/issue-ai-generator.ts` | フォローアップIssue用LLM生成エンジン（約450行、Issue #119で追加）。プロンプト生成、OpenAI/Anthropicアダプタ、レスポンス検証、リトライ制御、サニタイズ処理を担当。 |
 | `src/core/github/issue-agent-generator.ts` | フォローアップIssue用エージェント生成エンジン（約385行、Issue #174で追加）。エージェント（Codex/Claude）を使用してフォローアップIssueのタイトル・本文を生成。ファイルベース出力方式、2段階フォールバック（Codex→Claude、Agent→LLM API）、5必須セクション検証、テンプレートベースフォールバック生成を提供。 |
-| `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約380行、Issue #24で追加、Issue #261で拡張）。PR作成、更新、検索、クローズ、PR番号取得、**ドラフト解除**（`markPRReady()`）、**マージ先ブランチ変更**（`updateBaseBranch()`）を担当。GraphQL mutation + `gh pr ready` フォールバック機構を実装。 |
+| `src/core/github/pull-request-client.ts` | PR操作の専門クライアント（約380行、Issue #24で追加、Issue #261で拡張、Issue #719で拡張）。PR作成、更新、検索、クローズ、PR番号取得、**ドラフト解除**（`markPRReady()`）、**マージ先ブランチ変更**（`updateBaseBranch()`）、**マージ可否状態取得**（`getMergeableStatus()`、Issue #719で追加）を担当。GraphQL mutation + `gh pr ready` フォールバック機構を実装。`getMergeableStatus()` は GraphQL で `mergeable` フィールドを取得し、`MERGEABLE`/`CONFLICTING`/`UNKNOWN` を返却。 |
 | `src/core/github/comment-client.ts` | コメント操作の専門クライアント（約145行、Issue #24で追加）。ワークフロー進捗コメント、進捗コメント作成/更新を担当。 |
 | `src/core/github/review-client.ts` | レビュー操作の専門クライアント（約75行、Issue #24で追加）。レビュー結果投稿を担当。 |
-| `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減）。各専門マネージャーを統合し、後方互換性を維持。 |
+| `src/core/git-manager.ts` | Git操作のファサードクラス（約181行、Issue #25で67%削減、Issue #719で拡張）。各専門マネージャーを統合し、後方互換性を維持。**Issue #719で追加**: `mergeNoCommit()`（コミットなしマージ）、`abortMerge()`（マージ中断）、`getConflictedFiles()`（コンフリクトファイル一覧取得）メソッドを追加し、resolve-conflict コマンドのマージ操作を支援。 |
 | `src/core/git/commit-manager.ts` | コミット操作の専門マネージャー（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput等）、FileSelector/CommitMessageBuilderへの委譲、SecretMasker統合を担当。 |
 | `src/core/secret-masker.ts` | シークレット検出・マスキング専門モジュール（約295行、Issue #488で拡張、Issue #622で metadata.json 特別扱い追加）。ワークフローファイル内のシークレット情報を検出し、GitHub Push Protection によるプッシュブロックを防ぐ。`maskObject()`, `maskSecretsInFile()`, `maskSecretsInWorkflowDir()`, `maskMetadataFile()` を提供。**Issue #488で拡張**: 汎用パターンマスキング対応（GitHub Token, Email, Bearer Token等）、`maskString()` メソッド抽出による `maskObject()` との一貫性確保、環境変数マッチング + 汎用パターンマッチングの2段階処理を実装。対応パターン: `ghp_*`, `github_pat_*`, Email, 20文字以上汎用トークン, Bearer, token=形式。**Issue #622で追加**: `maskMetadataFile()` メソッドで metadata.json を構造化データとして処理し、`ignoredPaths` でリポジトリ情報（target_repository.owner/repo/remote_url等）を保護しつつ実際のシークレットはマスキング。finalize コマンドでの 404 エラー（リポジトリ名誤マスキング）問題を解決。 |
 | `src/core/git/file-selector.ts` | ファイル選択・フィルタリングの専門モジュール（約160行、Issue #52で追加）。変更ファイル検出、Issue番号フィルタリング、フェーズ固有パターンマッチング、@tmp除外を担当。 |
 | `src/core/git/commit-message-builder.ts` | コミットメッセージ構築の専門モジュール（約151行、Issue #52で追加）。フェーズ完了、ステップ完了、初期化、クリーンアップのメッセージ生成を担当。 |
 | `src/core/git/branch-manager.ts` | ブランチ操作の専門マネージャー（約110行、Issue #25で追加）。ブランチ作成、切り替え、存在チェックを担当。 |
-| `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加）。push、pull、リトライロジック、GitHub認証設定を担当。 |
+| `src/core/git/remote-manager.ts` | リモート操作の専門マネージャー（約210行、Issue #25で追加、Issue #719で拡張）。push、pull、リトライロジック、GitHub認証設定を担当。**Issue #719で追加**: `pullLatest()` でコンフリクト発生時に `ConflictError` をスローし、呼び出し側がコンフリクトを判別可能に。 |
 | `src/core/git/squash-manager.ts` | スカッシュ操作の専門マネージャー（約500行、Issue #194で追加、Issue #261で拡張）。コミットスカッシュ、エージェント生成コミットメッセージ、ブランチ保護、`--force-with-lease` による安全な強制プッシュを提供。`squashCommits()`, `squashCommitsForFinalize()`, `getCommitsToSquash()`, `validateBranchProtection()`, `generateCommitMessage()`, `executeSquash()`, `generateFallbackMessage()`, `generateFinalizeMessage()` を含む8つの主要メソッドを提供。**PhaseContext依存解消**により、`FinalizeContext` インターフェースで finalize コマンド用のスカッシュ処理が可能。 |
 | `src/core/metadata-manager.ts` | `.ai-workflow/issue-*/metadata.json` の CRUD、コスト集計、リトライ回数管理など（約380行、Issue #26で9.5%削減、v0.4.0でrollback機能追加、Issue #90、Issue #363で拡張）。差し戻し機能用の6つのメソッド（`setRollbackContext()`, `getRollbackContext()`, `clearRollbackContext()`, `addRollbackHistory()`, `updatePhaseForRollback()`, `resetSubsequentPhases()`）を提供。**Issue #363で追加**: `setDifficultyAnalysis()`, `getDifficultyAnalysis()`, `setModelConfig()`, `getModelConfig()` メソッドで難易度分析結果とモデル設定の保存・取得をサポート。 |
 | `src/core/helpers/metadata-io.ts` | メタデータファイルI/O操作（98行、Issue #26で追加）。`formatTimestampForFilename()`, `backupMetadataFile()`, `removeWorkflowDirectory()`, `getPhaseOutputFilePath()` を提供。 |
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
 | `src/utils/logger.ts` | 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御（debug/info/warn/error）、カラーリング機能（chalk統合）、タイムスタンプ自動付与、環境変数制御（LOG_LEVEL、LOG_NO_COLOR）を提供。`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` をエクスポート。 |
-| `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。 |
+| `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加、Issue #719で拡張）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。**Issue #719で追加**: `ConflictError` クラス（`Error` を継承、`conflictedFiles: string[]` プロパティ付き）を定義し、コンフリクト発生時の型安全なエラーハンドリングを提供。`isConflictError()` 型ガード関数も追加。 |
 | `src/core/config.ts` | 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジック（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）の統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。Singleton パターンで実装。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能とスキップフェーズフィルタリングを提供（約249行、Issue #26で27.2%削減、Issue #636でskipPhases対応）。 |
@@ -357,7 +438,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加、Issue #597で多言語対応）。Codex/Claude エージェントの生ログを Markdown 形式に変換。言語設定（`ja`/`en`）に応じてヘッダー、ラベル、タイムスタンプ形式を動的に切り替え。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
-| `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`auto-close`（2ファイル）、`pr-comment`（2ファイル）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。 |
+| `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`auto-close`（2ファイル）、`pr-comment`（2ファイル）、`conflict`（2ファイル、Issue #719で追加）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）、`split-issue`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。 |
 | `src/prompts/difficulty/{lang}/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加、Issue #575で多言語対応）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
 | `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
 | `src/core/repository-analyzer.ts` | リポジトリ分析ファサードクラス（Issue #579でリファクタリング、約350行）。`RepositoryAnalyzer` クラスを提供し、`src/core/analyzer/` モジュールに処理を委譲。`analyze()`（バグ検出）、`analyzeForRefactoring()`（リファクタリング検出）、`analyzeForEnhancements()`（機能拡張提案）を提供。公開APIは変更なし。 |
@@ -525,8 +606,8 @@ BasePhase クラスは各モジュールを依存性注入により統合し、�
 Issue #49では、BasePhase クラスを676行から445行へさらにリファクタリングし（約40%削減）、4つの専門モジュールに責務を分離しました：
 
 **ライフサイクルモジュール**:
-- **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。
-- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。**Issue #325**: `finalizePhase()`にPR bodyチェックリスト自動更新機能（`updatePrBodyChecklist()`）を追加。各フェーズ完了時にPR本文のワークフロー進捗を自動的に更新し、ユーザーがPRを確認するだけで進捗状況を把握できるよう改善。
+- **StepExecutor** (`src/phases/lifecycle/step-executor.ts`, 233行): ステップ実行ロジックを担当。execute/review/revise ステップの実行、completed_steps 管理、Git コミット＆プッシュ（`commitAndPushStep`）、ステップ完了チェック（`isStepCompleted`）を実施。各ステップ完了後に自動コミット・プッシュが実行され、レジューム機能をサポート。**Issue #720**: `commitAndPushStepStart()` を追加し、`executeStep()` / `reviewStep()` 開始時（`updateCurrentStep()` 直後）にも `metadata.json` をコミット＆プッシュするように拡張。開始時コミットは失敗してもワークフローをブロックしない設計（`try-catch` + `logger.warn()`）。
+- **PhaseRunner** (`src/phases/lifecycle/phase-runner.ts`, 244行): フェーズライフサイクル管理を担当。フェーズ全体の実行（`runPhase`）、依存関係検証（`validateAndStartPhase`）、エラーハンドリング（`handlePhaseError`）、GitHub進捗投稿（`postProgressToGitHub`）、フェーズ完了処理（`finalizePhase`）を実施。**Issue #325**: `finalizePhase()`にPR bodyチェックリスト自動更新機能（`updatePrBodyChecklist()`）を追加。各フェーズ完了時にPR本文のワークフロー進捗を自動的に更新し、ユーザーがPRを確認するだけで進捗状況を把握できるよう改善。**Issue #720**: `commitAndPushPhaseStart()` を追加し、フェーズのステータスが `pending` → `in_progress` に変わった直後に `metadata.json` をコミット＆プッシュするように拡張（再開時はスキップ）。
 
 **コンテキスト構築モジュール**:
 - **ContextBuilder** (`src/phases/context/context-builder.ts`, 223行): コンテキスト構築を担当。オプショナルコンテキスト構築（`buildOptionalContext`）、ファイル参照生成（`@filepath` 形式、`buildFileReference`）、Planning Document参照（`buildPlanningDocumentReference`）を実施。ファイルが存在しない場合は適切なフォールバックメッセージを返し、依存関係を無視した柔軟な実行を可能にする。
@@ -704,7 +785,7 @@ GitHubClient は702行から402行へリファクタリングされ（約42.7%�
 - **IssueClient** (`src/core/github/issue-client.ts`): Issue操作を担当。Issue取得、コメント投稿、クローズ、残タスクIssue作成を提供。フォローアップIssue生成機能（タイトル生成、キーワード抽出、詳細フォーマット）を含む（Issue #104で拡張）。**LLM統合によるフォローアップIssue生成**（Issue #119で追加）。LLM生成→フォールバック制御→メタデータ付与を実装し、`IssueAIGenerator`と連携してOpenAI/Anthropic経由で高品質なIssueタイトル・本文を生成。LLM失敗時は既存テンプレートへ自動フォールバック。**エージェントベースIssue生成**（Issue #174で追加）。`IssueAgentGenerator`と連携してCodex/Claudeエージェント経由でフォローアップIssueを生成。エージェント失敗時はLLM APIへフォールバック。
 - **IssueAIGenerator** (`src/core/github/issue-ai-generator.ts`): フォローアップIssue用LLM生成エンジン（Issue #119で追加）。プロンプト生成、サニタイズ（SecretMasker統合）、OpenAI/Anthropicアダプタ、レスポンス検証（タイトル長・必須セクションチェック）、リトライ制御（指数バックオフ）、利用量メトリクス記録を提供。OpenAI (`gpt-4o-mini`) とAnthropic (`claude-sonnet-4-5`) をサポート。
 - **IssueAgentGenerator** (`src/core/github/issue-agent-generator.ts`): フォローアップIssue用エージェント生成エンジン（Issue #174で追加）。エージェント（Codex/Claude）を使用してフォローアップIssueのタイトル・本文を生成。ファイルベース出力方式（一時ファイルに書き込み→読み込み→クリーンアップ）、2段階フォールバック機構（①Codex→Claude、②Agent→LLM API）、5必須セクション検証（背景、目的、実行内容、受け入れ基準、参考情報）、タイトル生成（キーワード抽出、100文字制限）、テンプレートベースフォールバック生成を提供。`generate()`, `buildPrompt()`, `isValidIssueContent()`, `createFallbackBody()`, `generateTitle()` メソッドをエクスポート。
-- **PullRequestClient** (`src/core/github/pull-request-client.ts`): PR操作を担当。PR作成、更新、検索、クローズ、PR番号取得を提供。
+- **PullRequestClient** (`src/core/github/pull-request-client.ts`): PR操作を担当。PR作成、更新、検索、クローズ、PR番号取得、**マージ可否状態取得**（`getMergeableStatus()`、Issue #719で追加）を提供。
 - **CommentClient** (`src/core/github/comment-client.ts`): コメント操作を担当。ワークフロー進捗コメント、進捗コメント作成/更新を担当。
 - **ReviewClient** (`src/core/github/review-client.ts`): レビュー操作を担当。レビュー結果投稿を担当。
 
@@ -722,13 +803,13 @@ GitHubClient は702行から402行へリファクタリングされ（約42.7%�
 
 **GitManager のモジュール構成（v0.3.1、Issue #25 / v0.4.0、Issue #52）**:
 
-GitManager は548行から181行へリファクタリングされ（約67%削減）、ファサードパターンにより3つの専門マネージャーに責務を分離しました：
+GitManager は548行から181行へリファクタリングされ（約67%削減）、ファサードパターンにより3つの専門マネージャーに責務を分離しました。**Issue #719で追加**: `mergeNoCommit()`（コミットなしマージ）、`abortMerge()`（マージ中断）、`getConflictedFiles()`（コンフリクトファイル一覧取得）を GitManager に直接追加し、resolve-conflict コマンドのマージ操作を支援：
 
 - **CommitManager** (`src/core/git/commit-manager.ts`): コミット操作を担当（約409行、Issue #52で30.2%削減）。コミット作成（commitPhaseOutput, commitStepOutput, commitWorkflowInit, commitCleanupLogs）、FileSelector/CommitMessageBuilderへの委譲によるファサードパターン実装、SecretMasker統合（Issue #54でmetadata.jsonスキャン追加）、ensureGitConfig（Git設定管理）を提供。
   - **FileSelector** (`src/core/git/file-selector.ts`): ファイル選択・フィルタリング専門モジュール（約160行、Issue #52で追加）。getChangedFiles（変更ファイル検出）、filterPhaseFiles（Issue番号フィルタリング）、getPhaseSpecificFiles（フェーズ固有パターンマッチング）、scanDirectories、scanByPatterns、@tmp除外ロジックを担当。
   - **CommitMessageBuilder** (`src/core/git/commit-message-builder.ts`): コミットメッセージ構築専門モジュール（約151行、Issue #52で追加）。createCommitMessage（フェーズ完了）、buildStepCommitMessage（ステップ完了）、createInitCommitMessage（初期化）、createCleanupCommitMessage（クリーンアップ）のメッセージ生成を担当。
 - **BranchManager** (`src/core/git/branch-manager.ts`): ブランチ操作を担当。ブランチ作成、切り替え、存在チェック（ローカル/リモート）、現在のブランチ取得を提供。
-- **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。
+- **RemoteManager** (`src/core/git/remote-manager.ts`): リモート操作を担当。push（upstream設定、リトライロジック）、pull、GitHub認証設定（setupGithubCredentials）、再試行可能エラー判定（isRetriableError）を提供。**Issue #719で追加**: `pullLatest()` でコンフリクト検出時に `ConflictError` をスロー。
 - **SquashManager** (`src/core/git/squash-manager.ts`): スカッシュ操作を担当（Issue #194で追加）。コミットスカッシュ（`squashCommits()`）、コミット範囲取得（`getCommitsToSquash()`）、ブランチ保護（`validateBranchProtection()`）、エージェント生成コミットメッセージ（`generateCommitMessage()`）、スカッシュ実行（`executeSquash()`）、フォールバックメッセージ生成（`generateFallbackMessage()`）を提供。Codex / Claude エージェントがConventional Commits形式のメッセージを生成し、`--force-with-lease` で安全に強制プッシュ。
 
 **ファサードパターンの設計**:

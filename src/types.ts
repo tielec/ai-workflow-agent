@@ -12,6 +12,8 @@ export type PhaseName =
 
 export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
 
+export type { ConflictResolutionStatus } from './types/conflict.js';
+
 // Issue #10: ステップ名の型定義
 export type StepName = 'execute' | 'review' | 'revise';
 

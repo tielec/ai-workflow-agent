@@ -127,6 +127,12 @@ node dist/index.js rewrite-issue --issue 123 --agent claude
 # 実際にIssueを更新
 node dist/index.js rewrite-issue --issue 123 --apply
 
+# カスタム指示でリライト観点を指定（Issue #716で追加）
+node dist/index.js rewrite-issue --issue 123 --custom-instruction "セキュリティ観点を重視してください"
+
+# 初心者向けに書き直す
+node dist/index.js rewrite-issue --issue 123 --custom-instruction "初心者でも理解しやすいように書き直してください" --apply
+
 # すべてのオプションを組み合わせ
 node dist/index.js rewrite-issue \
   --issue 456 \
@@ -141,6 +147,16 @@ node dist/index.js rewrite-issue \
 - `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
 - `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
 - `--apply`: 実際にIssueを更新（dry-runと排他）
+- `--custom-instruction <text>`: リライトの追加指示（最大500文字、Issue #716で追加）
+
+**`--custom-instruction` オプション**（Issue #716で追加）:
+- **用途**: リライトの方向性や重点を指定する追加指示テキスト（最大500文字）
+- **任意**: 未指定時は従来どおり汎用リライトを実行
+- **バリデーション**: 空文字・空白のみは不可、500文字超過はエラー
+- **使用例**:
+  - `"セキュリティ観点を重視してください"` — セキュリティ脆弱性やリスクを明確化
+  - `"パフォーマンス改善に焦点を当ててください"` — 性能ボトルネックや改善策を強調
+  - `"初心者でも理解しやすいように書き直してください"` — 専門用語を減らし背景説明を追加
 
 **主な機能**:
 - **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
@@ -194,6 +210,7 @@ Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/rewrite_issue` ジョ�
 | AGENT_MODE | --agent | auto |
 | APPLY | --apply | true |
 | DRY_RUN | - | true (CLIデフォルト動作) |
+| CUSTOM_INSTRUCTION | --custom-instruction | - (任意) |
 
 **パイプライン実行例**:
 ```
@@ -212,6 +229,85 @@ node dist/index.js rewrite-issue --issue 123 --language ja --agent auto
 - 重要なIssueは事前にバックアップ（コメント等で元の内容を保存）することを推奨
 - `GITHUB_TOKEN` にはIssue更新権限（`repo` スコープ）が必要
 - Jenkins実行時は、Docker エージェント内でリポジトリが自動クローンされます
+
+### split-issue コマンド（Issue #715で追加）
+
+複雑なGitHub Issueを機能単位で複数の子Issueに分割するコマンドです。AIエージェント（Codex/Claude）がIssueを分析し、各子Issueが独立して完結できる粒度に分割します。デフォルトではdry-runモードで動作し、`--apply` オプションで実際にIssueを作成します。
+
+```bash
+# プレビューモード（デフォルト: dry-run）
+node dist/index.js split-issue --issue 123
+
+# 実際にIssueを作成
+node dist/index.js split-issue --issue 123 --apply
+
+# 分割数の上限を5に制限
+node dist/index.js split-issue --issue 123 --max-splits 5 --apply
+
+# 英語出力・Claude指定
+node dist/index.js split-issue --issue 123 --language en --agent claude --apply
+```
+
+**オプション**:
+- `--issue <number>`: 分割対象のIssue番号（**必須**）
+- `--language <ja|en>`: 出力言語（デフォルト: `ja`）
+- `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
+- `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
+- `--apply`: 実際にGitHub Issueを作成（dry-runと排他）
+- `--max-splits <number>`: 分割Issueの最大数（デフォルト: `10`、範囲: 1〜20）
+
+**主な機能**:
+- **Issue情報取得**: GitHub APIを通じて対象Issueのタイトル・本文を取得
+- **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造情報を取得
+- **機能単位分割**: AIエージェントが「1 Issue = 1 機能」の原則で分割を提案
+- **工程分割の禁止**: 「要件定義」「実装」「テスト」のような工程単位での分割は行わない
+- **プレビュー表示**: dry-runモードで分割結果のプレビュー（タイトル、本文抜粋、ラベル、優先度、品質メトリクス）を表示
+- **子Issue一括作成**: `--apply` オプションで子Issueを逐次作成（GitHub APIレート制限対策）
+- **元Issueへのコメント投稿**: 作成された子Issueへのリンク一覧を元Issueにコメントとして自動投稿
+- **部分失敗許容**: 一部のIssue作成に失敗しても、成功した分は保持して処理を継続
+
+**出力例（dry-runモード）**:
+```
+╔══════════════════════════════════════════════════════════════╗
+║             SPLIT-ISSUE PREVIEW (dry-run)                   ║
+╠══════════════════════════════════════════════════════════════╣
+
+📋 分割概要: このIssueを3つの機能Issueに分割しました
+📊 分割数: 3 件
+
+────────────────────────────────────────────────────────────────
+Issue #1: CLIオプションのパースとバリデーション機能
+  本文: ## 概要 CLIオプションのパースとバリデーション機能を実装する...
+  ラベル: enhancement
+  優先度: high
+────────────────────────────────────────────────────────────────
+
+📈 METRICS
+  Completeness: 85/100
+  Specificity:  70/100
+
+╚══════════════════════════════════════════════════════════════╝
+
+💡 To apply these changes, run with --apply option.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（Issue作成・コメント投稿権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/split-issue.ts`
+- **型定義**: `src/types/split-issue.ts`
+- **プロンプトテンプレート**: `src/prompts/split-issue/{ja|en}/split-issue.txt`
+- **IssueClient拡張**: `createMultipleIssues()` メソッドで子Issueを逐次作成
+- **GitHubClientファサード**: `createMultipleIssues()` ファサードメソッドを追加
+
+**安全運用のヒント**:
+- まずdry-run（デフォルト）で分割プレビューを確認し、問題がなければ `--apply` で実行する
+- `--max-splits` オプションで分割数を制限し、過度な分割を防ぐ
+- 一部のIssue作成に失敗した場合、成功した子Issueの一覧がログに出力される
+- 元Issueへのコメント投稿に失敗しても、子Issueの作成結果は保持される
+- `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
 
 ### 認証情報の検証（validate-credentials コマンド）
 
@@ -953,6 +1049,40 @@ node dist/index.js pr-comment execute --pr 123 --batch-size 10
 - **プロンプト**: `src/prompts/pr-comment/analyze.txt`
 - **GitHub API**: PRレビューコメント取得（REST）、スレッド解決（GraphQL mutation）、返信投稿
 
+### resolve-conflict コマンド（Issue #719）
+
+Pull Request のマージコンフリクトを AI で分析・解消する 4 フェーズコマンドです。
+
+```bash
+# init: メタデータ作成とブランチ fetch
+node dist/index.js resolve-conflict init --pr-url <PR_URL>
+
+# analyze: コンフリクト解析と解消計画の生成
+node dist/index.js resolve-conflict analyze --pr-url <PR_URL> --agent auto
+
+# execute: 解消計画に従って解消（dry-run でプレビュー）
+node dist/index.js resolve-conflict execute --pr-url <PR_URL> --dry-run
+
+# finalize: push と PR コメント投稿
+node dist/index.js resolve-conflict finalize --pr-url <PR_URL> --push
+```
+
+**主なオプション**:
+- `--pr-url <url>`: PR URL（必須）
+- `--agent <auto|codex|claude>`: 使用エージェント（analyze/execute）
+- `--dry-run`: 変更のプレビューのみ（execute）
+- `--push`: リモートへ push（finalize）
+- `--squash`: 1コミット前提のガイド表示（finalize）
+- `--language <ja|en>`: 出力言語
+
+**生成される成果物**:
+- `.ai-workflow/conflict-<pr>/metadata.json`
+- `.ai-workflow/conflict-<pr>/resolution-plan.json`
+- `.ai-workflow/conflict-<pr>/resolution-result.json`
+
+**詳細**:
+- `docs/CONFLICT_RESOLUTION.md` を参照
+
 ### コミットスカッシュ（Issue #194で追加）
 ```bash
 # ワークフロー完了後にコミットをスカッシュ
@@ -982,4 +1112,3 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）
 - `--ignore-dependencies`: 警告を表示するが実行を継続
 - `--force-reset`: メタデータをクリアして Phase 0 から再開
-

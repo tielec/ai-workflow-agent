@@ -13,6 +13,8 @@
 ### リポジトリコンテキスト
 {REPOSITORY_CONTEXT}
 
+{CUSTOM_INSTRUCTION}
+
 ## 出力形式
 
 以下のJSON形式で**指定されたファイルパスに書き込んで**ください：

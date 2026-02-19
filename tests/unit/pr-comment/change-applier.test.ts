@@ -59,13 +59,38 @@ describe('CodeChangeApplier', () => {
     expect(callPath.endsWith(path.join('src', 'config.ts'))).toBe(true);
   });
 
-  it('returns failure when diff-only modification is requested', async () => {
-    const result = await applier.apply(
-      [{ path: 'src/app.ts', change_type: 'modify', diff: '@@ -1 +1 @@' }],
-      false,
+  it('modifyFile_diffベース変更_unified diff形式が正しく適用される', async () => {
+    // Given: 元ファイル内容と unified diff
+    jest.spyOn(fs, 'readFile').mockResolvedValue(
+      'const a = 1;\nconst b = 2;\nconst c = 3;\n',
     );
+    const change = {
+      path: 'src/example.ts',
+      change_type: 'modify' as const,
+      diff: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1,3 +1,3 @@\n const a = 1;\n-const b = 2;\n+const b = 3;\n const c = 3;\n',
+    };
 
+    // When: diff ベース変更を適用
+    const result = await applier.apply([change], false);
+
+    // Then: diff が適用された内容が書き込まれる
+    expect(result.success).toBe(true);
+    expect(writeFileSpy).toHaveBeenCalledWith(
+      expect.stringContaining('src'),
+      'const a = 1;\nconst b = 3;\nconst c = 3;\n',
+      'utf-8',
+    );
+  });
+
+  it('modifyFile_contentもdiffもない_エラーが返る', async () => {
+    // Given: content/diff がない変更
+    const change = { path: 'src/example.ts', change_type: 'modify' as const };
+
+    // When: apply を実行
+    const result = await applier.apply([change], false);
+
+    // Then: エラーが返る
     expect(result.success).toBe(false);
-    expect(result.error).toContain('Diff-based modification not yet implemented');
+    expect(result.error).toContain('Either content or diff is required for modify');
   });
 });

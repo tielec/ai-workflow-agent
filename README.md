@@ -121,10 +121,13 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
+| `split-issue` | 複雑なIssueを機能単位で複数の子Issueに分割 |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
+| `resolve-conflict` | PRのマージコンフリクトをAIで分析・解消（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |
 
 詳細な CLI リファレンスは [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) を参照してください。
+resolve-conflict の使い方は [docs/CONFLICT_RESOLUTION.md](./docs/CONFLICT_RESOLUTION.md) も参照してください。
 
 ## 主要オプション
 
@@ -207,6 +210,7 @@ export REPOS_ROOT="$HOME/projects"
 - `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` - Issue自動クローズ（完了済みIssueの片付け）
 - `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` - PRコメント自動対応（コメント内容で実行）
 - `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` - PRコメント自動対応（最終結果・クローズ処理）
+- `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` - ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除）
 
 **旧Jenkinsfile（非推奨）**:
 - `Jenkinsfile` - 汎用Jenkinsfile（Issue #211により非推奨、2025年3月以降削除予定。既存の手動実行環境からは実行モード専用ファイルへの移行を推奨）
