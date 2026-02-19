@@ -210,6 +210,28 @@ export class GitManager {
     return this.remoteManager.pullLatest(branchName);
   }
 
+  /**
+   * Resolve-conflict: merge without commit to surface conflicts.
+   */
+  public async mergeNoCommit(branchName: string): Promise<void> {
+    await this.git.raw(['merge', '--no-commit', '--no-ff', branchName]);
+  }
+
+  /**
+   * Resolve-conflict: abort merge to restore clean state.
+   */
+  public async abortMerge(): Promise<void> {
+    await this.git.raw(['merge', '--abort']);
+  }
+
+  /**
+   * Resolve-conflict: list conflicted files.
+   */
+  public async getConflictedFiles(): Promise<string[]> {
+    const status = await this.git.status();
+    return status.conflicted ?? [];
+  }
+
   // Squash operations delegation (Issue #194)
   public async squashCommits(context: PhaseContext): Promise<void> {
     return this.squashManager.squashCommits(context);

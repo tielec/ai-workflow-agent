@@ -21,6 +21,11 @@ export interface GenericResult {
   error?: string | null;
 }
 
+export interface MergeableStatusResult {
+  mergeable: boolean | null;
+  mergeableState?: string | null;
+}
+
 /**
  * PullRequestClient handles all Pull Request operations with GitHub API.
  * Responsibilities:
@@ -349,6 +354,31 @@ export class PullRequestClient {
           : getErrorMessage(error);
       logger.error(`[updateBaseBranch] Failed for ${this.owner}/${this.repo}#${prNumber}: ${this.encodeWarning(message)}`);
       return { success: false, error: message };
+    }
+  }
+
+  /**
+   * Retrieves mergeable status for a pull request.
+   */
+  public async getMergeableStatus(prNumber: number): Promise<MergeableStatusResult> {
+    try {
+      const { data } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      return {
+        mergeable: data.mergeable ?? null,
+        mergeableState: data.mergeable_state ?? null,
+      };
+    } catch (error) {
+      const message = getErrorMessage(error);
+      logger.warn(`Failed to get mergeable status: ${this.encodeWarning(message)}`);
+      return {
+        mergeable: null,
+        mergeableState: null,
+      };
     }
   }
 

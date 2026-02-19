@@ -123,9 +123,11 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
 | `split-issue` | 複雑なIssueを機能単位で複数の子Issueに分割 |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
+| `resolve-conflict` | PRのマージコンフリクトをAIで分析・解消（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |
 
 詳細な CLI リファレンスは [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) を参照してください。
+resolve-conflict の使い方は [docs/CONFLICT_RESOLUTION.md](./docs/CONFLICT_RESOLUTION.md) も参照してください。
 
 ## 主要オプション
 

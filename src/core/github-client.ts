@@ -270,6 +270,13 @@ export class GitHubClient {
     return this.pullRequestClient.getPullRequestNumber(issueNumber);
   }
 
+  public async getMergeableStatus(prNumber: number): Promise<{
+    mergeable: boolean | null;
+    mergeableState?: string | null;
+  }> {
+    return this.pullRequestClient.getMergeableStatus(prNumber);
+  }
+
   /**
    * Retrieve the current PR body for the given pull request number.
    */

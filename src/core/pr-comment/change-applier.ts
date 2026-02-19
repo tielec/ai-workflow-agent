@@ -115,10 +115,103 @@ export class CodeChangeApplier {
     }
 
     if (change.diff) {
-      throw new Error('Diff-based modification not yet implemented');
+      const original = await fs.readFile(fullPath, 'utf-8');
+      const updated = this.applyUnifiedDiff(original, change.diff);
+      await fs.ensureDir(path.dirname(fullPath));
+      const sanitized = this.sanitizeContent(updated, fullPath);
+      await fs.writeFile(fullPath, sanitized, 'utf-8');
+      return;
     }
 
     throw new Error('Either content or diff is required for modify');
+  }
+
+  private applyUnifiedDiff(original: string, diff: string): string {
+    const originalLines = original.split(/\r?\n/);
+    const diffLines = diff.split(/\r?\n/);
+    const result: string[] = [];
+    let originalIndex = 0;
+    let i = 0;
+
+    while (i < diffLines.length) {
+      const line = diffLines[i];
+
+      if (line.startsWith('@@')) {
+        const match = /@@\s+-([\d]+)(?:,([\d]+))?\s+\+([\d]+)(?:,([\d]+))?\s+@@/.exec(line);
+        if (!match) {
+          throw new Error(`Invalid unified diff hunk header: ${line}`);
+        }
+
+        const startOld = Number.parseInt(match[1], 10);
+        if (startOld < 1) {
+          throw new Error(`Invalid hunk start line: ${line}`);
+        }
+
+        const targetIndex = startOld - 1;
+        while (originalIndex < targetIndex && originalIndex < originalLines.length) {
+          result.push(originalLines[originalIndex]);
+          originalIndex += 1;
+        }
+
+        i += 1;
+        while (i < diffLines.length) {
+          const hunkLine = diffLines[i];
+          if (hunkLine.startsWith('@@')) {
+            break;
+          }
+          if (hunkLine.startsWith('---') || hunkLine.startsWith('+++') || hunkLine.startsWith('diff --git')) {
+            i += 1;
+            continue;
+          }
+          if (hunkLine.startsWith('\\ No newline at end of file')) {
+            i += 1;
+            continue;
+          }
+          if (hunkLine === '') {
+            i += 1;
+            continue;
+          }
+
+          const prefix = hunkLine[0];
+          const content = hunkLine.slice(1);
+
+          if (prefix === ' ') {
+            if (originalLines[originalIndex] !== content) {
+              throw new Error('Unified diff context mismatch');
+            }
+            result.push(content);
+            originalIndex += 1;
+          } else if (prefix === '-') {
+            if (originalLines[originalIndex] !== content) {
+              throw new Error('Unified diff removal mismatch');
+            }
+            originalIndex += 1;
+          } else if (prefix === '+') {
+            result.push(content);
+          } else {
+            throw new Error(`Invalid diff line prefix: ${hunkLine}`);
+          }
+
+          i += 1;
+        }
+
+        continue;
+      }
+
+      if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('diff --git')) {
+        i += 1;
+        continue;
+      }
+
+      i += 1;
+    }
+
+    while (originalIndex < originalLines.length) {
+      result.push(originalLines[originalIndex]);
+      originalIndex += 1;
+    }
+
+    return result.join('\n');
   }
 
   private sanitizeContent(content: string, fullPath: string): string {

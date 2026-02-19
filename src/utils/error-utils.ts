@@ -15,6 +15,19 @@ export interface ErrorLike {
 }
 
 /**
+ * マージコンフリクト専用エラー
+ */
+export class ConflictError extends Error {
+  public readonly conflictFiles?: string[];
+
+  constructor(message: string, conflictFiles?: string[]) {
+    super(message);
+    this.name = 'ConflictError';
+    this.conflictFiles = conflictFiles;
+  }
+}
+
+/**
  * unknown型のエラーから安全にエラーメッセージを抽出します。
  *
  * このユーティリティ関数は、catch ブロックで捕捉したエラーが
