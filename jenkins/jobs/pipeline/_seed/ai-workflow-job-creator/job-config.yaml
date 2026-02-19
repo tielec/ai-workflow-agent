@@ -89,3 +89,10 @@ jenkins-jobs:
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_finalize_job.groovy
     jenkinsfile: Jenkinsfile
     skipJenkinsfileValidation: true
+
+  ai_workflow_ecr_build_job:
+    name: 'ecr_build'
+    displayName: 'ECR Image Build'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile
+    skipJenkinsfileValidation: true
