@@ -189,11 +189,11 @@ Issue #714 は、既に CLI 実装が完了している `split-issue` コマン�
 
 ### Phase 5: テストコード実装 (見積もり: 0.5h)
 
-- [ ] Task 5-1: ファイル存在・構文検証テストの作成 (0.25h)
+- [x] Task 5-1: ファイル存在・構文検証テストの作成 (0.25h)
   - 新規作成ファイルの存在確認テスト
   - job-config.yaml の YAML パース確認テスト
   - `split_issue` エントリの必須フィールド存在確認テスト
-- [ ] Task 5-2: パラメータ整合性テストの作成 (0.25h)
+- [x] Task 5-2: パラメータ整合性テストの作成 (0.25h)
   - Jenkinsfile 内の `EXECUTION_MODE` が `'split_issue'` であることの確認
   - Job DSL 内の `scriptPath` が正しい Jenkinsfile パスを指していることの確認
   - `MAX_SPLITS` パラメータが Jenkinsfile と Job DSL の両方に存在することの確認
