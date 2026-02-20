@@ -5,7 +5,7 @@
   "language": "ja",
   "repository": "tielec/ai-workflow-agent",
   "target_repository": {
-    "path": "/tmp/ai-workflow-repos-27-084b64a9/ai-workflow-agent",
+    "path": "/tmp/ai-workflow-repos-28-c3b59234/ai-workflow-agent",
     "github_name": "tielec/ai-workflow-agent",
     "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
     "owner": "tielec",
@@ -33,7 +33,7 @@
       "requires_architecture_change": false,
       "complexity_score": 0.45
     },
-    "analyzed_at": "2026-02-20T02:31:29.189Z",
+    "analyzed_at": "2026-02-20T03:13:46.705Z",
     "analyzer_agent": "claude",
     "analyzer_model": "sonnet"
   },
@@ -295,13 +295,13 @@
     }
   },
   "created_at": "2026-02-20T00:15:50.613Z",
-  "updated_at": "2026-02-20T02:31:40.269Z",
+  "updated_at": "2026-02-20T03:13:46.707Z",
   "branch_name": "ai-workflow/issue-714",
   "base_commit": "5d3bdd6f7439a61292c82a68b4ab91a4d6f78f75",
   "pr_number": 733,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/733",
   "github_integration": {
     "progress_comment_id": 3930867029,
-    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/714#issuecomment-3930867029"
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/714#[REDACTED_TOKEN]"
   }
 }
