@@ -19,9 +19,9 @@
     "test_code_strategy": "CREATE_TEST"
   },
   "cost_tracking": {
-    "total_input_tokens": 49,
-    "total_output_tokens": 63913,
-    "total_cost_usd": 12.759345849999999
+    "total_input_tokens": 65,
+    "total_output_tokens": 69484,
+    "total_cost_usd": 13.1370045
   },
   "difficulty_analysis": {
     "level": "moderate",
@@ -276,13 +276,13 @@
     }
   },
   "created_at": "2026-02-20T00:15:50.613Z",
-  "updated_at": "2026-02-20T00:38:02.636Z",
+  "updated_at": "2026-02-20T00:40:05.405Z",
   "branch_name": "ai-workflow/issue-714",
   "base_commit": "5d3bdd6f7439a61292c82a68b4ab91a4d6f78f75",
   "pr_number": 733,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/733",
   "github_integration": {
     "progress_comment_id": 3930867029,
-    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/714#issuecomment-3930867029"
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/714#[REDACTED_TOKEN]"
   }
 }
