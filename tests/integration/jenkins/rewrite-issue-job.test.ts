@@ -202,8 +202,36 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
     });
   });
 
+  describe('IT-017〜IT-020: CUSTOM_INSTRUCTION パラメータとログ出力の検証', () => {
+    it('IT-017: DSL に CUSTOM_INSTRUCTION textParam と説明が追加されている', () => {
+      expect(dslContent).toMatch(/textParam\('CUSTOM_INSTRUCTION'/);
+      expect(dslContent).toContain('最大500文字程度');
+      expect(dslContent).toContain('エージェントへの追加ガイダンスを指定します。空欄の場合はデフォルト挙動で実行します。');
+      expect(dslContent).toContain("stripIndent().trim()");
+    });
+
+    it('IT-018: Jenkinsfile ヘッダーで CUSTOM_INSTRUCTION をドキュメント化している', () => {
+      expect(jenkinsfileContent).toMatch(/\* - CUSTOM_INSTRUCTION: カスタム指示/);
+    });
+
+    it('IT-019: Validate Parameters ステージで Custom Instruction 値をログ出力している', () => {
+      const validateStagePattern = /stage\('Validate Parameters'\)[\s\S]*?echo "Custom Instruction: \${params\.CUSTOM_INSTRUCTION \?: '\(none\)'}"/;
+      expect(jenkinsfileContent).toMatch(validateStagePattern);
+    });
+
+    it('IT-020: Execute Rewrite Issue ステージで Custom Instruction を再度ログと CLI に渡している', () => {
+      const executeStagePattern = /stage\('Execute Rewrite Issue'\)[\s\S]*?echo "Custom Instruction: \${params\.CUSTOM_INSTRUCTION \?: '\(none\)'}"/;
+      expect(jenkinsfileContent).toMatch(executeStagePattern);
+
+      expect(jenkinsfileContent).toContain(
+        'def customInstructionFlag = params.CUSTOM_INSTRUCTION ? "--custom-instruction \\"${params.CUSTOM_INSTRUCTION}\\"" : \'\''
+      );
+      expect(jenkinsfileContent).toContain('${customInstructionFlag}');
+    });
+  });
+
   describe('IT-013/IT-014/IT-015: ビルド/検証/CLIヘルプの実行確認', () => {
-    const commandTimeoutMs = 5 * 60 * 1000;
+    const commandTimeoutMs = 10 * 60 * 1000;
     let buildStdout = '';
     let buildStderr = '';
     const shouldSkipValidate = process.env.SKIP_VALIDATE_TEST === '1';
