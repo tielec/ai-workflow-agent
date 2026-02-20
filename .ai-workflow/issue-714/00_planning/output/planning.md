@@ -158,7 +158,7 @@ Issue #714 は、既に CLI 実装が完了している `split-issue` コマン�
 
 ### Phase 4: 実装 (見積もり: 1〜1.5h)
 
-- [ ] Task 4-1: Jenkinsfile の作成 (0.5h)
+- [x] Task 4-1: Jenkinsfile の作成 (0.5h)
   - `rewrite-issue/Jenkinsfile` をコピーして `split-issue/Jenkinsfile` を作成
   - `EXECUTION_MODE` を `'split_issue'` に変更
   - コメントヘッダーを `split-issue` 用に更新（説明文、パラメータ一覧に `MAX_SPLITS` を追記）
@@ -168,7 +168,7 @@ Issue #714 は、既に CLI 実装が完了している `split-issue` コマン�
   - CLI コマンドを `node dist/index.js split-issue` に変更
   - `--max-splits` パラメータの追加（`def maxSplitsOption = params.MAX_SPLITS ? "--max-splits ${params.MAX_SPLITS}" : ''`）
   - post セクションのログメッセージを `Split Issue` に変更
-- [ ] Task 4-2: Job DSL の作成 (0.5h)
+- [x] Task 4-2: Job DSL の作成 (0.5h)
   - `ai_workflow_rewrite_issue_job.groovy` をコピーして `ai_workflow_split_issue_job.groovy` を作成
   - ジョブキーを `ai_workflow_split_issue_job` に変更
   - コメントヘッダーを `split-issue` 用に更新
@@ -177,10 +177,10 @@ Issue #714 は、既に CLI 実装が完了している `split-issue` コマン�
   - `APPLY` パラメータの後に `MAX_SPLITS` パラメータを追加（`stringParam('MAX_SPLITS', '10', ...)`)
   - `scriptPath` を `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` に変更
   - `environmentVariables` の `EXECUTION_MODE` を `'split_issue'` に変更
-- [ ] Task 4-3: job-config.yaml の更新 (0.15h)
+- [x] Task 4-3: job-config.yaml の更新 (0.15h)
   - `ai_workflow_rewrite_issue_job` の直後に `ai_workflow_split_issue_job` エントリを追加
   - 各フィールド: `name: 'split_issue'`, `displayName: 'Split Issue'`, `dslfile`, `jenkinsfile`, `skipJenkinsfileValidation: true`
-- [ ] Task 4-4: jenkins/README.md の更新 (0.25h)
+- [x] Task 4-4: jenkins/README.md の更新 (0.25h)
   - ジョブ一覧テーブルに `split_issue` 行を追加（パラメータ数: 19）
   - ディレクトリ構造に `split-issue/` ディレクトリと `Jenkinsfile` を追加
   - DSL ファイル一覧に `ai_workflow_split_issue_job.groovy` を追加
