@@ -209,7 +209,8 @@
       "retry_count": 0,
       "started_at": "2026-02-20T00:26:38.478Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "test_scenario": {
       "status": "pending",
@@ -267,7 +268,7 @@
     }
   },
   "created_at": "2026-02-20T00:15:50.613Z",
-  "updated_at": "2026-02-20T00:26:38.478Z",
+  "updated_at": "2026-02-20T00:26:40.274Z",
   "branch_name": "ai-workflow/issue-714",
   "base_commit": "5d3bdd6f7439a61292c82a68b4ab91a4d6f78f75",
   "pr_number": 733,
