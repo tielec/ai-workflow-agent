@@ -126,20 +126,20 @@ Issue #714 は、既に CLI 実装が完了している `split-issue` コマン�
 
 ### Phase 2: 設計 (見積もり: 0.5〜1h)
 
-- [ ] Task 2-1: Jenkinsfile の設計 (0.25h)
+- [x] Task 2-1: Jenkinsfile の設計 (0.25h)
   - `rewrite-issue/Jenkinsfile` との差分ポイントを設計文書に記載
   - `EXECUTION_MODE = 'split_issue'` の設定
   - `--max-splits` パラメータの受け渡し設計
   - ステージ名・ログメッセージ・ビルド説明の変更箇所一覧
-- [ ] Task 2-2: Job DSL の設計 (0.25h)
+- [x] Task 2-2: Job DSL の設計 (0.25h)
   - `ai_workflow_rewrite_issue_job.groovy` との差分ポイントを設計文書に記載
   - `MAX_SPLITS` パラメータの定義（型: `stringParam`、デフォルト: `'10'`、説明文）
   - `scriptPath` の設定（`jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile`）
   - パラメータ総数（19個）の確認
-- [ ] Task 2-3: job-config.yaml のエントリ設計 (0.15h)
+- [x] Task 2-3: job-config.yaml のエントリ設計 (0.15h)
   - エントリキー: `ai_workflow_split_issue_job`
   - 各フィールド値の設計（name, displayName, dslfile, jenkinsfile, skipJenkinsfileValidation）
-- [ ] Task 2-4: README.md の更新箇所設計 (0.15h)
+- [x] Task 2-4: README.md の更新箇所設計 (0.15h)
   - ジョブ一覧テーブルへの追加行の内容確定
   - フォルダ構成図への追加行の位置と内容確定
 
@@ -288,12 +288,12 @@ graph TD
 - [ ] 受け入れ基準が具体的に定義されている
 
 ### Phase 2: 設計
-- [ ] 実装戦略の判断根拠が明記されている（CREATE）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
-- [ ] テストコード戦略の判断根拠が明記されている（CREATE_TEST）
-- [ ] Jenkinsfile の差分ポイントが網羅的にリスト化されている
-- [ ] Job DSL の差分ポイントが網羅的にリスト化されている
-- [ ] `MAX_SPLITS` パラメータの仕様が明確に定義されている
+- [x] 実装戦略の判断根拠が明記されている（CREATE）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_ONLY）
+- [x] テストコード戦略の判断根拠が明記されている（CREATE_TEST）
+- [x] Jenkinsfile の差分ポイントが網羅的にリスト化されている
+- [x] Job DSL の差分ポイントが網羅的にリスト化されている
+- [x] `MAX_SPLITS` パラメータの仕様が明確に定義されている
 
 ### Phase 3: テストシナリオ
 - [ ] 静的検証（構文チェック）のテストシナリオが定義されている
