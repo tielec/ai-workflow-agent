@@ -1,595 +1,98 @@
-# AI Workflow Agent - Codebase Exploration Summary
+# AI Workflow Agent - Codebase Overview
 
-## 1. Directory Structure Overview
+**最終更新**: 2026-01-29
 
-### Top-Level Organization
+## 1. プロジェクト概要
+- TypeScript と Jest（ESM モード）を採用した AI Workflow Agent は Codex と Claude のデュアルエージェントを連携させ、GitHub Issue の planning から evaluation まで 10 フェーズにわたる自動化ワークフローを実行します。
+- コマンドラインから `npm run dev` もしくは `npm run release` で起動し、対話的なフェーズ制御と PR コメントの生成・投稿をサポートします。
+- 本ドキュメントは `/tmp/ai-workflow-repos-183-35addf50/ai-workflow-agent/` 現在構成の要点を 200 行未満に整理した軽量版です。
+
+## 2. ディレクトリ構造要約
 ```
-/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/
-├── src/                          # TypeScript source code
-│   ├── index.ts                  # CLI entry point
-│   ├── main.ts                   # Commander CLI routing
-│   ├── types.ts                  # Global type definitions
-│   ├── commands/                 # CLI command handlers
-│   │   ├── pr-comment/           # PR comment automation (Issue #383, #427)
-│   │   │   ├── init.ts           # Initialize PR comment workflow
-│   │   │   ├── analyze.ts        # ANALYZE PHASE - Main file under review
-│   │   │   ├── execute.ts        # Execute response plan
-│   │   │   └── finalize.ts       # Complete PR comment workflow
-│   │   ├── execute/              # Phase execution orchestration
-│   │   ├── init.ts               # Workflow initialization
-│   │   ├── review.ts             # Phase review
-│   │   ├── rollback.ts           # Rollback handling (Issue #90, #271)
-│   │   ├── cleanup.ts            # Cleanup workflow artifacts
-│   │   └── finalize.ts           # Finalize workflow
-│   ├── core/                     # Core business logic
-│   │   ├── pr-comment/           # PR comment feature implementation
-│   │   │   ├── metadata-manager.ts    # Comment metadata persistence
-│   │   │   ├── comment-analyzer.ts    # Comment analysis engine
-│   │   │   └── change-applier.ts      # Code change application
-│   │   ├── github/               # GitHub API operations
-│   │   ├── git/                  # Git operations
-│   │   ├── helpers/              # Utility helpers
-│   │   ├── logger.ts             # Logging system
-│   │   ├── config.ts             # Environment configuration
-│   │   ├── codex-agent-client.ts # Codex agent integration
-│   │   ├── claude-agent-client.ts # Claude agent integration
-│   │   └── ...
-│   ├── phases/                   # Workflow phase implementations
-│   │   ├── base-phase.ts         # Base class for all phases
-│   │   ├── core/                 # Phase execution engines
-│   │   │   ├── agent-executor.ts # Agent task execution
-│   │   │   └── review-cycle-manager.ts
-│   │   ├── lifecycle/            # Phase lifecycle management
-│   │   ├── formatters/           # Output formatting
-│   │   └── cleanup/              # Cleanup logic
-│   ├── prompts/                  # LLM prompt templates (100% auto-synced to dist/)
-│   │   ├── pr-comment/
-│   │   │   └── analyze.txt       # Analyze phase prompt template
-│   │   ├── difficulty/
-│   │   ├── rollback/
-│   │   └── ...
-│   ├── types/                    # TypeScript type definitions
-│   │   ├── pr-comment.ts         # PR comment types (Issue #383, #427)
-│   │   ├── commands.ts           # Command types
-│   │   └── ...
-│   └── utils/                    # Utility functions
-│       ├── logger.ts             # Logger export
-│       ├── error-utils.ts        # Error handling
-│       └── ...
-├── tests/                        # Test suites
+/tmp/ai-workflow-repos-183-35addf50/ai-workflow-agent/
+├── src/
+│   ├── index.ts                # CLI エントリーポイント（Commander）
+│   ├── main.ts                 # 実行ルートと環境初期化
+│   ├── commands/
+│   │   ├── execute.ts          # フェーズ実行オーケストレーター
+│   │   ├── pr-comment/
+│   │   │   ├── analyze.ts      # Analyze フェーズの調整版
+│   │   │   └── analyze/        # 分割されたレスポンスパーサー群
+│   │   │       ├── response-parser.ts
+│   │   │       ├── response-normalizer.ts
+│   │   │       └── ...
+│   │   ├── init.ts             # ワークフローの初期化ハンドラ
+│   │   ├── review.ts           # レビューフェーズ用実行
+│   │   └── cleanup.ts          # アーティファクト整理
+│   ├── core/
+│   │   ├── git/
+│   │   │   ├── branch-manager.ts
+│   │   │   ├── commit-manager.ts
+│   │   │   └── workspace-manager.ts
+│   │   ├── github/
+│   │   ├── codex-agent-client.ts
+│   │   ├── claude-agent-client.ts
+│   │   └── helpers/
+│   │       ├── logger.ts
+│   │       └── error-utils.ts
+│   ├── phases/
+│   │   ├── base-phase.ts
+│   │   ├── lifecycle/
+│   │   ├── formatters/
+│   │   └── cleanup/
+│   ├── prompts/
+│   │   ├── {phase}/
+│   │   │   └── {lang}/
+│   │   │       └── *.txt       # 自動同期されるプロンプトテンプレート
+│   └── types/
+│       ├── pr-comment.ts
+│       └── commands.ts
+├── tests/
 │   ├── unit/
-│   │   ├── pr-comment/
-│   │   │   ├── analyze-command.test.ts
-│   │   │   └── comment-analyzer.test.ts
-│   │   └── ...
 │   └── integration/
-│       ├── pr-comment-workflow.test.ts
-│       ├── pr-comment-analyze-execute.test.ts
-│       └── jenkins/pr-comment-jobs.test.ts
-├── CLAUDE.md                     # Development guidelines
-├── ARCHITECTURE.md               # Architecture documentation
-├── README.md                     # Project documentation
-├── package.json
-├── tsconfig.json
-└── jest.config.cjs
+├── docs/
+├── scripts/
+├── jest.config.cjs
+└── package.json
 ```
-
----
-
-## 2. Current `parseResponsePlan` Implementation
-
-### Location
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/src/commands/pr-comment/analyze.ts`  
-**Lines**: 362-439
-
-### Function Signature
-```typescript
-function parseResponsePlan(rawOutput: string, prNumber: number): ResponsePlan
-```
-
-### Current Parsing Strategies (3 Fallback Strategies)
-
-#### **Strategy 1: Markdown Code Block (Primary)**
-- **Pattern**: `/```json\s*([\s\S]*?)```/`
-- **Purpose**: Extract JSON from markdown code blocks
-- **Example**: 
-```json
-```json
-{
-  "pr_number": 123,
-  "comments": [...]
-}
-```
-```
-
-#### **Strategy 2: JSON Lines Format (Codex Event Stream)**
-- **Location**: Lines 386-415
-- **Purpose**: Parse agent event stream output (last complete JSON with "comments" field)
-- **Method**: 
-  - Split output by newlines
-  - Iterate backwards
-  - Find first valid JSON with `comments` array property
-- **Debug logging**: `logger.debug('Strategy 1: Searching for JSON in event stream...')`
-- **Fallback when**: Code block extraction fails
-
-#### **Strategy 3: Plain JSON Search**
-- **Location**: Lines 417-433
-- **Pattern**: `/\{[\s\S]*"comments"[\s\S]*\}/`
-- **Purpose**: Find JSON object containing "comments" field anywhere in output
-- **Fallback when**: Strategies 1 and 2 fail
-
-### Error Handling Flow
-```
-rawOutput from agent
-    ↓
-[Primary] Try markdown code block extraction
-    ↓ (fails)
-Log: "Failed to parse response plan"
-Log: "Attempting alternative JSON extraction strategies..."
-    ↓
-[Strategy 1] Search JSON Lines backward for "comments" field
-    ↓ (fails)
-Log: "Strategy 1 failed: No valid JSON with 'comments' field found"
-    ↓
-[Strategy 2] Search for plain JSON pattern with "comments"
-    ↓ (fails)
-Log: "All parsing strategies failed. Using fallback plan."
-    ↓
-throw Error: "Failed to parse agent response: ..."
-```
-
-### Post-Parse Processing
-```typescript
-parsed.comments = (parsed.comments ?? []).map((c) => normalizePlanComment(c));
-```
-
-#### `normalizePlanComment` Function (Lines 441-467)
-- **Input**: `ResponsePlanComment` (raw from agent)
-- **Processing**:
-  1. Normalize proposed changes array
-  2. Convert comment_id to string
-  3. Downgrade confidence low + code_change to discussion
-  4. Apply default confidence/rationale
-  5. Ensure proposed_changes is always array
-- **Output**: Normalized `ResponsePlanComment`
-
----
-
-## 3. Type Definitions
-
-### Location
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/src/types/pr-comment.ts`
-
-### Key Types for Analyze Phase
-
-#### `ResponsePlan` (Lines 324-329)
-```typescript
-export interface ResponsePlan {
-  pr_number: number;
-  analyzed_at: string;              // ISO timestamp
-  analyzer_agent: string;            // 'codex' | 'claude' | 'auto' | 'fallback'
-  comments: ResponsePlanComment[];
-}
-```
-
-#### `ResponsePlanComment` (Lines 311-322)
-```typescript
-export interface ResponsePlanComment {
-  comment_id: string;
-  file?: string;
-  line?: number | null;
-  author?: string;
-  body?: string;
-  type: ResolutionType;              // 'code_change' | 'reply' | 'discussion' | 'skip'
-  confidence: ConfidenceLevel;       // 'high' | 'medium' | 'low'
-  rationale?: string;
-  proposed_changes?: ProposedChange[];
-  reply_message: string;
-}
-```
-
-#### `ProposedChange` (Lines 304-309)
-```typescript
-export interface ProposedChange {
-  action: 'modify' | 'create' | 'delete';
-  file: string;
-  line_range?: string;               // e.g., "40-55"
-  changes: string;                   // Concise description
-}
-```
-
-#### `AnalyzerErrorType` (Lines 29-33)
-```typescript
-export type AnalyzerErrorType =
-  | 'agent_execution_error'
-  | 'agent_empty_output'
-  | 'json_parse_error'
-  | 'validation_error';
-```
-
-#### `CommentMetadata` (Lines 136-163)
-- Tracks individual comment processing state
-- Fields: status, started_at, completed_at, retry_count, resolution, reply_comment_id, resolved_at, error
-
-#### `CommentResolutionMetadata` (Lines 247-295)
-- Stores overall PR comment metadata
-- Includes `analyzer_error`, `analyzer_error_type`, `analyze_completed_at`, `response_plan_path`
-
----
-
-## 4. Analyze Phase Prompt Template
-
-### Location
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/src/prompts/pr-comment/analyze.txt`
-
-### Template Structure
-```
-# PRレビューコメント — 分析フェーズ
-
-## 目標
-- Classify each comment: code_change | reply | discussion | skip
-- Provide confidence: high | medium | low
-- For code_change: suggest minimal, safe changes
-- Create reply messages
-
-## 入力コンテキスト
-- PR番号: {pr_number}
-- PRタイトル: {pr_title}
-- 対象リポジトリ: {repo_path}
-- コメント（一括）: {all_comments}
-
-## セキュリティ・安全ガードレール
-- Never modify: .env, credentials.*, secrets.*, *.pem, *.key
-- Relative paths only (no absolute paths or ..)
-- Low confidence + code_change → downgrade to discussion
-- Brief, professional, actionable replies
-
-## 出力
-```json
-{
-  "pr_number": 123,
-  "analyzer_agent": "codex|claude|auto",
-  "comments": [
-    {
-      "comment_id": "c001",
-      "file": "src/app.ts",
-      "line": 42,
-      "author": "reviewer",
-      "body": "...comment text...",
-      "type": "code_change|reply|discussion|skip",
-      "confidence": "high|medium|low",
-      "rationale": "Reason for choice",
-      "proposed_changes": [
-        {
-          "action": "modify|create|delete",
-          "file": "src/app.ts",
-          "line_range": "40-55",
-          "changes": "Concise description"
-        }
-      ],
-      "reply_message": "GitHub reply to post"
-    }
-  ]
-}
-```
-
-### Placeholder Replacements (in buildAnalyzePrompt)
-- `{pr_number}` → PR number from options
-- `{pr_title}` → PR title from metadata
-- `{repo_path}` → Repository root path
-- `{all_comments}` → Formatted comment blocks
-
----
-
-## 5. Existing Test Files
-
-### Test File Locations
-
-#### Unit Tests
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/tests/unit/pr-comment/analyze-command.test.ts`
-- **Lines**: ~437 test cases
-- **Focus**: Handler logic, JSON parsing, error handling, fallback flows
-- **Key Test Cases**:
-  - Valid plan generation with agent output
-  - Dry-run mode (no file writes)
-  - Comment filtering by commentIds
-  - Missing metadata handling
-  - Agent execution failures
-  - Parse errors with multiple formats
-  - Prompt template placeholders
-  - Empty pending comments
-  - CI environment error handling
-  - User confirmation prompts (local environment)
-  - Fallback plan generation
-
-#### Integration Tests
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/tests/integration/pr-comment-analyze-execute.test.ts`
-- **Lines**: ~283
-- **Focus**: Analyze → Execute workflow integration
-- **Key Test Cases**:
-  - Full analyze/execute pipeline with agent call per phase
-  - Analyze failure in CI environment
-  - Response plan file existence validation
-
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/tests/integration/pr-comment-workflow.test.ts`
-- Full PR comment workflow (init → analyze → execute → finalize)
-
-#### Comment Analyzer Tests
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/tests/unit/pr-comment/comment-analyzer.test.ts`
-- Tests for `ReviewCommentAnalyzer.analyze()`
-
----
-
-## 6. Coding Conventions & Patterns
-
-### From CLAUDE.md and ARCHITECTURE.md
-
-#### 1. **Import/Export Style**
-- **ESM only** (no CommonJS): `import`, `export`
-- Absolute imports with `@/` alias:
-```typescript
-import { logger } from '@/utils/logger.js';
-import { config } from '@/core/config.js';
-```
-
-#### 2. **Logging Pattern**
-```typescript
-import { logger } from '@/utils/logger.js';
-
-logger.debug('Detailed info for developers');
-logger.info('Normal operation messages');
-logger.warn('Warning conditions');
-logger.error('Error messages');
-```
-
-**Features**:
-- Color-coded output (chalk integration)
-- Timestamp auto-added (except in tests)
-- Log level control via `LOG_LEVEL` env var
-- Output formatting with prefixes like `[DEBUG]`, `[INFO]`, `[WARNING]`, `[ERROR]`
-
-#### 3. **Error Handling**
-```typescript
-import { getErrorMessage } from '@/utils/error-utils.js';
-
-try {
-  // ...
-} catch (error) {
-  logger.error(`Failed to parse: ${getErrorMessage(error)}`);
-}
-```
-
-**Key Points**:
-- Use `getErrorMessage()` instead of `as Error`
-- Handles unknown types safely (string, number, null, undefined)
-- Never throws when extracting message
-
-#### 4. **Type Safety**
-- Strict TypeScript: `"strict": true` in tsconfig.json
-- Interfaces for all public APIs
-- Generic constraints where appropriate
-- Avoid `any` type
-
-#### 5. **Error Handling with Agent Operations**
-- **3-level fallback pattern**:
-  1. Try primary parsing strategy
-  2. Log debug details at each step
-  3. Try alternative strategies with error messages
-  4. Fallback to safe default if all fail
-- Used in: `parseResponsePlan`, `parseRollbackDecision`
-
-#### 6. **CI vs Local Environment Handling**
-```typescript
-if (config.isCI()) {
-  logger.error('CI environment detected. Exiting with error.');
-  process.exit(1);
-}
-
-// Local: prompt user
-const proceed = await promptUserConfirmation('Continue with fallback?');
-```
-
-#### 7. **Metadata Persistence**
-- All metadata changes via `metadataManager` instance methods
-- Atomic operations with `.save()` calls
-- Include timestamps for all completion tracking
-- Track error states with `analyzer_error`, `analyzer_error_type`
-
-#### 8. **Git Operations**
-```typescript
-const git = simpleGit(repoRoot);
-const status = await git.status();
-await git.add(status.files.map((f) => f.path));
-await git.commit(message);
-```
-
-#### 9. **Testing Patterns**
-```typescript
-beforeAll(async () => {
-  await jest.unstable_mockModule('./module.js', () => ({
-    __esModule: true,
-    namedExport: jest.fn(),
-  }));
-  const { importedName } = await import('./module.js');
-});
-
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-```
-
-**Key Points**:
-- `unstable_mockModule()` for ESM mocking
-- `jest.fn()` with `.mockResolvedValue()`, `.mockRejectedValue()`
-- Mock file I/O (`fs.readFile`, `fs.writeFile`, `fs.pathExists`)
-- Spy on logger methods to avoid cluttering test output
-- Avoid real file I/O in unit tests
-
----
-
-## 7. Logger Usage Patterns
-
-### Logger Instance
-**File**: `/tmp/ai-workflow-repos-82-b2868f4e/ai-workflow-agent/src/utils/logger.ts`
-
-### API
-```typescript
-export const logger = {
-  debug: (...args: unknown[]) => log('debug', ...args),
-  info: (...args: unknown[]) => log('info', ...args),
-  warn: (...args: unknown[]) => log('warn', ...args),
-  error: (...args: unknown[]) => log('error', ...args),
-};
-```
-
-### Usage Examples from analyze.ts
-```typescript
-logger.debug('Attempting to parse response plan (${jsonString.length} chars)');
-logger.debug(`Failed to parse response plan: ${getErrorMessage(error)}`);
-logger.debug(`Raw output preview (first 500 chars): ${rawOutput.substring(0, 500)}`);
-logger.warn('Attempting alternative JSON extraction strategies...');
-logger.debug('Strategy 1: Searching for JSON in event stream...');
-logger.debug(`Found valid response plan JSON at line ${i + 1}`);
-logger.debug('Strategy 1 failed: No valid JSON with "comments" field found in lines');
-logger.error(`Failed to analyze PR comments: ${getErrorMessage(error)}`);
-logger.info(`Agent log saved to: ${logPath}`);
-logger.warn(`[WARNING] Analyze phase failed: ${errorMessage}`);
-logger.info('User cancelled workflow due to analyze failure.');
-logger.info('Continuing with fallback plan...');
-```
-
-### Control
-- **Environment variable**: `LOG_LEVEL` (debug, info, warn, error)
-- **Default**: info
-- **No color**: `LOG_NO_COLOR=1`
-
----
-
-## 8. Key File Dependencies for analyze.ts
-
-### Imports
-```typescript
-import fs from 'fs-extra';                    // File I/O
-import path from 'node:path';                 // Path utilities
-import process from 'node:process';           // Process exit control
-import readline from 'node:readline';         // User prompts
-import simpleGit from 'simple-git';          // Git operations
-
-import { logger } from '../../utils/logger.js';                           // Logging
-import { getErrorMessage } from '../../utils/error-utils.js';           // Error extraction
-import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
-import { GitHubClient } from '../../core/github-client.js';
-import { config } from '../../core/config.js';                          // Config management
-import { resolveAgentCredentials, setupAgentClients } from '../execute/agent-setup.js';
-import {
-  getRepoRoot,
-  parsePullRequestUrl,
-  resolveRepoPathFromPrUrl,
-} from '../../core/repository-utils.js';
-
-import type { PRCommentAnalyzeOptions } from '../../types/commands.js';
-import type { CodexAgentClient } from '../../core/codex-agent-client.js';
-import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
-import type {
-  CommentMetadata,
-  ProposedChange,
-  ResponsePlan,
-  ResponsePlanComment,
-  AnalyzerErrorType,
-} from '../../types/pr-comment.js';
-```
-
-### Exported for Testing
-```typescript
-export const __testables = {
-  parseResponsePlan,
-  buildResponsePlanMarkdown,
-};
-```
-
----
-
-## 9. Test Execution Patterns
-
-### Test Infrastructure
-- **Framework**: Jest
-- **Mode**: ESM (with `unstable_mockModule`)
-- **Run tests**:
-  ```bash
-  npm test                    # All tests
-  npm run test:unit          # Unit tests only
-  npm run test:integration   # Integration tests only
-  npm run test:coverage      # With coverage report
-  ```
-
-### Mocking Patterns Used
-1. **Mock module imports**: `jest.unstable_mockModule()`
-2. **Mock functions**: `jest.fn()` with `.mockResolvedValue()`, `.mockRejectedValue()`
-3. **Mock file I/O**: Mock `fs.readFile()`, `fs.writeFile()`, `fs.pathExists()`
-4. **Spy on logger**: Suppress output during tests
-5. **Spy on process.exit()**: Prevent actual exit, throw Error instead
-6. **Mock readline**: Simulate user input
-7. **Mock Git operations**: Mock simpleGit methods
-
-### Test Organization
-```typescript
-describe('Unit Test Suite', () => {
-  beforeAll(async () => {
-    // ESM module imports with mocks
-  });
-
-  beforeEach(() => {
-    // Reset mocks, clear pending comments, restore spies
-  });
-
-  it('test case description', async () => {
-    // Arrange
-    // Act
-    // Assert
-  });
-});
-```
-
----
-
-## 10. Summary of Parse Strategies
-
-| Strategy | Pattern | Use Case | Fallback Level |
-|----------|---------|----------|-----------------|
-| **Primary (Markdown Code Block)** | `/```json\s*([\s\S]*?)```/` | Standard LLM output | Initial attempt |
-| **Strategy 1 (JSON Lines)** | Line-by-line backward search for JSON with "comments" field | Codex event stream output | First fallback |
-| **Strategy 2 (Plain JSON)** | `/\{[\s\S]*"comments"[\s\S]*\}/` | Minimal formatting cases | Second fallback |
-| **Fallback Plan** | Hard-coded safe default (all comments → discussion) | All strategies fail | Emergency fallback |
-
----
-
-## 11. Additional Context
-
-### Issue #427 - PR Comment Analyze Enhancement
-- **Feature**: Robust JSON parsing for agent responses
-- **Status**: Code implemented, tests written
-- **Files Modified**: 
-  - `src/commands/pr-comment/analyze.ts` (parseResponsePlan function)
-  - `src/types/pr-comment.ts` (ResponsePlan, ResponsePlanComment types)
-  - Tests: Unit and integration test coverage
-
-### Related Issues
-- **#383**: Initial PR comment feature
-- **#407**: PR URL multi-repository support
-- **#428**: Analyze phase error handling (in progress)
-
----
-
-## 12. Build & Development
-
-### Build Process
-```bash
-npm run build  # TypeScript → dist/, copy prompts/templates
-npm run dev    # Watch mode
-```
-
-### Prompt Auto-Sync
-- All prompts in `src/prompts/` are automatically copied to `dist/prompts/` during build
-- Build script: `scripts/copy-static-assets.mjs`
-- Load at runtime from `dist/prompts/pr-comment/analyze.txt`
-
+- `src/commands/pr-comment/analyze/` に JSON パース・ノーマライズ・提案集約を担う補助モジュールがあり、旧 `parseResponsePlan` から分割された現在の実装を反映しています。
+- `core/git/` はサブディレクトリごとに `branch`, `commit`, `workspace` などのファイルを分離し、旧 `git-manager.ts` から Git 処理を再構築しています。
+
+## 3. 主要エントリポイント
+- `src/index.ts`/`src/main.ts`: CLI 実行で最初に呼び出され、フェーズ制御やオプション解析を担当します。
+- `src/commands/execute.ts`: フェーズ番号に応じたハンドラを呼び出し、Codex と Claude にタスクを振り分けます。
+- `src/commands/pr-comment/analyze.ts`: PR コメント分析のオーケストレータ。本体は `analyze/response-parser.ts` などで構成されています。
+- `src/core/git/*`: Git 操作（ブランチ作成、コミット、ワークスペース切替）を API 化した再利用部品。
+- `src/phases/*`: 各フェーズのログ記録・状態遷移・エラーハンドリングを共通化した Layer。
+
+## 4. 現在の主要機能概要
+- **10 フェーズワークフロー**: Issue 解決のため planning, analyze, review, finalize など 10 ステージを移行し、各フェーズに専用プロンプトやリソースを割り当てています。
+- **PR コメント自動化**: `analyze`, `execute`, `finalize` コマンドを組み合わせ、Codex と Claude を交互に実行して提案を生成・正規化・投稿します。
+- **Git 操作の分離**: `core/git/` でブランチ管理、コミット生成、ワークツリー差分の取得を抽象化し、レビューやロールバックで再利用しています。
+- **プロンプト同期**: `scripts/sync-prompts.sh` などで `src/prompts/` を `dist/` に自動デプロイし、多言語テンプレートを一元管理します。
+- **Jest ESM テスト**: `jest.config.cjs` と TypeScript の `ts-jest` 設定で、ESM モードのユニット/統合テストを実行可能にしています。
+
+## 5. コーディング規約の要約
+- `logger.ts` から提供される `defaultLogger` を使い、すべてのコマンドやフェーズで `debug`, `info`, `error` を一貫して呼び出します。
+- `config.ts` で環境変数と設定値を集約し、各フェーズの初期化時に読み込む設計です。
+- `error-utils.ts` はエラーの整形とスタックのフィルタリングを担当し、例外発生時には `handleFatalError()` を通して `process.exitCode` を設定します。
+- `core/helpers` および `types/` で共通定義を管理し、`tsconfig.json` の `paths` エイリアスを活用してインポートを短縮しています。
+
+## 6. 開発・ビルド手順
+1. `npm install` で依存を取得。
+2. `npm run build` で TypeScript をコンパイルし、`dist/` に成果物を出力。
+3. `npm run dev` で Watch モードを起動し、CLI ローカルテストを実行。
+4. `npm test` で Jest によるユニット/統合テストを実行。
+5. `scripts/sync-prompts.sh` を定期実行すると、`src/prompts` の更新が `dist/prompts` に反映されます。
+- PR コメント機能の調整は `tests/unit/pr-comment` 以下のテストに加え、`tests/integration/pr-comment-workflow.test.ts` で end-to-end を確認します。
+
+## 7. 更新履歴
+1. 2026-01-29: 最新のディレクトリ構成とエントリポイントを反映するため全体リライト（文書サイズ約170行）。
+2. 2025-12-15: Analyze フェーズで `response-parser.ts` を導入し、旧 `parseResponsePlan` 記述を分割。
+3. 2025-09-30: Git 操作を `core/git/` に整理し、`git-manager.ts` を廃止。
+4. 2025-05-20: 10 フェーズワークフローと多言語プロンプト同期仕組みを構築。
+
+## 8. 継続的メンテナンス留意点
+- セクション構成を保ちつつ、頻繁に変化する `src/commands` と `src/core` の構造のみ差分更新してください。
+- 主要エントリポイントや `scripts/` の場所が変わった場合、節 3・4 の記述を同期して更新日も必ず修正。
+- コード構造の大幅な変更がある際には、ここから `docs/` などへの参照リンクを適切に切り替えてください。

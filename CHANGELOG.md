@@ -137,6 +137,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #473**: [Refactor] ファイルサイズの削減: CODEBASE_EXPLORATION.md
+  - 595行の大きなドキュメントファイルを200行未満の軽量版に再構成し、古い情報を完全に除去
+  - **削除対象**: 古いパス（`/tmp/ai-workflow-repos-82-*`）、古い関数記述（`parseResponsePlan in analyze.ts`）、旧構造記述（単一ファイル構成）
+  - **現在構成への更新**: 最新パス（`/tmp/ai-workflow-repos-183-35addf50`）、分割済みディレクトリ構造（`core/git/`、`analyze/`）、現在の関数位置（`response-parser.ts`）
+  - **新規コンテンツ**: プロジェクト概要、ディレクトリ構造要約、主要エントリポイント、重要機能概要、コーディング規約、開発・ビルド手順、更新履歴
+  - **品質向上**: 新規コントリビューター向けの誤誘導リスク排除、メンテナンス性向上、ドキュメントの信頼性向上
+  - **テスト追加**: 新規テストファイル `tests/unit/documentation/codebase-exploration.test.ts`（12件のテスト）でドキュメント品質検証
+  - **効果**: ファイルサイズ66%削減（595行→170行）、オンボーディング時間短縮、技術的負債軽減
 - **Issue #634**: [Refactor] ファイルサイズの削減: analyze.ts
   - `src/commands/pr-comment/analyze.ts`（985行）を責務ごとに12モジュールへ分割し、エントリーポイントを147行に削減
   - **新規作成モジュール（`src/commands/pr-comment/analyze/`）**:
