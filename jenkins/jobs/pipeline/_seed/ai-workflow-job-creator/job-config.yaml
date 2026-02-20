@@ -96,3 +96,10 @@ jenkins-jobs:
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy
     jenkinsfile: jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile
     skipJenkinsfileValidation: true
+
+  ai_workflow_resolve_conflict_job:
+    name: 'resolve_conflict'
+    displayName: 'Resolve Conflict'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile
+    skipJenkinsfileValidation: true
