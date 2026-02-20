@@ -126,24 +126,24 @@ Jenkins環境（EC2フリートインスタンス）で `execute --phase all` �
 
 ### Phase 2: 設計 (見積もり: 2〜3h)
 
-- [ ] Task 2-1: ネットワークヘルスチェッカーモジュールの詳細設計 (1h)
+- [x] Task 2-1: ネットワークヘルスチェッカーモジュールの詳細設計 (1h)
   - `NetworkHealthCheckResult` インターフェースの定義
   - `checkNetworkHealth()` 関数のシグネチャと内部フロー設計
   - IMDSv2トークン取得 → インスタンスID/リージョン取得のフロー
   - CloudWatch `GetMetricStatistics` APIの呼び出しパラメータ設計
-- [ ] Task 2-2: 型定義・インターフェース拡張の設計 (0.5h)
+- [x] Task 2-2: 型定義・インターフェース拡張の設計 (0.5h)
   - `ExecuteCommandOptions` への新規フィールド追加設計
   - `PhaseContext` への新規フィールド追加設計
   - `ExecutionSummary` への `stoppedReason` フィールド追加設計
-- [ ] Task 2-3: CLI・オプション解析・設定管理の拡張設計 (0.5h)
+- [x] Task 2-3: CLI・オプション解析・設定管理の拡張設計 (0.5h)
   - `src/main.ts` のCLIオプション定義
   - `options-parser.ts` の解析・バリデーションロジック
   - `config.ts` の環境変数マッピング
-- [ ] Task 2-4: ワークフロー実行ループへの統合設計 (0.5h)
+- [x] Task 2-4: ワークフロー実行ループへの統合設計 (0.5h)
   - `executePhasesSequential()` 内のチェック挿入位置
   - 早期終了時の `ExecutionSummary` 構造
   - ログ出力フォーマットの設計
-- [ ] Task 2-5: エラーハンドリング・フォールバック設計 (0.5h)
+- [x] Task 2-5: エラーハンドリング・フォールバック設計 (0.5h)
   - IMDSv2アクセス失敗時のフォールバック
   - CloudWatch API呼び出し失敗時のフォールバック
   - 部分的なメトリクス取得失敗時の挙動
@@ -350,13 +350,13 @@ graph TD
 
 ### Phase 2: 設計
 
-- [ ] 実装戦略の判断根拠が明記されている（EXTEND）
-- [ ] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
-- [ ] `NetworkHealthCheckResult` インターフェースが定義されている
-- [ ] `checkNetworkHealth()` 関数のシグネチャが定義されている
-- [ ] IMDSv2 → CloudWatch APIのデータフローが設計されている
-- [ ] エラーハンドリング・フォールバック方針が明確である
-- [ ] 型定義の拡張内容が明確である
+- [x] 実装戦略の判断根拠が明記されている（EXTEND）
+- [x] テスト戦略の判断根拠が明記されている（UNIT_INTEGRATION）
+- [x] `NetworkHealthCheckResult` インターフェースが定義されている
+- [x] `checkNetworkHealth()` 関数のシグネチャが定義されている
+- [x] IMDSv2 → CloudWatch APIのデータフローが設計されている
+- [x] エラーハンドリング・フォールバック方針が明確である
+- [x] 型定義の拡張内容が明確である
 
 ### Phase 3: テストシナリオ
 
