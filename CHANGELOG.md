@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #714**: Jenkins に `split-issue` ジョブを追加
+  - `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` を新規作成（`rewrite-issue` ジョブをテンプレートに差分適用）
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy` を新規作成（19パラメータ定義、`MAX_SPLITS` を含む）
+  - `jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml` に `ai_workflow_split_issue_job` エントリを追加
+  - `jenkins/README.md` を更新（ジョブ一覧・ディレクトリ構造・フォルダ構成・ジョブ数を13種類×10フォルダ=130ジョブに更新）
+  - Jenkins UI から `split-issue` CLI コマンドを実行可能に（Issue分割、dry-run/applyモード、分割数上限指定をサポート）
+  - `rewrite-issue` と同一のパイプライン構成を維持（7ステージ、Docker エージェント、Webhook 通知、パラメータバリデーション）
+  - テストカバレッジ: 統合テスト28件を追加（`tests/integration/jenkins/split-issue-job.test.ts`）、`npm run validate` PASS
+
 - **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
   - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
   - `auto-issue` コマンドと同一のバリデーションパターンを採用（空文字・空白のみ不可、500文字超過はエラー）

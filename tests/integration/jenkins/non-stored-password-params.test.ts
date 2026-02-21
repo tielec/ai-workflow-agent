@@ -26,6 +26,7 @@ const JOB_DSL_PATHS = {
   prCommentFinalize:
     'jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_finalize_job.groovy',
   rewriteIssue: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_rewrite_issue_job.groovy',
+  splitIssue: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy',
   ecrBuild: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy',
 } as const;
 
@@ -59,6 +60,7 @@ const EXPECTED_SEED_JOB_KEYS = [
   'ai_workflow_pr_comment_execute_job',
   'ai_workflow_pr_comment_finalize_job',
   'ai_workflow_rewrite_issue_job',
+  'ai_workflow_split_issue_job',
   'ai_workflow_ecr_build_job',
 ] as const;
 
@@ -74,6 +76,7 @@ const SEED_JOB_KEY_TO_PATH: Record<(typeof EXPECTED_SEED_JOB_KEYS)[number], stri
   ai_workflow_pr_comment_execute_job: JOB_DSL_PATHS.prCommentExecute,
   ai_workflow_pr_comment_finalize_job: JOB_DSL_PATHS.prCommentFinalize,
   ai_workflow_rewrite_issue_job: JOB_DSL_PATHS.rewriteIssue,
+  ai_workflow_split_issue_job: JOB_DSL_PATHS.splitIssue,
   ai_workflow_ecr_build_job: JOB_DSL_PATHS.ecrBuild,
 };
 
