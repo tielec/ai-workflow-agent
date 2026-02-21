@@ -165,13 +165,13 @@
 
 ### Phase 5: テストコード実装 (見積もり: 1.5〜2h)
 
-- [ ] Task 5-1: 共通ヘルパー関数のユニットテスト作成 (1〜1.5h)
+- [x] Task 5-1: 共通ヘルパー関数のユニットテスト作成 (1〜1.5h)
   - `tests/unit/core/git/git-config-helper.test.ts` を新規作成
   - テストケース: 環境変数が設定されている場合の優先順位テスト
   - テストケース: 環境変数が未設定の場合のデフォルト値テスト
   - テストケース: 既存のリポジトリローカル設定が存在する場合のスキップ動作テスト
   - テストケース: バリデーション（名前長超過、メール形式不正）のフォールバックテスト
-- [ ] Task 5-2: resolve-conflict 統合テストの拡張 (0.5h)
+- [x] Task 5-2: resolve-conflict 統合テストの拡張 (0.5h)
   - `tests/integration/commands/resolve-conflict.test.ts` に Git ユーザー設定検証テストを追加
   - テストケース: init フェーズで `git.addConfig('user.name', ...)` が呼び出されることを検証
   - テストケース: analyze フェーズで `git.addConfig` がマージ前に呼び出されることを検証
@@ -306,9 +306,9 @@ graph TD
 - [ ] `npm run lint` が pass する
 
 ### Phase 5: テストコード実装
-- [ ] 共通ヘルパー関数のユニットテストが作成されている
-- [ ] resolve-conflict 統合テストに Git 設定検証テストケースが追加されている
-- [ ] テストが実行可能な状態である
+- [x] 共通ヘルパー関数のユニットテストが作成されている
+- [x] resolve-conflict 統合テストに Git 設定検証テストケースが追加されている
+- [x] テストが実行可能な状態である
 
 ### Phase 6: テスト実行
 - [ ] `npm run validate` が pass する（lint + test + build）
