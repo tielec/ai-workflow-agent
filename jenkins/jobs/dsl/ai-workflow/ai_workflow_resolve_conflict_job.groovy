@@ -141,6 +141,19 @@ Claude実行モードで使用されます
             '''.stripIndent().trim())
 
             // ========================================
+            // Git設定
+            // ========================================
+            nonStoredPasswordParam('GIT_COMMIT_USER_NAME', '''
+Gitコミット時のユーザー名（任意）
+デフォルト: AI Workflow Bot
+            '''.stripIndent().trim())
+
+            nonStoredPasswordParam('GIT_COMMIT_USER_EMAIL', '''
+Gitコミット時のメールアドレス（任意）
+デフォルト: ai-workflow@example.com
+            '''.stripIndent().trim())
+
+            // ========================================
             // その他
             // ========================================
             choiceParam('LOG_LEVEL', ['INFO', 'DEBUG', 'WARNING', 'ERROR'], '''
@@ -192,7 +205,7 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile_WRONG')
             }
         }
 

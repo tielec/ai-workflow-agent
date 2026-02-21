@@ -18,7 +18,7 @@ import {
   ResponsePlanComment,
   ResolutionSummary,
 } from '../../types/pr-comment.js';
-import { config } from '../../core/config.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import {
   getRepoRoot,
   parsePullRequestUrl,
@@ -346,12 +346,7 @@ async function commitIfNeeded(repoRoot: string, message: string, prBranch: strin
 
   // Git設定（初回のみ）
   if (!gitConfigured) {
-    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
-    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
-
-    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
-    await git.addConfig('user.name', gitUserName);
-    await git.addConfig('user.email', gitUserEmail);
+    await ensureGitConfig(git);
     gitConfigured = true;
   }
 
