@@ -205,7 +205,7 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile_WRONG')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile')
             }
         }
 
