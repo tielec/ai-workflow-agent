@@ -1,0 +1,323 @@
+/**
+ * AI Workflow - Create Sub Issue Mode
+ *
+ * 親Issueに紐づくサブIssueをAIエージェントで自動生成・起票するJenkinsfile。
+ * rewrite-issueパイプラインをベースに、create-sub-issueコマンド用にカスタマイズ。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - ISSUE_NUMBER: 親Issue番号（必須）
+ * - DESCRIPTION: サブIssueの説明（必須、1-1000文字）
+ * - GITHUB_REPOSITORY: owner/repo形式（必須）
+ * - ISSUE_TYPE: Issue種別（bug/task/enhancement、デフォルト: bug）
+ * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
+ * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
+ * - APPLY: Issue作成フラグ（true/false、デフォルト: true）
+ * - DRY_RUN: プレビューモード（true/false、デフォルト: false）
+ * - LABELS: ラベル（任意、カンマ区切り）
+ * - CUSTOM_INSTRUCTION: カスタム指示（任意、最大500文字）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - 認証情報（Codex/Claude系、auto-issueと同様）
+ *
+ * 注意:
+ * - EXECUTION_MODE は内部的に 'create_sub_issue' に固定
+ * - APPLYとDRY_RUNが両方trueの場合、APPLYが優先
+ * - DESCRIPTION / LABELS / CUSTOM_INSTRUCTION は環境変数経由で安全に渡す
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet-micro'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
+        EXECUTION_MODE = 'create_sub_issue'
+        CODEX_HOME = ''
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
+
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Create Sub Issue"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.ISSUE_NUMBER?.trim()) {
+                        error("ISSUE_NUMBER parameter is required")
+                    }
+
+                    if (!params.ISSUE_NUMBER.isInteger()) {
+                        error("ISSUE_NUMBER must be a number: ${params.ISSUE_NUMBER}")
+                    }
+
+                    if (!params.DESCRIPTION?.trim()) {
+                        error("DESCRIPTION parameter is required")
+                    }
+
+                    if (!params.GITHUB_REPOSITORY?.trim()) {
+                        error("GITHUB_REPOSITORY parameter is required")
+                    }
+
+                    def repoParts = params.GITHUB_REPOSITORY.split('/')
+                    if (repoParts.length != 2) {
+                        error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
+                    }
+
+                    env.REPO_OWNER = repoParts[0]
+                    env.REPO_NAME = repoParts[1]
+                    env.ISSUE_NUMBER = params.ISSUE_NUMBER
+
+                    def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                    def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "Parent Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "Description: ${params.DESCRIPTION?.take(100)}..."
+                    echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Issue Type: ${params.ISSUE_TYPE ?: 'bug'}"
+                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Apply: ${params.APPLY ?: false}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Labels: ${params.LABELS ?: '(none)'}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ? '(provided)' : '(none)'}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Execute Create Sub Issue') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Create Sub Issue"
+                    echo "========================================="
+                    echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
+                    echo "Issue Type: ${params.ISSUE_TYPE ?: 'bug'}"
+                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Apply: ${params.APPLY ?: false}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+
+                    def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                    def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def parentIssueNumber = params.ISSUE_NUMBER
+                        def issueType = params.ISSUE_TYPE ?: 'bug'
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
+                        def applyFlag = params.APPLY ? '--apply' : ''
+                        def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
+                        def labelsFlag = params.LABELS?.trim() ? '--labels' : ''
+                        def customInstructionFlag = params.CUSTOM_INSTRUCTION?.trim() ? '--custom-instruction' : ''
+
+                        withEnv([
+                            "DESCRIPTION_PARAM=${params.DESCRIPTION?.trim()}",
+                            "LABELS_PARAM=${params.LABELS?.trim() ?: ''}",
+                            "CUSTOM_INSTRUCTION_PARAM=${params.CUSTOM_INSTRUCTION?.trim() ?: ''}"
+                        ]) {
+                            def args = [
+                                "--parent-issue ${parentIssueNumber}",
+                                '--description "\$DESCRIPTION_PARAM"',
+                                "--type ${issueType}"
+                            ]
+
+                            if (languageOption) {
+                                args << languageOption
+                            }
+                            if (agentOption) {
+                                args << agentOption
+                            }
+                            if (applyFlag) {
+                                args << applyFlag
+                            }
+                            if (dryRunFlag) {
+                                args << dryRunFlag
+                            }
+                            if (labelsFlag) {
+                                args << "${labelsFlag} " + '"\$LABELS_PARAM"'
+                            }
+                            if (customInstructionFlag) {
+                                args << "${customInstructionFlag} " + '"\$CUSTOM_INSTRUCTION_PARAM"'
+                            }
+
+                            def command = "node dist/index.js create-sub-issue \\\n    " + args.join(" \\\n    ")
+                            sh command
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - Create Sub Issue Success"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
+                def dryRunNote = (!params.APPLY && params.DRY_RUN) ? ' (dry run mode)' : ''
+                def applyNote = params.APPLY ? ' (applied)' : ''
+                echo "Result: Create sub issue completed${applyNote}${dryRunNote}"
+
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'success',
+                    buildUrl: env.BUILD_URL,
+                    branchName: env.BRANCH_NAME ?: '',
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - Create Sub Issue Failure"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
+                echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+    }
+}

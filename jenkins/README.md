@@ -38,6 +38,8 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── resolve-conflict/
 │   │       │   └── Jenkinsfile
+│   │       ├── create-sub-issue/
+│   │       │   └── Jenkinsfile
 │   │       ├── validate-credentials/
 │   │       │   ├── Jenkinsfile
 │   │       │   └── README.md
@@ -57,6 +59,7 @@ jenkins/
 │           ├── ai_workflow_pr_comment_execute_job.groovy
 │           ├── ai_workflow_pr_comment_finalize_job.groovy
 │           ├── ai_workflow_resolve_conflict_job.groovy
+│           ├── ai_workflow_create_sub_issue_job.groovy
 │           ├── ai_workflow_validate_credentials_job.groovy
 │           ├── ai_workflow_ecr_build_job.groovy
 │           └── TEST_PLAN.md
@@ -81,6 +84,7 @@ jenkins/
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 19 |
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 18 |
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
+| **create_sub_issue** | サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成） | 18 |
 | **validate_credentials** | 認証情報バリデーション（Git/GitHub/Codex/Claude/OpenAI/Anthropic） | 17 |
 | **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除） | 7 |
 
@@ -166,6 +170,7 @@ AI_Workflow/
 │   ├── pr_comment_execute
 │   ├── pr_comment_finalize
 │   ├── resolve_conflict
+│   ├── create_sub_issue
 │   ├── validate_credentials
 │   └── ecr_build
 ├── stable-1/          # mainブランチ用（安定バージョン）
@@ -196,7 +201,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（13種類 × 10フォルダ = 130ジョブ）
+- 各実行モード用のジョブ（14種類 × 10フォルダ = 140ジョブ）
 
 ## 共通処理モジュール
 
