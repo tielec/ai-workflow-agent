@@ -109,6 +109,11 @@ beforeAll(async () => {
     },
   }));
 
+  await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
+    __esModule: true,
+    ensureGitConfig: jest.fn().mockResolvedValue(undefined),
+  }));
+
   await jest.unstable_mockModule('simple-git', () => ({
     __esModule: true,
     default: jest.fn(() => ({

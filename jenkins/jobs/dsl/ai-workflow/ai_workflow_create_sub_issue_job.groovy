@@ -1,8 +1,8 @@
 /**
- * AI Workflow Resolve Conflict Job DSL
+ * AI Workflow Create Sub Issue Job DSL
  *
- * PRのマージコンフリクトを自動解消するジョブ。
- * EXECUTION_MODE: resolve_conflict（固定値、パラメータとして表示）
+ * 親Issueに紐づくサブIssueを作成するジョブ
+ * EXECUTION_MODE: create_sub_issue（固定値、パラメータとして表示しない）
  * パラメータはJob DSL内で定義
  */
 
@@ -15,7 +15,7 @@ def genericFolders = [
 
 // 共通設定を取得
 def jenkinsPipelineRepo = commonSettings['jenkins-pipeline-repo']
-def jobKey = 'ai_workflow_resolve_conflict_job'
+def jobKey = 'ai_workflow_create_sub_issue_job'
 def jobConfig = jenkinsJobsConfig[jobKey]
 
 // ジョブ作成クロージャ
@@ -24,24 +24,23 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
         displayName(jobConfig.displayName)
 
         description("""\
-            |# AI Workflow - Resolve Conflict
+            |# AI Workflow - Create Sub Issue
             |${descriptionHeader}
             |
             |## 概要
-            |Pull RequestのマージコンフリクトをAIエージェントで自動解消します。
+            |親Issueに紐づくサブIssueをAIエージェントで自動生成・起票します。
             |
-            |## ステージ
-            |1. Load Common Library
-            |2. Prepare Codex auth.json
-            |3. Prepare Agent Credentials
-            |4. Validate Parameters
-            |5. Setup Environment
-            |6. Setup Node.js Environment
-            |7. Execute Resolve Conflict（init → analyze → execute → finalize）
+            |## 機能
+            |- 親Issue番号を指定してサブIssueを生成
+            |- AIエージェント（Codex/Claude）がIssueタイトルと本文を自動生成
+            |- dry-run モードでプレビュー表示
+            |- apply モードでGitHub Issueを実作成しSub-Issue紐づけ
             |
             |## 注意事項
-            |- EXECUTION_MODE は 'resolve_conflict' に固定されています
-            |- DRY_RUN=true の場合、finalize の --push は自動的に無効化されます
+            |- EXECUTION_MODEは内部的に'create_sub_issue'に固定されます
+            |- APPLYとDRY_RUNが両方trueの場合、APPLYが優先されます
+            |- ISSUE_NUMBERは親Issue番号として扱われます
+            |- DESCRIPTIONは必須パラメータです（1-1000文字）
             |""".stripMargin())
 
         // パラメータ定義
@@ -49,17 +48,22 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 実行モード（固定値）
             // ========================================
-            choiceParam('EXECUTION_MODE', ['resolve_conflict'], '''
+            choiceParam('EXECUTION_MODE', ['create_sub_issue'], '''
 実行モード（固定値 - 変更不可）
             '''.stripIndent().trim())
 
             // ========================================
             // 基本設定
             // ========================================
-            stringParam('PR_URL', '', '''
-対象 Pull Request URL（必須）
+            stringParam('ISSUE_NUMBER', '', '''
+親Issue番号（必須）
+            '''.stripIndent().trim())
 
-例: https://github.com/tielec/ai-workflow-agent/pull/123
+            textParam('DESCRIPTION', '', '''
+サブIssueの説明（必須、1-1000文字）
+
+親Issueに紐づくサブIssueの内容を記述します。
+AIエージェントがこの説明を元にサブIssueのタイトルと本文を生成します。
             '''.stripIndent().trim())
 
             stringParam('GITHUB_REPOSITORY', '', '''
@@ -68,11 +72,18 @@ GitHub リポジトリ（owner/repo）（必須）
 例: tielec/ai-workflow-agent
             '''.stripIndent().trim())
 
+            choiceParam('ISSUE_TYPE', ['bug', 'task', 'enhancement'], '''
+Issue種別
+- bug: バグ報告（デフォルト）
+- task: タスク
+- enhancement: 機能拡張
+            '''.stripIndent().trim())
+
             choiceParam('AGENT_MODE', ['auto', 'codex', 'claude'], '''
 エージェントの実行モード
-- auto: 利用可能な認証情報で自動選択
-- codex: Codex のみを使用
-- claude: Claude Code のみを使用
+- auto: Codex APIキーがあれば Codex を優先し、なければ Claude Code を使用
+- codex: Codex のみを使用（CODEX_API_KEY または OPENAI_API_KEY が必要）
+- claude: Claude Code のみを使用（credentials.json が必要）
             '''.stripIndent().trim())
 
             choiceParam('LANGUAGE', ['ja', 'en'], '''
@@ -84,17 +95,26 @@ GitHub リポジトリ（owner/repo）（必須）
             // ========================================
             // 実行オプション
             // ========================================
+            booleanParam('APPLY', true, '''
+Issueを作成する（デフォルト: true）
+            '''.stripIndent().trim())
+
             booleanParam('DRY_RUN', false, '''
-ドライランモード（変更を適用せずプレビューのみ）
+ドライランモード（プレビューのみ表示）
             '''.stripIndent().trim())
 
-            booleanParam('PUSH', true, '''
-finalize 時にリモートへ push するか（デフォルト: true）
-注意: DRY_RUN=true の場合、PUSH は自動的に無効化されます
+            stringParam('LABELS', '', '''
+ラベル（任意、カンマ区切り）
+
+サブIssueに付与するラベルをカンマ区切りで指定します。
+例: bug,priority-high,sprint-5
+空欄の場合はラベルなしで作成します。
             '''.stripIndent().trim())
 
-            booleanParam('SQUASH', false, '''
-コミットをスカッシュするか（デフォルト: false）
+            textParam('CUSTOM_INSTRUCTION', '', '''
+カスタム指示（任意、最大500文字程度）
+
+エージェントへの追加ガイダンスを指定します。空欄の場合はデフォルト挙動で実行します。
             '''.stripIndent().trim())
 
             // ========================================
@@ -138,19 +158,6 @@ Claude実行モードで使用されます
             nonStoredPasswordParam('ANTHROPIC_API_KEY', '''
 Anthropic API キー（任意）
 Claude実行モードで使用されます
-            '''.stripIndent().trim())
-
-            // ========================================
-            // Git設定
-            // ========================================
-            nonStoredPasswordParam('GIT_COMMIT_USER_NAME', '''
-Gitコミット時のユーザー名（任意）
-デフォルト: AI Workflow Bot
-            '''.stripIndent().trim())
-
-            nonStoredPasswordParam('GIT_COMMIT_USER_EMAIL', '''
-Gitコミット時のメールアドレス（任意）
-デフォルト: ai-workflow@example.com
             '''.stripIndent().trim())
 
             // ========================================
@@ -205,13 +212,13 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile')
             }
         }
 
         // 環境変数（EXECUTION_MODEを固定値として設定）
         environmentVariables {
-            env('EXECUTION_MODE', 'resolve_conflict')
+            env('EXECUTION_MODE', 'create_sub_issue')
             env('WORKFLOW_VERSION', '0.2.0')
         }
 

@@ -4,6 +4,7 @@ import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
@@ -58,6 +59,7 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
     }
 
     const repoGit = simpleGit(repoRoot);
+    await ensureGitConfig(repoGit);
     await repoGit.fetch('origin', baseBranch);
     await repoGit.fetch('origin', headBranch);
     const status = await repoGit.status();

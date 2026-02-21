@@ -3,6 +3,7 @@ import path from 'node:path';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
@@ -24,6 +25,7 @@ export async function handleResolveConflictInitCommand(options: ResolveConflictI
     }
 
     const git = simpleGit(repoRoot);
+    await ensureGitConfig(git);
     if (pr.base) {
       await git.fetch('origin', pr.base);
     }
