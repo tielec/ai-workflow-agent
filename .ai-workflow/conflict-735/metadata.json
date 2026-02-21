@@ -5,7 +5,7 @@
     "owner": "tielec",
     "repo": "ai-workflow-agent"
   },
-  "status": "analyzed",
+  "status": "executed",
   "mergeable": null,
   "mergeableState": "unknown",
   "conflictFiles": [
@@ -15,6 +15,7 @@
   "baseBranch": "develop",
   "headBranch": "ai-workflow/issue-712",
   "createdAt": "2026-02-21T12:58:54.738Z",
-  "updatedAt": "2026-02-21T13:04:13.892Z",
-  "resolutionPlanPath": "/tmp/ai-workflow-repos-7-490f5654/ai-workflow-agent/.ai-workflow/conflict-735/resolution-plan.md"
+  "updatedAt": "2026-02-21T13:04:21.845Z",
+  "resolutionPlanPath": "/tmp/ai-workflow-repos-7-490f5654/ai-workflow-agent/.ai-workflow/conflict-735/resolution-plan.md",
+  "resolutionResultPath": "/tmp/ai-workflow-repos-7-490f5654/ai-workflow-agent/.ai-workflow/conflict-735/resolution-result.md"
 }
