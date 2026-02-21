@@ -1,6 +1,6 @@
 # Codex Agent 実行ログ
 
-開始日時: 2026/2/21 10:45:09
+開始日時: 2026/2/21 10:56:09
 
 ---
 
@@ -76,7 +76,7 @@ tsconfig.test.json
 ## Turn 7: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "rg --files -g 'AGENTS.md'"`
+**コマンド**: `/bin/bash -lc "rg --files -g 'Planning.md'"`
 **ステータス**: failed (exit_code=127)
 
 ```text
@@ -91,7 +91,7 @@ tsconfig.test.json
 ## Turn 9: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'find .. -name AGENTS.md -maxdepth 3'`
+**コマンド**: `/bin/bash -lc 'find .. -name Planning.md -print'`
 **ステータス**: completed (exit_code=0)
 
 ## Turn 10: ツール実行
@@ -102,8 +102,52 @@ tsconfig.test.json
 ## Turn 11: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'find . -name Planning.md'`
+**コマンド**: `/bin/bash -lc 'ls -a'`
 **ステータス**: completed (exit_code=0)
+
+```text
+.
+..
+.ai-workflow
+.eslintrc.json
+.git
+.github
+.gitignore
+.npmrc
+.test-tmp
+.tmp
+AGENT_TEAMS.md
+CHANGELOG.md
+CLAUDE.md
+[REDACTED_TOKEN].md
+[REDACTED_TOKEN].md
+[REDACTED_TOKEN].md
+[REDACTED_TOKEN].md
+CODEBASE_SUMMARY.md
+Dockerfile
+Jenkinsfile
+LICENSE
+PROGRESS.md
+README.md
+TROUBLESHOOTING.md
+__mocks__
+dist
+docs
+examples
+jenkins
+jest.config.cjs
+metadata.json.template
+node_modules
+package-lock.json
+package.json
+scripts
+src
+tests
+tmp
+tmp-init-auto
+tsconfig.json
+tsconfig.test.json
+```
 
 ## Turn 12: ツール実行
 
@@ -113,14 +157,15 @@ tsconfig.test.json
 ## Turn 13: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "find . -iname 'planning.md'"`
+**コマンド**: `/bin/bash -lc 'ls .ai-workflow'`
 **ステータス**: completed (exit_code=0)
 
 ```text
-./.ai-workflow/issue-10/00_planning/output/planning.md
-./.ai-workflow/issue-105/00_planning/output/planning.md
-./.ai-workflow/issue-7/00_planning/output/planning.md
-./.ai-workflow/issue-749/00_planning/output/planning.md
+issue-10
+issue-105
+issue-7
+issue-749
+tmp
 ```
 
 ## Turn 14: ツール実行
@@ -131,7 +176,62 @@ tsconfig.test.json
 ## Turn 15: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' ./.ai-workflow/issue-749/00_planning/output/planning.md"`
+**コマンド**: `/bin/bash -lc 'ls .ai-workflow/issue-749'`
+**ステータス**: completed (exit_code=0)
+
+```text
+00_planning
+01_requirements
+02_design
+03_test_scenario
+04_implementation
+[REDACTED_TOKEN]
+06_testing
+metadata.json
+metadata.json.[REDACTED_TOKEN]
+```
+
+## Turn 16: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 17: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'ls .ai-workflow/issue-749/00_planning'`
+**ステータス**: completed (exit_code=0)
+
+```text
+execute
+output
+review
+```
+
+## Turn 18: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 19: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'ls .ai-workflow/issue-749/00_planning/output'`
+**ステータス**: completed (exit_code=0)
+
+```text
+planning.md
+```
+
+## Turn 20: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 21: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-749/00_planning/output/planning.md'`
 **ステータス**: completed (exit_code=0)
 
 ```text
@@ -247,234 +347,6 @@ tsconfig.test.json
 ... (truncated)
 ```
 
-## Turn 16: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 17: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' ./.ai-workflow/issue-749/06_testing/output/test-result.md"`
-**ステータス**: completed (exit_code=0)
-
-```text
-# テスト実行結果
-
-## 環境準備サマリー
-- インストールした言語: なし（python3 を導入しようとしたが `apt-get update` が権限不足で失敗）
-- インストールしたパッケージ: `npm install`（依存パッケージ 435件）
-- テストフレームワーク: Jest（`npm test`）
-- 準備で発生した問題: `apt-get update` が `E: List directory /var/lib/apt/lists/partial is missing. - Acquire (13: Permission denied)` で失敗
-
-## テスト結果サマリー
-- 総テスト数: 3199件
-- 成功: 3173件
-- 失敗: 4件
-- 成功率: 99.19%
-
-## 条件分岐
-
-**失敗時（失敗数が1件以上）**:
-
-### `tests/unit/pr-comment/finalize-command.test.ts::[REDACTED_TOKEN] git flow › configures git user information before staging changes`
-- **エラー**: `expect(jest.fn()).[REDACTED_TOKEN](...expected)`（`user.name` の呼び出しが追加引数付きで記録され、期待と不一致）
-- **スタックトレース**:
-  ```
-  Expected: "user.name", "Configured Bot"
-  Received
-         1: "user.name", "Configured Bot", false, "local"
-         2: "user.email", "[REDACTED_EMAIL]", false, "local"
-
-  249 |     await [REDACTED_TOKEN](commandOptions);
-  250 |
-> 251 |     expect([REDACTED_TOKEN]).[REDACTED_TOKEN]('user.name', 'Configured Bot');
-      |                                    ^
-  ```
-
-### `tests/unit/pr-comment/finalize-command.test.ts::[REDACTED_TOKEN] git flow › falls back to default git user values when configuration is absent`
-- **エラー**: `expect(jest.fn()).[REDACTED_TOKEN](...expected)`（デフォルト値が `AI Workflow Bot` ではなく `AI Workflow` に変更され、追加引数付きで記録）
-- **スタックトレース**:
-  ```
-  Expected: "user.name", "AI Workflow Bot"
-  Received
-         1: "user.name", "AI Workflow", false, "local"
-         2: "user.email", "[REDACTED_EMAIL]", false, "local"
-
-  271 |     await [REDACTED_TOKEN](commandOptions);
-  272 |
-> 273 |     expect([REDACTED_TOKEN]).[REDACTED_TOKEN]('user.name', 'AI Workflow Bot');
-      |                                    ^
-  ```
-
-### `tests/integration/jenkins/ecr-build-job.test.ts::Integration: ECR build Jenkins pipeline (Issue #725) › UT-026: リグレッション検証（任意） › npm run validate を実行し正常終了する`
-- **エラー**: `Command failed: npm run validate`（内部で `tests/unit/pr-comment/finalize-command.test.ts` が失敗）
-- **スタックトレース**:
-  ```
-  Command failed: npm run validate
-  (node:1460) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-  ```
-
-### `tests/integration/jenkins/rewrite-issue-job.test.ts::Integration: rewrite-issue Jenkins pipeline (Issue #674) › IT-013/IT-014/IT-015: ビルド/検証/CLIヘルプの実行確認 › npm run validate を実行し正常終了する`
-- **エラー**: `Command failed: npm run validate`（内部で `tests/unit/pr-comment/finalize-command.test.ts` が失敗）
-- **スタックトレース**:
-  ```
-  Command failed: npm run validate
-  (node:4855) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-  ```
-```
-
-## Turn 18: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 19: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' ./.ai-workflow/issue-749/03_test_scenario/output/test-scenario.md"`
-**ステータス**: completed (exit_code=0)
-
-```text
-# テストシナリオ: Issue #749
-
-## 1. テスト戦略サマリー
-
-- 選択されたテスト戦略: UNIT_INTEGRATION
-- テスト対象範囲
-- `src/core/git/git-config-helper.ts` の `ensureGitUserConfig()` と定数
-- `resolve-conflict` 各フェーズ（init / analyze / execute）での Git 設定適用
-- `CommitManager.ensureGitConfig()` の委譲による既存挙動の維持
-- `pr-comment` のインライン設定置換による既存挙動の維持
-- テスト目的
-- Git ユーザー設定の優先順位・バリデーション・ログ出力が要件通りであること
-- CI 環境で `resolve-conflict` の commit / merge が失敗しないこと
-- 既存機能にリグレッションがないこと
-
-## 2. Unitテストシナリオ
-
-### テストケース名: [REDACTED_TOKEN]正常系_ローカル設定優先
-- 目的: 既存のローカル Git 設定がある場合に最優先されることを検証
-- 前提条件: `git.listConfig()` が `user.name` / `user.email` を返す
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `git.addConfig('user.name', 既存値, false, 'local')` と `git.addConfig('user.email', 既存値, false, 'local')` が呼び出される
-- テストデータ: `user.name='Existing User'`, `user.email='[REDACTED_EMAIL]'`
-
-### テストケース名: [REDACTED_TOKEN]正常系_環境変数優先
-- 目的: 環境変数（commit）がローカル設定未設定時に適用されることを検証
-- 前提条件: `git.listConfig()` が `user.name` / `user.email` を返さない
-- 入力: `config.[REDACTED_TOKEN]()` = `Custom User`, `config.[REDACTED_TOKEN]()` = `[REDACTED_EMAIL]`
-- 期待結果: `git.addConfig('user.name', 'Custom User', false, 'local')` と `git.addConfig('user.email', '[REDACTED_EMAIL]', false, 'local')` が呼び出される
-- テストデータ: `[REDACTED_TOKEN]='Custom User'`, `[REDACTED_TOKEN]='[REDACTED_EMAIL]'`
-
-### テストケース名: [REDACTED_TOKEN]正常系_フォールバック環境変数適用
-- 目的: commit 系環境変数が未設定の場合に author 系環境変数が適用されることを検証
-- 前提条件: `git.listConfig()` が空、`getGitCommitUserName/Email` が null
-- 入力: `config.getGitAuthorName()` = `Author User`, `config.getGitAuthorEmail()` = `[REDACTED_EMAIL]`
-- 期待結果: `git.addConfig('user.name', 'Author User', false, 'local')` と `git.addConfig('user.email', '[REDACTED_EMAIL]', false, 'local')` が呼び出される
-- テストデータ: `GIT_AUTHOR_NAME='Author User'`, `GIT_AUTHOR_EMAIL='[REDACTED_EMAIL]'`
-
-### テストケース名: [REDACTED_TOKEN]正常系_デフォルト値適用
-- 目的: 環境変数が全て未設定の場合にデフォルト値が適用されることを検証
-- 前提条件: `git.listConfig()` が空、`config` が全て null
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `[REDACTED_TOKEN]='AI Workflow'` と `[REDACTED_TOKEN]='[REDACTED_EMAIL]'` が設定される
-- テストデータ: なし
-
-### テストケース名: [REDACTED_TOKEN]異常系_ユーザー名長さ不正
-- 目的: ユーザー名が 1〜100 文字外の場合に警告してデフォルトへフォールバックすることを検証
-- 前提条件: `[REDACTED_TOKEN]()` が 101 文字以上
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `logger.warn()` が呼び出され、`git.addConfig('user.name', [REDACTED_TOKEN], false, 'local')` が呼び出される
-- テストデータ: 101 文字のユーザー名
-
-### テストケース名: [REDACTED_TOKEN]異常系_メール形式不正
-- 目的: メールに `@` が含まれない場合に警告してデフォルトへフォールバックすることを検証
-- 前提条件: `[REDACTED_TOKEN]()` が `invalid-email`
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `logger.warn()` が呼び出され、`git.addConfig('user.email', [REDACTED_TOKEN], false, 'local')` が呼び出される
-- テストデータ: `invalid-email`
-
-### テストケース名: [REDACTED_TOKEN]正常系_addConfig引数検証
-- 目的: `git.addConfig` が `('user.name' / 'user.email', 値, false, 'local')` で呼ばれることを検証
-- 前提条件: `git.listConfig()` が空
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: 第3引数が `false`、第4引数が `'local'` である
-- テストデータ: デフォルト値または環境変数
-
-### テストケース名: [REDACTED_TOKEN]正常系_ログ出力
-- 目的: 設定後に `logger.info()` でユーザー名・メールがログ出力されることを検証
-- 前提条件: 正常な設定値が決定される
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `logger.info()` がユーザー名・メールを含むメッセージで呼ばれる
-- テストデータ: `Custom User`, `[REDACTED_EMAIL]`
-
-### テストケース名: [REDACTED_TOKEN]異常系_例外発生時継続
-- 目的: `git.listConfig()` 等で例外が発生してもエラーを再スローせずワークフローが継続できることを検証
-- 前提条件: `git.listConfig()` が例外を投げる
-- 入力: `ensureGitUserConfig(git)`
-- 期待結果: `logger.warn()` が呼び出され、例外が外に伝播しない
-- テストデータ: 例外オブジェクト
-
-### テストケース名: CommitManager.ensureGitConfig_正常系_委譲確認
-- 目的: 既存 API のまま共通ヘルパーへ委譲していることを検証
-- 前提条件: `CommitManager` が `git` を保持
-- 入力: `commitManager.ensureGitConfig()`
-- 期待結果: `ensureGitUserConfig(this.git)` が呼び出される
-- テストデータ: モック `SimpleGit`
-
-## 3. Integrationテストシナリオ
-
-### シナリオ名: resolve-conflict init + Git設定
-- 目的: init フェーズで commit 前に Git 設定が適用されることを検証
-- 前提条件: CI 環境相当でグローバル Git 設定なし
-- テスト手順:
-1. `resolve-conflict init` を実行
-2. `git.addConfig('user.name', ...)` / `git.addConfig('user.email', ...)` の呼び出しを監視
-3. `git.commit()` の呼び出し順序を確認
--
-... (truncated)
-```
-
-## Turn 20: ツール実行
-
-**種別**: reasoning
-**ステータス**: completed
-
-## Turn 21: ツール実行
-
-**種別**: コマンド実行
-**コマンド**: `/bin/bash -lc "sed -n '1,200p' ./.ai-workflow/issue-749/04_implementation/output/implementation.md"`
-**ステータス**: completed (exit_code=0)
-
-```text
-# 実装完了レポート
-
-## 変更ファイル一覧
-
-| ファイル | 変更種別 | 概要 |
-|---------|---------|------|
-| `src/core/git/git-config-helper.ts` | 新規 | Gitユーザー設定の共通ヘルパー関数とデフォルト定数を追加 |
-| `src/core/git/commit-manager.ts` | 修正 | `ensureGitConfig()` を共通ヘルパー呼び出しに委譲 |
-| `src/commands/resolve-conflict/init.ts` | 修正 | メタデータコミット前に Git ユーザー設定を追加 |
-| `src/commands/resolve-conflict/analyze.ts` | 修正 | merge/commit 前に Git ユーザー設定を追加 |
-| `src/commands/resolve-conflict/execute.ts` | 修正 | 複数 commit 前に Git ユーザー設定を追加 |
-| `src/commands/pr-comment/init.ts` | 修正 | インライン Git 設定を共通ヘルパーに置換 |
-| `src/commands/pr-comment/finalize.ts` | 修正 | インライン Git 設定2箇所を共通ヘルパーに置換 |
-
-## 主要な変更点
-
-- Git ユーザー設定を `ensureGitUserConfig()` に集約し、デフォルト値とバリデーションを統一しました。
-- `resolve-conflict` の init/analyze/execute 各フェーズで commit/merge 前に共通ヘルパーを呼び出すようにしました。
-- `pr-comment` のインライン設定を共通ヘルパーへ置き換え、フォールバック値の不整合を解消しました。
-- `CommitManager.ensureGitConfig()` は外部仕様を維持したまま共通ヘルパーへ委譲する構成に変更しました。
-
-## テスト実施状況
-- ビルド: ❌ 失敗（未実行）
-- リント: ❌ 失敗（未実行）
-- 基本動作確認: 未実行
-```
-
 ## Turn 22: ツール実行
 
 **種別**: reasoning
@@ -483,14 +355,30 @@ tsconfig.test.json
 ## Turn 23: ツール実行
 
 **種別**: コマンド実行
-**コマンド**: `/bin/bash -lc 'git status -sb'`
+**コマンド**: `/bin/bash -lc 'cat .ai-workflow/issue-749/06_testing/output/test-result.md'`
 **ステータス**: completed (exit_code=0)
 
 ```text
-## ai-workflow/issue-749...origin/ai-workflow/issue-749
-?? .ai-workflow/issue-749/06_testing/execute/agent_log_raw.txt
-?? .ai-workflow/issue-749/06_testing/execute/prompt.txt
-?? .ai-workflow/issue-749/06_testing/review/
+# テスト結果（再実行）
+
+## 再実行1: 2026-02-21 10:54:48
+- **実行コマンド**: `npm run validate`
+- **修正内容**:
+  - `tests/unit/pr-comment/finalize-command.test.ts` の期待値を `simpleGit.addConfig` の4引数呼び出しと新しいデフォルト値（`AI Workflow` / `[REDACTED_EMAIL]`）に合わせて更新
+- **結果**: 成功
+  - **Test Suites**: 229 passed / 230 total（1 skipped）
+  - **Tests**: 3177 passed / 3199 total（22 skipped）
+  - **Snapshots**: 0
+- **補足**:
+  - `npm run validate` 内の `lint`（`tsc --noEmit`）・`test`（Jest）・`build`（`tsc` + `copy-static-assets`）はすべて成功
+  - テスト中の `console.warn/info` は想定通りで、失敗は発生していない
+
+## 品質ゲート評価
+- **テストが実行されている**: PASS
+- **主要なテストケースが成功している**: PASS
+- **失敗したテストは分析されている**: PASS（失敗なし）
+
+**品質ゲート総合判定: PASS**
 ```
 
 ## Turn 24: ツール実行
@@ -500,17 +388,242 @@ tsconfig.test.json
 
 ## Turn 25: ツール実行
 
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'grep -n "Phase 6" -n .ai-workflow/issue-749/00_planning/output/planning.md'`
+**ステータス**: completed (exit_code=0)
+
+```text
+180:### Phase 6: テスト実行 (見積もり: 0.5〜1h)
+212:    P5 --> P6[Phase 6: テスト実行]
+313:### Phase 6: テスト実行
+```
+
+## Turn 26: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 27: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "sed -n '300,340p' .ai-workflow/issue-749/00_planning/output/planning.md"`
+**ステータス**: completed (exit_code=0)
+
+```text
+### Phase 4: 実装
+- [ ] `src/core/git/git-config-helper.ts` が作成されている
+- [ ] `resolve-conflict` の3ファイル（init.ts / analyze.ts / execute.ts）に Git ユーザー設定処理が追加されている
+- [ ] `CommitManager.ensureGitConfig()` が共通ヘルパー関数に委譲している
+- [ ] `pr-comment` のインライン設定が共通ヘルパー関数に置き換えられている
+- [ ] フォールバック値がプロジェクト全体で統一されている
+- [ ] `npm run lint` が pass する
+
+### Phase 5: テストコード実装
+- [x] 共通ヘルパー関数のユニットテストが作成されている
+- [x] resolve-conflict 統合テストに Git 設定検証テストケースが追加されている
+- [x] テストが実行可能な状態である
+
+### Phase 6: テスト実行
+- [ ] `npm run validate` が pass する（lint + test + build）
+- [ ] 新規テストがすべて pass する
+- [ ] 既存テスト（18テスト）にリグレッションがない
+- [ ] ビルド成果物（`dist/`）が正常に生成される
+
+### Phase 7: ドキュメント
+- [ ] 変更に関連するドキュメントが更新されている
+- [ ] 共通ヘルパー関数の使用方法が記載されている（コード内コメントまたはドキュメント）
+
+### Phase 8: レポート
+- [ ] 変更ファイル一覧が記載されている
+- [ ] テスト結果サマリーが記載されている
+- [ ] マージチェックリストが完成している
+
+---
+
+## 参考情報
+
+### 対象ファイル一覧
+
+#### 修正対象ファイル
+| ファイル | 現在の行数 | 変更内容 |
+|---------|-----------|---------|
+| `src/commands/resolve-conflict/init.ts` | 60行 | L48 の `git.commit()` 前に `ensureGitUserConfig()` 呼び出し追加 |
+| `src/commands/resolve-conflict/analyze.ts` | 181行 | L88 の `git.merge()` 前、L169 の `git.commit()` 前に `ensureGitUserConfig()` 呼び出し追加 |
+| `src/commands/resolve-conflict/execute.ts` | 151行 | L128, L139 の `git.commit()` 前に `ensureGitUserConfig()` 呼び出し追加 |
+| `src/core/git/commit-manager.ts` | 705行 | `ensureGitConfig()` メソッドが共通ヘルパー関数に委譲するよう修正 |
+```
+
+## Turn 28: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 29: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "sed -n '150,220p' .ai-workflow/issue-749/00_planning/output/planning.md"`
+**ステータス**: completed (exit_code=0)
+
+```text
+- `src/core/git/git-config-helper.ts` を新規作成
+  - `ensureGitUserConfig(git: SimpleGit)` 関数を実装（`CommitManager.ensureGitConfig()` のロジックを抽出）
+  - デフォルト値定数 `[REDACTED_TOKEN] = 'AI Workflow'` / `[REDACTED_TOKEN] = '[REDACTED_EMAIL]'` を定義
+  - バリデーションロジック（名前長・メール形式）を移植
+- [x] Task 4-2: resolve-conflict コマンドへの適用 (0.5〜1h)
+  - `src/commands/resolve-conflict/init.ts`: `git.commit()` 前に `ensureGitUserConfig()` を呼び出す処理を追加
+  - `src/commands/resolve-conflict/analyze.ts`: `git.merge()` 前に `ensureGitUserConfig()` を呼び出す処理を追加
+  - `src/commands/resolve-conflict/execute.ts`: `git.commit()`（2箇所）前に `ensureGitUserConfig()` を呼び出す処理を追加
+- [x] Task 4-3: 既存コードのリファクタリング (0.5〜1h)
+  - `src/core/git/commit-manager.ts`: `ensureGitConfig()` メソッドが新しい共通ヘルパー関数に委譲するよう修正
+  - `src/commands/pr-comment/init.ts`: インライン Git 設定を共通ヘルパー関数に置き換え
+  - `src/commands/pr-comment/finalize.ts`: インライン Git 設定（2箇所）を共通ヘルパー関数に置き換え
+- [x] Task 4-4: フォールバック値の統一 (0.5h)
+  - `pr-comment` で使用されていた `'AI Workflow Bot'` / `'[REDACTED_EMAIL]'` を共通ヘルパー関数のデフォルト値 `'AI Workflow'` / `'[REDACTED_EMAIL]'` に統一
+  - 変更による影響がないことを確認
+
+### Phase 5: テストコード実装 (見積もり: 1.5〜2h)
+
+- [x] Task 5-1: 共通ヘルパー関数のユニットテスト作成 (1〜1.5h)
+  - `tests/unit/core/git/git-config-helper.test.ts` を新規作成
+  - テストケース: 環境変数が設定されている場合の優先順位テスト
+  - テストケース: 環境変数が未設定の場合のデフォルト値テスト
+  - テストケース: 既存のリポジトリローカル設定が存在する場合のスキップ動作テスト
+  - テストケース: バリデーション（名前長超過、メール形式不正）のフォールバックテスト
+- [x] Task 5-2: resolve-conflict 統合テストの拡張 (0.5h)
+  - `tests/integration/commands/resolve-conflict.test.ts` に Git ユーザー設定検証テストを追加
+  - テストケース: init フェーズで `git.addConfig('user.name', ...)` が呼び出されることを検証
+  - テストケース: analyze フェーズで `git.addConfig` がマージ前に呼び出されることを検証
+  - テストケース: execute フェーズで `git.addConfig` がコミット前に呼び出されることを検証
+
+### Phase 6: テスト実行 (見積もり: 0.5〜1h)
+
+- [ ] Task 6-1: テスト実行と品質検証 (0.5〜1h)
+  - `npm run validate` による統合検証（TypeScript 型チェック + テスト + ビルド）
+  - 新規テストの pass 確認
+  - 既存テストのリグレッション確認（全18テスト + 新規テストが pass すること）
+  - ビルド成果物（`dist/`）が正常に生成されることを確認
+
+### Phase 7: ドキュメント (見積もり: 0.5h)
+
+- [ ] Task 7-1: ドキュメント更新 (0.5h)
+  - CLAUDE.md のコーディング規約セクションにGit ユーザー設定の共通ヘルパー利用規約を追記（必要に応じて）
+  - 変更の影響を受けるドキュメントの確認と更新
+
+### Phase 8: レポート (見積もり: 0.5h)
+
+- [ ] Task 8-1: 変更サマリーの作成 (0.5h)
+  - 実装内容のサマリー（変更ファイル一覧、新規作成ファイル一覧）
+  - テスト結果のサマリー
+  - フォールバック値統一の影響範囲の記録
+
+---
+
+## 5. 依存関係
+
+```mermaid
+graph TD
+    P1[Phase 1: 要件定義] --> P2[Phase 2: 設計]
+    P2 --> P3[Phase 3: テストシナリオ]
+    P2 --> P4[Phase 4: 実装]
+    P3 --> P5[Phase 5: テストコード実装]
+    P4 --> P5
+    P5 --> P6[Phase 6: テスト実行]
+    P6 --> P7[Phase 7: ドキュメント]
+    P6 --> P8[Phase 8: レポート]
+
+    subgraph "Phase 4 内部依存"
+        T41[Task 4-1: 共通ヘルパー作成] --> T42[Task 4-2: resolve-conflict 適用]
+        T41 --> T43[Task 4-3: 既存コードリファクタリング]
+        T43 --> T44[Task 4-4: フォールバック値統一]
+    end
+```
+
+## Turn 30: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 31: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc "apply_patch <<< '*** Begin Patch
+*** Update File: .ai-workflow/issue-749/00_planning/output/planning.md
+@@
+-### Phase 6: テスト実行 (見積もり: 0.5〜1h)
+-
+-- [ ] Task 6-1: テスト実行と品質検証 (0.5〜1h)
++-### Phase 6: テスト実行 (見積もり: 0.5〜1h)
++
++- [x] Task 6-1: テスト実行と品質検証 (0.5〜1h)
+*** End Patch"`
+**ステータス**: failed (exit_code=2)
+
+```text
+/bin/bash: -c: line 1: unexpected EOF while looking for matching `''
+```
+
+## Turn 32: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 33: ツール実行
+
+**種別**: file_change
+**ステータス**: completed
+
+## Turn 34: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 35: ツール実行
+
+**種別**: コマンド実行
+**コマンド**: `/bin/bash -lc 'nl -ba .ai-workflow/issue-749/06_testing/output/test-result.md'`
+**ステータス**: completed (exit_code=0)
+
+```text
+1	# テスト結果（再実行）
+     2	
+     3	## 再実行1: 2026-02-21 10:54:48
+     4	- **実行コマンド**: `npm run validate`
+     5	- **修正内容**:
+     6	  - `tests/unit/pr-comment/finalize-command.test.ts` の期待値を `simpleGit.addConfig` の4引数呼び出しと新しいデフォルト値（`AI Workflow` / `[REDACTED_EMAIL]`）に合わせて更新
+     7	- **結果**: 成功
+     8	  - **Test Suites**: 229 passed / 230 total（1 skipped）
+     9	  - **Tests**: 3177 passed / 3199 total（22 skipped）
+    10	  - **Snapshots**: 0
+    11	- **補足**:
+    12	  - `npm run validate` 内の `lint`（`tsc --noEmit`）・`test`（Jest）・`build`（`tsc` + `copy-static-assets`）はすべて成功
+    13	  - テスト中の `console.warn/info` は想定通りで、失敗は発生していない
+    14	
+    15	## 品質ゲート評価
+    16	- **テストが実行されている**: PASS
+    17	- **主要なテストケースが成功している**: PASS
+    18	- **失敗したテストは分析されている**: PASS（失敗なし）
+    19	
+    20	**品質ゲート総合判定: PASS**
+```
+
+## Turn 36: ツール実行
+
+**種別**: reasoning
+**ステータス**: completed
+
+## Turn 37: ツール実行
+
 **種別**: agent_message
 **ステータス**: completed
 
-## Turn 26: 実行完了
+## Turn 38: 実行完了
 
 **ステータス**: completed
-**所要時間**: 61232ms
+**所要時間**: 73462ms
 **ターン数**: N/A
 
 ---
 
-**経過時間**: 61232ms
-**開始**: 2026/2/21 10:45:09
-**終了**: 2026/2/21 10:46:11
+**経過時間**: 73462ms
+**開始**: 2026/2/21 10:56:09
+**終了**: 2026/2/21 10:57:22
