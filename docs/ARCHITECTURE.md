@@ -150,6 +150,25 @@ src/commands/split-issue.ts (Issue機能分割コマンド処理、Issue #715で
      ├─ PromptLoader.loadPrompt() … 言語別プロンプトテンプレート読み込み（split-issueカテゴリ）
      └─ agent-setup.ts … Codex/Claudeエージェント初期化
 
+src/commands/create-sub-issue.ts (サブIssue生成コマンド処理、Issue #713で追加)
+ ├─ handleCreateSubIssueCommand() … create-sub-issue コマンドハンドラ
+ ├─ parseOptions() … CLIオプションパース・バリデーション（--parent-issue, --description, --type, --language, --agent, --apply, --dry-run, --labels, --custom-instruction）
+ ├─ validateEnvironment() … 環境変数検証（GITHUB_REPOSITORY）
+ ├─ getRepositoryContext() … リポジトリコンテキスト収集（簡易版）
+ ├─ executeCreateSubIssueWithAgent() … AIエージェント（Claude/Codex）でサブIssue本文を生成
+ ├─ readOutputFile() … エージェント出力ファイルの読み込み
+ ├─ parseAgentResponseText() … 多段フォールバックJSON パース（コードブロック → テキスト抽出）
+ ├─ buildSubIssueResponseFromParsed() … パース結果からSubIssueAgentResponseを構築
+ ├─ displayPreview() … dry-runモードでのプレビュー表示
+ ├─ applyCreateSubIssue() … applyモードでのIssue作成 + Sub-Issue紐づけ + 通知コメント投稿
+ ├─ buildNotificationComment() … 親Issueへの通知コメント本文生成
+ └─ 関連モジュール利用
+     ├─ RepositoryAnalyzer … リポジトリコンテキスト取得
+     ├─ IssueClient.addSubIssue() … GitHub Sub-Issue API呼び出し（Issue #713で追加）
+     ├─ GitHubClient.addSubIssue() … ファサードメソッド（Issue #713で追加）
+     ├─ PromptLoader.loadPrompt() … 言語別プロンプトテンプレート読み込み（create-sub-issueカテゴリ）
+     └─ agent-setup.ts … Codex/Claudeエージェント初期化
+
 src/commands/resolve-conflict/init.ts (コンフリクト解消: 初期化コマンド、Issue #719で追加)
  ├─ handleResolveConflictInitCommand() … resolve-conflict init コマンドハンドラ
  ├─ PR URL解析 → getMergeableStatus() → base/head fetch → メタデータ初期化

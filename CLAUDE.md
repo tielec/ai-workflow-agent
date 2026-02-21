@@ -348,6 +348,7 @@ node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
 - `src/commands/init.ts`: Issue初期化（ブランチ作成、メタデータ初期化、PR作成）
 - `src/commands/execute.ts`: フェーズ実行ファサード（497行、Issue #46でリファクタリング）
 - `src/commands/rollback.ts`: フェーズ差し戻し（手動/自動）
+- `src/commands/create-sub-issue.ts`: サブIssue生成（親Issue紐づけ、Sub-Issue API + フォールバック、Issue #713で追加）
 
 **フェーズライフサイクル**:
 - `src/phases/base-phase.ts`: execute/review/revise ライフサイクルを持つ抽象基底クラス（476行）

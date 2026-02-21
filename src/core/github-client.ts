@@ -183,6 +183,13 @@ export class GitHubClient {
     return this.issueClient.createMultipleIssues(issues);
   }
 
+  public async addSubIssue(
+    parentIssueNumber: number,
+    childIssueId: number,
+  ): Promise<GenericResult> {
+    return this.issueClient.addSubIssue(parentIssueNumber, childIssueId);
+  }
+
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {
     return this.issueClient.closeIssueWithReason(issueNumber, reason);
   }
