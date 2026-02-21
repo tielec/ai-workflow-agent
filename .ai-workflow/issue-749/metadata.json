@@ -271,7 +271,7 @@
       "started_at": "2026-02-21T10:58:36.249Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     },
     "report": {
@@ -299,7 +299,7 @@
     }
   },
   "created_at": "2026-02-21T09:27:01.003Z",
-  "updated_at": "2026-02-21T10:58:36.249Z",
+  "updated_at": "2026-02-21T10:58:37.860Z",
   "branch_name": "ai-workflow/issue-749",
   "base_commit": "633a94e8a88209616bc57228e41840a966e5d638",
   "pr_number": 750,
