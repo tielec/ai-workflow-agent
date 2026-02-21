@@ -300,12 +300,12 @@
       "remaining_tasks": [],
       "created_issue_url": null,
       "abort_reason": null,
-      "current_step": null,
+      "current_step": "execute",
       "completed_steps": []
     }
   },
   "created_at": "2026-02-21T09:27:01.003Z",
-  "updated_at": "2026-02-21T11:11:30.046Z",
+  "updated_at": "2026-02-21T11:11:31.686Z",
   "branch_name": "ai-workflow/issue-749",
   "base_commit": "633a94e8a88209616bc57228e41840a966e5d638",
   "pr_number": 750,
