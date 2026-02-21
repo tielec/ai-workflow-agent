@@ -222,8 +222,10 @@
       "started_at": "2026-02-21T06:43:26.879Z",
       "completed_at": null,
       "review_result": null,
-      "current_step": "execute",
-      "completed_steps": []
+      "current_step": "review",
+      "completed_steps": [
+        "execute"
+      ]
     },
     "implementation": {
       "status": "pending",
@@ -286,13 +288,13 @@
     }
   },
   "created_at": "2026-02-20T06:40:35.166Z",
-  "updated_at": "2026-02-21T06:50:02.928Z",
+  "updated_at": "2026-02-21T06:50:05.890Z",
   "branch_name": "ai-workflow/issue-721",
   "base_commit": "92ed035ebea64e4d5428da20ed172bd3519fe8f6",
   "pr_number": 738,
   "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/738",
   "github_integration": {
     "progress_comment_id": 3931988682,
-    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/721#[REDACTED_TOKEN]"
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/721#issuecomment-3931988682"
   }
 }
