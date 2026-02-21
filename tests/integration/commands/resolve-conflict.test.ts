@@ -162,8 +162,21 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -253,7 +266,25 @@ describe('resolve-conflict コマンド統合テスト', () => {
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit, gitAnalyze];
+    const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
     simpleGitMock.mockImplementation(() => gitInstances.shift());
 
     await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
@@ -266,6 +297,11 @@ describe('resolve-conflict コマンド統合テスト', () => {
     const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
     await expect(fsp.access(path.join(outputDir, 'resolution-result.json'))).rejects.toThrow();
     await expect(fsp.access(path.join(outputDir, 'resolution-result.md'))).rejects.toThrow();
+
+    // merge --abort が呼ばれ、元のブランチに戻る
+    expect(gitExecute.raw).toHaveBeenCalledWith(['merge', '--abort']);
+    expect(gitExecute.checkout).toHaveBeenCalledWith('develop');
+    expect(gitExecute.commit).not.toHaveBeenCalled();
   });
 
   it('analyze_コンフリクト無し_早期終了して計画を作成しない', async () => {
@@ -615,8 +651,21 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -1039,8 +1088,21 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -1118,8 +1180,21 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn()
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error('nothing to commit')),
@@ -1199,8 +1274,21 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
