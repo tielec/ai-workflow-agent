@@ -1,0 +1,301 @@
+{
+  "issue_number": "721",
+  "issue_url": "https://github.com/tielec/ai-workflow-agent/issues/721",
+  "issue_title": "Issue #721",
+  "language": "ja",
+  "repository": "tielec/ai-workflow-agent",
+  "target_repository": {
+    "path": "/tmp/ai-workflow-repos-32-b229df2d/ai-workflow-agent",
+    "github_name": "tielec/ai-workflow-agent",
+    "remote_url": "https://github.com/tielec/ai-workflow-agent.git",
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "workflow_version": "1.0.0",
+  "current_phase": "implementation",
+  "design_decisions": {
+    "implementation_strategy": "EXTEND",
+    "test_strategy": "UNIT_INTEGRATION",
+    "test_code_strategy": "BOTH_TEST"
+  },
+  "cost_tracking": {
+    "total_input_tokens": 74,
+    "total_output_tokens": 89962,
+    "total_cost_usd": 16.670138199999997
+  },
+  "difficulty_analysis": {
+    "level": "complex",
+    "confidence": 0.95,
+    "factors": {
+      "estimated_file_changes": 13,
+      "scope": "cross_cutting",
+      "requires_tests": true,
+      "requires_architecture_change": true,
+      "complexity_score": 0.88
+    },
+    "analyzed_at": "2026-02-21T06:41:44.903Z",
+    "analyzer_agent": "claude",
+    "analyzer_model": "sonnet"
+  },
+  "model_config": {
+    "planning": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "requirements": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "design": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "test_scenario": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "implementation": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "test_implementation": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "testing": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "documentation": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "report": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    },
+    "evaluation": {
+      "execute": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      },
+      "review": {
+        "claudeModel": "sonnet",
+        "codexModel": "mini"
+      },
+      "revise": {
+        "claudeModel": "opus",
+        "codexModel": "max"
+      }
+    }
+  },
+  "phases": {
+    "planning": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2026-02-20T06:41:03.369Z",
+      "completed_at": "2026-02-20T06:46:51.906Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "requirements": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2026-02-20T06:46:53.272Z",
+      "completed_at": "2026-02-20T06:53:59.450Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "design": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2026-02-20T06:54:01.437Z",
+      "completed_at": "2026-02-21T06:43:25.832Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "test_scenario": {
+      "status": "completed",
+      "retry_count": 0,
+      "started_at": "2026-02-21T06:43:26.879Z",
+      "completed_at": "2026-02-21T06:52:28.972Z",
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": [
+        "execute",
+        "review"
+      ]
+    },
+    "implementation": {
+      "status": "in_progress",
+      "retry_count": 0,
+      "started_at": "2026-02-21T06:52:30.911Z",
+      "completed_at": null,
+      "review_result": null,
+      "current_step": "execute",
+      "completed_steps": []
+    },
+    "test_implementation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": []
+    },
+    "testing": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": []
+    },
+    "documentation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": []
+    },
+    "report": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "current_step": null,
+      "completed_steps": []
+    },
+    "evaluation": {
+      "status": "pending",
+      "retry_count": 0,
+      "started_at": null,
+      "completed_at": null,
+      "review_result": null,
+      "decision": null,
+      "failed_phase": null,
+      "remaining_tasks": [],
+      "created_issue_url": null,
+      "abort_reason": null,
+      "current_step": null,
+      "completed_steps": []
+    }
+  },
+  "created_at": "2026-02-20T06:40:35.166Z",
+  "updated_at": "2026-02-21T06:52:32.938Z",
+  "branch_name": "ai-workflow/issue-721",
+  "base_commit": "92ed035ebea64e4d5428da20ed172bd3519fe8f6",
+  "pr_number": 738,
+  "pr_url": "https://github.com/tielec/ai-workflow-agent/pull/738",
+  "github_integration": {
+    "progress_comment_id": 3931988682,
+    "progress_comment_url": "https://github.com/tielec/ai-workflow-agent/issues/721#issuecomment-3931988682"
+  }
+}
