@@ -174,8 +174,12 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     const postAddStatus = await git.status();
     const remainingConflicted = postAddStatus.conflicted ?? [];
     if (remainingConflicted.length > 0) {
-      logger.warn(`Remaining unmerged files not in resolution plan: ${remainingConflicted.join(', ')}. Adding as-is.`);
-      await git.add(remainingConflicted);
+      if (mergeStarted) {
+        try { await git.raw(['merge', '--abort']); } catch { /* ignore */ }
+      }
+      throw new Error(
+        `Remaining unmerged files not in resolution plan: ${remainingConflicted.join(', ')}. Aborting merge to prevent committing conflict markers.`,
+      );
     }
 
     const commitStatus = await git.status();
