@@ -4,7 +4,7 @@ import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
-import { config } from '../../core/config.js';
+import { ensureGitUserConfig } from '../../core/git/git-config-helper.js';
 import { PRCommentInitOptions } from '../../types/commands.js';
 import { PRInfo, RepositoryInfo, ReviewComment, ResolutionSummary } from '../../types/pr-comment.js';
 import {
@@ -72,13 +72,7 @@ export async function handlePRCommentInitCommand(options: PRCommentInitOptions):
     const metadataPath = metadataManager.getMetadataPath();
     const relativePath = metadataPath.replace(`${repoInfo.path}/`, '').replace(/\\/g, '/');
 
-    // Git設定（環境変数から取得、デフォルト値使用）
-    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
-    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
-
-    logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
-    await git.addConfig('user.name', gitUserName);
-    await git.addConfig('user.email', gitUserEmail);
+    await ensureGitUserConfig(git);
 
     logger.info('Committing PR comment metadata...');
     await git.add(relativePath);

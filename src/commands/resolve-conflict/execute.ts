@@ -8,6 +8,7 @@ import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
 import { ConflictResolver } from '../../core/git/conflict-resolver.js';
 import { CodeChangeApplier } from '../../core/pr-comment/change-applier.js';
+import { ensureGitUserConfig } from '../../core/git/git-config-helper.js';
 import type { ResolveConflictExecuteOptions } from '../../types/commands.js';
 import type { ConflictResolutionPlan, ConflictResolution } from '../../types/conflict.js';
 
@@ -122,6 +123,7 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     await fsp.writeFile(resultMdPath, buildResolutionResultMarkdown(resolutions, resultJsonPath), 'utf-8');
 
     const git = simpleGit(repoRoot);
+    await ensureGitUserConfig(git);
     await git.add(resolutions.map((resolution) => resolution.filePath));
     const status = await git.status();
     if (status.files.length > 0) {

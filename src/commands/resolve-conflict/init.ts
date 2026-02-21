@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../utils/error-utils.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
+import { ensureGitUserConfig } from '../../core/git/git-config-helper.js';
 import type { ResolveConflictInitOptions } from '../../types/commands.js';
 
 export async function handleResolveConflictInitCommand(options: ResolveConflictInitOptions): Promise<void> {
@@ -44,6 +45,7 @@ export async function handleResolveConflictInitCommand(options: ResolveConflictI
 
     try {
       const metadataRelPath = path.relative(repoRoot, metadataManager.getMetadataPath());
+      await ensureGitUserConfig(git);
       await git.add(metadataRelPath);
       await git.commit(`resolve-conflict: init metadata for PR #${prInfo.prNumber}`);
       logger.info(`Committed metadata: ${metadataRelPath}`);

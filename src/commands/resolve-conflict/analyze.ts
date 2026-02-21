@@ -10,6 +10,7 @@ import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/reposi
 import { parseConflictMarkers } from '../../core/git/conflict-parser.js';
 import { MergeContextCollector } from '../../core/git/merge-context-collector.js';
 import { ConflictResolver } from '../../core/git/conflict-resolver.js';
+import { ensureGitUserConfig } from '../../core/git/git-config-helper.js';
 import type { ResolveConflictAnalyzeOptions } from '../../types/commands.js';
 import type { ConflictBlock, ConflictResolutionPlan } from '../../types/conflict.js';
 
@@ -65,6 +66,8 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
     if (nonWorkflowFiles.length > 0) {
       throw new Error('Working tree is not clean. Please commit or stash changes before analyze.');
     }
+
+    await ensureGitUserConfig(repoGit);
 
     const currentBranch = status.current ?? 'HEAD';
     let switched = false;
