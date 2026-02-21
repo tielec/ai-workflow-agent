@@ -166,6 +166,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
       status: jest.fn()
         .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
         .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
         .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
       checkout: jest.fn().mockResolvedValue(undefined),
@@ -655,6 +656,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
       status: jest.fn()
         .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
         .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
         .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
       checkout: jest.fn().mockResolvedValue(undefined),
@@ -1092,6 +1094,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
       status: jest.fn()
         .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
         .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
         .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
       checkout: jest.fn().mockResolvedValue(undefined),
@@ -1184,6 +1187,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
       status: jest.fn()
         .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
         .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
         .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
       checkout: jest.fn().mockResolvedValue(undefined),
@@ -1278,6 +1282,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
       status: jest.fn()
         .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
         .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
         .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
       checkout: jest.fn().mockResolvedValue(undefined),

@@ -122,18 +122,24 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
 
     // Step 4: Merge base branch (conflicts are expected)
     let mergeStarted = false;
+    let mergeCommandError: unknown = null;
     try {
       await git.raw(['merge', '--no-commit', '--no-ff', `origin/${baseBranch}`]);
       mergeStarted = true;
+    } catch (err: unknown) {
+      mergeCommandError = err;
+    }
+
+    // Always check for unmerged files after merge (simple-git may not throw on conflicts)
+    const mergeStatus = await git.status();
+    const conflictedFiles = mergeStatus.conflicted ?? [];
+    if (conflictedFiles.length > 0) {
+      mergeStarted = true;
+      logger.info(`Merge conflicts detected (${conflictedFiles.length} files): ${conflictedFiles.join(', ')}`);
+    } else if (mergeCommandError) {
+      throw new Error(`Merge failed unexpectedly: ${getErrorMessage(mergeCommandError)}`);
+    } else {
       logger.info('Merge completed without conflicts.');
-    } catch (mergeError: unknown) {
-      const mergeStatus = await git.status();
-      if (mergeStatus.conflicted && mergeStatus.conflicted.length > 0) {
-        mergeStarted = true;
-        logger.info(`Merge conflicts detected (${mergeStatus.conflicted.length} files). Applying resolutions.`);
-      } else {
-        throw new Error(`Merge failed unexpectedly: ${getErrorMessage(mergeError)}`);
-      }
     }
 
     // Step 5: Apply resolved content
@@ -163,6 +169,15 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
 
     // Step 6: Create merge commit
     await git.add(resolutions.map((r) => r.filePath));
+
+    // Check for remaining unmerged files not covered by the resolution plan
+    const postAddStatus = await git.status();
+    const remainingConflicted = postAddStatus.conflicted ?? [];
+    if (remainingConflicted.length > 0) {
+      logger.warn(`Remaining unmerged files not in resolution plan: ${remainingConflicted.join(', ')}. Adding as-is.`);
+      await git.add(remainingConflicted);
+    }
+
     const commitStatus = await git.status();
     if (commitStatus.files.length > 0) {
       await git.commit(`[resolve-conflict] Resolve merge conflicts for PR #${prInfo.prNumber}`);
