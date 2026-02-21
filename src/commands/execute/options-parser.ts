@@ -1,4 +1,5 @@
 import { SUPPORTED_LANGUAGES, type PhaseName, type SupportedLanguage } from '../../types.js';
+import { config } from '../../core/config.js';
 import type { ExecuteCommandOptions } from '../../types/commands.js';
 
 /**
@@ -86,6 +87,16 @@ export interface ParsedExecuteOptions {
    * ワークフロー完了時にコミットをスカッシュするかどうか（Issue #194）
    */
   squashOnComplete: boolean;
+
+  /**
+   * ネットワークヘルスチェック有効化フラグ（Issue #721）
+   */
+  networkHealthCheck: boolean;
+
+  /**
+   * ネットワークスループット低下率の閾値（%）（Issue #721）
+   */
+  networkThroughputDropThreshold: number;
 
   /**
    * Claude モデル指定（エイリアスまたはフルモデルID）（Issue #301）
@@ -187,6 +198,18 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
 
   const squashOnComplete = Boolean(options.squashOnComplete);
 
+  const networkHealthCheck =
+    options.networkHealthCheck === true ? true : config.getNetworkHealthCheckEnabled();
+
+  const thresholdCandidate =
+    options.networkThroughputDropThreshold !== undefined &&
+    options.networkThroughputDropThreshold !== null
+      ? Number(options.networkThroughputDropThreshold)
+      : config.getNetworkThroughputDropThreshold();
+  const networkThroughputDropThreshold = Number.isFinite(thresholdCandidate)
+    ? thresholdCandidate
+    : config.getNetworkThroughputDropThreshold();
+
   // Claude モデルの解析（Issue #301）
   const claudeModel =
     typeof options.claudeModel === 'string' && options.claudeModel.trim().length > 0
@@ -218,6 +241,8 @@ export function parseExecuteOptions(options: ExecuteCommandOptions): ParsedExecu
     followupLlmMaxRetries: Number.isFinite(followupLlmMaxRetries ?? NaN) ? followupLlmMaxRetries : undefined,
     followupLlmAppendMetadata,
     squashOnComplete,
+    networkHealthCheck,
+    networkThroughputDropThreshold,
     claudeModel,
     codexModel,
     language,
@@ -334,6 +359,15 @@ export function validateExecuteOptions(options: ExecuteCommandOptions): Validati
     const retries = Number(options.followupLlmMaxRetries);
     if (!Number.isInteger(retries) || retries < 0) {
       errors.push("Option '--followup-llm-max-retries' must be a non-negative integer.");
+    }
+  }
+
+  if (options.networkThroughputDropThreshold !== undefined) {
+    const threshold = Number(options.networkThroughputDropThreshold);
+    if (!Number.isFinite(threshold)) {
+      errors.push("Option '--network-throughput-drop-threshold' must be a valid number.");
+    } else if (threshold < 0 || threshold > 100) {
+      errors.push("Option '--network-throughput-drop-threshold' must be between 0 and 100.");
     }
   }
 

@@ -362,6 +362,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
           cwd: projectRoot,
           env: { ...process.env, SKIP_VALIDATE_TEST: '1' },
           timeout: longTimeoutMs,
+          maxBuffer: 50 * 1024 * 1024, // 50MB: VM Modules 警告等で stderr が大きくなるため
         });
 
         // Then: 正常終了しログが取得できる

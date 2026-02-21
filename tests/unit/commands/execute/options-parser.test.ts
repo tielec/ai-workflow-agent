@@ -10,7 +10,7 @@
  * Issue #46: execute.ts リファクタリング
  */
 
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, jest } from '@jest/globals';
 import {
   parseExecuteOptions,
   parseLanguageOption,
@@ -835,5 +835,205 @@ describe('parseExecuteOptions - language フィールド', () => {
 
     const result = parseExecuteOptions(options);
     expect(result.language).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// parseExecuteOptions() - ネットワークヘルスチェック
+// =============================================================================
+
+describe('parseExecuteOptions - ネットワークヘルスチェック', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+  });
+
+  test('OPT-001: parseExecuteOptions_networkHealthCheck_デフォルト値はfalse', () => {
+    delete process.env.NETWORK_HEALTH_CHECK;
+
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkHealthCheck).toBe(false);
+  });
+
+  test('OPT-002: parseExecuteOptions_networkHealthCheck_trueが正しく設定される', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkHealthCheck: true,
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkHealthCheck).toBe(true);
+  });
+
+  test('OPT-003: parseExecuteOptions_networkThroughputDropThreshold_デフォルト値は70', () => {
+    delete process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD;
+
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkThroughputDropThreshold).toBe(70);
+  });
+
+  test('OPT-004: parseExecuteOptions_networkThroughputDropThreshold_カスタム値が正しくパースされる', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkThroughputDropThreshold: '50' as any,
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkThroughputDropThreshold).toBe(50);
+  });
+
+  test('OPT-005: parseExecuteOptions_networkThroughputDropThreshold_文字列数値が正しくパースされる', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkThroughputDropThreshold: '30' as any,
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkThroughputDropThreshold).toBe(30);
+  });
+
+  test('OPT-006: parseExecuteOptions_両オプション同時指定_正しくパースされる', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkHealthCheck: true,
+      networkThroughputDropThreshold: '50' as any,
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkHealthCheck).toBe(true);
+    expect(result.networkThroughputDropThreshold).toBe(50);
+  });
+
+  test('OPT-007: parseExecuteOptions_既存オプションとの共存_全フィールドが正しく解析される', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      agent: 'codex',
+      forceReset: true,
+      networkHealthCheck: true,
+      networkThroughputDropThreshold: '50' as any,
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.issueNumber).toBe('721');
+    expect(result.phaseOption).toBe('all');
+    expect(result.agentMode).toBe('codex');
+    expect(result.forceReset).toBe(true);
+    expect(result.networkHealthCheck).toBe(true);
+    expect(result.networkThroughputDropThreshold).toBe(50);
+  });
+});
+
+// =============================================================================
+// validateExecuteOptions() - ネットワークスループット閾値
+// =============================================================================
+
+describe('validateExecuteOptions - ネットワークスループット閾値', () => {
+  test.each([0, 50, 70, 100])(
+    'OPT-008: validateExecuteOptions_networkThroughputDropThreshold_有効範囲内の値は検証成功 (value=%s)',
+    (value) => {
+      const options: ExecuteCommandOptions = {
+        issue: '721',
+        phase: 'all',
+        networkThroughputDropThreshold: value,
+      };
+
+      const result: ValidationResult = validateExecuteOptions(options);
+
+      expect(result.valid).toBe(true);
+    },
+  );
+
+  test('OPT-009: validateExecuteOptions_networkThroughputDropThreshold_101指定でバリデーションエラー', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkThroughputDropThreshold: 101,
+    };
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toContain('network-throughput-drop-threshold');
+  });
+
+  test('OPT-010: validateExecuteOptions_networkThroughputDropThreshold_負の値でバリデーションエラー', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkThroughputDropThreshold: -1,
+    };
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  test('OPT-011: validateExecuteOptions_networkThroughputDropThreshold_非数値でバリデーションエラー', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+      networkThroughputDropThreshold: 'abc' as any,
+    };
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toContain('network-throughput-drop-threshold');
+  });
+
+  test('OPT-012: validateExecuteOptions_networkThroughputDropThreshold_未指定時はバリデーションスキップ', () => {
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+    };
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(true);
+  });
+
+  test('OPT-013: validateExecuteOptions_既存バリデーションとの共存_閾値エラーと他のエラーが同時に返される', () => {
+    const options: ExecuteCommandOptions = {
+      phase: 'planning',
+      preset: 'quick-fix',
+      networkThroughputDropThreshold: 200,
+    } as any;
+
+    const result: ValidationResult = validateExecuteOptions(options);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThanOrEqual(3);
+    expect(result.errors.join(' ')).toContain("Option '--issue' is required.");
+    expect(result.errors.join(' ')).toContain("Options '--preset' and '--phase' are mutually exclusive.");
+    expect(result.errors.join(' ')).toContain('network-throughput-drop-threshold');
   });
 });

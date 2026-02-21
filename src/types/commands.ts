@@ -24,6 +24,8 @@ export type PhaseContext = {
   issueNumber?: number; // Issue番号（Issue #194: スカッシュ時のメッセージ生成に使用）
   issueInfo?: { title?: string; body?: string }; // Issue情報（Issue #194: スカッシュ時のメッセージ生成に使用）
   language?: SupportedLanguage; // ワークフロー言語設定
+  networkHealthCheck?: boolean; // ネットワークヘルスチェック有効化フラグ（Issue #721）
+  networkThroughputDropThreshold?: number; // ネットワークスループット低下率閾値（%）（Issue #721）
 };
 
 /**
@@ -39,6 +41,7 @@ export type ExecutionSummary = {
   failedPhase?: PhaseName;
   error?: string;
   results: PhaseResultMap;
+  stoppedReason?: string;
 };
 
 /**
@@ -252,6 +255,22 @@ export interface ExecuteCommandOptions {
    * true の場合、Evaluation Phase 完了後にワークフロー開始時点からのコミットを1つにスカッシュ
    */
   squashOnComplete?: boolean;
+
+  /**
+   * ネットワークヘルスチェック有効化フラグ（Issue #721）
+   *
+   * デフォルト: false
+   * true の場合、各フェーズ開始前にEC2ネットワークスループットをチェック
+   */
+  networkHealthCheck?: boolean;
+
+  /**
+   * ネットワークスループット低下率の閾値（%）（Issue #721）
+   *
+   * デフォルト: 70
+   * 有効範囲: 0-100
+   */
+  networkThroughputDropThreshold?: number;
 
   /**
    * Claude モデル指定（Issue #301）

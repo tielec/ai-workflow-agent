@@ -24,6 +24,7 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
 import { handleSplitIssueCommand } from './commands/split-issue.js';
+import { config } from './core/config.js';
 
 /**
  * CLIエントリーポイント
@@ -159,6 +160,16 @@ export async function runCli(): Promise<void> {
       '--squash-on-complete',
       'Squash all commits into one after workflow completion (Issue #194)',
       false,
+    )
+    .option(
+      '--network-health-check',
+      'Enable network health check before each phase (EC2 only, Issue #721)',
+      config.getNetworkHealthCheckEnabled(),
+    )
+    .option(
+      '--network-throughput-drop-threshold <percent>',
+      'Network throughput drop threshold in % (0-100, default: 70, Issue #721)',
+      String(config.getNetworkThroughputDropThreshold()),
     )
     .action(async (options) => {
       try {

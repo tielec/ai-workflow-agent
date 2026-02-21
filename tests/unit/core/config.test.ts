@@ -402,6 +402,125 @@ describe('Config - エージェント関連メソッド', () => {
   });
 });
 
+// =============================================================================
+// ネットワークヘルスチェック設定（Issue #721）
+// =============================================================================
+
+describe('Config - ネットワークヘルスチェック設定', () => {
+  let originalEnv: NodeJS.ProcessEnv;
+
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  describe('getNetworkHealthCheckEnabled()', () => {
+    test('CFG-001: getNetworkHealthCheckEnabled_正常系_trueが設定されている場合', () => {
+      process.env.NETWORK_HEALTH_CHECK = 'true';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(true);
+    });
+
+    test('CFG-002: getNetworkHealthCheckEnabled_正常系_1が設定されている場合', () => {
+      process.env.NETWORK_HEALTH_CHECK = '1';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(true);
+    });
+
+    test('CFG-003: getNetworkHealthCheckEnabled_正常系_falseが設定されている場合', () => {
+      process.env.NETWORK_HEALTH_CHECK = 'false';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(false);
+    });
+
+    test('CFG-004: getNetworkHealthCheckEnabled_正常系_未設定の場合にデフォルトfalseを返す', () => {
+      delete process.env.NETWORK_HEALTH_CHECK;
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(false);
+    });
+
+    test('CFG-005: getNetworkHealthCheckEnabled_エッジケース_空文字列の場合にfalseを返す', () => {
+      process.env.NETWORK_HEALTH_CHECK = '';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(false);
+    });
+
+    test('CFG-006: getNetworkHealthCheckEnabled_エッジケース_大文字TRUEの場合にtrueを返す', () => {
+      process.env.NETWORK_HEALTH_CHECK = 'TRUE';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkHealthCheckEnabled();
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('getNetworkThroughputDropThreshold()', () => {
+    test('CFG-007: getNetworkThroughputDropThreshold_正常系_数値が設定されている場合', () => {
+      process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = '50';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkThroughputDropThreshold();
+
+      expect(result).toBe(50);
+    });
+
+    test('CFG-008: getNetworkThroughputDropThreshold_正常系_未設定の場合にデフォルト70を返す', () => {
+      delete process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD;
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkThroughputDropThreshold();
+
+      expect(result).toBe(70);
+    });
+
+    test('CFG-009: getNetworkThroughputDropThreshold_エッジケース_0が設定されている場合に0を返す', () => {
+      process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = '0';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkThroughputDropThreshold();
+
+      expect(result).toBe(0);
+    });
+
+    test('CFG-010: getNetworkThroughputDropThreshold_エッジケース_100が設定されている場合に100を返す', () => {
+      process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = '100';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkThroughputDropThreshold();
+
+      expect(result).toBe(100);
+    });
+
+    test('CFG-011: getNetworkThroughputDropThreshold_エッジケース_非数値の場合にデフォルト70を返す', () => {
+      process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = 'abc';
+      const testConfig = new Config();
+
+      const result = testConfig.getNetworkThroughputDropThreshold();
+
+      expect(result).toBe(70);
+    });
+  });
+});
+
 describe('Config - Git関連メソッド', () => {
   let originalEnv: NodeJS.ProcessEnv;
 

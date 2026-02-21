@@ -1108,6 +1108,38 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **安全な強制プッシュ**: `git push --force-with-lease` で他の変更を上書きしない
 - **ロールバック可能性**: `pre_squash_commits` メタデータで元のコミット履歴を保存
 
+### ネットワークヘルスチェック（Issue #721で追加）
+
+EC2フリートインスタンス（T系）のネットワーク帯域バースト制限による性能低下を検知し、フェーズ開始前にグレースフル停止する機能です。
+
+```bash
+# ネットワークヘルスチェックを有効化
+node dist/index.js execute --issue 123 --phase all --network-health-check
+
+# 閾値をカスタマイズ（50%低下で停止、デフォルト: 70%）
+node dist/index.js execute --issue 123 --phase all \
+  --network-health-check \
+  --network-throughput-drop-threshold 50
+```
+
+**オプション**:
+- `--network-health-check`: ネットワークヘルスチェックを有効化（デフォルト: `false`）
+- `--network-throughput-drop-threshold <percent>`: スループット低下率の閾値（%、0〜100、デフォルト: `70`）
+
+**動作仕様**:
+- 各フェーズ開始前にIMDSv2でEC2メタデータを取得し、CloudWatch APIで`NetworkPacketsOut`と`NetworkOut`メトリクスを取得
+- 直近5分間の平均値とピーク値（過去1時間）を比較し、**両方**のメトリクスが閾値以上低下した場合にグレースフル停止（AND条件）
+- 停止時は`ExecutionSummary`に`stoppedReason: 'network_throughput_degraded'`が設定され、レジューム実行で停止フェーズから再開可能
+- 非EC2環境ではIMDSv2アクセスが3秒以内にタイムアウトし、チェックをスキップして通常通りフェーズを実行
+- CloudWatch APIエラーやデータポイント欠損時もチェックをスキップして続行（警告ログのみ出力）
+
+**環境変数**:
+- `NETWORK_HEALTH_CHECK`: デフォルト動作の設定（CLIオプション指定時はCLIが優先）
+- `NETWORK_THROUGHPUT_DROP_THRESHOLD`: 閾値のデフォルト値設定
+
+**AWS IAM権限要件**:
+- `cloudwatch:GetMetricStatistics` アクション権限が必要
+
 ### 依存関係管理
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）
 - `--ignore-dependencies`: 警告を表示するが実行を継続

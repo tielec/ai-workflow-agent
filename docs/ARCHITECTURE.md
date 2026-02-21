@@ -42,10 +42,13 @@ src/commands/execute/agent-setup.ts (エージェント初期化、v0.3.1で追�
  ├─ setupAgentClients() … Codex/Claude クライアントの初期化
  └─ resolveAgentCredentials() … 認証情報のフォールバック処理
 
-src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636)
+src/commands/execute/workflow-executor.ts (ワークフロー実行、v0.3.1で追加、Issue #46、v0.5.1でskip-phases対応、Issue #636、Issue #721でネットワークヘルスチェック追加)
  ├─ executePhasesSequential() … フェーズの順次実行・スキップ判定
  ├─ executePhasesFrom() … 特定フェーズからの実行
  └─ 依存関係順にフェーズを実行・スキップ対象は除外
+      ├─ [Issue #721] ネットワークヘルスチェック（context.networkHealthCheck 有効時のみ）
+      │    ├─ checkNetworkHealth() … EC2メトリクス評価 → shouldStop 判定
+      │    └─ shouldStop: true → ExecutionSummary(success: false, stoppedReason) で早期終了
       ├─ BasePhase.run()
       │    ├─ execute()    … エージェントで成果物生成
       │    ├─ review()     … 可能ならレビューサイクル実施
@@ -344,7 +347,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/execute.ts` | フェーズ実行コマンド処理（約497行、v0.3.1で27%削減、Issue #46）。ファサードパターンにより4つの専門モジュールに分離。エージェント管理、プリセット解決、フェーズ順次実行を担当。`handleExecuteCommand()`, `executePhasesSequential()`, `resolvePresetName()`, `getPresetPhases()` 等を提供。 |
 | `src/commands/execute/options-parser.ts` | CLIオプション解析とバリデーション（約151行、v0.3.1で追加、Issue #46）。`parseExecuteOptions()`, `validateExecuteOptions()` を提供。 |
 | `src/commands/execute/agent-setup.ts` | エージェント初期化と認証情報解決（約175行、v0.3.1で追加、Issue #46、v0.5.0でエージェント優先順位追加、Issue #306）。`setupAgentClients()`, `resolveAgentCredentials()` を提供。**エージェント優先順位機能**: `AgentPriority` 型（`'codex-first' | 'claude-first'`）と `PHASE_AGENT_PRIORITY` 定数（10フェーズのエージェント優先順位マッピング）を提供。 |
-| `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46）。`executePhasesSequential()`, `executePhasesFrom()` を提供。 |
+| `src/commands/execute/workflow-executor.ts` | ワークフロー実行ロジック（約128行、v0.3.1で追加、Issue #46、Issue #721でネットワークヘルスチェック統合）。`executePhasesSequential()`, `executePhasesFrom()` を提供。**Issue #721で追加**: フェーズforループ内でヘルスチェックを実行し、`shouldStop: true`時に`ExecutionSummary(success: false, stoppedReason: 'network_throughput_degraded')`で早期終了。 |
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/auto-close-issue.ts` | 既存Issueの検品と自動クローズコマンド（Issue #645）。`handleAutoCloseIssueCommand()` でカテゴリ別フィルタ（followup/stale/old/all）、信頼度閾値、dry-run（既定ON）、除外ラベル、対話承認、Codex/Claude選択を制御し、結果サマリーを出力。 |
@@ -423,6 +426,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/utils/logger.ts` | 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御（debug/info/warn/error）、カラーリング機能（chalk統合）、タイムスタンプ自動付与、環境変数制御（LOG_LEVEL、LOG_NO_COLOR）を提供。`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` をエクスポート。 |
 | `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加、Issue #719で拡張）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。**Issue #719で追加**: `ConflictError` クラス（`Error` を継承、`conflictedFiles: string[]` プロパティ付き）を定義し、コンフリクト発生時の型安全なエラーハンドリングを提供。`isConflictError()` 型ガード関数も追加。 |
 | `src/core/config.ts` | 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジック（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）の統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。Singleton パターンで実装。 |
+| `src/core/network-health-checker.ts` | EC2ネットワークスループット劣化検出モジュール（Issue #721で追加）。`checkNetworkHealth()` 関数を提供し、EC2 IMDSv2によるインスタンスID取得、AWS CloudWatch `GetMetricStatistics` APIによる `NetworkPacketsOut`・`NetworkOut` メトリクス取得、ピーク値比較によるスループット低下率算出を実行。`NetworkHealthCheckResult` インターフェース（`available`, `shouldStop`, `metrics`, `dropPercentage`）を返却。AND条件（両メトリクスが閾値超過）でのみ `shouldStop: true` を判定。非EC2環境ではIMDSv2タイムアウト（3秒）により `available: false` を返却。`@aws-sdk/client-cloudwatch` を動的インポート（`await import()`）し、機能無効時のSDKロードを回避。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能とスキップフェーズフィルタリングを提供（約249行、Issue #26で27.2%削減、Issue #636でskipPhases対応）。 |
 | `src/core/helpers/dependency-messages.ts` | 依存関係エラー/警告メッセージの生成（68行、Issue #26で追加）。`buildErrorMessage()`, `buildWarningMessage()` を提供。 |
