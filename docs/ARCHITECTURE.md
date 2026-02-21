@@ -118,11 +118,12 @@ src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド
      ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
      └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
 
-src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #669で追加)
+src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #669で追加、Issue #712で拡張)
  ├─ handleRewriteIssueCommand() … rewrite-issue コマンドハンドラ
  ├─ validateRewriteIssueOptions() … rewrite-issue オプションのバリデーション
  ├─ fetchIssueContent() … GitHub APIから現在のIssue情報を取得
  ├─ generateRewrittenIssue() … AIエージェント（Codex/Claude）でIssue本文を再設計
+ ├─ assessIssueDifficulty() … 5段階難易度判定（Issue #712で追加）
  ├─ displayDiff() … 変更前後の差分をunified diff形式で表示
  ├─ calculateMetrics() … 完全性スコア、具体性スコアの算出
  ├─ applyIssueUpdate() … --apply オプション時にGitHub APIでIssueを更新
@@ -130,7 +131,9 @@ src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #6
      ├─ RepositoryAnalyzer.analyzeRepository() … リポジトリコンテキスト取得
      ├─ IssueClient.getIssue() / updateIssue() … GitHub API操作
      ├─ PromptLoader.loadTemplate() … 言語別プロンプトテンプレート読み込み
-     └─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
+     ├─ AgentExecutor.executeWithAgent() … Codex/Claudeエージェント実行
+     ├─ DifficultyAnalyzer.analyzeWithGrade() … 5段階難易度+バグリスク判定（Issue #712）
+     └─ frontmatter.generateFrontmatter() / insertFrontmatter() … frontmatter生成・挿入（Issue #712）
 
 src/commands/split-issue.ts (Issue機能分割コマンド処理、Issue #715で追加)
  ├─ handleSplitIssueCommand() … split-issue コマンドハンドラ
@@ -348,7 +351,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/review.ts` | フェーズレビューコマンド処理（約33行）。フェーズステータスの表示を担当。`handleReviewCommand()` を提供。 |
 | `src/commands/list-presets.ts` | プリセット一覧表示コマンド処理（約34行）。`listPresets()` を提供。 |
 | `src/commands/auto-close-issue.ts` | 既存Issueの検品と自動クローズコマンド（Issue #645）。`handleAutoCloseIssueCommand()` でカテゴリ別フィルタ（followup/stale/old/all）、信頼度閾値、dry-run（既定ON）、除外ラベル、対話承認、Codex/Claude選択を制御し、結果サマリーを出力。 |
-| `src/commands/rewrite-issue.ts` | Issue本文再設計コマンド処理（Issue #669で追加）。`handleRewriteIssueCommand()` でリポジトリコンテキストを参照して既存Issue本文を再設計。`parseOptions()`, `validateEnvironment()`, `getRepositoryContext()`, `executeRewriteWithAgent()`, `parseAgentResponse()`, `generateUnifiedDiff()`, `calculateDefaultMetrics()`, `displayDiffPreview()` を提供。dry-runモード（デフォルト）で差分プレビューを表示、`--apply` で実際にIssueを更新。完全性スコア・具体性スコアの採点指標も表示。 |
+| `src/commands/rewrite-issue.ts` | Issue本文再設計コマンド処理（Issue #669で追加、Issue #712で拡張）。`handleRewriteIssueCommand()` でリポジトリコンテキストを参照して既存Issue本文を再設計。`parseOptions()`, `validateEnvironment()`, `getRepositoryContext()`, `executeRewriteWithAgent()`, `parseAgentResponse()`, `generateUnifiedDiff()`, `calculateDefaultMetrics()`, `displayDiffPreview()`, `assessIssueDifficulty()` を提供。dry-runモード（デフォルト）で差分プレビューを表示、`--apply` で実際にIssueを更新。完全性スコア・具体性スコアの採点指標も表示。**Issue #712で追加**: エージェント実行後にStep 8.5として5段階難易度判定→YAML frontmatter挿入を実行。判定失敗時はfrontmatterなしで続行（グレースフルデグラデーション）。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約930行、v0.4.0、Issue #90/#271で追加）。**手動rollback**（Issue #90）と**自動rollback**（Issue #271）の2つのモードを提供。手動rollbackは `handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供し、差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。自動rollbackは `handleRollbackAutoCommand()` を提供し、AIエージェント（Codex/Claude）による自動差し戻し判定機能を実現。コンテキスト収集（`collectAnalysisContext()`, `findLatestReviewResult()`, `findLatestTestResult()`）、プロンプト構築（`buildAgentPrompt()`）、JSON パース（`parseRollbackDecision()`, 3つのフォールバックパターン）、バリデーション（`validateRollbackDecision()`）、信頼度ベース確認（`confirmRollbackAuto()`）を含む。エージェントは metadata.json, review results, test results を分析し、needs_rollback, to_phase, to_step, confidence, reason, analysis を含む RollbackDecision を返す。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
 | `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
@@ -372,7 +375,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/prompts/conflict/{lang}/resolve.txt` | コンフリクト解消プロンプトテンプレート（Issue #719で追加）。解消計画に基づいてコンフリクトを解消するためのプロンプト。日本語（`ja`）・英語（`en`）の両方を提供。 |
 | `src/core/repository-utils.ts` | リポジトリ関連ユーティリティ（約200行、Issue #407で拡張）。Issue/PR URL解析、ローカルリポジトリパス解決、メタデータ探索を提供。`parseIssueUrl()`, `parsePullRequestUrl()`, `resolveLocalRepoPath()`, `resolveRepoPathFromPrUrl()`, `findWorkflowMetadata()`, `getRepoRoot()` を提供。**Issue #407で追加**: `resolveRepoPathFromPrUrl()`によりPR URLからREPOS_ROOT配下のローカルパスを解決し、`pr-comment`コマンドのマルチリポジトリ対応を実現。 |
 | `src/core/phase-factory.ts` | フェーズインスタンス生成（約65行、v0.3.1で追加、Issue #46）。`createPhaseInstance()` を提供。10フェーズすべてのインスタンス生成を担当。 |
-| `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。 |
+| `src/core/difficulty-analyzer.ts` | Issue難易度分析モジュール（約250行、Issue #363で追加、Issue #712で拡張）。Issue情報（タイトル、本文、ラベル）をLLMで分析し、3段階の難易度（`simple` / `moderate` / `complex`）を判定。Claude Sonnet（プライマリ）/ Codex Mini（フォールバック）で分析を実行し、JSON形式の結果（`level`, `confidence`, `reasoning`, `analyzed_at`）を返す。失敗時は安全側フォールバックとして `complex` を設定。`analyzeDifficulty()`, `parseAnalysisResult()`, `createFallbackResult()` を提供。**Issue #712で追加**: 5段階評価（A〜E）＋バグリスク予測を行う `analyzeWithGrade()` メソッドと、3段階↔5段階マッピング関数（`mapGradeToLevel()`, `mapLevelToGrade()`）を追加。既存の `analyze()` メソッドは変更なし。 |
 | `src/core/credential-validator.ts` | 認証情報バリデーションモジュール（Issue #598で追加）。`CredentialValidator` クラスで6カテゴリの認証情報を検証。各カテゴリのチェッカー（`GitChecker`, `GitHubChecker`, `CodexChecker`, `ClaudeChecker`, `OpenAIChecker`, `AnthropicChecker`）を管理し、並列バリデーションを実行。`validate()`, `maskValue()` を提供。API呼び出しは10秒タイムアウト、機密情報は最初の4文字 + `****` でマスキング。 |
 | `src/core/model-optimizer.ts` | モデル最適化モジュール（約300行、Issue #363で追加）。難易度×フェーズ×ステップのマッピングに基づいて最適なモデルを自動選択。難易度別デフォルトマッピング（`simple`: 全軽量、`moderate`: 設計系フェーズは revise も軽量 / 実装系フェーズは revise 高品質 / ドキュメント系は全軽量、`complex`: execute/revise 高品質 + review 軽量）を提供。**review ステップは常に軽量モデルで、CLI/ENV オーバーライドは review には適用しない**。CLI/ENV 優先オーバーライドと metadata.json の既存設定を考慮。`resolveModel()`, `generateModelConfig()`, `applyOverrides()` を提供。型定義: `DifficultyLevel`, `StepModelConfig`, `PhaseModelConfig`, `ModelConfigByPhase`。 |
 | `src/core/instruction-validator.ts` | カスタム指示の安全性検証モジュール（Issue #655でインスタンスベースにリファクタリング）。`auto-issue --custom-instruction` で利用され、`codex-agent → claude-agent → openai-api → pattern` の順でフォールバック検証を実行し、`validationMethod` に経路を記録。`SAFE_PATTERNS` 追加により `execute --phase` や `npm run` などのCLI操作を安全扱いし、`confidence='low'` は警告のみで続行。`DANGEROUS_PATTERNS` を維持しつつ、キャッシュ（TTL 1h / LRU 1000件）と `parseAgentResponse()` によるコードブロック内JSON抽出を実装。500文字上限のチェックは CLI オプションパーサ (`auto-issue.ts`) 側で実施。エージェント優先順・フォールバックの流れを下図に示す。 |
@@ -422,6 +425,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/core/helpers/validation.ts` | 共通バリデーション処理（47行、Issue #26で追加）。`validatePhaseName()`, `validateStepName()`, `validateIssueNumber()` を提供。 |
 | `src/utils/logger.ts` | 統一ログモジュール（約150行、Issue #61で追加）。ログレベル制御（debug/info/warn/error）、カラーリング機能（chalk統合）、タイムスタンプ自動付与、環境変数制御（LOG_LEVEL、LOG_NO_COLOR）を提供。`logger.debug()`, `logger.info()`, `logger.warn()`, `logger.error()` をエクスポート。 |
 | `src/utils/error-utils.ts` | エラーハンドリングユーティリティ（約190行、Issue #48で追加、Issue #719で拡張）。`getErrorMessage()`, `getErrorStack()`, `isError()` を提供。TypeScript の catch ブロックで `unknown` 型のエラーから型安全にメッセージを抽出。非 Error オブジェクト（string、number、null、undefined）に対応し、決して例外をスローしない（never throw 保証）。`as Error` 型アサーションの代替として全プロジェクトで使用。**Issue #719で追加**: `ConflictError` クラス（`Error` を継承、`conflictedFiles: string[]` プロパティ付き）を定義し、コンフリクト発生時の型安全なエラーハンドリングを提供。`isConflictError()` 型ガード関数も追加。 |
+| `src/utils/frontmatter.ts` | YAML frontmatterユーティリティ（Issue #712で追加）。`generateFrontmatter()`（`IssueDifficultyAssessment`からYAML frontmatter文字列を生成）、`insertFrontmatter()`（Issue本文先頭へのfrontmatter挿入、既存frontmatter置換対応）、`parseFrontmatter()`（frontmatter付き文字列からメタデータとコンテンツを分離）の3関数を提供。外部YAMLライブラリを使用せず手動文字列構築で実装。 |
 | `src/core/config.ts` | 環境変数アクセス管理（約220行、Issue #51で追加）。型安全な環境変数アクセス、必須/オプション環境変数の検証、フォールバックロジック（`CODEX_API_KEY` → `OPENAI_API_KEY` 等）の統一を提供。`config.getGitHubToken()`, `config.getCodexApiKey()`, `config.isCI()` 等14個のメソッドをエクスポート。Singleton パターンで実装。 |
 | `src/core/workflow-state.ts` | メタデータの読み書きとマイグレーション処理。 |
 | `src/core/phase-dependencies.ts` | フェーズ間の依存関係管理、プリセット定義、依存関係チェック機能とスキップフェーズフィルタリングを提供（約249行、Issue #26で27.2%削減、Issue #636でskipPhases対応）。 |
@@ -440,6 +444,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
 | `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`auto-close`（2ファイル）、`pr-comment`（2ファイル）、`conflict`（2ファイル、Issue #719で追加）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）、`split-issue`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。 |
 | `src/prompts/difficulty/{lang}/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加、Issue #575で多言語対応）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
+| `src/prompts/difficulty/{lang}/analyze-grade.txt` | 5段階難易度評価＋バグリスク予測プロンプトテンプレート（Issue #712で追加）。Issue情報から5段階グレード（A〜E）とバグリスク予測をJSON形式で返すためのプロンプト。既存の`analyze.txt`（3段階用）とは独立して使用される。`DifficultyAnalyzer.analyzeWithGrade()` が利用。 |
 | `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
 | `src/core/repository-analyzer.ts` | リポジトリ分析ファサードクラス（Issue #579でリファクタリング、約350行）。`RepositoryAnalyzer` クラスを提供し、`src/core/analyzer/` モジュールに処理を委譲。`analyze()`（バグ検出）、`analyzeForRefactoring()`（リファクタリング検出）、`analyzeForEnhancements()`（機能拡張提案）を提供。公開APIは変更なし。 |
 | `src/core/analyzer/types.ts` | 分析モジュール共通の型定義（Issue #579で追加）。`OutputPrefix`, `RepositoryAnalyzerOptions`, `AnalyzeOptions` 型と、`auto-issue.ts` からの候補型の再エクスポートを提供。 |
@@ -452,7 +457,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/prompts/validation/validate-instruction.txt` | カスタム指示検証プロンプトテンプレート（Issue #422で追加）。カスタム指示が「分析指示」か「実行指示」かをLLMで判定するためのプロンプト。JSON形式で `isSafe`, `reason`, `category`, `confidence` を返すよう指示。 |
 | `src/types/auto-issue.ts` | auto-issue関連の型定義（Issue #422で拡張）。`ValidationResult`, `LLMValidationResponse`, `ValidationCacheEntry` 等の型を定義。カスタム指示検証結果の型安全性を確保。 |
 | `src/types/auto-close-issue.ts` | auto-close-issue関連の型定義（Issue #645で追加）。オプション（カテゴリ/閾値/除外ラベル/エージェント/require-approval）、候補Issue、検品結果、クローズ結果、コメント情報、親Issue情報の型を提供し、CLIとIssueInspectorの型安全性を担保。 |
-| `src/types/rewrite-issue.ts` | rewrite-issue関連の型定義（Issue #669で追加）。`RewriteIssueOptions`（Issue番号、言語、エージェント、dry-run/apply）、`RewriteResult`（新タイトル/ボディ、完全性スコア、具体性スコア、改善理由）、`RewriteMetrics`（完全性/具体性スコア）、`DiffLine`（差分行情報）の型を提供し、CLIとエージェント処理の型安全性を担保。 |
+| `src/types/rewrite-issue.ts` | rewrite-issue関連の型定義（Issue #669で追加、Issue #712で拡張）。`RewriteIssueOptions`（Issue番号、言語、エージェント、dry-run/apply）、`RewriteResult`（新タイトル/ボディ、完全性スコア、具体性スコア、改善理由）、`RewriteMetrics`（完全性/具体性スコア）、`DiffLine`（差分行情報）の型を提供し、CLIとエージェント処理の型安全性を担保。**Issue #712で追加**: `RewriteAgentResponse`に`difficultyAssessment?: IssueDifficultyAssessment`オプショナルフィールドを追加。 |
 | `src/types/validation.ts` | 認証情報バリデーション関連の型定義（Issue #598で追加）。`CheckStatus`（passed/failed/warning/skipped）、`CategoryStatus`、`CheckCategory`（git/github/codex/claude/openai/anthropic）、`ValidationCheck`、`CategoryResult`、`ValidationResult`、`ValidationSummary`、`RawValidateCredentialsOptions`、`ValidateCredentialsOptions`、`Checker` インターフェースを定義。 |
 | `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md` を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |

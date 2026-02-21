@@ -46,6 +46,41 @@ export interface DifficultyAnalysisResult {
   analyzer_model: string;
 }
 
+/**
+ * 5段階難易度グレード（Issue本文のfrontmatter用）
+ */
+export type DifficultyGrade = 'A' | 'B' | 'C' | 'D' | 'E';
+
+/**
+ * バグリスク予測
+ */
+export interface BugRiskPrediction {
+  /** 想定バグ発生件数（0以上の整数） */
+  expected_bugs: number;
+  /** バグ発生確率（0〜100のパーセント値） */
+  probability: number;
+  /** 総合リスクスコア = expected_bugs * probability / 100 */
+  risk_score: number;
+}
+
+/**
+ * Issue難易度評価（frontmatter用の統合インターフェース）
+ */
+export interface IssueDifficultyAssessment {
+  /** 5段階グレード */
+  grade: DifficultyGrade;
+  /** ラベル文字列 */
+  label: 'trivial' | 'simple' | 'moderate' | 'complex' | 'critical';
+  /** バグリスク予測 */
+  bug_risk: BugRiskPrediction;
+  /** 判定根拠テキスト */
+  rationale: string;
+  /** 判定に使用したエージェント */
+  assessed_by: 'claude' | 'codex';
+  /** 判定日時（ISO 8601形式） */
+  assessed_at: string;
+}
+
 export interface StepModelConfig {
   claudeModel: 'opus' | 'sonnet';
   codexModel: 'max' | 'mini';

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
+  - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
+  - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証
+  - `src/utils/frontmatter.ts` を新規作成し、`generateFrontmatter()`（YAML文字列生成）、`insertFrontmatter()`（Issue本文先頭への挿入）、`parseFrontmatter()`（既存frontmatter解析）の3つの純粋関数を実装
+  - frontmatter生成は外部YAMLライブラリ非依存のマニュアル文字列構築、解析は正規表現ベースで実装
+  - `src/commands/rewrite-issue.ts` に `assessIssueDifficulty()` プライベート関数を追加し、rewrite-issueフローのIssue更新直前（Step 8.5）にfrontmatter挿入処理を統合
+  - frontmatter挿入が失敗してもrewrite-issue全体をブロックしないグレースフルデグラデーション設計を採用（`try-catch` + `logger.warn()`）
+  - `src/types/rewrite-issue.ts` に `DifficultyGrade`（5段階）、`BugRiskPrediction`、`IssueDifficultyAssessment` 型を追加
+  - `src/prompts/difficulty/{ja,en}/analyze-grade.txt` プロンプトテンプレートを新規作成（多言語対応）
+  - 既存の3段階 `DifficultyLevel`（simple/moderate/complex）、`analyze()` メソッド、`metadata.json` スキーマには変更なし（後方互換性維持）
+  - `gradeToLevel()` マッピング関数（A,B→simple / C→moderate / D,E→complex）により既存フローとの整合性を確保
+  - 修正・新規ファイル: `src/commands/rewrite-issue.ts`、`src/core/difficulty-analyzer.ts`、`src/utils/frontmatter.ts`、`src/types/rewrite-issue.ts`、`src/prompts/difficulty/{ja,en}/analyze-grade.txt`
+  - テストカバレッジ: ユニットテスト87件（`frontmatter.test.ts` 20件、`difficulty-analyzer.test.ts` 38件、`rewrite-issue.test.ts` 29件）を新規追加、全体 `npm run validate`（lint + test + build）PASS（226 suites / 3170 tests）
+
 - **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
   - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
   - `auto-issue` コマンドと同一のバリデーションパターンを採用（空文字・空白のみ不可、500文字超過はエラー）
