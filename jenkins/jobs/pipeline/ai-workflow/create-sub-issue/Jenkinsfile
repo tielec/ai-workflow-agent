@@ -1,23 +1,27 @@
 /**
- * AI Workflow - Rewrite Issue Mode
+ * AI Workflow - Create Sub Issue Mode
  *
- * 既存のGitHub Issue本文を再設計し、差分プレビューまたは実更新を行うJenkinsfile。
- * auto-issueパイプラインをベースに、rewrite-issueコマンド用にカスタマイズ。
+ * 親Issueに紐づくサブIssueをAIエージェントで自動生成・起票するJenkinsfile。
+ * rewrite-issueパイプラインをベースに、create-sub-issueコマンド用にカスタマイズ。
  *
  * パラメータ（Job DSLで定義）:
- * - ISSUE_NUMBER: 対象Issue番号（必須）
+ * - ISSUE_NUMBER: 親Issue番号（必須）
+ * - DESCRIPTION: サブIssueの説明（必須、1-1000文字）
  * - GITHUB_REPOSITORY: owner/repo形式（必須）
+ * - ISSUE_TYPE: Issue種別（bug/task/enhancement、デフォルト: bug）
  * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
  * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
- * - APPLY: Issue更新フラグ（true/false、デフォルト: true）
+ * - APPLY: Issue作成フラグ（true/false、デフォルト: true）
  * - DRY_RUN: プレビューモード（true/false、デフォルト: false）
+ * - LABELS: ラベル（任意、カンマ区切り）
  * - CUSTOM_INSTRUCTION: カスタム指示（任意、最大500文字）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - 認証情報（Codex/Claude系、auto-issueと同様）
  *
  * 注意:
- * - EXECUTION_MODE は内部的に 'rewrite_issue' に固定
+ * - EXECUTION_MODE は内部的に 'create_sub_issue' に固定
  * - APPLYとDRY_RUNが両方trueの場合、APPLYが優先
+ * - DESCRIPTION / LABELS / CUSTOM_INSTRUCTION は環境変数経由で安全に渡す
  */
 
 def common
@@ -28,7 +32,7 @@ pipeline {
             label 'ec2-fleet-micro'
             dir '.'
             filename 'Dockerfile'
-            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+            args "-v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 
@@ -43,7 +47,7 @@ pipeline {
         WORKFLOW_VERSION = '0.2.0'
         // ワークフロー言語設定
         AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
-        EXECUTION_MODE = 'rewrite_issue'
+        EXECUTION_MODE = 'create_sub_issue'
         CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
 
@@ -71,7 +75,7 @@ pipeline {
                 script {
                     echo "========================================="
                     echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
-                    echo "Mode: Rewrite Issue"
+                    echo "Mode: Create Sub Issue"
                     echo "========================================="
 
                     common = load 'jenkins/shared/common.groovy'
@@ -120,6 +124,10 @@ pipeline {
                         error("ISSUE_NUMBER must be a number: ${params.ISSUE_NUMBER}")
                     }
 
+                    if (!params.DESCRIPTION?.trim()) {
+                        error("DESCRIPTION parameter is required")
+                    }
+
                     if (!params.GITHUB_REPOSITORY?.trim()) {
                         error("GITHUB_REPOSITORY parameter is required")
                     }
@@ -135,17 +143,20 @@ pipeline {
 
                     def applyLabel = params.APPLY ? ' [APPLY]' : ''
                     def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
-                    currentBuild.description = "Rewrite Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                    currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
-                    echo "Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "Parent Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "Description: ${params.DESCRIPTION?.take(100)}..."
                     echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
                     echo "Repository Owner: ${env.REPO_OWNER}"
                     echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Issue Type: ${params.ISSUE_TYPE ?: 'bug'}"
                     echo "Language: ${params.LANGUAGE ?: 'ja'}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Apply: ${params.APPLY ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
-                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
+                    echo "Labels: ${params.LABELS ?: '(none)'}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ? '(provided)' : '(none)'}"
                 }
             }
         }
@@ -166,40 +177,66 @@ pipeline {
             }
         }
 
-        stage('Execute Rewrite Issue') {
+        stage('Execute Create Sub Issue') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Execute Rewrite Issue"
+                    echo "Stage: Execute Create Sub Issue"
                     echo "========================================="
-                    echo "Issue Number: ${params.ISSUE_NUMBER}"
+                    echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
+                    echo "Issue Type: ${params.ISSUE_TYPE ?: 'bug'}"
                     echo "Language: ${params.LANGUAGE ?: 'ja'}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Apply: ${params.APPLY ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
-                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
 
                     def applyLabel = params.APPLY ? ' [APPLY]' : ''
                     def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
-                    currentBuild.description = "Rewrite Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                    currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                     dir(env.WORKFLOW_DIR) {
-                        def issueNumber = params.ISSUE_NUMBER
+                        def parentIssueNumber = params.ISSUE_NUMBER
+                        def issueType = params.ISSUE_TYPE ?: 'bug'
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
                         def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
                         def applyFlag = params.APPLY ? '--apply' : ''
                         def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
-                        def customInstructionFlag = params.CUSTOM_INSTRUCTION ? "--custom-instruction \"${params.CUSTOM_INSTRUCTION}\"" : ''
+                        def labelsFlag = params.LABELS?.trim() ? '--labels' : ''
+                        def customInstructionFlag = params.CUSTOM_INSTRUCTION?.trim() ? '--custom-instruction' : ''
 
-                        sh """
-                            node dist/index.js rewrite-issue \\
-                                --issue ${issueNumber} \\
-                                ${languageOption} \\
-                                ${agentOption} \\
-                                ${applyFlag} \\
-                                ${dryRunFlag} \\
-                                ${customInstructionFlag}
-                        """
+                        withEnv([
+                            "DESCRIPTION_PARAM=${params.DESCRIPTION?.trim()}",
+                            "LABELS_PARAM=${params.LABELS?.trim() ?: ''}",
+                            "CUSTOM_INSTRUCTION_PARAM=${params.CUSTOM_INSTRUCTION?.trim() ?: ''}"
+                        ]) {
+                            def args = [
+                                "--parent-issue ${parentIssueNumber}",
+                                '--description "\$DESCRIPTION_PARAM"',
+                                "--type ${issueType}"
+                            ]
+
+                            if (languageOption) {
+                                args << languageOption
+                            }
+                            if (agentOption) {
+                                args << agentOption
+                            }
+                            if (applyFlag) {
+                                args << applyFlag
+                            }
+                            if (dryRunFlag) {
+                                args << dryRunFlag
+                            }
+                            if (labelsFlag) {
+                                args << "${labelsFlag} " + '"\$LABELS_PARAM"'
+                            }
+                            if (customInstructionFlag) {
+                                args << "${customInstructionFlag} " + '"\$CUSTOM_INSTRUCTION_PARAM"'
+                            }
+
+                            def command = "node dist/index.js create-sub-issue \\\n    " + args.join(" \\\n    ")
+                            sh command
+                        }
                     }
                 }
             }
@@ -215,7 +252,7 @@ pipeline {
 
                 def applyLabel = params.APPLY ? ' [APPLY]' : ''
                 def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
-                currentBuild.description = "Rewrite Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                currentBuild.description = "Create Sub Issue (Parent #${env.ISSUE_NUMBER})${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
                 if (env.REPOS_ROOT) {
                     sh """
@@ -239,13 +276,13 @@ pipeline {
         success {
             script {
                 echo "========================================="
-                echo "✅ AI Workflow - Rewrite Issue Success"
+                echo "✅ AI Workflow - Create Sub Issue Success"
                 echo "========================================="
                 echo "Repository: ${params.GITHUB_REPOSITORY}"
-                echo "Issue Number: ${params.ISSUE_NUMBER}"
+                echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
                 def dryRunNote = (!params.APPLY && params.DRY_RUN) ? ' (dry run mode)' : ''
                 def applyNote = params.APPLY ? ' (applied)' : ''
-                echo "Result: Rewrite issue completed${applyNote}${dryRunNote}"
+                echo "Result: Create sub issue completed${applyNote}${dryRunNote}"
 
                 common.sendWebhook([
                     webhookUrl: params.WEBHOOK_URL,
@@ -263,10 +300,10 @@ pipeline {
         failure {
             script {
                 echo "========================================="
-                echo "❌ AI Workflow - Rewrite Issue Failure"
+                echo "❌ AI Workflow - Create Sub Issue Failure"
                 echo "========================================="
                 echo "Repository: ${params.GITHUB_REPOSITORY}"
-                echo "Issue Number: ${params.ISSUE_NUMBER}"
+                echo "Parent Issue Number: ${params.ISSUE_NUMBER}"
                 echo "Please check the logs"
 
                 def errorMessage = currentBuild.result ?: 'Build failed'

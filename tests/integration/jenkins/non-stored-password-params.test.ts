@@ -27,6 +27,8 @@ const JOB_DSL_PATHS = {
     'jenkins/jobs/dsl/ai-workflow/ai_workflow_pr_comment_finalize_job.groovy',
   rewriteIssue: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_rewrite_issue_job.groovy',
   ecrBuild: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy',
+  resolveConflict: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy',
+  createSubIssue: 'jenkins/jobs/dsl/ai-workflow/ai_workflow_create_sub_issue_job.groovy',
 } as const;
 
 type JobKey = keyof typeof JOB_DSL_PATHS;
@@ -60,6 +62,8 @@ const EXPECTED_SEED_JOB_KEYS = [
   'ai_workflow_pr_comment_finalize_job',
   'ai_workflow_rewrite_issue_job',
   'ai_workflow_ecr_build_job',
+  'ai_workflow_resolve_conflict_job',
+  'ai_workflow_create_sub_issue_job',
 ] as const;
 
 const SEED_JOB_KEY_TO_PATH: Record<(typeof EXPECTED_SEED_JOB_KEYS)[number], string> = {
@@ -75,6 +79,8 @@ const SEED_JOB_KEY_TO_PATH: Record<(typeof EXPECTED_SEED_JOB_KEYS)[number], stri
   ai_workflow_pr_comment_finalize_job: JOB_DSL_PATHS.prCommentFinalize,
   ai_workflow_rewrite_issue_job: JOB_DSL_PATHS.rewriteIssue,
   ai_workflow_ecr_build_job: JOB_DSL_PATHS.ecrBuild,
+  ai_workflow_resolve_conflict_job: JOB_DSL_PATHS.resolveConflict,
+  ai_workflow_create_sub_issue_job: JOB_DSL_PATHS.createSubIssue,
 };
 
 const dslContents: Record<JobKey, string> = {} as Record<JobKey, string>;
@@ -305,6 +311,7 @@ describe('Integration: Sensitive Jenkins parameters use nonStoredPasswordParam (
       'autoIssue',
       'prCommentExecute',
       'prCommentFinalize',
+      'resolveConflict',
     ])('defines CODEX_AUTH_JSON securely in %s', (jobKey) => {
       expectParamSecured(jobKey, 'CODEX_AUTH_JSON');
       expectCodexAuthCaution(jobKey);

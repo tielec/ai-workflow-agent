@@ -17,6 +17,7 @@ describe('IssueClient', () => {
   beforeEach(() => {
     mockOctokit = createMockOctokit();
     issueClient = new IssueClient(mockOctokit.client, 'owner', 'repo');
+    (mockOctokit.client as any).request = jest.fn();
   });
 
   afterEach(() => {
@@ -271,6 +272,49 @@ describe('IssueClient', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('network down');
+    });
+  });
+
+  describe('addSubIssue', () => {
+    it('should link sub-issue via Sub-Issue API (TC-CSI-020)', async () => {
+      const requestMock = (mockOctokit.client as any).request as jest.Mock;
+      requestMock.mockResolvedValue({ data: {} });
+
+      const result = await issueClient.addSubIssue(10, 999);
+
+      expect(requestMock).toHaveBeenCalledWith(
+        'POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+        {
+          owner: 'owner',
+          repo: 'repo',
+          issue_number: 10,
+          sub_issue_id: 999,
+        },
+      );
+      expect(result).toEqual({ success: true, error: null });
+    });
+
+    it('should return failure when Sub-Issue API fails (TC-CSI-021)', async () => {
+      const requestMock = (mockOctokit.client as any).request as jest.Mock;
+      const mockError = new RequestError('Not Found', 404, {
+        request: {
+          method: 'POST',
+          url: 'https://api.github.com/repos/owner/repo/issues/10/sub_issues',
+          headers: {},
+        },
+        response: {
+          status: 404,
+          url: 'https://api.github.com/repos/owner/repo/issues/10/sub_issues',
+          headers: {},
+          data: {},
+        },
+      });
+      requestMock.mockRejectedValue(mockError);
+
+      const result = await issueClient.addSubIssue(10, 999);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('GitHub API error: 404');
     });
   });
 

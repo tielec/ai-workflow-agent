@@ -73,8 +73,65 @@ node dist/index.js resolve-conflict finalize \
 - 解消後の内容にコンフリクトマーカーが残る場合はエラーになります
 - 作業ツリーが汚れている場合は analyze が中断されます
 
+## Jenkins 統合
+
+Jenkins 環境では、`AI_Workflow/{develop,stable-1〜9}/resolve_conflict` ジョブとして実行できます。
+
+### Jenkins パラメータ
+
+| Jenkins パラメータ | CLI オプション | デフォルト値 | 説明 |
+|------------------|--------------|-------------|------|
+| EXECUTION_MODE | - | resolve_conflict | 実行モード（固定値） |
+| PR_URL | --pr-url | - | 対象 Pull Request URL（必須） |
+| GITHUB_REPOSITORY | - | - | owner/repo 形式のリポジトリ識別子（必須） |
+| AGENT_MODE | --agent | auto | エージェントモード（auto/codex/claude） |
+| LANGUAGE | --language | ja | 出力言語（ja/en） |
+| DRY_RUN | --dry-run | false | ドライランモード |
+| PUSH | --push | true | finalize 時にリモートへ push するか |
+| SQUASH | --squash | false | コミットをスカッシュするか |
+
+### Jenkins 実行例
+
+```
+# Jenkins でパラメータ設定
+PR_URL: https://github.com/owner/repo/pull/123
+GITHUB_REPOSITORY: owner/repo
+AGENT_MODE: auto
+DRY_RUN: false
+PUSH: true
+SQUASH: false
+
+# 上記は以下の CLI 実行と等価（4フェーズを順次実行）
+node dist/index.js resolve-conflict init --pr-url https://github.com/owner/repo/pull/123
+node dist/index.js resolve-conflict analyze --pr-url https://github.com/owner/repo/pull/123 --agent auto
+node dist/index.js resolve-conflict execute --pr-url https://github.com/owner/repo/pull/123
+node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/repo/pull/123 --push
+```
+
+### Jenkins 実行の特徴
+
+- Docker エージェント内でリポジトリが自動クローンされます
+- `REPOS_ROOT` 環境変数でリポジトリの親ディレクトリを指定できます
+- 4フェーズ（init → analyze → execute → finalize）が単一ジョブ内で順次実行されます
+- `DRY_RUN=true` の場合、`finalize --push` は自動的に無効化されます（安全策）
+- PR URL と認証情報（`GITHUB_TOKEN`、API キー）は nonStoredPasswordParam として保護されます
+
+詳細は [jenkins/README.md](../jenkins/README.md) を参照してください。
+
+## 各フェーズの成果物コミット
+
+| フェーズ | コミット対象 | コミットメッセージ |
+|---------|-------------|-------------------|
+| init | `metadata.json` | `resolve-conflict: init metadata for PR #<N>` |
+| analyze | `resolution-plan.*`, `metadata.json` | `resolve-conflict: analyze completed for PR #<N>` |
+| execute | `resolution-result.*`, `metadata.json` | `resolve-conflict: execute artifacts for PR #<N>` |
+| finalize | なし（cleanup でディレクトリ削除） | — |
+
+各フェーズの末尾で自動的に `git add` + `git commit` を実行し、フェーズ間でワーキングツリーをクリーンに保ちます。
+コミットに失敗した場合は警告ログを出力して続行します。
+
 ## トラブルシューティング
 
 - `Metadata not found` が出る場合は `resolve-conflict init` を先に実行してください
-- `Working tree is not clean` が出る場合は変更をコミットまたはスタッシュしてください
+- `Working tree is not clean` が出る場合は `.ai-workflow/` 以外の変更をコミットまたはスタッシュしてください
 - `Conflict markers remain` が出る場合は、解消計画や出力を確認し、必要なら手動修正してください

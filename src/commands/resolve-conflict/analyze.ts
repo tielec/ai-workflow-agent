@@ -4,6 +4,7 @@ import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
@@ -58,10 +59,12 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
     }
 
     const repoGit = simpleGit(repoRoot);
+    await ensureGitConfig(repoGit);
     await repoGit.fetch('origin', baseBranch);
     await repoGit.fetch('origin', headBranch);
     const status = await repoGit.status();
-    if (status.files.length > 0) {
+    const nonWorkflowFiles = status.files.filter((file) => !file.path.startsWith('.ai-workflow/'));
+    if (nonWorkflowFiles.length > 0) {
       throw new Error('Working tree is not clean. Please commit or stash changes before analyze.');
     }
 
@@ -161,6 +164,15 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
       baseBranch,
       headBranch,
     });
+
+    try {
+      const workflowDir = path.relative(repoRoot, path.join(repoRoot, '.ai-workflow', `conflict-${prNumber}`));
+      await repoGit.add(path.join(workflowDir, '*'));
+      await repoGit.commit(`resolve-conflict: analyze completed for PR #${prNumber}`);
+      logger.info(`Committed analyze artifacts for PR #${prNumber}`);
+    } catch (commitError: unknown) {
+      logger.warn(`Failed to commit analyze artifacts: ${getErrorMessage(commitError)}`);
+    }
 
     logger.info(`Analysis completed. Plan saved to: ${planMdPath}`);
   } catch (error) {
