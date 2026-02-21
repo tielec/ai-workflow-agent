@@ -120,8 +120,8 @@ Job DSL パラメータが Non-Stored Password Parameter に変更され、個�
 | FORCE_RESET | ✅ | Boolean | false |
 | MAX_RETRIES | ✅ | Choice | 3 |
 | CLEANUP_ON_COMPLETE_FORCE | ✅ | Boolean | false |
-| GIT_COMMIT_USER_NAME | ✅ | String | AI Workflow Bot |
-| GIT_COMMIT_USER_EMAIL | ✅ | String | ai-workflow@example.com |
+| GIT_COMMIT_USER_NAME | ✅ | String | AI Workflow |
+| GIT_COMMIT_USER_EMAIL | ✅ | String | ai-workflow@tielec.local |
 | AWS_ACCESS_KEY_ID | ✅ | String | (空文字) |
 | AWS_SECRET_ACCESS_KEY | ✅ | NonStoredPassword | - |
 | AWS_SESSION_TOKEN | ✅ | NonStoredPassword | - |

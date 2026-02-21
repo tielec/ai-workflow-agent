@@ -246,8 +246,8 @@ export AGENT_CAN_INSTALL_PACKAGES="true"
 
 **設定例**:
 ```bash
-export GIT_COMMIT_USER_NAME="AI Workflow Bot"
-export GIT_COMMIT_USER_EMAIL="ai-workflow@example.com"
+export GIT_COMMIT_USER_NAME="AI Workflow"
+export GIT_COMMIT_USER_EMAIL="ai-workflow@tielec.local"
 ```
 
 ## 環境変数の設定方法

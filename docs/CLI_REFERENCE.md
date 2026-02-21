@@ -1154,6 +1154,10 @@ node dist/index.js resolve-conflict finalize --pr-url <PR_URL> --push
 - `--squash`: 1コミット前提のガイド表示（finalize）
 - `--language <ja|en>`: 出力言語
 
+**Git 設定**:
+- `GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL` または `git config` でコミットユーザーを設定
+- 未設定の場合は `AI Workflow` / `ai-workflow@tielec.local` を使用
+
 **生成される成果物**:
 - `.ai-workflow/conflict-<pr>/metadata.json`
 - `.ai-workflow/conflict-<pr>/resolution-plan.json`

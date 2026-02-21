@@ -208,11 +208,11 @@ Pull Request 番号（必須）
             // ========================================
             // Git 設定
             // ========================================
-            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow Bot', '''
+            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow', '''
 Git コミットユーザー名
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@example.com', '''
+            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@tielec.local', '''
 Git コミットメールアドレス
             '''.stripIndent().trim())
 
@@ -411,11 +411,11 @@ Pull Request 番号（必須）
             // ========================================
             // Git 設定
             // ========================================
-            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow Bot', '''
+            stringParam('GIT_COMMIT_USER_NAME', 'AI Workflow', '''
 Git コミットユーザー名
             '''.stripIndent().trim())
 
-            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@example.com', '''
+            stringParam('GIT_COMMIT_USER_EMAIL', 'ai-workflow@tielec.local', '''
 Git コミットメールアドレス
             '''.stripIndent().trim())
 
@@ -551,8 +551,8 @@ pipeline {
         CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
 
-        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
-        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@tielec.local'}"
 
         AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
         AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
@@ -815,8 +815,8 @@ pipeline {
         CODEX_HOME = ''
         LOG_NO_COLOR = 'true'
 
-        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
-        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@tielec.local'}"
 
         GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
         GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
@@ -1041,8 +1041,8 @@ jobDsl {
 | `AGENT_MODE` | `auto` | エージェントモード（auto \| codex \| claude） |
 | `DRY_RUN` | `false` | ドライランモード |
 | `BATCH_SIZE` | `5` | 一度に処理するコメント数 |
-| `GIT_COMMIT_USER_NAME` | `AI Workflow Bot` | Git コミットユーザー名 |
-| `GIT_COMMIT_USER_EMAIL` | `ai-workflow@example.com` | Git コミットメールアドレス |
+| `GIT_COMMIT_USER_NAME` | `AI Workflow` | Git コミットユーザー名 |
+| `GIT_COMMIT_USER_EMAIL` | `ai-workflow@tielec.local` | Git コミットメールアドレス |
 
 #### APIキーパラメータ（6個）
 
@@ -1070,8 +1070,8 @@ jobDsl {
 |-----------|------------|------|
 | `GITHUB_REPOSITORY` | `tielec/ai-workflow-agent` | 対象GitHubリポジトリ（owner/repo形式） |
 | `DRY_RUN` | `false` | ドライランモード |
-| `GIT_COMMIT_USER_NAME` | `AI Workflow Bot` | Git コミットユーザー名 |
-| `GIT_COMMIT_USER_EMAIL` | `ai-workflow@example.com` | Git コミットメールアドレス |
+| `GIT_COMMIT_USER_NAME` | `AI Workflow` | Git コミットユーザー名 |
+| `GIT_COMMIT_USER_EMAIL` | `ai-workflow@tielec.local` | Git コミットメールアドレス |
 
 #### APIキーパラメータ（6個、finalize では未使用だが互換性のため定義）
 

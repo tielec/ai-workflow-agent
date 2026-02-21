@@ -586,8 +586,8 @@ async function commitIfNeeded(repoRoot, message) {
 
   // Only configure once per command
   if (!gitConfigured) {
-    const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot'
-    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com'
+    const gitUserName = config.getGitCommitUserName() || 'AI Workflow'
+    const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@tielec.local'
     await git.addConfig('user.name', gitUserName)
     await git.addConfig('user.email', gitUserEmail)
     gitConfigured = true
@@ -741,7 +741,7 @@ GITHUB_REPOSITORY                      # owner/repo format
 CODEX_API_KEY                         # Codex agent
 OPENAI_API_KEY                        # Fallback for Codex
 CLAUDE_CODE_CREDENTIALS_PATH          # Claude agent credentials
-GIT_COMMIT_USER_NAME                  # Git config (AI Workflow Bot)
+GIT_COMMIT_USER_NAME                  # Git config (AI Workflow)
 GIT_COMMIT_USER_EMAIL                 # Git config
 LOG_LEVEL                             # debug|info|warn|error
 LOG_NO_COLOR                          # For CI environments

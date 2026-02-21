@@ -8,6 +8,7 @@
 - 作業ツリーがクリーンであること
 - `GITHUB_TOKEN` と `GITHUB_REPOSITORY`（`owner/repo` 形式）が設定されていること
 - エージェント認証（Codex または Claude）が有効であること
+- Git コミット用ユーザー設定が取得できること（`GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL` または `git config`。未設定時は `AI Workflow` / `ai-workflow@tielec.local` を使用）
 
 ## クイックスタート
 
@@ -129,6 +130,7 @@ node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/r
 
 各フェーズの末尾で自動的に `git add` + `git commit` を実行し、フェーズ間でワーキングツリーをクリーンに保ちます。
 コミットに失敗した場合は警告ログを出力して続行します。
+CI 環境で `git commit` が失敗する場合は、`GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL` を明示的に設定してください。
 
 ## トラブルシューティング
 
