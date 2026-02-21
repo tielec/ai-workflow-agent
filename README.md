@@ -122,6 +122,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
 | `split-issue` | 複雑なIssueを機能単位で複数の子Issueに分割 |
+| `create-sub-issue` | 親Issueに紐づくサブIssueをAIエージェントで自動生成・起票 |
 | `pr-comment` | PRコメント自動対応（init / analyze / execute / finalize） |
 | `resolve-conflict` | PRのマージコンフリクトをAIで分析・解消（init / analyze / execute / finalize） |
 | `validate-credentials` | 認証情報とAPIの疎通確認 |

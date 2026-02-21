@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #713**: 親Issueに紐づくサブIssueをAIエージェントで自動生成する `create-sub-issue` コマンドを新規追加
+  - `--parent-issue <number>` と `--description <text>` を指定してサブIssue本文をAI（Claude/Codex）で自動生成
+  - GitHub Sub-Issue API（`POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues`）による親子Issue紐づけを実装
+  - Sub-Issue API 非対応環境向けのフォールバック機構（子Issue本文に `Parent issue: #<number>` 追記 + 親Issueへのリンクコメント投稿）
+  - dry-run/apply モード対応（デフォルトはdry-run、`--apply` で実際にIssue作成）
+  - `--type <bug|task|enhancement>` でIssue種別を指定可能（デフォルト: `bug`）
+  - `--labels`、`--custom-instruction`、`--language`、`--agent` オプションをサポート
+  - `src/commands/create-sub-issue.ts`（コマンドハンドラ）、`src/types/create-sub-issue.ts`（型定義）を新規作成
+  - `src/prompts/create-sub-issue/{ja,en}/create-sub-issue.txt` プロンプトテンプレートを新規作成（多言語対応）
+  - `src/core/github/issue-client.ts` に `addSubIssue()` メソッドを追加
+  - `src/core/github-client.ts` に `addSubIssue()` ファサードメソッドを追加
+  - `src/main.ts` に `create-sub-issue` コマンド登録を追加
+  - テストカバレッジ: ユニットテスト + 統合テストを追加、全体 `npm run validate`（lint + test + build）PASS
+
 - **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
   - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
   - `auto-issue` コマンドと同一のバリデーションパターンを採用（空文字・空白のみ不可、500文字超過はエラー）
