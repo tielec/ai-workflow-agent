@@ -8,6 +8,8 @@ import type { ConflictResolutionPlan } from '../../../src/types/conflict.js';
 const parsePullRequestUrlMock = jest.fn();
 const resolveRepoPathFromPrUrlMock = jest.fn();
 
+const ensureGitConfigMock = jest.fn().mockResolvedValue(undefined);
+
 const simpleGitMock = jest.fn();
 const mergeContextCollectMock = jest.fn();
 const createPlanMock = jest.fn();
@@ -30,6 +32,11 @@ beforeAll(async () => {
     __esModule: true,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+  }));
+
+  await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
+    __esModule: true,
+    ensureGitConfig: ensureGitConfigMock,
   }));
 
   await jest.unstable_mockModule('simple-git', () => ({
@@ -76,6 +83,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    ensureGitConfigMock.mockResolvedValue(undefined);
 
     repoRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'resolve-conflict-'));
     parsePullRequestUrlMock.mockReturnValue({
@@ -1132,6 +1140,80 @@ describe('resolve-conflict コマンド統合テスト', () => {
     await expect(fsp.access(resultJsonPath)).resolves.not.toThrow();
     expect(gitExecute.commit).toHaveBeenCalledTimes(2);
     expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('各サブコマンドでensureGitConfigが呼ばれること', async () => {
+    // Given: 完全フローのセットアップ
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+    resolveMock.mockResolvedValue(plan.resolutions);
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitExecute = {
+      add: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    // When: init -> analyze -> execute
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+    await handleResolveConflictExecuteCommand({ prUrl, agent: 'auto', dryRun: false });
+
+    // Then: ensureGitConfig が init, analyze, execute それぞれで呼ばれる
+    expect(ensureGitConfigMock).toHaveBeenCalledTimes(3);
   });
 
   it('init_analyze シーケンシャル実行でクリーンチェックが通過すること', async () => {

@@ -50,7 +50,12 @@ pipeline {
         CODEX_HOME = ''
 
         // ログ設定
+        LOG_LEVEL = "${(params.LOG_LEVEL ?: 'INFO').toLowerCase()}"
         LOG_NO_COLOR = 'true'
+
+        // Git設定
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
 
         // GitHub認証情報
         GITHUB_TOKEN = "${params.GITHUB_TOKEN}"

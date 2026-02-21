@@ -4,6 +4,7 @@ import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
 import { ConflictResolver } from '../../core/git/conflict-resolver.js';
@@ -122,6 +123,7 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     await fsp.writeFile(resultMdPath, buildResolutionResultMarkdown(resolutions, resultJsonPath), 'utf-8');
 
     const git = simpleGit(repoRoot);
+    await ensureGitConfig(git);
     await git.add(resolutions.map((resolution) => resolution.filePath));
     const status = await git.status();
     if (status.files.length > 0) {
