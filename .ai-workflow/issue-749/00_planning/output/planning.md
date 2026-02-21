@@ -146,20 +146,20 @@
 
 ### Phase 4: 実装 (見積もり: 2.5〜3.5h)
 
-- [ ] Task 4-1: 共通ヘルパー関数の作成 (1〜1.5h)
+- [x] Task 4-1: 共通ヘルパー関数の作成 (1〜1.5h)
   - `src/core/git/git-config-helper.ts` を新規作成
   - `ensureGitUserConfig(git: SimpleGit)` 関数を実装（`CommitManager.ensureGitConfig()` のロジックを抽出）
   - デフォルト値定数 `DEFAULT_GIT_USER_NAME = 'AI Workflow'` / `DEFAULT_GIT_USER_EMAIL = 'ai-workflow@tielec.local'` を定義
   - バリデーションロジック（名前長・メール形式）を移植
-- [ ] Task 4-2: resolve-conflict コマンドへの適用 (0.5〜1h)
+- [x] Task 4-2: resolve-conflict コマンドへの適用 (0.5〜1h)
   - `src/commands/resolve-conflict/init.ts`: `git.commit()` 前に `ensureGitUserConfig()` を呼び出す処理を追加
   - `src/commands/resolve-conflict/analyze.ts`: `git.merge()` 前に `ensureGitUserConfig()` を呼び出す処理を追加
   - `src/commands/resolve-conflict/execute.ts`: `git.commit()`（2箇所）前に `ensureGitUserConfig()` を呼び出す処理を追加
-- [ ] Task 4-3: 既存コードのリファクタリング (0.5〜1h)
+- [x] Task 4-3: 既存コードのリファクタリング (0.5〜1h)
   - `src/core/git/commit-manager.ts`: `ensureGitConfig()` メソッドが新しい共通ヘルパー関数に委譲するよう修正
   - `src/commands/pr-comment/init.ts`: インライン Git 設定を共通ヘルパー関数に置き換え
   - `src/commands/pr-comment/finalize.ts`: インライン Git 設定（2箇所）を共通ヘルパー関数に置き換え
-- [ ] Task 4-4: フォールバック値の統一 (0.5h)
+- [x] Task 4-4: フォールバック値の統一 (0.5h)
   - `pr-comment` で使用されていた `'AI Workflow Bot'` / `'ai-workflow@example.com'` を共通ヘルパー関数のデフォルト値 `'AI Workflow'` / `'ai-workflow@tielec.local'` に統一
   - 変更による影響がないことを確認
 
