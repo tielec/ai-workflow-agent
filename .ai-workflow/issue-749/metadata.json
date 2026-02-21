@@ -290,24 +290,25 @@
       ]
     },
     "evaluation": {
-      "status": "in_progress",
+      "status": "completed",
       "retry_count": 0,
       "started_at": "2026-02-21T11:11:30.046Z",
-      "completed_at": null,
+      "completed_at": "2026-02-21T11:12:11.879Z",
       "review_result": null,
       "decision": "PASS",
       "failed_phase": null,
       "remaining_tasks": [],
       "created_issue_url": null,
       "abort_reason": null,
-      "current_step": "review",
+      "current_step": null,
       "completed_steps": [
-        "execute"
+        "execute",
+        "review"
       ]
     }
   },
   "created_at": "2026-02-21T09:27:01.003Z",
-  "updated_at": "2026-02-21T11:12:09.672Z",
+  "updated_at": "2026-02-21T11:12:12.521Z",
   "branch_name": "ai-workflow/issue-749",
   "base_commit": "633a94e8a88209616bc57228e41840a966e5d638",
   "pr_number": 750,
