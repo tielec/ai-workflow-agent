@@ -135,12 +135,16 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
+      addConfig: jest.fn().mockResolvedValue(undefined),
       add: jest.fn().mockResolvedValue(undefined),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
+      addConfig: jest.fn().mockResolvedValue(undefined),
       status: jest
         .fn()
         .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
@@ -154,6 +158,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitExecute = {
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
+      addConfig: jest.fn().mockResolvedValue(undefined),
       add: jest.fn().mockResolvedValue(undefined),
       status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
@@ -187,6 +193,27 @@ describe('resolve-conflict コマンド統合テスト', () => {
     expect(gitExecute.add).toHaveBeenCalledTimes(2);
     expect(gitExecute.commit).toHaveBeenCalledTimes(2);
     expect(gitExecute.commit).toHaveBeenCalledWith('resolve-conflict: execute artifacts for PR #42');
+    // Gitユーザー設定が commit/merge 前に適用されること
+    expect(gitInit.addConfig).toHaveBeenCalledTimes(2);
+    expect(gitInit.addConfig).toHaveBeenCalledWith('user.name', expect.any(String), false, 'local');
+    expect(gitInit.addConfig).toHaveBeenCalledWith('user.email', expect.any(String), false, 'local');
+    const initAddConfigOrder = Math.min(...gitInit.addConfig.mock.invocationCallOrder);
+    const initCommitOrder = gitInit.commit.mock.invocationCallOrder[0];
+    expect(initAddConfigOrder).toBeLessThan(initCommitOrder);
+
+    expect(gitAnalyze.addConfig).toHaveBeenCalledTimes(2);
+    expect(gitAnalyze.addConfig).toHaveBeenCalledWith('user.name', expect.any(String), false, 'local');
+    expect(gitAnalyze.addConfig).toHaveBeenCalledWith('user.email', expect.any(String), false, 'local');
+    const analyzeAddConfigOrder = Math.min(...gitAnalyze.addConfig.mock.invocationCallOrder);
+    const analyzeMergeOrder = gitAnalyze.raw.mock.invocationCallOrder[0];
+    expect(analyzeAddConfigOrder).toBeLessThan(analyzeMergeOrder);
+
+    expect(gitExecute.addConfig).toHaveBeenCalledTimes(2);
+    expect(gitExecute.addConfig).toHaveBeenCalledWith('user.name', expect.any(String), false, 'local');
+    expect(gitExecute.addConfig).toHaveBeenCalledWith('user.email', expect.any(String), false, 'local');
+    const executeAddConfigOrder = Math.min(...gitExecute.addConfig.mock.invocationCallOrder);
+    const executeCommitOrder = gitExecute.commit.mock.invocationCallOrder[0];
+    expect(executeAddConfigOrder).toBeLessThan(executeCommitOrder);
   });
 
   it('execute_ドライラン_ファイル書き込みとコミットを行わない', async () => {
@@ -690,6 +717,29 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
     expect(gitInit.add).toHaveBeenCalled();
     expect(gitInit.commit).not.toHaveBeenCalled();
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('init_ensureGitUserConfigエラー時もコミット処理が継続すること', async () => {
+    // 目的: Gitユーザー設定でエラーが起きても init のコミット処理が継続することを確認する
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      listConfig: jest.fn().mockResolvedValue({ all: {} }),
+      addConfig: jest.fn().mockRejectedValue(new Error('addConfig failed')),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    simpleGitMock.mockImplementation(() => gitInit);
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    expect(gitInit.addConfig).toHaveBeenCalled();
+    expect(gitInit.commit).toHaveBeenCalledWith('resolve-conflict: init metadata for PR #42');
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
