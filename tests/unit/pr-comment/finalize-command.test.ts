@@ -248,8 +248,8 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
   it('configures git user information before staging changes', async () => {
     await handlePRCommentFinalizeCommand(commandOptions);
 
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'Configured Bot');
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'configured@example.com');
+    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'Configured Bot', false, 'local');
+    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'configured@example.com', false, 'local');
   });
 
   // Given metadata lacks PR branch information, pushing should be skipped and an error reported.
@@ -270,8 +270,8 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
 
     await handlePRCommentFinalizeCommand(commandOptions);
 
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'AI Workflow Bot');
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'ai-workflow@example.com');
+    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'AI Workflow', false, 'local');
+    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'ai-workflow@tielec.local', false, 'local');
   });
 
   it('squashes commits and force-pushes when --squash is enabled', async () => {
