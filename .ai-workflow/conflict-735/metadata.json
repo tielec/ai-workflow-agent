@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "prNumber": 735,
+  "repository": {
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "status": "initialized",
+  "mergeable": null,
+  "mergeableState": "unknown",
+  "conflictFiles": [],
+  "baseBranch": "develop",
+  "headBranch": "ai-workflow/issue-712",
+  "createdAt": "2026-02-21T12:58:54.738Z",
+  "updatedAt": "2026-02-21T12:58:54.739Z"
+}
