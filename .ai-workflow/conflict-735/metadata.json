@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "prNumber": 735,
+  "repository": {
+    "owner": "tielec",
+    "repo": "ai-workflow-agent"
+  },
+  "status": "executed",
+  "mergeable": null,
+  "mergeableState": "unknown",
+  "conflictFiles": [
+    "CHANGELOG.md",
+    "tests/unit/documentation/codebase-exploration.test.ts"
+  ],
+  "baseBranch": "develop",
+  "headBranch": "ai-workflow/issue-712",
+  "createdAt": "2026-02-21T12:58:54.738Z",
+  "updatedAt": "2026-02-21T15:32:32.563Z",
+  "resolutionPlanPath": "/tmp/ai-workflow-repos-9-28fc64d5/ai-workflow-agent/.ai-workflow/conflict-735/resolution-plan.md",
+  "resolutionResultPath": "/tmp/ai-workflow-repos-9-28fc64d5/ai-workflow-agent/.ai-workflow/conflict-735/resolution-result.md"
+}
