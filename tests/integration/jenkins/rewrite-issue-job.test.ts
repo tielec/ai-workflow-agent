@@ -243,6 +243,7 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
         cwd: projectRoot,
         env: process.env,
         timeout: commandTimeoutMs,
+        maxBuffer: 50 * 1024 * 1024,
       });
 
       buildStdout = stdout ?? '';
@@ -291,6 +292,7 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
         cwd: projectRoot,
         env: process.env,
         timeout: commandTimeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
       });
 
       // Then: コマンド説明と必須オプションが表示される

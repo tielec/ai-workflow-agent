@@ -122,6 +122,27 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
     }
   });
 
+<<<<<<< HEAD
+  it('src 配下の TypeScript ファイルに変更が含まれていないこと', () => {
+    const trimmed = execSync('git status --porcelain -- src/').toString().trim();
+    if (!trimmed) {
+      expect(trimmed).toBe('');
+      return;
+    }
+
+    const tsChanges = trimmed
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const pathPart = line.slice(3).trim();
+        const renameIndex = pathPart.indexOf(' -> ');
+        return renameIndex >= 0 ? pathPart.slice(renameIndex + 4) : pathPart;
+      })
+      .filter((file) => file.endsWith('.ts') || file.endsWith('.tsx'));
+
+    expect(tsChanges).toHaveLength(0);
+=======
   it('src 配下の変更が想定外のファイルに含まれていないこと', () => {
     const statusOutput = execSync('git status --porcelain -- src/').toString();
     if (!statusOutput.trim()) {
@@ -141,6 +162,7 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
       );
 
     expect(unexpected).toHaveLength(0);
+>>>>>>> origin/develop
   });
 
   it('行の長さが 120 文字を超えるものが全体の 10% 以下であること', () => {

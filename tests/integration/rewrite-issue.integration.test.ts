@@ -44,9 +44,17 @@ await jest.unstable_mockModule('../../src/commands/execute/agent-setup.js', () =
   setupAgentClients: mockSetupAgentClients,
 }));
 
+await jest.unstable_mockModule('../../src/core/difficulty-analyzer.js', () => ({
+  __esModule: true,
+  DifficultyAnalyzer: class {
+    analyzeWithGrade = jest.fn().mockRejectedValue(new Error('difficulty analysis disabled'));
+  },
+}));
+
 await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
   __esModule: true,
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  findWorkflowMetadata: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../src/core/repository-analyzer.js', () => ({

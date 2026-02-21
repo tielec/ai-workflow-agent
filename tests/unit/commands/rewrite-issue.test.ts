@@ -21,6 +21,9 @@ const mockLoggerError = jest.fn();
 const mockLoggerDebug = jest.fn();
 const mockClaudeExecute = jest.fn();
 const mockCodexExecute = jest.fn();
+const mockAnalyzeWithGrade = jest.fn();
+const mockGenerateFrontmatter = jest.fn();
+const mockInsertFrontmatter = jest.fn();
 
 // ESMモジュールのモック
 await jest.unstable_mockModule('../../../src/core/github-client.js', () => ({
@@ -75,6 +78,20 @@ await jest.unstable_mockModule('../../../src/utils/logger.js', () => ({
   },
 }));
 
+await jest.unstable_mockModule('../../../src/core/difficulty-analyzer.js', () => ({
+  __esModule: true,
+  DifficultyAnalyzer: class {
+    constructor() {}
+    analyzeWithGrade = mockAnalyzeWithGrade;
+  },
+}));
+
+await jest.unstable_mockModule('../../../src/utils/frontmatter.js', () => ({
+  __esModule: true,
+  generateFrontmatter: mockGenerateFrontmatter,
+  insertFrontmatter: mockInsertFrontmatter,
+}));
+
 const { handleRewriteIssueCommand } = await import('../../../src/commands/rewrite-issue.js');
 
 describe('rewrite-issue command (unit)', () => {
@@ -104,6 +121,18 @@ describe('rewrite-issue command (unit)', () => {
     mockCodexExecute.mockResolvedValue([
       '{"title":"Codex Title","body":"Codex Body","metrics":{"completeness":70,"specificity":60}}',
     ]);
+    mockGenerateFrontmatter.mockReturnValue('---\ndifficulty: C\ndifficulty_label: moderate\n---');
+    mockInsertFrontmatter.mockImplementation((body: string, frontmatter: string) => {
+      return `${frontmatter}\n\n${body}`;
+    });
+    mockAnalyzeWithGrade.mockResolvedValue({
+      grade: 'C',
+      label: 'moderate',
+      bug_risk: { expected_bugs: 1, probability: 20, risk_score: 0.2 },
+      rationale: 'Test',
+      assessed_by: 'claude',
+      assessed_at: '2026-02-20T00:00:00.000Z',
+    });
   });
 
   afterEach(() => {
@@ -129,9 +158,99 @@ describe('rewrite-issue command (unit)', () => {
 
     expect(mockUpdateIssue).toHaveBeenCalledWith(456, {
       title: 'Codex Title',
-      body: 'Codex Body',
+      body: expect.stringContaining('difficulty: C'),
     });
     expect(mockLoggerInfo).toHaveBeenCalledWith('Successfully updated issue #456');
+  });
+
+  it('難易度判定結果がfrontmatterに挿入される (TC-INT-013)', async () => {
+    await handleRewriteIssueCommand({ issue: 999, apply: true });
+
+    const updatePayload = mockUpdateIssue.mock.calls[0][1] as { title: string; body: string };
+    expect(updatePayload.body.startsWith('---')).toBe(true);
+    expect(updatePayload.body).toContain('difficulty: C');
+    expect(updatePayload.body).toContain('difficulty_label: moderate');
+    expect(updatePayload.body).toContain('## 概要');
+  });
+
+  it('難易度判定が失敗してもfrontmatterなしで続行する (TC-INT-014)', async () => {
+    mockAnalyzeWithGrade.mockRejectedValueOnce(new Error('grade failed'));
+
+    await handleRewriteIssueCommand({ issue: 1000, apply: true });
+
+    const updatePayload = mockUpdateIssue.mock.calls[0][1] as { title: string; body: string };
+    expect(updatePayload.body.startsWith('---')).toBe(false);
+    expect(mockGenerateFrontmatter).not.toHaveBeenCalled();
+    expect(mockInsertFrontmatter).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('Difficulty assessment failed'),
+    );
+  });
+
+  describe('frontmatter挿入フロー', () => {
+    it('dry-runでfrontmatter付き差分プレビューが表示される (TC-RW-FM-001)', async () => {
+      // Given
+      mockGenerateFrontmatter.mockReturnValue('---\ndifficulty: C\ndifficulty_label: moderate\n---');
+      mockInsertFrontmatter.mockReturnValue(
+        '---\ndifficulty: C\ndifficulty_label: moderate\n---\n\n## 概要\n新しい本文',
+      );
+
+      // When
+      await handleRewriteIssueCommand({ issue: 123 });
+
+      // Then
+      expect(mockUpdateIssue).not.toHaveBeenCalled();
+      expect(mockGenerateFrontmatter).toHaveBeenCalledWith(
+        expect.objectContaining({ grade: 'C', label: 'moderate' }),
+      );
+      expect(mockInsertFrontmatter).toHaveBeenCalledWith(
+        '## 概要\n新しい本文',
+        '---\ndifficulty: C\ndifficulty_label: moderate\n---',
+      );
+      const infoLogs = mockLoggerInfo.mock.calls.map((call) => call[0]);
+      expect(
+        infoLogs.some((log) => typeof log === 'string' && log.includes('difficulty: C')),
+      ).toBe(true);
+      expect(
+        infoLogs.some(
+          (log) => typeof log === 'string' && log.includes('Difficulty assessment: grade=C'),
+        ),
+      ).toBe(true);
+    });
+
+    it('applyモードでfrontmatter付きbodyが更新される (TC-RW-FM-002)', async () => {
+      // Given
+      mockGenerateFrontmatter.mockReturnValue('---\ndifficulty: C\ndifficulty_label: moderate\n---');
+      mockInsertFrontmatter.mockReturnValue(
+        '---\ndifficulty: C\ndifficulty_label: moderate\n---\n\n## 概要\n新しい本文',
+      );
+
+      // When
+      await handleRewriteIssueCommand({ issue: 456, apply: true });
+
+      // Then
+      expect(mockUpdateIssue).toHaveBeenCalledWith(456, {
+        title: 'New Title',
+        body: expect.stringContaining('difficulty: C'),
+      });
+      expect(mockInsertFrontmatter).toHaveBeenCalled();
+    });
+
+    it('難易度判定失敗時はfrontmatterなしで継続する (TC-RW-FM-003)', async () => {
+      // Given
+      mockAnalyzeWithGrade.mockRejectedValueOnce(new Error('Assessment failed'));
+
+      // When
+      await handleRewriteIssueCommand({ issue: 789 });
+
+      // Then
+      expect(mockUpdateIssue).not.toHaveBeenCalled();
+      expect(mockGenerateFrontmatter).not.toHaveBeenCalled();
+      expect(mockInsertFrontmatter).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.stringContaining('Difficulty assessment failed'),
+      );
+    });
   });
 
   it('無効なIssue番号でバリデーションエラー (TC-UNIT-004/005/006/007)', async () => {
@@ -259,7 +378,7 @@ describe('rewrite-issue command (unit)', () => {
         expect(callArgs.prompt).toContain('初心者向けに書き直してください');
         expect(mockUpdateIssue).toHaveBeenCalledWith(42, {
           title: 'New Title',
-          body: '## 概要\n新しい本文',
+          body: expect.stringContaining('## 概要\n新しい本文'),
         });
         expect(mockLoggerInfo).toHaveBeenCalledWith('Successfully updated issue #42');
       });

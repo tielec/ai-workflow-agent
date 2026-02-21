@@ -15,9 +15,11 @@ import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { PromptLoader } from '../core/prompt-loader.js';
 import { GitHubClient } from '../core/github-client.js';
 import { resolveLocalRepoPath } from '../core/repository-utils.js';
+import { DifficultyAnalyzer } from '../core/difficulty-analyzer.js';
+import { generateFrontmatter, insertFrontmatter } from '../utils/frontmatter.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
-import type { SupportedLanguage } from '../types.js';
+import type { IssueDifficultyAssessment, SupportedLanguage } from '../types.js';
 import type {
   RawRewriteIssueOptions,
   RewriteIssueOptions,
@@ -93,6 +95,30 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
       repoPath,
       options.customInstruction,
     );
+
+    // 8.5 難易度判定 → frontmatter挿入
+    try {
+      const assessment = await assessIssueDifficulty(
+        issueInfo.title,
+        issueInfo.body,
+        issueInfo.labels ?? [],
+        claudeClient,
+        codexClient,
+        options.language,
+      );
+      const frontmatter = generateFrontmatter(assessment);
+      agentResponse.newBody = insertFrontmatter(agentResponse.newBody, frontmatter);
+      agentResponse.difficultyAssessment = assessment;
+      logger.info(
+        `Difficulty assessment: grade=${assessment.grade} (${assessment.label}), ` +
+          `risk_score=${assessment.bug_risk.risk_score.toFixed(2)}, ` +
+          `assessed_by=${assessment.assessed_by}`,
+      );
+    } catch (error) {
+      logger.warn(
+        `Difficulty assessment failed, continuing without frontmatter: ${getErrorMessage(error)}`,
+      );
+    }
 
     // 9. 差分生成
     const diff = generateUnifiedDiff(
@@ -253,6 +279,25 @@ async function getRepositoryContext(
     logger.warn(`Failed to get repository context: ${getErrorMessage(error)}`);
     return `Repository path: ${repoPath}`;
   }
+}
+
+/**
+ * Issue難易度をDifficultyAnalyzer経由で判定する
+ */
+async function assessIssueDifficulty(
+  title: string,
+  body: string,
+  labels: string[],
+  claudeClient: ClaudeAgentClient | null,
+  codexClient: CodexAgentClient | null,
+  language: SupportedLanguage,
+): Promise<IssueDifficultyAssessment> {
+  const analyzer = new DifficultyAnalyzer({
+    claudeClient,
+    codexClient,
+    workingDir: process.cwd(),
+  });
+  return analyzer.analyzeWithGrade({ title, body, labels }, language);
 }
 
 /**
