@@ -1,0 +1,286 @@
+/**
+ * AI Workflow - Split Issue Mode
+ *
+ * 複雑なGitHub Issueを機能単位の子Issueに分割するJenkinsfile。
+ * auto-issueパイプラインをベースに、split-issueコマンド用にカスタマイズ。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - ISSUE_NUMBER: 対象Issue番号（必須）
+ * - GITHUB_REPOSITORY: owner/repo形式（必須）
+ * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
+ * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
+ * - APPLY: 子Issue作成フラグ（true/false、デフォルト: true）
+ * - DRY_RUN: 分割プレビューモード（true/false、デフォルト: false）
+ * - MAX_SPLITS: 分割Issue数の上限（1-20の整数、デフォルト: 10）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - 認証情報（Codex/Claude系、auto-issueと同様）
+ *
+ * 注意:
+ * - EXECUTION_MODE は内部的に 'split_issue' に固定
+ * - APPLYとDRY_RUNが両方trueの場合、APPLYが優先
+ */
+
+def common
+
+pipeline {
+    agent {
+        dockerfile {
+            label 'ec2-fleet-micro'
+            dir '.'
+            filename 'Dockerfile'
+            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
+        EXECUTION_MODE = 'split_issue'
+        CODEX_HOME = ''
+        LOG_NO_COLOR = 'true'
+
+        GIT_COMMIT_USER_NAME = "${params.GIT_COMMIT_USER_NAME ?: 'AI Workflow Bot'}"
+        GIT_COMMIT_USER_EMAIL = "${params.GIT_COMMIT_USER_EMAIL ?: 'ai-workflow@example.com'}"
+
+        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
+        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
+        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
+
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: 'tielec/ai-workflow-agent'}"
+
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Split Issue"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    if (!params.ISSUE_NUMBER?.trim()) {
+                        error("ISSUE_NUMBER parameter is required")
+                    }
+
+                    if (!params.ISSUE_NUMBER.isInteger()) {
+                        error("ISSUE_NUMBER must be a number: ${params.ISSUE_NUMBER}")
+                    }
+
+                    if (!params.GITHUB_REPOSITORY?.trim()) {
+                        error("GITHUB_REPOSITORY parameter is required")
+                    }
+
+                    def repoParts = params.GITHUB_REPOSITORY.split('/')
+                    if (repoParts.length != 2) {
+                        error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
+                    }
+
+                    env.REPO_OWNER = repoParts[0]
+                    env.REPO_NAME = repoParts[1]
+                    env.ISSUE_NUMBER = params.ISSUE_NUMBER
+
+                    def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                    def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Split Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    echo "Issue Number: ${env.ISSUE_NUMBER}"
+                    echo "GitHub Repository: ${params.GITHUB_REPOSITORY}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Apply: ${params.APPLY ?: false}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Max Splits: ${params.MAX_SPLITS ?: '10'}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Execute Split Issue') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Split Issue"
+                    echo "========================================="
+                    echo "Issue Number: ${params.ISSUE_NUMBER}"
+                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Apply: ${params.APPLY ?: false}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Max Splits: ${params.MAX_SPLITS ?: '10'}"
+
+                    def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                    def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Split Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        def issueNumber = params.ISSUE_NUMBER
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
+                        def applyFlag = params.APPLY ? '--apply' : ''
+                        def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
+                        def maxSplitsOption = params.MAX_SPLITS ? "--max-splits ${params.MAX_SPLITS}" : ''
+
+                        sh """
+                            node dist/index.js split-issue \\
+                                --issue ${issueNumber} \\
+                                ${languageOption} \\
+                                ${agentOption} \\
+                                ${applyFlag} \\
+                                ${dryRunFlag} \\
+                                ${maxSplitsOption}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def applyLabel = params.APPLY ? ' [APPLY]' : ''
+                def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
+                currentBuild.description = "Split Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "✅ AI Workflow - Split Issue Success"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Issue Number: ${params.ISSUE_NUMBER}"
+                def dryRunNote = (!params.APPLY && params.DRY_RUN) ? ' (dry run mode)' : ''
+                def applyNote = params.APPLY ? ' (applied)' : ''
+                echo "Result: Split issue completed${applyNote}${dryRunNote}"
+
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'success',
+                    buildUrl: env.BUILD_URL,
+                    branchName: env.BRANCH_NAME ?: '',
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "❌ AI Workflow - Split Issue Failure"
+                echo "========================================="
+                echo "Repository: ${params.GITHUB_REPOSITORY}"
+                echo "Issue Number: ${params.ISSUE_NUMBER}"
+                echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+    }
+}
