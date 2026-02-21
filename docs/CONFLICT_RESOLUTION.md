@@ -73,6 +73,51 @@ node dist/index.js resolve-conflict finalize \
 - 解消後の内容にコンフリクトマーカーが残る場合はエラーになります
 - 作業ツリーが汚れている場合は analyze が中断されます
 
+## Jenkins 統合
+
+Jenkins 環境では、`AI_Workflow/{develop,stable-1〜9}/resolve_conflict` ジョブとして実行できます。
+
+### Jenkins パラメータ
+
+| Jenkins パラメータ | CLI オプション | デフォルト値 | 説明 |
+|------------------|--------------|-------------|------|
+| EXECUTION_MODE | - | resolve_conflict | 実行モード（固定値） |
+| PR_URL | --pr-url | - | 対象 Pull Request URL（必須） |
+| GITHUB_REPOSITORY | - | - | owner/repo 形式のリポジトリ識別子（必須） |
+| AGENT_MODE | --agent | auto | エージェントモード（auto/codex/claude） |
+| LANGUAGE | --language | ja | 出力言語（ja/en） |
+| DRY_RUN | --dry-run | false | ドライランモード |
+| PUSH | --push | true | finalize 時にリモートへ push するか |
+| SQUASH | --squash | false | コミットをスカッシュするか |
+
+### Jenkins 実行例
+
+```
+# Jenkins でパラメータ設定
+PR_URL: https://github.com/owner/repo/pull/123
+GITHUB_REPOSITORY: owner/repo
+AGENT_MODE: auto
+DRY_RUN: false
+PUSH: true
+SQUASH: false
+
+# 上記は以下の CLI 実行と等価（4フェーズを順次実行）
+node dist/index.js resolve-conflict init --pr-url https://github.com/owner/repo/pull/123
+node dist/index.js resolve-conflict analyze --pr-url https://github.com/owner/repo/pull/123 --agent auto
+node dist/index.js resolve-conflict execute --pr-url https://github.com/owner/repo/pull/123
+node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/repo/pull/123 --push
+```
+
+### Jenkins 実行の特徴
+
+- Docker エージェント内でリポジトリが自動クローンされます
+- `REPOS_ROOT` 環境変数でリポジトリの親ディレクトリを指定できます
+- 4フェーズ（init → analyze → execute → finalize）が単一ジョブ内で順次実行されます
+- `DRY_RUN=true` の場合、`finalize --push` は自動的に無効化されます（安全策）
+- PR URL と認証情報（`GITHUB_TOKEN`、API キー）は nonStoredPasswordParam として保護されます
+
+詳細は [jenkins/README.md](../jenkins/README.md) を参照してください。
+
 ## トラブルシューティング
 
 - `Metadata not found` が出る場合は `resolve-conflict init` を先に実行してください

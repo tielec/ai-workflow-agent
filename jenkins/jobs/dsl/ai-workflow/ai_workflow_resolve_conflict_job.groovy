@@ -1,8 +1,8 @@
 /**
- * AI Workflow Rewrite Issue Job DSL
+ * AI Workflow Resolve Conflict Job DSL
  *
- * 既存Issue本文の再設計用ジョブ
- * EXECUTION_MODE: rewrite_issue（固定値、パラメータとして表示しない）
+ * PRのマージコンフリクトを自動解消するジョブ。
+ * EXECUTION_MODE: resolve_conflict（固定値、パラメータとして表示）
  * パラメータはJob DSL内で定義
  */
 
@@ -15,7 +15,7 @@ def genericFolders = [
 
 // 共通設定を取得
 def jenkinsPipelineRepo = commonSettings['jenkins-pipeline-repo']
-def jobKey = 'ai_workflow_rewrite_issue_job'
+def jobKey = 'ai_workflow_resolve_conflict_job'
 def jobConfig = jenkinsJobsConfig[jobKey]
 
 // ジョブ作成クロージャ
@@ -24,20 +24,24 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
         displayName(jobConfig.displayName)
 
         description("""\
-            |# AI Workflow - Rewrite Issue
+            |# AI Workflow - Resolve Conflict
             |${descriptionHeader}
             |
             |## 概要
-            |既存のGitHub Issue本文を再設計し、差分プレビューまたは実更新を行います。
+            |Pull RequestのマージコンフリクトをAIエージェントで自動解消します。
             |
-            |## 機能
-            |- Issue番号を指定して対象Issueを更新
-            |- dry-run モードで差分プレビューのみ表示
-            |- apply モードでIssue本文を更新
+            |## ステージ
+            |1. Load Common Library
+            |2. Prepare Codex auth.json
+            |3. Prepare Agent Credentials
+            |4. Validate Parameters
+            |5. Setup Environment
+            |6. Setup Node.js Environment
+            |7. Execute Resolve Conflict（init → analyze → execute → finalize）
             |
             |## 注意事項
-            |- EXECUTION_MODEは内部的に'rewrite_issue'に固定されます
-            |- APPLYとDRY_RUNが両方trueの場合、APPLYが優先されます
+            |- EXECUTION_MODE は 'resolve_conflict' に固定されています
+            |- DRY_RUN=true の場合、finalize の --push は自動的に無効化されます
             |""".stripMargin())
 
         // パラメータ定義
@@ -45,15 +49,17 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 実行モード（固定値）
             // ========================================
-            choiceParam('EXECUTION_MODE', ['rewrite_issue'], '''
+            choiceParam('EXECUTION_MODE', ['resolve_conflict'], '''
 実行モード（固定値 - 変更不可）
             '''.stripIndent().trim())
 
             // ========================================
             // 基本設定
             // ========================================
-            stringParam('ISSUE_NUMBER', '', '''
-対象Issue番号（必須）
+            stringParam('PR_URL', '', '''
+対象 Pull Request URL（必須）
+
+例: https://github.com/tielec/ai-workflow-agent/pull/123
             '''.stripIndent().trim())
 
             stringParam('GITHUB_REPOSITORY', '', '''
@@ -64,9 +70,9 @@ GitHub リポジトリ（owner/repo）（必須）
 
             choiceParam('AGENT_MODE', ['auto', 'codex', 'claude'], '''
 エージェントの実行モード
-- auto: Codex APIキーがあれば Codex を優先し、なければ Claude Code を使用
-- codex: Codex のみを使用（CODEX_API_KEY または OPENAI_API_KEY が必要）
-- claude: Claude Code のみを使用（credentials.json が必要）
+- auto: 利用可能な認証情報で自動選択
+- codex: Codex のみを使用
+- claude: Claude Code のみを使用
             '''.stripIndent().trim())
 
             choiceParam('LANGUAGE', ['ja', 'en'], '''
@@ -78,18 +84,17 @@ GitHub リポジトリ（owner/repo）（必須）
             // ========================================
             // 実行オプション
             // ========================================
-            booleanParam('APPLY', true, '''
-Issue本文を更新する（デフォルト: true）
-            '''.stripIndent().trim())
-
             booleanParam('DRY_RUN', false, '''
-ドライランモード（差分プレビューのみ表示）
+ドライランモード（変更を適用せずプレビューのみ）
             '''.stripIndent().trim())
 
-            textParam('CUSTOM_INSTRUCTION', '', '''
-カスタム指示（任意、最大500文字程度）
+            booleanParam('PUSH', true, '''
+finalize 時にリモートへ push するか（デフォルト: true）
+注意: DRY_RUN=true の場合、PUSH は自動的に無効化されます
+            '''.stripIndent().trim())
 
-エージェントへの追加ガイダンスを指定します。空欄の場合はデフォルト挙動で実行します。
+            booleanParam('SQUASH', false, '''
+コミットをスカッシュするか（デフォルト: false）
             '''.stripIndent().trim())
 
             // ========================================
@@ -187,13 +192,13 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile')
             }
         }
 
         // 環境変数（EXECUTION_MODEを固定値として設定）
         environmentVariables {
-            env('EXECUTION_MODE', 'rewrite_issue')
+            env('EXECUTION_MODE', 'resolve_conflict')
             env('WORKFLOW_VERSION', '0.2.0')
         }
 
