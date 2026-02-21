@@ -236,7 +236,7 @@ pipeline {
                             if [ "\${TOTAL}" -le "\${KEEP}" ]; then
                                 echo "削除対象のイメージはありません（現在 \${TOTAL} 個、保持数 \${KEEP} 個）"
                             else
-                                DELETE_COUNT=$((TOTAL - KEEP))
+                                DELETE_COUNT=\$((TOTAL - KEEP))
                                 echo "Deleting \${DELETE_COUNT} old image(s)..."
 
                                 DELETE_DIGESTS=\$(echo "\${IMAGES}" | tr ' ' '\n' | head -n \${DELETE_COUNT})

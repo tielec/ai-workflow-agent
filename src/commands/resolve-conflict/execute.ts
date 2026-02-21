@@ -133,6 +133,15 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     await metadataManager.setResolutionResult(resultMdPath);
     await metadataManager.updateStatus('executed');
 
+    try {
+      const workflowDir = path.join('.ai-workflow', `conflict-${prInfo.prNumber}`);
+      await git.add(path.join(workflowDir, '*'));
+      await git.commit(`resolve-conflict: execute artifacts for PR #${prInfo.prNumber}`);
+      logger.info(`Committed execute artifacts for PR #${prInfo.prNumber}`);
+    } catch (commitError: unknown) {
+      logger.warn(`Failed to commit execute artifacts: ${getErrorMessage(commitError)}`);
+    }
+
     logger.info(`Execute completed. Result saved to: ${resultMdPath}`);
   } catch (error) {
     logger.error(`Failed to execute conflict resolution: ${getErrorMessage(error)}`);

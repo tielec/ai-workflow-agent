@@ -118,8 +118,20 @@ node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/r
 
 詳細は [jenkins/README.md](../jenkins/README.md) を参照してください。
 
+## 各フェーズの成果物コミット
+
+| フェーズ | コミット対象 | コミットメッセージ |
+|---------|-------------|-------------------|
+| init | `metadata.json` | `resolve-conflict: init metadata for PR #<N>` |
+| analyze | `resolution-plan.*`, `metadata.json` | `resolve-conflict: analyze completed for PR #<N>` |
+| execute | `resolution-result.*`, `metadata.json` | `resolve-conflict: execute artifacts for PR #<N>` |
+| finalize | なし（cleanup でディレクトリ削除） | — |
+
+各フェーズの末尾で自動的に `git add` + `git commit` を実行し、フェーズ間でワーキングツリーをクリーンに保ちます。
+コミットに失敗した場合は警告ログを出力して続行します。
+
 ## トラブルシューティング
 
 - `Metadata not found` が出る場合は `resolve-conflict init` を先に実行してください
-- `Working tree is not clean` が出る場合は変更をコミットまたはスタッシュしてください
+- `Working tree is not clean` が出る場合は `.ai-workflow/` 以外の変更をコミットまたはスタッシュしてください
 - `Conflict markers remain` が出る場合は、解消計画や出力を確認し、必要なら手動修正してください
