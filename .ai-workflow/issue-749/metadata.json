@@ -257,7 +257,8 @@
       "retry_count": 0,
       "started_at": "2026-02-21T10:03:56.717Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "documentation": {
       "status": "pending",
@@ -287,7 +288,7 @@
     }
   },
   "created_at": "2026-02-21T09:27:01.003Z",
-  "updated_at": "2026-02-21T10:03:56.717Z",
+  "updated_at": "2026-02-21T10:03:58.370Z",
   "branch_name": "ai-workflow/issue-749",
   "base_commit": "633a94e8a88209616bc57228e41840a966e5d638",
   "pr_number": 750,
