@@ -61,7 +61,8 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
     await repoGit.fetch('origin', baseBranch);
     await repoGit.fetch('origin', headBranch);
     const status = await repoGit.status();
-    if (status.files.length > 0) {
+    const nonWorkflowFiles = status.files.filter((file) => !file.path.startsWith('.ai-workflow/'));
+    if (nonWorkflowFiles.length > 0) {
       throw new Error('Working tree is not clean. Please commit or stash changes before analyze.');
     }
 
@@ -161,6 +162,15 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
       baseBranch,
       headBranch,
     });
+
+    try {
+      const workflowDir = path.relative(repoRoot, path.join(repoRoot, '.ai-workflow', `conflict-${prNumber}`));
+      await repoGit.add(path.join(workflowDir, '*'));
+      await repoGit.commit(`resolve-conflict: analyze completed for PR #${prNumber}`);
+      logger.info(`Committed analyze artifacts for PR #${prNumber}`);
+    } catch (commitError: unknown) {
+      logger.warn(`Failed to commit analyze artifacts: ${getErrorMessage(commitError)}`);
+    }
 
     logger.info(`Analysis completed. Plan saved to: ${planMdPath}`);
   } catch (error) {
