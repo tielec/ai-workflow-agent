@@ -196,6 +196,7 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     }
 
     // Step 7: Save artifacts and update metadata
+    await fsp.mkdir(outputDir, { recursive: true });
 
     const resultJsonPath = path.join(outputDir, 'resolution-result.json');
     const resultMdPath = path.join(outputDir, 'resolution-result.md');
