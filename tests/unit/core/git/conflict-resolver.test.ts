@@ -538,10 +538,10 @@ describe('ConflictResolver', () => {
     });
 
     it('ファイル出力が存在する場合_ファイルから読まれる', async () => {
-      // Given: エージェントがファイルに出力
+      // Given: エージェントがファイルに出力 (manual-merge strategy preserves resolvedContent)
       const fileContent = JSON.stringify({
         resolutions: [
-          { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'from file' },
+          { filePath: 'src/a.ts', strategy: 'manual-merge', resolvedContent: 'from file' },
         ],
         skippedFiles: [],
         warnings: [],
@@ -636,14 +636,14 @@ describe('ConflictResolver', () => {
     });
 
     it('ファイル出力が存在しない場合_stdoutフォールバック', async () => {
-      // Given: ファイルが存在しない
+      // Given: ファイルが存在しない (manual-merge strategy preserves resolvedContent)
       existsSyncMock.mockReturnValue(false);
 
       const agent = {
         executeTask: jest.fn().mockResolvedValue([
           JSON.stringify({
             resolutions: [
-              { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'from stdout' },
+              { filePath: 'src/a.ts', strategy: 'manual-merge', resolvedContent: 'from stdout' },
             ],
             skippedFiles: [],
             warnings: [],

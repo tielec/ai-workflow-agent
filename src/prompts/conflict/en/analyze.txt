@@ -17,7 +17,8 @@ The merge conflict context is provided in the following JSON file. Read this fil
 - Sensitive files (.env, *.pem, *.key, etc.) must be placed in `skippedFiles`
 - `resolutions` MUST include resolution strategies for ALL of the target conflict files listed above. Missing even one file will result in an error
 - `strategy` must be one of `both | ours | theirs | manual-merge`
-- `resolvedContent` must contain the full resolved file content
+- For `ours`, `theirs`, `both` strategies, `resolvedContent` can be an empty string `""` (the system resolves these mechanically)
+- Only for `manual-merge` strategy, include the full resolved file content in `resolvedContent`
 - Write the output as a JSON file to this exact absolute path using the Write tool: `{output_file_path}`
 - Do NOT output JSON to stdout. Always write to the file
 

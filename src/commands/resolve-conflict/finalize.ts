@@ -65,7 +65,7 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
     await metadataManager.updateStatus('finalized');
 
     // Cleanup: delete .ai-workflow/conflict-<PR_NUMBER>/ and commit deletion
-    const workflowPath = path.join('.ai-workflow', `conflict-${prInfo.prNumber}`);
+    const workflowPath = `.ai-workflow/conflict-${prInfo.prNumber}`;
     await metadataManager.cleanup();
 
     try {
