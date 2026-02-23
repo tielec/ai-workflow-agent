@@ -9,7 +9,6 @@ import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
 import { ConflictResolver } from '../../core/git/conflict-resolver.js';
 import { hasConflictMarkers } from '../../core/git/conflict-parser.js';
-import { CodeChangeApplier } from '../../core/pr-comment/change-applier.js';
 import type { ResolveConflictExecuteOptions } from '../../types/commands.js';
 import type { ConflictResolutionPlan, ConflictResolution } from '../../types/conflict.js';
 
@@ -143,17 +142,13 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
       throw new Error('Base or head branch not found in metadata. Run analyze first.');
     }
 
-    // Step 2: Resolve conflicts (agent call if needed)
+    // Step 2: Prepare output directory and resolver
     const outputDir = path.join(repoRoot, '.ai-workflow', `conflict-${prInfo.prNumber}`);
     await fsp.mkdir(outputDir, { recursive: true });
 
     const language = options.language === 'en' ? 'en' as const : 'ja' as const;
     const resolver = new ConflictResolver(repoRoot, language);
-    const resolutions = await resolver.resolve(plan, {
-      agent: options.agent ?? 'auto',
-      language,
-      logDir: outputDir,
-    });
+    const resolutions: ConflictResolution[] = plan.resolutions.map((r) => ({ ...r }));
 
     // Step 3: Git setup and branch preparation
     const git = simpleGit(repoRoot);
@@ -221,22 +216,26 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
       }
     }
 
-    // Step 5: Apply manual-merge resolutions via AI-generated content
+    // Step 5: Resolve manual-merge files via AI agent (using actual conflicted content)
     const manualMergeResolutions = resolutions.filter((r) => r.strategy === 'manual-merge');
-    if (manualMergeResolutions.length > 0) {
-      const applier = new CodeChangeApplier(repoRoot);
-      const changes = manualMergeResolutions.map((r) => ({
-        path: r.filePath,
-        change_type: 'modify' as const,
-        content: r.resolvedContent,
-      }));
-
-      const applyResult = await applier.apply(changes, options.dryRun ?? false);
-      if (!applyResult.success) {
+    for (const resolution of manualMergeResolutions) {
+      const absPath = path.join(repoRoot, resolution.filePath);
+      const conflictedContent = await fsp.readFile(absPath, 'utf-8');
+      try {
+        const resolvedContent = await resolver.resolveFile(
+          resolution.filePath,
+          conflictedContent,
+          resolution.notes,
+          { agent: options.agent ?? 'auto', language, logDir: outputDir },
+        );
+        await fsp.writeFile(absPath, resolvedContent, 'utf-8');
+        resolution.resolvedContent = resolvedContent;
+        logger.info(`Resolved ${resolution.filePath} with 'manual-merge' strategy (agent)`);
+      } catch (resolveError: unknown) {
         if (mergeStarted) {
           try { await git.raw(['merge', '--abort']); } catch { /* ignore */ }
         }
-        throw new Error(applyResult.error ?? 'Failed to apply resolved changes');
+        throw new Error(`Failed to resolve ${resolution.filePath}: ${getErrorMessage(resolveError)}`);
       }
     }
 

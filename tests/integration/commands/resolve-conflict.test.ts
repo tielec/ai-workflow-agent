@@ -13,7 +13,7 @@ const ensureGitConfigMock = jest.fn().mockResolvedValue(undefined);
 const simpleGitMock = jest.fn();
 const mergeContextCollectMock = jest.fn();
 const createPlanMock = jest.fn();
-const resolveMock = jest.fn();
+const resolveFileMock = jest.fn();
 const applyMock = jest.fn();
 
 const githubClientInstance = {
@@ -60,7 +60,7 @@ beforeAll(async () => {
     __esModule: true,
     ConflictResolver: jest.fn().mockImplementation(() => ({
       createResolutionPlan: createPlanMock,
-      resolve: resolveMock,
+      resolveFile: resolveFileMock,
     })),
   }));
 
@@ -139,7 +139,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
@@ -245,7 +245,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
@@ -629,7 +629,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
@@ -680,9 +680,11 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // When: execute を agent/language 指定で実行
     await handleResolveConflictExecuteCommand({ prUrl, agent: 'claude', dryRun: false, language: 'en' });
 
-    // Then: ConflictResolver にオプションが渡される
-    expect(resolveMock).toHaveBeenCalledWith(
-      expect.any(Object),
+    // Then: ConflictResolver.resolveFile にオプションが渡される
+    expect(resolveFileMock).toHaveBeenCalledWith(
+      'src/conflict.ts',
+      expect.any(String),
+      undefined,
       expect.objectContaining({ agent: 'claude', language: 'en' }),
     );
   });
@@ -1067,7 +1069,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
@@ -1160,7 +1162,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
@@ -1255,7 +1257,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),

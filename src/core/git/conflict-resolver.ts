@@ -108,27 +108,18 @@ function extractJsonObject(text: string): string | null {
   return null;
 }
 
-function normalizeResolution(resolution: ConflictResolution, fallbackContent: string): ConflictResolution {
+function normalizeResolution(resolution: ConflictResolution): ConflictResolution {
   const strategy: ResolutionStrategy = resolution.strategy ?? 'manual-merge';
 
-  // ours/theirs/both are resolved mechanically in execute phase after merge.
-  // Only manual-merge needs AI-generated resolvedContent.
-  if (strategy === 'ours' || strategy === 'theirs' || strategy === 'both') {
-    return {
-      filePath: resolution.filePath,
-      strategy,
-      resolvedContent: '',
-      notes: resolution.notes,
-    };
-  }
-
-  const resolvedContent = resolution.resolvedContent?.trim().length
-    ? resolution.resolvedContent
-    : fallbackContent;
+  // resolvedContent is always cleared here.
+  // All strategies are resolved in the execute phase after the actual merge:
+  //   ours/theirs: git checkout --ours/--theirs
+  //   both: mechanical combination of conflict blocks
+  //   manual-merge: agent resolves using the actual conflicted file content
   return {
     filePath: resolution.filePath,
     strategy,
-    resolvedContent,
+    resolvedContent: '',
     notes: resolution.notes,
   };
 }
@@ -288,50 +279,46 @@ export class ConflictResolver {
     };
   }
 
-  public async resolve(
-    plan: ConflictResolutionPlan,
+  /**
+   * Resolve a single file using AI agent.
+   * Called after merge so the agent receives actual conflicted file content.
+   */
+  public async resolveFile(
+    filePath: string,
+    conflictedContent: string,
+    notes: string | undefined,
     options: { agent: 'auto' | 'codex' | 'claude'; language?: 'ja' | 'en'; logDir?: string },
-  ): Promise<ConflictResolution[]> {
-    const resolved: ConflictResolution[] = [];
+  ): Promise<string> {
     const agent = await setupAgent(options.agent, this.repoRoot);
-
-    for (const item of plan.resolutions) {
-      // ours/theirs/both are resolved mechanically in execute phase after merge
-      if (item.strategy === 'ours' || item.strategy === 'theirs' || item.strategy === 'both') {
-        resolved.push(item);
-        continue;
-      }
-
-      // manual-merge: generate resolved content per file via agent
-      if (!item.resolvedContent || item.resolvedContent.trim().length === 0) {
-        if (!agent) {
-          throw new Error(`No agent available to resolve ${item.filePath}`);
-        }
-        const sanitizedPath = item.filePath.replace(/[/\\]/g, '_');
-        const logLabel = `resolve-${sanitizedPath}`;
-        const resolveOutputFilePath = options.logDir
-          ? path.resolve(path.join(options.logDir, logLabel, 'resolved-output.txt'))
-          : '';
-        const rawContent = await this.executeAgent(
-          agent,
-          this.buildResolvePrompt(item, options.language, resolveOutputFilePath),
-          options.logDir,
-          logLabel,
-        );
-        const content = this.readOutputOrFallback(resolveOutputFilePath, rawContent);
-        resolved.push({
-          ...item,
-          resolvedContent: content.trim(),
-        });
-        continue;
-      }
-
-      resolved.push(item);
+    if (!agent) {
+      throw new Error(`No agent available to resolve ${filePath}`);
     }
 
-    // Only validate manual-merge resolutions (ours/theirs/both resolved later in execute)
-    const manualResolutions = resolved.filter((r) => r.strategy === 'manual-merge');
-    this.validateResolution(manualResolutions);
+    const resolution: ConflictResolution = {
+      filePath,
+      strategy: 'manual-merge',
+      resolvedContent: conflictedContent,
+      notes,
+    };
+
+    const sanitizedPath = filePath.replace(/[/\\]/g, '_');
+    const logLabel = `resolve-${sanitizedPath}`;
+    const resolveOutputFilePath = options.logDir
+      ? path.resolve(path.join(options.logDir, logLabel, 'resolved-output.txt'))
+      : '';
+    const rawContent = await this.executeAgent(
+      agent,
+      this.buildResolvePrompt(resolution, options.language, resolveOutputFilePath),
+      options.logDir,
+      logLabel,
+    );
+    const content = this.readOutputOrFallback(resolveOutputFilePath, rawContent);
+    const resolved = content.trim();
+
+    if (hasConflictMarkers(resolved)) {
+      throw new Error(`Agent output still contains conflict markers for ${filePath}`);
+    }
+
     return resolved;
   }
 
@@ -427,11 +414,7 @@ export class ConflictResolver {
 
     const parsed = JSON.parse(json) as Partial<ConflictResolutionPlan>;
     return (parsed.resolutions ?? []).map((resolution) => {
-      const conflict = filteredConflicts.find((block) => block.filePath === resolution.filePath);
-      const fallbackContent = conflict
-        ? `${conflict.oursContent}\n${conflict.theirsContent}`.trim()
-        : '';
-      return normalizeResolution(resolution as ConflictResolution, fallbackContent);
+      return normalizeResolution(resolution as ConflictResolution);
     });
   }
 
@@ -440,6 +423,7 @@ export class ConflictResolver {
     let result = template
       .replaceAll('{file_path}', resolution.filePath)
       .replaceAll('{strategy}', resolution.strategy)
+      .replaceAll('{notes}', resolution.notes ?? '')
       .replaceAll('{current_content}', resolution.resolvedContent ?? '')
       .replaceAll('{output_file_path}', outputFilePath ?? '');
 

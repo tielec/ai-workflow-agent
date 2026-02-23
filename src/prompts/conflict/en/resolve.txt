@@ -10,7 +10,10 @@ Generate the fully resolved file content based on the details below.
 ## Strategy
 {strategy}
 
-## Current Content
+## Resolution Approach
+{notes}
+
+## Current Content (with conflict markers)
 {current_content}
 
 ## Output

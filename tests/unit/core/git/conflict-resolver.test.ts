@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, jest } from '@jest/globals';
-import type { MergeContext, ConflictResolutionPlan, ConflictResolution } from '../../../../src/types/conflict.js';
+import type { MergeContext, ConflictResolution } from '../../../../src/types/conflict.js';
 
 const loadPromptMock = jest.fn();
 const setupAgentMock = jest.fn();
@@ -577,9 +577,10 @@ describe('ConflictResolver', () => {
         outputFilePath: '/tmp/plan.json',
       });
 
-      // Then: ファイルから読まれた内容が使われる
+      // Then: ファイルから読まれた内容が使われる（normalizeResolutionでresolvedContentは空になる）
       expect(plan.resolutions).toHaveLength(1);
-      expect(plan.resolutions[0].resolvedContent).toBe('from file');
+      expect(plan.resolutions[0].resolvedContent).toBe('');
+      expect(plan.resolutions[0].strategy).toBe('manual-merge');
       expect(existsSyncMock).toHaveBeenCalled();
       expect(readFileSyncMock).toHaveBeenCalled();
     });
@@ -675,9 +676,10 @@ describe('ConflictResolver', () => {
         outputFilePath: '/tmp/plan.json',
       });
 
-      // Then: stdout フォールバックが使われる
+      // Then: stdout フォールバックが使われる（normalizeResolutionでresolvedContentは空になる）
       expect(plan.resolutions).toHaveLength(1);
-      expect(plan.resolutions[0].resolvedContent).toBe('from stdout');
+      expect(plan.resolutions[0].resolvedContent).toBe('');
+      expect(plan.resolutions[0].strategy).toBe('manual-merge');
       expect(readFileSyncMock).not.toHaveBeenCalled();
     });
 
@@ -749,132 +751,64 @@ describe('ConflictResolver', () => {
     });
   });
 
-  describe('resolve', () => {
-    it('manual-merge戦略_AIが生成したコードが使用される', async () => {
-      // Given: manual-mergeでresolvedContentが空
+  describe('resolveFile', () => {
+    it('AIが生成したコードが使用される', async () => {
+      // Given: エージェントが解消済みコードを返す
       const agent = {
-        executeTask: jest.fn().mockResolvedValue(['resolved by agent']),
+        executeTask: jest.fn().mockResolvedValue(['const a = 1;\nconst b = 2;']),
       };
       setupAgentMock.mockResolvedValue(agent);
 
-      const plan: ConflictResolutionPlan = {
-        prNumber: 42,
-        baseBranch: 'main',
-        headBranch: 'feature',
-        generatedAt: '2024-01-01T00:00:00Z',
-        resolutions: [
-          { filePath: 'src/a.ts', strategy: 'manual-merge', resolvedContent: '' },
-        ],
-        skippedFiles: [],
-        warnings: [],
-      };
-
       const resolver = new ConflictResolver(repoRoot);
 
-      // When: resolve 実行
-      const result = await resolver.resolve(plan, { agent: 'auto', language: 'ja' });
+      // When: resolveFile 実行
+      const result = await resolver.resolveFile(
+        'src/a.ts',
+        '<<<<<<< HEAD\nconst a = 1;\n=======\nconst b = 2;\n>>>>>>> branch\n',
+        'Merge both changes',
+        { agent: 'auto', language: 'ja' },
+      );
 
       // Then: AI出力が反映される
-      expect(result[0].resolvedContent).toBe('resolved by agent');
+      expect(result).toBe('const a = 1;\nconst b = 2;');
       expect(agent.executeTask).toHaveBeenCalled();
     });
 
-    it('manual-merge戦略_エージェント未設定_エラーがスローされる', async () => {
+    it('エージェント未設定_エラーがスローされる', async () => {
       // Given: エージェント無し
       setupAgentMock.mockResolvedValue(null);
-
-      const plan: ConflictResolutionPlan = {
-        prNumber: 42,
-        baseBranch: 'main',
-        headBranch: 'feature',
-        generatedAt: '2024-01-01T00:00:00Z',
-        resolutions: [
-          { filePath: 'src/a.ts', strategy: 'manual-merge', resolvedContent: '' },
-        ],
-        skippedFiles: [],
-        warnings: [],
-      };
 
       const resolver = new ConflictResolver(repoRoot);
 
       // When / Then
-      await expect(resolver.resolve(plan, { agent: 'auto', language: 'ja' }))
-        .rejects.toThrow('No agent available');
+      await expect(
+        resolver.resolveFile(
+          'src/a.ts',
+          'conflicted content',
+          undefined,
+          { agent: 'auto', language: 'ja' },
+        ),
+      ).rejects.toThrow('No agent available');
     });
 
-    it('ours戦略_解消内容がそのまま使用される', async () => {
-      // Given: ours戦略の解消計画
-      setupAgentMock.mockResolvedValue(null);
-
-      const plan: ConflictResolutionPlan = {
-        prNumber: 42,
-        baseBranch: 'main',
-        headBranch: 'feature',
-        generatedAt: '2024-01-01T00:00:00Z',
-        resolutions: [
-          { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'OURS CONTENT' },
-        ],
-        skippedFiles: [],
-        warnings: [],
+    it('マーカー残存_エラーがスローされる', async () => {
+      // Given: エージェントがマーカー付きで返す
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue(['<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\n']),
       };
+      setupAgentMock.mockResolvedValue(agent);
 
       const resolver = new ConflictResolver(repoRoot);
 
-      // When: resolve 実行
-      const result = await resolver.resolve(plan, { agent: 'auto', language: 'ja' });
-
-      // Then: resolvedContent が維持される
-      expect(result[0].resolvedContent).toBe('OURS CONTENT');
-    });
-
-    it('theirs戦略_解消内容がそのまま使用される', async () => {
-      // Given: theirs戦略の解消計画
-      setupAgentMock.mockResolvedValue(null);
-
-      const plan: ConflictResolutionPlan = {
-        prNumber: 42,
-        baseBranch: 'main',
-        headBranch: 'feature',
-        generatedAt: '2024-01-01T00:00:00Z',
-        resolutions: [
-          { filePath: 'src/a.ts', strategy: 'theirs', resolvedContent: 'THEIRS CONTENT' },
-        ],
-        skippedFiles: [],
-        warnings: [],
-      };
-
-      const resolver = new ConflictResolver(repoRoot);
-
-      // When: resolve 実行
-      const result = await resolver.resolve(plan, { agent: 'auto', language: 'ja' });
-
-      // Then: resolvedContent が維持される
-      expect(result[0].resolvedContent).toBe('THEIRS CONTENT');
-    });
-
-    it('both戦略_解消内容がある場合はエージェント不要', async () => {
-      // Given: both戦略でresolvedContentが既に設定済み
-      setupAgentMock.mockResolvedValue(null);
-
-      const plan: ConflictResolutionPlan = {
-        prNumber: 42,
-        baseBranch: 'main',
-        headBranch: 'feature',
-        generatedAt: '2024-01-01T00:00:00Z',
-        resolutions: [
-          { filePath: 'src/a.ts', strategy: 'both', resolvedContent: 'OURS\nTHEIRS' },
-        ],
-        skippedFiles: [],
-        warnings: [],
-      };
-
-      const resolver = new ConflictResolver(repoRoot);
-
-      // When: resolve 実行
-      const result = await resolver.resolve(plan, { agent: 'auto', language: 'ja' });
-
-      // Then: resolvedContent が維持される
-      expect(result[0].resolvedContent).toBe('OURS\nTHEIRS');
+      // When / Then
+      await expect(
+        resolver.resolveFile(
+          'src/a.ts',
+          'conflicted content',
+          undefined,
+          { agent: 'auto', language: 'ja' },
+        ),
+      ).rejects.toThrow('conflict markers');
     });
   });
 
