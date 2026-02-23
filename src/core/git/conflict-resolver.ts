@@ -178,6 +178,17 @@ export class ConflictResolver {
       return normalizeResolution(resolution as ConflictResolution, fallbackContent);
     });
 
+    // Validate all conflict files have resolutions
+    const conflictFilePaths = [...new Set(filteredConflicts.map((block) => block.filePath))];
+    const resolvedPaths = new Set(resolutions.map((r) => r.filePath));
+    const missingFiles = conflictFilePaths.filter((fp) => !resolvedPaths.has(fp));
+
+    if (missingFiles.length > 0) {
+      throw new Error(
+        `Resolution plan is incomplete: ${missingFiles.length} conflicted files have no resolution: ${missingFiles.join(', ')}`,
+      );
+    }
+
     return {
       prNumber: options.prNumber,
       baseBranch: options.baseBranch,
