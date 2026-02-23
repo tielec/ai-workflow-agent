@@ -145,7 +145,7 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
     const planJsonPath = path.join(outputDir, 'resolution-plan.json');
     const planMdPath = path.join(outputDir, 'resolution-plan.md');
 
-    const resolver = new ConflictResolver(repoRoot);
+    const resolver = new ConflictResolver(repoRoot, options.language === 'en' ? 'en' : 'ja');
     const plan = await resolver.createResolutionPlan(context, {
       agent: options.agent ?? 'auto',
       language: options.language === 'en' ? 'en' : 'ja',
@@ -153,6 +153,7 @@ export async function handleResolveConflictAnalyzeCommand(options: ResolveConfli
       baseBranch,
       headBranch,
       outputFilePath: planJsonPath,
+      logDir: outputDir,
     });
 
     await fsp.writeFile(planJsonPath, JSON.stringify(plan, null, 2), 'utf-8');

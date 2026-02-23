@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../prompt-loader.js';
@@ -13,6 +15,7 @@ import { sanitizeForJson } from '../../utils/encoding-utils.js';
 import { setupAgent } from '../../commands/pr-comment/analyze/agent-utils.js';
 import { CodexAgentClient } from '../codex-agent-client.js';
 import { ClaudeAgentClient } from '../claude-agent-client.js';
+import { LogFormatter } from '../../phases/formatters/log-formatter.js';
 
 const EXCLUDED_PATTERNS = [
   '.env',
@@ -120,14 +123,16 @@ function normalizeResolution(resolution: ConflictResolution, fallbackContent: st
 
 export class ConflictResolver {
   private readonly repoRoot: string;
+  private readonly logFormatter: LogFormatter;
 
-  constructor(repoRoot: string) {
+  constructor(repoRoot: string, language?: 'ja' | 'en') {
     this.repoRoot = repoRoot;
+    this.logFormatter = new LogFormatter(language ?? 'ja');
   }
 
   public async createResolutionPlan(
     context: MergeContext,
-    options: { agent: 'auto' | 'codex' | 'claude'; language?: 'ja' | 'en'; prNumber: number; baseBranch: string; headBranch: string; outputFilePath?: string },
+    options: { agent: 'auto' | 'codex' | 'claude'; language?: 'ja' | 'en'; prNumber: number; baseBranch: string; headBranch: string; outputFilePath?: string; logDir?: string },
   ): Promise<ConflictResolutionPlan> {
     const skippedFiles: string[] = [];
     const warnings: string[] = [];
@@ -168,7 +173,7 @@ export class ConflictResolver {
       };
     }
 
-    const rawOutput = await this.executeAgent(agent, prompt);
+    const rawOutput = await this.executeAgent(agent, prompt, options.logDir, 'analyze');
     const extractPlanMetadata = (output: string): Partial<ConflictResolutionPlan> | null => {
       const json = extractJsonObject(output);
       if (!json) {
@@ -183,7 +188,7 @@ export class ConflictResolver {
 
     if (resolutions === null) {
       logger.warn('Failed to extract JSON from agent output. Retrying with same prompt.');
-      const retryOutput = await this.executeAgent(agent, prompt);
+      const retryOutput = await this.executeAgent(agent, prompt, options.logDir, 'analyze-retry-json');
       const retryParsed = extractPlanMetadata(retryOutput);
       const retryResolutions = this.parseAgentResolutions(retryOutput, filteredConflicts, true) ?? [];
 
@@ -216,7 +221,7 @@ export class ConflictResolver {
         outputFilePath: options.outputFilePath ?? '',
       });
 
-      const retryOutput = await this.executeAgent(agent, retryPrompt);
+      const retryOutput = await this.executeAgent(agent, retryPrompt, options.logDir, 'analyze-retry-missing');
       const retryParsed = extractPlanMetadata(retryOutput);
       const retryResolutions = this.parseAgentResolutions(retryOutput, missingConflicts, true) ?? [];
 
@@ -258,7 +263,7 @@ export class ConflictResolver {
 
   public async resolve(
     plan: ConflictResolutionPlan,
-    options: { agent: 'auto' | 'codex' | 'claude'; language?: 'ja' | 'en' },
+    options: { agent: 'auto' | 'codex' | 'claude'; language?: 'ja' | 'en'; logDir?: string },
   ): Promise<ConflictResolution[]> {
     const resolved: ConflictResolution[] = [];
     const agent = await setupAgent(options.agent, this.repoRoot);
@@ -269,7 +274,13 @@ export class ConflictResolver {
           if (!agent) {
             throw new Error(`No agent available to resolve ${item.filePath}`);
           }
-          const content = await this.executeAgent(agent, this.buildResolvePrompt(item, options.language));
+          const sanitizedPath = item.filePath.replace(/[/\\]/g, '_');
+          const content = await this.executeAgent(
+            agent,
+            this.buildResolvePrompt(item, options.language),
+            options.logDir,
+            `resolve-${sanitizedPath}`,
+          );
           resolved.push({
             ...item,
             resolvedContent: content.trim(),
@@ -342,13 +353,39 @@ export class ConflictResolver {
       .replaceAll('{current_content}', resolution.resolvedContent ?? '');
   }
 
-  private async executeAgent(agent: CodexAgentClient | ClaudeAgentClient, prompt: string): Promise<string> {
+  private async executeAgent(
+    agent: CodexAgentClient | ClaudeAgentClient,
+    prompt: string,
+    logDir?: string,
+    logLabel?: string,
+  ): Promise<string> {
+    const actualLogDir = logDir && logLabel ? path.join(logDir, logLabel) : null;
+    if (actualLogDir) {
+      fs.mkdirSync(actualLogDir, { recursive: true });
+      fs.writeFileSync(path.join(actualLogDir, 'prompt.txt'), prompt, 'utf-8');
+      logger.info(`Prompt saved to: ${path.join(actualLogDir, 'prompt.txt')}`);
+    }
+
+    const startTime = Date.now();
     const messages = await agent.executeTask({
       prompt,
-      maxTurns: 1,
+      maxTurns: 10,
       verbose: false,
       workingDirectory: this.repoRoot,
     });
+    const endTime = Date.now();
+
+    if (actualLogDir) {
+      fs.writeFileSync(path.join(actualLogDir, 'agent_log_raw.txt'), messages.join('\n'), 'utf-8');
+      logger.info(`Raw log saved to: ${path.join(actualLogDir, 'agent_log_raw.txt')}`);
+
+      const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
+      const formatted = this.logFormatter.formatAgentLog(
+        messages, startTime, endTime, endTime - startTime, null, agentName,
+      );
+      fs.writeFileSync(path.join(actualLogDir, 'agent_log.md'), formatted, 'utf-8');
+      logger.info(`Agent log saved to: ${path.join(actualLogDir, 'agent_log.md')}`);
+    }
 
     return sanitizeForJson(messages.join('\n'));
   }

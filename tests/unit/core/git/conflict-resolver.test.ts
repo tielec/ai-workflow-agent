@@ -3,6 +3,9 @@ import type { MergeContext, ConflictResolutionPlan, ConflictResolution } from '.
 
 const loadPromptMock = jest.fn();
 const setupAgentMock = jest.fn();
+const mkdirSyncMock = jest.fn();
+const writeFileSyncMock = jest.fn();
+const formatAgentLogMock = jest.fn().mockReturnValue('# Formatted Log');
 
 let ConflictResolver: typeof import('../../../../src/core/git/conflict-resolver.js').ConflictResolver;
 
@@ -19,6 +22,21 @@ beforeAll(async () => {
     setupAgent: setupAgentMock,
   }));
 
+  await jest.unstable_mockModule('node:fs', () => ({
+    __esModule: true,
+    default: {
+      mkdirSync: mkdirSyncMock,
+      writeFileSync: writeFileSyncMock,
+    },
+  }));
+
+  await jest.unstable_mockModule('../../../../src/phases/formatters/log-formatter.js', () => ({
+    __esModule: true,
+    LogFormatter: class {
+      formatAgentLog = formatAgentLogMock;
+    },
+  }));
+
   ({ ConflictResolver } = await import('../../../../src/core/git/conflict-resolver.js'));
 });
 
@@ -28,6 +46,7 @@ describe('ConflictResolver', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     loadPromptMock.mockReturnValue('PROMPT {conflict_file_list} {conflict_file_count} {merge_context_json} {output_file_path}');
+    formatAgentLogMock.mockReturnValue('# Formatted Log');
   });
 
   afterEach(() => {
@@ -734,6 +753,156 @@ describe('ConflictResolver', () => {
       // When / Then: エラー
       expect(() => resolver.validateResolution(resolutions))
         .toThrow('Conflict markers remain');
+    });
+  });
+
+  describe('agent execution logging', () => {
+    const logDir = '/tmp/conflict-logs';
+
+    it('logDir指定時_ログファイルが保存される', async () => {
+      // Given: logDir を指定してエージェントを実行
+      const agentOutput = JSON.stringify({
+        resolutions: [
+          { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'const a = 1;' },
+        ],
+        skippedFiles: [],
+        warnings: [],
+      });
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue([agentOutput]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot, 'ja');
+
+      // When
+      await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 42,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+        logDir,
+      });
+
+      // Then: ログディレクトリが作成され、3ファイルが保存される
+      expect(mkdirSyncMock).toHaveBeenCalledWith(
+        expect.stringContaining('analyze'),
+        { recursive: true },
+      );
+
+      const writeCalls = writeFileSyncMock.mock.calls.map((call: unknown[]) => call[0] as string);
+      expect(writeCalls.some((p: string) => p.includes('prompt.txt'))).toBe(true);
+      expect(writeCalls.some((p: string) => p.includes('agent_log_raw.txt'))).toBe(true);
+      expect(writeCalls.some((p: string) => p.includes('agent_log.md'))).toBe(true);
+
+      // LogFormatter が呼ばれたことを検証
+      expect(formatAgentLogMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('logDir未指定時_ログファイルが保存されない', async () => {
+      // Given: logDir を指定しない
+      const agentOutput = JSON.stringify({
+        resolutions: [
+          { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'const a = 1;' },
+        ],
+        skippedFiles: [],
+        warnings: [],
+      });
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue([agentOutput]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 42,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then: fs 操作が呼ばれない
+      expect(mkdirSyncMock).not.toHaveBeenCalled();
+      expect(writeFileSyncMock).not.toHaveBeenCalled();
+      expect(formatAgentLogMock).not.toHaveBeenCalled();
+    });
+
+    it('JSONリトライ時_リトライ用ログも保存される', async () => {
+      // Given: 初回JSON抽出失敗 → リトライで成功
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce(['not json'])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'A' },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot, 'ja');
+
+      // When
+      await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+        logDir,
+      });
+
+      // Then: analyze と analyze-retry-json の2つのログディレクトリが作成される
+      const mkdirCalls = mkdirSyncMock.mock.calls.map((call: unknown[]) => call[0] as string);
+      expect(mkdirCalls.some((p: string) => p.includes('analyze-retry-json'))).toBe(true);
+
+      // 合計6ファイル（2回分 × 3ファイル）
+      expect(writeFileSyncMock).toHaveBeenCalledTimes(6);
     });
   });
 });
