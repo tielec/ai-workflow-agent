@@ -51,21 +51,6 @@ function extractJsonObject(text: string): string | null {
   return null;
 }
 
-function buildResolutionResultMarkdown(resolutions: ConflictResolution[], jsonPath: string): string {
-  return [
-    '# 解消結果',
-    '',
-    `- 対象ファイル数: ${resolutions.length}`,
-    '',
-    `- JSON: ${jsonPath}`,
-    '',
-    '```json',
-    JSON.stringify(resolutions, null, 2),
-    '```',
-    '',
-  ].join('\n');
-}
-
 /**
  * Mechanically resolve a file with conflict markers using the 'both' strategy.
  * Replaces each conflict block with both ours and theirs content concatenated.
@@ -275,23 +260,20 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     await fsp.mkdir(outputDir, { recursive: true });
 
     const resultJsonPath = path.join(outputDir, 'resolution-result.json');
-    const resultMdPath = path.join(outputDir, 'resolution-result.md');
-
     await fsp.writeFile(resultJsonPath, JSON.stringify(resolutions, null, 2), 'utf-8');
-    await fsp.writeFile(resultMdPath, buildResolutionResultMarkdown(resolutions, resultJsonPath), 'utf-8');
 
-    await metadataManager.setResolutionResult(resultMdPath);
+    await metadataManager.setResolutionResult(resultJsonPath);
     await metadataManager.updateStatus('executed');
 
     try {
-      const workflowDir = path.join('.ai-workflow', `conflict-${prInfo.prNumber}`);
-      await git.add(path.join(workflowDir, '*'));
+      await git.add(resultJsonPath);
+      await git.add(metadataManager.getMetadataPath());
       await git.commit(`resolve-conflict: execute artifacts for PR #${prInfo.prNumber}`);
     } catch (commitError: unknown) {
       logger.warn(`Failed to commit execute artifacts: ${getErrorMessage(commitError)}`);
     }
 
-    logger.info(`Execute completed. Result saved to: ${resultMdPath}`);
+    logger.info(`Execute completed. Result saved to: ${resultJsonPath}`);
   } catch (error) {
     logger.error(`Failed to execute conflict resolution: ${getErrorMessage(error)}`);
     process.exit(1);

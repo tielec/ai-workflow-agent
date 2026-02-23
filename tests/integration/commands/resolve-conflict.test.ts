@@ -206,7 +206,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     expect(gitInit.commit).toHaveBeenCalledWith('resolve-conflict: init metadata for PR #42');
     expect(gitAnalyze.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42'));
     expect(gitAnalyze.commit).toHaveBeenCalledWith('resolve-conflict: analyze completed for PR #42');
-    expect(gitExecute.add).toHaveBeenCalledTimes(2);
+    expect(gitExecute.add).toHaveBeenCalledTimes(3); // resolved files + resultJson + metadata
     expect(gitExecute.commit).toHaveBeenCalledTimes(2);
     expect(gitExecute.commit).toHaveBeenCalledWith('resolve-conflict: execute artifacts for PR #42');
   });
@@ -297,7 +297,6 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // Then: 解消結果ファイルが作成されない
     const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
     await expect(fsp.access(path.join(outputDir, 'resolution-result.json'))).rejects.toThrow();
-    await expect(fsp.access(path.join(outputDir, 'resolution-result.md'))).rejects.toThrow();
 
     // merge --abort が呼ばれ、元のブランチに戻る
     expect(gitExecute.raw).toHaveBeenCalledWith(['merge', '--abort']);
@@ -513,8 +512,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
     const metadataManager = new ConflictMetadataManager(repoRoot, 42);
     const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
     await fsp.mkdir(outputDir, { recursive: true });
-    const resultPath = path.join(outputDir, 'resolution-result.md');
-    await fsp.writeFile(resultPath, '# result', 'utf-8');
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    await fsp.writeFile(resultPath, '[]', 'utf-8');
     await metadataManager.setResolutionResult(resultPath);
 
     // When: finalize を squash 指定で実行
@@ -1122,7 +1121,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
     await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
     await handleResolveConflictExecuteCommand({ prUrl, agent: 'auto', dryRun: false, language: 'ja' });
 
-    expect(gitExecute.add).toHaveBeenCalledTimes(2);
+    expect(gitExecute.add).toHaveBeenCalledTimes(3); // resolved files + resultJson + metadata
     expect(gitExecute.commit).toHaveBeenCalledTimes(2);
     expect(gitExecute.commit).toHaveBeenCalledWith('resolve-conflict: execute artifacts for PR #42');
     expect(exitSpy).not.toHaveBeenCalled();
