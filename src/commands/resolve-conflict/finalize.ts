@@ -1,8 +1,10 @@
 import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
@@ -61,7 +63,26 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
 
     await githubClient.postComment(prInfo.prNumber, buildCommentBody(summary));
     await metadataManager.updateStatus('finalized');
+
+    // Cleanup: delete .ai-workflow/conflict-<PR_NUMBER>/ and commit deletion
+    const workflowPath = path.join('.ai-workflow', `conflict-${prInfo.prNumber}`);
     await metadataManager.cleanup();
+
+    try {
+      const git = simpleGit(repoRoot);
+      await ensureGitConfig(git);
+      await git.add(['-A', workflowPath]);
+      const status = await git.status();
+      const deletedFiles = status.deleted.filter((f) => f.startsWith(workflowPath));
+      if (deletedFiles.length > 0) {
+        await git.commit(`resolve-conflict: cleanup artifacts for PR #${prInfo.prNumber}`);
+        logger.info(`Committed cleanup of ${deletedFiles.length} artifact file(s).`);
+      } else {
+        logger.info('No artifact files to clean up.');
+      }
+    } catch (commitError: unknown) {
+      logger.warn(`Failed to commit artifact cleanup: ${getErrorMessage(commitError)}`);
+    }
 
     logger.info('Finalize completed. Metadata cleaned up.');
   } catch (error) {
