@@ -4,12 +4,18 @@
 
 以下のマージコンフリクト文脈を分析し、解消計画をJSONで出力してください。
 
+## 対象コンフリクトファイル（{conflict_file_count}個）
+
+以下のすべてのファイルに対して、必ず1つずつresolutionを返してください。省略は不可です。
+
+{conflict_file_list}
+
 ## 入力（JSON）
 {merge_context_json}
 
 ## ルール
 - 機密ファイル（.env, *.pem, *.key など）は `skippedFiles` に入れてください
-- `resolutions` にはファイルごとの解消戦略を記載してください
+- `resolutions` には上記の対象コンフリクトファイル**すべて**に対する解消戦略を記載してください。1つでも欠けている場合はエラーになります
 - `strategy` は `both | ours | theirs | manual-merge`
 - `resolvedContent` には解消後のファイル全体の内容を記載してください
 - 出力は **JSONのみ**、前後に説明文やコードブロックを付けないでください

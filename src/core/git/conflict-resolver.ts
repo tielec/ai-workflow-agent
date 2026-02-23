@@ -2,7 +2,13 @@ import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../prompt-loader.js';
 import { hasConflictMarkers } from './conflict-parser.js';
-import type { MergeContext, ConflictResolutionPlan, ConflictResolution, ResolutionStrategy } from '../../types/conflict.js';
+import type {
+  MergeContext,
+  ConflictResolutionPlan,
+  ConflictResolution,
+  ResolutionStrategy,
+  ConflictBlock,
+} from '../../types/conflict.js';
 import { sanitizeForJson } from '../../utils/encoding-utils.js';
 import { setupAgent } from '../../commands/pr-comment/analyze/agent-utils.js';
 import { CodexAgentClient } from '../codex-agent-client.js';
@@ -163,30 +169,80 @@ export class ConflictResolver {
     }
 
     const rawOutput = await this.executeAgent(agent, prompt);
-    const json = extractJsonObject(rawOutput);
+    const extractPlanMetadata = (output: string): Partial<ConflictResolutionPlan> | null => {
+      const json = extractJsonObject(output);
+      if (!json) {
+        return null;
+      }
+      return JSON.parse(json) as Partial<ConflictResolutionPlan>;
+    };
 
-    if (!json) {
-      throw new Error('Failed to extract JSON from agent output.');
+    let parsed = extractPlanMetadata(rawOutput);
+    let resolutions = this.parseAgentResolutions(rawOutput, filteredConflicts);
+    let didJsonRetry = false;
+
+    if (resolutions === null) {
+      logger.warn('Failed to extract JSON from agent output. Retrying with same prompt.');
+      const retryOutput = await this.executeAgent(agent, prompt);
+      const retryParsed = extractPlanMetadata(retryOutput);
+      const retryResolutions = this.parseAgentResolutions(retryOutput, filteredConflicts, true) ?? [];
+
+      if (retryResolutions.length === 0) {
+        throw new Error('Failed to extract JSON from agent output after retry.');
+      }
+
+      didJsonRetry = true;
+      parsed = retryParsed;
+      resolutions = retryResolutions;
     }
-
-    const parsed = JSON.parse(json) as Partial<ConflictResolutionPlan>;
-    const resolutions = (parsed.resolutions ?? []).map((resolution) => {
-      const conflict = filteredConflicts.find((block) => block.filePath === resolution.filePath);
-      const fallbackContent = conflict
-        ? `${conflict.oursContent}\n${conflict.theirsContent}`.trim()
-        : '';
-      return normalizeResolution(resolution as ConflictResolution, fallbackContent);
-    });
 
     // Validate all conflict files have resolutions
     const conflictFilePaths = [...new Set(filteredConflicts.map((block) => block.filePath))];
     const resolvedPaths = new Set(resolutions.map((r) => r.filePath));
-    const missingFiles = conflictFilePaths.filter((fp) => !resolvedPaths.has(fp));
+    let missingFiles = conflictFilePaths.filter((fp) => !resolvedPaths.has(fp));
+
+    const aggregatedSkippedFiles = new Set([...(parsed?.skippedFiles ?? []), ...skippedFiles]);
+    const aggregatedWarnings = new Set([...(parsed?.warnings ?? []), ...warnings]);
 
     if (missingFiles.length > 0) {
-      throw new Error(
-        `Resolution plan is incomplete: ${missingFiles.length} conflicted files have no resolution: ${missingFiles.join(', ')}`,
+      logger.warn(
+        `Resolution plan is incomplete: ${missingFiles.length} conflicted files have no resolution: ${missingFiles.join(', ')}. Retrying for missing files.`,
       );
+
+      const missingConflicts = filteredConflicts.filter((block) => missingFiles.includes(block.filePath));
+      const retryPrompt = this.buildAnalyzePrompt({
+        context: { ...context, conflictFiles: missingConflicts },
+        language: options.language,
+        outputFilePath: options.outputFilePath ?? '',
+      });
+
+      const retryOutput = await this.executeAgent(agent, retryPrompt);
+      const retryParsed = extractPlanMetadata(retryOutput);
+      const retryResolutions = this.parseAgentResolutions(retryOutput, missingConflicts, true) ?? [];
+
+      if (retryParsed?.skippedFiles) {
+        for (const skipped of retryParsed.skippedFiles) {
+          aggregatedSkippedFiles.add(skipped);
+        }
+      }
+      if (retryParsed?.warnings) {
+        for (const warning of retryParsed.warnings) {
+          aggregatedWarnings.add(warning);
+        }
+      }
+
+      if (retryResolutions.length > 0) {
+        resolutions = [...resolutions, ...retryResolutions];
+      }
+
+      const resolvedAfterRetry = new Set(resolutions.map((r) => r.filePath));
+      missingFiles = conflictFilePaths.filter((fp) => !resolvedAfterRetry.has(fp));
+
+      if (missingFiles.length > 0) {
+        throw new Error(
+          `Resolution plan is incomplete after retry: ${missingFiles.length} conflicted files have no resolution: ${missingFiles.join(', ')}`,
+        );
+      }
     }
 
     return {
@@ -195,8 +251,8 @@ export class ConflictResolver {
       headBranch: options.headBranch,
       generatedAt: new Date().toISOString(),
       resolutions,
-      skippedFiles: Array.from(new Set([...(parsed.skippedFiles ?? []), ...skippedFiles])),
-      warnings: Array.from(new Set([...(parsed.warnings ?? []), ...warnings])),
+      skippedFiles: Array.from(aggregatedSkippedFiles),
+      warnings: Array.from(aggregatedWarnings),
     };
   }
 
@@ -246,10 +302,36 @@ export class ConflictResolver {
   private buildAnalyzePrompt(params: { context: MergeContext; language?: 'ja' | 'en'; outputFilePath: string }): string {
     const template = PromptLoader.loadPrompt('conflict', 'analyze', params.language);
     const contextJson = JSON.stringify(params.context, null, 2);
+    const conflictFilePaths = [...new Set(params.context.conflictFiles.map((block) => block.filePath))];
+    const conflictFileList = conflictFilePaths.map((filePath, index) => `${index + 1}. ${filePath}`).join('\n');
 
     return template
+      .replaceAll('{conflict_file_list}', conflictFileList)
+      .replaceAll('{conflict_file_count}', String(conflictFilePaths.length))
       .replaceAll('{merge_context_json}', contextJson)
       .replaceAll('{output_file_path}', params.outputFilePath);
+  }
+
+  private parseAgentResolutions(
+    rawOutput: string,
+    filteredConflicts: ConflictBlock[],
+    isRetry = false,
+  ): ConflictResolution[] | null {
+    const json = extractJsonObject(rawOutput);
+
+    // NOTE: On retry we return an empty list instead of null to avoid repeated retries on parse failure.
+    if (!json) {
+      return isRetry ? [] : null;
+    }
+
+    const parsed = JSON.parse(json) as Partial<ConflictResolutionPlan>;
+    return (parsed.resolutions ?? []).map((resolution) => {
+      const conflict = filteredConflicts.find((block) => block.filePath === resolution.filePath);
+      const fallbackContent = conflict
+        ? `${conflict.oursContent}\n${conflict.theirsContent}`.trim()
+        : '';
+      return normalizeResolution(resolution as ConflictResolution, fallbackContent);
+    });
   }
 
   private buildResolvePrompt(resolution: ConflictResolution, language?: 'ja' | 'en'): string {

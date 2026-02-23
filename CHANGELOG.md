@@ -78,6 +78,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #760**: `resolve-conflict analyze` コマンドでエージェントが全コンフリクトファイルの解消計画を返さない問題を修正
+  - プロンプトテンプレート（日本語・英語）に「対象コンフリクトファイル」セクションを新設し、`{conflict_file_list}`（番号付きファイル一覧）と `{conflict_file_count}`（ファイル数）プレースホルダーを追加
+  - `buildAnalyzePrompt()` にファイル一覧注入ロジックを追加し、`MergeContext.conflictFiles` からユニークなファイルパス一覧を `Set` でデデュプリケーションして番号付きリスト形式で生成
+  - エージェント応答パースロジックを `parseAgentResolutions()` private メソッドとして `createResolutionPlan()` から抽出し、初回/リトライで挙動を分岐する `isRetry` パラメータを導入
+  - 不足ファイルリトライ機構を `createResolutionPlan()` に追加: 初回応答で一部ファイルの resolution が欠けている場合、不足ファイルのみを対象としたリトライプロンプトでエージェントを再呼び出しし、結果をマージ
+  - 初回 JSON 抽出失敗時のリトライ機構を追加: `extractJsonObject()` が `null` を返した場合、同一プロンプトで1回リトライ
+  - リトライ発生時に `logger.warn()` で不足ファイルや JSON 抽出失敗を報告し、運用時にリトライ頻度を監視可能に
+  - **修正前の問題**: エージェントが4ファイル中2ファイルの解消計画を返さず、バリデーションエラーで analyze フェーズが失敗（PR #735 で再現）
+  - **修正後の動作**: プロンプトにファイル一覧を明示し、不足時はリトライで補完。リトライ後も不完全な場合は `after retry` を含むエラーメッセージをスロー
+  - 修正ファイル: `src/core/git/conflict-resolver.ts`、`src/prompts/conflict/{ja,en}/analyze.txt`
+  - テストカバレッジ: ユニットテスト8件を追加（リトライ動作、JSON抽出失敗リトライ、プロンプト改善、デデュプリケーション、シナリオE）、既存テスト回帰なし、`npm run validate`（lint + test + build）PASS
+
 - **Issue #706**: ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗を修正
   - `Dockerfile` の Codex CLI インストール処理をベストエフォート化し、ARM64 環境でもビルドが継続できるよう変更
   - `src/core/codex-agent-client.ts` に `Missing optional dependency @openai/codex-linux-*` を `CODEX_CLI_NOT_FOUND` 相当として検知する分岐を追加

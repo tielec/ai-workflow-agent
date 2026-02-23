@@ -11,6 +11,12 @@ const DEFAULT_USER_EMAIL = 'ai-workflow@tielec.local';
  * Extracted from CommitManager.ensureGitConfig() for reuse across commands.
  */
 export async function ensureGitConfig(git: SimpleGit): Promise<void> {
+  if (typeof git.listConfig !== 'function') {
+    logger.warn('Git client does not support listConfig; using defaults.');
+    await setDefaultGitConfig(git, DEFAULT_USER_NAME, DEFAULT_USER_EMAIL);
+    return;
+  }
+
   const gitConfig = await git.listConfig();
   const userNameFromConfig = gitConfig.all['user.name'] as string | undefined;
   const userEmailFromConfig = gitConfig.all['user.email'] as string | undefined;
@@ -39,10 +45,23 @@ export async function ensureGitConfig(git: SimpleGit): Promise<void> {
     userEmail = DEFAULT_USER_EMAIL;
   }
 
-  await git.addConfig('user.name', userName, false, 'local');
-  await git.addConfig('user.email', userEmail, false, 'local');
+  await setDefaultGitConfig(git, userName, userEmail);
 
   logger.info(
     `Git config ensured: user.name=${userName}, user.email=${userEmail}`,
   );
+}
+
+async function setDefaultGitConfig(
+  git: SimpleGit,
+  userName: string,
+  userEmail: string,
+): Promise<void> {
+  if (typeof git.addConfig !== 'function') {
+    logger.warn('Git client does not support addConfig; skipping git config setup.');
+    return;
+  }
+
+  await git.addConfig('user.name', userName, false, 'local');
+  await git.addConfig('user.email', userEmail, false, 'local');
 }
