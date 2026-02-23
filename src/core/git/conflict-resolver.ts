@@ -359,6 +359,10 @@ export class ConflictResolver {
     logDir?: string,
     logLabel?: string,
   ): Promise<string> {
+    const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
+    const label = logLabel ?? 'unknown';
+    logger.info(`Running ${agentName} for conflict resolution [${label}]`);
+
     const actualLogDir = logDir && logLabel ? path.join(logDir, logLabel) : null;
     if (actualLogDir) {
       fs.mkdirSync(actualLogDir, { recursive: true });
@@ -374,14 +378,30 @@ export class ConflictResolver {
       workingDirectory: this.repoRoot,
     });
     const endTime = Date.now();
+    const duration = endTime - startTime;
 
+    logger.info(`${agentName} completed [${label}] in ${duration}ms (${messages.length} messages)`);
+
+    // エージェント出力をコンソールに表示
+    if (agent instanceof CodexAgentClient) {
+      logger.debug(`${agentName} emitted messages:`);
+      messages.slice(0, 10).forEach((line, index) => {
+        logger.debug(`[Codex][${index}] ${line}`);
+      });
+    } else {
+      logger.debug(`${agentName} emitted messages:`);
+      messages.slice(0, 10).forEach((line, index) => {
+        logger.debug(`[Claude][${index}] ${line}`);
+      });
+    }
+
+    // ログファイル保存
     if (actualLogDir) {
       fs.writeFileSync(path.join(actualLogDir, 'agent_log_raw.txt'), messages.join('\n'), 'utf-8');
       logger.info(`Raw log saved to: ${path.join(actualLogDir, 'agent_log_raw.txt')}`);
 
-      const agentName = agent instanceof CodexAgentClient ? 'Codex Agent' : 'Claude Agent';
       const formatted = this.logFormatter.formatAgentLog(
-        messages, startTime, endTime, endTime - startTime, null, agentName,
+        messages, startTime, endTime, duration, null, agentName,
       );
       fs.writeFileSync(path.join(actualLogDir, 'agent_log.md'), formatted, 'utf-8');
       logger.info(`Agent log saved to: ${path.join(actualLogDir, 'agent_log.md')}`);
