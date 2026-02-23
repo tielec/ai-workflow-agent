@@ -71,12 +71,12 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
     try {
       const git = simpleGit(repoRoot);
       await ensureGitConfig(git);
-      await git.add(['-A', workflowPath]);
+      await git.raw(['add', '--all', workflowPath]);
       const status = await git.status();
-      const deletedFiles = status.deleted.filter((f) => f.startsWith(workflowPath));
-      if (deletedFiles.length > 0) {
+      const stagedFiles = status.files.filter((f) => f.path.startsWith(workflowPath));
+      if (stagedFiles.length > 0) {
         await git.commit(`resolve-conflict: cleanup artifacts for PR #${prInfo.prNumber}`);
-        logger.info(`Committed cleanup of ${deletedFiles.length} artifact file(s).`);
+        logger.info(`Committed cleanup of ${stagedFiles.length} artifact file(s).`);
       } else {
         logger.info('No artifact files to clean up.');
       }
