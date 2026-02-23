@@ -27,7 +27,7 @@ describe('ConflictResolver', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    loadPromptMock.mockReturnValue('PROMPT {merge_context_json} {output_file_path}');
+    loadPromptMock.mockReturnValue('PROMPT {conflict_file_list} {conflict_file_count} {merge_context_json} {output_file_path}');
   });
 
   afterEach(() => {
@@ -144,6 +144,126 @@ describe('ConflictResolver', () => {
       const resolver = new ConflictResolver(repoRoot);
 
       // When / Then: JSON抽出失敗でエラー
+      const error = await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      }).catch((err) => err as Error);
+
+      expect(error.message).toContain('Failed to extract JSON');
+      expect(error.message).toContain('after retry');
+      expect(agent.executeTask).toHaveBeenCalledTimes(2);
+    });
+
+    it('一部ファイル不足_リトライで補完_正常完了', async () => {
+      // Given: 初回は一部ファイルのみ、リトライで不足分を補完
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                {
+                  filePath: 'src/a.ts',
+                  strategy: 'ours',
+                  resolvedContent: 'content A',
+                },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                {
+                  filePath: 'src/b.ts',
+                  strategy: 'theirs',
+                  resolvedContent: 'content B',
+                },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 3, oursContent: 'C', theirsContent: 'D' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      const plan = await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then
+      expect(agent.executeTask).toHaveBeenCalledTimes(2);
+      expect(plan.resolutions).toHaveLength(2);
+      const resolvedPaths = plan.resolutions.map((resolution) => resolution.filePath);
+      expect(resolvedPaths).toContain('src/a.ts');
+      expect(resolvedPaths).toContain('src/b.ts');
+    });
+
+    it('リトライ後も不足_afterRetryエラーがスローされる', async () => {
+      // Given: 初回は一部のみ、リトライは空
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                {
+                  filePath: 'src/a.ts',
+                  strategy: 'ours',
+                  resolvedContent: 'A',
+                },
+              ],
+            }),
+          ])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [],
+            }),
+          ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 3, oursContent: 'C', theirsContent: 'D' },
+          { filePath: 'CHANGELOG.md', startLine: 1, endLine: 3, oursContent: 'E', theirsContent: 'F' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When / Then
       await expect(
         resolver.createResolutionPlan(context, {
           agent: 'auto',
@@ -153,7 +273,311 @@ describe('ConflictResolver', () => {
           headBranch: 'feature',
           outputFilePath: '/tmp/plan.json',
         }),
-      ).rejects.toThrow('Failed to extract JSON');
+      ).rejects.toThrow('after retry');
+      expect(agent.executeTask).toHaveBeenCalledTimes(2);
+    });
+
+    it('全ファイル返却時_リトライが発生しない', async () => {
+      // Given: 初回で全ファイル返却
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue([
+          JSON.stringify({
+            resolutions: [
+              { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'A' },
+              { filePath: 'src/b.ts', strategy: 'theirs', resolvedContent: 'B' },
+            ],
+            skippedFiles: [],
+            warnings: [],
+          }),
+        ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 3, oursContent: 'C', theirsContent: 'D' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      const plan = await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then
+      expect(agent.executeTask).toHaveBeenCalledTimes(1);
+      expect(plan.resolutions).toHaveLength(2);
+    });
+
+    it('初回JSON抽出失敗_リトライで成功', async () => {
+      // Given: 初回は非JSON、リトライで成功
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce(['This is not JSON output'])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'A' },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      const plan = await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then
+      expect(agent.executeTask).toHaveBeenCalledTimes(2);
+      expect(plan.resolutions).toHaveLength(1);
+      expect(plan.resolutions[0].filePath).toBe('src/a.ts');
+    });
+
+    it('初回リトライ両方JSON抽出失敗_afterRetryエラー', async () => {
+      // Given: 初回・リトライともに非JSON
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce(['Not JSON'])
+          .mockResolvedValueOnce(['Still not JSON']),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When / Then
+      await expect(
+        resolver.createResolutionPlan(context, {
+          agent: 'auto',
+          language: 'ja',
+          prNumber: 1,
+          baseBranch: 'main',
+          headBranch: 'feature',
+          outputFilePath: '/tmp/plan.json',
+        }),
+      ).rejects.toThrow('after retry');
+      expect(agent.executeTask).toHaveBeenCalledTimes(2);
+    });
+
+    it('プロンプトにファイル一覧とファイル数が含まれる', async () => {
+      // Given: テンプレートにプレースホルダーを含む
+      loadPromptMock.mockReturnValue(
+        'FILES: {conflict_file_list} COUNT: {conflict_file_count} CTX: {merge_context_json} OUT: {output_file_path}',
+      );
+
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue([
+          JSON.stringify({
+            resolutions: [
+              { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'A' },
+              { filePath: 'src/b.ts', strategy: 'theirs', resolvedContent: 'B' },
+              { filePath: 'CHANGELOG.md', strategy: 'both', resolvedContent: 'C' },
+            ],
+            skippedFiles: [],
+            warnings: [],
+          }),
+        ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A', theirsContent: 'B' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 3, oursContent: 'C', theirsContent: 'D' },
+          { filePath: 'CHANGELOG.md', startLine: 1, endLine: 5, oursContent: 'E', theirsContent: 'F' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then
+      const prompt = agent.executeTask.mock.calls[0][0].prompt as string;
+      expect(prompt).toContain('1. src/a.ts');
+      expect(prompt).toContain('2. src/b.ts');
+      expect(prompt).toContain('3. CHANGELOG.md');
+      expect(prompt).toContain('COUNT: 3');
+    });
+
+    it('同一ファイルの複数ConflictBlock_ファイル一覧が重複しない', async () => {
+      // Given: 同一ファイルの複数ブロック
+      loadPromptMock.mockReturnValue(
+        'FILES: {conflict_file_list} COUNT: {conflict_file_count} CTX: {merge_context_json} OUT: {output_file_path}',
+      );
+
+      const agent = {
+        executeTask: jest.fn().mockResolvedValue([
+          JSON.stringify({
+            resolutions: [
+              { filePath: 'src/a.ts', strategy: 'ours', resolvedContent: 'A' },
+              { filePath: 'src/b.ts', strategy: 'theirs', resolvedContent: 'B' },
+            ],
+            skippedFiles: [],
+            warnings: [],
+          }),
+        ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 3, oursContent: 'A1', theirsContent: 'B1' },
+          { filePath: 'src/a.ts', startLine: 10, endLine: 15, oursContent: 'A2', theirsContent: 'B2' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 3, oursContent: 'C', theirsContent: 'D' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When
+      await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then
+      const prompt = agent.executeTask.mock.calls[0][0].prompt as string;
+      expect(prompt).toContain('1. src/a.ts');
+      expect(prompt).toContain('2. src/b.ts');
+      expect(prompt).not.toContain('3. src/a.ts');
+      expect(prompt).toContain('COUNT: 2');
+    });
+
+    it('JSONリトライ後_不足ファイル再試行が行われる', async () => {
+      // Given: 初回はJSON抽出失敗、リトライで一部解消、さらに不足ファイルを再試行
+      const agent = {
+        executeTask: jest
+          .fn()
+          .mockResolvedValueOnce(['no json output'])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                {
+                  filePath: 'src/a.ts',
+                  strategy: 'ours',
+                  resolvedContent: 'A',
+                },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ])
+          .mockResolvedValueOnce([
+            JSON.stringify({
+              resolutions: [
+                {
+                  filePath: 'src/b.ts',
+                  strategy: 'theirs',
+                  resolvedContent: 'B',
+                },
+              ],
+              skippedFiles: [],
+              warnings: [],
+            }),
+          ]),
+      };
+      setupAgentMock.mockResolvedValue(agent);
+
+      const context: MergeContext = {
+        conflictFiles: [
+          { filePath: 'src/a.ts', startLine: 1, endLine: 2, oursContent: 'A', theirsContent: 'B' },
+          { filePath: 'src/b.ts', startLine: 1, endLine: 2, oursContent: 'C', theirsContent: 'D' },
+        ],
+        oursLog: [],
+        theirsLog: [],
+        prDescription: '',
+        relatedIssues: [],
+        contextSnippets: [],
+      };
+
+      const resolver = new ConflictResolver(repoRoot);
+
+      // When: 解消計画生成
+      const plan = await resolver.createResolutionPlan(context, {
+        agent: 'auto',
+        language: 'ja',
+        prNumber: 1,
+        baseBranch: 'main',
+        headBranch: 'feature',
+        outputFilePath: '/tmp/plan.json',
+      });
+
+      // Then: 3回呼び出しされ、全ファイルが解消される
+      expect(agent.executeTask).toHaveBeenCalledTimes(3);
+      const resolvedPaths = plan.resolutions.map((resolution) => resolution.filePath);
+      expect(resolvedPaths).toContain('src/a.ts');
+      expect(resolvedPaths).toContain('src/b.ts');
+      expect(plan.resolutions).toHaveLength(2);
     });
   });
 

@@ -203,10 +203,12 @@ src/core/git/conflict-parser.ts (コンフリクトマーカー解析、Issue #7
 src/core/git/merge-context-collector.ts (マージ文脈収集、Issue #719で追加)
  └─ MergeContextCollector.collect() … Git履歴・PR/Issue情報からAI用文脈を生成
 
-src/core/git/conflict-resolver.ts (AI駆動コンフリクト解消エンジン、Issue #719で追加)
- ├─ ConflictResolver.createResolutionPlan() … 解消計画を生成
+src/core/git/conflict-resolver.ts (AI駆動コンフリクト解消エンジン、Issue #719で追加、Issue #760で拡張)
+ ├─ ConflictResolver.createResolutionPlan() … 解消計画を生成（不足ファイルリトライ・JSON抽出失敗リトライ機構付き）
  ├─ ConflictResolver.resolve() … 解消計画に基づきAIで解消
- └─ ConflictResolver.validateResolution() … マーカー残存チェック
+ ├─ ConflictResolver.validateResolution() … マーカー残存チェック
+ ├─ ConflictResolver.buildAnalyzePrompt() … 分析プロンプト構築（ファイル一覧・ファイル数の動的注入）
+ └─ ConflictResolver.parseAgentResolutions() … エージェント応答パース（初回/リトライ挙動分岐）
 
 src/core/conflict/metadata-manager.ts (コンフリクト解消: メタデータ管理、Issue #719で追加)
  ├─ ConflictMetadataManager.initialize() … メタデータ初期化
