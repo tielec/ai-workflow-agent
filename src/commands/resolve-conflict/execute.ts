@@ -98,10 +98,15 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     }
 
     // Step 2: Resolve conflicts (agent call if needed)
-    const resolver = new ConflictResolver(repoRoot);
+    const outputDir = path.join(repoRoot, '.ai-workflow', `conflict-${prInfo.prNumber}`);
+    await fsp.mkdir(outputDir, { recursive: true });
+
+    const language = options.language === 'en' ? 'en' as const : 'ja' as const;
+    const resolver = new ConflictResolver(repoRoot, language);
     const resolutions = await resolver.resolve(plan, {
       agent: options.agent ?? 'auto',
-      language: options.language === 'en' ? 'en' : 'ja',
+      language,
+      logDir: outputDir,
     });
 
     // Step 3: Git setup and branch preparation
@@ -191,8 +196,6 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     }
 
     // Step 7: Save artifacts and update metadata
-    const outputDir = path.join(repoRoot, '.ai-workflow', `conflict-${prInfo.prNumber}`);
-    await fsp.mkdir(outputDir, { recursive: true });
 
     const resultJsonPath = path.join(outputDir, 'resolution-result.json');
     const resultMdPath = path.join(outputDir, 'resolution-result.md');

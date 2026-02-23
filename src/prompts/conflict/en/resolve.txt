@@ -14,5 +14,6 @@ Generate the fully resolved file content based on the details below.
 {current_content}
 
 ## Output
-- Output the **entire file content only**
+- Write the **entire resolved file content** to this exact absolute path using the Write tool: `{output_file_path}`
+- Do NOT output to stdout. Always write to the file
 - Do not include conflict markers (<<<<<<<, =======, >>>>>>>)

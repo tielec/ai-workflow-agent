@@ -290,12 +290,17 @@ export class ConflictResolver {
             throw new Error(`No agent available to resolve ${item.filePath}`);
           }
           const sanitizedPath = item.filePath.replace(/[/\\]/g, '_');
-          const content = await this.executeAgent(
+          const logLabel = `resolve-${sanitizedPath}`;
+          const resolveOutputFilePath = options.logDir
+            ? path.resolve(path.join(options.logDir, logLabel, 'resolved-output.txt'))
+            : '';
+          const rawContent = await this.executeAgent(
             agent,
-            this.buildResolvePrompt(item, options.language),
+            this.buildResolvePrompt(item, options.language, resolveOutputFilePath),
             options.logDir,
-            `resolve-${sanitizedPath}`,
+            logLabel,
           );
+          const content = this.readOutputOrFallback(resolveOutputFilePath, rawContent);
           resolved.push({
             ...item,
             resolvedContent: content.trim(),
@@ -411,12 +416,37 @@ export class ConflictResolver {
     });
   }
 
-  private buildResolvePrompt(resolution: ConflictResolution, language?: 'ja' | 'en'): string {
+  private buildResolvePrompt(resolution: ConflictResolution, language?: 'ja' | 'en', outputFilePath?: string): string {
     const template = PromptLoader.loadPrompt('conflict', 'resolve', language);
-    return template
+    let result = template
       .replaceAll('{file_path}', resolution.filePath)
       .replaceAll('{strategy}', resolution.strategy)
-      .replaceAll('{current_content}', resolution.resolvedContent ?? '');
+      .replaceAll('{current_content}', resolution.resolvedContent ?? '')
+      .replaceAll('{output_file_path}', outputFilePath ?? '');
+
+    if (outputFilePath) {
+      const outputInstruction = [
+        '**IMPORTANT: Output File Path**',
+        `- Write to this exact absolute path using the Write tool: \`${outputFilePath}\``,
+        '- Do NOT use relative paths or `/workspace` prefixes. Use the absolute path above.',
+      ].join('\n');
+
+      const lines = result.split('\n');
+      const headingIndex = lines.findIndex((line) => line.trim().startsWith('#'));
+      if (headingIndex === -1) {
+        result = [outputInstruction, '', result].join('\n');
+      } else {
+        result = [
+          ...lines.slice(0, headingIndex + 1),
+          '',
+          outputInstruction,
+          '',
+          ...lines.slice(headingIndex + 1),
+        ].join('\n');
+      }
+    }
+
+    return result;
   }
 
   private async executeAgent(
