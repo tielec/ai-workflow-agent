@@ -146,10 +146,14 @@ export class ConflictResolver {
       return true;
     });
 
+    const filteredContext = { ...context, conflictFiles: filteredConflicts };
+    const contextFilePath = this.writeContextFile(filteredContext, options.logDir, options.outputFilePath);
+
     const prompt = this.buildAnalyzePrompt({
-      context: { ...context, conflictFiles: filteredConflicts },
+      context: filteredContext,
       language: options.language,
       outputFilePath: options.outputFilePath ?? '',
+      contextFilePath,
     });
 
     const agent = await setupAgent(options.agent, this.repoRoot);
@@ -174,6 +178,9 @@ export class ConflictResolver {
     }
 
     const rawOutput = await this.executeAgent(agent, prompt, options.logDir, 'analyze');
+    const outputFilePath = options.outputFilePath ? path.resolve(options.outputFilePath) : '';
+    const planOutput = this.readOutputOrFallback(outputFilePath, rawOutput);
+
     const extractPlanMetadata = (output: string): Partial<ConflictResolutionPlan> | null => {
       const json = extractJsonObject(output);
       if (!json) {
@@ -182,15 +189,16 @@ export class ConflictResolver {
       return JSON.parse(json) as Partial<ConflictResolutionPlan>;
     };
 
-    let parsed = extractPlanMetadata(rawOutput);
-    let resolutions = this.parseAgentResolutions(rawOutput, filteredConflicts);
+    let parsed = extractPlanMetadata(planOutput);
+    let resolutions = this.parseAgentResolutions(planOutput, filteredConflicts);
     let didJsonRetry = false;
 
     if (resolutions === null) {
       logger.warn('Failed to extract JSON from agent output. Retrying with same prompt.');
-      const retryOutput = await this.executeAgent(agent, prompt, options.logDir, 'analyze-retry-json');
-      const retryParsed = extractPlanMetadata(retryOutput);
-      const retryResolutions = this.parseAgentResolutions(retryOutput, filteredConflicts, true) ?? [];
+      const retryRawOutput = await this.executeAgent(agent, prompt, options.logDir, 'analyze-retry-json');
+      const retryPlanOutput = this.readOutputOrFallback(outputFilePath, retryRawOutput);
+      const retryParsed = extractPlanMetadata(retryPlanOutput);
+      const retryResolutions = this.parseAgentResolutions(retryPlanOutput, filteredConflicts, true) ?? [];
 
       if (retryResolutions.length === 0) {
         throw new Error('Failed to extract JSON from agent output after retry.');
@@ -215,15 +223,22 @@ export class ConflictResolver {
       );
 
       const missingConflicts = filteredConflicts.filter((block) => missingFiles.includes(block.filePath));
+      const missingOutputFilePath = options.logDir
+        ? path.resolve(path.join(options.logDir, 'analyze-retry-missing-output.json'))
+        : '';
+      const missingContext = { ...context, conflictFiles: missingConflicts };
+      const missingContextFilePath = this.writeContextFile(missingContext, options.logDir, missingOutputFilePath, 'retry-missing');
       const retryPrompt = this.buildAnalyzePrompt({
-        context: { ...context, conflictFiles: missingConflicts },
+        context: missingContext,
         language: options.language,
-        outputFilePath: options.outputFilePath ?? '',
+        outputFilePath: missingOutputFilePath,
+        contextFilePath: missingContextFilePath,
       });
 
-      const retryOutput = await this.executeAgent(agent, retryPrompt, options.logDir, 'analyze-retry-missing');
-      const retryParsed = extractPlanMetadata(retryOutput);
-      const retryResolutions = this.parseAgentResolutions(retryOutput, missingConflicts, true) ?? [];
+      const retryRawOutput = await this.executeAgent(agent, retryPrompt, options.logDir, 'analyze-retry-missing');
+      const retryPlanOutput = this.readOutputOrFallback(missingOutputFilePath, retryRawOutput);
+      const retryParsed = extractPlanMetadata(retryPlanOutput);
+      const retryResolutions = this.parseAgentResolutions(retryPlanOutput, missingConflicts, true) ?? [];
 
       if (retryParsed?.skippedFiles) {
         for (const skipped of retryParsed.skippedFiles) {
@@ -310,17 +325,68 @@ export class ConflictResolver {
     }
   }
 
-  private buildAnalyzePrompt(params: { context: MergeContext; language?: 'ja' | 'en'; outputFilePath: string }): string {
+  private buildAnalyzePrompt(params: { context: MergeContext; language?: 'ja' | 'en'; outputFilePath: string; contextFilePath: string }): string {
     const template = PromptLoader.loadPrompt('conflict', 'analyze', params.language);
-    const contextJson = JSON.stringify(params.context, null, 2);
     const conflictFilePaths = [...new Set(params.context.conflictFiles.map((block) => block.filePath))];
     const conflictFileList = conflictFilePaths.map((filePath, index) => `${index + 1}. ${filePath}`).join('\n');
 
-    return template
+    let result = template
       .replaceAll('{conflict_file_list}', conflictFileList)
       .replaceAll('{conflict_file_count}', String(conflictFilePaths.length))
-      .replaceAll('{merge_context_json}', contextJson)
+      .replaceAll('{merge_context_file_path}', params.contextFilePath)
       .replaceAll('{output_file_path}', params.outputFilePath);
+
+    // base-phase.injectOutputPathInstruction() と同じパターン
+    if (params.outputFilePath) {
+      const outputInstruction = [
+        '**IMPORTANT: Output File Path**',
+        `- Write to this exact absolute path using the Write tool: \`${params.outputFilePath}\``,
+        '- Do NOT use relative paths or `/workspace` prefixes. Use the absolute path above.',
+      ].join('\n');
+
+      const lines = result.split('\n');
+      const headingIndex = lines.findIndex((line) => line.trim().startsWith('#'));
+      if (headingIndex === -1) {
+        result = [outputInstruction, '', result].join('\n');
+      } else {
+        result = [
+          ...lines.slice(0, headingIndex + 1),
+          '',
+          outputInstruction,
+          '',
+          ...lines.slice(headingIndex + 1),
+        ].join('\n');
+      }
+    }
+
+    return result;
+  }
+
+  private writeContextFile(context: MergeContext, logDir?: string, outputFilePath?: string, suffix?: string): string {
+    const filename = suffix ? `merge-context-${suffix}.json` : 'merge-context.json';
+    const contextFilePath = logDir
+      ? path.resolve(path.join(logDir, filename))
+      : outputFilePath
+        ? path.resolve(path.join(path.dirname(outputFilePath), filename))
+        : '';
+
+    if (contextFilePath) {
+      const dir = path.dirname(contextFilePath);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(contextFilePath, JSON.stringify(context, null, 2), 'utf-8');
+      logger.info(`Merge context written to: ${contextFilePath}`);
+    }
+
+    return contextFilePath;
+  }
+
+  private readOutputOrFallback(outputFilePath: string, stdoutFallback: string): string {
+    if (outputFilePath && fs.existsSync(outputFilePath)) {
+      logger.info(`Reading agent output from file: ${outputFilePath}`);
+      return fs.readFileSync(outputFilePath, 'utf-8');
+    }
+    logger.warn('Output file not found. Falling back to stdout parsing.');
+    return stdoutFallback;
   }
 
   private parseAgentResolutions(
