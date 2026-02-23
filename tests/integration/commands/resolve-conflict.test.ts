@@ -182,8 +182,10 @@ describe('resolve-conflict コマンド統合テスト', () => {
     };
 
     const gitFinalize = {
-      status: jest.fn().mockResolvedValue({ current: 'feature' }),
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
       push: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze, gitExecute, gitFinalize];
@@ -477,7 +479,13 @@ describe('resolve-conflict コマンド統合テスト', () => {
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit];
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
     simpleGitMock.mockImplementation(() => {
       const instance = gitInstances.shift();
       if (!instance) {
@@ -504,7 +512,13 @@ describe('resolve-conflict コマンド統合テスト', () => {
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit];
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
     simpleGitMock.mockImplementation(() => gitInstances.shift());
 
     await handleResolveConflictInitCommand({ prUrl, language: 'ja' });

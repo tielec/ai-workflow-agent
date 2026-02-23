@@ -40,18 +40,7 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
       logger.info('Squash option requested. No additional squash action required for single-resolution commit.');
     }
 
-    if (options.push) {
-      const git = simpleGit(repoRoot);
-      const status = await git.status();
-      const branchName = status.current ?? metadata.headBranch;
-      if (!branchName) {
-        throw new Error('Unable to determine branch name for push.');
-      }
-      await git.push('origin', branchName);
-      logger.info(`Pushed resolved changes to origin/${branchName}`);
-    }
-
-    const githubClient = new GitHubClient(undefined, prInfo.repositoryName);
+    // Step 1: Read summary before cleanup deletes the file
     let summary: string | null = null;
     if (metadata.resolutionResultPath) {
       try {
@@ -61,16 +50,14 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
       }
     }
 
-    await githubClient.postComment(prInfo.prNumber, buildCommentBody(summary));
-    await metadataManager.updateStatus('finalized');
+    // Step 2: Cleanup artifacts, commit, and push
+    const git = simpleGit(repoRoot);
+    await ensureGitConfig(git);
 
-    // Cleanup: delete .ai-workflow/conflict-<PR_NUMBER>/ and commit deletion
     const workflowPath = `.ai-workflow/conflict-${prInfo.prNumber}`;
     await metadataManager.cleanup();
 
     try {
-      const git = simpleGit(repoRoot);
-      await ensureGitConfig(git);
       await git.raw(['add', '--all', workflowPath]);
       const status = await git.status();
       const stagedFiles = status.files.filter((f) => f.path.startsWith(workflowPath));
@@ -83,6 +70,21 @@ export async function handleResolveConflictFinalizeCommand(options: ResolveConfl
     } catch (commitError: unknown) {
       logger.warn(`Failed to commit artifact cleanup: ${getErrorMessage(commitError)}`);
     }
+
+    // Step 3: Push (includes both merge commit and cleanup commit)
+    if (options.push) {
+      const branchStatus = await git.status();
+      const branchName = branchStatus.current ?? metadata.headBranch;
+      if (!branchName) {
+        throw new Error('Unable to determine branch name for push.');
+      }
+      await git.push('origin', branchName);
+      logger.info(`Pushed resolved changes to origin/${branchName}`);
+    }
+
+    // Step 4: Post PR comment
+    const githubClient = new GitHubClient(undefined, prInfo.repositoryName);
+    await githubClient.postComment(prInfo.prNumber, buildCommentBody(summary));
 
     logger.info('Finalize completed. Metadata cleaned up.');
   } catch (error) {
