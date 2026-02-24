@@ -5,13 +5,11 @@
  * 1日1回のcronトリガーで自動実行。手動実行もサポート。
  *
  * パラメータ（Job DSLで定義）:
- * - AWS_ACCOUNT_ID: AWSアカウントID（必須）
  * - AWS_REGION: AWSリージョン（デフォルト: ap-northeast-1）
  * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
  * - IMAGE_RETENTION_COUNT: 保持するイメージ世代数（デフォルト: 2）
- * - AWS_ACCESS_KEY_ID: AWSアクセスキーID（任意）
- * - AWS_SECRET_ACCESS_KEY: AWSシークレットアクセスキー（任意）
- * - AWS_SESSION_TOKEN: AWSセッショントークン（任意）
+ * * AWS_ACCOUNT_IDはAWS STS (get-caller-identity) から自動取得
+ * * AWS認証はEC2インスタンスプロファイルを使用
  */
 
 pipeline {
@@ -34,18 +32,8 @@ pipeline {
         // AWS設定
         AWS_DEFAULT_REGION = "${params.AWS_REGION ?: 'ap-northeast-1'}"
         AWS_REGION_VALUE = "${params.AWS_REGION ?: 'ap-northeast-1'}"
-        AWS_ACCOUNT_ID_VALUE = "${params.AWS_ACCOUNT_ID ?: ''}"
         ECR_REPOSITORY_NAME_VALUE = "${params.ECR_REPOSITORY_NAME ?: 'ai-workflow-agent'}"
         IMAGE_RETENTION_COUNT_VALUE = "${params.IMAGE_RETENTION_COUNT ?: '2'}"
-
-        // AWS認証情報（パラメータが空でない場合のみ環境変数に設定）
-        AWS_ACCESS_KEY_ID = "${params.AWS_ACCESS_KEY_ID ?: ''}"
-        AWS_SECRET_ACCESS_KEY = "${params.AWS_SECRET_ACCESS_KEY ?: ''}"
-        AWS_SESSION_TOKEN = "${params.AWS_SESSION_TOKEN ?: ''}"
-
-        // ECR関連の導出値
-        ECR_REGISTRY = "${params.AWS_ACCOUNT_ID ?: ''}.dkr.ecr.${params.AWS_REGION ?: 'ap-northeast-1'}.amazonaws.com"
-        ECR_IMAGE_NAME = "${params.AWS_ACCOUNT_ID ?: ''}.dkr.ecr.${params.AWS_REGION ?: 'ap-northeast-1'}.amazonaws.com/${params.ECR_REPOSITORY_NAME ?: 'ai-workflow-agent'}"
     }
 
     stages {
@@ -56,8 +44,19 @@ pipeline {
                     echo "AI Workflow - ECR Image Build & Push"
                     echo "========================================="
 
-                    if (!env.AWS_ACCOUNT_ID_VALUE?.trim()) {
-                        error("AWS_ACCOUNT_ID は必須パラメータです。AWSアカウントIDを指定してください。")
+                    String accountId = ''
+                    try {
+                        echo "AWS STSからアカウントIDを取得中..."
+                        accountId = sh(
+                            script: "aws sts get-caller-identity --query Account --output text",
+                            returnStdout: true
+                        ).trim()
+                    } catch (Exception e) {
+                        error("AWS STSからアカウントIDの取得に失敗しました。インスタンスプロファイルのIAM設定を確認してください。")
+                    }
+
+                    if (!accountId) {
+                        error("AWS STSからアカウントIDの取得に失敗しました。インスタンスプロファイルのIAM設定を確認してください。")
                     }
 
                     def retentionCount = env.IMAGE_RETENTION_COUNT_VALUE?.trim() ?: '2'
@@ -69,6 +68,10 @@ pipeline {
                     } catch (NumberFormatException e) {
                         error("IMAGE_RETENTION_COUNT は整数を指定してください。指定値: ${retentionCount}")
                     }
+
+                    env.AWS_ACCOUNT_ID_VALUE = accountId
+                    env.ECR_REGISTRY = "${accountId}.dkr.ecr.${env.AWS_REGION_VALUE}.amazonaws.com"
+                    env.ECR_IMAGE_NAME = "${env.ECR_REGISTRY}/${env.ECR_REPOSITORY_NAME_VALUE}"
 
                     currentBuild.description = "ECR Build | ${env.ECR_REPOSITORY_NAME_VALUE} | ${env.AWS_REGION_VALUE}"
 
@@ -95,8 +98,7 @@ pipeline {
                                 --region ${env.AWS_REGION_VALUE} \
                             | docker login \
                                 --username AWS \
-                                --password-stdin \
-                                ${env.ECR_REGISTRY}
+                                --password-stdin ${env.ECR_REGISTRY}
                         """,
                         returnStatus: true
                     )

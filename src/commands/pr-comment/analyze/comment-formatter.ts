@@ -95,8 +95,8 @@ export async function formatCommentBlock(meta: CommentMetadata, repoRoot: string
   if (filePath) {
     try {
       fileContent = await fsp.readFile(filePath, 'utf-8');
-    } catch {
-      logger.error(`Failed to read file content for comment ${comment.id}: ${filePath}`);
+    } catch (error) {
+      logger.error(`Failed to read file content for comment ${comment.id}: ${filePath}`, error);
       fileContent = '(File not found)';
     }
   }

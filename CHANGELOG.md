@@ -148,6 +148,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #745**: Jenkins ECR Image Build ジョブを develop フォルダ限定に変更し、AWS 認証をインスタンスプロファイルに統一
+  - ECR ビルドジョブの生成対象を `develop` フォルダのみに限定（`stable-1`〜`stable-9` の9ジョブ生成を廃止）
+  - `AWS_ACCOUNT_ID` パラメータを廃止し、`aws sts get-caller-identity` による自動取得に変更
+  - AWS 認証情報パラメータ（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）を削除し、EC2 インスタンスプロファイルによる認証に統一
+  - パラメータ数を7個から3個に削減（57%削減）: `AWS_REGION`、`ECR_REPOSITORY_NAME`、`IMAGE_RETENTION_COUNT` のみ維持
+  - `ECR_REGISTRY` と `ECR_IMAGE_NAME` を environment ブロックの静的定義から Validate Parameters ステージでの動的構築に変更
+  - セキュリティ強化: AWS 認証情報の Jenkins パラメータ経由での受け渡しを完全廃止し、認証情報漏洩リスクを排除
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile`、`jenkins/README.md`、`jenkins/jobs/dsl/ai-workflow/TEST_PLAN.md`
+  - テストカバレッジ: ユニットテスト35件（静的検証）を新規作成、手動検証テストケース4件を TEST_PLAN.md に追加、全体 `npm run validate` PASS（233 suites / 3325 tests）
+
 - **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加
   - `src/prompts/testing/{ja,en}/execute.txt` の「## テスト実行手順」を3ステップから4ステップ構成に再構成
   - **新規ステップ「テスト環境の準備（Test Environment Setup）」を挿入**: 言語・ランタイム確認、依存パッケージインストール（pip/npm/go mod/bundle/mvn）、テストフレームワーク確認、前提条件チェック、環境準備結果の記録 の5項目を含む
