@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #793**: all_phases ジョブDSLの `NETWORK_HEALTH_CHECK` パラメータのデフォルト値を `false` → `true` に変更
+  - EC2環境でのワークフロー実行時に、ネットワークヘルスチェックがデフォルトで有効化され、各フェーズ実行前にCloudWatchメトリクスを確認
+  - 非EC2環境では自動的にスキップされるため、副作用なし
+  - ユーザーが意図的に無効化したい場合は、Jenkins UIで `NETWORK_HEALTH_CHECK=false` を明示的に指定可能
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile`、`tests/unit/jenkins/network-health-parameter.test.ts`
+  - ドキュメント更新: `jenkins/README.md`（NETWORK_HEALTH_CHECKパラメータの説明を追加）
 - **Issue #785**: Dockerイメージに主要言語ランタイム（Python3、Go、Java、Ruby）と sudo をプリインストール
   - `Dockerfile` の既存 `apt-get install` ブロック（9-17行目）に8つのパッケージを追加：`sudo`、`python3`、`python3-pip`、`python3-venv`、`golang-go`、`default-jdk`、`ruby`、`ruby-dev`
   - Testing フェーズで `python3` や他のランタイムが不足していることによるプロンプト警告が出力されなくなり、エージェントが `apt-get install` を試みる必要がなくなる
