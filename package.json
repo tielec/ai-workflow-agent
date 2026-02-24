@@ -38,12 +38,13 @@
     "test:unit": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/unit",
     "test:integration": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest tests/integration",
     "test:coverage": "cross-env NODE_OPTIONS=\"--experimental-vm-modules --max-old-space-size=4096\" jest --coverage",
-    "validate": "npm run lint && npm test && npm run build",
+    "validate": "node ./scripts/validate.mjs",
     "monitor:tokens": "tsx scripts/monitor-token-detection.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",
     "@anthropic-ai/sdk": "^0.71.0",
+    "@aws-sdk/client-cloudwatch": "^3.758.0",
     "@octokit/rest": "^20.1.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",

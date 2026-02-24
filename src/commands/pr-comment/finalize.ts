@@ -6,7 +6,7 @@ import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PRCommentMetadataManager } from '../../core/pr-comment/metadata-manager.js';
 import { GitHubClient } from '../../core/github-client.js';
-import { config } from '../../core/config.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { PRCommentFinalizeOptions } from '../../types/commands.js';
 import { ResolutionSummary } from '../../types/pr-comment.js';
 import {
@@ -101,20 +101,13 @@ export async function handlePRCommentFinalizeCommand(
     if (!dryRun && resolvedCount > 0 && !squashResult.squashed) {
       const git = simpleGit(repoRoot);
 
-      // Git設定
-      const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
-      const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
-
-      logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
-      await git.addConfig('user.name', gitUserName);
-      await git.addConfig('user.email', gitUserEmail);
-
       logger.info('Committing PR comment finalization...');
       // すべての変更をステージ（削除されたファイルを含む）
       await git.add('.');
       const status = await git.status();
       logger.debug(`Git status reports ${status.files.length} tracked changes.`);
       if (status.files.length > 0) {
+        await ensureGitConfig(git);
         await git.commit(
           `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)`,
         );
@@ -200,12 +193,7 @@ async function squashCommitsIfRequested(
     return { squashed: false, metadataCleaned: false };
   }
 
-  const gitUserName = config.getGitCommitUserName() || 'AI Workflow Bot';
-  const gitUserEmail = config.getGitCommitUserEmail() || 'ai-workflow@example.com';
-
-  logger.debug(`Configuring Git user: ${gitUserName} <${gitUserEmail}>`);
-  await git.addConfig('user.name', gitUserName);
-  await git.addConfig('user.email', gitUserEmail);
+  await ensureGitConfig(git);
 
   let metadataCleaned = false;
   if (!options.skipCleanup) {

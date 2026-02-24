@@ -162,6 +162,7 @@ node dist/index.js rewrite-issue \
 - **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
 - **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造・主要ファイル・依存関係などのコンテキストを取得
 - **Issue再生成**: AIエージェント（Codex/Claude）がコード文脈を踏まえた新しいタイトル・本文を生成
+- **難易度・バグリスク自動付与**（Issue #712で追加）: 再設計後のIssue本文の先頭にYAML frontmatter形式で5段階難易度（A〜E）とバグリスク予測を自動付与。`DifficultyAnalyzer.analyzeWithGrade()` でLLM判定し、失敗時はfrontmatterなしで続行（グレースフルデグラデーション）
 - **差分プレビュー**: 変更前後の差分をunified diff形式で標準出力に表示
 - **採点指標表示**: 完全性スコア（0-100）と具体性スコア（0-100）を表示
 - **Issue更新**: `--apply` オプション指定時に、GitHub APIを通じてIssueを更新
@@ -193,10 +194,46 @@ To apply these changes, run with --apply option.
 - `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
 
+**frontmatter自動付与**（Issue #712で追加）:
+
+`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報が自動付与されます。
+
+```yaml
+---
+difficulty: C
+difficulty_label: moderate
+bug_risk:
+  expected_bugs: 2
+  probability: 35
+  risk_score: 0.70
+rationale: |
+  複数ファイルの変更が必要であり中程度の難易度と判定。
+assessed_by: claude
+assessed_at: 2025-01-15T10:30:00Z
+---
+```
+
+| フィールド | 説明 |
+|-----------|------|
+| `difficulty` | 5段階グレード（A: trivial, B: simple, C: moderate, D: complex, E: critical） |
+| `difficulty_label` | グレードに対応するラベル文字列 |
+| `bug_risk.expected_bugs` | 想定バグ発生件数（0以上の整数） |
+| `bug_risk.probability` | バグ発生確率（0〜100%） |
+| `bug_risk.risk_score` | 総合リスクスコア（`expected_bugs * probability / 100`） |
+| `rationale` | 判定根拠テキスト |
+| `assessed_by` | 判定に使用したエージェント（`claude` / `codex`） |
+| `assessed_at` | 判定日時（ISO 8601形式） |
+
+- 難易度判定はClaude→Codex→デフォルト値（D/complex）の3段階フォールバックで動作します
+- 判定失敗時はfrontmatterなしで既存フローを続行します（コマンド全体は正常完了）
+- 既存の3段階難易度システム（`metadata.json`の`simple`/`moderate`/`complex`）には影響しません
+
 **技術詳細**:
 - **実装モジュール**: `src/commands/rewrite-issue.ts`
 - **型定義**: `src/types/rewrite-issue.ts`
 - **プロンプトテンプレート**: `src/prompts/rewrite-issue/{ja|en}/rewrite-issue.txt`
+- **難易度判定プロンプト**: `src/prompts/difficulty/{ja|en}/analyze-grade.txt`（Issue #712で追加）
+- **frontmatterユーティリティ**: `src/utils/frontmatter.ts`（Issue #712で追加）
 - **IssueClient拡張**: `updateIssue()` メソッドでIssueのタイトル・本文を部分更新
 
 **Jenkins統合**:
@@ -307,6 +344,85 @@ Issue #1: CLIオプションのパースとバリデーション機能
 - `--max-splits` オプションで分割数を制限し、過度な分割を防ぐ
 - 一部のIssue作成に失敗した場合、成功した子Issueの一覧がログに出力される
 - 元Issueへのコメント投稿に失敗しても、子Issueの作成結果は保持される
+- `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
+
+### create-sub-issue コマンド（Issue #713で追加）
+
+親Issueに紐づくサブIssueをAIエージェント（Claude/Codex）で自動生成し、GitHub Sub-Issue APIを使って親子関係を紐づけるコマンドです。デフォルトではdry-runモードで動作し、`--apply` オプションで実際にIssueを作成します。
+
+```bash
+# プレビューモード（デフォルト: dry-run）
+node dist/index.js create-sub-issue --parent-issue 123 --description "ログイン画面でエラーが発生する"
+
+# 実際にIssueを作成してSub-Issue紐づけ
+node dist/index.js create-sub-issue --parent-issue 123 --description "ログイン画面でエラーが発生する" --apply
+
+# タスク種別を指定
+node dist/index.js create-sub-issue --parent-issue 123 --description "リファクタリング対象" --type task --apply
+
+# 英語出力・Claude指定
+node dist/index.js create-sub-issue --parent-issue 123 --description "Fix login error" --language en --agent claude --apply
+
+# カスタム指示とラベルを指定
+node dist/index.js create-sub-issue --parent-issue 123 --description "パフォーマンス改善" --type enhancement --labels "priority:high,performance" --custom-instruction "レスポンス時間の改善に焦点を当ててください" --apply
+```
+
+**オプション**:
+- `--parent-issue <number>`: 親Issue番号（**必須**）
+- `--description <text>`: 不具合内容またはタスク概要（**必須**、1〜1000文字）
+- `--type <bug|task|enhancement>`: Issue種別（デフォルト: `bug`）
+- `--language <ja|en>`: 出力言語（デフォルト: `ja`）
+- `--agent <auto|codex|claude>`: 使用エージェント（デフォルト: `auto`）
+- `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
+- `--apply`: 実際にGitHub Issueを作成（dry-runと排他）
+- `--labels <labels>`: カンマ区切りのラベル一覧（エージェント提案ラベルと統合）
+- `--custom-instruction <text>`: 生成時の追加指示（最大500文字）
+
+**主な機能**:
+- **親Issue情報取得**: GitHub APIを通じて親Issueのタイトル・本文を取得
+- **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造情報を取得
+- **AI本文生成**: AIエージェント（Claude/Codex）が親Issueの文脈とユーザー入力からサブIssue本文を自動生成
+- **Sub-Issue紐づけ**: GitHub Sub-Issue API（`POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues`）で親子関係を紐づけ
+- **フォールバック機構**: Sub-Issue APIが利用できない場合、子Issue本文に `Parent issue: #<number>` を追記し、親Issueにリンクコメントを投稿
+- **プレビュー表示**: dry-runモードで生成結果のプレビュー（タイトル、本文抜粋、ラベル、品質メトリクス）を表示
+- **親Issueへの通知コメント**: apply時に親Issueへ `🔗 Sub-issue #<number> created: <title>` 形式のコメントを自動投稿
+- **部分失敗許容**: コメント投稿に失敗しても、Issue作成結果は保持して処理を継続
+
+**出力例（dry-runモード）**:
+```
+========================================
+  [Dry-Run] Sub-Issue Preview for Parent Issue #123
+========================================
+
+Parent Issue: #123 - 親Issueのタイトル
+
+--- Sub-Issue ---
+Title: ログイン画面のエラーハンドリング改善
+Body: ## 概要 ログイン画面でエラーが発生した場合の処理を改善する...
+Labels: bug
+
+METRICS
+  Completeness: 85/100
+  Specificity:  90/100
+
+Run with --apply to create this sub-issue on GitHub.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（Issue作成・Sub-Issue紐づけ・コメント投稿権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/create-sub-issue.ts`
+- **型定義**: `src/types/create-sub-issue.ts`
+- **プロンプトテンプレート**: `src/prompts/create-sub-issue/{ja|en}/create-sub-issue.txt`
+- **IssueClient拡張**: `addSubIssue()` メソッドでGitHub Sub-Issue APIを呼び出し
+- **GitHubClientファサード**: `addSubIssue()` ファサードメソッドを追加
+
+**安全運用のヒント**:
+- まずdry-run（デフォルト）で生成結果を確認し、問題がなければ `--apply` で実行する
+- `--custom-instruction` オプションで生成の方向性を細かく制御できる
+- Sub-Issue API が利用できない環境でも、フォールバックにより親子関係の参照情報が保持される
 - `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
 
 ### 認証情報の検証（validate-credentials コマンド）
@@ -1107,6 +1223,38 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **スカッシュ実行**: `git reset --soft base_commit` でコミットをスカッシュし、生成されたメッセージで新しいコミットを作成
 - **安全な強制プッシュ**: `git push --force-with-lease` で他の変更を上書きしない
 - **ロールバック可能性**: `pre_squash_commits` メタデータで元のコミット履歴を保存
+
+### ネットワークヘルスチェック（Issue #721で追加）
+
+EC2フリートインスタンス（T系）のネットワーク帯域バースト制限による性能低下を検知し、フェーズ開始前にグレースフル停止する機能です。
+
+```bash
+# ネットワークヘルスチェックを有効化
+node dist/index.js execute --issue 123 --phase all --network-health-check
+
+# 閾値をカスタマイズ（50%低下で停止、デフォルト: 70%）
+node dist/index.js execute --issue 123 --phase all \
+  --network-health-check \
+  --network-throughput-drop-threshold 50
+```
+
+**オプション**:
+- `--network-health-check`: ネットワークヘルスチェックを有効化（デフォルト: `false`）
+- `--network-throughput-drop-threshold <percent>`: スループット低下率の閾値（%、0〜100、デフォルト: `70`）
+
+**動作仕様**:
+- 各フェーズ開始前にIMDSv2でEC2メタデータを取得し、CloudWatch APIで`NetworkPacketsOut`と`NetworkOut`メトリクスを取得
+- 直近5分間の平均値とピーク値（過去1時間）を比較し、**両方**のメトリクスが閾値以上低下した場合にグレースフル停止（AND条件）
+- 停止時は`ExecutionSummary`に`stoppedReason: 'network_throughput_degraded'`が設定され、レジューム実行で停止フェーズから再開可能
+- 非EC2環境ではIMDSv2アクセスが3秒以内にタイムアウトし、チェックをスキップして通常通りフェーズを実行
+- CloudWatch APIエラーやデータポイント欠損時もチェックをスキップして続行（警告ログのみ出力）
+
+**環境変数**:
+- `NETWORK_HEALTH_CHECK`: デフォルト動作の設定（CLIオプション指定時はCLIが優先）
+- `NETWORK_THROUGHPUT_DROP_THRESHOLD`: 閾値のデフォルト値設定
+
+**AWS IAM権限要件**:
+- `cloudwatch:GetMetricStatistics` アクション権限が必要
 
 ### 依存関係管理
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）

@@ -1,7 +1,9 @@
 import process from 'node:process';
+import path from 'node:path';
 import simpleGit from 'simple-git';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
@@ -23,6 +25,7 @@ export async function handleResolveConflictInitCommand(options: ResolveConflictI
     }
 
     const git = simpleGit(repoRoot);
+    await ensureGitConfig(git);
     if (pr.base) {
       await git.fetch('origin', pr.base);
     }
@@ -40,6 +43,15 @@ export async function handleResolveConflictInitCommand(options: ResolveConflictI
       baseBranch: pr.base,
       headBranch: pr.head,
     });
+
+    try {
+      const metadataRelPath = path.relative(repoRoot, metadataManager.getMetadataPath());
+      await git.add(metadataRelPath);
+      await git.commit(`resolve-conflict: init metadata for PR #${prInfo.prNumber}`);
+      logger.info(`Committed metadata: ${metadataRelPath}`);
+    } catch (commitError: unknown) {
+      logger.warn(`Failed to commit metadata: ${getErrorMessage(commitError)}`);
+    }
 
     logger.info(`Initialization completed. Metadata saved to: ${metadataManager.getMetadataPath()}`);
   } catch (error) {

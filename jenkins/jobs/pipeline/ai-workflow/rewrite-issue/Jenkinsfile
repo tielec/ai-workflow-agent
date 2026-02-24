@@ -11,6 +11,7 @@
  * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
  * - APPLY: Issue更新フラグ（true/false、デフォルト: true）
  * - DRY_RUN: プレビューモード（true/false、デフォルト: false）
+ * - CUSTOM_INSTRUCTION: カスタム指示（任意、最大500文字）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - 認証情報（Codex/Claude系、auto-issueと同様）
  *
@@ -144,6 +145,7 @@ pipeline {
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Apply: ${params.APPLY ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
                 }
             }
         }
@@ -175,6 +177,7 @@ pipeline {
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Apply: ${params.APPLY ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
 
                     def applyLabel = params.APPLY ? ' [APPLY]' : ''
                     def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
@@ -186,6 +189,7 @@ pipeline {
                         def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
                         def applyFlag = params.APPLY ? '--apply' : ''
                         def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
+                        def customInstructionFlag = params.CUSTOM_INSTRUCTION ? "--custom-instruction \"${params.CUSTOM_INSTRUCTION}\"" : ''
 
                         sh """
                             node dist/index.js rewrite-issue \\
@@ -193,7 +197,8 @@ pipeline {
                                 ${languageOption} \\
                                 ${agentOption} \\
                                 ${applyFlag} \\
-                                ${dryRunFlag}
+                                ${dryRunFlag} \\
+                                ${customInstructionFlag}
                         """
                     }
                 }

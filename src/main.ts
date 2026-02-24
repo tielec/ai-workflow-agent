@@ -24,6 +24,8 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
 import { handleSplitIssueCommand } from './commands/split-issue.js';
+import { config } from './core/config.js';
+import { handleCreateSubIssueCommand } from './commands/create-sub-issue.js';
 
 /**
  * CLIエントリーポイント
@@ -159,6 +161,16 @@ export async function runCli(): Promise<void> {
       '--squash-on-complete',
       'Squash all commits into one after workflow completion (Issue #194)',
       false,
+    )
+    .option(
+      '--network-health-check',
+      'Enable network health check before each phase (EC2 only, Issue #721)',
+      config.getNetworkHealthCheckEnabled(),
+    )
+    .option(
+      '--network-throughput-drop-threshold <percent>',
+      'Network throughput drop threshold in % (0-100, default: 70, Issue #721)',
+      String(config.getNetworkThroughputDropThreshold()),
     )
     .action(async (options) => {
       try {
@@ -377,6 +389,36 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handleSplitIssueCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // create-sub-issue コマンド (Issue #713)
+  program
+    .command('create-sub-issue')
+    .description('Create a sub-issue linked to a parent issue')
+    .requiredOption('--parent-issue <number>', 'Parent issue number')
+    .requiredOption('--description <text>', 'Bug description or task summary (max 1000 chars)')
+    .addOption(
+      new Option('--type <type>', 'Issue type')
+        .choices(['bug', 'task', 'enhancement'])
+        .default('bug'),
+    )
+    .addOption(createLanguageOption())
+    .addOption(
+      new Option('--agent <mode>', 'Agent mode')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .option('--apply', 'Create GitHub Issue', false)
+    .option('--dry-run', 'Preview mode (default)', false)
+    .option('--labels <labels>', 'Comma-separated labels')
+    .option('--custom-instruction <text>', 'Custom instruction for AI (max 500 chars)')
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleCreateSubIssueCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

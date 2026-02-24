@@ -55,6 +55,37 @@ export async function executePhasesSequential(
 
   for (const phaseName of phases) {
     try {
+      if (context.networkHealthCheck) {
+        const { checkNetworkHealth } = await import('../../core/network-health-checker.js');
+        const threshold = context.networkThroughputDropThreshold ?? 70;
+        const healthResult = await checkNetworkHealth(threshold);
+        if (healthResult.available && healthResult.shouldStop) {
+          logger.warn(
+            `Network throughput dropped ${healthResult.dropPercentage.toFixed(1)}% from peak. ` +
+              `NetworkPacketsOut: ${healthResult.networkPacketsOutCurrent}/${healthResult.networkPacketsOutPeak}, ` +
+              `NetworkOut: ${healthResult.networkOutCurrent}/${healthResult.networkOutPeak} bytes. ` +
+              `Stopping before phase: ${phaseName}`,
+          );
+          return {
+            success: false,
+            failedPhase: phaseName,
+            error:
+              `Network throughput degraded before ${phaseName}. ` +
+              `Drop: ${healthResult.dropPercentage.toFixed(1)}%`,
+            stoppedReason: 'network_throughput_degraded',
+            results,
+          };
+        }
+        if (healthResult.available) {
+          logger.debug(
+            `Network health OK. Drop: ${healthResult.dropPercentage.toFixed(1)}% ` +
+              `(threshold: ${threshold}%)`,
+          );
+        } else {
+          logger.debug('Network health check not available, skipping.');
+        }
+      }
+
       if (context.skipPhases?.includes(phaseName)) {
         logger.info(`⏭️  Skipped: ${phaseName}`);
         context.metadataManager.updatePhaseStatus(phaseName, 'skipped');
