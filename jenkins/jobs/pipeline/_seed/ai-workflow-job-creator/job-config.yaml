@@ -62,6 +62,13 @@ jenkins-jobs:
     jenkinsfile: jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile
     skipJenkinsfileValidation: true
 
+  ai_workflow_split_issue_job:
+    name: 'split_issue'
+    displayName: 'Split Issue'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile
+    skipJenkinsfileValidation: true
+
   ai_workflow_validate_credentials_job:
     name: 'validate_credentials'
     displayName: 'Validate Credentials'
