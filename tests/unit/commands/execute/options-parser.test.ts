@@ -949,6 +949,32 @@ describe('parseExecuteOptions - ネットワークヘルスチェック', () => 
     expect(result.networkHealthCheck).toBe(true);
     expect(result.networkThroughputDropThreshold).toBe(50);
   });
+
+  test('OPT-014: parseExecuteOptions_networkHealthCheck_env設定を尊重する', () => {
+    process.env.NETWORK_HEALTH_CHECK = 'true';
+
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkHealthCheck).toBe(true);
+  });
+
+  test('OPT-015: parseExecuteOptions_networkThroughputDropThreshold_envの値を使用する', () => {
+    process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = '45';
+
+    const options: ExecuteCommandOptions = {
+      issue: '721',
+      phase: 'all',
+    };
+
+    const result = parseExecuteOptions(options);
+
+    expect(result.networkThroughputDropThreshold).toBe(45);
+  });
 });
 
 // =============================================================================

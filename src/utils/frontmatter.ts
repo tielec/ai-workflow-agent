@@ -3,10 +3,10 @@ import { getErrorMessage } from './error-utils.js';
 import type { IssueDifficultyAssessment } from '../types.js';
 
 /**
- * IssueDifficultyAssessmentからYAML frontmatter文字列を生成する。
+ * IssueDifficultyAssessmentからHTML <details> 折りたたみ形式のメタデータ文字列を生成する。
  */
 export function generateFrontmatter(assessment: IssueDifficultyAssessment): string {
-  const lines: string[] = ['---'];
+  const lines: string[] = ['<details>', '<summary>メタデータ</summary>', ''];
 
   lines.push(`difficulty: ${assessment.grade}`);
   lines.push(`difficulty_label: ${assessment.label}`);
@@ -23,7 +23,9 @@ export function generateFrontmatter(assessment: IssueDifficultyAssessment): stri
 
   lines.push(`assessed_by: ${assessment.assessed_by}`);
   lines.push(`assessed_at: ${assessment.assessed_at}`);
-  lines.push('---');
+  lines.push('');
+  lines.push('</details>');
+  lines.push('');
 
   return lines.join('\n');
 }
@@ -33,25 +35,30 @@ export function generateFrontmatter(assessment: IssueDifficultyAssessment): stri
  * 既存のfrontmatterがある場合は置換する。
  */
 export function insertFrontmatter(body: string, frontmatter: string): string {
+  const normalizedFrontmatter = frontmatter.endsWith('\n')
+    ? frontmatter
+    : `${frontmatter}\n`;
+
   if (!body) {
-    return frontmatter;
+    return normalizedFrontmatter;
   }
 
   const existing = extractExistingFrontmatter(body);
   if (!existing) {
-    return `${frontmatter}\n\n${body}`;
+    return `${normalizedFrontmatter}\n${body}`;
   }
 
   const content = existing.content.trimStart();
   if (!content) {
-    return frontmatter;
+    return normalizedFrontmatter;
   }
 
-  return `${frontmatter}\n\n${content}`;
+  return `${normalizedFrontmatter}\n${content}`;
 }
 
 /**
  * frontmatter付き文字列からメタデータとコンテンツを分離する。
+ * 新形式（<details>タグ）と旧形式（---区切り）の両方に対応する。
  */
 export function parseFrontmatter(body: string): {
   metadata: Record<string, unknown> | null;
@@ -62,38 +69,63 @@ export function parseFrontmatter(body: string): {
   }
 
   try {
-    const match = body.match(/^---\n([\s\S]*?)\n---\n/);
-    if (!match) {
-      return { metadata: null, content: body };
+    const detailsMatch = body.match(
+      /^<details>\n<summary>メタデータ<\/summary>\n\n([\s\S]*?)\n\n<\/details>\n/,
+    );
+    if (detailsMatch) {
+      const metadata = parseFrontmatterLines(detailsMatch[1]);
+      if (metadata) {
+        return {
+          metadata,
+          content: body.slice(detailsMatch[0].length),
+        };
+      }
     }
 
-    const metadata = parseFrontmatterLines(match[1]);
-    if (!metadata) {
-      return { metadata: null, content: body };
+    const yamlMatch = body.match(/^---\n([\s\S]*?)\n---\n/);
+    if (yamlMatch) {
+      const metadata = parseFrontmatterLines(yamlMatch[1]);
+      if (metadata) {
+        return {
+          metadata,
+          content: body.slice(yamlMatch[0].length),
+        };
+      }
     }
 
-    return {
-      metadata,
-      content: body.slice(match[0].length),
-    };
+    return { metadata: null, content: body };
   } catch (error) {
     logger.warn(`Failed to parse frontmatter: ${getErrorMessage(error)}`);
     return { metadata: null, content: body };
   }
 }
 
+/**
+ * Issue本文から既存のメタデータブロックを検出・抽出する。
+ * 新形式（<details>タグ）を優先し、見つからない場合は旧形式（---区切り）にフォールバックする。
+ */
 function extractExistingFrontmatter(
   body: string,
 ): { frontmatter: string; content: string } | null {
-  const match = body.match(/^---\n[\s\S]*?\n---\n/);
-  if (!match) {
-    return null;
+  const detailsMatch = body.match(
+    /^<details>\n<summary>メタデータ<\/summary>\n[\s\S]*?\n<\/details>\n/,
+  );
+  if (detailsMatch) {
+    return {
+      frontmatter: detailsMatch[0],
+      content: body.slice(detailsMatch[0].length),
+    };
   }
 
-  return {
-    frontmatter: match[0],
-    content: body.slice(match[0].length),
-  };
+  const yamlMatch = body.match(/^---\n[\s\S]*?\n---\n/);
+  if (yamlMatch) {
+    return {
+      frontmatter: yamlMatch[0],
+      content: body.slice(yamlMatch[0].length),
+    };
+  }
+
+  return null;
 }
 
 function parseFrontmatterLines(raw: string): Record<string, unknown> | null {

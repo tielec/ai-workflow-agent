@@ -194,12 +194,14 @@ To apply these changes, run with --apply option.
 - `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
 
-**frontmatter自動付与**（Issue #712で追加）:
+**メタデータ自動付与**（Issue #712で追加、Issue #771で表示形式を変更）:
 
-`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報が自動付与されます。
+`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にHTML `<details>` 折りたたみ形式で難易度・バグリスク情報が自動付与されます。メタデータはデフォルトで折りたたまれた状態で表示され、クリックで展開できます。
 
-```yaml
----
+```html
+<details>
+<summary>メタデータ</summary>
+
 difficulty: C
 difficulty_label: moderate
 bug_risk:
@@ -210,7 +212,8 @@ rationale: |
   複数ファイルの変更が必要であり中程度の難易度と判定。
 assessed_by: claude
 assessed_at: 2025-01-15T10:30:00Z
----
+
+</details>
 ```
 
 | フィールド | 説明 |
