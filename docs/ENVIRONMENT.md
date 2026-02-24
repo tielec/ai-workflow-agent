@@ -221,6 +221,31 @@ export FOLLOWUP_LLM_MODEL="claude-sonnet-4-5"
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
+### ネットワークヘルスチェック設定（Issue #721で追加）
+
+| 環境変数 | 説明 | デフォルト |
+|---------|------|----------|
+| `NETWORK_HEALTH_CHECK` | ネットワークヘルスチェックの有効化（EC2環境向け） | `false` |
+| `NETWORK_THROUGHPUT_DROP_THRESHOLD` | スループット低下率の閾値（%、0〜100） | `70` |
+
+- T系EC2インスタンスのネットワーク帯域バースト制限による性能低下を検知し、フェーズ開始前にグレースフル停止する
+- `execute --phase all` 実行時に `--network-health-check` CLIオプションが指定されている場合はCLIオプションが優先
+- 非EC2環境（ローカル開発環境等）ではIMDSv2アクセスが3秒以内にタイムアウトし、チェックをスキップして通常通り実行される
+- **AWS IAM権限**: `cloudwatch:GetMetricStatistics` アクション権限が必要（Jenkins環境ではインスタンスプロファイルまたは環境変数で設定済み）
+- **依存パッケージ**: `@aws-sdk/client-cloudwatch`（CloudWatch APIの呼び出しに使用）
+
+**設定例**:
+```bash
+# 環境変数でデフォルト動作を設定
+export NETWORK_HEALTH_CHECK="true"
+
+# 閾値をカスタマイズ（50%低下で停止）
+export NETWORK_THROUGHPUT_DROP_THRESHOLD="50"
+
+# CLI オプションで上書き
+node dist/index.js execute --issue 123 --phase all --network-health-check --network-throughput-drop-threshold 50
+```
+
 ### Docker環境設定（Issue #177で追加）
 
 | 環境変数 | 説明 | デフォルト |
@@ -345,6 +370,7 @@ env:
 | `CLEANUP_ON_COMPLETE_FORCE` | Evaluation 完了後にワークフローディレクトリを強制削除 | `false` |
 | `SQUASH_ON_COMPLETE` | ワークフロー完了時にコミットをスカッシュ | `false` |
 | `LANGUAGE` | ワークフロー言語 (`ja` / `en`) | `ja` |
+| `NETWORK_HEALTH_CHECK` | ネットワークヘルスチェックの有効化（EC2環境向け、Issue #721） | `false` |
 | その他 | Git 設定、API キー、Webhook 設定など | ― |
 
 **SKIP_PHASES の使用例**:
