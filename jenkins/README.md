@@ -86,7 +86,7 @@ jenkins/
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
 | **create_sub_issue** | サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成） | 18 |
 | **validate_credentials** | 認証情報バリデーション（Git/GitHub/Codex/Claude/OpenAI/Anthropic） | 17 |
-| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除） | 7 |
+| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、developフォルダのみ） | 3 |
 
 ### 言語設定
 
@@ -201,7 +201,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（14種類 × 10フォルダ = 140ジョブ）
+- 各実行モード用のジョブ（13種類 × 10フォルダ + ecr_build × 1フォルダ = 131ジョブ）
 
 ## 共通処理モジュール
 
