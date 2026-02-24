@@ -59,8 +59,10 @@ node dist/index.js resolve-conflict finalize \
 ### finalize
 
 - `--push` 指定時にリモートへ push
-- 解消結果を PR にコメント投稿
+- 解消結果を PR にコメント投稿（Markdown テーブル形式でファイルパス・解消方法・備考を表示）
 - メタデータをクリーンアップ
+
+**コメントフォーマット**: finalize フェーズでは、`resolution-result.json` の内容を人間が読みやすい Markdown テーブル形式に変換してPRコメントとして投稿します。各解消済みファイルのパス、解消方法（日本語表示）、備考を表形式で表示し、統計セクション（解消ファイル数、解消方法内訳）も含まれます。`resolvedContent`（ファイル全文）はコメントに含まれません。
 
 ## 生成される成果物
 
