@@ -604,7 +604,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 新しい CLI オプション `--codex-model <model>` を追加（エイリアスまたはフルモデルIDで指定可能）
   - 新しい環境変数 `CODEX_MODEL` のサポート（CLI オプションより低優先度）
   - デフォルトモデルを `gpt-5-codex` から `gpt-5.2-codex` に変更
-  - モデルエイリアス機能: `max`（gpt-5.2-codex）、`mini`（gpt-5.1-codex-mini`）、`5.1`（gpt-5.1）、`legacy`（gpt-5-codex）
+  - モデルエイリアス機能: `max`（gpt-5.2-codex）、`mini`（gpt-5.1-codex-mini）、`5.1`（gpt-5.1）、`legacy`（gpt-5-codex）
   - 優先順位: CLI オプション > 環境変数 > デフォルト値
   - 後方互換性: `--codex-model legacy` または `CODEX_MODEL=legacy` で旧モデル使用可能
   - テストカバレッジ: 30件のユニットテスト（resolveCodexModel、CODEX_MODEL_ALIASES、DEFAULT_CODEX_MODEL）
