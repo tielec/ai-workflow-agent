@@ -27,7 +27,9 @@ describe('frontmatter utils', () => {
       const frontmatter = generateFrontmatter(assessment);
 
       // Then
-      expect(frontmatter).toContain('---');
+      expect(frontmatter).toContain('<details>');
+      expect(frontmatter).toContain('<summary>メタデータ</summary>');
+      expect(frontmatter).not.toContain('---');
       expect(frontmatter).toContain('difficulty: C');
       expect(frontmatter).toContain('difficulty_label: moderate');
       expect(frontmatter).toContain('bug_risk:');
@@ -38,6 +40,14 @@ describe('frontmatter utils', () => {
       expect(frontmatter).toContain('  複数ファイルの変更が必要であり中程度の難易度と判定。');
       expect(frontmatter).toContain('assessed_by: claude');
       expect(frontmatter).toContain('assessed_at: 2025-01-15T10:30:00Z');
+      expect(frontmatter).toContain('</details>');
+      const lines = frontmatter.split('\n');
+      expect(lines[0]).toBe('<details>');
+      expect(lines[1]).toBe('<summary>メタデータ</summary>');
+      expect(lines[2]).toBe('');
+      expect(lines[lines.length - 2]).toBe('</details>');
+      expect(lines[lines.length - 3]).toBe('');
+      expect(frontmatter.endsWith('\n')).toBe(true);
     });
 
     it('グレードAが正しいdifficultyとlabelで出力される (TC-FM-GEN-002)', () => {
@@ -183,69 +193,189 @@ describe('frontmatter utils', () => {
     it('通常のbodyにfrontmatterを挿入する (TC-FM-INS-001)', () => {
       // Given
       const body = '## 概要\nIssue本文です。';
-      const frontmatter = '---\ndifficulty: C\n---';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: C\n' +
+        '\n' +
+        '</details>\n';
 
       // When
       const result = insertFrontmatter(body, frontmatter);
 
       // Then
-      expect(result).toBe('---\ndifficulty: C\n---\n\n## 概要\nIssue本文です。');
+      expect(result).toBe(
+        '<details>\n' +
+          '<summary>メタデータ</summary>\n' +
+          '\n' +
+          'difficulty: C\n' +
+          '\n' +
+          '</details>\n' +
+          '\n' +
+          '## 概要\nIssue本文です。',
+      );
     });
 
     it('空文字のbodyはfrontmatterのみ返す (TC-FM-INS-002)', () => {
       // Given
       const body = '';
-      const frontmatter = '---\ndifficulty: A\n---';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: A\n' +
+        '\n' +
+        '</details>\n';
 
       // When
       const result = insertFrontmatter(body, frontmatter);
 
       // Then
-      expect(result).toBe('---\ndifficulty: A\n---');
+      expect(result).toBe(
+        '<details>\n' +
+          '<summary>メタデータ</summary>\n' +
+          '\n' +
+          'difficulty: A\n' +
+          '\n' +
+          '</details>\n',
+      );
     });
 
     it('既存frontmatterがある場合は置換する (TC-FM-INS-003)', () => {
       // Given
-      const body = '---\nold_key: old_value\n---\n\n## 概要\n既存の本文。';
-      const frontmatter = '---\ndifficulty: D\n---';
+      const body =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'old_key: old_value\n' +
+        '\n' +
+        '</details>\n' +
+        '\n' +
+        '## 概要\n既存の本文。';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: D\n' +
+        '\n' +
+        '</details>\n';
 
       // When
       const result = insertFrontmatter(body, frontmatter);
 
       // Then
-      expect(result).toBe('---\ndifficulty: D\n---\n\n## 概要\n既存の本文。');
+      expect(result).toBe(
+        '<details>\n' +
+          '<summary>メタデータ</summary>\n' +
+          '\n' +
+          'difficulty: D\n' +
+          '\n' +
+          '</details>\n' +
+          '\n' +
+          '## 概要\n既存の本文。',
+      );
       expect(result).not.toContain('old_key');
     });
 
     it('閉じ---がない場合は先頭に挿入する (TC-FM-INS-004)', () => {
       // Given
       const body = '---\nこれはfrontmatterではない';
-      const frontmatter = '---\ndifficulty: B\n---';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: B\n' +
+        '\n' +
+        '</details>\n';
 
       // When
       const result = insertFrontmatter(body, frontmatter);
 
       // Then
-      expect(result).toBe('---\ndifficulty: B\n---\n\n---\nこれはfrontmatterではない');
+      expect(result).toBe(
+        '<details>\n' +
+          '<summary>メタデータ</summary>\n' +
+          '\n' +
+          'difficulty: B\n' +
+          '\n' +
+          '</details>\n' +
+          '\n' +
+          '---\nこれはfrontmatterではない',
+      );
     });
 
     it('既存frontmatter後の余分な空行を整理して結合する (TC-FM-INS-005)', () => {
       // Given
-      const body = '---\nold: value\n---\n\n\n\n## 概要\n本文。';
-      const frontmatter = '---\ndifficulty: C\n---';
+      const body =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'old: value\n' +
+        '\n' +
+        '</details>\n' +
+        '\n\n\n' +
+        '## 概要\n本文。';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: C\n' +
+        '\n' +
+        '</details>\n';
 
       // When
       const result = insertFrontmatter(body, frontmatter);
 
       // Then
-      expect(result).toBe('---\ndifficulty: C\n---\n\n## 概要\n本文。');
+      expect(result).toBe(
+        '<details>\n' +
+          '<summary>メタデータ</summary>\n' +
+          '\n' +
+          'difficulty: C\n' +
+          '\n' +
+          '</details>\n' +
+          '\n' +
+          '## 概要\n本文。',
+      );
+    });
+
+    it('旧形式（---）のfrontmatterを新形式に置換する (TC-FM-INS-006)', () => {
+      // Given
+      const body = '---\nold_key: old_value\n---\n\n## 概要\n既存の本文。';
+      const frontmatter =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: D\n' +
+        '\n' +
+        '</details>\n';
+
+      // When
+      const result = insertFrontmatter(body, frontmatter);
+
+      // Then
+      expect(result).toContain('<details>');
+      expect(result).toContain('</details>');
+      expect(result).not.toContain('old_key');
+      expect(result).toContain('## 概要');
+      expect(result).toContain('既存の本文。');
     });
   });
 
   describe('parseFrontmatter', () => {
     it('frontmatter付き本文からmetadataとcontentを分離する (TC-FM-PRS-001)', () => {
       // Given
-      const body = '---\ndifficulty: C\ndifficulty_label: moderate\n---\n\n## 概要\n本文。';
+      const body =
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
+        'difficulty: C\n' +
+        'difficulty_label: moderate\n' +
+        '\n' +
+        '</details>\n' +
+        '\n' +
+        '## 概要\n本文。';
 
       // When
       const result = parseFrontmatter(body);
@@ -296,13 +426,18 @@ describe('frontmatter utils', () => {
     it('ネストされたオブジェクト（bug_risk）をパースする (TC-FM-PRS-005)', () => {
       // Given
       const body =
-        '---\n' +
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
         'difficulty: D\n' +
         'bug_risk:\n' +
         '  expected_bugs: 3\n' +
         '  probability: 50\n' +
         '  risk_score: 1.50\n' +
-        '---\n\n本文';
+        '\n' +
+        '</details>\n' +
+        '\n' +
+        '本文';
 
       // When
       const result = parseFrontmatter(body);
@@ -319,12 +454,17 @@ describe('frontmatter utils', () => {
     it('ブロックスカラー（rationale）を結合してパースする (TC-FM-PRS-006)', () => {
       // Given
       const body =
-        '---\n' +
+        '<details>\n' +
+        '<summary>メタデータ</summary>\n' +
+        '\n' +
         'rationale: |\n' +
         '  1行目のテキスト\n' +
         '  2行目のテキスト\n' +
         'assessed_by: claude\n' +
-        '---\n\n本文';
+        '\n' +
+        '</details>\n' +
+        '\n' +
+        '本文';
 
       // When
       const result = parseFrontmatter(body);
@@ -356,6 +496,65 @@ describe('frontmatter utils', () => {
       expect(result.metadata?.difficulty).toBe('C');
       expect(result.metadata?.difficulty_label).toBe('moderate');
       expect(result.content).toContain('本文');
+    });
+
+    it('旧形式frontmatterでもmetadataとcontentを分離する (TC-FM-PRS-008)', () => {
+      // Given
+      const body = '---\ndifficulty: C\ndifficulty_label: moderate\n---\n\n## 概要\n本文。';
+
+      // When
+      const result = parseFrontmatter(body);
+
+      // Then
+      expect(result.metadata).not.toBeNull();
+      expect(result.metadata?.difficulty).toBe('C');
+      expect(result.metadata?.difficulty_label).toBe('moderate');
+      expect(result.content.startsWith('\n## 概要')).toBe(true);
+    });
+
+    it('旧形式のネストされたオブジェクトを後方互換でパースする (TC-FM-PRS-009)', () => {
+      // Given
+      const body =
+        '---\n' +
+        'difficulty: D\n' +
+        'bug_risk:\n' +
+        '  expected_bugs: 3\n' +
+        '  probability: 50\n' +
+        '  risk_score: 1.50\n' +
+        '---\n\n本文';
+
+      // When
+      const result = parseFrontmatter(body);
+
+      // Then
+      expect(result.metadata).not.toBeNull();
+      expect(result.metadata?.difficulty).toBe('D');
+      const bugRisk = result.metadata?.bug_risk as Record<string, unknown>;
+      expect(bugRisk.expected_bugs).toBe('3');
+      expect(bugRisk.probability).toBe('50');
+      expect(bugRisk.risk_score).toBe('1.50');
+    });
+
+    it('frontmatterのみの本文でもmetadataを取得できる (TC-FM-PRS-010)', () => {
+      // Given
+      const assessment: IssueDifficultyAssessment = {
+        grade: 'B',
+        label: 'simple',
+        bug_risk: { expected_bugs: 1, probability: 20, risk_score: 0.2 },
+        rationale: '判定根拠テキスト',
+        assessed_by: 'claude',
+        assessed_at: '2025-01-15T10:30:00Z',
+      };
+      const body = generateFrontmatter(assessment);
+
+      // When
+      const result = parseFrontmatter(body);
+
+      // Then
+      expect(result.metadata).not.toBeNull();
+      expect(result.metadata?.difficulty).toBe('B');
+      expect(result.metadata?.difficulty_label).toBe('simple');
+      expect(result.content).toBe('');
     });
   });
 });

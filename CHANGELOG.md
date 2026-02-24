@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #771**: `rewrite-issue` コマンドのメタデータ表示形式をYAML frontmatter（`---` 区切り）からHTML `<details>` 折りたたみ形式に変更
+  - GitHub Issues上でメタデータがデフォルトで折りたたまれた状態で表示され、Issue本文の可読性が向上
+  - `src/utils/frontmatter.ts` の `generateFrontmatter()` を `<details>` / `<summary>メタデータ</summary>` / YAML コンテンツ / `</details>` の構造に変更
+  - `extractExistingFrontmatter()` と `parseFrontmatter()` に新旧両形式対応を追加し、旧形式（`---` 区切り）の後方互換性を維持
+  - 既存Issueを `rewrite-issue --apply` で再処理した場合、旧形式を自動検出して新形式に置換
+  - テストカバレッジ: ユニットテスト24件（新形式検証 + 後方互換テスト）、全体 `npm run validate`（lint + test + build）PASS（157 suites / 2491 tests）
+  - 修正ファイル: `src/utils/frontmatter.ts`、`tests/unit/utils/frontmatter.test.ts`
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（メタデータ自動付与セクション）
+
 ### Added
 
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
