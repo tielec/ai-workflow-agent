@@ -9,16 +9,67 @@ import { GitHubClient } from '../../core/github-client.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
 import type { ResolveConflictFinalizeOptions } from '../../types/commands.js';
+import type { ConflictResolution, ResolutionStrategy } from '../../types/conflict.js';
 
+/**
+ * ResolutionStrategy の日本語表示名マッピング。
+ * 新しい ResolutionStrategy 値が追加された場合、ここにエントリを追加する。
+ */
+const strategyLabels: Record<ResolutionStrategy, string> = {
+  ours: 'ソースブランチの内容を採用',
+  theirs: 'ターゲットブランチの内容を採用',
+  both: '両方の内容を結合',
+  'manual-merge': 'AIによる自動解消',
+};
+
+/**
+ * PRコメント本文を生成する。
+ *
+ * resultSummary が ConflictResolution[] の JSON 文字列の場合は
+ * Markdown テーブル形式のレポートに変換する。
+ * JSON パースに失敗した場合は従来通り生テキストを表示する（フォールバック）。
+ *
+ * @param resultSummary - resolution-result.json の内容（文字列）または null
+ * @returns Markdown 形式のコメント本文
+ */
 function buildCommentBody(resultSummary: string | null): string {
-  const lines = [
-    '## ✅ マージコンフリクト解消レポート',
-    '',
-    resultSummary ?? '解消結果の詳細はローカルのレポートをご確認ください。',
-    '',
-    '---',
-    '*AI Workflow resolve-conflict*',
-  ];
+  const lines = ['## ✅ マージコンフリクト解消レポート', ''];
+
+  if (!resultSummary) {
+    lines.push('解消結果の詳細はローカルのレポートをご確認ください。');
+  } else {
+    try {
+      const resolutions: ConflictResolution[] = JSON.parse(resultSummary);
+
+      if (resolutions.length === 0) {
+        lines.push('コンフリクトファイルはありませんでした。');
+      } else {
+        lines.push('### 解消結果サマリー', '');
+        lines.push('| ファイル | 解消方法 | 備考 |');
+        lines.push('|---------|---------|------|');
+        for (const resolution of resolutions) {
+          const label = strategyLabels[resolution.strategy] ?? resolution.strategy;
+          lines.push(`| ${resolution.filePath} | ${label} | ${resolution.notes ?? '-'} |`);
+        }
+
+        lines.push('', '### 統計');
+        lines.push(`- 解消ファイル数: ${resolutions.length}`);
+        const counts: Record<string, number> = {};
+        for (const resolution of resolutions) {
+          const label = strategyLabels[resolution.strategy] ?? resolution.strategy;
+          counts[label] = (counts[label] ?? 0) + 1;
+        }
+        const breakdown = Object.entries(counts)
+          .map(([label, count]) => `${label}: ${count}`)
+          .join(', ');
+        lines.push(`- 解消方法内訳: ${breakdown}`);
+      }
+    } catch {
+      lines.push(resultSummary);
+    }
+  }
+
+  lines.push('', '---', '*AI Workflow resolve-conflict*');
 
   return lines.join('\n');
 }
