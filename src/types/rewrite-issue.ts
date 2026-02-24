@@ -16,6 +16,8 @@ export interface RawRewriteIssueOptions {
   apply?: boolean;
   /** リライトの追加指示 */
   customInstruction?: string;
+  /** リポジトリ探索用ベースブランチ */
+  baseBranch?: string;
 }
 
 /**
@@ -32,6 +34,8 @@ export interface RewriteIssueOptions {
   apply: boolean;
   /** リライトの追加指示 */
   customInstruction?: string;
+  /** リポジトリ探索用ベースブランチ */
+  baseBranch?: string;
 }
 
 /**

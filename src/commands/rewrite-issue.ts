@@ -14,9 +14,10 @@ import { resolveAgentCredentials, setupAgentClients } from './execute/agent-setu
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { PromptLoader } from '../core/prompt-loader.js';
 import { GitHubClient } from '../core/github-client.js';
-import { resolveLocalRepoPath } from '../core/repository-utils.js';
+import { checkoutBaseBranch, resolveLocalRepoPath } from '../core/repository-utils.js';
 import { DifficultyAnalyzer } from '../core/difficulty-analyzer.js';
 import { generateFrontmatter, insertFrontmatter } from '../utils/frontmatter.js';
+import { validateBranchName } from './init.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import type { IssueDifficultyAssessment, SupportedLanguage } from '../types.js';
@@ -43,7 +44,7 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
     // 1. オプションパース
     const options = parseOptions(rawOptions);
     logger.info(
-      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
+      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}, baseBranch=${options.baseBranch ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
     if (options.customInstruction) {
       logger.info(`Custom instruction: ${options.customInstruction}`);
@@ -69,6 +70,12 @@ export async function handleRewriteIssueCommand(rawOptions: RawRewriteIssueOptio
     } catch (error) {
       logger.warn(`Failed to resolve repository path, fallback to CWD: ${getErrorMessage(error)}`);
       repoPath = process.cwd();
+    }
+
+    if (options.baseBranch) {
+      await checkoutBaseBranch(repoPath, options.baseBranch);
+    } else {
+      logger.debug('No base branch specified, using current branch');
     }
 
     // 6. エージェントクライアント準備
@@ -206,12 +213,21 @@ function parseOptions(rawOptions: RawRewriteIssueOptions): RewriteIssueOptions {
     customInstruction = trimmed;
   }
 
+  const baseBranch = rawOptions.baseBranch;
+  if (baseBranch !== undefined) {
+    const validation = validateBranchName(baseBranch);
+    if (!validation.valid) {
+      throw new Error(`Invalid base branch name: "${baseBranch}". ${validation.error}`);
+    }
+  }
+
   return {
     issueNumber,
     language,
     agent,
     apply,
     customInstruction,
+    baseBranch,
   };
 }
 

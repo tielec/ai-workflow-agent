@@ -262,7 +262,7 @@ describe('Integration: Sensitive Jenkins parameters use nonStoredPasswordParam (
   });
 
   describe('IT-005: BASE_BRANCH avoids stringParam in applicable jobs', () => {
-    it.each<JobKey>(['allPhases', 'preset', 'singlePhase', 'finalize'])(
+    it.each<JobKey>(['allPhases', 'preset', 'singlePhase', 'finalize', 'autoIssue', 'rewriteIssue'])(
       'uses nonStoredPasswordParam for BASE_BRANCH in %s',
       (jobKey) => {
         expectParamSecured(jobKey, 'BASE_BRANCH');

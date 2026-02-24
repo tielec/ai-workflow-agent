@@ -317,6 +317,10 @@ export async function runCli(): Promise<void> {
       '--custom-instruction <text>',
       'Custom instruction for analysis guidance (max 500 chars, analysis-only)',
     )
+    .option(
+      '--base-branch <branch>',
+      'Base branch for repository exploration (default: repository default branch)',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);
@@ -346,6 +350,10 @@ export async function runCli(): Promise<void> {
     .option(
       '--custom-instruction <text>',
       'Custom instruction for rewrite guidance (max 500 chars)',
+    )
+    .option(
+      '--base-branch <branch>',
+      'Base branch for repository exploration (default: repository default branch)',
     )
     .action(async (options) => {
       try {

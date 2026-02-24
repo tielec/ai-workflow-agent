@@ -68,9 +68,12 @@ await jest.unstable_mockModule('../../src/core/config.js', () => ({
 
 await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
   __esModule: true,
+  parseIssueUrl: jest.fn(),
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  checkoutBaseBranch: jest.fn(),
   // 他のモジュールの named import を満たすためダミーエクスポートを追加
   findWorkflowMetadata: jest.fn(),
+  getRepoRoot: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../src/utils/logger.js', () => ({

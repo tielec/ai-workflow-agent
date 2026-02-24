@@ -70,7 +70,11 @@ beforeAll(async () => {
     setupAgentClients: setupAgentClientsMock,
   }));
   jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
+    parseIssueUrl: jest.fn(),
     resolveLocalRepoPath: resolveLocalRepoPathMock,
+    checkoutBaseBranch: jest.fn(),
+    getRepoRoot: jest.fn(),
+    findWorkflowMetadata: jest.fn(),
   }));
   jest.unstable_mockModule('../../src/core/issue-deduplicator.js', () => ({
     IssueDeduplicator: IssueDeduplicatorMock,

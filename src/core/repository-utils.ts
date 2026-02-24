@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 import { config } from './config.js';
 import process from 'node:process';
 import os from 'node:os';
@@ -212,4 +213,42 @@ export async function getRepoRoot(): Promise<string> {
   } catch {
     return process.cwd();
   }
+}
+
+/**
+ * 指定されたベースブランチにリポジトリをチェックアウトする。
+ *
+ * @param repoPath - ローカルリポジトリのパス
+ * @param baseBranch - チェックアウト先のブランチ名（バリデーション済みであること）
+ * @throws ブランチが存在しない場合、git fetch 失敗時
+ */
+export async function checkoutBaseBranch(repoPath: string, baseBranch: string): Promise<void> {
+  logger.info(`Fetching and checking out base branch: ${baseBranch}`);
+
+  const git = simpleGit(repoPath);
+
+  try {
+    await git.fetch('origin');
+  } catch (error: unknown) {
+    throw new Error(
+      `Failed to fetch from remote: ${getErrorMessage(error)}. ` +
+        'Please check network connectivity and authentication.',
+    );
+  }
+
+  const localBranches = await git.branchLocal();
+  const remoteBranches = await git.branch(['-r']);
+
+  const existsLocally = localBranches.all.includes(baseBranch);
+  const existsRemotely = remoteBranches.all.includes(`origin/${baseBranch}`);
+
+  if (existsLocally) {
+    await git.checkout(baseBranch);
+  } else if (existsRemotely) {
+    await git.checkoutBranch(baseBranch, `origin/${baseBranch}`);
+  } else {
+    throw new Error(`Base branch '${baseBranch}' not found in local or remote branches.`);
+  }
+
+  logger.info(`Successfully checked out base branch: ${baseBranch}`);
 }
