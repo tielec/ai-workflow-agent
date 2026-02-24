@@ -90,6 +90,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     followupLlmMaxRetries,
     followupLlmAppendMetadata,
     squashOnComplete,
+    networkHealthCheck,
+    networkThroughputDropThreshold,
     language,
   } = parsedOptions;
 
@@ -361,6 +363,8 @@ export async function handleExecuteCommand(options: ExecuteCommandOptions): Prom
     issueInfo,
     language: resolvedLanguage,
     skipPhases,
+    networkHealthCheck,
+    networkThroughputDropThreshold,
   };
 
   // 7. プリセット実行（workflow-executor に委譲）

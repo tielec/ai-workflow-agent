@@ -24,6 +24,7 @@
  * - FORCE_RESET: 強制リセット（デフォルト: false）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false）
  * - SQUASH_ON_COMPLETE: ワークフロー完了時にコミットをスカッシュ（デフォルト: false）
+ * - NETWORK_HEALTH_CHECK: ネットワークヘルスチェック有効化（デフォルト: false）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - GIT_COMMIT_USER_NAME: Gitコミット時のユーザー名（デフォルト: AI Workflow Bot）
  * - GIT_COMMIT_USER_EMAIL: Gitコミット時のメールアドレス（デフォルト: ai-workflow@example.com）
@@ -166,6 +167,7 @@ pipeline {
                     echo "Force Reset: ${params.FORCE_RESET ?: false}"
                     echo "Cleanup On Complete Force: ${params.CLEANUP_ON_COMPLETE_FORCE ?: false}"
                     echo "Squash On Complete: ${params.SQUASH_ON_COMPLETE ?: false}"
+                    echo "Network Health Check: ${params.NETWORK_HEALTH_CHECK ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                     echo "Skip Phases: ${params.SKIP_PHASES ?: '(none)'}"
                 }
@@ -237,6 +239,7 @@ pipeline {
                             def squashFlag = params.SQUASH_ON_COMPLETE ? '--squash-on-complete' : ''
                             def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
                             def skipPhasesOption = params.SKIP_PHASES?.trim() ? "--skip-phases ${params.SKIP_PHASES.trim()}" : ''
+                            def networkHealthCheckFlag = params.NETWORK_HEALTH_CHECK ? '--network-health-check' : ''
 
                             sh """
                                 node dist/index.js execute \
@@ -248,7 +251,8 @@ pipeline {
                                     ${cleanupFlags} \
                                     ${squashFlag} \
                                     ${languageOption} \
-                                    ${skipPhasesOption}
+                                    ${skipPhasesOption} \
+                                    ${networkHealthCheckFlag}
                             """
 
                             // metadata.json から PR URL を直接読み込み（readJSON を使用して SecretMasker を回避）
