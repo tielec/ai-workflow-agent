@@ -1,9 +1,9 @@
 /**
- * AI Workflow All Phases Job DSL
+ * AI Workflow Split Issue Job DSL
  *
- * 全フェーズ一括実行用ジョブ（planning → evaluation）
- * EXECUTION_MODE: all_phases（固定値、パラメータとして表示しない）
- * パラメータ数: 23個（17個 + APIキー6個）
+ * 複雑なIssueを機能単位の子Issueに分割するジョブ
+ * EXECUTION_MODE: split_issue（固定値、パラメータとして表示しない）
+ * パラメータはJob DSL内で定義
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -15,7 +15,7 @@ def genericFolders = [
 
 // 共通設定を取得
 def jenkinsPipelineRepo = commonSettings['jenkins-pipeline-repo']
-def jobKey = 'ai_workflow_all_phases_job'
+def jobKey = 'ai_workflow_split_issue_job'
 def jobConfig = jenkinsJobsConfig[jobKey]
 
 // ジョブ作成クロージャ
@@ -24,56 +24,43 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
         displayName(jobConfig.displayName)
 
         description("""\
-            |# AI Workflow - All Phases Execution
-            |
+            |# AI Workflow - Split Issue
             |${descriptionHeader}
             |
             |## 概要
-            |全フェーズ（planning → evaluation）を順次実行します。
-            |resume機能により、失敗したフェーズから再開可能です。
+            |複雑なGitHub Issueを機能単位の子Issueに分割します。
             |
-            |## パラメータ
-            |- ISSUE_URL（必須）: GitHub Issue URL
-            |- DRY_RUN: ドライランモード（デフォルト: false）
-            |- その他: 実行オプション、Git設定、AWS認証情報等
+            |## 機能
+            |- Issue番号を指定して対象Issueを分割
+            |- dry-run モードで分割プレビューのみ表示
+            |- apply モードで子Issueを作成
+            |- 分割数上限を指定可能（デフォルト: 10）
             |
             |## 注意事項
-            |- EXECUTION_MODEは内部的に'all_phases'に固定されます
-            |- コスト上限: デフォルト \$5.00 USD
-            """.stripMargin())
+            |- EXECUTION_MODEは内部的に'split_issue'に固定されます
+            |- APPLYとDRY_RUNが両方trueの場合、APPLYが優先されます
+            |""".stripMargin())
 
         // パラメータ定義
         parameters {
             // ========================================
             // 実行モード（固定値）
             // ========================================
-            choiceParam('EXECUTION_MODE', ['all_phases'], '''
+            choiceParam('EXECUTION_MODE', ['split_issue'], '''
 実行モード（固定値 - 変更不可）
             '''.stripIndent().trim())
 
             // ========================================
             // 基本設定
             // ========================================
-            nonStoredPasswordParam('ISSUE_URL', '''
-GitHub Issue URL（必須）
-
-例: https://github.com/tielec/my-project/issues/123
-注: Issue URL から対象リポジトリを自動判定します
+            stringParam('ISSUE_NUMBER', '', '''
+対象Issue番号（必須）
             '''.stripIndent().trim())
 
-            nonStoredPasswordParam('BRANCH_NAME', '''
-作業ブランチ名（任意）
-空欄の場合は Issue 番号から自動生成されます
-            '''.stripIndent().trim())
+            stringParam('GITHUB_REPOSITORY', '', '''
+GitHub リポジトリ（owner/repo）（必須）
 
-            nonStoredPasswordParam('BASE_BRANCH', '''
-ベースブランチ（任意）
-
-新規ブランチを作成する際の分岐元ブランチを指定します。
-- 空欄の場合: 現在チェックアウトされているブランチから分岐
-- 指定する場合: 「main」「develop」等のブランチ名を指定
-
-注: リモートブランチが既に存在する場合、このパラメータは無視されます
+例: tielec/ai-workflow-agent
             '''.stripIndent().trim())
 
             choiceParam('AGENT_MODE', ['auto', 'codex', 'claude'], '''
@@ -92,114 +79,26 @@ GitHub Issue URL（必須）
             // ========================================
             // 実行オプション
             // ========================================
+            booleanParam('APPLY', true, '''
+Issue本文を更新する（デフォルト: true）
+            '''.stripIndent().trim())
+
             booleanParam('DRY_RUN', false, '''
-ドライランモード（API 呼び出しや Git 操作を行わず動作確認のみ実施）
+ドライランモード（差分プレビューのみ表示）
             '''.stripIndent().trim())
 
-            stringParam('SKIP_PHASES', '', '''
-スキップするフェーズ（カンマ区切り、任意）
+            stringParam('MAX_SPLITS', '10', '''
+分割Issue数の上限（1-20の整数、デフォルト: 10）
 
-特定のフェーズをスキップして実行します。
-複数のフェーズをスキップする場合はカンマで区切って指定してください。
-
-例: test_scenario,testing
-
-対応フェーズ名:
-- planning（※スキップ不可）
-- requirements
-- design
-- test_scenario
-- implementation
-- test_implementation
-- testing
-- documentation
-- report
-- evaluation
-
-注: 空欄の場合はすべてのフェーズを実行します
-            '''.stripIndent().trim())
-
-            booleanParam('SKIP_REVIEW', false, '''
-AI レビューをスキップする（検証・デバッグ用）
-            '''.stripIndent().trim())
-
-            booleanParam('FORCE_RESET', false, '''
-メタデータを初期化して最初から実行する
-            '''.stripIndent().trim())
-
-            choiceParam('MAX_RETRIES', ['3', '1', '5', '10'], '''
-フェーズ失敗時の最大リトライ回数
-            '''.stripIndent().trim())
-
-            booleanParam('CLEANUP_ON_COMPLETE_FORCE', false, '''
-Evaluation Phase完了後にワークフローディレクトリを強制削除
-詳細: Issue #2、v0.3.0で追加
-            '''.stripIndent().trim())
-
-            booleanParam('SQUASH_ON_COMPLETE', false, '''
-ワークフロー完了時にコミットをスカッシュする（非推奨: finalize コマンドを使用してください）
-            '''.stripIndent().trim())
-
-            booleanParam('NETWORK_HEALTH_CHECK', false, '''
-ネットワークヘルスチェックを有効化
-
-EC2インスタンスのネットワークスループット（NetworkPacketsOut / NetworkOut）を
-各フェーズ実行前にチェックし、大幅に低下している場合はジョブを早期終了します。
-
-- true: フェーズ実行前にCloudWatchメトリクスを確認
-- false: チェックなし（デフォルト）
-
-注: EC2環境以外では自動的にスキップされます
-            '''.stripIndent().trim())
-
-            // ========================================
-            // モデル選択オプション
-            // ========================================
-            booleanParam('AUTO_MODEL_SELECTION', true, '''
-Issue難易度に基づく自動エージェントモデル選択
-- true: Issue内容を分析し最適なモデルを自動選択（コスト最適化＋品質バランス）
-- false: AGENT_MODEパラメータで指定された固定モデルを使用
-デフォルト: true
-            '''.stripIndent().trim())
-
-            // ========================================
-            // Git 設定
-            // ========================================
-            nonStoredPasswordParam('GIT_COMMIT_USER_NAME', '''
-Git コミットユーザー名
-
-デフォルト値: AI Workflow Bot
-            '''.stripIndent().trim())
-
-            nonStoredPasswordParam('GIT_COMMIT_USER_EMAIL', '''
-Git コミットメールアドレス
-
-デフォルト値: ai-workflow@example.com
-            '''.stripIndent().trim())
-
-            // ========================================
-            // AWS 認証情報（Infrastructure as Code 用）
-            // ========================================
-            stringParam('AWS_ACCESS_KEY_ID', '', '''
-AWS アクセスキー ID（任意）
-Infrastructure as Code実行時に必要
-            '''.stripIndent().trim())
-
-            nonStoredPasswordParam('AWS_SECRET_ACCESS_KEY', '''
-AWS シークレットアクセスキー（任意）
-Infrastructure as Code実行時に必要
-            '''.stripIndent().trim())
-
-            nonStoredPasswordParam('AWS_SESSION_TOKEN', '''
-AWS セッショントークン（任意）
-一時的な認証情報を使用する場合
+分割するIssueの最大数を指定します。
+空欄の場合はデフォルト値（10）が使用されます。
             '''.stripIndent().trim())
 
             // ========================================
             // APIキー設定
             // ========================================
             nonStoredPasswordParam('GITHUB_TOKEN', '''
-GitHub Personal Access Token（任意）
+GitHub Personal Access Token（必須）
 GitHub API呼び出しに使用されます
             '''.stripIndent().trim())
 
@@ -241,10 +140,6 @@ Claude実行モードで使用されます
             // ========================================
             // その他
             // ========================================
-            stringParam('COST_LIMIT_USD', '5.0', '''
-ワークフローあたりのコスト上限（USD）
-            '''.stripIndent().trim())
-
             choiceParam('LOG_LEVEL', ['INFO', 'DEBUG', 'WARNING', 'ERROR'], '''
 ログレベル
 - INFO: 一般的な情報
@@ -294,13 +189,13 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile')
             }
         }
 
         // 環境変数（EXECUTION_MODEを固定値として設定）
         environmentVariables {
-            env('EXECUTION_MODE', 'all_phases')
+            env('EXECUTION_MODE', 'split_issue')
             env('WORKFLOW_VERSION', '0.2.0')
         }
 
