@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
+  - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
+  - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy` の `description()` を4フェーズステージ構成に更新
+  - `tests/unit/jenkins/resolve-conflict-job.test.ts` の `UT-FR6` テストケースを新ステージ名に対応
+  - CLI コマンド（`resolve-conflict init/analyze/execute/finalize`）のインターフェースは変更なし（後方互換性維持）
+  - 修正ファイル: `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile`、`jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy`、`tests/unit/jenkins/resolve-conflict-job.test.ts`、`docs/CONFLICT_RESOLUTION.md`
+- **Issue #771**: `rewrite-issue` コマンドのメタデータ表示形式をYAML frontmatter（`---` 区切り）からHTML `<details>` 折りたたみ形式に変更
+  - GitHub Issues上でメタデータがデフォルトで折りたたまれた状態で表示され、Issue本文の可読性が向上
+  - `src/utils/frontmatter.ts` の `generateFrontmatter()` を `<details>` / `<summary>メタデータ</summary>` / YAML コンテンツ / `</details>` の構造に変更
+  - `extractExistingFrontmatter()` と `parseFrontmatter()` に新旧両形式対応を追加し、旧形式（`---` 区切り）の後方互換性を維持
+  - 既存Issueを `rewrite-issue --apply` で再処理した場合、旧形式を自動検出して新形式に置換
+  - テストカバレッジ: ユニットテスト24件（新形式検証 + 後方互換テスト）、全体 `npm run validate`（lint + test + build）PASS（157 suites / 2491 tests）
+  - 修正ファイル: `src/utils/frontmatter.ts`、`tests/unit/utils/frontmatter.test.ts`
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（メタデータ自動付与セクション）
+
 ### Added
 
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
@@ -136,6 +154,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 拡張テストファイル: `tests/unit/phases/base-phase-fallback.test.ts`
 
 ### Changed
+
+- **Issue #745**: Jenkins ECR Image Build ジョブを develop フォルダ限定に変更し、AWS 認証をインスタンスプロファイルに統一
+  - ECR ビルドジョブの生成対象を `develop` フォルダのみに限定（`stable-1`〜`stable-9` の9ジョブ生成を廃止）
+  - `AWS_ACCOUNT_ID` パラメータを廃止し、`aws sts get-caller-identity` による自動取得に変更
+  - AWS 認証情報パラメータ（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）を削除し、EC2 インスタンスプロファイルによる認証に統一
+  - パラメータ数を7個から3個に削減（57%削減）: `AWS_REGION`、`ECR_REPOSITORY_NAME`、`IMAGE_RETENTION_COUNT` のみ維持
+  - `ECR_REGISTRY` と `ECR_IMAGE_NAME` を environment ブロックの静的定義から Validate Parameters ステージでの動的構築に変更
+  - セキュリティ強化: AWS 認証情報の Jenkins パラメータ経由での受け渡しを完全廃止し、認証情報漏洩リスクを排除
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile`、`jenkins/README.md`、`jenkins/jobs/dsl/ai-workflow/TEST_PLAN.md`
+  - テストカバレッジ: ユニットテスト35件（静的検証）を新規作成、手動検証テストケース4件を TEST_PLAN.md に追加、全体 `npm run validate` PASS（233 suites / 3325 tests）
 
 - **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加
   - `src/prompts/testing/{ja,en}/execute.txt` の「## テスト実行手順」を3ステップから4ステップ構成に再構成

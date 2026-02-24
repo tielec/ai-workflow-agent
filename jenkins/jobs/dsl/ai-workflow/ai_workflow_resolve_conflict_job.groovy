@@ -37,7 +37,10 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |4. Validate Parameters
             |5. Setup Environment
             |6. Setup Node.js Environment
-            |7. Execute Resolve Conflict（init → analyze → execute → finalize）
+            |7. Phase 1: Init
+            |8. Phase 2: Analyze
+            |9. Phase 3: Execute
+            |10. Phase 4: Finalize
             |
             |## 注意事項
             |- EXECUTION_MODE は 'resolve_conflict' に固定されています

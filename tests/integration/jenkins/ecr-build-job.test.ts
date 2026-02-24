@@ -1,8 +1,8 @@
 /**
- * Integration tests for Issue #725: ECR build Jenkins pipeline / Job DSL
+ * Integration tests for Issue #745: ECR build Jenkins pipeline / Job DSL
  *
  * テスト戦略: UNIT_ONLY（Jenkinsfile / Job DSL / seed config の静的検証）
- * 対応テストシナリオ: UT-001〜UT-026（静的検証 + 任意のvalidate実行）
+ * 対応テストシナリオ: UT-001〜UT-037（静的検証 + 任意のvalidate実行）
  */
 
 import { beforeAll, describe, expect, it, jest } from '@jest/globals';
@@ -29,13 +29,7 @@ type ParameterDefinition = {
   defaultValue?: string;
 };
 
-type GenericFolder = {
-  name: string;
-  displayName: string;
-  branch: string;
-};
-
-describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
+describe('Integration: ECR build Jenkins pipeline (Issue #745)', () => {
   const testDirname = path.dirname(fileURLToPath(import.meta.url));
   const projectRoot = path.resolve(testDirname, '../../..');
   const execFileAsync = promisify(execFile);
@@ -62,6 +56,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
       projectRoot,
       'jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile'
     ),
+    readme: path.join(projectRoot, 'jenkins/README.md'),
   };
 
   let jobConfig: Record<string, unknown> = {};
@@ -69,17 +64,26 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
   let dslContent = '';
   let allPhasesDslContent = '';
   let jenkinsfileContent = '';
+  let readmeContent = '';
 
   jest.setTimeout(longTimeoutMs);
 
   beforeAll(async () => {
-    const [jobConfigRaw, folderConfigRaw, dslRaw, allPhasesDslRaw, jenkinsfileRaw] =
+    const [
+      jobConfigRaw,
+      folderConfigRaw,
+      dslRaw,
+      allPhasesDslRaw,
+      jenkinsfileRaw,
+      readmeRaw,
+    ] =
       await Promise.all([
       fs.readFile(paths.jobConfig, 'utf8'),
       fs.readFile(paths.folderConfig, 'utf8'),
       fs.readFile(paths.dsl, 'utf8'),
       fs.readFile(paths.allPhasesDsl, 'utf8'),
       fs.readFile(paths.jenkinsfile, 'utf8'),
+      fs.readFile(paths.readme, 'utf8'),
     ]);
 
     jobConfig = yaml.parse(jobConfigRaw) as Record<string, unknown>;
@@ -87,6 +91,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
     dslContent = dslRaw;
     allPhasesDslContent = allPhasesDslRaw;
     jenkinsfileContent = jenkinsfileRaw;
+    readmeContent = readmeRaw;
   });
 
   describe('UT-001〜UT-003: job-config.yaml エントリ検証', () => {
@@ -143,27 +148,23 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
   });
 
   describe('UT-005〜UT-010: Job DSL の構成検証', () => {
-    it('genericFolders 定義がDevelop + Stable(1..9)の構成になっている', () => {
+    it('genericFolders 定義がDevelopのみの構成になっている', () => {
       // Given: DSL内容
 
-      // Then: develop定義とstable-1..9のcollectが存在する
+      // Then: develop定義が存在し、stable定義が存在しない
       expect(dslContent).toMatch(/\[name: 'develop', displayName: 'AI Workflow Executor - Develop', branch: '\*\/develop'\]/);
-      expect(dslContent).toMatch(/\(1\.\.9\)\.collect\s*\{\s*i\s*->/);
-      expect(dslContent).toMatch(/name: "stable-\$\{i\}"/);
-      expect(dslContent).toMatch(/branch: '\*\/main'/);
+      expect(dslContent).not.toMatch(/\(1\.\.9\)\.collect\s*\{\s*i\s*->/);
+      expect(dslContent).not.toMatch(/name: "stable-\$\{i\}"/);
+      expect(dslContent).not.toMatch(/branch: '\*\/main'/);
     });
 
-    it('パラメータ定義が7個で順序・型・デフォルト値が正しい', () => {
+    it('パラメータ定義が3個で順序・型・デフォルト値が正しい', () => {
       // Given: parameters ブロック
       const definitions = parseParameterDefinitions(dslContent);
       const expectedOrder = [
-        'AWS_ACCOUNT_ID',
         'AWS_REGION',
         'ECR_REPOSITORY_NAME',
         'IMAGE_RETENTION_COUNT',
-        'AWS_ACCESS_KEY_ID',
-        'AWS_SECRET_ACCESS_KEY',
-        'AWS_SESSION_TOKEN',
       ];
 
       // Then: パラメータ順序と件数
@@ -172,13 +173,14 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
 
       const findDef = (name: string) => definitions.find((def) => def.name === name);
 
-      expect(findDef('AWS_ACCOUNT_ID')?.kind).toBe('string');
       expect(findDef('AWS_REGION')?.defaultValue).toBe('ap-northeast-1');
       expect(findDef('ECR_REPOSITORY_NAME')?.defaultValue).toBe('ai-workflow-agent');
       expect(findDef('IMAGE_RETENTION_COUNT')?.defaultValue).toBe('2');
-      expect(findDef('AWS_ACCESS_KEY_ID')?.defaultValue).toBe('');
-      expect(findDef('AWS_SECRET_ACCESS_KEY')?.kind).toBe('nonStoredPassword');
-      expect(findDef('AWS_SESSION_TOKEN')?.kind).toBe('nonStoredPassword');
+
+      expect(findDef('AWS_ACCOUNT_ID')).toBeUndefined();
+      expect(findDef('AWS_ACCESS_KEY_ID')).toBeUndefined();
+      expect(findDef('AWS_SECRET_ACCESS_KEY')).toBeUndefined();
+      expect(findDef('AWS_SESSION_TOKEN')).toBeUndefined();
     });
 
     it('pipelineJob 設定に logRotator / disableConcurrentBuilds / disabled(false) が含まれる', () => {
@@ -199,16 +201,6 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
       );
       expect(dslContent).toContain("url('https://github.com/tielec/ai-workflow-agent.git')");
       expect(dslContent).toContain("credentials('github-token')");
-    });
-
-    it('AWS_SECRET_ACCESS_KEY と AWS_SESSION_TOKEN が nonStoredPasswordParam で定義される', () => {
-      // Given: DSL内容
-
-      // Then: センシティブ値は非保存パスワード形式
-      expect(dslContent).toContain("nonStoredPasswordParam('AWS_SECRET_ACCESS_KEY'");
-      expect(dslContent).toContain("nonStoredPasswordParam('AWS_SESSION_TOKEN'");
-      expect(dslContent).not.toMatch(/stringParam\('AWS_SECRET_ACCESS_KEY'/);
-      expect(dslContent).not.toMatch(/stringParam\('AWS_SESSION_TOKEN'/);
     });
 
     it('genericFolders.each によるジョブ生成パターンが定義されている', () => {
@@ -252,30 +244,35 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
       expect(jenkinsfileContent).toMatch(/timeout\(time:\s*30,\s*unit:\s*'MINUTES'\)/);
     });
 
-    it('environmentにAWS/ECRの主要な環境変数が定義される', () => {
+    it('environmentにAWS/ECRの必要な環境変数のみが定義される', () => {
       // Given: Jenkinsfile内容
       const expectedEnvKeys = [
         'AWS_DEFAULT_REGION',
         'AWS_REGION_VALUE',
-        'AWS_ACCOUNT_ID_VALUE',
         'ECR_REPOSITORY_NAME_VALUE',
         'IMAGE_RETENTION_COUNT_VALUE',
-        'AWS_ACCESS_KEY_ID',
-        'AWS_SECRET_ACCESS_KEY',
-        'AWS_SESSION_TOKEN',
-        'ECR_REGISTRY',
-        'ECR_IMAGE_NAME',
       ];
 
       // Then: すべての環境変数が存在する
       for (const key of expectedEnvKeys) {
         expect(jenkinsfileContent).toMatch(new RegExp(`${key}\\s*=`));
       }
+
+      expect(jenkinsfileContent).not.toMatch(/AWS_ACCOUNT_ID_VALUE\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
+      expect(jenkinsfileContent).not.toMatch(/AWS_ACCESS_KEY_ID\s*=\s*"\$\{params\.AWS_ACCESS_KEY_ID/);
+      expect(jenkinsfileContent).not.toMatch(/AWS_SECRET_ACCESS_KEY\s*=\s*"\$\{params\.AWS_SECRET_ACCESS_KEY/);
+      expect(jenkinsfileContent).not.toMatch(/AWS_SESSION_TOKEN\s*=\s*"\$\{params\.AWS_SESSION_TOKEN/);
+      expect(jenkinsfileContent).not.toMatch(/ECR_REGISTRY\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
+      expect(jenkinsfileContent).not.toMatch(/ECR_IMAGE_NAME\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
     });
 
-    it('Validate ParametersステージでAWS_ACCOUNT_ID必須チェックがある', () => {
+    it('Validate ParametersステージにSTS自動取得ロジックが実装されている', () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toContain('AWS_ACCOUNT_ID は必須パラメータです');
+      expect(jenkinsfileContent).toContain('aws sts get-caller-identity --query Account --output text');
+      expect(jenkinsfileContent).toMatch(/returnStdout:\s*true/);
+      expect(jenkinsfileContent).toMatch(/env\.AWS_ACCOUNT_ID_VALUE\s*=/);
+      expect(jenkinsfileContent).toMatch(/AWS STS.*失敗|インスタンスプロファイル.*IAM.*確認/);
+      expect(jenkinsfileContent).not.toContain('AWS_ACCOUNT_ID は必須パラメータです');
     });
 
     it('ECR Loginステージにget-login-passwordとpassword-stdinが含まれる', () => {
@@ -319,7 +316,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
     });
   });
 
-  describe('UT-023〜UT-025: 整合性/一貫性チェック', () => {
+  describe('UT-023〜UT-024: 整合性/一貫性チェック', () => {
     it('DSLのscriptPathがjob-config.yamlのjenkinsfileと一致する', () => {
       // Given: job-config.yaml と DSL内容
       const jobs = (jobConfig['jenkins-jobs'] || {}) as Record<string, JobConfigEntry>;
@@ -331,20 +328,97 @@ describe('Integration: ECR build Jenkins pipeline (Issue #725)', () => {
       expect(match?.[1]).toBe(entry!.jenkinsfile);
     });
 
-    it('genericFoldersがall_phasesジョブと完全一致する', () => {
+    it('genericFoldersがdevelopのみの独立した定義になっている', () => {
       // Given: all_phases と ECR DSL の genericFolders 定義
-      const expectedFolders = extractGenericFolders(allPhasesDslContent);
-      const actualFolders = extractGenericFolders(dslContent);
 
-      // Then: 既存ジョブとフォルダ定義が完全一致する
-      expect(actualFolders).toEqual(expectedFolders);
+      // Then: all_phases は stable-1..9 を含み、ECR DSL は含まない
+      expect(allPhasesDslContent).toMatch(/\(1\.\.9\)\.collect\s*\{\s*i\s*->/);
+      expect(dslContent).not.toMatch(/\(1\.\.9\)\.collect\s*\{\s*i\s*->/);
+      expect(dslContent).toMatch(/\[name: 'develop'/);
+    });
+  });
+
+  describe('UT-027〜UT-037: 追加の仕様検証', () => {
+    it('パラメータ数コメントが3個に更新されている', () => {
+      // Given: DSL内容
+      expect(dslContent).toContain('パラメータ数: 3個');
+      expect(dslContent).not.toContain('パラメータ数: 7個');
     });
 
-    it('AWS認証パラメータの定義パターンが一貫している', () => {
+    it('DSLのdescriptionにSTS自動取得とインスタンスプロファイルの注記がある', () => {
       // Given: DSL内容
-      expect(dslContent).toMatch(/stringParam\('AWS_ACCESS_KEY_ID',\s*''/);
-      expect(dslContent).toMatch(/nonStoredPasswordParam\('AWS_SECRET_ACCESS_KEY'/);
-      expect(dslContent).toMatch(/nonStoredPasswordParam\('AWS_SESSION_TOKEN'/);
+      expect(dslContent).toMatch(/AWS_ACCOUNT_ID.*STS|STS.*自動取得/);
+      expect(dslContent).toMatch(/インスタンスプロファイル/);
+      expect(dslContent).not.toContain('AWS_ACCOUNT_ID（必須）');
+      expect(dslContent).not.toContain('AWS認証情報: 手動実行時にオプションで指定');
+      expect(dslContent).not.toContain('手動実行時はAWS_ACCESS_KEY_ID等のパラメータ指定可能');
+    });
+
+    it('Jenkinsfileのコメントヘッダが3パラメータと自動取得注記に更新されている', () => {
+      // Given: Jenkinsfile内容
+      expect(jenkinsfileContent).toMatch(/\* - AWS_REGION/);
+      expect(jenkinsfileContent).toMatch(/\* - ECR_REPOSITORY_NAME/);
+      expect(jenkinsfileContent).toMatch(/\* - IMAGE_RETENTION_COUNT/);
+      expect(jenkinsfileContent).not.toMatch(/\* - AWS_ACCOUNT_ID: AWSアカウントID/);
+      expect(jenkinsfileContent).not.toMatch(/\* - AWS_ACCESS_KEY_ID/);
+      expect(jenkinsfileContent).not.toMatch(/\* - AWS_SECRET_ACCESS_KEY/);
+      expect(jenkinsfileContent).not.toMatch(/\* - AWS_SESSION_TOKEN/);
+      expect(jenkinsfileContent).toMatch(/AWS_ACCOUNT_ID.*STS|get-caller-identity/);
+      expect(jenkinsfileContent).toMatch(/インスタンスプロファイル/);
+    });
+
+    it('ECR_REGISTRYとECR_IMAGE_NAMEがValidate Parametersステージ内で動的に構築されている', () => {
+      // Given: Jenkinsfile内容
+      expect(jenkinsfileContent).toMatch(/env\.ECR_REGISTRY\s*=.*dkr\.ecr/);
+      expect(jenkinsfileContent).toMatch(/env\.ECR_IMAGE_NAME\s*=.*ECR_REGISTRY/);
+      expect(jenkinsfileContent).not.toMatch(/ECR_REGISTRY\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
+      expect(jenkinsfileContent).not.toMatch(/ECR_IMAGE_NAME\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
+      expect(jenkinsfileContent).toMatch(/--password-stdin\s+\$\{env\.ECR_REGISTRY\}/);
+      expect(jenkinsfileContent).toMatch(/-t \$\{env\.ECR_IMAGE_NAME\}:latest/);
+      expect(jenkinsfileContent).toMatch(/docker push \$\{env\.ECR_IMAGE_NAME\}:latest/);
+      expect(jenkinsfileContent).toMatch(/docker rmi \$\{env\.ECR_IMAGE_NAME\}:latest/);
+    });
+
+    it("cronトリガー 'H 2 * * *' が維持されている", () => {
+      // Given: Jenkinsfile内容
+      expect(jenkinsfileContent).toContain("cron('H 2 * * *')");
+    });
+
+    it('IMAGE_RETENTION_COUNTのバリデーションが維持されている', () => {
+      // Given: Jenkinsfile内容
+      expect(jenkinsfileContent).toContain('toInteger()');
+      expect(jenkinsfileContent).toMatch(/count\s*<\s*1/);
+      expect(jenkinsfileContent).toContain('NumberFormatException');
+    });
+
+    it('AWS認証パラメータがDSLファイルから完全に削除されている', () => {
+      // Given: DSL内容
+      expect(dslContent).not.toMatch(/stringParam\('AWS_ACCOUNT_ID'/);
+      expect(dslContent).not.toMatch(/stringParam\('AWS_ACCESS_KEY_ID'/);
+      expect(dslContent).not.toMatch(/nonStoredPasswordParam\('AWS_SECRET_ACCESS_KEY'/);
+      expect(dslContent).not.toMatch(/nonStoredPasswordParam\('AWS_SESSION_TOKEN'/);
+    });
+
+    it('jenkins/README.mdのecr_buildパラメータ数が3に更新されている', () => {
+      // Given: README内容
+      expect(readmeContent).toMatch(/ecr_build.*\|\s*3\s*\|/);
+      expect(readmeContent).not.toMatch(/ecr_build.*\|\s*7\s*\|/);
+    });
+
+    it('postセクションでenv.ECR_IMAGE_NAMEとenv.ECR_REGISTRYが正しく参照されている', () => {
+      // Given: Jenkinsfile内容
+      expect(jenkinsfileContent).toMatch(/docker rmi \$\{env\.ECR_IMAGE_NAME\}:latest \|\| true/);
+      expect(jenkinsfileContent).toMatch(/docker rmi \$\{env\.ECR_IMAGE_NAME\}:build-\$\{env\.BUILD_NUMBER\} \|\| true/);
+      expect(jenkinsfileContent).toMatch(/Registry: \$\{env\.ECR_REGISTRY\}/);
+      expect(jenkinsfileContent).toMatch(/Repository: \$\{env\.ECR_REPOSITORY_NAME_VALUE\}/);
+    });
+
+    it('DSLのdescriptionにパラメータ一覧が3個に更新されている', () => {
+      // Given: DSL内容
+      expect(dslContent).toMatch(/## パラメータ[\s\S]*?AWS_REGION/);
+      expect(dslContent).toMatch(/## パラメータ[\s\S]*?ECR_REPOSITORY_NAME/);
+      expect(dslContent).toMatch(/## パラメータ[\s\S]*?IMAGE_RETENTION_COUNT/);
+      expect(dslContent).not.toMatch(/## パラメータ[\s\S]*?AWS_ACCOUNT_ID（必須）/);
     });
   });
 
@@ -425,51 +499,4 @@ function extractBlock(source: string, blockName: string): string {
   }
 
   throw new Error(`ブロック '${blockName}' の終了が見つかりません`);
-}
-
-function extractGenericFolders(dsl: string): GenericFolder[] {
-  const developMatch =
-    /name:\s*'develop'[\s\S]*?displayName:\s*'([^']+)'[\s\S]*?branch:\s*'([^']+)'/.exec(
-      dsl
-    );
-  if (!developMatch) {
-    throw new Error('genericFolders の develop 定義が見つかりません');
-  }
-
-  const rangeMatch = /\((\d+)\.\.(\d+)\)\.collect/.exec(dsl);
-  if (!rangeMatch) {
-    throw new Error('genericFolders の stable 範囲定義が見つかりません');
-  }
-
-  const stableMatch =
-    /name:\s*"stable-\$\{i\}"[\s\S]*?displayName:\s*"([^"]*?)\$\{i\}([^"]*?)"[\s\S]*?branch:\s*'([^']+)'/.exec(
-      dsl
-    );
-  if (!stableMatch) {
-    throw new Error('genericFolders の stable 定義が見つかりません');
-  }
-
-  const rangeStart = Number(rangeMatch[1]);
-  const rangeEnd = Number(rangeMatch[2]);
-  const stablePrefix = stableMatch[1];
-  const stableSuffix = stableMatch[2];
-  const stableBranch = stableMatch[3];
-
-  const folders: GenericFolder[] = [
-    {
-      name: 'develop',
-      displayName: developMatch[1],
-      branch: developMatch[2],
-    },
-  ];
-
-  for (let index = rangeStart; index <= rangeEnd; index += 1) {
-    folders.push({
-      name: `stable-${index}`,
-      displayName: `${stablePrefix}${index}${stableSuffix}`,
-      branch: stableBranch,
-    });
-  }
-
-  return folders;
 }

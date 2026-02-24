@@ -355,6 +355,7 @@ env:
 - **実行モード**: 各Jenkinsfileが対応する実行モードを担当
 - **認証情報**:
   - `OPENAI_API_KEY`、`GITHUB_TOKEN`、AWS認証情報（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）: Job DSLパラメータから取得
+    - **注**: ECR build ジョブは例外で、AWS 認証にインスタンスプロファイルを使用し、`AWS_ACCOUNT_ID` は STS から自動取得されます（Issue #745）
   - `claude-code-oauth-token`: Jenkins Credentialsから取得
 - **マルチリポジトリ**: REPOS_ROOT を `/tmp/ai-workflow-repos-${BUILD_ID}` に設定し、対象リポジトリをクローン
 
