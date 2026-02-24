@@ -744,5 +744,159 @@ describe('IssueClient - Follow-up Issue Improvements (Issue #104)', () => {
 
       expect(result.success).toBe(true);
     });
+
+    /**
+     * シナリオ 5.1.1: LLM/レガシーモードでSub-Issueリンクが成功する
+     *
+     * Given: LLM/レガシーモードでIssue作成が成功し、getIssueが子IssueのIDを返す
+     * When: createIssueFromEvaluation() を呼び出す
+     * Then: Sub-Issue APIが呼ばれ、結果に subIssueLinkSuccess が true で返る
+     */
+    it('should link follow-up issue as sub-issue in legacy mode', async () => {
+      const parentIssueNumber = 782;
+      const remainingTasks: RemainingTask[] = [
+        { task: 'ユニットテスト追加', phase: 'testing', priority: 'High' },
+      ];
+
+      const mockCreatedIssue = {
+        number: 100,
+        html_url: 'https://github.com/owner/repo/issues/100',
+      };
+
+      const mockChildIssueData = {
+        id: 12345678,
+        number: 100,
+        body: 'Original follow-up issue body content',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockCreatedIssue } as any);
+      mockOctokit.issues.get.mockResolvedValue({ data: mockChildIssueData } as any);
+      (mockOctokit as any).request = jest.fn().mockResolvedValue({ data: {} });
+
+      const result = await issueClient.createIssueFromEvaluation(
+        parentIssueNumber,
+        remainingTasks,
+        'eval.md',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.issue_number).toBe(100);
+      expect(result.issue_url).toBe('https://github.com/owner/repo/issues/100');
+      expect(result.subIssueLinkSuccess).toBe(true);
+
+      expect(mockOctokit.issues.get).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 100,
+      });
+      expect((mockOctokit as any).request).toHaveBeenCalledWith(
+        'POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+        expect.objectContaining({
+          owner: 'owner',
+          repo: 'repo',
+          issue_number: parentIssueNumber,
+          sub_issue_id: 12345678,
+        }),
+      );
+    });
+
+    /**
+     * シナリオ 5.1.2: addSubIssue() 失敗時にフォールバックが発動する（LLM/レガシー）
+     *
+     * Given: addSubIssue() が RequestError をスローする
+     * When: createIssueFromEvaluation() を呼び出す
+     * Then: updateIssue() が呼ばれ、親Issue参照が本文先頭に追加される
+     */
+    it('should fallback to updating body when sub-issue API fails in legacy mode', async () => {
+      const parentIssueNumber = 782;
+      const remainingTasks: RemainingTask[] = [
+        { task: 'ドキュメント更新', phase: 'documentation', priority: 'Medium' },
+      ];
+
+      const mockCreatedIssue = {
+        number: 200,
+        html_url: 'https://github.com/owner/repo/issues/200',
+      };
+
+      const mockChildIssueData = {
+        id: 99887766,
+        number: 200,
+        body: 'Original body content',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockCreatedIssue } as any);
+      mockOctokit.issues.get.mockResolvedValue({ data: mockChildIssueData } as any);
+
+      const mockError = new RequestError('Validation Failed', 422, {
+        request: {
+          method: 'POST',
+          url: 'https://api.github.com/repos/owner/repo/issues/782/sub_issues',
+          headers: {},
+        },
+        response: { status: 422, url: '', headers: {}, data: {} },
+      });
+      (mockOctokit as any).request = jest.fn().mockRejectedValue(mockError);
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const result = await issueClient.createIssueFromEvaluation(
+        parentIssueNumber,
+        remainingTasks,
+        'eval.md',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.subIssueLinkSuccess).toBe(false);
+
+      expect(mockOctokit.issues.update).toHaveBeenCalled();
+      const updateArgs = mockOctokit.issues.update.mock.calls[0][0] as any;
+      expect(updateArgs.issue_number).toBe(200);
+      expect(updateArgs.body).toContain('> Parent issue: #782');
+      expect(updateArgs.body).toContain('Original body content');
+    });
+
+    /**
+     * シナリオ 5.1.3: getIssue() 失敗時にSub-Issueリンクがスキップされる（LLM/レガシー）
+     *
+     * Given: getIssue() が RequestError をスローする
+     * When: createIssueFromEvaluation() を呼び出す
+     * Then: Sub-Issue APIもフォールバックも呼ばれず、成功結果が返る
+     */
+    it('should skip linking when getIssue fails in legacy mode', async () => {
+      const parentIssueNumber = 782;
+      const remainingTasks: RemainingTask[] = [
+        { task: 'テスト追加', phase: 'testing', priority: 'High' },
+      ];
+
+      const mockCreatedIssue = {
+        number: 300,
+        html_url: 'https://github.com/owner/repo/issues/300',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockCreatedIssue } as any);
+
+      const mockGetError = new RequestError('Not Found', 404, {
+        request: {
+          method: 'GET',
+          url: 'https://api.github.com/repos/owner/repo/issues/300',
+          headers: {},
+        },
+        response: { status: 404, url: '', headers: {}, data: {} },
+      });
+      mockOctokit.issues.get.mockRejectedValue(mockGetError);
+      (mockOctokit as any).request = jest.fn();
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const result = await issueClient.createIssueFromEvaluation(
+        parentIssueNumber,
+        remainingTasks,
+        'eval.md',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.subIssueLinkSuccess).toBe(false);
+      expect(result.issue_number).toBe(300);
+      expect((mockOctokit as any).request).not.toHaveBeenCalled();
+      expect(mockOctokit.issues.update).not.toHaveBeenCalled();
+    });
   });
 });

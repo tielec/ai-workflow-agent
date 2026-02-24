@@ -25,6 +25,8 @@ beforeAll(async () => {
 
   await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
     resolveLocalRepoPath: jest.fn().mockReturnValue(process.cwd()),
+    getRepoRoot: jest.fn(),
+    findWorkflowMetadata: jest.fn(),
   }));
 
   await jest.unstable_mockModule('../../src/commands/execute/agent-setup.js', () => ({

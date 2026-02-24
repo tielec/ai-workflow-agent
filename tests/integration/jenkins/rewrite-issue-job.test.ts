@@ -108,6 +108,7 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
         'params.AGENT_MODE',
         'params.APPLY',
         'params.DRY_RUN',
+        'params.BASE_BRANCH',
         'params.GITHUB_TOKEN',
       ];
 
@@ -151,6 +152,10 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
       expect(jenkinsfileContent).toContain('--issue ${issueNumber}');
       expect(jenkinsfileContent).toContain('--language ${params.LANGUAGE}');
       expect(jenkinsfileContent).toContain('--agent ${params.AGENT_MODE ?: \'auto\'}');
+      expect(jenkinsfileContent).toContain(
+        "def baseBranchOption = params.BASE_BRANCH ? \"--base-branch ${params.BASE_BRANCH}\" : ''",
+      );
+      expect(jenkinsfileContent).toContain('${baseBranchOption}');
       expect(jenkinsfileContent).toContain("def applyFlag = params.APPLY ? '--apply' : ''");
       expect(jenkinsfileContent).toContain(
         "def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''"
@@ -182,6 +187,7 @@ describe('Integration: rewrite-issue Jenkins pipeline (Issue #674)', () => {
         'LANGUAGE',
         'APPLY',
         'DRY_RUN',
+        'BASE_BRANCH',
         'GITHUB_TOKEN',
         'CODEX_API_KEY',
         'CLAUDE_CODE_OAUTH_TOKEN',

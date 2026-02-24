@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ユーザーが意図的に無効化したい場合は、Jenkins UIで `NETWORK_HEALTH_CHECK=false` を明示的に指定可能
   - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile`、`tests/unit/jenkins/network-health-parameter.test.ts`
   - ドキュメント更新: `jenkins/README.md`（NETWORK_HEALTH_CHECKパラメータの説明を追加）
+- **Issue #785**: Dockerイメージに主要言語ランタイム（Python3、Go、Java、Ruby）と sudo をプリインストール
+  - `Dockerfile` の既存 `apt-get install` ブロック（9-17行目）に8つのパッケージを追加：`sudo`、`python3`、`python3-pip`、`python3-venv`、`golang-go`、`default-jdk`、`ruby`、`ruby-dev`
+  - Testing フェーズで `python3` や他のランタイムが不足していることによるプロンプト警告が出力されなくなり、エージェントが `apt-get install` を試みる必要がなくなる
+  - `--no-install-recommends` と `rm -rf /var/lib/apt/lists/*` によりイメージサイズ増加を抑制（+500MB以内を目標）
+  - `README.md` の「前提条件」セクションにプリインストール言語ランタイムの一覧を追加
+  - `docs/ENVIRONMENT.md` の「Docker環境」セクションにプリインストール言語ランタイムの表（言語・パッケージ・バージョン確認コマンド）を追加
+  - テストカバレッジ: 統合テスト10件（`tests/integration/dockerfile-runtimes.test.ts`）を新規作成、Dockerイメージビルド成功・各ランタイムの動作確認・Node.js環境の互換性・イメージサイズ許容範囲を検証
+  - 修正ファイル: `Dockerfile`、`README.md`、`docs/ENVIRONMENT.md`
 - **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
   - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
   - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
@@ -33,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #782**: Evaluation Phase（Phase 9）で「PASS_WITH_ISSUES」判定時に作成されるFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動リンクする機能を追加
+  - `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッドにSub-Issueリンク処理を統合（エージェントモード・LLM/レガシーモードの両パスに対応）
+  - `linkFollowUpAsSubIssue()` プライベートメソッドを新規追加し、`getIssue()` → `addSubIssue()` → フォールバック（`updateIssue()`）のベストエフォートフローを実装
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - `IssueCreationResult` インターフェースに `subIssueLinkSuccess?: boolean` オプショナルフィールドを追加（後方互換性を維持）
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う設計（ベストエフォート原則）
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的になり、タスクトラッキングが改善
+  - `create-sub-issue` コマンドと同一のSub-Issueリンクパターンを採用し、GitHub連携の一貫性を確保
+  - 修正ファイル: `src/core/github/issue-client.ts`
+  - テストカバレッジ: ユニットテスト6件（`issue-client-followup.test.ts` 3件、`issue-client-agent.test.ts` 3件）を追加、既存テスト互換性を確認、全体 `npm run test:unit` PASS（2501 tests）
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
   - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
   - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証

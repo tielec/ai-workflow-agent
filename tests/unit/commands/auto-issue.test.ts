@@ -18,6 +18,7 @@ const mockGenerate = jest.fn<any>();
 const mockGenerateRefactorIssue = jest.fn<any>();
 const mockGenerateEnhancementIssue = jest.fn<any>();
 const mockResolveLocalRepoPath = jest.fn();
+const mockCheckoutBaseBranch = jest.fn();
 const mockResolveAgentCredentials = jest.fn();
 const mockSetupAgentClients = jest.fn();
 const mockOctokitListForRepo = jest.fn().mockResolvedValue({ data: [] });
@@ -62,9 +63,12 @@ await jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', (
 
 await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
   __esModule: true,
+  parseIssueUrl: jest.fn(),
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  checkoutBaseBranch: mockCheckoutBaseBranch,
   // findWorkflowMetadata がモジュール export に存在しないと他の依存モジュール読み込み時に SyntaxError となるためダミーを提供
   findWorkflowMetadata: jest.fn(),
+  getRepoRoot: jest.fn(),
 }));
 
 await jest.unstable_mockModule('@octokit/rest', () => ({
@@ -130,6 +134,7 @@ describe('auto-issue command handler', () => {
 
     // repositoryUtils.resolveLocalRepoPath のモック
     mockResolveLocalRepoPath.mockReturnValue('/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent');
+    mockCheckoutBaseBranch.mockResolvedValue(undefined);
 
     // agent-setup のモック
     mockResolveAgentCredentials.mockReturnValue({
@@ -195,6 +200,40 @@ describe('auto-issue command handler', () => {
         expect.any(String),
         'codex',
         expect.objectContaining({ customInstruction: undefined }),
+      );
+    });
+  });
+
+  describe('baseBranch オプション', () => {
+    it('baseBranch 指定時に checkoutBaseBranch が呼ばれる (TC-AI-BB-001)', async () => {
+      await handleAutoIssueCommand({ baseBranch: 'develop' });
+
+      expect(mockCheckoutBaseBranch).toHaveBeenCalledWith(
+        '/tmp/ai-workflow-repos-68-07cff8cd/ai-workflow-agent',
+        'develop',
+      );
+    });
+
+    it('baseBranch 未指定時は checkoutBaseBranch を呼ばない (TC-AI-BB-002)', async () => {
+      await handleAutoIssueCommand({});
+
+      expect(mockCheckoutBaseBranch).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith('No base branch specified, using current branch');
+    });
+
+    it('不正な baseBranch でエラーになる (TC-AI-BB-003)', async () => {
+      await expect(handleAutoIssueCommand({ baseBranch: '..invalid' })).rejects.toThrow(
+        'Invalid base branch name: "..invalid"',
+      );
+
+      expect(mockCheckoutBaseBranch).not.toHaveBeenCalled();
+    });
+
+    it('checkoutBaseBranch が失敗したらコマンド全体が失敗する (TC-AI-BB-004)', async () => {
+      mockCheckoutBaseBranch.mockRejectedValueOnce(new Error('checkout failed'));
+
+      await expect(handleAutoIssueCommand({ baseBranch: 'develop' })).rejects.toThrow(
+        'checkout failed',
       );
     });
   });

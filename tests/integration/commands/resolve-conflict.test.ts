@@ -32,6 +32,8 @@ beforeAll(async () => {
     __esModule: true,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+    getRepoRoot: jest.fn(),
+    findWorkflowMetadata: jest.fn(),
   }));
 
   await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
