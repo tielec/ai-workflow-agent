@@ -133,6 +133,7 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
       'src/core/prompt-loader.ts',
       'src/commands/pr-comment/finalize.ts',
       'src/core/git/git-config-helper.ts',
+      'src/commands/pr-comment/analyze/comment-formatter.ts',
     ]);
 
     const unexpected = statusOutput
