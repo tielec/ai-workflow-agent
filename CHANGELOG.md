@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #771**: `rewrite-issue` コマンドのメタデータ表示形式をYAML frontmatter（`---` 区切り）からHTML `<details>` 折りたたみ形式に変更
+  - GitHub Issues上でメタデータがデフォルトで折りたたまれた状態で表示され、Issue本文の可読性が向上
+  - `src/utils/frontmatter.ts` の `generateFrontmatter()` を `<details>` / `<summary>メタデータ</summary>` / YAML コンテンツ / `</details>` の構造に変更
+  - `extractExistingFrontmatter()` と `parseFrontmatter()` に新旧両形式対応を追加し、旧形式（`---` 区切り）の後方互換性を維持
+  - 既存Issueを `rewrite-issue --apply` で再処理した場合、旧形式を自動検出して新形式に置換
+  - テストカバレッジ: ユニットテスト24件（新形式検証 + 後方互換テスト）、全体 `npm run validate`（lint + test + build）PASS（157 suites / 2491 tests）
+  - 修正ファイル: `src/utils/frontmatter.ts`、`tests/unit/utils/frontmatter.test.ts`
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（メタデータ自動付与セクション）
+
 ### Added
 
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
@@ -35,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `src/core/github-client.ts` に `addSubIssue()` ファサードメソッドを追加
   - `src/main.ts` に `create-sub-issue` コマンド登録を追加
   - テストカバレッジ: ユニットテスト + 統合テストを追加、全体 `npm run validate`（lint + test + build）PASS
+- **Issue #714**: Jenkins に `split-issue` ジョブを追加
+  - `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` を新規作成（`rewrite-issue` ジョブをテンプレートに差分適用）
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy` を新規作成（19パラメータ定義、`MAX_SPLITS` を含む）
+  - `jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml` に `ai_workflow_split_issue_job` エントリを追加
+  - `jenkins/README.md` を更新（ジョブ一覧・ディレクトリ構造・フォルダ構成・ジョブ数を13種類×10フォルダ=130ジョブに更新）
+  - Jenkins UI から `split-issue` CLI コマンドを実行可能に（Issue分割、dry-run/applyモード、分割数上限指定をサポート）
+  - `rewrite-issue` と同一のパイプライン構成を維持（7ステージ、Docker エージェント、Webhook 通知、パラメータバリデーション）
+  - テストカバレッジ: 統合テスト28件を追加（`tests/integration/jenkins/split-issue-job.test.ts`）、`npm run validate` PASS
 
 - **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
   - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
@@ -682,7 +701,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
   - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
-  - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化
+  - プロンプト修正: `/tmp/ai-workflow-repos-2-363c1585/ai-workflow-agent/.ai-workflow/conflict-733/resolve-CHANGELOG.md/resolved-output.txt` プレースホルダー追加、ファイル書き込みツールの使用を必須化
   - 実装変更: `buildAnalyzePrompt()` に `outputFilePath` パラメータ追加、ファイル優先読み込み + フォールバック処理を実装
   - 出力先: `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` への JSON ファイル出力
   - フォールバック機構: ファイル生成失敗時は既存の `parseResponsePlan()` で `rawOutput` をパース（後方互換性維持）
