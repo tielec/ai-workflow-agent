@@ -195,10 +195,14 @@ src/commands/resolve-conflict/execute.ts (コンフリクト解消: 実行コマ
  ├─ --dry-run ではプレビューのみ（コミットなし）
  └─ resolution-result の保存とメタデータ更新
 
-src/commands/resolve-conflict/finalize.ts (コンフリクト解消: 完了コマンド、Issue #719で追加)
+src/commands/resolve-conflict/finalize.ts (コンフリクト解消: 完了コマンド、Issue #719で追加、Issue #774で改善)
  ├─ handleResolveConflictFinalizeCommand() … resolve-conflict finalize コマンドハンドラ
  ├─ --push 指定時にリモートへ push
- ├─ PR に解消レポートコメントを投稿
+ ├─ PR に解消レポートコメントを投稿（Markdown テーブル形式、Issue #774で改善）
+ │   └─ buildCommentBody() … resolution-result.json を Markdown テーブル形式に変換
+ │       ├─ ファイルパス・解消方法（日本語）・備考を表形式で表示
+ │       ├─ 統計セクション（解消ファイル数、解消方法内訳）を生成
+ │       └─ resolvedContent（ファイル全文）は出力に含めない
  └─ ConflictMetadataManager.cleanup() … メタデータクリーンアップ
 
 src/core/git/conflict-parser.ts (コンフリクトマーカー解析、Issue #719で追加)
@@ -389,7 +393,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/resolve-conflict/init.ts` | コンフリクト解消: 初期化コマンド処理（Issue #719で追加）。`handleResolveConflictInitCommand()` でPR URLからmergeable状態・コンフリクトファイル一覧を取得し、base/headブランチをfetchしてメタデータを初期化。`--pr-url`, `--language` オプションをサポート。 |
 | `src/commands/resolve-conflict/analyze.ts` | コンフリクト解消: 分析コマンド処理（Issue #719で追加）。`handleResolveConflictAnalyzeCommand()` で `git merge --no-commit` によりコンフリクトを再現し、`ConflictParser` でマーカー解析、`MergeContextCollector` で文脈収集、`ConflictResolver.createResolutionPlan()` で解消計画を生成。失敗時は `git merge --abort` で安全にロールバック。 |
 | `src/commands/resolve-conflict/execute.ts` | コンフリクト解消: 実行コマンド処理（Issue #719で追加）。`handleResolveConflictExecuteCommand()` で解消計画に基づきAIで解消し、`CodeChangeApplier` でファイルに適用。`--dry-run` ではプレビューのみ。解消後にコンフリクトマーカー残存チェックを実施。 |
-| `src/commands/resolve-conflict/finalize.ts` | コンフリクト解消: 完了コマンド処理（Issue #719で追加）。`handleResolveConflictFinalizeCommand()` で `--push` 指定時にリモートへpush、PRに解消レポートコメントを投稿、メタデータをクリーンアップ。`--squash` オプションもサポート。 |
+| `src/commands/resolve-conflict/finalize.ts` | コンフリクト解消: 完了コマンド処理（Issue #719で追加、Issue #774で改善）。`handleResolveConflictFinalizeCommand()` で `--push` 指定時にリモートへpush、PRに解消レポートコメントを投稿（Markdown テーブル形式）、メタデータをクリーンアップ。`buildCommentBody()` が resolution-result.json を Markdown テーブルと統計セクションに変換し、resolvedContent（ファイル全文）を出力から除外。`--squash` オプションもサポート。 |
 | `src/core/git/conflict-parser.ts` | コンフリクトマーカー解析モジュール（Issue #719で追加）。`parseConflictMarkers()` で通常形式（`<<<<<<<`/`=======`/`>>>>>>>`）とdiff3形式（`|||||||` 含む）の両方を解析。`hasConflictMarkers()` でマーカー有無を判定。不完全マーカー検出時は `ConflictError` をスロー。バイナリファイルはスキップ。 |
 | `src/core/git/merge-context-collector.ts` | マージ文脈収集モジュール（Issue #719で追加）。`MergeContextCollector` クラスで `simple-git` によるGit履歴収集とGitHub APIによるPR/Issue情報取得を統合し、AIエージェント用の `MergeContext` を生成。ログ取得件数は制限あり。 |
 | `src/core/git/conflict-resolver.ts` | AI駆動コンフリクト解消エンジン（Issue #719で追加）。`ConflictResolver` クラスで解消計画生成（`createResolutionPlan()`）、解消実行（`resolve()`）、結果検証（`validateResolution()`）を提供。解消戦略（both/ours/theirs/manual-merge）をサポート。`AgentExecutor` パターンでデュアルエージェント対応。 |

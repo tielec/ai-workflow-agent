@@ -2,7 +2,6 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../../utils/logger.js';
 import type { CommentMetadata, CommentResolutionMetadata } from '../../../types/pr-comment.js';
-import { getErrorMessage } from '../../../utils/error-utils.js';
 
 export function groupCommentsByThread(comments: CommentMetadata[]): Map<string, CommentMetadata[]> {
   const threadGroups = new Map<string, CommentMetadata[]>();
@@ -97,10 +96,9 @@ export async function formatCommentBlock(meta: CommentMetadata, repoRoot: string
     try {
       fileContent = await fsp.readFile(filePath, 'utf-8');
     } catch (error) {
-      logger.error(
-        `Failed to read file content for comment #${comment.id}: ${filePath} (${getErrorMessage(error)})`,
-      );
       fileContent = '(File not found)';
+      logger.error(`Failed to read file for PR comment context: ${filePath}`);
+      logger.debug(`File read error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
