@@ -162,6 +162,7 @@ node dist/index.js rewrite-issue \
 - **Issue情報取得**: GitHub APIを通じて現在のタイトル・本文を取得
 - **リポジトリ文脈取得**: RepositoryAnalyzerを使用してコードベースの構造・主要ファイル・依存関係などのコンテキストを取得
 - **Issue再生成**: AIエージェント（Codex/Claude）がコード文脈を踏まえた新しいタイトル・本文を生成
+- **難易度・バグリスク自動付与**（Issue #712で追加）: 再設計後のIssue本文の先頭にYAML frontmatter形式で5段階難易度（A〜E）とバグリスク予測を自動付与。`DifficultyAnalyzer.analyzeWithGrade()` でLLM判定し、失敗時はfrontmatterなしで続行（グレースフルデグラデーション）
 - **差分プレビュー**: 変更前後の差分をunified diff形式で標準出力に表示
 - **採点指標表示**: 完全性スコア（0-100）と具体性スコア（0-100）を表示
 - **Issue更新**: `--apply` オプション指定時に、GitHub APIを通じてIssueを更新
@@ -193,10 +194,46 @@ To apply these changes, run with --apply option.
 - `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
 
+**frontmatter自動付与**（Issue #712で追加）:
+
+`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報が自動付与されます。
+
+```yaml
+---
+difficulty: C
+difficulty_label: moderate
+bug_risk:
+  expected_bugs: 2
+  probability: 35
+  risk_score: 0.70
+rationale: |
+  複数ファイルの変更が必要であり中程度の難易度と判定。
+assessed_by: claude
+assessed_at: 2025-01-15T10:30:00Z
+---
+```
+
+| フィールド | 説明 |
+|-----------|------|
+| `difficulty` | 5段階グレード（A: trivial, B: simple, C: moderate, D: complex, E: critical） |
+| `difficulty_label` | グレードに対応するラベル文字列 |
+| `bug_risk.expected_bugs` | 想定バグ発生件数（0以上の整数） |
+| `bug_risk.probability` | バグ発生確率（0〜100%） |
+| `bug_risk.risk_score` | 総合リスクスコア（`expected_bugs * probability / 100`） |
+| `rationale` | 判定根拠テキスト |
+| `assessed_by` | 判定に使用したエージェント（`claude` / `codex`） |
+| `assessed_at` | 判定日時（ISO 8601形式） |
+
+- 難易度判定はClaude→Codex→デフォルト値（D/complex）の3段階フォールバックで動作します
+- 判定失敗時はfrontmatterなしで既存フローを続行します（コマンド全体は正常完了）
+- 既存の3段階難易度システム（`metadata.json`の`simple`/`moderate`/`complex`）には影響しません
+
 **技術詳細**:
 - **実装モジュール**: `src/commands/rewrite-issue.ts`
 - **型定義**: `src/types/rewrite-issue.ts`
 - **プロンプトテンプレート**: `src/prompts/rewrite-issue/{ja|en}/rewrite-issue.txt`
+- **難易度判定プロンプト**: `src/prompts/difficulty/{ja|en}/analyze-grade.txt`（Issue #712で追加）
+- **frontmatterユーティリティ**: `src/utils/frontmatter.ts`（Issue #712で追加）
 - **IssueClient拡張**: `updateIssue()` メソッドでIssueのタイトル・本文を部分更新
 
 **Jenkins統合**:

@@ -1,4 +1,4 @@
-import type { SupportedLanguage } from '../types.js';
+import type { IssueDifficultyAssessment, SupportedLanguage } from '../types.js';
 
 /**
  * rewrite-issue コマンドのCLIオプション（生の入力）
@@ -58,6 +58,8 @@ export interface RewriteAgentResponse {
   newBody: string;
   /** 採点指標（オプショナル） */
   metrics?: RewriteMetrics;
+  /** 難易度判定結果（オプショナル） */
+  difficultyAssessment?: IssueDifficultyAssessment;
 }
 
 /**

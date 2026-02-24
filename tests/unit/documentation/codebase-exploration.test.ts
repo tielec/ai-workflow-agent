@@ -134,10 +134,16 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
       'src/commands/pr-comment/finalize.ts',
       'src/core/git/git-config-helper.ts',
     ]);
+
     const unexpected = statusOutput
       .split('\n')
       .filter((line) => line.trim().length > 0)
       .map((line) => (line.length >= 3 ? line.slice(3) : line.trim()))
+      .map((filePath) => filePath.replace(/\\/g, '/'))
+      .map((filePath) => {
+        const renameIndex = filePath.indexOf(' -> ');
+        return renameIndex >= 0 ? filePath.slice(renameIndex + 4).trim() : filePath.trim();
+      })
       .filter(
         (filePath) =>
           !allowedPrefixes.some((prefix) => filePath.startsWith(prefix)) &&
