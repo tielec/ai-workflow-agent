@@ -8,10 +8,12 @@ import type { ConflictResolutionPlan } from '../../../src/types/conflict.js';
 const parsePullRequestUrlMock = jest.fn();
 const resolveRepoPathFromPrUrlMock = jest.fn();
 
+const ensureGitConfigMock = jest.fn().mockResolvedValue(undefined);
+
 const simpleGitMock = jest.fn();
 const mergeContextCollectMock = jest.fn();
 const createPlanMock = jest.fn();
-const resolveMock = jest.fn();
+const resolveFileMock = jest.fn();
 const applyMock = jest.fn();
 
 const githubClientInstance = {
@@ -30,6 +32,11 @@ beforeAll(async () => {
     __esModule: true,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+  }));
+
+  await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
+    __esModule: true,
+    ensureGitConfig: ensureGitConfigMock,
   }));
 
   await jest.unstable_mockModule('simple-git', () => ({
@@ -53,7 +60,7 @@ beforeAll(async () => {
     __esModule: true,
     ConflictResolver: jest.fn().mockImplementation(() => ({
       createResolutionPlan: createPlanMock,
-      resolve: resolveMock,
+      resolveFile: resolveFileMock,
     })),
   }));
 
@@ -76,6 +83,7 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    ensureGitConfigMock.mockResolvedValue(undefined);
 
     repoRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'resolve-conflict-'));
     parsePullRequestUrlMock.mockReturnValue({
@@ -131,10 +139,12 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -147,17 +157,35 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitFinalize = {
-      status: jest.fn().mockResolvedValue({ current: 'feature' }),
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
       push: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze, gitExecute, gitFinalize];
@@ -176,6 +204,13 @@ describe('resolve-conflict コマンド統合テスト', () => {
     await expect(fsp.access(metadataPath)).rejects.toThrow();
     expect(githubClientInstance.postComment).toHaveBeenCalled();
     expect(gitFinalize.push).toHaveBeenCalledWith('origin', 'feature');
+    expect(gitInit.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42/metadata.json'));
+    expect(gitInit.commit).toHaveBeenCalledWith('resolve-conflict: init metadata for PR #42');
+    expect(gitAnalyze.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42'));
+    expect(gitAnalyze.commit).toHaveBeenCalledWith('resolve-conflict: analyze completed for PR #42');
+    expect(gitExecute.add).toHaveBeenCalledTimes(3); // resolved files + resultJson + metadata
+    expect(gitExecute.commit).toHaveBeenCalledTimes(2);
+    expect(gitExecute.commit).toHaveBeenCalledWith('resolve-conflict: execute artifacts for PR #42');
   });
 
   it('execute_ドライラン_ファイル書き込みとコミットを行わない', async () => {
@@ -212,10 +247,12 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -228,9 +265,29 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit, gitAnalyze];
+    const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
     simpleGitMock.mockImplementation(() => gitInstances.shift());
 
     await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
@@ -242,13 +299,19 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // Then: 解消結果ファイルが作成されない
     const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
     await expect(fsp.access(path.join(outputDir, 'resolution-result.json'))).rejects.toThrow();
-    await expect(fsp.access(path.join(outputDir, 'resolution-result.md'))).rejects.toThrow();
+
+    // merge --abort が呼ばれ、元のブランチに戻る
+    expect(gitExecute.raw).toHaveBeenCalledWith(['merge', '--abort']);
+    expect(gitExecute.checkout).toHaveBeenCalledWith('develop');
+    expect(gitExecute.commit).not.toHaveBeenCalled();
   });
 
   it('analyze_コンフリクト無し_早期終了して計画を作成しない', async () => {
     // Given: init 済みのメタデータとコンフリクトなしの状態
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -261,6 +324,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze];
@@ -277,6 +342,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
     expect(metadata.status).toBe('analyzed');
     expect(metadata.conflictFiles).toHaveLength(0);
     expect(metadata.resolutionPlanPath).toBeUndefined();
+    expect(gitAnalyze.add).not.toHaveBeenCalled();
+    expect(gitAnalyze.commit).not.toHaveBeenCalled();
 
     const planJsonPath = path.join(repoRoot, '.ai-workflow', 'conflict-42', 'resolution-plan.json');
     await expect(fsp.access(planJsonPath)).rejects.toThrow();
@@ -286,6 +353,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // Given: merge が失敗する状態
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -300,6 +369,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
         }
         return Promise.resolve('');
       }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze];
@@ -367,6 +438,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -379,6 +452,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze];
@@ -400,9 +475,17 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // Given: init 済みのメタデータ
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit];
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
     simpleGitMock.mockImplementation(() => {
       const instance = gitInstances.shift();
       if (!instance) {
@@ -425,9 +508,17 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // Given: init 済みのメタデータと解消結果
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
-    const gitInstances = [gitInit];
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
     simpleGitMock.mockImplementation(() => gitInstances.shift());
 
     await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
@@ -435,8 +526,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
     const metadataManager = new ConflictMetadataManager(repoRoot, 42);
     const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
     await fsp.mkdir(outputDir, { recursive: true });
-    const resultPath = path.join(outputDir, 'resolution-result.md');
-    await fsp.writeFile(resultPath, '# result', 'utf-8');
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    await fsp.writeFile(resultPath, '[]', 'utf-8');
     await metadataManager.setResolutionResult(resultPath);
 
     // When: finalize を squash 指定で実行
@@ -484,6 +575,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -496,6 +589,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitInstances = [gitInit, gitAnalyze];
@@ -547,10 +642,12 @@ describe('resolve-conflict コマンド統合テスト', () => {
     });
 
     createPlanMock.mockResolvedValue(plan);
-    resolveMock.mockResolvedValue(plan.resolutions);
+    resolveFileMock.mockResolvedValue('resolved');
 
     const gitInit = {
       fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitAnalyze = {
@@ -563,11 +660,27 @@ describe('resolve-conflict コマンド統合テスト', () => {
       checkout: jest.fn().mockResolvedValue(undefined),
       checkoutBranch: jest.fn().mockResolvedValue(undefined),
       raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
     };
 
     const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
       add: jest.fn().mockResolvedValue(undefined),
-      status: jest.fn().mockResolvedValue({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
       commit: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -580,10 +693,706 @@ describe('resolve-conflict コマンド統合テスト', () => {
     // When: execute を agent/language 指定で実行
     await handleResolveConflictExecuteCommand({ prUrl, agent: 'claude', dryRun: false, language: 'en' });
 
-    // Then: ConflictResolver にオプションが渡される
-    expect(resolveMock).toHaveBeenCalledWith(
-      expect.any(Object),
+    // Then: ConflictResolver.resolveFile にオプションが渡される
+    expect(resolveFileMock).toHaveBeenCalledWith(
+      'src/conflict.ts',
+      expect.any(String),
+      undefined,
       expect.objectContaining({ agent: 'claude', language: 'en' }),
     );
+  });
+
+  it('init完了時にメタデータがgit add/commitされること', async () => {
+    // 目的: init でメタデータをGit管理し、後続フェーズのクリーンチェックを満たす
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    simpleGitMock.mockImplementation(() => gitInit);
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    expect(gitInit.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42/metadata.json'));
+    expect(gitInit.commit).toHaveBeenCalledWith('resolve-conflict: init metadata for PR #42');
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('initのコミット失敗時にワークフローが続行すること', async () => {
+    // 目的: git commit 失敗時でも init を継続できることを確認する
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockRejectedValue(new Error('commit failed')),
+    };
+
+    simpleGitMock.mockImplementation(() => gitInit);
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    expect(gitInit.commit).toHaveBeenCalled();
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    const metadataManager = new ConflictMetadataManager(repoRoot, 42);
+    await expect(fsp.access(metadataManager.getMetadataPath())).resolves.not.toThrow();
+  });
+
+  it('initのgit add失敗時にワークフローが続行すること', async () => {
+    // 目的: git add 失敗時でも init を継続できることを確認する
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockRejectedValue(new Error('add failed')),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    simpleGitMock.mockImplementation(() => gitInit);
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    expect(gitInit.add).toHaveBeenCalled();
+    expect(gitInit.commit).not.toHaveBeenCalled();
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('analyzeクリーンチェック_ai-workflowのみの場合エラーにならないこと', async () => {
+    // 目的: .ai-workflow 配下のみの変更は許容されることを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [{ path: '.ai-workflow/conflict-42/metadata.json' }], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('analyzeクリーンチェック_非ワークフローファイルでエラーになること', async () => {
+    // 目的: .ai-workflow 以外の変更がある場合はエラーになることを確認する
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn().mockResolvedValueOnce({ files: [{ path: 'src/app.ts' }], current: 'main', conflicted: [] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await expect(
+      handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' }),
+    ).rejects.toThrow('process.exit: 1');
+  });
+
+  it('analyzeクリーンチェック_混在ケースでエラーになること', async () => {
+    // 目的: .ai-workflow と非ワークフローファイルの混在はエラーになることを確認する
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn().mockResolvedValueOnce({
+        files: [
+          { path: '.ai-workflow/conflict-42/metadata.json' },
+          { path: 'src/app.ts' },
+        ],
+        current: 'main',
+        conflicted: [],
+      }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await expect(
+      handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' }),
+    ).rejects.toThrow('process.exit: 1');
+  });
+
+  it('analyze完了後に成果物がcommitされること', async () => {
+    // 目的: analyze 成果物が git add/commit されることを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+
+    expect(gitAnalyze.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42'));
+    expect(gitAnalyze.commit).toHaveBeenCalledWith('resolve-conflict: analyze completed for PR #42');
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('analyzeの成果物コミット失敗時にワークフローが続行すること', async () => {
+    // 目的: analyze 成果物の commit 失敗時でもワークフローが続行することを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockRejectedValue(new Error('nothing to commit')),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+
+    const planJsonPath = path.join(repoRoot, '.ai-workflow', 'conflict-42', 'resolution-plan.json');
+    await expect(fsp.access(planJsonPath)).resolves.not.toThrow();
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('execute完了後に成果物がcommitされること', async () => {
+    // 目的: execute 成果物の git add/commit が実行されることを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+    resolveFileMock.mockResolvedValue('resolved');
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+    await handleResolveConflictExecuteCommand({ prUrl, agent: 'auto', dryRun: false, language: 'ja' });
+
+    expect(gitExecute.add).toHaveBeenCalledTimes(3); // resolved files + resultJson + metadata
+    expect(gitExecute.commit).toHaveBeenCalledTimes(2);
+    expect(gitExecute.commit).toHaveBeenCalledWith('resolve-conflict: execute artifacts for PR #42');
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('executeの成果物コミット失敗時にワークフローが続行すること', async () => {
+    // 目的: execute 成果物の commit 失敗時でもワークフローが続行することを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+    resolveFileMock.mockResolvedValue('resolved');
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('nothing to commit')),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+    await handleResolveConflictExecuteCommand({ prUrl, agent: 'auto', dryRun: false, language: 'ja' });
+
+    const resultJsonPath = path.join(repoRoot, '.ai-workflow', 'conflict-42', 'resolution-result.json');
+    await expect(fsp.access(resultJsonPath)).resolves.not.toThrow();
+    expect(gitExecute.commit).toHaveBeenCalledTimes(2);
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('各サブコマンドでensureGitConfigが呼ばれること', async () => {
+    // Given: 完全フローのセットアップ
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+    resolveFileMock.mockResolvedValue('resolved');
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitExecute = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest.fn()
+        .mockResolvedValueOnce({ current: 'develop', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: ['src/conflict.ts'] })
+        .mockResolvedValueOnce({ current: 'feature', files: [], conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'feature' }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main', 'feature'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockImplementation((args: string[]) => {
+        if (args[0] === 'merge' && args[1] === '--no-commit') {
+          throw new Error('merge conflict');
+        }
+        return Promise.resolve('');
+      }),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze, gitExecute];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    // When: init -> analyze -> execute
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+    await handleResolveConflictExecuteCommand({ prUrl, agent: 'auto', dryRun: false });
+
+    // Then: ensureGitConfig が init, analyze, execute それぞれで呼ばれる
+    expect(ensureGitConfigMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('init_analyze シーケンシャル実行でクリーンチェックが通過すること', async () => {
+    // 目的: init → analyze の連続実行でクリーンチェックが通過することを確認する
+    const conflictFilePath = path.join(repoRoot, 'src/conflict.ts');
+    await fsp.mkdir(path.dirname(conflictFilePath), { recursive: true });
+    await fsp.writeFile(
+      conflictFilePath,
+      '<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> feature\n',
+      'utf-8',
+    );
+
+    const plan: ConflictResolutionPlan = {
+      prNumber: 42,
+      baseBranch: 'main',
+      headBranch: 'feature',
+      generatedAt: '2024-01-01T00:00:00Z',
+      resolutions: [
+        { filePath: 'src/conflict.ts', strategy: 'manual-merge', resolvedContent: 'resolved' },
+      ],
+      skippedFiles: [],
+      warnings: [],
+    };
+
+    mergeContextCollectMock.mockResolvedValue({
+      conflictFiles: [
+        { filePath: 'src/conflict.ts', startLine: 1, endLine: 5, oursContent: 'ours', theirsContent: 'theirs' },
+      ],
+      oursLog: [],
+      theirsLog: [],
+      prDescription: '',
+      relatedIssues: [],
+      contextSnippets: [],
+    });
+
+    createPlanMock.mockResolvedValue(plan);
+
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitAnalyze = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      status: jest
+        .fn()
+        .mockResolvedValueOnce({ files: [{ path: '.ai-workflow/conflict-42/metadata.json' }], current: 'main', conflicted: [] })
+        .mockResolvedValueOnce({ files: [{ path: 'src/conflict.ts' }], current: 'main', conflicted: ['src/conflict.ts'] }),
+      branchLocal: jest.fn().mockResolvedValue({ all: ['main'] }),
+      checkout: jest.fn().mockResolvedValue(undefined),
+      checkoutBranch: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(''),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitAnalyze];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+      throw new Error(`process.exit: ${code}`);
+    }) as unknown as jest.SpyInstance;
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+    await handleResolveConflictAnalyzeCommand({ prUrl, agent: 'auto', language: 'ja' });
+
+    expect(gitInit.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42/metadata.json'));
+    expect(gitInit.commit).toHaveBeenCalledWith('resolve-conflict: init metadata for PR #42');
+    expect(gitAnalyze.add).toHaveBeenCalledWith(expect.stringContaining('.ai-workflow/conflict-42'));
+    expect(gitAnalyze.commit).toHaveBeenCalledWith('resolve-conflict: analyze completed for PR #42');
+    expect(exitSpy).not.toHaveBeenCalled();
   });
 });

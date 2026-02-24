@@ -1,8 +1,8 @@
 /**
- * AI Workflow Rewrite Issue Job DSL
+ * AI Workflow Create Sub Issue Job DSL
  *
- * 既存Issue本文の再設計用ジョブ
- * EXECUTION_MODE: rewrite_issue（固定値、パラメータとして表示しない）
+ * 親Issueに紐づくサブIssueを作成するジョブ
+ * EXECUTION_MODE: create_sub_issue（固定値、パラメータとして表示しない）
  * パラメータはJob DSL内で定義
  */
 
@@ -15,7 +15,7 @@ def genericFolders = [
 
 // 共通設定を取得
 def jenkinsPipelineRepo = commonSettings['jenkins-pipeline-repo']
-def jobKey = 'ai_workflow_rewrite_issue_job'
+def jobKey = 'ai_workflow_create_sub_issue_job'
 def jobConfig = jenkinsJobsConfig[jobKey]
 
 // ジョブ作成クロージャ
@@ -24,20 +24,23 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
         displayName(jobConfig.displayName)
 
         description("""\
-            |# AI Workflow - Rewrite Issue
+            |# AI Workflow - Create Sub Issue
             |${descriptionHeader}
             |
             |## 概要
-            |既存のGitHub Issue本文を再設計し、差分プレビューまたは実更新を行います。
+            |親Issueに紐づくサブIssueをAIエージェントで自動生成・起票します。
             |
             |## 機能
-            |- Issue番号を指定して対象Issueを更新
-            |- dry-run モードで差分プレビューのみ表示
-            |- apply モードでIssue本文を更新
+            |- 親Issue番号を指定してサブIssueを生成
+            |- AIエージェント（Codex/Claude）がIssueタイトルと本文を自動生成
+            |- dry-run モードでプレビュー表示
+            |- apply モードでGitHub Issueを実作成しSub-Issue紐づけ
             |
             |## 注意事項
-            |- EXECUTION_MODEは内部的に'rewrite_issue'に固定されます
+            |- EXECUTION_MODEは内部的に'create_sub_issue'に固定されます
             |- APPLYとDRY_RUNが両方trueの場合、APPLYが優先されます
+            |- ISSUE_NUMBERは親Issue番号として扱われます
+            |- DESCRIPTIONは必須パラメータです（1-1000文字）
             |""".stripMargin())
 
         // パラメータ定義
@@ -45,7 +48,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // ========================================
             // 実行モード（固定値）
             // ========================================
-            choiceParam('EXECUTION_MODE', ['rewrite_issue'], '''
+            choiceParam('EXECUTION_MODE', ['create_sub_issue'], '''
 実行モード（固定値 - 変更不可）
             '''.stripIndent().trim())
 
@@ -53,13 +56,27 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             // 基本設定
             // ========================================
             stringParam('ISSUE_NUMBER', '', '''
-対象Issue番号（必須）
+親Issue番号（必須）
+            '''.stripIndent().trim())
+
+            textParam('DESCRIPTION', '', '''
+サブIssueの説明（必須、1-1000文字）
+
+親Issueに紐づくサブIssueの内容を記述します。
+AIエージェントがこの説明を元にサブIssueのタイトルと本文を生成します。
             '''.stripIndent().trim())
 
             stringParam('GITHUB_REPOSITORY', '', '''
 GitHub リポジトリ（owner/repo）（必須）
 
 例: tielec/ai-workflow-agent
+            '''.stripIndent().trim())
+
+            choiceParam('ISSUE_TYPE', ['bug', 'task', 'enhancement'], '''
+Issue種別
+- bug: バグ報告（デフォルト）
+- task: タスク
+- enhancement: 機能拡張
             '''.stripIndent().trim())
 
             choiceParam('AGENT_MODE', ['auto', 'codex', 'claude'], '''
@@ -79,11 +96,19 @@ GitHub リポジトリ（owner/repo）（必須）
             // 実行オプション
             // ========================================
             booleanParam('APPLY', true, '''
-Issue本文を更新する（デフォルト: true）
+Issueを作成する（デフォルト: true）
             '''.stripIndent().trim())
 
             booleanParam('DRY_RUN', false, '''
-ドライランモード（差分プレビューのみ表示）
+ドライランモード（プレビューのみ表示）
+            '''.stripIndent().trim())
+
+            stringParam('LABELS', '', '''
+ラベル（任意、カンマ区切り）
+
+サブIssueに付与するラベルをカンマ区切りで指定します。
+例: bug,priority-high,sprint-5
+空欄の場合はラベルなしで作成します。
             '''.stripIndent().trim())
 
             textParam('CUSTOM_INSTRUCTION', '', '''
@@ -187,13 +212,13 @@ X-Webhook-Tokenヘッダーとして送信されます。
                         branch(gitBranch)
                     }
                 }
-                scriptPath('jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile')
+                scriptPath('jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile')
             }
         }
 
         // 環境変数（EXECUTION_MODEを固定値として設定）
         environmentVariables {
-            env('EXECUTION_MODE', 'rewrite_issue')
+            env('EXECUTION_MODE', 'create_sub_issue')
             env('WORKFLOW_VERSION', '0.2.0')
         }
 

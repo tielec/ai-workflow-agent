@@ -21,6 +21,7 @@ const simpleGitResetMock = jest.fn();
 const resolveReviewThreadMock = jest.fn();
 const configGetGitCommitUserNameMock = jest.fn(() => 'Configured Bot');
 const configGetGitCommitUserEmailMock = jest.fn(() => 'configured@example.com');
+const ensureGitConfigMock = jest.fn<any>().mockResolvedValue(undefined);
 const fspRmMock = jest.fn<() => Promise<void>>();
 
 const metadataManagerExistsMock = jest.fn();
@@ -72,6 +73,11 @@ beforeAll(async () => {
       getGitCommitUserName: configGetGitCommitUserNameMock,
       getGitCommitUserEmail: configGetGitCommitUserEmailMock,
     },
+  }));
+
+  await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
+    __esModule: true,
+    ensureGitConfig: ensureGitConfigMock,
   }));
 
   await jest.unstable_mockModule('node:fs', () => ({
@@ -244,12 +250,11 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     );
   });
 
-  // Given configuration provides git user info, those values should be applied before git operations.
-  it('configures git user information before staging changes', async () => {
+  // Given configuration provides git user info, ensureGitConfig should be called before git operations.
+  it('calls ensureGitConfig before staging changes', async () => {
     await handlePRCommentFinalizeCommand(commandOptions);
 
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'Configured Bot');
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'configured@example.com');
+    expect(ensureGitConfigMock).toHaveBeenCalled();
   });
 
   // Given metadata lacks PR branch information, pushing should be skipped and an error reported.
@@ -263,15 +268,14 @@ describe('handlePRCommentFinalizeCommand git flow', () => {
     expect(errorSpy).toHaveBeenCalledWith('PR branch information is missing; cannot push finalized changes.');
   });
 
-  // Given git user info is unavailable from config, defaults should be applied.
-  it('falls back to default git user values when configuration is absent', async () => {
+  // Given git user info is unavailable from config, ensureGitConfig handles defaults.
+  it('delegates git user config to ensureGitConfig even when configuration is absent', async () => {
     configGetGitCommitUserNameMock.mockReturnValueOnce(null);
     configGetGitCommitUserEmailMock.mockReturnValueOnce(null);
 
     await handlePRCommentFinalizeCommand(commandOptions);
 
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.name', 'AI Workflow Bot');
-    expect(simpleGitAddConfigMock).toHaveBeenCalledWith('user.email', 'ai-workflow@example.com');
+    expect(ensureGitConfigMock).toHaveBeenCalled();
   });
 
   it('squashes commits and force-pushes when --squash is enabled', async () => {

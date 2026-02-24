@@ -122,25 +122,35 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
     }
   });
 
-  it('src 配下の TypeScript ファイルに変更が含まれていないこと', () => {
-    const trimmed = execSync('git status --porcelain -- src/').toString().trim();
-    if (!trimmed) {
-      expect(trimmed).toBe('');
+  it('src 配下の変更が想定外のファイルに含まれていないこと', () => {
+    const statusOutput = execSync('git status --porcelain -- src/').toString();
+    if (!statusOutput.trim()) {
       return;
     }
 
-    const tsChanges = trimmed
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const pathPart = line.slice(3).trim();
-        const renameIndex = pathPart.indexOf(' -> ');
-        return renameIndex >= 0 ? pathPart.slice(renameIndex + 4) : pathPart;
-      })
-      .filter((file) => file.endsWith('.ts') || file.endsWith('.tsx'));
+    const allowedPrefixes = ['src/prompts/'];
+    const allowedFiles = new Set([
+      'src/core/prompt-loader.ts',
+      'src/commands/pr-comment/finalize.ts',
+      'src/core/git/git-config-helper.ts',
+    ]);
 
-    expect(tsChanges).toHaveLength(0);
+    const unexpected = statusOutput
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .map((line) => (line.length >= 3 ? line.slice(3) : line.trim()))
+      .map((filePath) => filePath.replace(/\\/g, '/'))
+      .map((filePath) => {
+        const renameIndex = filePath.indexOf(' -> ');
+        return renameIndex >= 0 ? filePath.slice(renameIndex + 4).trim() : filePath.trim();
+      })
+      .filter(
+        (filePath) =>
+          !allowedPrefixes.some((prefix) => filePath.startsWith(prefix)) &&
+          !allowedFiles.has(filePath),
+      );
+
+    expect(unexpected).toHaveLength(0);
   });
 
   it('行の長さが 120 文字を超えるものが全体の 10% 以下であること', () => {

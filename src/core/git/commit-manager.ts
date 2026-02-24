@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join, isAbsolute, relative } from 'node:path';
 import { logger } from '../../utils/logger.js';
-import { config } from '../config.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
+import { ensureGitConfig as ensureGitConfigHelper } from './git-config-helper.js';
 import { FileSelector, isSecuritySensitiveFile } from './file-selector.js';
 import { CommitMessageBuilder } from './commit-message-builder.js';
 import type { SimpleGit } from 'simple-git';
@@ -531,40 +531,7 @@ export class CommitManager {
    * Note: Made public for use by SquashManager during finalize command.
    */
   public async ensureGitConfig(): Promise<void> {
-    const gitConfig = await this.git.listConfig();
-    const userNameFromConfig = gitConfig.all['user.name'] as string | undefined;
-    const userEmailFromConfig = gitConfig.all['user.email'] as string | undefined;
-
-    let userName: string =
-      userNameFromConfig ||
-      config.getGitCommitUserName() ||
-      'AI Workflow';
-
-    let userEmail: string =
-      userEmailFromConfig ||
-      config.getGitCommitUserEmail() ||
-      'ai-workflow@tielec.local';
-
-    if (userName.length < 1 || userName.length > 100) {
-      logger.warn(
-        `User name length is invalid (${userName.length} chars), using default`,
-      );
-      userName = 'AI Workflow';
-    }
-
-    if (!userEmail.includes('@')) {
-      logger.warn(
-        `Invalid email format: ${userEmail}, using default`,
-      );
-      userEmail = 'ai-workflow@tielec.local';
-    }
-
-    await this.git.addConfig('user.name', userName, false, 'local');
-    await this.git.addConfig('user.email', userEmail, false, 'local');
-
-    logger.info(
-      `Git config ensured: user.name=${userName}, user.email=${userEmail}`,
-    );
+    await ensureGitConfigHelper(this.git);
   }
 
   /**

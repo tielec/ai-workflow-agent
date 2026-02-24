@@ -21,6 +21,7 @@ export type PromptCategory =
   | 'content_parser'
   | 'validation'
   | 'rewrite-issue'
+  | 'create-sub-issue'
   | 'split-issue'
   | 'conflict';
 
