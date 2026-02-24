@@ -4,15 +4,23 @@
 
 Analyze the merge conflict context below and output a JSON resolution plan.
 
+## Target Conflict Files ({conflict_file_count} files)
+
+You MUST provide exactly one resolution for each of the following files. No file may be omitted.
+
+{conflict_file_list}
+
 ## Input (JSON)
-{merge_context_json}
+The merge conflict context is provided in the following JSON file. Read this file using the Read tool to analyze: `{merge_context_file_path}`
 
 ## Rules
 - Sensitive files (.env, *.pem, *.key, etc.) must be placed in `skippedFiles`
-- `resolutions` must include per-file strategies
+- `resolutions` MUST include resolution strategies for ALL of the target conflict files listed above. Missing even one file will result in an error
 - `strategy` must be one of `both | ours | theirs | manual-merge`
-- `resolvedContent` must contain the full resolved file content
-- Output **JSON only** (no extra explanations or code blocks)
+- `resolvedContent` can be an empty string `""` (resolved content is generated in a later phase)
+- Use `notes` to describe the resolution approach and reasoning
+- Write the output as a JSON file to this exact absolute path using the Write tool: `{output_file_path}`
+- Do NOT output JSON to stdout. Always write to the file
 
 ## Output Format
 {

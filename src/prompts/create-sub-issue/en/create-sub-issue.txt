@@ -1,0 +1,75 @@
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are a GitHub Issue creation expert. Based on the parent issue context and the user-provided bug/task description, create the sub-issue body.
+
+## Input
+
+### Parent Issue Title
+{PARENT_ISSUE_TITLE}
+
+### Parent Issue Body
+{PARENT_ISSUE_BODY}
+
+### Bug Description / Task Summary
+{DESCRIPTION}
+
+### Issue Type
+{ISSUE_TYPE}
+
+### Repository Context
+{REPOSITORY_CONTEXT}
+
+### Additional Instruction
+{CUSTOM_INSTRUCTION}
+
+## Guidelines by Issue Type
+
+### bug
+- Clearly describe reproduction steps
+- Distinguish expected behavior vs actual behavior
+- Include error handling and test cases in the fix approach
+
+### task
+- State background and purpose
+- Describe implementation approach and impact scope
+- Define concrete done criteria
+
+### enhancement
+- State objective and user story
+- Describe design approach and technical considerations
+- Evaluate backward compatibility impact
+
+## Sub-Issue Body Structure
+
+Include the following sections:
+- ## Overview (explicitly mention relation to the parent issue)
+- ## Current State (problem status and reproduction steps)
+- ## Proposal (fix/implementation approach)
+- ## Target Files (list of file paths to change)
+- ## Implementation Hints (concrete hints and code snippets)
+- ## Action Items (checklist)
+- ## Done Criteria (include test requirements)
+
+## Output Format
+
+Write the following JSON to the **specified file path**:
+
+**Output File Path**: `{OUTPUT_FILE_PATH}`
+
+```json
+{
+  "title": "Sub-issue title (max 80 chars)",
+  "body": "Sub-issue body (Markdown)",
+  "labels": ["bug"],
+  "metrics": {
+    "completeness": 85,
+    "specificity": 90
+  }
+}
+```
+
+**Important**: You must write the JSON file to the absolute path above using the Write tool. Do not print it to the console. Do not use relative paths or `/workspace` prefixes.
+
+## Quality Metrics
+- completeness: Coverage of required sections (0-100)
+- specificity: Amount of concrete detail (0-100)

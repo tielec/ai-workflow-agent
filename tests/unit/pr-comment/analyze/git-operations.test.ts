@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
+const ensureGitConfigMock = jest.fn<any>().mockResolvedValue(undefined);
 const addConfigMock = jest.fn();
 const addMock = jest.fn();
 const commitMock = jest.fn();
@@ -19,10 +20,16 @@ beforeEach(() => {
   addConfigMock.mockReset();
   addMock.mockReset();
   commitMock.mockReset();
+  ensureGitConfigMock.mockReset();
+  ensureGitConfigMock.mockResolvedValue(undefined);
 });
 
 describe('commitIfNeeded', () => {
   async function importModule() {
+    await jest.unstable_mockModule('../../../../src/core/git/git-config-helper.js', () => ({
+      __esModule: true,
+      ensureGitConfig: ensureGitConfigMock,
+    }));
     await jest.unstable_mockModule('simple-git', () => ({
       default: simpleGitMock,
     }));
@@ -57,7 +64,7 @@ describe('commitIfNeeded', () => {
 
     expect(addMock).not.toHaveBeenCalled();
     expect(commitMock).not.toHaveBeenCalled();
-    expect(addConfigMock).not.toHaveBeenCalled();
+    expect(ensureGitConfigMock).not.toHaveBeenCalled();
   });
 
   it('Gitユーザー設定は初回のみ実行する (TC-UNIT-GO-003)', async () => {
@@ -68,8 +75,8 @@ describe('commitIfNeeded', () => {
     await commitIfNeeded('/repo', 'first');
     await commitIfNeeded('/repo', 'second');
 
-    // user.name と user.email の2回のみ
-    expect(addConfigMock).toHaveBeenCalledTimes(2);
+    // ensureGitConfig は初回のみ呼ばれる
+    expect(ensureGitConfigMock).toHaveBeenCalledTimes(1);
     expect(commitMock).toHaveBeenCalledTimes(2);
   });
 });

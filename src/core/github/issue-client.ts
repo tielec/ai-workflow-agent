@@ -257,6 +257,44 @@ export class IssueClient {
   }
 
   /**
+   * GitHub Sub-Issue API を使用して親Issueに子Issueを紐づける
+   *
+   * @param parentIssueNumber - 親Issue番号
+   * @param childIssueId - 子IssueのID（GitHub内部ID、numberではない）
+   * @returns GenericResult - 成功/失敗の結果
+   */
+  public async addSubIssue(
+    parentIssueNumber: number,
+    childIssueId: number,
+  ): Promise<GenericResult> {
+    try {
+      await this.octokit.request(
+        'POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+        {
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: parentIssueNumber,
+          sub_issue_id: childIssueId,
+        },
+      );
+
+      logger.info(
+        `Successfully linked sub-issue (id=${childIssueId}) to parent #${parentIssueNumber}`,
+      );
+      return { success: true, error: null };
+    } catch (error) {
+      const message =
+        error instanceof RequestError
+          ? `GitHub API error: ${error.status} - ${error.message}`
+          : getErrorMessage(error);
+      logger.warn(
+        `Failed to add sub-issue to #${parentIssueNumber}: ${this.encodeWarning(message)}`,
+      );
+      return { success: false, error: message };
+    }
+  }
+
+  /**
    * Closes an issue with a reason comment.
    */
   public async closeIssueWithReason(issueNumber: number, reason: string): Promise<GenericResult> {

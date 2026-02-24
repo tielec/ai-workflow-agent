@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { DifficultyAnalyzer } from '../../../src/core/difficulty-analyzer.js';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import {
+  DifficultyAnalyzer,
+  mapGradeToLevel,
+  mapLevelToGrade,
+} from '../../../src/core/difficulty-analyzer.js';
+import { PromptLoader } from '../../../src/core/prompt-loader.js';
 import { logger } from '../../../src/utils/logger.js';
 
 const baseInput = {
@@ -399,5 +404,471 @@ describe('DifficultyAnalyzer', () => {
     const prompt = (analyzer as any).buildPrompt(baseInput);
 
     expect(prompt).toContain('expert at estimating GitHub Issue difficulty');
+  });
+
+  describe('analyzeWithGrade', () => {
+    it('returns normalized grade result from Claude', async () => {
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'B',
+            label: 'simple',
+            bug_risk: {
+              expected_bugs: 2,
+              probability: 40,
+              risk_score: 999,
+            },
+            rationale: 'Looks straightforward.',
+            confidence: 0.88,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      expect(result.grade).toBe('B');
+      expect(result.label).toBe('simple');
+      expect(result.bug_risk.expected_bugs).toBe(2);
+      expect(result.bug_risk.probability).toBe(40);
+      expect(result.bug_risk.risk_score).toBeCloseTo(0.8, 2);
+      expect(result.assessed_by).toBe('claude');
+    });
+
+    it('escalates low confidence grades to D', async () => {
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'B',
+            bug_risk: {
+              expected_bugs: 1,
+              probability: 20,
+            },
+            rationale: 'Low confidence case.',
+            confidence: 0.3,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      expect(result.grade).toBe('D');
+      expect(result.label).toBe('complex');
+      expect(result.assessed_by).toBe('claude');
+    });
+
+    it('falls back to Codex when Claude analysis fails', async () => {
+      const claudeClient = {
+        executeTask: jest.fn(async () => {
+          throw new Error('Claude down');
+        }),
+      };
+      const codexClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'A',
+            label: 'trivial',
+            bug_risk: {
+              expected_bugs: 0,
+              probability: 5,
+            },
+            rationale: 'Tiny change.',
+            confidence: 0.7,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: codexClient as any,
+        workingDir: process.cwd(),
+      });
+
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      expect(result.grade).toBe('A');
+      expect(result.label).toBe('trivial');
+      expect(result.assessed_by).toBe('codex');
+    });
+
+    it('returns default grade when both agents fail', async () => {
+      const claudeClient = {
+        executeTask: jest.fn(async () => {
+          throw new Error('Claude down');
+        }),
+      };
+      const codexClient = {
+        executeTask: jest.fn(async () => {
+          throw new Error('Codex down');
+        }),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: codexClient as any,
+        workingDir: process.cwd(),
+      });
+
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      expect(result.grade).toBe('D');
+      expect(result.label).toBe('complex');
+      expect(result.assessed_by).toBe('codex');
+    });
+
+    it('グレードAのlabelがtrivialにマッピングされる (TC-DA-G002)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'A',
+            bug_risk: { expected_bugs: 0, probability: 5 },
+            rationale: 'Tiny change.',
+            confidence: 0.9,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('A');
+      expect(result.label).toBe('trivial');
+    });
+
+    it('グレードBのlabelがsimpleにマッピングされる (TC-DA-G003)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'B',
+            bug_risk: { expected_bugs: 1, probability: 20 },
+            rationale: 'Small change.',
+            confidence: 0.9,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('B');
+      expect(result.label).toBe('simple');
+    });
+
+    it('グレードCのlabelがmoderateにマッピングされる (TC-DA-G001)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'C',
+            bug_risk: { expected_bugs: 2, probability: 35 },
+            rationale: 'Moderate change.',
+            confidence: 0.8,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('C');
+      expect(result.label).toBe('moderate');
+      expect(result.bug_risk.risk_score).toBeCloseTo(0.7, 2);
+    });
+
+    it('グレードDのlabelがcomplexにマッピングされる (TC-DA-G004)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'D',
+            bug_risk: { expected_bugs: 3, probability: 50 },
+            rationale: 'Large change.',
+            confidence: 0.9,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('D');
+      expect(result.label).toBe('complex');
+    });
+
+    it('グレードEのlabelがcriticalにマッピングされる (TC-DA-G005)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'E',
+            bug_risk: { expected_bugs: 8, probability: 80 },
+            rationale: 'Critical change.',
+            confidence: 0.9,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('E');
+      expect(result.label).toBe('critical');
+    });
+
+    it('不正グレードはデフォルト値にフォールバックされる (TC-DA-G008)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'X',
+            bug_risk: { expected_bugs: 2, probability: 50 },
+            rationale: 'Invalid grade.',
+            confidence: 0.7,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.grade).toBe('D');
+      expect(result.label).toBe('complex');
+    });
+
+    it('probabilityが負数の場合は0にクランプされる (TC-DA-G009)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'C',
+            bug_risk: { expected_bugs: 2, probability: -10 },
+            rationale: 'Negative probability.',
+            confidence: 0.8,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.bug_risk.probability).toBe(0);
+      expect(result.bug_risk.risk_score).toBe(0);
+    });
+
+    it('probabilityが100超の場合は100にクランプされる (TC-DA-G010)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'C',
+            bug_risk: { expected_bugs: 2, probability: 150 },
+            rationale: 'Over probability.',
+            confidence: 0.8,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.bug_risk.probability).toBe(100);
+      expect(result.bug_risk.risk_score).toBe(2);
+    });
+
+    it('expected_bugsが負数の場合は0に正規化される (TC-DA-G011)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'C',
+            bug_risk: { expected_bugs: -3, probability: 50 },
+            rationale: 'Negative expected bugs.',
+            confidence: 0.8,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.bug_risk.expected_bugs).toBe(0);
+      expect(result.bug_risk.risk_score).toBe(0);
+    });
+
+    it('risk_scoreがexpected_bugs * probability / 100で再計算される (TC-DA-G012)', async () => {
+      // Given
+      const claudeClient = {
+        executeTask: jest.fn(async () => [
+          JSON.stringify({
+            grade: 'C',
+            bug_risk: { expected_bugs: 5, probability: 40, risk_score: 999 },
+            rationale: 'Risk score should be recalculated.',
+            confidence: 0.8,
+          }),
+        ]),
+      };
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: claudeClient as any,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const result = await analyzer.analyzeWithGrade(baseInput, 'en');
+
+      // Then
+      expect(result.bug_risk.risk_score).toBe(2);
+    });
+  });
+
+  describe('grade prompt loading', () => {
+    it('日本語プロンプトがロードされる (TC-DA-G013)', () => {
+      // Given
+      const loadPromptSpy = jest
+        .spyOn(PromptLoader, 'loadPrompt')
+        .mockReturnValue('Title: {{title}}\\nBody: {{body}}\\nLabels: {{labels}}');
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: null,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const prompt = (analyzer as any).buildGradePrompt(baseInput, 'ja');
+
+      // Then
+      expect(loadPromptSpy).toHaveBeenCalledWith('difficulty', 'analyze-grade', 'ja');
+      expect(prompt).toContain('Title: Sample Issue');
+      expect(prompt).toContain('Body: Example body for difficulty analysis.');
+      expect(prompt).toContain('Labels: backend, enhancement');
+    });
+
+    it('英語プロンプトがロードされる (TC-DA-G014)', () => {
+      // Given
+      const loadPromptSpy = jest
+        .spyOn(PromptLoader, 'loadPrompt')
+        .mockReturnValue('Title: {{title}}\\nBody: {{body}}\\nLabels: {{labels}}');
+      const analyzer = new DifficultyAnalyzer({
+        claudeClient: null,
+        codexClient: null,
+        workingDir: process.cwd(),
+      });
+
+      // When
+      const prompt = (analyzer as any).buildGradePrompt(baseInput, 'en');
+
+      // Then
+      expect(loadPromptSpy).toHaveBeenCalledWith('difficulty', 'analyze-grade', 'en');
+      expect(prompt).toContain('Title: Sample Issue');
+      expect(prompt).toContain('Body: Example body for difficulty analysis.');
+      expect(prompt).toContain('Labels: backend, enhancement');
+    });
+  });
+
+  describe('mapGradeToLevel', () => {
+    it('グレードAはsimpleにマッピングされる (TC-DA-MAP-001)', () => {
+      // Given/When/Then
+      expect(mapGradeToLevel('A')).toBe('simple');
+    });
+
+    it('グレードBはsimpleにマッピングされる (TC-DA-MAP-002)', () => {
+      // Given/When/Then
+      expect(mapGradeToLevel('B')).toBe('simple');
+    });
+
+    it('グレードCはmoderateにマッピングされる (TC-DA-MAP-003)', () => {
+      // Given/When/Then
+      expect(mapGradeToLevel('C')).toBe('moderate');
+    });
+
+    it('グレードDはcomplexにマッピングされる (TC-DA-MAP-004)', () => {
+      // Given/When/Then
+      expect(mapGradeToLevel('D')).toBe('complex');
+    });
+
+    it('グレードEはcomplexにマッピングされる (TC-DA-MAP-005)', () => {
+      // Given/When/Then
+      expect(mapGradeToLevel('E')).toBe('complex');
+    });
+  });
+
+  describe('mapLevelToGrade', () => {
+    it('simpleはグレードBにマッピングされる (TC-DA-MAP-006)', () => {
+      // Given/When/Then
+      expect(mapLevelToGrade('simple')).toBe('B');
+    });
+
+    it('moderateはグレードCにマッピングされる (TC-DA-MAP-007)', () => {
+      // Given/When/Then
+      expect(mapLevelToGrade('moderate')).toBe('C');
+    });
+
+    it('complexはグレードDにマッピングされる (TC-DA-MAP-008)', () => {
+      // Given/When/Then
+      expect(mapLevelToGrade('complex')).toBe('D');
+    });
   });
 });
