@@ -28,6 +28,8 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── rewrite-issue/
 │   │       │   └── Jenkinsfile
+│   │       ├── split-issue/
+│   │       │   └── Jenkinsfile
 │   │       ├── auto-close-issue/
 │   │       │   └── Jenkinsfile
 │   │       ├── finalize/
@@ -54,6 +56,7 @@ jenkins/
 │           ├── ai_workflow_rollback_job.groovy
 │           ├── ai_workflow_auto_issue_job.groovy
 │           ├── ai_workflow_rewrite_issue_job.groovy
+│           ├── ai_workflow_split_issue_job.groovy
 │           ├── ai_workflow_auto_close_issue_job.groovy
 │           ├── ai_workflow_finalize_job.groovy
 │           ├── ai_workflow_pr_comment_execute_job.groovy
@@ -73,12 +76,13 @@ jenkins/
 
 | ジョブ名 | 説明 | パラメータ数 |
 |---------|------|-------------|
-| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 30 |
+| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 31 |
 | **preset** | プリセット実行（quick-fix, implementation等） | 31 |
 | **single_phase** | 単一フェーズ実行（デバッグ用） | 29 |
 | **rollback** | フェーズ差し戻し実行 | 27 |
 | **auto_issue** | 自動Issue作成 | 20 |
 | **rewrite_issue** | Issue本文再設計（リポジトリ文脈を参照した既存Issue改善） | 18 |
+| **split_issue** | 複雑なIssueを機能単位で分割（split-issueコマンドのJenkins実行） | 19 |
 | **auto_close_issue** | 既存Issue自動クローズ（AIによる安全なIssue整理） | 20 |
 | **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 24 |
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 19 |
@@ -86,7 +90,7 @@ jenkins/
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
 | **create_sub_issue** | サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成） | 18 |
 | **validate_credentials** | 認証情報バリデーション（Git/GitHub/Codex/Claude/OpenAI/Anthropic） | 17 |
-| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除） | 7 |
+| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、developフォルダのみ） | 3 |
 
 ### 言語設定
 
@@ -165,6 +169,7 @@ AI_Workflow/
 │   ├── rollback
 │   ├── auto_issue
 │   ├── rewrite_issue
+│   ├── split_issue
 │   ├── auto_close_issue
 │   ├── finalize
 │   ├── pr_comment_execute
@@ -201,7 +206,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（14種類 × 10フォルダ = 140ジョブ）
+- 各実行モード用のジョブ（13種類 × 10フォルダ + ecr_build × 1フォルダ = 131ジョブ）
 
 ## 共通処理モジュール
 

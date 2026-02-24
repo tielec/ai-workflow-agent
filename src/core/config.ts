@@ -203,6 +203,20 @@ export interface IConfig {
    */
   getFollowupLlmMaxTasks(): number | null;
 
+  // ========== ネットワークヘルスチェック設定（Issue #721） ==========
+
+  /**
+   * ネットワークヘルスチェックが環境変数で有効化されているか
+   * @returns true: 有効、false: 無効（デフォルト）
+   */
+  getNetworkHealthCheckEnabled(): boolean;
+
+  /**
+   * ネットワークスループット低下率の閾値（%）
+   * @returns 閾値（デフォルト: 70）
+   */
+  getNetworkThroughputDropThreshold(): number;
+
   // ========== 動作環境判定 ==========
 
   /**
@@ -443,6 +457,16 @@ export class Config implements IConfig {
       return null;
     }
     return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : null;
+  }
+
+  // ========== ネットワークヘルスチェック設定（Issue #721） ==========
+
+  public getNetworkHealthCheckEnabled(): boolean {
+    return this.parseBoolean(this.getEnv('NETWORK_HEALTH_CHECK', false), false);
+  }
+
+  public getNetworkThroughputDropThreshold(): number {
+    return this.parseNumericEnv('NETWORK_THROUGHPUT_DROP_THRESHOLD') ?? 70;
   }
 
   // ========== 動作環境判定 ==========

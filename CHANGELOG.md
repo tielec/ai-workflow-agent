@@ -7,8 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
+  - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
+  - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy` の `description()` を4フェーズステージ構成に更新
+  - `tests/unit/jenkins/resolve-conflict-job.test.ts` の `UT-FR6` テストケースを新ステージ名に対応
+  - CLI コマンド（`resolve-conflict init/analyze/execute/finalize`）のインターフェースは変更なし（後方互換性維持）
+  - 修正ファイル: `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile`、`jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy`、`tests/unit/jenkins/resolve-conflict-job.test.ts`、`docs/CONFLICT_RESOLUTION.md`
+- **Issue #771**: `rewrite-issue` コマンドのメタデータ表示形式をYAML frontmatter（`---` 区切り）からHTML `<details>` 折りたたみ形式に変更
+  - GitHub Issues上でメタデータがデフォルトで折りたたまれた状態で表示され、Issue本文の可読性が向上
+  - `src/utils/frontmatter.ts` の `generateFrontmatter()` を `<details>` / `<summary>メタデータ</summary>` / YAML コンテンツ / `</details>` の構造に変更
+  - `extractExistingFrontmatter()` と `parseFrontmatter()` に新旧両形式対応を追加し、旧形式（`---` 区切り）の後方互換性を維持
+  - 既存Issueを `rewrite-issue --apply` で再処理した場合、旧形式を自動検出して新形式に置換
+  - テストカバレッジ: ユニットテスト24件（新形式検証 + 後方互換テスト）、全体 `npm run validate`（lint + test + build）PASS（157 suites / 2491 tests）
+  - 修正ファイル: `src/utils/frontmatter.ts`、`tests/unit/utils/frontmatter.test.ts`
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（メタデータ自動付与セクション）
+
 ### Added
 
+- **Issue #782**: Evaluation Phase（Phase 9）で「PASS_WITH_ISSUES」判定時に作成されるFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動リンクする機能を追加
+  - `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッドにSub-Issueリンク処理を統合（エージェントモード・LLM/レガシーモードの両パスに対応）
+  - `linkFollowUpAsSubIssue()` プライベートメソッドを新規追加し、`getIssue()` → `addSubIssue()` → フォールバック（`updateIssue()`）のベストエフォートフローを実装
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - `IssueCreationResult` インターフェースに `subIssueLinkSuccess?: boolean` オプショナルフィールドを追加（後方互換性を維持）
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う設計（ベストエフォート原則）
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的になり、タスクトラッキングが改善
+  - `create-sub-issue` コマンドと同一のSub-Issueリンクパターンを採用し、GitHub連携の一貫性を確保
+  - 修正ファイル: `src/core/github/issue-client.ts`
+  - テストカバレッジ: ユニットテスト6件（`issue-client-followup.test.ts` 3件、`issue-client-agent.test.ts` 3件）を追加、既存テスト互換性を確認、全体 `npm run test:unit` PASS（2501 tests）
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
   - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
   - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証
@@ -35,6 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `src/core/github-client.ts` に `addSubIssue()` ファサードメソッドを追加
   - `src/main.ts` に `create-sub-issue` コマンド登録を追加
   - テストカバレッジ: ユニットテスト + 統合テストを追加、全体 `npm run validate`（lint + test + build）PASS
+- **Issue #714**: Jenkins に `split-issue` ジョブを追加
+  - `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` を新規作成（`rewrite-issue` ジョブをテンプレートに差分適用）
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy` を新規作成（19パラメータ定義、`MAX_SPLITS` を含む）
+  - `jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml` に `ai_workflow_split_issue_job` エントリを追加
+  - `jenkins/README.md` を更新（ジョブ一覧・ディレクトリ構造・フォルダ構成・ジョブ数を13種類×10フォルダ=130ジョブに更新）
+  - Jenkins UI から `split-issue` CLI コマンドを実行可能に（Issue分割、dry-run/applyモード、分割数上限指定をサポート）
+  - `rewrite-issue` と同一のパイプライン構成を維持（7ステージ、Docker エージェント、Webhook 通知、パラメータバリデーション）
+  - テストカバレッジ: 統合テスト28件を追加（`tests/integration/jenkins/split-issue-job.test.ts`）、`npm run validate` PASS
 
 - **Issue #716**: `rewrite-issue` コマンドに `--custom-instruction` オプションを追加
   - `--custom-instruction <text>`: リライトの方向性を指定する追加指示テキスト（最大500文字、任意）
@@ -128,6 +164,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 拡張テストファイル: `tests/unit/phases/base-phase-fallback.test.ts`
 
 ### Changed
+
+- **Issue #745**: Jenkins ECR Image Build ジョブを develop フォルダ限定に変更し、AWS 認証をインスタンスプロファイルに統一
+  - ECR ビルドジョブの生成対象を `develop` フォルダのみに限定（`stable-1`〜`stable-9` の9ジョブ生成を廃止）
+  - `AWS_ACCOUNT_ID` パラメータを廃止し、`aws sts get-caller-identity` による自動取得に変更
+  - AWS 認証情報パラメータ（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`、`AWS_SESSION_TOKEN`）を削除し、EC2 インスタンスプロファイルによる認証に統一
+  - パラメータ数を7個から3個に削減（57%削減）: `AWS_REGION`、`ECR_REPOSITORY_NAME`、`IMAGE_RETENTION_COUNT` のみ維持
+  - `ECR_REGISTRY` と `ECR_IMAGE_NAME` を environment ブロックの静的定義から Validate Parameters ステージでの動的構築に変更
+  - セキュリティ強化: AWS 認証情報の Jenkins パラメータ経由での受け渡しを完全廃止し、認証情報漏洩リスクを排除
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_build_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile`、`jenkins/README.md`、`jenkins/jobs/dsl/ai-workflow/TEST_PLAN.md`
+  - テストカバレッジ: ユニットテスト35件（静的検証）を新規作成、手動検証テストケース4件を TEST_PLAN.md に追加、全体 `npm run validate` PASS（233 suites / 3325 tests）
 
 - **Issue #701**: testing フェーズの execute プロンプトにテスト環境準備ステップを追加
   - `src/prompts/testing/{ja,en}/execute.txt` の「## テスト実行手順」を3ステップから4ステップ構成に再構成
@@ -672,7 +718,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Issue #438**: PR comment analyze: JSONをファイル出力方式に変更してパースエラーを解消
   - `pr-comment analyze` コマンドのJSONパースエラーを根本的に解決
-  - プロンプト修正: `{output_file_path}` プレースホルダー追加、ファイル書き込みツールの使用を必須化
+  - プロンプト修正: `/tmp/ai-workflow-repos-2-363c1585/ai-workflow-agent/.ai-workflow/conflict-733/resolve-CHANGELOG.md/resolved-output.txt` プレースホルダー追加、ファイル書き込みツールの使用を必須化
   - 実装変更: `buildAnalyzePrompt()` に `outputFilePath` パラメータ追加、ファイル優先読み込み + フォールバック処理を実装
   - 出力先: `.ai-workflow/pr-{prNumber}/analyze/response-plan.json` への JSON ファイル出力
   - フォールバック機構: ファイル生成失敗時は既存の `parseResponsePlan()` で `rawOutput` をパース（後方互換性維持）

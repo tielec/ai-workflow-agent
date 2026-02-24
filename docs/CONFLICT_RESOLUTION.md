@@ -59,8 +59,10 @@ node dist/index.js resolve-conflict finalize \
 ### finalize
 
 - `--push` 指定時にリモートへ push
-- 解消結果を PR にコメント投稿
+- 解消結果を PR にコメント投稿（Markdown テーブル形式でファイルパス・解消方法・備考を表示）
 - メタデータをクリーンアップ
+
+**コメントフォーマット**: finalize フェーズでは、`resolution-result.json` の内容を人間が読みやすい Markdown テーブル形式に変換してPRコメントとして投稿します。各解消済みファイルのパス、解消方法（日本語表示）、備考を表形式で表示し、統計セクション（解消ファイル数、解消方法内訳）も含まれます。`resolvedContent`（ファイル全文）はコメントに含まれません。
 
 ## 生成される成果物
 
@@ -118,6 +120,17 @@ node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/r
 - 4フェーズ（init → analyze → execute → finalize）が単一ジョブ内で順次実行されます
 - `DRY_RUN=true` の場合、`finalize --push` は自動的に無効化されます（安全策）
 - PR URL と認証情報（`GITHUB_TOKEN`、API キー）は nonStoredPasswordParam として保護されます
+
+### Jenkins パイプラインのステージ構成
+
+Jenkins Blue Ocean / Stage View では、各フェーズが個別のステージとして表示されるため、進捗と障害箇所を視覚的に確認できます：
+
+1. **Phase 1: Init** - PR情報の取得とメタデータ初期化
+2. **Phase 2: Analyze** - コンフリクト分析と解消計画の生成
+3. **Phase 3: Execute** - 解消計画の実行と変更の適用
+4. **Phase 4: Finalize** - リモートへのpushとPRコメント投稿
+
+各ステージで失敗した場合、Jenkins UI上で即座にどのフェーズで問題が発生したかを特定できます。また、各ステージの実行時間も個別に測定されるため、ボトルネックの分析が容易になります。
 
 詳細は [jenkins/README.md](../jenkins/README.md) を参照してください。
 

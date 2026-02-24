@@ -199,12 +199,14 @@ To apply these changes, run with --apply option.
 - `GITHUB_TOKEN`: GitHub Personal Access Token（Issue更新権限が必要）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
 
-**frontmatter自動付与**（Issue #712で追加）:
+**メタデータ自動付与**（Issue #712で追加、Issue #771で表示形式を変更）:
 
-`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報が自動付与されます。
+`rewrite-issue` コマンド実行後、再設計されたIssue本文の先頭にHTML `<details>` 折りたたみ形式で難易度・バグリスク情報が自動付与されます。メタデータはデフォルトで折りたたまれた状態で表示され、クリックで展開できます。
 
-```yaml
----
+```html
+<details>
+<summary>メタデータ</summary>
+
 difficulty: C
 difficulty_label: moderate
 bug_risk:
@@ -215,7 +217,8 @@ rationale: |
   複数ファイルの変更が必要であり中程度の難易度と判定。
 assessed_by: claude
 assessed_at: 2025-01-15T10:30:00Z
----
+
+</details>
 ```
 
 | フィールド | 説明 |
@@ -852,6 +855,10 @@ node dist/index.js execute \
 **主な機能**:
 - **LLM統合**: OpenAI（gpt-4o-mini）またはAnthropic（claude-sonnet-4-5）を使用してフォローアップIssueのタイトル/本文を生成
 - **自動フォールバック**: LLM呼び出し失敗時は既存テンプレートへ自動的にフォールバック
+- **Sub-Issue自動リンク**（Issue #782で追加）: 作成されたFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動的にリンク
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的に
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う（ベストエフォート原則）
 - **セキュリティ**: プロンプト送信前にシークレット（APIキー、メールアドレス、トークン）を自動マスキング
 - **リトライ制御**: 指数バックオフ戦略で最大3回までリトライ
 - **メタデータ記録**: 生成元プロバイダ、モデル、実行時間、リトライ回数、トークン使用量を記録
@@ -1235,6 +1242,38 @@ node dist/index.js execute --issue 123 --phase all --no-squash-on-complete
 - **スカッシュ実行**: `git reset --soft base_commit` でコミットをスカッシュし、生成されたメッセージで新しいコミットを作成
 - **安全な強制プッシュ**: `git push --force-with-lease` で他の変更を上書きしない
 - **ロールバック可能性**: `pre_squash_commits` メタデータで元のコミット履歴を保存
+
+### ネットワークヘルスチェック（Issue #721で追加）
+
+EC2フリートインスタンス（T系）のネットワーク帯域バースト制限による性能低下を検知し、フェーズ開始前にグレースフル停止する機能です。
+
+```bash
+# ネットワークヘルスチェックを有効化
+node dist/index.js execute --issue 123 --phase all --network-health-check
+
+# 閾値をカスタマイズ（50%低下で停止、デフォルト: 70%）
+node dist/index.js execute --issue 123 --phase all \
+  --network-health-check \
+  --network-throughput-drop-threshold 50
+```
+
+**オプション**:
+- `--network-health-check`: ネットワークヘルスチェックを有効化（デフォルト: `false`）
+- `--network-throughput-drop-threshold <percent>`: スループット低下率の閾値（%、0〜100、デフォルト: `70`）
+
+**動作仕様**:
+- 各フェーズ開始前にIMDSv2でEC2メタデータを取得し、CloudWatch APIで`NetworkPacketsOut`と`NetworkOut`メトリクスを取得
+- 直近5分間の平均値とピーク値（過去1時間）を比較し、**両方**のメトリクスが閾値以上低下した場合にグレースフル停止（AND条件）
+- 停止時は`ExecutionSummary`に`stoppedReason: 'network_throughput_degraded'`が設定され、レジューム実行で停止フェーズから再開可能
+- 非EC2環境ではIMDSv2アクセスが3秒以内にタイムアウトし、チェックをスキップして通常通りフェーズを実行
+- CloudWatch APIエラーやデータポイント欠損時もチェックをスキップして続行（警告ログのみ出力）
+
+**環境変数**:
+- `NETWORK_HEALTH_CHECK`: デフォルト動作の設定（CLIオプション指定時はCLIが優先）
+- `NETWORK_THROUGHPUT_DROP_THRESHOLD`: 閾値のデフォルト値設定
+
+**AWS IAM権限要件**:
+- `cloudwatch:GetMetricStatistics` アクション権限が必要
 
 ### 依存関係管理
 - `--skip-dependency-check`: すべての依存関係検証をバイパス（慎重に使用）
