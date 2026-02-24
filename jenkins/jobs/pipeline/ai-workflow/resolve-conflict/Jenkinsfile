@@ -183,50 +183,51 @@ pipeline {
             }
         }
 
-        stage('Execute Resolve Conflict') {
+        stage('Phase 1: Init') {
             steps {
                 script {
-                    echo "========================================="
-                    echo "Stage: Execute Resolve Conflict"
-                    echo "========================================="
-                    echo "PR Number: ${env.PR_NUMBER}"
-                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
-                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
-                    echo "Dry Run: ${params.DRY_RUN ?: false}"
-                    echo "Push: ${params.PUSH ?: true}"
-                    echo "Squash: ${params.SQUASH ?: false}"
-
-                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
-                    currentBuild.description = "Resolve Conflict PR #${env.PR_NUMBER}${dryRunLabel} | Running | ${env.REPO_OWNER}/${env.REPO_NAME}"
-
                     dir(env.WORKFLOW_DIR) {
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
-                        def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
-                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
-
-                        // DRY_RUN 安全策
-                        def pushFlag = (params.PUSH && !params.DRY_RUN) ? '--push' : ''
-                        def squashFlag = params.SQUASH ? '--squash' : ''
 
                         // Phase 1: init
-                        echo "--- Phase 1: init ---"
                         sh """
                             node dist/index.js resolve-conflict init \\
                                 --pr-url ${params.PR_URL} \\
                                 ${languageOption}
                         """
+                    }
+                }
+            }
+        }
+
+        stage('Phase 2: Analyze') {
+            steps {
+                script {
+                    dir(env.WORKFLOW_DIR) {
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
 
                         // Phase 2: analyze
-                        echo "--- Phase 2: analyze ---"
                         sh """
                             node dist/index.js resolve-conflict analyze \\
                                 --pr-url ${params.PR_URL} \\
                                 ${agentOption} \\
                                 ${languageOption}
                         """
+                    }
+                }
+            }
+        }
+
+        stage('Phase 3: Execute') {
+            steps {
+                script {
+                    dir(env.WORKFLOW_DIR) {
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
 
                         // Phase 3: execute
-                        echo "--- Phase 3: execute ---"
                         sh """
                             node dist/index.js resolve-conflict execute \\
                                 --pr-url ${params.PR_URL} \\
@@ -234,9 +235,22 @@ pipeline {
                                 ${dryRunFlag} \\
                                 ${languageOption}
                         """
+                    }
+                }
+            }
+        }
+
+        stage('Phase 4: Finalize') {
+            steps {
+                script {
+                    dir(env.WORKFLOW_DIR) {
+                        def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+
+                        // DRY_RUN 安全策
+                        def pushFlag = (params.PUSH && !params.DRY_RUN) ? '--push' : ''
+                        def squashFlag = params.SQUASH ? '--squash' : ''
 
                         // Phase 4: finalize
-                        echo "--- Phase 4: finalize ---"
                         sh """
                             node dist/index.js resolve-conflict finalize \\
                                 --pr-url ${params.PR_URL} \\

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
+  - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
+  - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy` の `description()` を4フェーズステージ構成に更新
+  - `tests/unit/jenkins/resolve-conflict-job.test.ts` の `UT-FR6` テストケースを新ステージ名に対応
+  - CLI コマンド（`resolve-conflict init/analyze/execute/finalize`）のインターフェースは変更なし（後方互換性維持）
+  - 修正ファイル: `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile`、`jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy`、`tests/unit/jenkins/resolve-conflict-job.test.ts`、`docs/CONFLICT_RESOLUTION.md`
+
 ### Added
 
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加

@@ -38,6 +38,17 @@ describe('Unit: resolve-conflict Jenkins pipeline (Issue #728)', () => {
   let jobConfig: Record<string, unknown> = {};
   let validateDslContent = '';
 
+  const getStageBlock = (stageName: string) => {
+    const needle = `stage('${stageName}')`;
+    const startIndex = jenkinsfileContent.indexOf(needle);
+    if (startIndex === -1) {
+      throw new Error(`事前条件: ${needle} が見つかりません。`);
+    }
+    const nextIndex = jenkinsfileContent.indexOf("stage('", startIndex + needle.length);
+    const endIndex = nextIndex === -1 ? jenkinsfileContent.length : nextIndex;
+    return jenkinsfileContent.slice(startIndex, endIndex);
+  };
+
   const runValidateDsl = async () => {
     try {
       const { stdout, stderr } = await execFileAsync('bash', [paths.validateDsl], {
@@ -162,7 +173,10 @@ describe('Unit: resolve-conflict Jenkins pipeline (Issue #728)', () => {
       'Validate Parameters',
       'Setup Environment',
       'Setup Node.js Environment',
-      'Execute Resolve Conflict',
+      'Phase 1: Init',
+      'Phase 2: Analyze',
+      'Phase 3: Execute',
+      'Phase 4: Finalize',
     ];
     for (const stage of requiredStages) {
       expect(stageSet.has(stage)).toBe(true);
@@ -193,6 +207,101 @@ describe('Unit: resolve-conflict Jenkins pipeline (Issue #728)', () => {
     );
     expect(jenkinsfileContent).toContain('def dryRunFlag = params.DRY_RUN ? \'--dry-run\' : \'\'');
     expect(jenkinsfileContent).toContain("def squashFlag = params.SQUASH ? '--squash' : ''");
+  });
+
+  it('UT-DEL: 旧 Execute Resolve Conflict ステージが削除されている', () => {
+    // Given/When/Then: 旧ステージ名が含まれていない
+    expect(jenkinsfileContent).not.toContain("stage('Execute Resolve Conflict')");
+  });
+
+  it('UT-DSL-STAGES: DSL description() に新しいステージ名が含まれている', () => {
+    // Given/When/Then: description のステージ一覧に新しい4ステージが存在する
+    expect(dslContent).toContain('7. Phase 1: Init');
+    expect(dslContent).toContain('8. Phase 2: Analyze');
+    expect(dslContent).toContain('9. Phase 3: Execute');
+    expect(dslContent).toContain('10. Phase 4: Finalize');
+  });
+
+  it('UT-DSL-OLD: DSL description() から旧ステージ記載が削除されている', () => {
+    // Given/When/Then: 旧ステージ名が含まれていない
+    expect(dslContent).not.toContain('Execute Resolve Conflict');
+
+    // Given/When/Then: 1〜6のステージ番号と名称が維持されている
+    const requiredStages = [
+      '1. Load Common Library',
+      '2. Prepare Codex auth.json',
+      '3. Prepare Agent Credentials',
+      '4. Validate Parameters',
+      '5. Setup Environment',
+      '6. Setup Node.js Environment',
+    ];
+    for (const stage of requiredStages) {
+      expect(dslContent).toContain(stage);
+    }
+  });
+
+  it('UT-SCOPE-P1: Phase 1: Init ステージで languageOption のみが定義されている', () => {
+    // Given: Phase 1: Init のステージブロック
+    const stageBlock = getStageBlock('Phase 1: Init');
+
+    // When/Then: languageOption のみが定義されている
+    expect(stageBlock).toContain('def languageOption');
+    expect(stageBlock).not.toContain('def agentOption');
+    expect(stageBlock).not.toContain('def dryRunFlag');
+    expect(stageBlock).not.toContain('def pushFlag');
+    expect(stageBlock).not.toContain('def squashFlag');
+  });
+
+  it('UT-SCOPE-P2: Phase 2: Analyze ステージで languageOption と agentOption のみが定義されている', () => {
+    // Given: Phase 2: Analyze のステージブロック
+    const stageBlock = getStageBlock('Phase 2: Analyze');
+
+    // When/Then: languageOption と agentOption が定義されている
+    expect(stageBlock).toContain('def languageOption');
+    expect(stageBlock).toContain('def agentOption');
+    expect(stageBlock).not.toContain('def dryRunFlag');
+    expect(stageBlock).not.toContain('def pushFlag');
+    expect(stageBlock).not.toContain('def squashFlag');
+  });
+
+  it('UT-SCOPE-P3: Phase 3: Execute ステージで languageOption, agentOption, dryRunFlag のみが定義されている', () => {
+    // Given: Phase 3: Execute のステージブロック
+    const stageBlock = getStageBlock('Phase 3: Execute');
+
+    // When/Then: languageOption, agentOption, dryRunFlag が定義されている
+    expect(stageBlock).toContain('def languageOption');
+    expect(stageBlock).toContain('def agentOption');
+    expect(stageBlock).toContain('def dryRunFlag');
+    expect(stageBlock).not.toContain('def pushFlag');
+    expect(stageBlock).not.toContain('def squashFlag');
+  });
+
+  it('UT-SCOPE-P4: Phase 4: Finalize ステージで languageOption, pushFlag, squashFlag のみが定義されている', () => {
+    // Given: Phase 4: Finalize のステージブロック
+    const stageBlock = getStageBlock('Phase 4: Finalize');
+
+    // When/Then: languageOption, pushFlag, squashFlag が定義されている
+    expect(stageBlock).toContain('def languageOption');
+    expect(stageBlock).toContain('def pushFlag');
+    expect(stageBlock).toContain('def squashFlag');
+    expect(stageBlock).not.toContain('def agentOption');
+    expect(stageBlock).not.toContain('def dryRunFlag');
+  });
+
+  it('UT-DIR: 各新ステージで dir(env.WORKFLOW_DIR) が呼び出されている', () => {
+    // Given: 対象のステージ一覧
+    const stageNames = [
+      'Phase 1: Init',
+      'Phase 2: Analyze',
+      'Phase 3: Execute',
+      'Phase 4: Finalize',
+    ];
+
+    // When/Then: 各ステージで dir(env.WORKFLOW_DIR) が存在する
+    for (const stageName of stageNames) {
+      const stageBlock = getStageBlock(stageName);
+      expect(stageBlock).toContain('dir(env.WORKFLOW_DIR)');
+    }
   });
 
   it('UT-A05: validate_dsl.sh に resolve-conflict の Jenkinsfile パスが追加されている', () => {

@@ -119,6 +119,17 @@ node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/r
 - `DRY_RUN=true` の場合、`finalize --push` は自動的に無効化されます（安全策）
 - PR URL と認証情報（`GITHUB_TOKEN`、API キー）は nonStoredPasswordParam として保護されます
 
+### Jenkins パイプラインのステージ構成
+
+Jenkins Blue Ocean / Stage View では、各フェーズが個別のステージとして表示されるため、進捗と障害箇所を視覚的に確認できます：
+
+1. **Phase 1: Init** - PR情報の取得とメタデータ初期化
+2. **Phase 2: Analyze** - コンフリクト分析と解消計画の生成
+3. **Phase 3: Execute** - 解消計画の実行と変更の適用
+4. **Phase 4: Finalize** - リモートへのpushとPRコメント投稿
+
+各ステージで失敗した場合、Jenkins UI上で即座にどのフェーズで問題が発生したかを特定できます。また、各ステージの実行時間も個別に測定されるため、ボトルネックの分析が容易になります。
+
 詳細は [jenkins/README.md](../jenkins/README.md) を参照してください。
 
 ## 各フェーズの成果物コミット
