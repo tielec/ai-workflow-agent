@@ -332,7 +332,8 @@ env:
 | `jenkins/jobs/pipeline/ai-workflow/preset/Jenkinsfile` | プリセットワークフロー実行（推奨モード） |
 | `jenkins/jobs/pipeline/ai-workflow/single-phase/Jenkinsfile` | 単一フェーズ実行 |
 | `jenkins/jobs/pipeline/ai-workflow/rollback/Jenkinsfile` | フェーズ差し戻し実行 |
-| `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` | 自動Issue生成 |
+| `jenkins/jobs/pipeline/ai-workflow/auto-issue/Jenkinsfile` | 自動Issue生成（`BASE_BRANCH` パラメータ対応、Issue #730） |
+| `jenkins/jobs/pipeline/ai-workflow/rewrite-issue/Jenkinsfile` | Issue本文再設計実行（`BASE_BRANCH` パラメータ対応、Issue #730） |
 | `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` | ワークフロー完了処理 |
 | `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` | 認証情報検証 |
 | `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` | Issue自動クローズ |
@@ -385,6 +386,24 @@ SKIP_PHASES: documentation,report
 ```
 
 > **注意**: `planning` フェーズは依存関係のためスキップ不可。CLI 側でエラーになります。
+
+### auto-issue / rewrite-issue ジョブの BASE_BRANCH パラメータ（Issue #730で追加）
+
+`auto-issue` および `rewrite-issue` ジョブでは、リポジトリ探索時のベースブランチを指定できる `BASE_BRANCH` パラメータをサポートしています。
+
+| パラメータ | 説明 | デフォルト |
+|-----------|------|----------|
+| `BASE_BRANCH` | リポジトリ探索用ベースブランチ | 空（リポジトリのデフォルトブランチを使用） |
+
+**使用例**:
+- `BASE_BRANCH` を空欄にした場合: リポジトリのデフォルトブランチ（通常は `main`）でコードベースを探索
+- `BASE_BRANCH` に `develop` を指定した場合: `develop` ブランチにチェックアウトしてコードベースを探索
+
+**対応コマンド**:
+- `auto-issue --base-branch <branch>`: バグ・リファクタリング・機能拡張検出時のリポジトリ探索ブランチを指定
+- `rewrite-issue --base-branch <branch>`: Issue再設計時のリポジトリ探索ブランチを指定
+
+詳細な CLI オプションについては [docs/CLI_REFERENCE.md](./CLI_REFERENCE.md) を参照してください。
 
 ### Jenkins Credentials 設定
 
