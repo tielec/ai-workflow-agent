@@ -3,7 +3,7 @@
  *
  * 全フェーズ一括実行用ジョブ（planning → evaluation）
  * EXECUTION_MODE: all_phases（固定値、パラメータとして表示しない）
- * パラメータ数: 22個（16個 + APIキー6個）
+ * パラメータ数: 23個（17個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -138,6 +138,18 @@ Evaluation Phase完了後にワークフローディレクトリを強制削除
 
             booleanParam('SQUASH_ON_COMPLETE', false, '''
 ワークフロー完了時にコミットをスカッシュする（非推奨: finalize コマンドを使用してください）
+            '''.stripIndent().trim())
+
+            booleanParam('NETWORK_HEALTH_CHECK', false, '''
+ネットワークヘルスチェックを有効化
+
+EC2インスタンスのネットワークスループット（NetworkPacketsOut / NetworkOut）を
+各フェーズ実行前にチェックし、大幅に低下している場合はジョブを早期終了します。
+
+- true: フェーズ実行前にCloudWatchメトリクスを確認
+- false: チェックなし（デフォルト）
+
+注: EC2環境以外では自動的にスキップされます
             '''.stripIndent().trim())
 
             // ========================================

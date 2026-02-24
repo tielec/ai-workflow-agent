@@ -76,7 +76,7 @@ jenkins/
 
 | ジョブ名 | 説明 | パラメータ数 |
 |---------|------|-------------|
-| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 30 |
+| **all_phases** | 全フェーズ一括実行（planning → evaluation） | 31 |
 | **preset** | プリセット実行（quick-fix, implementation等） | 31 |
 | **single_phase** | 単一フェーズ実行（デバッグ用） | 29 |
 | **rollback** | フェーズ差し戻し実行 | 27 |
