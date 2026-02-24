@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #793**: all_phases ジョブDSLの `NETWORK_HEALTH_CHECK` パラメータのデフォルト値を `false` → `true` に変更
+  - EC2環境でのワークフロー実行時に、ネットワークヘルスチェックがデフォルトで有効化され、各フェーズ実行前にCloudWatchメトリクスを確認
+  - 非EC2環境では自動的にスキップされるため、副作用なし
+  - ユーザーが意図的に無効化したい場合は、Jenkins UIで `NETWORK_HEALTH_CHECK=false` を明示的に指定可能
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile`、`tests/unit/jenkins/network-health-parameter.test.ts`
+  - ドキュメント更新: `jenkins/README.md`（NETWORK_HEALTH_CHECKパラメータの説明を追加）
 - **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
   - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
   - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
