@@ -385,6 +385,10 @@ export async function runCli(): Promise<void> {
     .option('--apply', 'Create GitHub Issues', false)
     .option('--dry-run', 'Preview mode (default)', false)
     .option('--max-splits <number>', 'Maximum number of split issues', '10')
+    .option(
+      '--output-file <path>',
+      'Write execution summary JSON to the specified path',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);

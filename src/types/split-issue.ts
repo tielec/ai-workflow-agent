@@ -16,6 +16,8 @@ export interface RawSplitIssueOptions {
   apply?: boolean;
   /** 分割数の上限 */
   maxSplits?: string | number;
+  /** JSON出力ファイルパス（オプション） */
+  outputFile?: string;
 }
 
 /**
@@ -32,6 +34,8 @@ export interface SplitIssueOptions {
   apply: boolean;
   /** 分割数の上限 */
   maxSplits: number;
+  /** JSON出力ファイルパス（オプション、絶対パスに解決済み） */
+  outputFile?: string;
 }
 
 /**
@@ -84,4 +88,77 @@ export interface SplitIssueResult {
   createdIssueUrls?: string[];
   /** エラーメッセージ（失敗時） */
   error?: string;
+}
+
+/**
+ * split-issueコマンドのJSON出力スキーマ
+ */
+export interface SplitIssueJsonOutput {
+  /** 実行情報 */
+  execution: SplitIssueExecutionInfo;
+  /** 分割結果サマリー */
+  summary: SplitIssueSummaryInfo;
+  /** 分割されたIssue一覧 */
+  issues: SplitIssueEntry[];
+  /** 分割品質メトリクス */
+  metrics: {
+    completenessScore: number;
+    specificityScore: number;
+  };
+}
+
+/**
+ * JSON出力用の実行情報
+ */
+export interface SplitIssueExecutionInfo {
+  /** 実行タイムスタンプ（ISO8601 UTC形式） */
+  timestamp: string;
+  /** 対象リポジトリ（owner/repo形式） */
+  repository: string;
+  /** 分割対象のIssue番号 */
+  issueNumber: number;
+  /** 出力言語（"ja" | "en"） */
+  language: string;
+  /** 実際にIssueを作成したかどうか */
+  apply: boolean;
+  /** dry-runモードかどうか */
+  dryRun: boolean;
+  /** 分割数の上限設定 */
+  maxSplits: number;
+}
+
+/**
+ * JSON出力用の分割結果サマリー
+ */
+export interface SplitIssueSummaryInfo {
+  /** 元IssueのタイトルText */
+  originalTitle: string;
+  /** エージェントが生成した分割概要 */
+  splitSummary: string;
+  /** 分割されたIssueの総数 */
+  totalSplitIssues: number;
+  /** 実際にGitHub上に作成されたIssue数 */
+  createdCount: number;
+  /** 作成に失敗したIssue数 */
+  failedCount: number;
+}
+
+/**
+ * JSON出力用の各子Issue詳細
+ */
+export interface SplitIssueEntry {
+  /** 子Issueのタイトル */
+  title: string;
+  /** 子Issueの本文 */
+  body: string;
+  /** ラベル一覧 */
+  labels: string[];
+  /** 優先度 */
+  priority: string;
+  /** 関連する他の分割Issueタイトル */
+  relatedFeatures: string[];
+  /** 作成されたIssue番号（apply時のみ） */
+  issueNumber?: number;
+  /** 作成されたIssue URL（apply時のみ） */
+  issueUrl?: string;
 }
