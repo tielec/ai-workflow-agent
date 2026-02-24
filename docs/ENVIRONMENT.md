@@ -418,6 +418,20 @@ Jenkins で以下の認証情報を設定してください：
 
 ## Docker環境
 
+### Dockerイメージにプリインストールされた言語ランタイム
+
+`Dockerfile` では Issue #785 により以下の言語ランタイムがビルド時にまとめてインストールされます。`AGENT_CAN_INSTALL_PACKAGES` を `true` にしておくことで、テストフェーズ中も追加インストールが不要です。
+
+| 言語 | インストールパッケージ | バージョン確認コマンド |
+|---|---|---|
+| Python 3 | `python3`, `python3-pip`, `python3-venv` | `python3 --version` |
+| Go | `golang-go` | `go version` |
+| Java | `default-jdk` (OpenJDK) | `java -version` |
+| Ruby | `ruby`, `ruby-dev` | `ruby --version` |
+| sudo | `sudo` | `sudo --version` |
+
+追加パッケージによるイメージサイズの増加を抑えるため、`--no-install-recommends` と `rm -rf /var/lib/apt/lists/*` を従来どおり使用しています。
+
 ### Dockerfile での環境変数設定
 
 `Dockerfile`:

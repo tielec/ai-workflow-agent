@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #785**: Dockerイメージに主要言語ランタイム（Python3、Go、Java、Ruby）と sudo をプリインストール
+  - `Dockerfile` の既存 `apt-get install` ブロック（9-17行目）に8つのパッケージを追加：`sudo`、`python3`、`python3-pip`、`python3-venv`、`golang-go`、`default-jdk`、`ruby`、`ruby-dev`
+  - Testing フェーズで `python3` や他のランタイムが不足していることによるプロンプト警告が出力されなくなり、エージェントが `apt-get install` を試みる必要がなくなる
+  - `--no-install-recommends` と `rm -rf /var/lib/apt/lists/*` によりイメージサイズ増加を抑制（+500MB以内を目標）
+  - `README.md` の「前提条件」セクションにプリインストール言語ランタイムの一覧を追加
+  - `docs/ENVIRONMENT.md` の「Docker環境」セクションにプリインストール言語ランタイムの表（言語・パッケージ・バージョン確認コマンド）を追加
+  - テストカバレッジ: 統合テスト10件（`tests/integration/dockerfile-runtimes.test.ts`）を新規作成、Dockerイメージビルド成功・各ランタイムの動作確認・Node.js環境の互換性・イメージサイズ許容範囲を検証
+  - 修正ファイル: `Dockerfile`、`README.md`、`docs/ENVIRONMENT.md`
 - **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
   - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
   - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
