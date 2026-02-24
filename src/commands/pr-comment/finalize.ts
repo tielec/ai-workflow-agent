@@ -101,14 +101,13 @@ export async function handlePRCommentFinalizeCommand(
     if (!dryRun && resolvedCount > 0 && !squashResult.squashed) {
       const git = simpleGit(repoRoot);
 
-      await ensureGitConfig(git);
-
       logger.info('Committing PR comment finalization...');
       // すべての変更をステージ（削除されたファイルを含む）
       await git.add('.');
       const status = await git.status();
       logger.debug(`Git status reports ${status.files.length} tracked changes.`);
       if (status.files.length > 0) {
+        await ensureGitConfig(git);
         await git.commit(
           `[pr-comment] Finalize PR #${prNumber}: Clean up workflow artifacts (${resolvedCount} threads resolved)`,
         );

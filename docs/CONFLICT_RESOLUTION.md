@@ -45,6 +45,9 @@ node dist/index.js resolve-conflict finalize \
 - `git merge --no-commit` でコンフリクトを再現
 - コンフリクトマーカーを解析して文脈を収集
 - 解消計画を生成し、`resolution-plan.json` と `resolution-plan.md` に保存
+- プロンプトにコンフリクトファイルの番号付き一覧とファイル数を明示し、エージェントの見落としを防止
+- エージェントが一部ファイルの解消計画を返さなかった場合、不足ファイルのみを対象に自動リトライ（最大1回）
+- JSON 抽出に失敗した場合も同一プロンプトで1回リトライし、成功率を向上
 
 ### execute
 
@@ -135,3 +138,5 @@ node dist/index.js resolve-conflict finalize --pr-url https://github.com/owner/r
 - `Metadata not found` が出る場合は `resolve-conflict init` を先に実行してください
 - `Working tree is not clean` が出る場合は `.ai-workflow/` 以外の変更をコミットまたはスタッシュしてください
 - `Conflict markers remain` が出る場合は、解消計画や出力を確認し、必要なら手動修正してください
+- `Resolution plan is incomplete after retry` が出る場合は、リトライ後もエージェントが全ファイルの解消計画を返せなかったことを意味します。コンフリクトの複雑さやファイル数が多い場合に発生する可能性があります。手動でコンフリクトを解消するか、再度 `analyze` を実行してください
+- `Failed to extract JSON from agent output after retry` が出る場合は、エージェントの応答から JSON を抽出できなかったことを意味します。エージェントの負荷やプロンプトの複雑さが原因の可能性があります。再度 `analyze` を実行してください

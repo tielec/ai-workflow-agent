@@ -261,6 +261,40 @@ pipeline {
                 def pushLabel = (params.PUSH && !params.DRY_RUN) ? ' [PUSH]' : ''
                 currentBuild.description = "Resolve Conflict PR #${env.PR_NUMBER}${dryRunLabel}${pushLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
+                // Archive agent logs before cleanup
+                if (env.REPOS_ROOT && env.PR_NUMBER) {
+                    def sourcePath = "${env.REPOS_ROOT}/${env.REPO_NAME}/.ai-workflow/conflict-${env.PR_NUMBER}"
+                    def destPath = "${env.WORKSPACE}/artifacts/.ai-workflow/conflict-${env.PR_NUMBER}"
+
+                    def sourceExists = sh(
+                        script: "[ -d '${sourcePath}' ] && echo 'true' || echo 'false'",
+                        returnStdout: true
+                    ).trim()
+
+                    if (sourceExists == 'true') {
+                        echo "Copying conflict resolution artifacts to workspace..."
+                        echo "Source: ${sourcePath}"
+                        echo "Destination: ${destPath}"
+
+                        sh """
+                            mkdir -p '${destPath}'
+                            cp -r '${sourcePath}/.' '${destPath}/' || true
+                        """
+
+                        def artifactPath = "artifacts/.ai-workflow/conflict-${env.PR_NUMBER}/**/*"
+                        echo "Archiving artifacts: ${artifactPath}"
+                        archiveArtifacts artifacts: artifactPath, allowEmptyArchive: true
+                        echo "Artifacts archived for PR #${env.PR_NUMBER}"
+
+                        sh """
+                            rm -rf '${env.WORKSPACE}/artifacts' || true
+                        """
+                        echo "Temporary artifact copy cleaned up"
+                    } else {
+                        echo "[WARN] Conflict artifacts not found: ${sourcePath}"
+                    }
+                }
+
                 if (env.REPOS_ROOT) {
                     sh """
                         rm -rf ${env.REPOS_ROOT}

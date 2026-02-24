@@ -8,7 +8,7 @@ import { ensureGitConfig } from '../../core/git/git-config-helper.js';
 import { ConflictMetadataManager } from '../../core/conflict/metadata-manager.js';
 import { parsePullRequestUrl, resolveRepoPathFromPrUrl } from '../../core/repository-utils.js';
 import { ConflictResolver } from '../../core/git/conflict-resolver.js';
-import { CodeChangeApplier } from '../../core/pr-comment/change-applier.js';
+import { hasConflictMarkers } from '../../core/git/conflict-parser.js';
 import type { ResolveConflictExecuteOptions } from '../../types/commands.js';
 import type { ConflictResolutionPlan, ConflictResolution } from '../../types/conflict.js';
 
@@ -51,19 +51,49 @@ function extractJsonObject(text: string): string | null {
   return null;
 }
 
-function buildResolutionResultMarkdown(resolutions: ConflictResolution[], jsonPath: string): string {
-  return [
-    '# 解消結果',
-    '',
-    `- 対象ファイル数: ${resolutions.length}`,
-    '',
-    `- JSON: ${jsonPath}`,
-    '',
-    '```json',
-    JSON.stringify(resolutions, null, 2),
-    '```',
-    '',
-  ].join('\n');
+/**
+ * Mechanically resolve a file with conflict markers using the 'both' strategy.
+ * Replaces each conflict block with both ours and theirs content concatenated.
+ */
+function resolveByBothStrategy(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (lines[i].startsWith('<<<<<<<')) {
+      i++;
+      const ours: string[] = [];
+      while (i < lines.length && !lines[i].startsWith('|||||||') && !lines[i].startsWith('=======')) {
+        ours.push(lines[i]);
+        i++;
+      }
+      // Skip base section if present (diff3 format)
+      if (i < lines.length && lines[i].startsWith('|||||||')) {
+        i++;
+        while (i < lines.length && !lines[i].startsWith('=======')) {
+          i++;
+        }
+      }
+      if (i < lines.length && lines[i].startsWith('=======')) {
+        i++;
+      }
+      const theirs: string[] = [];
+      while (i < lines.length && !lines[i].startsWith('>>>>>>>')) {
+        theirs.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length && lines[i].startsWith('>>>>>>>')) {
+        i++;
+      }
+      result.push(...ours, ...theirs);
+    } else {
+      result.push(lines[i]);
+      i++;
+    }
+  }
+
+  return result.join('\n');
 }
 
 async function loadResolutionPlan(planPath: string): Promise<ConflictResolutionPlan> {
@@ -97,12 +127,13 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
       throw new Error('Base or head branch not found in metadata. Run analyze first.');
     }
 
-    // Step 2: Resolve conflicts (agent call if needed)
-    const resolver = new ConflictResolver(repoRoot);
-    const resolutions = await resolver.resolve(plan, {
-      agent: options.agent ?? 'auto',
-      language: options.language === 'en' ? 'en' : 'ja',
-    });
+    // Step 2: Prepare output directory and resolver
+    const outputDir = path.join(repoRoot, '.ai-workflow', `conflict-${prInfo.prNumber}`);
+    await fsp.mkdir(outputDir, { recursive: true });
+
+    const language = options.language === 'en' ? 'en' as const : 'ja' as const;
+    const resolver = new ConflictResolver(repoRoot, language);
+    const resolutions: ConflictResolution[] = plan.resolutions.map((r) => ({ ...r }));
 
     // Step 3: Git setup and branch preparation
     const git = simpleGit(repoRoot);
@@ -142,20 +173,55 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
       logger.info('Merge completed without conflicts.');
     }
 
-    // Step 5: Apply resolved content
-    const applier = new CodeChangeApplier(repoRoot);
-    const changes = resolutions.map((r) => ({
-      path: r.filePath,
-      change_type: 'modify' as const,
-      content: r.resolvedContent,
-    }));
-
-    const applyResult = await applier.apply(changes, options.dryRun ?? false);
-    if (!applyResult.success) {
-      if (mergeStarted) {
-        try { await git.raw(['merge', '--abort']); } catch { /* ignore */ }
+    // Step 4.5: Mechanical resolution for ours/theirs/both
+    for (const resolution of resolutions) {
+      const filePath = resolution.filePath;
+      if (resolution.strategy === 'ours') {
+        await git.raw(['checkout', '--ours', '--', filePath]);
+        logger.info(`Resolved ${filePath} with 'ours' strategy (mechanical)`);
+      } else if (resolution.strategy === 'theirs') {
+        await git.raw(['checkout', '--theirs', '--', filePath]);
+        logger.info(`Resolved ${filePath} with 'theirs' strategy (mechanical)`);
+      } else if (resolution.strategy === 'both') {
+        const absPath = path.join(repoRoot, filePath);
+        const content = await fsp.readFile(absPath, 'utf-8');
+        const resolved = resolveByBothStrategy(content);
+        if (hasConflictMarkers(resolved)) {
+          throw new Error(`Failed to mechanically resolve ${filePath} with 'both' strategy: conflict markers remain`);
+        }
+        await fsp.writeFile(absPath, resolved, 'utf-8');
+        logger.info(`Resolved ${filePath} with 'both' strategy (mechanical)`);
       }
-      throw new Error(applyResult.error ?? 'Failed to apply resolved changes');
+    }
+
+    // Update resolution objects with actual file content for artifacts
+    for (const resolution of resolutions) {
+      if (resolution.strategy === 'ours' || resolution.strategy === 'theirs' || resolution.strategy === 'both') {
+        resolution.resolvedContent = await fsp.readFile(path.join(repoRoot, resolution.filePath), 'utf-8');
+      }
+    }
+
+    // Step 5: Resolve manual-merge files via AI agent (using actual conflicted content)
+    const manualMergeResolutions = resolutions.filter((r) => r.strategy === 'manual-merge');
+    for (const resolution of manualMergeResolutions) {
+      const absPath = path.join(repoRoot, resolution.filePath);
+      const conflictedContent = await fsp.readFile(absPath, 'utf-8');
+      try {
+        const resolvedContent = await resolver.resolveFile(
+          resolution.filePath,
+          conflictedContent,
+          resolution.notes,
+          { agent: options.agent ?? 'auto', language, logDir: outputDir },
+        );
+        await fsp.writeFile(absPath, resolvedContent, 'utf-8');
+        resolution.resolvedContent = resolvedContent;
+        logger.info(`Resolved ${resolution.filePath} with 'manual-merge' strategy (agent)`);
+      } catch (resolveError: unknown) {
+        if (mergeStarted) {
+          try { await git.raw(['merge', '--abort']); } catch { /* ignore */ }
+        }
+        throw new Error(`Failed to resolve ${resolution.filePath}: ${getErrorMessage(resolveError)}`);
+      }
     }
 
     if (options.dryRun) {
@@ -191,27 +257,23 @@ export async function handleResolveConflictExecuteCommand(options: ResolveConfli
     }
 
     // Step 7: Save artifacts and update metadata
-    const outputDir = path.join(repoRoot, '.ai-workflow', `conflict-${prInfo.prNumber}`);
     await fsp.mkdir(outputDir, { recursive: true });
 
     const resultJsonPath = path.join(outputDir, 'resolution-result.json');
-    const resultMdPath = path.join(outputDir, 'resolution-result.md');
-
     await fsp.writeFile(resultJsonPath, JSON.stringify(resolutions, null, 2), 'utf-8');
-    await fsp.writeFile(resultMdPath, buildResolutionResultMarkdown(resolutions, resultJsonPath), 'utf-8');
 
-    await metadataManager.setResolutionResult(resultMdPath);
+    await metadataManager.setResolutionResult(resultJsonPath);
     await metadataManager.updateStatus('executed');
 
     try {
-      const workflowDir = path.join('.ai-workflow', `conflict-${prInfo.prNumber}`);
-      await git.add(path.join(workflowDir, '*'));
+      await git.add(resultJsonPath);
+      await git.add(metadataManager.getMetadataPath());
       await git.commit(`resolve-conflict: execute artifacts for PR #${prInfo.prNumber}`);
     } catch (commitError: unknown) {
       logger.warn(`Failed to commit execute artifacts: ${getErrorMessage(commitError)}`);
     }
 
-    logger.info(`Execute completed. Result saved to: ${resultMdPath}`);
+    logger.info(`Execute completed. Result saved to: ${resultJsonPath}`);
   } catch (error) {
     logger.error(`Failed to execute conflict resolution: ${getErrorMessage(error)}`);
     process.exit(1);

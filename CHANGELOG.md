@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
+  - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
+  - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証
+  - `src/utils/frontmatter.ts` を新規作成し、`generateFrontmatter()`（YAML文字列生成）、`insertFrontmatter()`（Issue本文先頭への挿入）、`parseFrontmatter()`（既存frontmatter解析）の3つの純粋関数を実装
+  - frontmatter生成は外部YAMLライブラリ非依存のマニュアル文字列構築、解析は正規表現ベースで実装
+  - `src/commands/rewrite-issue.ts` に `assessIssueDifficulty()` プライベート関数を追加し、rewrite-issueフローのIssue更新直前（Step 8.5）にfrontmatter挿入処理を統合
+  - frontmatter挿入が失敗してもrewrite-issue全体をブロックしないグレースフルデグラデーション設計を採用（`try-catch` + `logger.warn()`）
+  - `src/types/rewrite-issue.ts` に `DifficultyGrade`（5段階）、`BugRiskPrediction`、`IssueDifficultyAssessment` 型を追加
+  - `src/prompts/difficulty/{ja,en}/analyze-grade.txt` プロンプトテンプレートを新規作成（多言語対応）
+  - 既存の3段階 `DifficultyLevel`（simple/moderate/complex）、`analyze()` メソッド、`metadata.json` スキーマには変更なし（後方互換性維持）
+  - `gradeToLevel()` マッピング関数（A,B→simple / C→moderate / D,E→complex）により既存フローとの整合性を確保
+  - 修正・新規ファイル: `src/commands/rewrite-issue.ts`、`src/core/difficulty-analyzer.ts`、`src/utils/frontmatter.ts`、`src/types/rewrite-issue.ts`、`src/prompts/difficulty/{ja,en}/analyze-grade.txt`
+  - テストカバレッジ: ユニットテスト87件（`frontmatter.test.ts` 20件、`difficulty-analyzer.test.ts` 38件、`rewrite-issue.test.ts` 29件）を新規追加、全体 `npm run validate`（lint + test + build）PASS（226 suites / 3170 tests）
 - **Issue #713**: 親Issueに紐づくサブIssueをAIエージェントで自動生成する `create-sub-issue` コマンドを新規追加
   - `--parent-issue <number>` と `--description <text>` を指定してサブIssue本文をAI（Claude/Codex）で自動生成
   - GitHub Sub-Issue API（`POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues`）による親子Issue紐づけを実装
@@ -77,6 +90,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - テストカバレッジ: ユニットテスト19件 + 統合テスト7件を新規追加、全体 `npm run validate`（lint + test + build）PASS（218 suites / 2995 tests）
 
 ### Fixed
+
+- **Issue #760**: `resolve-conflict analyze` コマンドでエージェントが全コンフリクトファイルの解消計画を返さない問題を修正
+  - プロンプトテンプレート（日本語・英語）に「対象コンフリクトファイル」セクションを新設し、`{conflict_file_list}`（番号付きファイル一覧）と `{conflict_file_count}`（ファイル数）プレースホルダーを追加
+  - `buildAnalyzePrompt()` にファイル一覧注入ロジックを追加し、`MergeContext.conflictFiles` からユニークなファイルパス一覧を `Set` でデデュプリケーションして番号付きリスト形式で生成
+  - エージェント応答パースロジックを `parseAgentResolutions()` private メソッドとして `createResolutionPlan()` から抽出し、初回/リトライで挙動を分岐する `isRetry` パラメータを導入
+  - 不足ファイルリトライ機構を `createResolutionPlan()` に追加: 初回応答で一部ファイルの resolution が欠けている場合、不足ファイルのみを対象としたリトライプロンプトでエージェントを再呼び出しし、結果をマージ
+  - 初回 JSON 抽出失敗時のリトライ機構を追加: `extractJsonObject()` が `null` を返した場合、同一プロンプトで1回リトライ
+  - リトライ発生時に `logger.warn()` で不足ファイルや JSON 抽出失敗を報告し、運用時にリトライ頻度を監視可能に
+  - **修正前の問題**: エージェントが4ファイル中2ファイルの解消計画を返さず、バリデーションエラーで analyze フェーズが失敗（PR #735 で再現）
+  - **修正後の動作**: プロンプトにファイル一覧を明示し、不足時はリトライで補完。リトライ後も不完全な場合は `after retry` を含むエラーメッセージをスロー
+  - 修正ファイル: `src/core/git/conflict-resolver.ts`、`src/prompts/conflict/{ja,en}/analyze.txt`
+  - テストカバレッジ: ユニットテスト8件を追加（リトライ動作、JSON抽出失敗リトライ、プロンプト改善、デデュプリケーション、シナリオE）、既存テスト回帰なし、`npm run validate`（lint + test + build）PASS
 
 - **Issue #706**: ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗を修正
   - `Dockerfile` の Codex CLI インストール処理をベストエフォート化し、ARM64 環境でもビルドが継続できるよう変更
