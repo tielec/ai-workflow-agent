@@ -848,6 +848,10 @@ node dist/index.js execute \
 **主な機能**:
 - **LLM統合**: OpenAI（gpt-4o-mini）またはAnthropic（claude-sonnet-4-5）を使用してフォローアップIssueのタイトル/本文を生成
 - **自動フォールバック**: LLM呼び出し失敗時は既存テンプレートへ自動的にフォールバック
+- **Sub-Issue自動リンク**（Issue #782で追加）: 作成されたFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動的にリンク
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的に
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う（ベストエフォート原則）
 - **セキュリティ**: プロンプト送信前にシークレット（APIキー、メールアドレス、トークン）を自動マスキング
 - **リトライ制御**: 指数バックオフ戦略で最大3回までリトライ
 - **メタデータ記録**: 生成元プロバイダ、モデル、実行時間、リトライ回数、トークン使用量を記録

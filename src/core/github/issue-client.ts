@@ -49,6 +49,8 @@ export interface IssueCreationResult {
   issue_url: string | null;
   issue_number: number | null;
   error?: string | null;
+  /** Sub-Issueリンクが成功した場合true、失敗またはスキップした場合false、未実行の場合undefined */
+  subIssueLinkSuccess?: boolean;
 }
 
 export interface GenericResult {
@@ -291,6 +293,41 @@ export class IssueClient {
         `Failed to add sub-issue to #${parentIssueNumber}: ${this.encodeWarning(message)}`,
       );
       return { success: false, error: message };
+    }
+  }
+
+  /**
+   * FOLLOW-UP Issue を親IssueのSub-Issueとしてリンクする（ベストエフォート）
+   */
+  private async linkFollowUpAsSubIssue(
+    parentIssueNumber: number,
+    childIssueNumber: number,
+  ): Promise<boolean> {
+    try {
+      const childIssue = await this.getIssue(childIssueNumber);
+      const childIssueId = childIssue.id;
+      const childBody = childIssue.body ?? '';
+
+      const linkResult = await this.addSubIssue(parentIssueNumber, childIssueId);
+
+      if (linkResult.success) {
+        logger.info(
+          `Linked follow-up issue #${childIssueNumber} to parent #${parentIssueNumber}`,
+        );
+        return true;
+      }
+
+      logger.warn('Sub-Issue API unavailable, adding parent reference to body.');
+      const updatedBody = `> Parent issue: #${parentIssueNumber}\n\n${childBody}`;
+      await this.updateIssue(childIssueNumber, { body: updatedBody });
+      return false;
+    } catch (error) {
+      logger.warn(
+        `Failed to link follow-up issue #${childIssueNumber} to parent #${parentIssueNumber}: ${getErrorMessage(
+          error,
+        )}`,
+      );
+      return false;
     }
   }
 
@@ -616,12 +653,17 @@ export class IssueClient {
           });
 
           logger.info(`Follow-up issue created: #${data.number} - ${title}`);
+          const createdIssueNumber = data.number ?? null;
+          const subIssueLinkSuccess = createdIssueNumber
+            ? await this.linkFollowUpAsSubIssue(issueNumber, createdIssueNumber)
+            : undefined;
 
           return {
             success: true,
             issue_url: data.html_url ?? null,
-            issue_number: data.number ?? null,
+            issue_number: createdIssueNumber,
             error: null,
+            subIssueLinkSuccess,
           };
         } else {
           // エージェント失敗時のフォールバック: 既存のLLM生成へ
@@ -660,12 +702,17 @@ export class IssueClient {
       });
 
       logger.info(`Follow-up issue created: #${data.number} - ${title}`);
+      const createdIssueNumber = data.number ?? null;
+      const subIssueLinkSuccess = createdIssueNumber
+        ? await this.linkFollowUpAsSubIssue(issueNumber, createdIssueNumber)
+        : undefined;
 
       return {
         success: true,
         issue_url: data.html_url ?? null,
-        issue_number: data.number ?? null,
+        issue_number: createdIssueNumber,
         error: null,
+        subIssueLinkSuccess,
       };
     } catch (error) {
       const message =

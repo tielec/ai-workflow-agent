@@ -1,4 +1,5 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { RequestError } from '@octokit/request-error';
 import { IssueClient, IssueCreationResult } from '../../../src/core/github/issue-client.js';
 import {
   IssueAgentGenerator,
@@ -107,7 +108,152 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
         issue_url: 'https://github.com/owner/repo/issues/456',
         issue_number: 456,
         error: null,
+        subIssueLinkSuccess: false,
       });
+    });
+
+    it('IssueClient_createIssueFromEvaluation_正常系_agentモード_SubIssueリンク成功', async () => {
+      const mockGeneratedIssue: GeneratedIssue = {
+        success: true,
+        title: '[FOLLOW-UP] #123: ユニットテスト追加',
+        body: '## 背景\n\nIssue本文\n\n## 目的\n\n詳細',
+      };
+
+      mockAgentGenerator.generate.mockResolvedValue(mockGeneratedIssue);
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.get.mockResolvedValue({
+        data: { id: 99887766, number: 456, body: 'Agent-generated body content' },
+      } as any);
+      (mockOctokit.client as any).request = jest.fn().mockResolvedValue({ data: {} });
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+      };
+
+      const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT_NORMAL,
+        options,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.subIssueLinkSuccess).toBe(true);
+      expect(result.issue_number).toBe(456);
+
+      expect(mockOctokit.issues.get).toHaveBeenCalledWith({
+        owner: 'owner',
+        repo: 'repo',
+        issue_number: 456,
+      });
+      expect((mockOctokit.client as any).request).toHaveBeenCalledWith(
+        'POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+        expect.objectContaining({
+          owner: 'owner',
+          repo: 'repo',
+          issue_number: 123,
+          sub_issue_id: 99887766,
+        }),
+      );
+    });
+
+    it('IssueClient_createIssueFromEvaluation_異常系_agentモード_SubIssue失敗時フォールバック', async () => {
+      const mockGeneratedIssue: GeneratedIssue = {
+        success: true,
+        title: '[FOLLOW-UP] #123: テスト追加',
+        body: '## 背景\n\n本文',
+      };
+
+      mockAgentGenerator.generate.mockResolvedValue(mockGeneratedIssue);
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.get.mockResolvedValue({
+        data: { id: 99887766, number: 456, body: 'Agent-generated body' },
+      } as any);
+
+      (mockOctokit.client as any).request = jest.fn().mockRejectedValue(
+        new RequestError('Unprocessable Entity', 422, {
+          request: { method: 'POST', url: '', headers: {} },
+          response: { status: 422, url: '', headers: {}, data: {} },
+        }),
+      );
+      mockOctokit.issues.update.mockResolvedValue({ data: {} } as any);
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+      };
+
+      const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT_NORMAL,
+        options,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.subIssueLinkSuccess).toBe(false);
+      expect(mockOctokit.issues.update).toHaveBeenCalled();
+      const updateArgs = mockOctokit.issues.update.mock.calls[0][0] as any;
+      expect(updateArgs.body).toContain('> Parent issue: #123');
+      expect(updateArgs.body).toContain('Agent-generated body');
+    });
+
+    it('IssueClient_createIssueFromEvaluation_異常系_agentモード_getIssue失敗時スキップ', async () => {
+      const mockGeneratedIssue: GeneratedIssue = {
+        success: true,
+        title: '[FOLLOW-UP] #123: テスト追加',
+        body: '## 背景\n\n本文',
+      };
+
+      mockAgentGenerator.generate.mockResolvedValue(mockGeneratedIssue);
+
+      const mockIssue = {
+        number: 456,
+        html_url: 'https://github.com/owner/repo/issues/456',
+      };
+
+      mockOctokit.issues.create.mockResolvedValue({ data: mockIssue } as any);
+      mockOctokit.issues.get.mockRejectedValue(
+        new RequestError('Not Found', 404, {
+          request: { method: 'GET', url: '', headers: {} },
+          response: { status: 404, url: '', headers: {}, data: {} },
+        }),
+      );
+      (mockOctokit.client as any).request = jest.fn();
+
+      const options: IssueGenerationOptions = {
+        enabled: true,
+        provider: 'agent',
+      };
+
+      const result: IssueCreationResult = await issueClient.createIssueFromEvaluation(
+        123,
+        NORMAL_REMAINING_TASKS,
+        '.ai-workflow/issue-123/09_evaluation/output/evaluation_report.md',
+        ISSUE_CONTEXT_NORMAL,
+        options,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.subIssueLinkSuccess).toBe(false);
+      expect(result.issue_number).toBe(456);
+      expect((mockOctokit.client as any).request).not.toHaveBeenCalled();
+      expect(mockOctokit.issues.update).not.toHaveBeenCalled();
     });
 
     it('IssueClient_createIssueFromEvaluation_正常系_agentモード_modelを伝播', async () => {
