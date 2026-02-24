@@ -5,8 +5,11 @@ import type { IssueContext, IssueGenerationOptions, RemainingTask } from '../../
 import { logger } from '../../../src/utils/logger.js';
 
 type OctokitMock = {
+  request: jest.Mock;
   issues: {
     create: jest.Mock;
+    get: jest.Mock;
+    update: jest.Mock;
   };
 };
 
@@ -27,12 +30,22 @@ const ISSUE_CONTEXT: IssueContext = {
 
 function createOctokitMock(): OctokitMock {
   return {
+    request: jest.fn(async () => ({})),
     issues: {
       create: jest.fn(async () => ({
         data: {
           number: 902,
           html_url: 'https://github.com/tielec/ai-workflow/issues/902',
         },
+      })),
+      get: jest.fn(async () => ({
+        data: {
+          id: 1902,
+          body: 'Follow-up issue body',
+        },
+      })),
+      update: jest.fn(async () => ({
+        data: {},
       })),
     },
   };

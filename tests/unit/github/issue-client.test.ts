@@ -458,6 +458,7 @@ describe('IssueClient', () => {
         issue_url: 'https://github.com/owner/repo/issues/25',
         issue_number: 25,
         error: null,
+        subIssueLinkSuccess: false,
       });
     });
 

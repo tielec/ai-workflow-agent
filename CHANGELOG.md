@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #782**: Evaluation Phase（Phase 9）で「PASS_WITH_ISSUES」判定時に作成されるFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動リンクする機能を追加
+  - `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッドにSub-Issueリンク処理を統合（エージェントモード・LLM/レガシーモードの両パスに対応）
+  - `linkFollowUpAsSubIssue()` プライベートメソッドを新規追加し、`getIssue()` → `addSubIssue()` → フォールバック（`updateIssue()`）のベストエフォートフローを実装
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - `IssueCreationResult` インターフェースに `subIssueLinkSuccess?: boolean` オプショナルフィールドを追加（後方互換性を維持）
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う設計（ベストエフォート原則）
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的になり、タスクトラッキングが改善
+  - `create-sub-issue` コマンドと同一のSub-Issueリンクパターンを採用し、GitHub連携の一貫性を確保
+  - 修正ファイル: `src/core/github/issue-client.ts`
+  - テストカバレッジ: ユニットテスト6件（`issue-client-followup.test.ts` 3件、`issue-client-agent.test.ts` 3件）を追加、既存テスト互換性を確認、全体 `npm run test:unit` PASS（2501 tests）
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
   - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
   - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証
