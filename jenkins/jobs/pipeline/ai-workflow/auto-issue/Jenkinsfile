@@ -11,6 +11,7 @@
  * - AUTO_ISSUE_SIMILARITY_THRESHOLD: 重複判定の類似度閾値（デフォルト: 0.8）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
  * - CUSTOM_INSTRUCTION: カスタム指示（オプション、最大500文字、分析ガイダンスのみ）
+ * - BASE_BRANCH: リポジトリ探索用ベースブランチ（任意、空欄時はデフォルトブランチ）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
  * - その他の認証情報（Jenkinsfile.all-phasesと同じ）
@@ -140,6 +141,7 @@ pipeline {
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                     echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
+                    echo "BASE_BRANCH: ${params.BASE_BRANCH ? '(set)' : '(not set)'}"
                 }
             }
         }
@@ -187,6 +189,7 @@ pipeline {
                         def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
                         def customInstructionFlag = params.CUSTOM_INSTRUCTION ? "--custom-instruction \"${params.CUSTOM_INSTRUCTION}\"" : ''
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        def baseBranchOption = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ''
                         def outputFile = 'auto-issue-results.json'
 
                         sh """
@@ -196,6 +199,7 @@ pipeline {
                                 --similarity-threshold ${similarityThreshold} \
                                 --agent ${params.AGENT_MODE ?: 'auto'} \
                                 --output-file ${outputFile} \
+                                ${baseBranchOption} \
                                 ${customInstructionFlag} \
                                 ${dryRunFlag} \
                                 ${languageOption}

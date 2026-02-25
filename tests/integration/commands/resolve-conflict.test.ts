@@ -32,6 +32,8 @@ beforeAll(async () => {
     __esModule: true,
     parsePullRequestUrl: parsePullRequestUrlMock,
     resolveRepoPathFromPrUrl: resolveRepoPathFromPrUrlMock,
+    getRepoRoot: jest.fn(),
+    findWorkflowMetadata: jest.fn(),
   }));
 
   await jest.unstable_mockModule('../../../src/core/git/git-config-helper.js', () => ({
@@ -504,6 +506,239 @@ describe('resolve-conflict コマンド統合テスト', () => {
     await expect(fsp.access(metadataManager.getMetadataPath())).rejects.toThrow();
   });
 
+  it('finalize_Markdownテーブル形式のレポートが生成される', async () => {
+    // Given: init 済みのメタデータと解消結果
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    const metadataManager = new ConflictMetadataManager(repoRoot, 42);
+    const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
+    await fsp.mkdir(outputDir, { recursive: true });
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    const resolutions = [
+      {
+        filePath: 'src/app.ts',
+        strategy: 'manual-merge',
+        resolvedContent: 'full content of app.ts - should not appear',
+        notes: 'AI による自動解消',
+      },
+      {
+        filePath: 'package.json',
+        strategy: 'theirs',
+        resolvedContent: 'full content of package.json - should not appear',
+        notes: 'ターゲットブランチ採用',
+      },
+      {
+        filePath: 'README.md',
+        strategy: 'ours',
+        resolvedContent: 'full content of README.md - should not appear',
+      },
+      {
+        filePath: 'config.ts',
+        strategy: 'both',
+        resolvedContent: 'full content of config.ts - should not appear',
+        notes: '両方を結合',
+      },
+    ];
+    await fsp.writeFile(resultPath, JSON.stringify(resolutions), 'utf-8');
+    await metadataManager.setResolutionResult(resultPath);
+
+    // When: finalize を実行
+    await handleResolveConflictFinalizeCommand({ prUrl, push: false, squash: false, language: 'ja' });
+
+    // Then: コメント本文がMarkdownテーブル形式になっている
+    expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+
+    expect(commentBody).toContain('## ✅ マージコンフリクト解消レポート');
+    expect(commentBody).toContain('### 解消結果サマリー');
+    expect(commentBody).toContain('| ファイル | 解消方法 | 備考 |');
+    expect(commentBody).toContain('|---------|---------|------|');
+    expect(commentBody).toContain('AIによる自動解消');
+    expect(commentBody).toContain('ターゲットブランチの内容を採用');
+    expect(commentBody).toContain('ソースブランチの内容を採用');
+    expect(commentBody).toContain('両方の内容を結合');
+    expect(commentBody).toContain('src/app.ts');
+    expect(commentBody).toContain('package.json');
+    expect(commentBody).toContain('README.md');
+    expect(commentBody).toContain('config.ts');
+    expect(commentBody).toContain('| README.md | ソースブランチの内容を採用 | - |');
+    expect(commentBody).not.toContain('full content of app.ts - should not appear');
+    expect(commentBody).not.toContain('full content of package.json - should not appear');
+    expect(commentBody).not.toContain('full content of README.md - should not appear');
+    expect(commentBody).not.toContain('full content of config.ts - should not appear');
+    expect(commentBody).toContain('### 統計');
+    expect(commentBody).toContain('- 解消ファイル数: 4');
+    expect(commentBody).toContain('- 解消方法内訳:');
+    expect(commentBody).toContain('*AI Workflow resolve-conflict*');
+  });
+
+  it('finalize_空配列の場合に適切なメッセージが表示される', async () => {
+    // Given: init 済みのメタデータと空配列の解消結果
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    const metadataManager = new ConflictMetadataManager(repoRoot, 42);
+    const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
+    await fsp.mkdir(outputDir, { recursive: true });
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    await fsp.writeFile(resultPath, '[]', 'utf-8');
+    await metadataManager.setResolutionResult(resultPath);
+
+    // When: finalize を実行
+    await handleResolveConflictFinalizeCommand({ prUrl, push: false, squash: false, language: 'ja' });
+
+    // Then: 空配列メッセージが表示される
+    expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+    expect(commentBody).toContain('## ✅ マージコンフリクト解消レポート');
+    expect(commentBody).toContain('コンフリクトファイルはありませんでした。');
+    expect(commentBody).not.toContain('| ファイル | 解消方法 | 備考 |');
+    expect(commentBody).not.toContain('### 統計');
+    expect(commentBody).toContain('*AI Workflow resolve-conflict*');
+  });
+
+  it('finalize_JSONパース失敗時にフォールバックする', async () => {
+    // Given: init 済みのメタデータと不正JSONの解消結果
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    const metadataManager = new ConflictMetadataManager(repoRoot, 42);
+    const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
+    await fsp.mkdir(outputDir, { recursive: true });
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    await fsp.writeFile(resultPath, 'this is not valid json', 'utf-8');
+    await metadataManager.setResolutionResult(resultPath);
+
+    // When: finalize を実行
+    await handleResolveConflictFinalizeCommand({ prUrl, push: false, squash: false, language: 'ja' });
+
+    // Then: 生テキストがそのまま出力される
+    expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+    expect(commentBody).toContain('## ✅ マージコンフリクト解消レポート');
+    expect(commentBody).toContain('this is not valid json');
+    expect(commentBody).not.toContain('| ファイル | 解消方法 | 備考 |');
+    expect(commentBody).toContain('*AI Workflow resolve-conflict*');
+  });
+
+  it('finalize_notesが未定義の場合にハイフンが表示される', async () => {
+    // Given: init 済みのメタデータとnotes未設定の解消結果
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    const metadataManager = new ConflictMetadataManager(repoRoot, 42);
+    const outputDir = path.join(repoRoot, '.ai-workflow', 'conflict-42');
+    await fsp.mkdir(outputDir, { recursive: true });
+    const resultPath = path.join(outputDir, 'resolution-result.json');
+    const resolutions = [
+      {
+        filePath: 'src/helper.ts',
+        strategy: 'manual-merge',
+        resolvedContent: 'unique-resolved-content-should-not-appear',
+      },
+    ];
+    await fsp.writeFile(resultPath, JSON.stringify(resolutions), 'utf-8');
+    await metadataManager.setResolutionResult(resultPath);
+
+    // When: finalize を実行
+    await handleResolveConflictFinalizeCommand({ prUrl, push: false, squash: false, language: 'ja' });
+
+    // Then: 備考にハイフンが表示される
+    expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+    expect(commentBody).toContain('| ファイル | 解消方法 | 備考 |');
+    expect(commentBody).toContain('| src/helper.ts | AIによる自動解消 | - |');
+    expect(commentBody).not.toContain('unique-resolved-content-should-not-appear');
+  });
+
+  it('finalize_resultSummaryがnullの場合にデフォルトメッセージが表示される', async () => {
+    // Given: init 済みで resolution-result.json を設定しない
+    const gitInit = {
+      fetch: jest.fn().mockResolvedValue(undefined),
+      add: jest.fn().mockResolvedValue(undefined),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitFinalize = {
+      status: jest.fn().mockResolvedValue({ current: 'feature', files: [] }),
+      raw: jest.fn().mockResolvedValue(''),
+      commit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const gitInstances = [gitInit, gitFinalize];
+    simpleGitMock.mockImplementation(() => gitInstances.shift());
+
+    await handleResolveConflictInitCommand({ prUrl, language: 'ja' });
+
+    // When: finalize を実行
+    await handleResolveConflictFinalizeCommand({ prUrl, push: false, squash: false, language: 'ja' });
+
+    // Then: デフォルトメッセージが表示される
+    expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+    expect(commentBody).toContain('## ✅ マージコンフリクト解消レポート');
+    expect(commentBody).toContain('解消結果の詳細はローカルのレポートをご確認ください。');
+    expect(commentBody).not.toContain('| ファイル | 解消方法 | 備考 |');
+    expect(commentBody).toContain('*AI Workflow resolve-conflict*');
+  });
+
   it('finalize_squashオプション指定でも正常終了する', async () => {
     // Given: init 済みのメタデータと解消結果
     const gitInit = {
@@ -535,6 +770,8 @@ describe('resolve-conflict コマンド統合テスト', () => {
 
     // Then: コメント投稿とクリーンアップが行われる
     expect(githubClientInstance.postComment).toHaveBeenCalled();
+    const commentBody = githubClientInstance.postComment.mock.calls[0][1] as string;
+    expect(commentBody).toContain('コンフリクトファイルはありませんでした。');
     await expect(fsp.access(metadataManager.getMetadataPath())).rejects.toThrow();
   });
 

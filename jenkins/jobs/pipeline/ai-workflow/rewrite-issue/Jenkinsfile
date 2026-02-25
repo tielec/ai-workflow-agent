@@ -12,6 +12,7 @@
  * - APPLY: Issue更新フラグ（true/false、デフォルト: true）
  * - DRY_RUN: プレビューモード（true/false、デフォルト: false）
  * - CUSTOM_INSTRUCTION: カスタム指示（任意、最大500文字）
+ * - BASE_BRANCH: リポジトリ探索用ベースブランチ（任意、空欄時はデフォルトブランチ）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - 認証情報（Codex/Claude系、auto-issueと同様）
  *
@@ -146,6 +147,7 @@ pipeline {
                     echo "Apply: ${params.APPLY ?: false}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                     echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
+                    echo "BASE_BRANCH: ${params.BASE_BRANCH ? '(set)' : '(not set)'}"
                 }
             }
         }
@@ -187,6 +189,7 @@ pipeline {
                         def issueNumber = params.ISSUE_NUMBER
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
                         def agentOption = "--agent ${params.AGENT_MODE ?: 'auto'}"
+                        def baseBranchOption = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ''
                         def applyFlag = params.APPLY ? '--apply' : ''
                         def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
                         def customInstructionFlag = params.CUSTOM_INSTRUCTION ? "--custom-instruction \"${params.CUSTOM_INSTRUCTION}\"" : ''
@@ -196,6 +199,7 @@ pipeline {
                                 --issue ${issueNumber} \\
                                 ${languageOption} \\
                                 ${agentOption} \\
+                                ${baseBranchOption} \\
                                 ${applyFlag} \\
                                 ${dryRunFlag} \\
                                 ${customInstructionFlag}

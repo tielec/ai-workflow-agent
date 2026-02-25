@@ -16,7 +16,7 @@ import { resolveAgentCredentials, setupAgentClients, type AgentPriority } from '
 import { RepositoryAnalyzer } from '../core/repository-analyzer.js';
 import { IssueDeduplicator, type ExistingIssue } from '../core/issue-deduplicator.js';
 import { IssueGenerator } from '../core/issue-generator.js';
-import { resolveLocalRepoPath } from '../core/repository-utils.js';
+import { checkoutBaseBranch, resolveLocalRepoPath } from '../core/repository-utils.js';
 import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
 import type {
@@ -26,6 +26,7 @@ import type {
 } from '../types/auto-issue.js';
 import { buildAutoIssueJsonPayload, writeAutoIssueOutputFile } from './auto-issue-output.js';
 import { InstructionValidator } from '../core/instruction-validator.js';
+import { validateBranchName } from './init.js';
 
 /**
  * カテゴリに応じたエージェント優先順位（Issue #629）
@@ -54,7 +55,7 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
     const options = parseOptions(rawOptions);
 
     logger.info(
-      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
+      `Options: category=${options.category}, limit=${options.limit}, dryRun=${options.dryRun}, similarityThreshold=${options.similarityThreshold}, agent=${options.agent}, baseBranch=${options.baseBranch ?? '(not set)'}, outputFile=${options.outputFile ?? '(not set)'}, customInstruction=${options.customInstruction ? 'provided' : 'not provided'}`,
     );
     if (options.customInstruction) {
       logger.info(`Using custom instruction: ${options.customInstruction}`);
@@ -86,6 +87,12 @@ export async function handleAutoIssueCommand(rawOptions: RawAutoIssueOptions): P
         `or run the command from the repository root in local environment.\n` +
         `Original error: ${getErrorMessage(error)}`
       );
+    }
+
+    if (options.baseBranch) {
+      await checkoutBaseBranch(repoPath, options.baseBranch);
+    } else {
+      logger.debug('No base branch specified, using current branch');
     }
 
     // 5. REPOS_ROOT の値をログ出力
@@ -657,6 +664,14 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     customInstruction = trimmed;
   }
 
+  const baseBranch = rawOptions.baseBranch;
+  if (baseBranch !== undefined) {
+    const validation = validateBranchName(baseBranch);
+    if (!validation.valid) {
+      throw new Error(`Invalid base branch name: "${baseBranch}". ${validation.error}`);
+    }
+  }
+
   return {
     category: category as 'bug' | 'refactor' | 'enhancement' | 'all',
     limit,
@@ -666,6 +681,7 @@ function parseOptions(rawOptions: RawAutoIssueOptions): AutoIssueOptions {
     agent: agent as 'auto' | 'codex' | 'claude',
     creativeMode,
     customInstruction,
+    baseBranch,
   };
 }
 

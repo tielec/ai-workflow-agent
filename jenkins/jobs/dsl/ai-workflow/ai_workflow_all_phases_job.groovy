@@ -140,14 +140,14 @@ Evaluation Phase完了後にワークフローディレクトリを強制削除
 ワークフロー完了時にコミットをスカッシュする（非推奨: finalize コマンドを使用してください）
             '''.stripIndent().trim())
 
-            booleanParam('NETWORK_HEALTH_CHECK', false, '''
+            booleanParam('NETWORK_HEALTH_CHECK', true, '''
 ネットワークヘルスチェックを有効化
 
 EC2インスタンスのネットワークスループット（NetworkPacketsOut / NetworkOut）を
 各フェーズ実行前にチェックし、大幅に低下している場合はジョブを早期終了します。
 
-- true: フェーズ実行前にCloudWatchメトリクスを確認
-- false: チェックなし（デフォルト）
+- true: フェーズ実行前にCloudWatchメトリクスを確認（デフォルト）
+- false: チェックなし
 
 注: EC2環境以外では自動的にスキップされます
             '''.stripIndent().trim())

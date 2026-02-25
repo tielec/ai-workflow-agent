@@ -14,6 +14,14 @@ RUN apt-get update && \
         jq \
         unzip \
         gnupg \
+        sudo \
+        python3 \
+        python3-pip \
+        python3-venv \
+        golang-go \
+        default-jdk \
+        ruby \
+        ruby-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI (gh)

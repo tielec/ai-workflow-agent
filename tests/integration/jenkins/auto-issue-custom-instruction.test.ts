@@ -32,6 +32,12 @@ describe('Integration: auto-issue Jenkins Custom Instruction support (Issue #435
     expect(jenkinsfileContent).toMatch(validateStagePattern);
   });
 
+  it('logs BASE_BRANCH presence during parameter validation', () => {
+    const baseBranchPattern =
+      /stage\('Validate Parameters'\)[\s\S]*?echo "BASE_BRANCH: \${params\.BASE_BRANCH \? '\(set\)' : '\(not set\)'}"/;
+    expect(jenkinsfileContent).toMatch(baseBranchPattern);
+  });
+
   it('logs the custom instruction again during execution for visibility', () => {
     const executeLogPattern = /stage\('Execute Auto Issue'\)[\s\S]*?echo "Custom Instruction: \${params\.CUSTOM_INSTRUCTION \?: '\(none\)'}"/;
     expect(jenkinsfileContent).toMatch(executeLogPattern);
@@ -42,6 +48,15 @@ describe('Integration: auto-issue Jenkins Custom Instruction support (Issue #435
     expect(jenkinsfileContent).toMatch(definitionPattern);
 
     const executeCommandPattern = /stage\('Execute Auto Issue'\)[\s\S]*?sh """[\s\S]*\$\{customInstructionFlag\}/;
+    expect(jenkinsfileContent).toMatch(executeCommandPattern);
+  });
+
+  it('builds a baseBranchOption and passes it to the auto-issue command', () => {
+    const definitionPattern =
+      /def\s+baseBranchOption\s*=\s*params\.BASE_BRANCH\s*\?\s*"--base-branch/;
+    expect(jenkinsfileContent).toMatch(definitionPattern);
+
+    const executeCommandPattern = /stage\('Execute Auto Issue'\)[\s\S]*?sh """[\s\S]*\$\{baseBranchOption\}/;
     expect(jenkinsfileContent).toMatch(executeCommandPattern);
   });
 
