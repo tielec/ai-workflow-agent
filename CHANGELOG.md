@@ -41,6 +41,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #790**: `split-issue` コマンドに `--output-file` オプションを追加
+  - 実行結果をJSON形式で出力し、Jenkins成果物としてアーカイブ可能に
+  - `src/commands/split-issue-output.ts` を新規作成し、`buildSplitIssueJsonPayload()`（JSONペイロード構築）と `writeSplitIssueOutputFile()`（ファイル書き出し）を実装
+  - JSON出力スキーマは4セクション構成（`execution`：実行情報、`summary`：分割結果サマリー、`issues`：子Issue詳細配列、`metrics`：品質メトリクス）
+  - `--output-file <path>` でJSON出力先を指定可能（指定なしの場合は標準出力のみ）
+  - `apply` モードでは作成された子Issueの `issueNumber`・`issueUrl` を含む、`dry-run` モードではこれらのフィールドは未定義
+  - `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` に `archiveArtifacts` ステップを追加し、JSON結果をビルド成果物として保存
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy` に `OUTPUT_FILE` パラメータを追加
+  - `src/main.ts` の `split-issue` コマンドに `--output-file` オプションを追加
+  - `src/types/split-issue.ts` に `SplitIssueJsonOutput` インターフェース群を追加
+  - 修正・新規ファイル: `src/commands/split-issue-output.ts`（新規）、`src/commands/split-issue.ts`、`src/types/split-issue.ts`、`src/main.ts`、`jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile`、`jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy`
+  - テストカバレッジ: ユニットテスト21件（`split-issue-output.test.ts` 13件、`split-issue.test.ts` 8件）を追加、全体テスト成功（17 passed）
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（使用例、オプション一覧、JSON出力スキーマセクションを追加）
 - **Issue #782**: Evaluation Phase（Phase 9）で「PASS_WITH_ISSUES」判定時に作成されるFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動リンクする機能を追加
   - `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッドにSub-Issueリンク処理を統合（エージェントモード・LLM/レガシーモードの両パスに対応）
   - `linkFollowUpAsSubIssue()` プライベートメソッドを新規追加し、`getIssue()` → `addSubIssue()` → フォールバック（`updateIssue()`）のベストエフォートフローを実装

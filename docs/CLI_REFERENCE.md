@@ -293,6 +293,9 @@ node dist/index.js split-issue --issue 123 --max-splits 5 --apply
 
 # 英語出力・Claude指定
 node dist/index.js split-issue --issue 123 --language en --agent claude --apply
+
+# JSON出力を指定（Issue #790で追加）
+node dist/index.js split-issue --issue 123 --apply --output-file split-issue-results.json
 ```
 
 **オプション**:
@@ -302,6 +305,7 @@ node dist/index.js split-issue --issue 123 --language en --agent claude --apply
 - `--dry-run`: プレビューモード（デフォルト動作、明示的に指定可能）
 - `--apply`: 実際にGitHub Issueを作成（dry-runと排他）
 - `--max-splits <number>`: 分割Issueの最大数（デフォルト: `10`、範囲: 1〜20）
+- `--output-file <path>`: 実行結果をJSONファイルに出力（Issue #790で追加）
 
 **主な機能**:
 - **Issue情報取得**: GitHub APIを通じて対象Issueのタイトル・本文を取得
@@ -312,6 +316,7 @@ node dist/index.js split-issue --issue 123 --language en --agent claude --apply
 - **子Issue一括作成**: `--apply` オプションで子Issueを逐次作成（GitHub APIレート制限対策）
 - **元Issueへのコメント投稿**: 作成された子Issueへのリンク一覧を元Issueにコメントとして自動投稿
 - **部分失敗許容**: 一部のIssue作成に失敗しても、成功した分は保持して処理を継続
+- **JSON出力**（Issue #790で追加）: `--output-file` オプションで実行結果をJSON形式で出力。dry-run/apply両モードをサポート
 
 **出力例（dry-runモード）**:
 ```
@@ -342,8 +347,51 @@ Issue #1: CLIオプションのパースとバリデーション機能
 - `GITHUB_TOKEN`: GitHub Personal Access Token（Issue作成・コメント投稿権限が必要）
 - `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
 
+**JSON出力スキーマ**（Issue #790で追加）:
+
+`--output-file` オプションを指定すると、以下のJSON構造で実行結果が出力されます：
+
+```json
+{
+  "execution": {
+    "timestamp": "2025-01-15T10:30:00.000Z",
+    "repository": "tielec/ai-workflow-agent",
+    "issueNumber": 790,
+    "language": "ja",
+    "apply": true,
+    "dryRun": false,
+    "maxSplits": 10
+  },
+  "summary": {
+    "originalTitle": "split-issueコマンドに--output-fileオプションを追加",
+    "splitSummary": "Issue #790を3つの機能Issueに分割しました。",
+    "totalSplitIssues": 3,
+    "createdCount": 3,
+    "failedCount": 0
+  },
+  "issues": [
+    {
+      "title": "split-issueコマンドに--output-fileオプションを追加",
+      "body": "## 概要\nCLIに--output-fileオプションを追加し...",
+      "labels": ["enhancement"],
+      "priority": "high",
+      "relatedFeatures": [],
+      "issueNumber": 791,
+      "issueUrl": "https://github.com/tielec/ai-workflow-agent/issues/791"
+    }
+  ],
+  "metrics": {
+    "completenessScore": 85,
+    "specificityScore": 70
+  }
+}
+```
+
+- **dry-runモード**: `issueNumber`・`issueUrl` は含まれず、`createdCount`・`failedCount` は `0`
+- **applyモード**: 作成されたIssueの番号とURLが各エントリに含まれます
+
 **技術詳細**:
-- **実装モジュール**: `src/commands/split-issue.ts`
+- **実装モジュール**: `src/commands/split-issue.ts`、`src/commands/split-issue-output.ts`（Issue #790で追加）
 - **型定義**: `src/types/split-issue.ts`
 - **プロンプトテンプレート**: `src/prompts/split-issue/{ja|en}/split-issue.txt`
 - **IssueClient拡張**: `createMultipleIssues()` メソッドで子Issueを逐次作成
@@ -355,6 +403,7 @@ Issue #1: CLIオプションのパースとバリデーション機能
 - 一部のIssue作成に失敗した場合、成功した子Issueの一覧がログに出力される
 - 元Issueへのコメント投稿に失敗しても、子Issueの作成結果は保持される
 - `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
+- `--output-file` で出力したJSONファイルは、Jenkins等のCI/CDシステムでアーカイブして結果を確認できます
 
 ### create-sub-issue コマンド（Issue #713で追加）
 

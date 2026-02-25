@@ -190,6 +190,7 @@ pipeline {
                         def applyFlag = params.APPLY ? '--apply' : ''
                         def dryRunFlag = (!params.APPLY && params.DRY_RUN) ? '--dry-run' : ''
                         def maxSplitsOption = params.MAX_SPLITS ? "--max-splits ${params.MAX_SPLITS}" : ''
+                        def outputFile = params.OUTPUT_FILE ?: 'split-issue-results.json'
 
                         sh """
                             node dist/index.js split-issue \\
@@ -198,7 +199,8 @@ pipeline {
                                 ${agentOption} \\
                                 ${applyFlag} \\
                                 ${dryRunFlag} \\
-                                ${maxSplitsOption}
+                                ${maxSplitsOption} \\
+                                --output-file ${outputFile}
                         """
                     }
                 }
@@ -216,6 +218,9 @@ pipeline {
                 def applyLabel = params.APPLY ? ' [APPLY]' : ''
                 def dryRunLabel = (!params.APPLY && params.DRY_RUN) ? ' [DRY RUN]' : ''
                 currentBuild.description = "Split Issue #${env.ISSUE_NUMBER}${applyLabel}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                def outputFile = params.OUTPUT_FILE ?: 'split-issue-results.json'
+                archiveArtifacts artifacts: outputFile, allowEmptyArchive: true
 
                 if (env.REPOS_ROOT) {
                     sh """
