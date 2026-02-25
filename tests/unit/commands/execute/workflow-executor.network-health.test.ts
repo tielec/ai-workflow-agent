@@ -59,7 +59,7 @@ function createMockContextWithHealthCheck(
     ignoreDependencies: false,
     presetPhases: undefined,
     networkHealthCheck: true,
-    networkThroughputDropThreshold: 70,
+    networkThroughputDropThreshold: 90,
     ...overrides,
   };
 }

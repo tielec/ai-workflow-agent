@@ -57,7 +57,7 @@ export async function executePhasesSequential(
     try {
       if (context.networkHealthCheck) {
         const { checkNetworkHealth } = await import('../../core/network-health-checker.js');
-        const threshold = context.networkThroughputDropThreshold ?? 70;
+        const threshold = context.networkThroughputDropThreshold ?? 90;
         const healthResult = await checkNetworkHealth(threshold);
         if (healthResult.available && healthResult.shouldStop) {
           logger.warn(
