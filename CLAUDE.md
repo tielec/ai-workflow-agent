@@ -551,6 +551,8 @@ describe('My Test Suite', () => {
 
 12. **InstructionValidator の動作（Issue #655）**: エージェント優先順は `codex-agent (mini) → claude-agent (haiku) → OpenAI gpt-4o-mini → pattern` の順で検証し、使用した経路は `validationMethod` に記録される。`CODEX_API_KEY`、`CLAUDE_CODE_OAUTH_TOKEN`/`CLAUDE_CODE_API_KEY`、`OPENAI_API_KEY` のいずれかが設定されていれば LLM 検証を実行し、すべて無い場合はパターン検証のみ（警告付き続行）。
 
+13. **削除済みファイルのコミットは `filterCommittableFiles()` で決定（Issue #801）**: `FileSelector.getDeletedFiles()` で抽出した削除候補も `filterCommittableFiles()` に渡されるため、全フェーズ実行の結果として削除されたファイルが PR のコミットに自動的に含まれます。Issue #801 で `filterExistingFiles()` を `filterCommittableFiles()` にリファクタリングしたことにより、削除ファイル・追加ファイル・変更ファイルすべてを統一的に評価し、`CommitManager` はこの返り値をもとに `git add` を実行してステージングを完了します。その結果、作業ツリーで `git add -u` や `git rm` のような手動操作を行う必要はなく、むしろ `CommitManager` の自動判断と競合しないよう、手動ステージングは控えてください。削除したファイルを再度残したい場合は、該当ファイルをフェーズ実行前に復旧して `filterCommittableFiles()` が削除候補から除外するようにすることで、`CommitManager` による処理結果を信頼できます。`filterCommittableFiles()` は git に追跡されていない無効なパスも引き続き除外するため、Issue #234 で導入された保護機能も維持されます。
+
 ## 主要な設計パターン
 
 ### エージェントフォールバック戦略

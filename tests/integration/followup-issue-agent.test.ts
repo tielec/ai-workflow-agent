@@ -196,6 +196,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
         issue_url: 'https://github.com/owner/repo/issues/456',
         issue_number: 456,
         error: null,
+        subIssueLinkSuccess: false,
       });
     });
   });
@@ -356,6 +357,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
         issue_url: 'https://github.com/owner/repo/issues/456',
         issue_number: 456,
         error: null,
+        subIssueLinkSuccess: false,
       });
     });
   });

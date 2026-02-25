@@ -9,7 +9,7 @@
  *  - イメージサイズの増加が +500MB 以内
  */
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -19,6 +19,10 @@ const longTimeoutMs = 10 * 60 * 1000;
 const megabyte = 1024 * 1024;
 
 jest.setTimeout(longTimeoutMs);
+
+const dockerCheck = spawnSync('docker', ['--version'], { stdio: 'ignore' });
+const dockerAvailable = !dockerCheck.error && dockerCheck.status === 0;
+const describeIfDocker = dockerAvailable ? describe : describe.skip;
 
 let builtImageSize: number | null = null;
 let baseImageSize: number | null = null;
@@ -52,7 +56,7 @@ async function runInContainer(command: string[]): Promise<string> {
   return `${stdout}${stderr}`;
 }
 
-describe('Integration: Dockerfile runtimes (Issue #785)', () => {
+describeIfDocker('Integration: Dockerfile runtimes (Issue #785)', () => {
   describe('TS-001: Dockerイメージビルド成功', () => {
     it('ビルド済みのイメージが存在しサイズが記録されている', () => {
       expect(builtImageSize).toBeGreaterThan(0);

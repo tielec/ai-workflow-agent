@@ -75,7 +75,11 @@ describe('Integration: IssueClient with IssueAIGenerator', () => {
     const issuesCreate = jest.fn(async () => ({
       data: { number: 912, html_url: 'https://example.com/issues/912' },
     }));
-    const octokit = { issues: { create: issuesCreate } };
+    const issuesGet = jest.fn(async () => ({
+      data: { id: 912, body: SUCCESS_BODY },
+    }));
+    const request = jest.fn(async () => ({}));
+    const octokit = { issues: { create: issuesCreate, get: issuesGet }, request };
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
 
     const client = new IssueClient(octokit as any, 'tielec', 'ai-workflow', generator);
@@ -133,7 +137,11 @@ describe('Integration: IssueClient with IssueAIGenerator', () => {
     const issuesCreate = jest.fn(async () => ({
       data: { number: 1300, html_url: 'https://example.com/issues/1300' },
     }));
-    const octokit = { issues: { create: issuesCreate } };
+    const issuesGet = jest.fn(async () => ({
+      data: { id: 1300, body: 'fallback-body' },
+    }));
+    const request = jest.fn(async () => ({}));
+    const octokit = { issues: { create: issuesCreate, get: issuesGet }, request };
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
 
     const client = new IssueClient(octokit as any, 'tielec', 'ai-workflow', generator);

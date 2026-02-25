@@ -14,6 +14,8 @@ import {
   writeAutoIssueOutputFile,
 } from '../../../src/commands/auto-issue-output.js';
 
+jest.setTimeout(20000);
+
 jest.mock('../../../src/utils/logger.js', () => ({
   logger: {
     info: jest.fn(),

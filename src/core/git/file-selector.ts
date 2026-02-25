@@ -198,6 +198,33 @@ export class FileSelector {
   }
 
   /**
+   * Get deleted files from git status as a Set for fast lookup.
+   * Excludes:
+   * - Files containing '@tmp'
+   * - Security-sensitive files (credentials, auth files, .env)
+   * - Debug-only files (agent_log_raw.txt, prompt.txt) when LOG_LEVEL is not 'debug'
+   * - Build artifacts and cache files (__pycache__/, *.pyc, node_modules/, etc.)
+   */
+  public async getDeletedFiles(): Promise<Set<string>> {
+    const status = await this.git.status();
+    const deletedFiles = new Set<string>();
+
+    status.deleted?.forEach((file) => {
+      // SECURITY & HYGIENE: Exclude @tmp, sensitive files, debug files, and build artifacts
+      if (
+        !file.includes('@tmp') &&
+        !isSecuritySensitiveFile(file) &&
+        !shouldExcludeDebugFile(file) &&
+        !isBuildArtifact(file)
+      ) {
+        deletedFiles.add(file);
+      }
+    });
+
+    return deletedFiles;
+  }
+
+  /**
    * Filter files by issue number
    * Includes:
    * - Files in .ai-workflow/issue-{issueNumber}/

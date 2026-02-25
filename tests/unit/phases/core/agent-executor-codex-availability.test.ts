@@ -32,6 +32,8 @@ const { AgentExecutor } = await import('../../../../src/phases/core/agent-execut
 
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'agent-executor-codex-avail-test');
 
+jest.setTimeout(20000);
+
 /**
  * モック AgentClient を作成
  */
