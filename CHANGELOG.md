@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 運用上 squash を使うケースが多いため、デフォルトを `true` にすることで操作ミスを減らし、利便性を向上
   - パラメータを明示的に指定している場合は影響なし（後方互換性を維持）
   - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile`、`docs/CONFLICT_RESOLUTION.md`、`docs/CLI_REFERENCE.md`
+- **Issue #793**: all_phases ジョブDSLの `NETWORK_HEALTH_CHECK` パラメータのデフォルト値を `false` → `true` に変更
+  - EC2環境でのワークフロー実行時に、ネットワークヘルスチェックがデフォルトで有効化され、各フェーズ実行前にCloudWatchメトリクスを確認
+  - 非EC2環境では自動的にスキップされるため、副作用なし
+  - ユーザーが意図的に無効化したい場合は、Jenkins UIで `NETWORK_HEALTH_CHECK=false` を明示的に指定可能
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_all_phases_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile`、`tests/unit/jenkins/network-health-parameter.test.ts`
+  - ドキュメント更新: `jenkins/README.md`（NETWORK_HEALTH_CHECKパラメータの説明を追加）
+- **Issue #785**: Dockerイメージに主要言語ランタイム（Python3、Go、Java、Ruby）と sudo をプリインストール
+  - `Dockerfile` の既存 `apt-get install` ブロック（9-17行目）に8つのパッケージを追加：`sudo`、`python3`、`python3-pip`、`python3-venv`、`golang-go`、`default-jdk`、`ruby`、`ruby-dev`
+  - Testing フェーズで `python3` や他のランタイムが不足していることによるプロンプト警告が出力されなくなり、エージェントが `apt-get install` を試みる必要がなくなる
+  - `--no-install-recommends` と `rm -rf /var/lib/apt/lists/*` によりイメージサイズ増加を抑制（+500MB以内を目標）
+  - `README.md` の「前提条件」セクションにプリインストール言語ランタイムの一覧を追加
+  - `docs/ENVIRONMENT.md` の「Docker環境」セクションにプリインストール言語ランタイムの表（言語・パッケージ・バージョン確認コマンド）を追加
+  - テストカバレッジ: 統合テスト10件（`tests/integration/dockerfile-runtimes.test.ts`）を新規作成、Dockerイメージビルド成功・各ランタイムの動作確認・Node.js環境の互換性・イメージサイズ許容範囲を検証
+  - 修正ファイル: `Dockerfile`、`README.md`、`docs/ENVIRONMENT.md`
 - **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
   - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
   - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
@@ -33,6 +47,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #790**: `split-issue` コマンドに `--output-file` オプションを追加
+  - 実行結果をJSON形式で出力し、Jenkins成果物としてアーカイブ可能に
+  - `src/commands/split-issue-output.ts` を新規作成し、`buildSplitIssueJsonPayload()`（JSONペイロード構築）と `writeSplitIssueOutputFile()`（ファイル書き出し）を実装
+  - JSON出力スキーマは4セクション構成（`execution`：実行情報、`summary`：分割結果サマリー、`issues`：子Issue詳細配列、`metrics`：品質メトリクス）
+  - `--output-file <path>` でJSON出力先を指定可能（指定なしの場合は標準出力のみ）
+  - `apply` モードでは作成された子Issueの `issueNumber`・`issueUrl` を含む、`dry-run` モードではこれらのフィールドは未定義
+  - `jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile` に `archiveArtifacts` ステップを追加し、JSON結果をビルド成果物として保存
+  - `jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy` に `OUTPUT_FILE` パラメータを追加
+  - `src/main.ts` の `split-issue` コマンドに `--output-file` オプションを追加
+  - `src/types/split-issue.ts` に `SplitIssueJsonOutput` インターフェース群を追加
+  - 修正・新規ファイル: `src/commands/split-issue-output.ts`（新規）、`src/commands/split-issue.ts`、`src/types/split-issue.ts`、`src/main.ts`、`jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile`、`jenkins/jobs/dsl/ai-workflow/ai_workflow_split_issue_job.groovy`
+  - テストカバレッジ: ユニットテスト21件（`split-issue-output.test.ts` 13件、`split-issue.test.ts` 8件）を追加、全体テスト成功（17 passed）
+  - ドキュメント更新: `docs/CLI_REFERENCE.md`（使用例、オプション一覧、JSON出力スキーマセクションを追加）
+- **Issue #782**: Evaluation Phase（Phase 9）で「PASS_WITH_ISSUES」判定時に作成されるFOLLOW-UP IssueをGitHub Sub-Issue APIで親Issueに自動リンクする機能を追加
+  - `src/core/github/issue-client.ts` の `createIssueFromEvaluation()` メソッドにSub-Issueリンク処理を統合（エージェントモード・LLM/レガシーモードの両パスに対応）
+  - `linkFollowUpAsSubIssue()` プライベートメソッドを新規追加し、`getIssue()` → `addSubIssue()` → フォールバック（`updateIssue()`）のベストエフォートフローを実装
+  - Sub-Issue API失敗時のフォールバック機構: 子Issue本文先頭に `> Parent issue: #XX` を自動追加
+  - `IssueCreationResult` インターフェースに `subIssueLinkSuccess?: boolean` オプショナルフィールドを追加（後方互換性を維持）
+  - リンク処理の成否にかかわらずFOLLOW-UP Issue作成自体は成功として扱う設計（ベストエフォート原則）
+  - GitHub UIのSub-Issue階層表示により、親IssueからFOLLOW-UP Issueへのナビゲーションが直感的になり、タスクトラッキングが改善
+  - `create-sub-issue` コマンドと同一のSub-Issueリンクパターンを採用し、GitHub連携の一貫性を確保
+  - 修正ファイル: `src/core/github/issue-client.ts`
+  - テストカバレッジ: ユニットテスト6件（`issue-client-followup.test.ts` 3件、`issue-client-agent.test.ts` 3件）を追加、既存テスト互換性を確認、全体 `npm run test:unit` PASS（2501 tests）
 - **Issue #712**: `rewrite-issue` コマンドで再設計されたIssue本文の先頭にYAML frontmatter形式で難易度・バグリスク情報を自動付与する機能を追加
   - `src/core/difficulty-analyzer.ts` に `analyzeWithGrade()` メソッドを追加し、5段階グレード（A=trivial / B=simple / C=moderate / D=complex / E=critical）による難易度評価とバグリスク予測を実装
   - Claude → Codex → デフォルト値（D/complex）の3段フォールバックチェーンにより、AI応答失敗時も安定動作を保証
@@ -445,8 +482,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Issue #575**: プロンプト・テンプレートの多言語対応を完了
   - Issue #573で完了した10フェーズ（execute/review/revise）に加え、残りのプロンプト・テンプレートを多言語化
   - **新規モジュール**: `src/core/prompt-loader.ts`（約200行）- プロンプト・テンプレートの言語対応読み込みユーティリティ
-    - `loadPrompt()`, `loadTemplate()`, `resolvePromptPath()`, `resolveTemplatePath()`, `promptExists()`, `templateExists()` を提供
-    - `BasePhase.loadPrompt()` と同一のフォールバックパターンを実装
   - **多言語化対象プロンプト（16ファイル → 32ファイル）**:
     - `auto-issue/`（6ファイル）: detect-bugs, detect-enhancements, detect-refactoring, generate-issue-body, generate-enhancement-issue-body, generate-refactor-issue-body
     - `pr-comment/`（2ファイル）: analyze, execute
@@ -610,7 +645,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 新しい CLI オプション `--codex-model <model>` を追加（エイリアスまたはフルモデルIDで指定可能）
   - 新しい環境変数 `CODEX_MODEL` のサポート（CLI オプションより低優先度）
   - デフォルトモデルを `gpt-5-codex` から `gpt-5.2-codex` に変更
-  - モデルエイリアス機能: `max`（gpt-5.2-codex）、`mini`（gpt-5.1-codex-mini）、`5.1`（gpt-5.1）、`legacy`（gpt-5-codex）
+  - モデルエイリアス機能: `max`（gpt-5.2-codex）、`mini`（gpt-5.1-codex-mini`）、`5.1`（gpt-5.1）、`legacy`（gpt-5-codex）
   - 優先順位: CLI オプション > 環境変数 > デフォルト値
   - 後方互換性: `--codex-model legacy` または `CODEX_MODEL=legacy` で旧モデル使用可能
   - テストカバレッジ: 30件のユニットテスト（resolveCodexModel、CODEX_MODEL_ALIASES、DEFAULT_CODEX_MODEL）
@@ -801,6 +836,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Squash failures logged as warnings but do not fail the workflow
 
 ### Changed
+
 - **Issue #579**: [Refactor] repository-analyzer.ts modularization for improved maintainability
   - Extracted monolithic `repository-analyzer.ts` (~1,221 lines) into focused modules under `src/core/analyzer/`
   - **New modules created**:
@@ -822,6 +858,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Public API（`analyze()`, `analyzeForRefactoring()`）のインターフェース維持（破壊的変更なし）
 
 ### Added
+
 - **Issue #128**: Auto-issue Phase 3 - Enhancement proposal detection and GitHub Issue generation (v0.5.0)
   - New `--category enhancement` option for auto-issue command
   - New `--creative-mode` option for experimental and creative enhancement proposals
@@ -845,7 +882,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 32 test cases (18 unit tests for RepositoryAnalyzer validation, 14 integration tests)
 - **Issue #126**: Auto-issue command for automatic bug detection and GitHub Issue generation
   - New `auto-issue` CLI command with 5 options (--category, --limit, --dry-run, --similarity-threshold, --agent)
-  - RepositoryAnalyzer module for automatic code analysis (30+ languages and file types support after Issue #144)
+  - RepositoryAnalyzer module for automatic code analysis (30+ languages/file types support after Issue #144)
   - IssueDeduplicator module with 2-stage duplicate detection (cosine similarity + LLM judgment)
   - IssueGenerator module for automatic GitHub Issue creation
   - Phase 1 MVP scope: bug detection only, 30+ programming languages/file types support, src/ directory analysis
@@ -865,6 +902,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test coverage: 20 test cases with 95% success rate (19/20 passed)
 
 ### Fixed
+
 - **Issue #208**: Metadata inconsistency causing rollback failures
   - Fixed rollback command failure when `status: "pending"` but `completed_steps` is not empty (inconsistent metadata state)
   - Improved `validateRollbackOptions()` to consider `completed_steps` when determining if a phase has started

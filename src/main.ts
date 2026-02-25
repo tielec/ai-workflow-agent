@@ -328,6 +328,10 @@ export async function runCli(): Promise<void> {
       '--custom-instruction <text>',
       'Custom instruction for analysis guidance (max 500 chars, analysis-only)',
     )
+    .option(
+      '--base-branch <branch>',
+      'Base branch for repository exploration (default: repository default branch)',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);
@@ -358,6 +362,10 @@ export async function runCli(): Promise<void> {
       '--custom-instruction <text>',
       'Custom instruction for rewrite guidance (max 500 chars)',
     )
+    .option(
+      '--base-branch <branch>',
+      'Base branch for repository exploration (default: repository default branch)',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);
@@ -385,6 +393,10 @@ export async function runCli(): Promise<void> {
     .option('--apply', 'Create GitHub Issues', false)
     .option('--dry-run', 'Preview mode (default)', false)
     .option('--max-splits <number>', 'Maximum number of split issues', '10')
+    .option(
+      '--output-file <path>',
+      'Write execution summary JSON to the specified path',
+    )
     .action(async (options) => {
       try {
         applyLanguageOption(options.language);

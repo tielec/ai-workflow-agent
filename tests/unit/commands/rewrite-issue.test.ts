@@ -13,6 +13,7 @@ const mockLoadPrompt = jest.fn();
 const mockResolveAgentCredentials = jest.fn();
 const mockSetupAgentClients = jest.fn();
 const mockResolveLocalRepoPath = jest.fn();
+const mockCheckoutBaseBranch = jest.fn();
 const mockGetGitHubRepository = jest.fn();
 const mockGetHomeDir = jest.fn();
 const mockLoggerInfo = jest.fn();
@@ -50,7 +51,11 @@ await jest.unstable_mockModule('../../../src/commands/execute/agent-setup.js', (
 
 await jest.unstable_mockModule('../../../src/core/repository-utils.js', () => ({
   __esModule: true,
+  parseIssueUrl: jest.fn(),
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  checkoutBaseBranch: mockCheckoutBaseBranch,
+  findWorkflowMetadata: jest.fn(),
+  getRepoRoot: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../../src/core/repository-analyzer.js', () => ({
@@ -100,6 +105,7 @@ describe('rewrite-issue command (unit)', () => {
     mockGetGitHubRepository.mockReturnValue('owner/repo');
     mockGetHomeDir.mockReturnValue('/home/test');
     mockResolveLocalRepoPath.mockReturnValue('/tmp/repo');
+    mockCheckoutBaseBranch.mockResolvedValue(undefined);
     mockLoadPrompt.mockReturnValue(
       '{"title":"{ORIGINAL_TITLE}-new","body":"{ORIGINAL_BODY}\\nCTX:{REPOSITORY_CONTEXT}"}\n{CUSTOM_INSTRUCTION}',
     );
@@ -500,6 +506,29 @@ describe('rewrite-issue command (unit)', () => {
         const callArgs = mockClaudeExecute.mock.calls[0][0];
         expect(callArgs.prompt).not.toContain('{CUSTOM_INSTRUCTION}');
       });
+    });
+  });
+
+  describe('baseBranch オプション', () => {
+    it('baseBranch 指定時に checkoutBaseBranch が呼ばれる (TC-RW-BB-001/006)', async () => {
+      await handleRewriteIssueCommand({ issue: '123', baseBranch: 'develop' });
+
+      expect(mockCheckoutBaseBranch).toHaveBeenCalledWith('/tmp/repo', 'develop');
+    });
+
+    it('baseBranch 未指定時は checkoutBaseBranch を呼ばない (TC-RW-BB-002)', async () => {
+      await handleRewriteIssueCommand({ issue: '123' });
+
+      expect(mockCheckoutBaseBranch).not.toHaveBeenCalled();
+      expect(mockLoggerDebug).toHaveBeenCalledWith('No base branch specified, using current branch');
+    });
+
+    it('不正な baseBranch でエラーになる (TC-RW-BB-003)', async () => {
+      await expect(
+        handleRewriteIssueCommand({ issue: '123', baseBranch: '..invalid' }),
+      ).rejects.toThrow('Invalid base branch name: "..invalid"');
+
+      expect(mockCheckoutBaseBranch).not.toHaveBeenCalled();
     });
   });
 });

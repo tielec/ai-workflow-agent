@@ -18,6 +18,7 @@ const mockGetHomeDir = jest.fn();
 const mockLoggerInfo = jest.fn();
 const mockLoggerWarn = jest.fn();
 const mockLoggerError = jest.fn();
+const mockLoggerDebug = jest.fn();
 const mockClaudeExecute = jest.fn();
 const mockCodexExecute = jest.fn();
 
@@ -53,8 +54,11 @@ await jest.unstable_mockModule('../../src/core/difficulty-analyzer.js', () => ({
 
 await jest.unstable_mockModule('../../src/core/repository-utils.js', () => ({
   __esModule: true,
+  parseIssueUrl: jest.fn(),
   resolveLocalRepoPath: mockResolveLocalRepoPath,
+  checkoutBaseBranch: jest.fn(),
   findWorkflowMetadata: jest.fn(),
+  getRepoRoot: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../src/core/repository-analyzer.js', () => ({
@@ -78,6 +82,7 @@ await jest.unstable_mockModule('../../src/utils/logger.js', () => ({
     info: mockLoggerInfo,
     warn: mockLoggerWarn,
     error: mockLoggerError,
+    debug: mockLoggerDebug,
   },
 }));
 

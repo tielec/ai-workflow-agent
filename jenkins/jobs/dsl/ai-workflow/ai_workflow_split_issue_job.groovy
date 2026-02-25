@@ -94,6 +94,13 @@ Issue本文を更新する（デフォルト: true）
 空欄の場合はデフォルト値（10）が使用されます。
             '''.stripIndent().trim())
 
+            stringParam('OUTPUT_FILE', 'split-issue-results.json', '''
+JSON出力ファイルパス（デフォルト: split-issue-results.json）
+
+実行結果をJSONファイルとして出力するパスを指定します。
+空欄の場合はデフォルト値が使用されます。
+            '''.stripIndent().trim())
+
             // ========================================
             // APIキー設定
             // ========================================
