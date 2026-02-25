@@ -291,19 +291,19 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
 
       // Then: 5つの言語のインストール方法が含まれている
       expect(envInfo).toContain('**Python**');
-      expect(envInfo).toContain('apt-get update && apt-get install -y python3 python3-pip');
+      expect(envInfo).toContain('sudo apt-get update && sudo apt-get install -y python3 python3-pip');
 
       expect(envInfo).toContain('**Go**');
-      expect(envInfo).toContain('apt-get update && apt-get install -y golang-go');
+      expect(envInfo).toContain('sudo apt-get update && sudo apt-get install -y golang-go');
 
       expect(envInfo).toContain('**Java**');
-      expect(envInfo).toContain('apt-get update && apt-get install -y default-jdk');
+      expect(envInfo).toContain('sudo apt-get update && sudo apt-get install -y default-jdk');
 
       expect(envInfo).toContain('**Rust**');
       expect(envInfo).toContain("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y");
 
       expect(envInfo).toContain('**Ruby**');
-      expect(envInfo).toContain('apt-get update && apt-get install -y ruby ruby-dev');
+      expect(envInfo).toContain('sudo apt-get update && sudo apt-get install -y ruby ruby-dev');
 
       // Then: 案内メッセージが含まれている
       expect(envInfo).toContain('テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください');

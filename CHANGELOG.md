@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #786**: `buildEnvironmentInfoSection()` のインストールコマンドに `sudo` プレフィックスを付与し、権限エラー時の代替手段を追加
+  - `src/phases/base-phase.ts` の `buildEnvironmentInfoSection()` メソッドで生成されるインストールコマンドに `sudo` を追加（Python、Go、Java、Ruby）
+  - Rust のインストールコマンドは `curl` ベースでユーザー空間にインストールされるため `sudo` は付与せず維持
+  - プリインストール済みランタイムの確認案内を追加（「このDocker環境には主要な言語ランタイムがプリインストールされています。まず `python3 --version` 等で利用可能か確認してください。」）
+  - 権限エラー時の代替手段を追加（「pip の場合: `pip install --user <package>` を使用してください」「sudo が利用できない場合: テストをスキップし、理由を記録してください」）
+  - 非 root ユーザーでのパッケージインストールが可能になり、エージェントのワークフロー実行成功率が向上
+  - 修正ファイル: `src/phases/base-phase.ts`
+  - テストカバレッジ: 既存ユニットテストを更新（`tests/unit/phases/testing-phase-environment.test.ts`、`tests/unit/phases/testing-phase-environment-extended.test.ts`、`tests/unit/phases/base-phase-prompt-injection.test.ts`）、統合テスト1件を更新（`tests/integration/issue-706-fallback-chain.test.ts`）、全体 `npm test` PASS（241 test suites / 3483 tests）
+
 ### Fixed
 
 - **Issue #801**: all-phase実行時にリファクタリングで削除されたファイルがgitコミットに含まれないバグを修正
