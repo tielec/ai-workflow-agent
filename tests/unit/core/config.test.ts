@@ -483,13 +483,13 @@ describe('Config - ネットワークヘルスチェック設定', () => {
       expect(result).toBe(50);
     });
 
-    test('CFG-008: getNetworkThroughputDropThreshold_正常系_未設定の場合にデフォルト70を返す', () => {
+    test('CFG-008: getNetworkThroughputDropThreshold_正常系_未設定の場合にデフォルト90を返す', () => {
       delete process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD;
       const testConfig = new Config();
 
       const result = testConfig.getNetworkThroughputDropThreshold();
 
-      expect(result).toBe(70);
+      expect(result).toBe(90);
     });
 
     test('CFG-009: getNetworkThroughputDropThreshold_エッジケース_0が設定されている場合に0を返す', () => {
@@ -510,13 +510,13 @@ describe('Config - ネットワークヘルスチェック設定', () => {
       expect(result).toBe(100);
     });
 
-    test('CFG-011: getNetworkThroughputDropThreshold_エッジケース_非数値の場合にデフォルト70を返す', () => {
+    test('CFG-011: getNetworkThroughputDropThreshold_エッジケース_非数値の場合にデフォルト90を返す', () => {
       process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD = 'abc';
       const testConfig = new Config();
 
       const result = testConfig.getNetworkThroughputDropThreshold();
 
-      expect(result).toBe(70);
+      expect(result).toBe(90);
     });
   });
 });

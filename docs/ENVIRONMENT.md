@@ -226,7 +226,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 | 環境変数 | 説明 | デフォルト |
 |---------|------|----------|
 | `NETWORK_HEALTH_CHECK` | ネットワークヘルスチェックの有効化（EC2環境向け） | `false` |
-| `NETWORK_THROUGHPUT_DROP_THRESHOLD` | スループット低下率の閾値（%、0〜100） | `70` |
+| `NETWORK_THROUGHPUT_DROP_THRESHOLD` | スループット低下率の閾値（%、0〜100） | `90` |
 
 - T系EC2インスタンスのネットワーク帯域バースト制限による性能低下を検知し、フェーズ開始前にグレースフル停止する
 - `execute --phase all` 実行時に `--network-health-check` CLIオプションが指定されている場合はCLIオプションが優先

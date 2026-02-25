@@ -169,7 +169,7 @@ export async function runCli(): Promise<void> {
     )
     .option(
       '--network-throughput-drop-threshold <percent>',
-      'Network throughput drop threshold in % (0-100, default: 70, Issue #721)',
+      'Network throughput drop threshold in % (0-100, default: 90, Issue #721)',
       String(config.getNetworkThroughputDropThreshold()),
     )
     .action(async (options) => {

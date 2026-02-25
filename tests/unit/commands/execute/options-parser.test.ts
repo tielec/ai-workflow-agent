@@ -879,7 +879,7 @@ describe('parseExecuteOptions - ネットワークヘルスチェック', () => 
     expect(result.networkHealthCheck).toBe(true);
   });
 
-  test('OPT-003: parseExecuteOptions_networkThroughputDropThreshold_デフォルト値は70', () => {
+  test('OPT-003: parseExecuteOptions_networkThroughputDropThreshold_デフォルト値は90', () => {
     delete process.env.NETWORK_THROUGHPUT_DROP_THRESHOLD;
 
     const options: ExecuteCommandOptions = {
@@ -889,7 +889,7 @@ describe('parseExecuteOptions - ネットワークヘルスチェック', () => 
 
     const result = parseExecuteOptions(options);
 
-    expect(result.networkThroughputDropThreshold).toBe(70);
+    expect(result.networkThroughputDropThreshold).toBe(90);
   });
 
   test('OPT-004: parseExecuteOptions_networkThroughputDropThreshold_カスタム値が正しくパースされる', () => {

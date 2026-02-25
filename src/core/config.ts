@@ -466,7 +466,7 @@ export class Config implements IConfig {
   }
 
   public getNetworkThroughputDropThreshold(): number {
-    return this.parseNumericEnv('NETWORK_THROUGHPUT_DROP_THRESHOLD') ?? 70;
+    return this.parseNumericEnv('NETWORK_THROUGHPUT_DROP_THRESHOLD') ?? 90;
   }
 
   // ========== 動作環境判定 ==========
