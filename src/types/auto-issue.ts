@@ -211,6 +211,11 @@ export interface AutoIssueOptions {
    * カスタム指示（解析の重点を示す任意入力、最大500文字）
    */
   customInstruction?: string;
+
+  /**
+   * リポジトリ探索用ベースブランチ（任意）
+   */
+  baseBranch?: string;
 }
 
 /**
@@ -226,6 +231,7 @@ export interface RawAutoIssueOptions {
   similarityThreshold?: string;
   agent?: 'auto' | 'codex' | 'claude';
   creativeMode?: boolean;
+  baseBranch?: string;
 
   /**
    * カスタム指示（オプション）

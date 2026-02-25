@@ -56,6 +56,16 @@ ai-workflow-agent/
   - Claude: `CLAUDE_CODE_OAUTH_TOKEN` または `CLAUDE_CODE_API_KEY`
 - **Docker**: 24 以上（コンテナ内で実行する場合）
 
+### Dockerイメージにプリインストールされた言語ランタイム
+
+- **Python 3**: `python3`, `python3-pip`, `python3-venv`
+- **Go**: `golang-go`
+- **Java**: `default-jdk` (OpenJDK)
+- **Ruby**: `ruby`, `ruby-dev`
+- **sudo**: 権限昇格用
+
+これにより、Testing フェーズの環境チェックで `python3` や他のランタイムが不足したと検出されることがなくなり、エージェントが `apt-get install` を試みる必要がなくなります。
+
 Testing フェーズでは `checkTestEnvironment` による事前チェックが実行され、主要ランタイム（例: Python 3.11）が不足するとプロンプトにセットアップ手順や警告が追加されます。`AGENT_CAN_INSTALL_PACKAGES=true` なら自動インストール手順を含めて案内し、`false` の場合は警告中心に出力します。Codex CLI の可用性は `AgentExecutor` によって事前に確認され、`CODEX_CLI_NOT_FOUND` 相当と判定された場合は Claude に切り替えるため、ARM64 環境でもフェーズ中断を回避しやすくなっています。
 
  詳細な環境変数設定は [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) を参照してください。

@@ -24,7 +24,7 @@
  * - FORCE_RESET: 強制リセット（デフォルト: false）
  * - CLEANUP_ON_COMPLETE_FORCE: Evaluation Phase完了後にワークフローディレクトリを強制削除（デフォルト: false）
  * - SQUASH_ON_COMPLETE: ワークフロー完了時にコミットをスカッシュ（デフォルト: false）
- * - NETWORK_HEALTH_CHECK: ネットワークヘルスチェック有効化（デフォルト: false）
+ * - NETWORK_HEALTH_CHECK: ネットワークヘルスチェック有効化（デフォルト: true）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - GIT_COMMIT_USER_NAME: Gitコミット時のユーザー名（デフォルト: AI Workflow Bot）
  * - GIT_COMMIT_USER_EMAIL: Gitコミット時のメールアドレス（デフォルト: ai-workflow@example.com）
