@@ -281,7 +281,7 @@ export class TestingPhase extends BasePhase {
     if (canInstall) {
       lines.push('不足ランタイムのインストール手順（例）:');
       if (status.missing.includes('python3')) {
-        lines.push('- Python: `apt-get update && apt-get install -y python3 python3-pip`');
+        lines.push('- Python: `sudo apt-get update && sudo apt-get install -y python3 python3-pip`');
       }
       lines.push('', 'インストール後にテストを実行し、結果を記録してください。');
     } else {

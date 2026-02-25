@@ -112,7 +112,7 @@ describe('TestingPhase - 環境事前チェック（Issue #706）', () => {
     // Then: Pythonのインストール手順が含まれる
     expect(notice).toContain('テスト環境の事前チェック結果');
     expect(notice).toContain('python3');
-    expect(notice).toContain('apt-get update && apt-get install -y python3 python3-pip');
+    expect(notice).toContain('sudo apt-get update && sudo apt-get install -y python3 python3-pip');
   });
 
   test('インストール不可の場合、警告のみが注入される', () => {
@@ -131,6 +131,6 @@ describe('TestingPhase - 環境事前チェック（Issue #706）', () => {
 
     // Then: 警告文が含まれ、インストール手順は含まれない
     expect(notice).toContain('パッケージインストールが許可されていません');
-    expect(notice).not.toContain('apt-get update && apt-get install -y python3');
+    expect(notice).not.toContain('sudo apt-get update && sudo apt-get install -y python3 python3-pip');
   });
 });

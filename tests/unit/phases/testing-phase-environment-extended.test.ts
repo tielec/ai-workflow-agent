@@ -124,7 +124,7 @@ describe('TestingPhase - buildEnvironmentSetupNotice詳細テスト（Issue #706
     expect(notice).toContain('パッケージインストールが許可されていません');
     expect(notice).toContain('AGENT_CAN_INSTALL_PACKAGES=false');
     // インストール手順は含まれない
-    expect(notice).not.toContain('apt-get update && apt-get install -y python3 python3-pip');
+    expect(notice).not.toContain('sudo apt-get update && sudo apt-get install -y python3 python3-pip');
     // テストをスキップし理由を記録する指示が含まれる
     expect(notice).toContain('テストをスキップし理由を記録してください');
   });
@@ -151,7 +151,7 @@ describe('TestingPhase - buildEnvironmentSetupNotice詳細テスト（Issue #706
     expect(notice).not.toBeNull();
     expect(notice).toContain('テスト環境の事前チェック結果');
     expect(notice).toContain('python3');
-    expect(notice).toContain('apt-get update && apt-get install -y python3 python3-pip');
+    expect(notice).toContain('sudo apt-get update && sudo apt-get install -y python3 python3-pip');
     expect(notice).toContain('インストール後にテストを実行');
   });
 
@@ -198,10 +198,10 @@ describe('TestingPhase - buildEnvironmentSetupNotice詳細テスト（Issue #706
     });
 
     // Then: インストール手順が含まれる
-    expect(notice).toContain('apt-get update');
+    expect(notice).toContain('sudo apt-get update');
     expect(notice).toContain('python3');
     // バックティック形式のインラインコードが含まれる
-    expect(notice).toContain('`apt-get update');
+    expect(notice).toContain('`sudo apt-get update');
   });
 
   // テストケース: ready=true でも missing に要素がある（矛盾状態）でもクラッシュしない

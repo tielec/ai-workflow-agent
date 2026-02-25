@@ -154,12 +154,10 @@ export abstract class BasePhase {
 
   /**
    * Issue #274: ワークフローディレクトリのベースパスを解決
-   *
    * メタデータに含まれる target_repository.path を最優先で使用し、
    * 有効な REPOS_ROOT + repo 名がある場合のみフォールバックを許可する。
    * Jenkins環境での誤った process.cwd() へのフォールバックを防止し、
    * 成果物ファイルを常にリポジトリ配下に保存する。
-   *
    * @returns ワークフローのベースディレクトリ（例: /tmp/repos/repo-name/.ai-workflow/issue-123）
    */
   private resolveWorkflowBaseDir(): string {
@@ -367,15 +365,22 @@ export abstract class BasePhase {
   private buildEnvironmentInfoSection(): string {
     return `## 🛠️ 開発環境情報
 
-このDocker環境では、以下のプログラミング言語をインストール可能です：
+このDocker環境には主要な言語ランタイムがプリインストールされています。
+まず \`python3 --version\` 等で利用可能か確認してください。
 
-- **Python**: \`apt-get update && apt-get install -y python3 python3-pip\`
-- **Go**: \`apt-get update && apt-get install -y golang-go\`
-- **Java**: \`apt-get update && apt-get install -y default-jdk\`
+追加パッケージが必要な場合は以下のコマンドを使用してください：
+
+- **Python**: \`sudo apt-get update && sudo apt-get install -y python3 python3-pip\`
+- **Go**: \`sudo apt-get update && sudo apt-get install -y golang-go\`
+- **Java**: \`sudo apt-get update && sudo apt-get install -y default-jdk\`
 - **Rust**: \`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\`
-- **Ruby**: \`apt-get update && apt-get install -y ruby ruby-dev\`
+- **Ruby**: \`sudo apt-get update && sudo apt-get install -y ruby ruby-dev\`
 
-テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。`;
+テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+
+権限エラーが発生した場合:
+- pip の場合: \`pip install --user <package>\` を使用してください
+- sudo が利用できない場合: テストをスキップし、理由を記録してください`;
   }
 
   /**
@@ -617,7 +622,6 @@ export abstract class BasePhase {
   /**
    * オプショナルコンテキストを構築（Issue #396）
    * ファイルが存在する場合は@filepath参照、存在しない場合はフォールバックメッセージ
-   *
    * @param phaseName - 参照するPhase名
    * @param filename - ファイル名（例: 'requirements.md'）
    * @param fallbackMessage - ファイルが存在しない場合のメッセージ
@@ -687,12 +691,9 @@ export abstract class BasePhase {
   }
   /**
    * ファイルが作成されなかった場合のフォールバック処理（Issue #113）
-   *
    * 1. エージェントログから成果物内容を抽出して保存
    * 2. 抽出失敗時は revise() メソッドを使用
-   *
    * Evaluation Phaseの handleMissingEvaluationFile() を汎用化した実装
-   *
    * @param phaseOutputFile - 出力ファイル名（例: 'planning.md', 'requirements.md'）
    * @param logDir - エージェントログディレクトリ（通常は this.executeDir）
    * @returns PhaseExecutionResult
@@ -805,9 +806,7 @@ export abstract class BasePhase {
   /**
    * エージェントログから成果物内容を抽出（Issue #113）
    * Issue #252: エージェントログ形式の誤検出を防止
-   *
    * Evaluation Phaseの extractEvaluationFromLog() を汎用化した実装
-   *
    * @param agentLog - エージェントログ（agent_log.md の内容）
    * @param phaseName - フェーズ名（抽出パターンの選択に使用）
    * @returns 抽出した成果物内容（抽出失敗時は null）
