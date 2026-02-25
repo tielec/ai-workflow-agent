@@ -1190,8 +1190,8 @@ node dist/index.js resolve-conflict finalize --pr-url <PR_URL> --push
 - `--pr-url <url>`: PR URL（必須）
 - `--agent <auto|codex|claude>`: 使用エージェント（analyze/execute）
 - `--dry-run`: 変更のプレビューのみ（execute）
-- `--push`: リモートへ push（finalize）
-- `--squash`: 1コミット前提のガイド表示（finalize）
+- `--push`: リモートへ push（finalize、デフォルト: true）
+- `--squash`: コミットをスカッシュするか（finalize、デフォルト: true）
 - `--language <ja|en>`: 出力言語
 
 **生成される成果物**:

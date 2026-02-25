@@ -93,7 +93,7 @@ Jenkins 環境では、`AI_Workflow/{develop,stable-1〜9}/resolve_conflict` ジ
 | LANGUAGE | --language | ja | 出力言語（ja/en） |
 | DRY_RUN | --dry-run | false | ドライランモード |
 | PUSH | --push | true | finalize 時にリモートへ push するか |
-| SQUASH | --squash | false | コミットをスカッシュするか |
+| SQUASH | --squash | true | コミットをスカッシュするか |
 
 ### Jenkins 実行例
 
@@ -104,7 +104,7 @@ GITHUB_REPOSITORY: owner/repo
 AGENT_MODE: auto
 DRY_RUN: false
 PUSH: true
-SQUASH: false
+SQUASH: true
 
 # 上記は以下の CLI 実行と等価（4フェーズを順次実行）
 node dist/index.js resolve-conflict init --pr-url https://github.com/owner/repo/pull/123

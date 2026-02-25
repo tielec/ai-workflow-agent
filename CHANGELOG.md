@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #775**: `resolve-conflict` の SQUASH パラメータのデフォルト値を `false` から `true` に変更
+  - Jenkins DSL（`ai_workflow_resolve_conflict_job.groovy`）の `booleanParam('SQUASH', ...)` のデフォルト値を `true` に変更
+  - Jenkinsfile のコメントとフォールバック値（`${params.SQUASH ?: ...}`）を `true` に統一
+  - 運用上 squash を使うケースが多いため、デフォルトを `true` にすることで操作ミスを減らし、利便性を向上
+  - パラメータを明示的に指定している場合は影響なし（後方互換性を維持）
+  - 修正ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_resolve_conflict_job.groovy`、`jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile`、`docs/CONFLICT_RESOLUTION.md`、`docs/CLI_REFERENCE.md`
 - **Issue #773**: `resolve-conflict` Jenkinsfile のステージ構成を改善し、Jenkins Blue Ocean / Stage View での可視性を向上
   - 単一の `Execute Resolve Conflict` ステージを4つの独立ステージに分割（`Phase 1: Init`、`Phase 2: Analyze`、`Phase 3: Execute`、`Phase 4: Finalize`）
   - Jenkins UI上で各フェーズの進捗状況、実行時間、失敗箇所を個別に確認可能に
