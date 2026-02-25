@@ -9,6 +9,7 @@ import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globa
 import { CommitManager } from '../../../src/core/git/commit-manager';
 import { MetadataManager } from '../../../src/core/metadata-manager';
 import { SecretMasker } from '../../../src/core/secret-masker';
+import { logger } from '../../../src/utils/logger.js';
 import { SimpleGit } from 'simple-git';
 import path from 'node:path';
 import os from 'node:os';
@@ -25,6 +26,7 @@ describe('CommitManager - Message Generation', () => {
     mockGit = {
       status: jest.fn(),
       add: jest.fn(),
+      raw: jest.fn(),
       commit: jest.fn(),
       addConfig: jest.fn(),
       listConfig: jest.fn().mockResolvedValue({ all: {} }),
@@ -143,6 +145,7 @@ describe('CommitManager - Commit Operations', () => {
         modified: ['.ai-workflow/issue-25/01_requirements/output/requirements.md'],
       }),
       add: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(undefined),
       commit: jest.fn().mockResolvedValue({
         commit: '1234567',
         summary: { changes: 1, insertions: 10, deletions: 2 },
@@ -250,7 +253,21 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除ファイルがステージング・コミット対象になる
       expect(result.success).toBe(true);
       expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-module.ts', 'src/deprecated.ts'])
+        expect.arrayContaining([
+          '.ai-workflow/issue-25/01_requirements/output/requirements.md',
+          'src/refactored.ts',
+        ])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-module.ts']
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/deprecated.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
       expect(result.files_committed).toEqual(
         expect.arrayContaining(['src/old-module.ts', 'src/deprecated.ts'])
@@ -299,9 +316,18 @@ describe('CommitManager - Commit Operations', () => {
         expect.arrayContaining([
           'src/new-module.ts',
           'src/updated.ts',
-          'src/removed-a.ts',
-          'src/removed-b.ts',
         ])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/removed-a.ts']
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/removed-b.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
       expect(result.files_committed).toHaveLength(4);
     });
@@ -337,8 +363,17 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除のみでもコミットが作成される
       expect(result.success).toBe(true);
       expect(result.commit_hash).toBe('9999999');
-      expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-a.ts', 'src/old-b.ts'])
+      expect(mockGit.add).not.toHaveBeenCalled();
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-a.ts']
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-b.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
     });
 
@@ -460,11 +495,106 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除ファイルが含まれる
       expect(result.success).toBe(true);
       expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-implementation.ts'])
+        expect.arrayContaining([
+          '.ai-workflow/issue-25/04_implementation/step-3.md',
+          'src/new-implementation.ts',
+        ])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-implementation.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
       expect(result.files_committed).toEqual(
         expect.arrayContaining(['src/old-implementation.ts'])
       );
+    });
+
+    test('commitStepOutput_正常系_削除ファイルのみでもコミットできる', async () => {
+      // Given: 削除ファイルのみ
+      mockGit.status.mockResolvedValue({
+        current: 'feature/issue-25',
+        files: [
+          { path: 'src/old-a.ts', working_dir: 'D' },
+          { path: 'src/old-b.ts', working_dir: 'D' },
+        ],
+        not_added: [],
+        created: [],
+        modified: [],
+        deleted: ['src/old-a.ts', 'src/old-b.ts'],
+        renamed: [],
+        staged: [],
+      } as any);
+
+      // When: commitStepOutput を呼び出す
+      const result = await commitManager.commitStepOutput(
+        'implementation',
+        4,
+        'execute',
+        25,
+        '/test/repo'
+      );
+
+      // Then: 削除のみでもコミットが作成される
+      expect(result.success).toBe(true);
+      expect(mockGit.add).not.toHaveBeenCalled();
+      expect(mockGit.raw).toHaveBeenCalledWith(['rm', '--cached', 'src/old-a.ts']);
+      expect(mockGit.raw).toHaveBeenCalledWith(['rm', '--cached', 'src/old-b.ts']);
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
+      );
+    });
+
+    test('commitStepOutput_異常系_git_rm_失敗時は警告しつつ継続する', async () => {
+      // Given: 削除ファイルの一部で git rm --cached が失敗
+      const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+      mockGit.status.mockResolvedValue({
+        current: 'feature/issue-25',
+        files: [
+          { path: 'src/existing.ts', working_dir: 'M' },
+          { path: 'src/deleted-ok.ts', working_dir: 'D' },
+          { path: 'src/deleted-fail.ts', working_dir: 'D' },
+        ],
+        not_added: [],
+        created: [],
+        modified: ['src/existing.ts'],
+        deleted: ['src/deleted-ok.ts', 'src/deleted-fail.ts'],
+        renamed: [],
+        staged: [],
+      } as any);
+
+      mockGit.raw.mockImplementation(async (args: string[]) => {
+        if (args[2] === 'src/deleted-fail.ts') {
+          throw new Error('fatal: pathspec did not match any files');
+        }
+      });
+
+      // When: commitStepOutput を呼び出す
+      const result = await commitManager.commitStepOutput(
+        'implementation',
+        4,
+        'execute',
+        25,
+        '/test/repo'
+      );
+
+      // Then: 警告ログを出力しつつ、コミットは成功する
+      expect(result.success).toBe(true);
+      expect(mockGit.raw).toHaveBeenCalledTimes(2);
+      expect(loggerWarnSpy).toHaveBeenCalled();
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
+      );
+
+      loggerWarnSpy.mockRestore();
     });
   });
 
@@ -525,7 +655,15 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除ファイルが含まれる
       expect(result.success).toBe(true);
       expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-config.ts'])
+        expect.arrayContaining(['.ai-workflow/issue-25/metadata.json'])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-config.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
     });
   });
@@ -588,7 +726,15 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除ファイルが含まれる
       expect(result.success).toBe(true);
       expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/restored.ts', 'src/to-be-deleted.ts'])
+        expect.arrayContaining(['src/restored.ts'])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/to-be-deleted.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
       expect(result.files_committed).toEqual(
         expect.arrayContaining(['src/restored.ts', 'src/to-be-deleted.ts'])
@@ -630,7 +776,15 @@ describe('CommitManager - Commit Operations', () => {
       // Then: 削除ファイルが含まれる
       expect(result.success).toBe(true);
       expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/deleted-file.ts'])
+        expect.arrayContaining(['src/restored.ts'])
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/deleted-file.ts']
+      );
+      expect(mockGit.commit).toHaveBeenCalledWith(
+        expect.any(String),
+        [],
+        { '--no-verify': null }
       );
       expect(result.files_committed).toEqual(
         expect.arrayContaining(['src/restored.ts', 'src/deleted-file.ts'])
@@ -760,8 +914,8 @@ describe('CommitManager - Commit Operations', () => {
 
       // Then: 削除ファイルがステージング対象になる
       expect(result.success).toBe(true);
-      expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-module.ts'])
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-module.ts']
       );
     });
 
@@ -792,8 +946,8 @@ describe('CommitManager - Commit Operations', () => {
 
       // Then: 削除ファイルがコミット対象になる
       expect(result.success).toBe(true);
-      expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-implementation.ts'])
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-implementation.ts']
       );
     });
 
@@ -831,8 +985,8 @@ describe('CommitManager - Commit Operations', () => {
 
       // Then: 削除ファイルが含まれる
       expect(result.success).toBe(true);
-      expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/deleted-in-rollback.ts'])
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/deleted-in-rollback.ts']
       );
     });
 
@@ -871,8 +1025,11 @@ describe('CommitManager - Commit Operations', () => {
       expect(mockGit.add).toHaveBeenCalledWith(
         expect.not.arrayContaining(['.env'])
       );
-      expect(mockGit.add).toHaveBeenCalledWith(
-        expect.arrayContaining(['src/old-module.ts'])
+      expect(mockGit.raw).not.toHaveBeenCalledWith(
+        ['rm', '--cached', '.env']
+      );
+      expect(mockGit.raw).toHaveBeenCalledWith(
+        ['rm', '--cached', 'src/old-module.ts']
       );
     });
   });
@@ -902,6 +1059,7 @@ describe('CommitManager - SecretMasker Integration', () => {
         modified: ['.ai-workflow/issue-25/01_requirements/output/requirements.md'],
       }),
       add: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn().mockResolvedValue(undefined),
       commit: jest.fn().mockResolvedValue({
         commit: '1234567',
         summary: { changes: 1, insertions: 10, deletions: 2 },
@@ -1000,6 +1158,7 @@ describe('CommitManager - Git Config', () => {
     mockGit = {
       status: jest.fn(),
       addConfig: jest.fn().mockResolvedValue(undefined),
+      raw: jest.fn(),
       listConfig: jest.fn().mockResolvedValue({ all: {} }),
     } as any;
 

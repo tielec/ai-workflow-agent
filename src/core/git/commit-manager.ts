@@ -130,7 +130,13 @@ export class CommitManager {
     }
 
     // 3. Git staging
-    await this.git.add(filesToCommit);
+    // Issue #807: 削除ファイルを分離してステージング
+    const staged = await this.stageFilesForCommit(filesToCommit, deletedFiles);
+    if (staged.failedDeleted.length > 0) {
+      logger.warn(
+        `Failed to stage ${staged.failedDeleted.length} deleted file(s) for phase commit: ${staged.failedDeleted.slice(0, 3).join(', ')}${staged.failedDeleted.length > 3 ? '...' : ''}`,
+      );
+    }
     await this.ensureGitConfig();
 
     // 4. Commit message generation (delegated to CommitMessageBuilder)
@@ -142,7 +148,8 @@ export class CommitManager {
 
     // 5. Commit execution
     try {
-      const commitResponse = await this.git.commit(commitMessage, filesToCommit, {
+      const commitTargets = staged.stagedDeleted.length > 0 ? [] : staged.stagedExisting;
+      const commitResponse = await this.git.commit(commitMessage, commitTargets, {
         '--no-verify': null,
       });
 
@@ -225,7 +232,13 @@ export class CommitManager {
       }
 
       // 3. Git staging
-      await this.git.add(targetFiles);
+      // Issue #807: 削除ファイルを分離してステージング
+      const staged = await this.stageFilesForCommit(targetFiles, deletedFiles);
+      if (staged.failedDeleted.length > 0) {
+        logger.warn(
+          `Failed to stage ${staged.failedDeleted.length} deleted file(s) for step commit: ${staged.failedDeleted.slice(0, 3).join(', ')}${staged.failedDeleted.length > 3 ? '...' : ''}`,
+        );
+      }
       await this.ensureGitConfig();
 
       // 4. Commit message generation (delegated to CommitMessageBuilder)
@@ -237,7 +250,8 @@ export class CommitManager {
       );
 
       // 5. Commit execution
-      const commitResponse = await this.git.commit(message, targetFiles, {
+      const commitTargets = staged.stagedDeleted.length > 0 ? [] : staged.stagedExisting;
+      const commitResponse = await this.git.commit(message, commitTargets, {
         '--no-verify': null,
       });
 
@@ -371,7 +385,13 @@ export class CommitManager {
     }
 
     // 4. Git staging
-    await this.git.add(targetFiles);
+    // Issue #807: 削除ファイルを分離してステージング
+    const staged = await this.stageFilesForCommit(targetFiles, deletedFiles);
+    if (staged.failedDeleted.length > 0) {
+      logger.warn(
+        `Failed to stage ${staged.failedDeleted.length} deleted file(s) for init commit: ${staged.failedDeleted.slice(0, 3).join(', ')}${staged.failedDeleted.length > 3 ? '...' : ''}`,
+      );
+    }
     await this.ensureGitConfig();
 
     // 5. Commit message generation (delegated to CommitMessageBuilder)
@@ -379,7 +399,8 @@ export class CommitManager {
 
     // 6. Commit execution
     try {
-      const commitResponse = await this.git.commit(message, targetFiles, {
+      const commitTargets = staged.stagedDeleted.length > 0 ? [] : staged.stagedExisting;
+      const commitResponse = await this.git.commit(message, commitTargets, {
         '--no-verify': null,
       });
 
@@ -542,6 +563,63 @@ export class CommitManager {
   }
 
   /**
+   * Stage files for commit by separating existing and deleted files.
+   *
+   * Issue #807: Avoid "pathspec did not match" by staging deletions via git rm --cached.
+   */
+  private async stageFilesForCommit(
+    files: string[],
+    deletedFiles: Set<string>,
+  ): Promise<{ stagedExisting: string[]; stagedDeleted: string[]; failedDeleted: string[] }> {
+    const existingFiles: string[] = [];
+    const deletedTargets: string[] = [];
+
+    for (const file of files) {
+      if (deletedFiles.has(file)) {
+        deletedTargets.push(file);
+      } else {
+        existingFiles.push(file);
+      }
+    }
+
+    logger.debug(`Staging ${existingFiles.length} existing file(s)`);
+    logger.debug(
+      `Staging ${deletedTargets.length} deleted file(s) via git rm --cached`,
+    );
+
+    if (existingFiles.length > 0) {
+      try {
+        await this.git.add(existingFiles);
+      } catch (error) {
+        logger.error(
+          `Failed to stage existing files via git add: ${existingFiles.slice(0, 5).join(', ')}${existingFiles.length > 5 ? '...' : ''} (${getErrorMessage(error)})`,
+        );
+        throw error;
+      }
+    }
+
+    const stagedDeleted: string[] = [];
+    const failedDeleted: string[] = [];
+    for (const file of deletedTargets) {
+      try {
+        await this.git.raw(['rm', '--cached', file]);
+        stagedDeleted.push(file);
+      } catch (error) {
+        logger.warn(
+          `Failed to stage deleted file via git rm --cached: ${file} (${getErrorMessage(error)})`,
+        );
+        failedDeleted.push(file);
+      }
+    }
+
+    return {
+      stagedExisting: existingFiles,
+      stagedDeleted,
+      failedDeleted,
+    };
+  }
+
+  /**
    * Ensure git config (user.name and user.email)
    *
    * Note: Made public for use by SquashManager during finalize command.
@@ -602,8 +680,15 @@ export class CommitManager {
 ${reason.slice(0, 200)}${reason.length > 200 ? '...' : ''}`;
 
     try {
-      await this.git.add(existingFiles);
-      const commitResponse = await this.git.commit(commitMessage, existingFiles, {
+      // Issue #807: 削除ファイルを分離してステージング
+      const staged = await this.stageFilesForCommit(existingFiles, deletedFiles);
+      if (staged.failedDeleted.length > 0) {
+        logger.warn(
+          `Failed to stage ${staged.failedDeleted.length} deleted file(s) for rollback commit: ${staged.failedDeleted.slice(0, 3).join(', ')}${staged.failedDeleted.length > 3 ? '...' : ''}`,
+        );
+      }
+      const commitTargets = staged.stagedDeleted.length > 0 ? [] : staged.stagedExisting;
+      const commitResponse = await this.git.commit(commitMessage, commitTargets, {
         '--no-verify': null,
       });
 
