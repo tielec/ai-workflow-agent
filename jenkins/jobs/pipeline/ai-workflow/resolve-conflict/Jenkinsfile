@@ -11,7 +11,7 @@
  * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
  * - DRY_RUN: ドライランモード（true/false、デフォルト: false）
  * - PUSH: finalize で push するか（true/false、デフォルト: true）
- * - SQUASH: finalize で squash するか（true/false、デフォルト: false）
+ * - SQUASH: finalize で squash するか（true/false、デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - 認証情報（Codex/Claude系、rewrite-issueと同様）
  *
@@ -162,7 +162,7 @@ pipeline {
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                     echo "Push: ${params.PUSH ?: true}"
-                    echo "Squash: ${params.SQUASH ?: false}"
+                    echo "Squash: ${params.SQUASH ?: true}"
                 }
             }
         }

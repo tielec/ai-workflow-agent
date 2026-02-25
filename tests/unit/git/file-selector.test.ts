@@ -132,6 +132,189 @@ describe('FileSelector - getChangedFiles', () => {
   });
 });
 
+describe('FileSelector - getDeletedFiles', () => {
+  let fileSelector: FileSelector;
+  let mockGit: jest.Mocked<SimpleGit>;
+  let originalLogLevel: string | undefined;
+
+  beforeEach(() => {
+    mockGit = {
+      status: jest.fn(),
+    } as any;
+
+    fileSelector = new FileSelector(mockGit);
+    originalLogLevel = process.env.LOG_LEVEL;
+  });
+
+  test('getDeletedFiles_正常系_削除ファイルがある場合', async () => {
+    // Given: Git statusで削除ファイルが返される
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: [],
+      staged: [],
+      deleted: ['src/old-module.ts', 'src/deprecated-utils.ts'],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: Set<string>で正しく返される
+    expect(deletedFiles).toBeInstanceOf(Set);
+    expect(deletedFiles.size).toBe(2);
+    expect(deletedFiles.has('src/old-module.ts')).toBe(true);
+    expect(deletedFiles.has('src/deprecated-utils.ts')).toBe(true);
+  });
+
+  test('getDeletedFiles_正常系_削除ファイルがない場合', async () => {
+    // Given: deleted が空
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: ['src/index.ts'],
+      staged: [],
+      deleted: [],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: 空のSetが返る
+    expect(deletedFiles).toBeInstanceOf(Set);
+    expect(deletedFiles.size).toBe(0);
+  });
+
+  test('getDeletedFiles_セキュリティ_セキュリティ感度の高いファイルが除外される', async () => {
+    // Given: deleted にセキュリティファイルが混在
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: [],
+      staged: [],
+      deleted: [
+        'src/old-module.ts',
+        '.env',
+        '.env.local',
+        '.env.production',
+        '.env.development',
+        'credentials.json',
+        '.codex/auth.json',
+        'config/auth.json',
+      ],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: セキュリティファイルが除外される
+    expect(deletedFiles.has('src/old-module.ts')).toBe(true);
+    expect(deletedFiles.has('.env')).toBe(false);
+    expect(deletedFiles.has('.env.local')).toBe(false);
+    expect(deletedFiles.has('.env.production')).toBe(false);
+    expect(deletedFiles.has('.env.development')).toBe(false);
+    expect(deletedFiles.has('credentials.json')).toBe(false);
+    expect(deletedFiles.has('.codex/auth.json')).toBe(false);
+    expect(deletedFiles.has('config/auth.json')).toBe(false);
+    expect(deletedFiles.size).toBe(1);
+  });
+
+  test('getDeletedFiles_正常系_デバッグ専用ファイルが除外される', async () => {
+    // Given: LOG_LEVELがdebug以外
+    process.env.LOG_LEVEL = 'info';
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: [],
+      staged: [],
+      deleted: [
+        'src/old-module.ts',
+        '.ai-workflow/issue-801/00_planning/execute/agent_log_raw.txt',
+        '.ai-workflow/issue-801/00_planning/execute/prompt.txt',
+      ],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: デバッグファイルが除外される
+    expect(deletedFiles.has('src/old-module.ts')).toBe(true);
+    expect(deletedFiles.has('.ai-workflow/issue-801/00_planning/execute/agent_log_raw.txt')).toBe(false);
+    expect(deletedFiles.has('.ai-workflow/issue-801/00_planning/execute/prompt.txt')).toBe(false);
+    expect(deletedFiles.size).toBe(1);
+  });
+
+  test('getDeletedFiles_正常系_ビルドアーティファクトが除外される', async () => {
+    // Given: deleted にビルド成果物が混在
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: [],
+      staged: [],
+      deleted: [
+        'src/old-module.ts',
+        '__pycache__/module.cpython-39.pyc',
+        'tests/__pycache__/test_module.cpython-39.pyc',
+        'lib/utils.pyc',
+      ],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: ビルド成果物が除外される
+    expect(deletedFiles.has('src/old-module.ts')).toBe(true);
+    expect(deletedFiles.has('__pycache__/module.cpython-39.pyc')).toBe(false);
+    expect(deletedFiles.has('tests/__pycache__/test_module.cpython-39.pyc')).toBe(false);
+    expect(deletedFiles.has('lib/utils.pyc')).toBe(false);
+    expect(deletedFiles.size).toBe(1);
+  });
+
+  test('getDeletedFiles_正常系_@tmpパスが除外される', async () => {
+    // Given: deleted に@tmpパスが含まれる
+    mockGit.status.mockResolvedValue({
+      not_added: [],
+      created: [],
+      modified: [],
+      staged: [],
+      deleted: [
+        'src/old-module.ts',
+        '.ai-workflow/issue-801/@tmp/temp-data.json',
+        'src/@tmp/scratch.ts',
+      ],
+      renamed: [],
+      files: [],
+    } as any);
+
+    // When: getDeletedFiles を呼び出す
+    const deletedFiles = await fileSelector.getDeletedFiles();
+
+    // Then: @tmpパスが除外される
+    expect(deletedFiles.has('src/old-module.ts')).toBe(true);
+    expect(deletedFiles.has('.ai-workflow/issue-801/@tmp/temp-data.json')).toBe(false);
+    expect(deletedFiles.has('src/@tmp/scratch.ts')).toBe(false);
+    expect(deletedFiles.size).toBe(1);
+  });
+
+  afterEach(() => {
+    if (originalLogLevel === undefined) {
+      delete process.env.LOG_LEVEL;
+    } else {
+      process.env.LOG_LEVEL = originalLogLevel;
+    }
+    jest.restoreAllMocks();
+  });
+});
+
 describe('FileSelector - filterPhaseFiles', () => {
   let fileSelector: FileSelector;
   let mockGit: jest.Mocked<SimpleGit>;

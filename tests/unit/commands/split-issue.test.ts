@@ -24,6 +24,8 @@ const mockLoggerError = jest.fn();
 const mockLoggerDebug = jest.fn();
 const mockClaudeExecute = jest.fn();
 const mockCodexExecute = jest.fn();
+const mockBuildSplitIssueJsonPayload = jest.fn();
+const mockWriteSplitIssueOutputFile = jest.fn();
 
 await jest.unstable_mockModule('../../../src/core/github-client.js', () => ({
   __esModule: true,
@@ -80,6 +82,12 @@ await jest.unstable_mockModule('../../../src/utils/logger.js', () => ({
   },
 }));
 
+await jest.unstable_mockModule('../../../src/commands/split-issue-output.js', () => ({
+  __esModule: true,
+  buildSplitIssueJsonPayload: mockBuildSplitIssueJsonPayload,
+  writeSplitIssueOutputFile: mockWriteSplitIssueOutputFile,
+}));
+
 const { handleSplitIssueCommand } = await import('../../../src/commands/split-issue.js');
 
 const buildAgentResponse = (issues: Array<Record<string, unknown>>, metrics?: Record<string, unknown>) =>
@@ -113,6 +121,26 @@ describe('split-issue command (unit)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBuildSplitIssueJsonPayload.mockReturnValue({
+      execution: {
+        timestamp: '2025-01-01T00:00:00.000Z',
+        repository: 'owner/repo',
+        issueNumber: 123,
+        language: 'ja',
+        apply: false,
+        dryRun: true,
+        maxSplits: 10,
+      },
+      summary: {
+        originalTitle: 'Title',
+        splitSummary: 'Summary',
+        totalSplitIssues: 0,
+        createdCount: 0,
+        failedCount: 0,
+      },
+      issues: [],
+      metrics: { completenessScore: 0, specificityScore: 0 },
+    });
     testRepoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'split-issue-unit-'));
 
     mockGetGitHubRepository.mockReturnValue('owner/repo');
@@ -426,6 +454,113 @@ describe('split-issue command (unit)', () => {
 
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.stringContaining('Failed to resolve repository path, fallback to CWD'),
+    );
+  });
+
+  // 意図: outputFileを指定した場合に絶対パスへ解決されることを確認する。
+  it('outputFileを正しくパースして絶対パスに解決する (TC-SPLIT-OPT-001)', async () => {
+    const relativePath = './output/result.json';
+
+    await handleSplitIssueCommand({ issue: '123', outputFile: relativePath });
+
+    expect(mockWriteSplitIssueOutputFile).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), relativePath),
+      expect.any(Object),
+    );
+  });
+
+  // 意図: outputFileが空文字の場合にエラーとなることを確認する。
+  it('空文字outputFileでバリデーションエラーになる (TC-SPLIT-OPT-002)', async () => {
+    await expect(
+      handleSplitIssueCommand({ issue: '123', outputFile: '' }),
+    ).rejects.toThrow('output-file must not be empty.');
+  });
+
+  // 意図: outputFileが空白のみの場合にエラーとなることを確認する。
+  it('空白のみoutputFileでバリデーションエラーになる (TC-SPLIT-OPT-003)', async () => {
+    await expect(
+      handleSplitIssueCommand({ issue: '123', outputFile: '   ' }),
+    ).rejects.toThrow('output-file must not be empty.');
+  });
+
+  // 意図: outputFile未指定時にJSON出力がスキップされることを確認する。
+  it('outputFile未指定時はJSON出力を行わない (TC-SPLIT-OPT-004)', async () => {
+    await handleSplitIssueCommand({ issue: '123' });
+
+    expect(mockBuildSplitIssueJsonPayload).not.toHaveBeenCalled();
+    expect(mockWriteSplitIssueOutputFile).not.toHaveBeenCalled();
+  });
+
+  // 意図: outputFile指定時にJSON出力が実行されることを確認する。
+  it('outputFile指定時にJSON出力が実行される (TC-SPLIT-CMD-001)', async () => {
+    const absolutePath = path.join(testRepoDir, 'output', 'split-issue.json');
+
+    await handleSplitIssueCommand({ issue: '123', outputFile: absolutePath });
+
+    expect(mockBuildSplitIssueJsonPayload).toHaveBeenCalledTimes(1);
+    const payloadArgs = mockBuildSplitIssueJsonPayload.mock.calls[0][0];
+    expect(payloadArgs.execution).toEqual(
+      expect.objectContaining({
+        repository: 'owner/repo',
+        issueNumber: 123,
+      }),
+    );
+    expect(payloadArgs.execution.timestamp).toEqual(expect.any(String));
+    expect(mockWriteSplitIssueOutputFile).toHaveBeenCalledWith(absolutePath, expect.any(Object));
+  });
+
+  // 意図: outputFile未指定時にJSON出力が実行されないことを確認する。
+  it('outputFile未指定時にJSON出力が実行されない (TC-SPLIT-CMD-002)', async () => {
+    await handleSplitIssueCommand({ issue: '123' });
+
+    expect(mockBuildSplitIssueJsonPayload).not.toHaveBeenCalled();
+    expect(mockWriteSplitIssueOutputFile).not.toHaveBeenCalled();
+  });
+
+  // 意図: apply時にcreatedIssueUrlsがJSON出力へ渡されることを確認する。
+  it('apply時にcreatedIssueUrlsがJSON出力へ渡される (TC-SPLIT-CMD-003)', async () => {
+    mockCreateMultipleIssues.mockResolvedValue({
+      results: [
+        {
+          success: true,
+          issue_url: 'https://example.com/issue/555',
+          issue_number: 555,
+          error: null,
+        },
+      ],
+      successCount: 1,
+      failureCount: 0,
+    });
+
+    await handleSplitIssueCommand({
+      issue: '456',
+      apply: true,
+      outputFile: path.join(testRepoDir, 'output', 'apply.json'),
+    });
+
+    const payloadArgs = mockBuildSplitIssueJsonPayload.mock.calls[0][0];
+    expect(payloadArgs.execution).toEqual(
+      expect.objectContaining({
+        apply: true,
+        dryRun: false,
+      }),
+    );
+    expect(payloadArgs.result.createdIssueUrls).toEqual(['https://example.com/issue/555']);
+  });
+
+  // 意図: JSON出力の書き込みに失敗した場合にエラーになることを確認する。
+  it('JSON出力書き込み失敗時にエラーになる (TC-SPLIT-CMD-004)', async () => {
+    mockWriteSplitIssueOutputFile.mockRejectedValueOnce(new Error('Permission denied'));
+
+    await expect(
+      handleSplitIssueCommand({
+        issue: '123',
+        outputFile: path.join(testRepoDir, 'output', 'fail.json'),
+      }),
+    ).rejects.toThrow('Permission denied');
+
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to write split-issue JSON output'),
     );
   });
 });

@@ -25,7 +25,12 @@ import type {
   SplitAgentResponse,
   SplitMetrics,
   SplitIssueResult,
+  SplitIssueExecutionInfo,
 } from '../types/split-issue.js';
+import {
+  buildSplitIssueJsonPayload,
+  writeSplitIssueOutputFile,
+} from './split-issue-output.js';
 
 const BODY_PREVIEW_LENGTH = 200;
 
@@ -41,7 +46,7 @@ export async function handleSplitIssueCommand(
     // 1. オプションパース
     const options = parseOptions(rawOptions);
     logger.info(
-      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}, maxSplits=${options.maxSplits}`,
+      `Options: issue=${options.issueNumber}, language=${options.language}, agent=${options.agent}, apply=${options.apply}, maxSplits=${options.maxSplits}, outputFile=${options.outputFile ?? '(not set)'}`,
     );
 
     // 2. 環境変数の検証とリポジトリ名取得
@@ -115,6 +120,8 @@ export async function handleSplitIssueCommand(
       displaySplitPreview(result);
     }
 
+    await exportJsonIfRequested(result, options, githubRepository);
+
     logger.info('split-issue command completed successfully.');
   } catch (error) {
     logger.error(`split-issue command failed: ${getErrorMessage(error)}`);
@@ -164,12 +171,23 @@ function parseOptions(rawOptions: RawSplitIssueOptions): SplitIssueOptions {
     }
   }
 
+  const outputFileRaw = rawOptions.outputFile;
+  let outputFile: string | undefined;
+  if (typeof outputFileRaw === 'string') {
+    const trimmed = outputFileRaw.trim();
+    if (!trimmed) {
+      throw new Error('output-file must not be empty.');
+    }
+    outputFile = path.resolve(process.cwd(), trimmed);
+  }
+
   return {
     issueNumber,
     language,
     agent,
     apply,
     maxSplits,
+    outputFile,
   };
 }
 
@@ -493,6 +511,38 @@ function extractJsonObject(text: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * JSON出力を必要に応じて実行
+ */
+async function exportJsonIfRequested(
+  result: SplitIssueResult,
+  options: SplitIssueOptions,
+  repository: string,
+): Promise<void> {
+  if (!options.outputFile) {
+    return;
+  }
+
+  const execution: SplitIssueExecutionInfo = {
+    timestamp: new Date().toISOString(),
+    repository,
+    issueNumber: options.issueNumber,
+    language: options.language,
+    apply: options.apply,
+    dryRun: !options.apply,
+    maxSplits: options.maxSplits,
+  };
+
+  try {
+    const payload = buildSplitIssueJsonPayload({ execution, result });
+    await writeSplitIssueOutputFile(options.outputFile, payload);
+    logger.info(`split-issue JSON output written to ${options.outputFile}`);
+  } catch (error) {
+    logger.error(`Failed to write split-issue JSON output: ${getErrorMessage(error)}`);
+    throw error;
+  }
 }
 
 /**

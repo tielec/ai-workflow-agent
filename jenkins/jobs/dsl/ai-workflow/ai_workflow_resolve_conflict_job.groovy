@@ -96,8 +96,8 @@ finalize 時にリモートへ push するか（デフォルト: true）
 注意: DRY_RUN=true の場合、PUSH は自動的に無効化されます
             '''.stripIndent().trim())
 
-            booleanParam('SQUASH', false, '''
-コミットをスカッシュするか（デフォルト: false）
+            booleanParam('SQUASH', true, '''
+コミットをスカッシュするか（デフォルト: true）
             '''.stripIndent().trim())
 
             // ========================================
