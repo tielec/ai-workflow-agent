@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #801**: all-phase実行時にリファクタリングで削除されたファイルがgitコミットに含まれないバグを修正
+  - `CommitManager.filterExistingFiles()` を `filterCommittableFiles()` にリファクタリングし、gitが追跡している削除ファイルと存在しない不正パスを区別する判定ロジックを実装
+  - `FileSelector.getDeletedFiles()` メソッドを新規追加し、`status.deleted` から削除ファイル一覧を `Set<string>` 型で返す（セキュリティフィルタ・デバッグファイル・ビルドアーティファクト・@tmpパスの除外処理を含む）
+  - `commitPhaseOutput()`、`commitStepOutput()`、`commitWorkflowInit()`、`commitRollback()` の4メソッドで削除ファイル情報を取得・伝播し、`git add` のステージング対象に含める処理を追加
+  - Issue #234で導入された「`git add` 時のパスエラー防止」保護機能は維持（gitが追跡していない不正なファイルパスは引き続き除外）
+  - これにより、designフェーズで削除対象として指定され、implementationフェーズで削除されたファイルが、PRのコミットに正しく反映されるようになった
+  - 修正ファイル: `src/core/git/commit-manager.ts`、`src/core/git/file-selector.ts`
+  - テストカバレッジ: ユニットテスト17件、統合テスト4件を追加（`tests/unit/git/file-selector.test.ts`、`tests/unit/git/commit-manager.test.ts`）、全体 `npm test` PASS（238 test suites / 3428 tests）
+
 ### Changed
 
 - **Issue #793**: all_phases ジョブDSLの `NETWORK_HEALTH_CHECK` パラメータのデフォルト値を `false` → `true` に変更

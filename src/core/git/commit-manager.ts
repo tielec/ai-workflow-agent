@@ -98,7 +98,8 @@ export class CommitManager {
     }
 
     // Issue #234: Filter out non-existent files before git add
-    const filesToCommit = this.filterExistingFiles(Array.from(targetFiles));
+    const deletedFiles = await this.fileSelector.getDeletedFiles();
+    const filesToCommit = this.filterCommittableFiles(Array.from(targetFiles), deletedFiles);
 
     if (filesToCommit.length === 0) {
       logger.warn('No existing files to commit after filtering.');
@@ -191,7 +192,8 @@ export class CommitManager {
       }
 
       // Issue #234: Filter out non-existent files before git add
-      const targetFiles = this.filterExistingFiles(filteredFiles);
+      const deletedFiles = await this.fileSelector.getDeletedFiles();
+      const targetFiles = this.filterCommittableFiles(filteredFiles, deletedFiles);
 
       if (targetFiles.length === 0) {
         logger.warn(`No existing files to commit for step: ${step}`);
@@ -336,7 +338,8 @@ export class CommitManager {
     }
 
     // Issue #234: Filter out non-existent files before git add
-    const targetFiles = this.filterExistingFiles(filteredFiles);
+    const deletedFiles = await this.fileSelector.getDeletedFiles();
+    const targetFiles = this.filterCommittableFiles(filteredFiles, deletedFiles);
 
     if (targetFiles.length === 0) {
       logger.warn('No existing files to commit for initialization');
@@ -497,23 +500,36 @@ export class CommitManager {
   }
 
   /**
-   * Filter files that actually exist on the filesystem
+   * Filter files that can be committed to git.
+   *
+   * Includes git-tracked deleted files and files that exist on the filesystem.
    * This prevents "fatal: pathspec 'file' did not match any files" errors
-   * when git status reports files that have been deleted or moved.
+   * while preserving deleted files for proper git commits.
    *
    * Issue #234: Fix git add error for non-existent files
    */
-  private filterExistingFiles(files: string[]): string[] {
-    const existingFiles: string[] = [];
+  private filterCommittableFiles(files: string[], deletedFiles: Set<string>): string[] {
+    const committableFiles: string[] = [];
     const missingFiles: string[] = [];
+    let deletedCount = 0;
 
     for (const file of files) {
+      if (deletedFiles.has(file)) {
+        committableFiles.push(file);
+        deletedCount += 1;
+        continue;
+      }
+
       const fullPath = join(this.repoPath, file);
       if (existsSync(fullPath)) {
-        existingFiles.push(file);
+        committableFiles.push(file);
       } else {
         missingFiles.push(file);
       }
+    }
+
+    if (deletedCount > 0) {
+      logger.debug(`Including ${deletedCount} deleted file(s) in commit`);
     }
 
     if (missingFiles.length > 0) {
@@ -522,7 +538,7 @@ export class CommitManager {
       );
     }
 
-    return existingFiles;
+    return committableFiles;
   }
 
   /**
@@ -536,7 +552,7 @@ export class CommitManager {
 
   /**
    * Issue #90: ロールバック用のコミットを作成
-   * Issue #269: 絶対パスを相対パスに変換してからfilterExistingFilesを呼び出す
+   * Issue #269: 絶対パスを相対パスに変換してからfilterCommittableFilesを呼び出す
    */
   public async commitRollback(
     files: string[],
@@ -554,7 +570,7 @@ export class CommitManager {
     }
 
     // Issue #269: 絶対パスを相対パスに変換
-    // rollback.tsから渡されるパスは絶対パスだが、filterExistingFilesは相対パスを期待する
+    // rollback.tsから渡されるパスは絶対パスだが、filterCommittableFilesは相対パスを期待する
     const relativeFiles = files.map(file => {
       if (isAbsolute(file)) {
         return relative(this.repoPath, file);
@@ -565,7 +581,8 @@ export class CommitManager {
     logger.debug(`Rollback files (converted to relative): ${relativeFiles.join(', ')}`);
 
     // Issue #234: Filter out non-existent files before git add
-    const existingFiles = this.filterExistingFiles(relativeFiles);
+    const deletedFiles = await this.fileSelector.getDeletedFiles();
+    const existingFiles = this.filterCommittableFiles(relativeFiles, deletedFiles);
 
     if (existingFiles.length === 0) {
       logger.warn('No existing files to commit for rollback.');

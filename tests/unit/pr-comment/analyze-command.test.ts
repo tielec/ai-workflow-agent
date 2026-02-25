@@ -959,7 +959,7 @@ describe('handlePRCommentAnalyzeCommand', () => {
     expect(promptArg).toContain('Repo: /repo');
     expect(promptArg).toContain(analyzeOutputPath); // Use platform-specific path from line 49
     expect(promptArg).toContain('(File not found)');
-    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(logger.error).toHaveBeenCalledTimes(2);
   });
 
   it('exits early when there are no pending comments to analyze', async () => {
