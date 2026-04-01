@@ -6,6 +6,7 @@ FROM node:20-slim AS base
 WORKDIR /workspace
 
 # Install required system packages (git for branch operations, bash for convenience)
+# sudo: エージェントが実行時に追加パッケージをインストールできるようにする（Issue #558）
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         git \
@@ -23,6 +24,11 @@ RUN apt-get update && \
         ruby \
         ruby-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Grant node user passwordless sudo access
+# エージェント（node ユーザー）が apt-get 等でパッケージをインストール可能にする
+RUN echo 'node ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/node && \
+    chmod 0440 /etc/sudoers.d/node
 
 # Install GitHub CLI (gh)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
