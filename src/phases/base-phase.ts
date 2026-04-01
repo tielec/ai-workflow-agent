@@ -375,8 +375,9 @@ export abstract class BasePhase {
 - **Java**: \`sudo apt-get update && sudo apt-get install -y default-jdk\`
 - **Rust**: \`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\`
 - **Ruby**: \`sudo apt-get update && sudo apt-get install -y ruby ruby-dev\`
+- **その他**: \`sudo apt-get update && sudo apt-get install -y <パッケージ名>\`
 
-テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください。
+テスト実行や品質チェックに必要な言語環境・ツール（ansible, shellcheck等）は、sudo を付けて自由にインストールしてください。
 
 権限エラーが発生した場合:
 - pip の場合: \`pip install --user <package>\` を使用してください

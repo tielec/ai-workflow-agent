@@ -305,8 +305,10 @@ describe('BasePhase - 環境情報注入ロジック（Issue #177）', () => {
       expect(envInfo).toContain('**Ruby**');
       expect(envInfo).toContain('sudo apt-get update && sudo apt-get install -y ruby ruby-dev');
 
+      expect(envInfo).toContain('**その他**');
+
       // Then: 案内メッセージが含まれている
-      expect(envInfo).toContain('テスト実行や品質チェックに必要な言語環境は、自由にインストールしてください');
+      expect(envInfo).toContain('sudo を付けて自由にインストールしてください');
     });
   });
 });
