@@ -7,8 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #786**: `buildEnvironmentInfoSection()` のインストールコマンドに `sudo` プレフィックスを付与し、権限エラー時の代替手段を追加
+  - `src/phases/base-phase.ts` の `buildEnvironmentInfoSection()` メソッドで生成されるインストールコマンドに `sudo` を追加（Python、Go、Java、Ruby）
+  - Rust のインストールコマンドは `curl` ベースでユーザー空間にインストールされるため `sudo` は付与せず維持
+  - プリインストール済みランタイムの確認案内を追加（「このDocker環境には主要な言語ランタイムがプリインストールされています。まず `python3 --version` 等で利用可能か確認してください。」）
+  - 権限エラー時の代替手段を追加（「pip の場合: `pip install --user <package>` を使用してください」「sudo が利用できない場合: テストをスキップし、理由を記録してください」）
+  - 非 root ユーザーでのパッケージインストールが可能になり、エージェントのワークフロー実行成功率が向上
+  - 修正ファイル: `src/phases/base-phase.ts`
+  - テストカバレッジ: 既存ユニットテストを更新（`tests/unit/phases/testing-phase-environment.test.ts`、`tests/unit/phases/testing-phase-environment-extended.test.ts`、`tests/unit/phases/base-phase-prompt-injection.test.ts`）、統合テスト1件を更新（`tests/integration/issue-706-fallback-chain.test.ts`）、全体 `npm test` PASS（241 test suites / 3483 tests）
+
 ### Fixed
 
+- **Issue #807**: 削除ファイルの `git add` / `git commit` で「pathspec did not match」エラーが発生する問題を修正
+  - `CommitManager` に `stageFilesForCommit()` プライベートメソッドを新規追加し、削除ファイルと通常ファイル（追加・変更）を分離してステージングする処理を実装
+  - 削除ファイルは `git.raw(['rm', '--cached', file])` で個別にステージング（個別エラーハンドリング付き）、通常ファイルは従来通り `git.add()` で一括ステージング
+  - `commitStepOutput()`、`commitPhaseOutput()`、`commitRollback()` の3メソッドで `git.add()` 呼び出しを `stageFilesForCommit()` に置き換え
+  - 削除ファイルが存在する場合、`git.commit()` の第2引数を空配列にしてステージング済みの全変更をコミットに含める方式に変更（削除ファイルのみを第2引数から除外することで pathspec エラーを回避）
+  - `git rm --cached` の個別失敗は警告ログ（`logger.warn`）を出力して処理を続行し、コミット全体の成功を妨げない設計を採用（部分的失敗の許容）
+  - Issue #801で導入された `filterCommittableFiles()` による削除ファイル保持機能と連携し、削除ファイルが確実にPRのコミットに反映されるようになった
+  - 修正ファイル: `src/core/git/commit-manager.ts`
+  - テストカバレッジ: ユニットテスト30件を追加（`tests/unit/git/commit-manager.test.ts`）、全体 `npm run validate` PASS（239 test suites / 3485 tests）
 - **Issue #801**: all-phase実行時にリファクタリングで削除されたファイルがgitコミットに含まれないバグを修正
   - `CommitManager.filterExistingFiles()` を `filterCommittableFiles()` にリファクタリングし、gitが追跡している削除ファイルと存在しない不正パスを区別する判定ロジックを実装
   - `FileSelector.getDeletedFiles()` メソッドを新規追加し、`status.deleted` から削除ファイル一覧を `Set<string>` 型で返す（セキュリティフィルタ・デバッグファイル・ビルドアーティファクト・@tmpパスの除外処理を含む）

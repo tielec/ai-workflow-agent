@@ -1,0 +1,5 @@
+[INFO] Starting Jenkins Seed job
+Processing DSL script ai_workflow_all_phases_job.groovy
+GeneratedJob{name='AI_Workflow/develop/all-phases-job'}
+GeneratedJob{name='AI_Workflow/stable-1/all-phases-job'}
+[INFO] Seed job generation completed successfully

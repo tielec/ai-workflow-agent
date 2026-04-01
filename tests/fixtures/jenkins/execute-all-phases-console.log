@@ -1,0 +1,6 @@
+[INFO] Stage: Validate Parameters
+[DEBUG] Evaluating input parameters
+Network Health Check: true
+Network Health Check: false
+[INFO] Stage: Execute All Phases
+node dist/index.js execute --network-health-check --phase testing --verbose
