@@ -104,6 +104,13 @@ jenkins-jobs:
     jenkinsfile: jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile
     skipJenkinsfileValidation: true
 
+  ai_workflow_ecr_verify_job:
+    name: 'ecr_verify'
+    displayName: 'ECR Image Verify'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_ecr_verify_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile
+    skipJenkinsfileValidation: true
+
   ai_workflow_resolve_conflict_job:
     name: 'resolve_conflict'
     displayName: 'Resolve Conflict'
