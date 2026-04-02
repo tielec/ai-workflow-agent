@@ -85,29 +85,31 @@ pipeline {
             }
         }
 
-        stage('ECR Login') {
+        stage('Verify ECR Access') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: ECR Login"
+                    echo "Stage: Verify ECR Access"
                     echo "========================================="
+                    echo "amazon-ecr-credential-helper による自動認証を使用"
 
-                    def loginResult = sh(
+                    // credential helper が正しく動作するか確認
+                    def verifyResult = sh(
                         script: """
-                            aws ecr get-login-password \
+                            aws ecr describe-repositories \
+                                --repository-names ${env.ECR_REPOSITORY_NAME_VALUE} \
                                 --region ${env.AWS_REGION_VALUE} \
-                            | docker login \
-                                --username AWS \
-                                --password-stdin ${env.ECR_REGISTRY}
+                                --query 'repositories[0].repositoryUri' \
+                                --output text
                         """,
                         returnStatus: true
                     )
 
-                    if (loginResult != 0) {
-                        error("ECRログインに失敗しました。AWSリージョン: ${env.AWS_REGION_VALUE}, アカウントID: ${env.AWS_ACCOUNT_ID_VALUE}")
+                    if (verifyResult != 0) {
+                        error("ECRリポジトリへのアクセスに失敗しました。IAM設定を確認してください。リージョン: ${env.AWS_REGION_VALUE}, リポジトリ: ${env.ECR_REPOSITORY_NAME_VALUE}")
                     }
 
-                    echo "ECRログイン成功: ${env.ECR_REGISTRY}"
+                    echo "ECRアクセス確認成功: ${env.ECR_REGISTRY}/${env.ECR_REPOSITORY_NAME_VALUE}"
                 }
             }
         }
