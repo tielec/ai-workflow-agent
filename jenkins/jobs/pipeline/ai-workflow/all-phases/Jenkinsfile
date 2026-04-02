@@ -278,37 +278,35 @@ pipeline {
 
     post {
         always {
-            node('ec2-fleet-small') {
-                script {
-                    echo "========================================="
-                    echo "Post Processing"
-                    echo "========================================="
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
 
-                    currentBuild.description = "Issue #${env.ISSUE_NUMBER} | All Phases | ${env.REPO_OWNER}/${env.REPO_NAME}"
+                currentBuild.description = "Issue #${env.ISSUE_NUMBER} | All Phases | ${env.REPO_OWNER}/${env.REPO_NAME}"
 
-                    if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
-                        common.archiveArtifacts(env.ISSUE_NUMBER)
-                    }
-
-                    // REPOS_ROOTクリーンアップ
-                    if (env.REPOS_ROOT) {
-                        sh """
-                            rm -rf ${env.REPOS_ROOT}
-                        """
-                        echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
-                    }
-
-                    if (env.CODEX_HOME?.trim()) {
-                        sh """
-                            rm -rf ${env.CODEX_HOME}
-                        """
-                        echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
-                    }
-
-                    // ワークスペースのクリーンアップ
-                    cleanWs()
-                    echo "Workspace cleaned up"
+                if (env.ISSUE_NUMBER && env.ISSUE_NUMBER != 'auto') {
+                    common.archiveArtifacts(env.ISSUE_NUMBER)
                 }
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh """
+                        rm -rf ${env.REPOS_ROOT}
+                    """
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                if (env.CODEX_HOME?.trim()) {
+                    sh """
+                        rm -rf ${env.CODEX_HOME}
+                    """
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
             }
         }
 

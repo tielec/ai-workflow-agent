@@ -72,6 +72,8 @@ RUN npm run build
 # When true, agents can install additional packages as needed
 ENV AGENT_CAN_INSTALL_PACKAGES=true
 
-# Default command opens a shell for interactive usage inside the container.
-# The CLI can be executed via `npm start -- <args>` or `node dist/index.js ...`
+# Jenkins withDockerContainer は `docker run <image> cat` でコンテナを維持し、
+# docker exec で各ステップを実行する。ENTRYPOINT が引数をパススルーしないと
+# cat プロセスが起動せず失敗するため、明示的に設定する。
+ENTRYPOINT []
 CMD ["/bin/bash"]
