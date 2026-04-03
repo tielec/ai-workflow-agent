@@ -1,0 +1,272 @@
+/**
+ * AI Workflow - ECR Image Verify
+ *
+ * ECRからpullしたDockerイメージのランタイム検証を行うJenkinsfile。
+ * 1日1回のcronトリガーで自動実行。手動実行もサポート。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - AWS_REGION: AWSリージョン（デフォルト: ap-northeast-1）
+ * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
+ * - IMAGE_TAG: 検証対象のイメージタグ（デフォルト: latest）
+ * * AWS_ACCOUNT_IDはAWS STS (get-caller-identity) から自動取得
+ * * AWS認証はEC2インスタンスプロファイルを使用
+ */
+
+pipeline {
+    agent {
+        label 'ec2-fleet-micro'
+    }
+
+    triggers {
+        cron('H 9 * * *')
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        timeout(time: 15, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        // AWS設定
+        AWS_DEFAULT_REGION = "${params.AWS_REGION ?: 'ap-northeast-1'}"
+        AWS_REGION_VALUE = "${params.AWS_REGION ?: 'ap-northeast-1'}"
+        ECR_REPOSITORY_NAME_VALUE = "${params.ECR_REPOSITORY_NAME ?: 'ai-workflow-agent'}"
+        IMAGE_TAG_VALUE = "${params.IMAGE_TAG ?: 'latest'}"
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow - ECR Image Verify"
+                    echo "========================================="
+
+                    String accountId = ''
+                    try {
+                        echo "AWS STSからアカウントIDを取得中..."
+                        accountId = sh(
+                            script: "aws sts get-caller-identity --query Account --output text",
+                            returnStdout: true
+                        ).trim()
+                    } catch (Exception e) {
+                        error("AWS STSからアカウントIDの取得に失敗しました。インスタンスプロファイルのIAM設定を確認してください。")
+                    }
+
+                    if (!accountId) {
+                        error("AWS STSからアカウントIDの取得に失敗しました。インスタンスプロファイルのIAM設定を確認してください。")
+                    }
+
+                    if (!env.AWS_REGION_VALUE?.trim()) {
+                        error("AWS_REGION は必須パラメータです。値を指定してください。")
+                    }
+
+                    if (!env.ECR_REPOSITORY_NAME_VALUE?.trim()) {
+                        error("ECR_REPOSITORY_NAME は必須パラメータです。値を指定してください。")
+                    }
+
+                    if (!env.IMAGE_TAG_VALUE?.trim()) {
+                        error("IMAGE_TAG は必須パラメータです。値を指定してください。")
+                    }
+
+                    env.AWS_ACCOUNT_ID_VALUE = accountId
+                    env.ECR_REGISTRY = "${accountId}.dkr.ecr.${env.AWS_REGION_VALUE}.amazonaws.com"
+                    env.ECR_IMAGE_NAME = "${env.ECR_REGISTRY}/${env.ECR_REPOSITORY_NAME_VALUE}"
+
+                    currentBuild.description = "ECR Verify | ${env.ECR_REPOSITORY_NAME_VALUE}:${env.IMAGE_TAG_VALUE} | ${env.AWS_REGION_VALUE}"
+
+                    echo "AWS Account ID: ${env.AWS_ACCOUNT_ID_VALUE}"
+                    echo "AWS Region: ${env.AWS_REGION_VALUE}"
+                    echo "ECR Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                    echo "Image Tag: ${env.IMAGE_TAG_VALUE}"
+                    echo "ECR Registry: ${env.ECR_REGISTRY}"
+                    echo "Full Image: ${env.ECR_IMAGE_NAME}:${env.IMAGE_TAG_VALUE}"
+                }
+            }
+        }
+
+        stage('ECR Login') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: ECR Login"
+                    echo "========================================="
+
+                    def loginResult = sh(
+                        script: """
+                            aws ecr get-login-password \
+                                --region ${env.AWS_REGION_VALUE} \
+                            | docker login \
+                                --username AWS \
+                                --password-stdin ${env.ECR_REGISTRY}
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (loginResult != 0) {
+                        error("ECRログインに失敗しました。AWSリージョン: ${env.AWS_REGION_VALUE}, アカウントID: ${env.AWS_ACCOUNT_ID_VALUE}")
+                    }
+
+                    echo "ECRログイン成功: ${env.ECR_REGISTRY}"
+                }
+            }
+        }
+
+        stage('Pull Image') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Pull Image"
+                    echo "========================================="
+
+                    def pullResult = sh(
+                        script: "docker pull ${env.ECR_IMAGE_NAME}:${env.IMAGE_TAG_VALUE}",
+                        returnStatus: true
+                    )
+
+                    if (pullResult != 0) {
+                        error("Dockerイメージのpullに失敗しました: ${env.ECR_IMAGE_NAME}:${env.IMAGE_TAG_VALUE}")
+                    }
+
+                    echo "Docker pull completed successfully"
+                }
+            }
+        }
+
+        stage('Verify Container') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Verify Container"
+                    echo "========================================="
+
+                    def imageRef = "${env.ECR_IMAGE_NAME}:${env.IMAGE_TAG_VALUE}"
+                    def failed = []
+
+                    def checks = [
+                        [label: 'Container Startup', command: "docker run --rm ${imageRef} echo OK"],
+                        [label: 'Node.js', command: "docker run --rm ${imageRef} node --version"],
+                        [label: 'npm', command: "docker run --rm ${imageRef} npm --version"],
+                        [label: 'Build Artifact', command: "docker run --rm ${imageRef} node dist/index.js --help"],
+                        [label: 'Python3', command: "docker run --rm ${imageRef} python3 --version"],
+                        [label: 'Go', command: "docker run --rm ${imageRef} go version"],
+                        [label: 'Java', command: "docker run --rm ${imageRef} java -version"],
+                        [label: 'Ruby', command: "docker run --rm ${imageRef} ruby --version"],
+                        [label: 'Git', command: "docker run --rm ${imageRef} git --version"],
+                        [label: 'GitHub CLI', command: "docker run --rm ${imageRef} gh --version"],
+                        [label: 'AWS CLI', command: "docker run --rm ${imageRef} aws --version"],
+                        [label: 'sudo', command: "docker run --rm ${imageRef} sudo --version"],
+                    ]
+
+                    checks.each { check ->
+                        def result = sh(
+                            script: check.command,
+                            returnStatus: true
+                        )
+
+                        if (result == 0) {
+                            echo "PASS: ${check.label}"
+                        } else {
+                            echo "FAIL: ${check.label}"
+                            failed << check.label
+                        }
+                    }
+
+                    def envCheckPassed = false
+                    try {
+                        def output = sh(
+                            script: "docker run --rm ${imageRef} sh -c 'echo \$AGENT_CAN_INSTALL_PACKAGES'",
+                            returnStdout: true
+                        ).trim()
+                        envCheckPassed = output.contains('true')
+                    } catch (Exception e) {
+                        envCheckPassed = false
+                    }
+
+                    if (envCheckPassed) {
+                        echo "PASS: AGENT_CAN_INSTALL_PACKAGES"
+                    } else {
+                        echo "FAIL: AGENT_CAN_INSTALL_PACKAGES"
+                        failed << 'AGENT_CAN_INSTALL_PACKAGES'
+                    }
+
+                    def totalChecks = checks.size() + 1
+                    def failedCount = failed.size()
+                    def passedCount = totalChecks - failedCount
+
+                    env.VERIFY_TOTAL = "${totalChecks}"
+                    env.VERIFY_PASSED = "${passedCount}"
+                    env.VERIFY_FAILED_COUNT = "${failedCount}"
+                    env.VERIFY_FAILED_ITEMS = failed.join(', ')
+
+                    if (failedCount > 0) {
+                        echo "検証に失敗した項目: ${failed.join(', ')}"
+                    }
+                }
+            }
+        }
+
+        stage('Report Results') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Report Results"
+                    echo "========================================="
+
+                    echo "Verification Total: ${env.VERIFY_TOTAL}"
+                    echo "Verification Passed: ${env.VERIFY_PASSED}"
+                    echo "Verification Failed: ${env.VERIFY_FAILED_COUNT}"
+
+                    if (env.VERIFY_FAILED_COUNT && env.VERIFY_FAILED_COUNT != '0') {
+                        echo "Failed Items: ${env.VERIFY_FAILED_ITEMS}"
+                        error("ECRイメージ検証に失敗しました: ${env.VERIFY_FAILED_ITEMS}")
+                    }
+
+                    echo "All verification checks passed"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing: Cleanup"
+                echo "========================================="
+
+                sh """
+                    echo "Cleaning up local Docker images..."
+                    docker rmi ${env.ECR_IMAGE_NAME}:${env.IMAGE_TAG_VALUE} || true
+                    echo "Local Docker images cleaned up"
+                """
+
+                echo "Build result: ${currentBuild.currentResult}"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "ECR Image Verify - SUCCESS"
+                echo "========================================="
+                echo "Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                echo "Image Tag: ${env.IMAGE_TAG_VALUE}"
+                echo "Registry: ${env.ECR_REGISTRY}"
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "ECR Image Verify - FAILURE"
+                echo "========================================="
+                echo "Repository: ${env.ECR_REPOSITORY_NAME_VALUE}"
+                echo "Image Tag: ${env.IMAGE_TAG_VALUE}"
+                echo "Please check the build logs for error details."
+            }
+        }
+    }
+}
