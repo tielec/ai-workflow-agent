@@ -16,7 +16,7 @@
  * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
  * - IMAGE_RETENTION_COUNT: 保持するイメージ世代数（デフォルト: 2）
  *
- * 前提条件（ec2-fleet-micro ノード）:
+ * 前提条件（ec2-fleet-medium ノード）:
  * - docker 19.03+（buildx 対応）
  * - docker run --privileged が許可されていること（binfmt 登録のため）
  * - amazon-ecr-credential-helper (docker-credential-ecr-login) がインストール済み（Issue #815 と統一）
@@ -32,7 +32,7 @@
 
 pipeline {
     agent {
-        label 'ec2-fleet-micro'
+        label 'ec2-fleet-medium'
     }
 
     triggers {
