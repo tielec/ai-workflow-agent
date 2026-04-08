@@ -453,6 +453,12 @@ apt-get update && apt-get install -y default-jdk
 
 **関連Issue**: Issue #706 - ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗の修正
 
+### ecr-verifyジョブで AGENT_CAN_INSTALL_PACKAGES を確認
+
+- `jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile` の Verify Container ステージでは `docker run --rm <image> sh -c 'echo \$AGENT_CAN_INSTALL_PACKAGES'` を実行してコンテナ内の値を取得し、`PASS: AGENT_CAN_INSTALL_PACKAGES` / `FAIL: AGENT_CAN_INSTALL_PACKAGES` をログに残します。Groovy が `$` を展開しないよう `\$` でエスケープしている点にも留意してください。
+- `FAIL` が出ると `failed` リストに `AGENT_CAN_INSTALL_PACKAGES` が追加され、パイプライン全体が失敗扱いになります。Dockerfile で値を `true` にしたイメージを用意するか、手動で `docker run --rm <image> sh -c 'echo $AGENT_CAN_INSTALL_PACKAGES'` を実行して実際の値を確認されるとよいでしょう。
+- `AGENT_CAN_INSTALL_PACKAGES` を `true` にしておくことで Verify Containerステージが追加ランタイムのインストール権限を確認し、`python3` や `go` などの検証が次のステップで正常に通過するようになります。
+
 ### Jenkins パラメータが表示されない
 
 - `jenkins/jobs/dsl/ai-workflow/ai_workflow_orchestrator.groovy` で `AGENT_MODE` を定義しています。シードジョブを再実行して DSL を再適用してください。

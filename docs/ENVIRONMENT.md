@@ -255,6 +255,8 @@ node dist/index.js execute --issue 123 --phase all --network-health-check --netw
 - Docker環境では Dockerfile で明示的に `true` を設定
 - エージェントが必要に応じて多言語環境（Python、Go、Java、Rust、Ruby）をインストール可能
 - **セキュリティ**: デフォルトは無効、Docker内部のみで有効化を推奨
+- `jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile` の Verify Container ステージでは、コンテナ内で `AGENT_CAN_INSTALL_PACKAGES` を確認するために `docker run --rm <image> sh -c 'echo \$AGENT_CAN_INSTALL_PACKAGES'` を実行し、`PASS: AGENT_CAN_INSTALL_PACKAGES` / `FAIL: AGENT_CAN_INSTALL_PACKAGES` をログに出力します。Groovy が `$` を展開しないよう `\$` でエスケープしている点に注意してください。
+- このチェックが `FAIL` になるとパイプラインが `failed` リストに `AGENT_CAN_INSTALL_PACKAGES` を追加して最終的に失敗するため、Dockerfile 側または Jenkins パラメータで `AGENT_CAN_INSTALL_PACKAGES=true` を設定しておくことで、追加ランタイムの自動インストール指示が出るようになります。
 
 **設定例**:
 ```bash
