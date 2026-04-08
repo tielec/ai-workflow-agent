@@ -3,7 +3,7 @@
  *
  * ECRへのマルチアーキDockerイメージ（linux/amd64 + linux/arm64）のビルド・プッシュと
  * 古いイメージの自動削除を行うJenkinsfile。
- * 1日1回のcronトリガーで自動実行。手動実行もサポート。
+ * 週1回（日曜深夜）のcronトリガーで自動実行。急ぎの場合は手動実行も可能。
  *
  * マルチアーキ構成（Issue #821）:
  * - QEMU (tonistiigi/binfmt) による arm64 ノード上での amd64 エミュレーションビルド
@@ -36,7 +36,7 @@ pipeline {
     }
 
     triggers {
-        cron('H 2 * * *')
+        cron('H 2 * * 0')
     }
 
     options {
