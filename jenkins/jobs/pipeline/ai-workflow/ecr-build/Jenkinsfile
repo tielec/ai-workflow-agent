@@ -212,6 +212,8 @@ pipeline {
                         docker buildx build \
                             --builder multiarch-builder \
                             --platform linux/amd64,linux/arm64 \
+                            --provenance=false \
+                            --sbom=false \
                             -t ${env.ECR_IMAGE_NAME}:latest \
                             -t ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
                             --push \
