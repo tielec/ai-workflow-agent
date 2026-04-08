@@ -223,7 +223,7 @@ export REPOS_ROOT="$HOME/projects"
 - `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` - PRコメント自動対応（最終結果・クローズ処理）
 - `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile` - PRマージコンフリクト自動解消（AIによるコンフリクト分析・解消）
 - `jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile` - サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成）
-- `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` - ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除）
+- `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` - ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応）
 - `jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile` - ECRイメージ動作確認（ecr-build後の定期検証、developフォルダのみ）
 
 **旧Jenkinsfile（非推奨）**:
