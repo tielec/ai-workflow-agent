@@ -19,6 +19,7 @@
  * 前提条件（ec2-fleet-micro ノード）:
  * - docker 19.03+（buildx 対応）
  * - docker run --privileged が許可されていること（binfmt 登録のため）
+ * - amazon-ecr-credential-helper (docker-credential-ecr-login) がインストール済み（Issue #815 と統一）
  * - ECR への push 権限（EC2 インスタンスプロファイル）
  *
  * ノート:
@@ -41,7 +42,7 @@ pipeline {
     options {
         timestamps()
         ansiColor('xterm')
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
@@ -111,7 +112,7 @@ pipeline {
 
                     def qemuResult = sh(
                         script: """
-                            docker run --privileged --rm tonistiigi/binfmt --install all
+                            docker run --privileged --rm tonistiigi/binfmt:qemu-v8.1.5 --install all
                         """,
                         returnStatus: true
                     )
@@ -158,29 +159,40 @@ pipeline {
             }
         }
 
-        stage('ECR Login') {
+        stage('Verify ECR Credential Helper') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: ECR Login"
+                    echo "Stage: Verify ECR Credential Helper"
                     echo "========================================="
+                    echo "amazon-ecr-credential-helper による自動認証を使用（Issue #815 と統一）"
 
-                    def loginResult = sh(
+                    def helperResult = sh(
+                        script: "docker-credential-ecr-login version",
+                        returnStatus: true
+                    )
+
+                    if (helperResult != 0) {
+                        error("docker-credential-ecr-login が見つかりません。ノードに amazon-ecr-credential-helper をインストールしてください。")
+                    }
+
+                    // リポジトリへの到達性も併せて確認
+                    def verifyResult = sh(
                         script: """
-                            aws ecr get-login-password \
+                            aws ecr describe-repositories \
+                                --repository-names ${env.ECR_REPOSITORY_NAME_VALUE} \
                                 --region ${env.AWS_REGION_VALUE} \
-                            | docker login \
-                                --username AWS \
-                                --password-stdin ${env.ECR_REGISTRY}
+                                --query 'repositories[0].repositoryUri' \
+                                --output text
                         """,
                         returnStatus: true
                     )
 
-                    if (loginResult != 0) {
-                        error("ECRログインに失敗しました。AWSリージョン: ${env.AWS_REGION_VALUE}, アカウントID: ${env.AWS_ACCOUNT_ID_VALUE}")
+                    if (verifyResult != 0) {
+                        error("ECRリポジトリへのアクセスに失敗しました。IAM設定を確認してください。リージョン: ${env.AWS_REGION_VALUE}, リポジトリ: ${env.ECR_REPOSITORY_NAME_VALUE}")
                     }
 
-                    echo "ECRログイン成功: ${env.ECR_REGISTRY}"
+                    echo "ECR credential helper 検出済み（buildx push 時に自動認証されます）"
                 }
             }
         }
@@ -337,6 +349,8 @@ pipeline {
                 echo "========================================="
 
                 echo "buildx --push 構成のためローカルイメージの削除は不要です"
+
+                sh "docker buildx prune -f --keep-storage 5GB || true"
 
                 echo "Build result: ${currentBuild.currentResult}"
             }
