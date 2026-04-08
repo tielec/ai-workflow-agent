@@ -1,15 +1,32 @@
 /**
- * AI Workflow - ECR Image Build & Push
+ * AI Workflow - ECR Image Build & Push (Multi-arch)
  *
- * ECRへのDockerイメージビルド・プッシュと古いイメージの自動削除を行うJenkinsfile。
+ * ECRへのマルチアーキDockerイメージ（linux/amd64 + linux/arm64）のビルド・プッシュと
+ * 古いイメージの自動削除を行うJenkinsfile。
  * 1日1回のcronトリガーで自動実行。手動実行もサポート。
+ *
+ * マルチアーキ構成（Issue #821）:
+ * - QEMU (tonistiigi/binfmt) による arm64 ノード上での amd64 エミュレーションビルド
+ * - docker buildx による linux/amd64 + linux/arm64 同時ビルド
+ * - ECR には image index（マニフェストリスト）として :latest / :build-<N> を push
+ * - 利用側 Job（ecr-verify / all-phases など）は変更不要
  *
  * パラメータ（Job DSLで定義）:
  * - AWS_REGION: AWSリージョン（デフォルト: ap-northeast-1）
  * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
  * - IMAGE_RETENTION_COUNT: 保持するイメージ世代数（デフォルト: 2）
- * * AWS_ACCOUNT_IDはAWS STS (get-caller-identity) から自動取得
- * * AWS認証はEC2インスタンスプロファイルを使用
+ *
+ * 前提条件（ec2-fleet-micro ノード）:
+ * - docker 19.03+（buildx 対応）
+ * - docker run --privileged が許可されていること（binfmt 登録のため）
+ * - ECR への push 権限（EC2 インスタンスプロファイル）
+ *
+ * ノート:
+ * - QEMU エミュレーションによりビルド時間が増加する（許容済み）
+ * - AWS_ACCOUNT_ID は AWS STS (get-caller-identity) から自動取得
+ * - AWS 認証は EC2 インスタンスプロファイルを使用
+ *
+ * 検証手順: jenkins/jobs/pipeline/ai-workflow/ecr-build/VERIFY_MULTIARCH.md を参照
  */
 
 pipeline {
@@ -85,6 +102,62 @@ pipeline {
             }
         }
 
+        stage('Setup QEMU') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Setup QEMU (binfmt)"
+                    echo "========================================="
+
+                    def qemuResult = sh(
+                        script: """
+                            docker run --privileged --rm tonistiigi/binfmt --install all
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (qemuResult != 0) {
+                        error("QEMU binfmt の登録に失敗しました。`docker run --privileged` が許可されているか確認してください。")
+                    }
+
+                    echo "QEMU binfmt の登録に成功しました"
+                }
+            }
+        }
+
+        stage('Setup Buildx') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Setup Buildx"
+                    echo "========================================="
+
+                    def buildxVersionResult = sh(
+                        script: "docker buildx version",
+                        returnStatus: true
+                    )
+
+                    if (buildxVersionResult != 0) {
+                        error("docker buildx が利用できません。Docker 19.03 以降がインストールされているか確認してください。")
+                    }
+
+                    def builderResult = sh(
+                        script: """
+                            docker buildx create --name multiarch-builder --use --bootstrap \
+                            || docker buildx use multiarch-builder
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (builderResult != 0) {
+                        error("buildx builder の作成/切り替えに失敗しました。buildx の状態を確認してください。")
+                    }
+
+                    sh "docker buildx inspect --bootstrap"
+                }
+            }
+        }
+
         stage('ECR Login') {
             steps {
                 script {
@@ -112,48 +185,31 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
+        stage('Docker Buildx Build & Push') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Docker Build"
+                    echo "Stage: Docker Buildx Build & Push"
                     echo "========================================="
 
-                    echo "Building Docker image: ${env.ECR_IMAGE_NAME}"
+                    echo "Building multi-arch Docker image: ${env.ECR_IMAGE_NAME}"
+                    echo "Platforms: linux/amd64, linux/arm64"
                     echo "Tags: latest, build-${env.BUILD_NUMBER}"
 
                     sh """
-                        docker build \
+                        docker buildx build \
+                            --builder multiarch-builder \
+                            --platform linux/amd64,linux/arm64 \
                             -t ${env.ECR_IMAGE_NAME}:latest \
                             -t ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
+                            --push \
                             .
                     """
 
-                    echo "Docker build completed successfully"
-                    sh "docker images | grep ${env.ECR_REPOSITORY_NAME_VALUE} || true"
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: Docker Push"
-                    echo "========================================="
-
-                    sh """
-                        echo "Pushing latest tag..."
-                        docker push ${env.ECR_IMAGE_NAME}:latest
-
-                        echo "Pushing build-${env.BUILD_NUMBER} tag..."
-                        docker push ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}
-                    """
-
-                    echo "Docker push completed successfully"
+                    echo "Docker buildx build & push completed successfully"
                     echo "Pushed images:"
-                    echo "  - ${env.ECR_IMAGE_NAME}:latest"
-                    echo "  - ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}"
+                    echo "  - ${env.ECR_IMAGE_NAME}:latest (multi-arch)"
+                    echo "  - ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} (multi-arch)"
 
                     sh """
                         aws ecr describe-images \
@@ -163,6 +219,18 @@ pipeline {
                             --query 'imageDetails[0].{digest:imageDigest,tags:imageTags,pushedAt:imagePushedAt}' \
                             --output table \
                         || echo "Warning: Could not retrieve image details"
+                    """
+
+                    sh """
+                        echo "Inspecting manifest for latest tag..."
+                        docker manifest inspect ${env.ECR_IMAGE_NAME}:latest \
+                        || echo "Warning: Could not inspect manifest for latest tag"
+                    """
+
+                    sh """
+                        echo "Inspecting manifest for build-${env.BUILD_NUMBER} tag..."
+                        docker manifest inspect ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
+                        || echo "Warning: Could not inspect manifest for build-${env.BUILD_NUMBER} tag"
                     """
                 }
             }
@@ -268,12 +336,7 @@ pipeline {
                 echo "Post Processing: Cleanup"
                 echo "========================================="
 
-                sh """
-                    echo "Cleaning up local Docker images..."
-                    docker rmi ${env.ECR_IMAGE_NAME}:latest || true
-                    docker rmi ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} || true
-                    echo "Local Docker images cleaned up"
-                """
+                echo "buildx --push 構成のためローカルイメージの削除は不要です"
 
                 echo "Build result: ${currentBuild.currentResult}"
             }

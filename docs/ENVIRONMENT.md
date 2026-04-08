@@ -339,6 +339,9 @@ env:
 | `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` | Issue自動クローズ |
 | `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` | PRコメント自動対応（実行） |
 | `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` | PRコメント自動対応（最終化） |
+| `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile` | PRマージコンフリクト自動解消 |
+| `jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile` | サブIssue作成 |
+| `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` | ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応） |
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
