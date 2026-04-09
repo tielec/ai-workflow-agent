@@ -54,6 +54,8 @@
    mkdir -p ~/.codex
    echo '{"api_key": "sk-code-xxxxxxxxxxxxx"}' > ~/.codex/auth.json
    ```
+   - Jenkins では `CODEX_AUTH_JSON` パラメータに `auth.json` の内容を渡すと、`prepareCodexAuthFile()` が `WORKSPACE_TMP/codex-auth-*/auth.json` を作成し、`~/.codex/auth.json` にコピーします（いずれも `chmod 600`）。
+   - 書き込みは `sh` ブロック内に一本化され、`writeFile` 由来の UID/権限不整合を回避します。
 
 ### Claude 系
 
