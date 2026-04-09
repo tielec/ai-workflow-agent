@@ -196,7 +196,10 @@ describe('AgentExecutor - Codex実行エラーからのフォールバック（I
     });
 
     const mockCodex = createMockAgentClient([
-      'Error: invalid bearer token',
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Invalid bearer token' },
+      }),
     ]);
     const mockClaude = createMockAgentClient([
       JSON.stringify({ type: 'result', content: 'Claude auth error fallback' }),

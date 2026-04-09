@@ -207,7 +207,10 @@ describe('AgentExecutor - フォールバック処理（認証エラー）', () 
   test('2-1: Codex の認証エラー時に Claude へフォールバックする', async () => {
     // Given: Codex は認証エラーを返し、Claude は成功
     const mockCodex = createMockAgentClient([
-      'Error: invalid bearer token',
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Invalid bearer token' },
+      }),
     ]);
     const mockClaude = createMockAgentClient([
       JSON.stringify({ type: 'result', subtype: 'success' }),
@@ -244,7 +247,10 @@ describe('AgentExecutor - フォールバック処理（認証エラー）', () 
   test('2-3: Claude のみの場合、フォールバックは発生しない', async () => {
     // Given: Claude のみで認証エラー
     const mockClaude = createMockAgentClient([
-      'Error: authentication_error',
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'authentication_error', message: 'Authentication failed' },
+      }),
     ]);
     const mockMetadata = createMockMetadataManager(testWorkflowDir);
     const executor = new AgentExecutor(null, mockClaude, mockMetadata, 'requirements', process.cwd());
@@ -255,6 +261,156 @@ describe('AgentExecutor - フォールバック処理（認証エラー）', () 
     // Then: フォールバックせず、認証エラーメッセージを返す
     expect(mockClaude.executeTask).toHaveBeenCalledTimes(1);
     expect(result[0]).toContain('authentication_error');
+  });
+});
+
+describe('AgentExecutor - 認証失敗検出（Issue #832）', () => {
+  let testWorkflowDir: string;
+
+  beforeEach(async () => {
+    testWorkflowDir = path.join(TEST_DIR, '.ai-workflow', 'issue-auth-detection');
+    await fs.ensureDir(testWorkflowDir);
+  });
+
+  afterEach(async () => {
+    await fs.remove(TEST_DIR);
+  });
+
+  test('detectAuthFailure_誤検知防止_ソースコード文字列混入', () => {
+    // Given: ソースコード文字列に authentication_error が混入している
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      "export const x = 'authentication_error';",
+      'type=turn.completed',
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 誤検知しない
+    expect(authFailed).toBe(false);
+  });
+
+  test('detectAuthFailure_誤検知防止_テストファイル文字列混入', () => {
+    // Given: テストコード文字列に invalid bearer token が混入している
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = ["expect(log).toContain('invalid bearer token')"];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 誤検知しない
+    expect(authFailed).toBe(false);
+  });
+
+  test('detectAuthFailure_正常系_error_type_authentication_error', () => {
+    // Given: error.type が authentication_error のイベント
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'authentication_error', message: 'Authentication failed' },
+      }),
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 認証失敗として検出される
+    expect(authFailed).toBe(true);
+  });
+
+  test('detectAuthFailure_正常系_error_message_invalid_bearer_token', () => {
+    // Given: error.message に invalid bearer token が含まれるイベント
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Invalid bearer token' },
+      }),
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 認証失敗として検出される
+    expect(authFailed).toBe(true);
+  });
+
+  test('detectAuthFailure_正常系_error_message_please_run_login', () => {
+    // Given: error.message に please run /login が含まれるイベント
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Please run /login to authenticate' },
+      }),
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 認証失敗として検出される
+    expect(authFailed).toBe(true);
+  });
+
+  test('detectAuthFailure_異常系_error以外のイベントは無視', () => {
+    // Given: error 以外のイベントが混在している
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({ type: 'turn.completed' }),
+      JSON.stringify({ type: 'item.completed', output: { text: 'authentication_error' } }),
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 認証失敗として検出されない
+    expect(authFailed).toBe(false);
+  });
+
+  test('detectAuthFailure_境界値_JSONパース失敗行を無視', () => {
+    // Given: 有効な error イベントと非JSON行が混在している
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'authentication_error' },
+      }),
+      'not json',
+      'authentication_error',
+    ];
+
+    // When: 認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'codex');
+
+    // Then: 有効な error イベントのみで検出される
+    expect(authFailed).toBe(true);
+  });
+
+  test('detectAuthFailure_正常系_claude_event_authentication_error', () => {
+    // Given: Claude SDKMessage 形式の error イベント
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, null, mockMetadata, 'planning', process.cwd());
+    const messages = [
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'authentication_error', message: 'Authentication failed' },
+      }),
+    ];
+
+    // When: Claude として認証失敗検出を実行
+    const authFailed = (executor as any).detectAuthFailure(messages, 'claude');
+
+    // Then: 認証失敗として検出される
+    expect(authFailed).toBe(true);
   });
 });
 
@@ -657,7 +813,10 @@ describe('AgentExecutor - エージェント優先順位（Issue #306）', () =>
     test('8-5: Claude 認証失敗時に Codex へフォールバックする', async () => {
       // Given: claude-first 優先順位、Claude が認証エラーを返す
       const mockClaude = createMockAgentClient([
-        'Error: invalid bearer token',
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: 'Invalid bearer token' },
+        }),
       ]);
       const mockCodex = createMockAgentClient([
         JSON.stringify({ type: 'response.completed', content: 'Codex auth fallback' }),
@@ -765,7 +924,10 @@ describe('AgentExecutor - エージェント優先順位（Issue #306）', () =>
     test('9-4: Codex 認証失敗時に Claude へフォールバックする', async () => {
       // Given: codex-first 優先順位、Codex が認証エラーを返す
       const mockCodex = createMockAgentClient([
-        'Error: invalid bearer token',
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: 'Invalid bearer token' },
+        }),
       ]);
       const mockClaude = createMockAgentClient([
         JSON.stringify({ type: 'result', subtype: 'success', content: 'Claude auth fallback' }),

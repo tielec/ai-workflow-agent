@@ -12,6 +12,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { logger } from '../../utils/logger.js';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
 import { ClaudeAgentClient, resolveClaudeModel } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
@@ -19,6 +20,7 @@ import { LogFormatter } from '../formatters/log-formatter.js';
 import { DEFAULT_LANGUAGE, PhaseName, StepModelConfig } from '../../types.js';
 import { AgentPriority } from '../../commands/execute/agent-setup.js';
 import { validateWorkingDirectoryPath } from '../../core/helpers/working-directory-resolver.js';
+import { parseClaudeEvent, parseCodexEvent } from '../../core/helpers/agent-event-parser.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 
 type UsageMetrics = {
@@ -357,14 +359,7 @@ export class AgentExecutor {
     this.recordUsageMetrics(usage);
 
     // 認証失敗検出
-    const authFailed = messages.some((line) => {
-      const normalized = line.toLowerCase();
-      return (
-        normalized.includes('invalid bearer token') ||
-        normalized.includes('authentication_error') ||
-        normalized.includes('please run /login')
-      );
-    });
+    const authFailed = this.detectAuthFailure(messages, agentName === 'Codex Agent' ? 'codex' : 'claude');
 
     return { messages, authFailed };
   }
@@ -457,6 +452,60 @@ export class AgentExecutor {
       outputTokens,
       totalCostUsd,
     };
+  }
+
+  /**
+   * 認証失敗を検出（JSON構造化イベントのみ対象）
+   *
+   * @param messages - エージェントが生成したメッセージ配列
+   * @param agentType - エージェント種別
+   * @returns 認証失敗フラグ
+   */
+  private detectAuthFailure(messages: string[], agentType: 'codex' | 'claude'): boolean {
+    for (const raw of messages) {
+      const event = agentType === 'codex' ? parseCodexEvent(raw) : this.parseClaudeEventSafe(raw);
+      if (!event || event.type !== 'error') {
+        continue;
+      }
+
+      const error = (event as { error?: Record<string, unknown> }).error ?? (event as Record<string, unknown>);
+      const errorType = String((error as { type?: unknown }).type ?? '').toLowerCase();
+      const errorMessage = String(
+        (error as { message?: unknown; error?: unknown }).message ??
+        (error as { message?: unknown; error?: unknown }).error ??
+        ''
+      ).toLowerCase();
+
+      if (errorType === 'authentication_error') {
+        return true;
+      }
+      if (errorMessage.includes('invalid bearer token')) {
+        return true;
+      }
+      if (errorMessage.includes('please run /login')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Claudeイベントを安全にパース
+   *
+   * @param raw - 生のJSONイベント文字列
+   * @returns パース済みのClaudeEvent、または失敗時はnull
+   */
+  private parseClaudeEventSafe(raw: string) {
+    try {
+      const parsed = JSON.parse(raw) as SDKMessage;
+      if (!parsed || typeof parsed !== 'object') {
+        return null;
+      }
+      return parseClaudeEvent(parsed);
+    } catch {
+      return null;
+    }
   }
 
   /**
