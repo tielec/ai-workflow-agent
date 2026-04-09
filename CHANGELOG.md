@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #832**: Codex Agent の正常完了後に認証失敗が誤検知され、Claude Agent へ不要なフォールバックが発動する問題を修正
+  - `AgentExecutor` の `authFailed` 判定ロジックを、生文字列の `includes` による判定から JSON 構造化イベントのみを対象とする `detectAuthFailure()` プライベートメソッドへ置き換え
+  - `messages` に exec stdout 経由でソースコード文字列（例: `export const x = 'authentication_error';`）が混入しても誤検知しないことを保証
+  - Codex / Claude 両エージェントの `type === 'error'` イベントのみを検査対象とし、`error.type === 'authentication_error'` または `error.message` に `invalid bearer token` / `please run /login` を含む場合のみ認証失敗と判定
+  - Claude 用の安全な JSON パース補助 `parseClaudeEventSafe()` を追加し、パース失敗時は判定対象から除外
+  - 既存ヘルパー `parseCodexEvent` / `parseClaudeEvent`（`src/core/helpers/agent-event-parser.ts`）を再利用し、新規依存関係の追加なし
+  - 修正ファイル: `src/phases/core/agent-executor.ts`
+  - テストカバレッジ: ユニットテスト8件を新規追加（誤検知防止2件・正検知3件・異常系1件・境界値1件・Claude経路1件）、既存テスト2件をJSON構造化イベント形式に更新（`tests/unit/phases/core/agent-executor.test.ts`）、全 92 テスト PASS
+
 ### Changed
 
 - **Issue #786**: `buildEnvironmentInfoSection()` のインストールコマンドに `sudo` プレフィックスを付与し、権限エラー時の代替手段を追加
