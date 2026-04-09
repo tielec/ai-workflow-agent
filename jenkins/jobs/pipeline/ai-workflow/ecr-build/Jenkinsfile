@@ -1,30 +1,48 @@
 /**
- * AI Workflow - ECR Image Build & Push
+ * AI Workflow - ECR Image Build & Push (Multi-arch)
  *
- * ECRへのDockerイメージビルド・プッシュと古いイメージの自動削除を行うJenkinsfile。
- * 1日1回のcronトリガーで自動実行。手動実行もサポート。
+ * ECRへのマルチアーキDockerイメージ（linux/amd64 + linux/arm64）のビルド・プッシュと
+ * 古いイメージの自動削除を行うJenkinsfile。
+ * 週1回（日曜深夜）のcronトリガーで自動実行。急ぎの場合は手動実行も可能。
+ *
+ * マルチアーキ構成（Issue #821）:
+ * - QEMU (tonistiigi/binfmt) による arm64 ノード上での amd64 エミュレーションビルド
+ * - docker buildx による linux/amd64 + linux/arm64 同時ビルド
+ * - ECR には image index（マニフェストリスト）として :latest / :build-<N> を push
+ * - 利用側 Job（ecr-verify / all-phases など）は変更不要
  *
  * パラメータ（Job DSLで定義）:
  * - AWS_REGION: AWSリージョン（デフォルト: ap-northeast-1）
  * - ECR_REPOSITORY_NAME: ECRリポジトリ名（デフォルト: ai-workflow-agent）
  * - IMAGE_RETENTION_COUNT: 保持するイメージ世代数（デフォルト: 2）
- * * AWS_ACCOUNT_IDはAWS STS (get-caller-identity) から自動取得
- * * AWS認証はEC2インスタンスプロファイルを使用
+ *
+ * 前提条件（ec2-fleet-medium ノード）:
+ * - docker 19.03+（buildx 対応）
+ * - docker run --privileged が許可されていること（binfmt 登録のため）
+ * - amazon-ecr-credential-helper (docker-credential-ecr-login) がインストール済み（Issue #815 と統一）
+ * - ECR への push 権限（EC2 インスタンスプロファイル）
+ *
+ * ノート:
+ * - QEMU エミュレーションによりビルド時間が増加する（許容済み）
+ * - AWS_ACCOUNT_ID は AWS STS (get-caller-identity) から自動取得
+ * - AWS 認証は EC2 インスタンスプロファイルを使用
+ *
+ * 検証手順: jenkins/jobs/pipeline/ai-workflow/ecr-build/VERIFY_MULTIARCH.md を参照
  */
 
 pipeline {
     agent {
-        label 'ec2-fleet-micro'
+        label 'ec2-fleet-medium'
     }
 
     triggers {
-        cron('H 2 * * *')
+        cron('H 2 * * 0')
     }
 
     options {
         timestamps()
         ansiColor('xterm')
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
@@ -85,75 +103,127 @@ pipeline {
             }
         }
 
-        stage('ECR Login') {
+        stage('Setup QEMU') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: ECR Login"
+                    echo "Stage: Setup QEMU (binfmt)"
                     echo "========================================="
 
-                    def loginResult = sh(
+                    def qemuResult = sh(
                         script: """
-                            aws ecr get-login-password \
-                                --region ${env.AWS_REGION_VALUE} \
-                            | docker login \
-                                --username AWS \
-                                --password-stdin ${env.ECR_REGISTRY}
+                            docker run --privileged --rm tonistiigi/binfmt:qemu-v8.1.5 --install all
                         """,
                         returnStatus: true
                     )
 
-                    if (loginResult != 0) {
-                        error("ECRログインに失敗しました。AWSリージョン: ${env.AWS_REGION_VALUE}, アカウントID: ${env.AWS_ACCOUNT_ID_VALUE}")
+                    if (qemuResult != 0) {
+                        error("QEMU binfmt の登録に失敗しました。`docker run --privileged` が許可されているか確認してください。")
                     }
 
-                    echo "ECRログイン成功: ${env.ECR_REGISTRY}"
+                    echo "QEMU binfmt の登録に成功しました"
                 }
             }
         }
 
-        stage('Docker Build') {
+        stage('Setup Buildx') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Docker Build"
+                    echo "Stage: Setup Buildx"
                     echo "========================================="
 
-                    echo "Building Docker image: ${env.ECR_IMAGE_NAME}"
+                    def buildxVersionResult = sh(
+                        script: "docker buildx version",
+                        returnStatus: true
+                    )
+
+                    if (buildxVersionResult != 0) {
+                        error("docker buildx が利用できません。Docker 19.03 以降がインストールされているか確認してください。")
+                    }
+
+                    def builderResult = sh(
+                        script: """
+                            docker buildx create --name multiarch-builder --use --bootstrap \
+                            || docker buildx use multiarch-builder
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (builderResult != 0) {
+                        error("buildx builder の作成/切り替えに失敗しました。buildx の状態を確認してください。")
+                    }
+
+                    sh "docker buildx inspect --bootstrap"
+                }
+            }
+        }
+
+        stage('Verify ECR Credential Helper') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Verify ECR Credential Helper"
+                    echo "========================================="
+                    echo "amazon-ecr-credential-helper による自動認証を使用（Issue #815 と統一）"
+
+                    def helperResult = sh(
+                        script: "docker-credential-ecr-login version",
+                        returnStatus: true
+                    )
+
+                    if (helperResult != 0) {
+                        error("docker-credential-ecr-login が見つかりません。ノードに amazon-ecr-credential-helper をインストールしてください。")
+                    }
+
+                    // リポジトリへの到達性も併せて確認
+                    def verifyResult = sh(
+                        script: """
+                            aws ecr describe-repositories \
+                                --repository-names ${env.ECR_REPOSITORY_NAME_VALUE} \
+                                --region ${env.AWS_REGION_VALUE} \
+                                --query 'repositories[0].repositoryUri' \
+                                --output text
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (verifyResult != 0) {
+                        error("ECRリポジトリへのアクセスに失敗しました。IAM設定を確認してください。リージョン: ${env.AWS_REGION_VALUE}, リポジトリ: ${env.ECR_REPOSITORY_NAME_VALUE}")
+                    }
+
+                    echo "ECR credential helper 検出済み（buildx push 時に自動認証されます）"
+                }
+            }
+        }
+
+        stage('Docker Buildx Build & Push') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Docker Buildx Build & Push"
+                    echo "========================================="
+
+                    echo "Building multi-arch Docker image: ${env.ECR_IMAGE_NAME}"
+                    echo "Platforms: linux/amd64, linux/arm64"
                     echo "Tags: latest, build-${env.BUILD_NUMBER}"
 
                     sh """
-                        docker build \
+                        docker buildx build \
+                            --builder multiarch-builder \
+                            --platform linux/amd64,linux/arm64 \
+                            --provenance=false \
+                            --sbom=false \
                             -t ${env.ECR_IMAGE_NAME}:latest \
                             -t ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
+                            --push \
                             .
                     """
 
-                    echo "Docker build completed successfully"
-                    sh "docker images | grep ${env.ECR_REPOSITORY_NAME_VALUE} || true"
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                script {
-                    echo "========================================="
-                    echo "Stage: Docker Push"
-                    echo "========================================="
-
-                    sh """
-                        echo "Pushing latest tag..."
-                        docker push ${env.ECR_IMAGE_NAME}:latest
-
-                        echo "Pushing build-${env.BUILD_NUMBER} tag..."
-                        docker push ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}
-                    """
-
-                    echo "Docker push completed successfully"
+                    echo "Docker buildx build & push completed successfully"
                     echo "Pushed images:"
-                    echo "  - ${env.ECR_IMAGE_NAME}:latest"
-                    echo "  - ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER}"
+                    echo "  - ${env.ECR_IMAGE_NAME}:latest (multi-arch)"
+                    echo "  - ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} (multi-arch)"
 
                     sh """
                         aws ecr describe-images \
@@ -163,6 +233,18 @@ pipeline {
                             --query 'imageDetails[0].{digest:imageDigest,tags:imageTags,pushedAt:imagePushedAt}' \
                             --output table \
                         || echo "Warning: Could not retrieve image details"
+                    """
+
+                    sh """
+                        echo "Inspecting manifest for latest tag..."
+                        docker manifest inspect ${env.ECR_IMAGE_NAME}:latest \
+                        || echo "Warning: Could not inspect manifest for latest tag"
+                    """
+
+                    sh """
+                        echo "Inspecting manifest for build-${env.BUILD_NUMBER} tag..."
+                        docker manifest inspect ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} \
+                        || echo "Warning: Could not inspect manifest for build-${env.BUILD_NUMBER} tag"
                     """
                 }
             }
@@ -268,12 +350,9 @@ pipeline {
                 echo "Post Processing: Cleanup"
                 echo "========================================="
 
-                sh """
-                    echo "Cleaning up local Docker images..."
-                    docker rmi ${env.ECR_IMAGE_NAME}:latest || true
-                    docker rmi ${env.ECR_IMAGE_NAME}:build-${env.BUILD_NUMBER} || true
-                    echo "Local Docker images cleaned up"
-                """
+                echo "buildx --push 構成のためローカルイメージの削除は不要です"
+
+                sh "docker buildx prune -f --keep-storage 5GB || true"
 
                 echo "Build result: ${currentBuild.currentResult}"
             }

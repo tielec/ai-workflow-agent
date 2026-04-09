@@ -54,6 +54,8 @@
    mkdir -p ~/.codex
    echo '{"api_key": "sk-code-xxxxxxxxxxxxx"}' > ~/.codex/auth.json
    ```
+   - Jenkins では `CODEX_AUTH_JSON` パラメータに `auth.json` の内容を渡すと、`prepareCodexAuthFile()` が `WORKSPACE_TMP/codex-auth-*/auth.json` を作成し、`~/.codex/auth.json` にコピーします（いずれも `chmod 600`）。
+   - 書き込みは `sh` ブロック内に一本化され、`writeFile` 由来の UID/権限不整合を回避します。
 
 ### Claude 系
 
@@ -255,6 +257,8 @@ node dist/index.js execute --issue 123 --phase all --network-health-check --netw
 - Docker環境では Dockerfile で明示的に `true` を設定
 - エージェントが必要に応じて多言語環境（Python、Go、Java、Rust、Ruby）をインストール可能
 - **セキュリティ**: デフォルトは無効、Docker内部のみで有効化を推奨
+- `jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile` の Verify Container ステージでは、コンテナ内で `AGENT_CAN_INSTALL_PACKAGES` を確認するために `docker run --rm <image> sh -c 'echo \$AGENT_CAN_INSTALL_PACKAGES'` を実行し、`PASS: AGENT_CAN_INSTALL_PACKAGES` / `FAIL: AGENT_CAN_INSTALL_PACKAGES` をログに出力します。Groovy が `$` を展開しないよう `\$` でエスケープしている点に注意してください。
+- このチェックが `FAIL` になるとパイプラインが `failed` リストに `AGENT_CAN_INSTALL_PACKAGES` を追加して最終的に失敗するため、Dockerfile 側または Jenkins パラメータで `AGENT_CAN_INSTALL_PACKAGES=true` を設定しておくことで、追加ランタイムの自動インストール指示が出るようになります。
 
 **設定例**:
 ```bash
@@ -339,6 +343,9 @@ env:
 | `jenkins/jobs/pipeline/ai-workflow/auto-close-issue/Jenkinsfile` | Issue自動クローズ |
 | `jenkins/jobs/pipeline/ai-workflow/pr-comment-execute/Jenkinsfile` | PRコメント自動対応（実行） |
 | `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` | PRコメント自動対応（最終化） |
+| `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile` | PRマージコンフリクト自動解消 |
+| `jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile` | サブIssue作成 |
+| `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` | ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応） |
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ

@@ -45,7 +45,9 @@ jenkins/
 │   │       ├── validate-credentials/
 │   │       │   ├── Jenkinsfile
 │   │       │   └── README.md
-│   │       └── ecr-build/
+│   │       ├── ecr-build/
+│   │       │   └── Jenkinsfile
+│   │       └── ecr-verify/
 │   │           └── Jenkinsfile
 │   └── dsl/
 │       ├── folders.groovy               # フォルダ作成DSL
@@ -65,6 +67,7 @@ jenkins/
 │           ├── ai_workflow_create_sub_issue_job.groovy
 │           ├── ai_workflow_validate_credentials_job.groovy
 │           ├── ai_workflow_ecr_build_job.groovy
+│           ├── ai_workflow_ecr_verify_job.groovy
 │           └── TEST_PLAN.md
 └── shared/
     └── common.groovy                    # 共通処理モジュール
@@ -90,7 +93,8 @@ jenkins/
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
 | **create_sub_issue** | サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成） | 18 |
 | **validate_credentials** | 認証情報バリデーション（Git/GitHub/Codex/Claude/OpenAI/Anthropic） | 17 |
-| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、developフォルダのみ） | 3 |
+| **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応、developフォルダのみ） | 3 |
+| **ecr_verify** | ECRイメージ動作確認（ecr-build後の定期検証、developフォルダのみ） | 3 |
 
 ### 言語設定
 
@@ -186,7 +190,8 @@ AI_Workflow/
 │   ├── resolve_conflict
 │   ├── create_sub_issue
 │   ├── validate_credentials
-│   └── ecr_build
+│   ├── ecr_build
+│   └── ecr_verify
 ├── stable-1/          # mainブランチ用（安定バージョン）
 │   └── ...
 ├── stable-2/
@@ -215,7 +220,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（13種類 × 10フォルダ + ecr_build × 1フォルダ = 131ジョブ）
+- 各実行モード用のジョブ（13種類 × 10フォルダ + ecr_build × 1フォルダ + ecr_verify × 1フォルダ = 132ジョブ）
 
 ## 共通処理モジュール
 
@@ -228,7 +233,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 | 関数名 | 説明 |
 |-------|------|
 | `prepareAgentCredentials()` | エージェント実行に必要な認証情報準備（GitHub、OpenAI、Codex、Claude、AWS） |
-| `prepareCodexAuthFile()` | CODEX_AUTH_JSONパラメータから一時的なauth.jsonを展開 |
+| `prepareCodexAuthFile()` | `CODEX_AUTH_JSON` から `WORKSPACE_TMP` 配下に `auth.json` を生成し、`~/.codex/auth.json` にコピー（`chmod 600`、`sh` で書き込み） |
 | `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
 | `setupNodeEnvironment()` | Node.js環境確認とnpm install & build実行 |
 | `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |
