@@ -106,6 +106,25 @@ nvm use --lts
 
 **注意**: v0.5.0 以降（Issue #150）では、stdin パイプ失敗時に即座に明確なエラーメッセージが返されるようになりました。以前のバージョンでは、タイムアウトまでハングしていました。
 
+### `java.nio.file.AccessDeniedException`（Prepare Codex auth.json）
+
+**症状**:
+- Jenkins の `Prepare Codex auth.json` ステージで `java.nio.file.AccessDeniedException` が発生する
+- `CODEX_AUTH_JSON` が設定されているにもかかわらず `auth.json` の書き込みに失敗する
+
+**原因**:
+- `writeFile`（Jenkins remoting）で作成しようとしたファイルが、`sh` ステップで作成したディレクトリと UID/権限が合わず書き込み不能になる
+- Docker エージェントが `-u root:root` で起動している場合、`writeFile` の実行ユーザーと異なるため発生しやすい
+
+**対処法**:
+1. `jenkins/shared/common.groovy` の `prepareCodexAuthFile()` が `sh` ベースの実装であることを確認する（`writeFile` を使わない）。
+2. `WORKSPACE_TMP` 配下に `codex-auth-*` が作成できる権限があるか確認する（`id`, `ls -la` をログで確認）。
+3. 既存の Jenkinsfile / 共有ライブラリで `writeFile` を使って `auth.json` を生成している場合は、`prepareCodexAuthFile()` に処理を集約する。
+
+**確認ポイント**:
+- `CODEX_AUTH_JSON is empty; skipping Codex auth setup.` が出ていない（パラメータが空ではない）
+- `auth.json` が `WORKSPACE_TMP/codex-auth-*/auth.json` と `~/.codex/auth.json` の両方に存在し、権限が `600`
+
 ### `The 'gpt-4o' model is not supported when using Codex with a ChatGPT account.`（Issue #625で修正）
 
 **症状**:

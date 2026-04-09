@@ -233,7 +233,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 | 関数名 | 説明 |
 |-------|------|
 | `prepareAgentCredentials()` | エージェント実行に必要な認証情報準備（GitHub、OpenAI、Codex、Claude、AWS） |
-| `prepareCodexAuthFile()` | CODEX_AUTH_JSONパラメータから一時的なauth.jsonを展開 |
+| `prepareCodexAuthFile()` | `CODEX_AUTH_JSON` から `WORKSPACE_TMP` 配下に `auth.json` を生成し、`~/.codex/auth.json` にコピー（`chmod 600`、`sh` で書き込み） |
 | `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
 | `setupNodeEnvironment()` | Node.js環境確認とnpm install & build実行 |
 | `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |

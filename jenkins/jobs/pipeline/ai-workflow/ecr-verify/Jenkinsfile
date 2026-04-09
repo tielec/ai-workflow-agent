@@ -87,23 +87,26 @@ pipeline {
             }
         }
 
-        stage('Verify ECR Credential Helper') {
+        stage('ECR Login') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Verify ECR Credential Helper"
+                    echo "Stage: ECR Login"
                     echo "========================================="
 
-                    def helperResult = sh(
-                        script: "docker-credential-ecr-login version",
+                    def loginResult = sh(
+                        script: """
+                            aws ecr get-login-password --region ${env.AWS_REGION_VALUE} \
+                            | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}
+                        """,
                         returnStatus: true
                     )
 
-                    if (helperResult != 0) {
-                        error("ECR credential helper が見つかりません。docker-credential-ecr-login がインストールされていることを確認してください。")
+                    if (loginResult != 0) {
+                        error("ECRログインに失敗しました。IAM設定とECRレジストリを確認してください。")
                     }
 
-                    echo "ECR credential helper 検出済み（docker pull 時に自動認証されます）"
+                    echo "ECR login succeeded"
                 }
             }
         }

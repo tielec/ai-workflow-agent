@@ -112,9 +112,7 @@ def prepareCodexAuthFile() {
     }
 
     if (env.WORKSPACE?.trim()) {
-        sh """
-            rm -rf '${env.WORKSPACE}/.codex'
-        """
+        sh 'rm -rf "${WORKSPACE}/.codex"'
     }
 
     def workspaceTmp = env.WORKSPACE_TMP ?: "${env.WORKSPACE}@tmp"
@@ -122,29 +120,46 @@ def prepareCodexAuthFile() {
     def codexHome = "${workspaceTmp}/codex-auth-${codexSuffix}"
     def authFilePath = "${codexHome}/auth.json"
 
-    sh """
-        mkdir -p '${codexHome}'
-    """
+    // 機密情報は環境変数経由でシェルに渡し、書き込みは sh に一本化
+    withEnv([
+        "CODEX_AUTH_JSON_VALUE=${codexAuth}",
+        "CODEX_HOME_DIR=${codexHome}",
+        "AUTH_FILE_PATH=${authFilePath}"
+    ]) {
+        sh '''
+            set +x
+            set -e
 
-    writeFile file: authFilePath, text: codexAuth
+            # 1) 書き込み先ディレクトリを作成
+            mkdir -p "$CODEX_HOME_DIR"
 
-    sh """
-        chmod 600 '${authFilePath}'
-    """
+            # 2) printf で auth.json を書き込み（シェル展開を経由せず変数参照のみ）
+            if ! printf '%s' "$CODEX_AUTH_JSON_VALUE" > "$AUTH_FILE_PATH"; then
+                echo "[ERROR] Failed to write auth.json"
+                rm -f "$AUTH_FILE_PATH"
+                exit 1
+            fi
 
-    // Copy to HOME/.codex/auth.json so codex CLI auto-detects credentials
-    def shellHome = sh(script: 'echo $HOME', returnStdout: true)?.trim()
-    if (!shellHome) {
-        shellHome = env.HOME ?: '/root'
+            # 3) パーミッション 600
+            chmod 600 "$AUTH_FILE_PATH"
+
+            # 4) Codex CLI デフォルトパス (~/.codex/auth.json) へコピー
+            HOME_DIR="${HOME:-/root}"
+            HOME_CODEX_DIR="$HOME_DIR/.codex"
+            HOME_AUTH_FILE="$HOME_CODEX_DIR/auth.json"
+            mkdir -p "$HOME_CODEX_DIR"
+            cp "$AUTH_FILE_PATH" "$HOME_AUTH_FILE"
+            chmod 600 "$HOME_AUTH_FILE"
+
+            # 5) デバッグログ（機密情報を含まないもののみ）
+            echo "[INFO] id: $(id)"
+            echo "[INFO] auth file listing:"
+            ls -la "$AUTH_FILE_PATH" "$HOME_AUTH_FILE"
+        '''
     }
-    def homeCodexDir = "${shellHome}/.codex"
-    def homeAuthPath = "${homeCodexDir}/auth.json"
 
-    sh """
-        mkdir -p '${homeCodexDir}'
-        cp '${authFilePath}' '${homeAuthPath}'
-        chmod 600 '${homeAuthPath}'
-    """
+    def shellHome = env.HOME ?: '/root'
+    def homeAuthPath = "${shellHome}/.codex/auth.json"
 
     env.CODEX_HOME = codexHome
     echo "Codex auth.json prepared at ${authFilePath}"
