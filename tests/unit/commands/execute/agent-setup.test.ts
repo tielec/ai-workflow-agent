@@ -72,7 +72,7 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../../src/core/claude-agent-client.js', async () => {
     const CLAUDE_MODEL_ALIASES = {
       opus: 'claude-opus-4-6',
-      sonnet: 'claude-sonnet-4-5',
+      sonnet: 'claude-sonnet-4-6',
       haiku: 'claude-haiku-4-5',
     };
     const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-6';

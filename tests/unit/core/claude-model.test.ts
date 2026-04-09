@@ -12,7 +12,7 @@ const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-6';
 
 const CLAUDE_MODEL_ALIASES: Record<string, string> = {
   opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-5',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5',
 };
 
@@ -61,7 +61,7 @@ describe('resolveClaudeModel', () => {
 
     test('resolves "sonnet" alias to full model ID', () => {
       const result = resolveClaudeModel('sonnet');
-      expect(result).toBe('claude-sonnet-4-5');
+      expect(result).toBe('claude-sonnet-4-6');
     });
 
     test('resolves "haiku" alias to full model ID', () => {
@@ -71,19 +71,19 @@ describe('resolveClaudeModel', () => {
 
     test('resolves aliases case-insensitively (uppercase)', () => {
       expect(resolveClaudeModel('OPUS')).toBe('claude-opus-4-6');
-      expect(resolveClaudeModel('SONNET')).toBe('claude-sonnet-4-5');
+      expect(resolveClaudeModel('SONNET')).toBe('claude-sonnet-4-6');
       expect(resolveClaudeModel('HAIKU')).toBe('claude-haiku-4-5');
     });
 
     test('resolves aliases case-insensitively (mixed case)', () => {
       expect(resolveClaudeModel('Opus')).toBe('claude-opus-4-6');
-      expect(resolveClaudeModel('SoNnEt')).toBe('claude-sonnet-4-5');
+      expect(resolveClaudeModel('SoNnEt')).toBe('claude-sonnet-4-6');
       expect(resolveClaudeModel('HaIkU')).toBe('claude-haiku-4-5');
     });
 
     test('trims whitespace from aliases', () => {
       expect(resolveClaudeModel('  opus  ')).toBe('claude-opus-4-6');
-      expect(resolveClaudeModel('\tsonnet\t')).toBe('claude-sonnet-4-5');
+      expect(resolveClaudeModel('\tsonnet\t')).toBe('claude-sonnet-4-6');
     });
   });
 
@@ -119,8 +119,8 @@ describe('CLAUDE_MODEL_ALIASES', () => {
     expect(CLAUDE_MODEL_ALIASES.opus).toBe('claude-opus-4-6');
   });
 
-  test('sonnet alias maps to Sonnet 4.5 model', () => {
-    expect(CLAUDE_MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-5');
+  test('sonnet alias maps to Sonnet 4.6 model', () => {
+    expect(CLAUDE_MODEL_ALIASES.sonnet).toBe('claude-sonnet-4-6');
   });
 
   test('haiku alias maps to Haiku 4.5 model', () => {
