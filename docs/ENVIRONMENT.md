@@ -85,7 +85,7 @@
    export CLAUDE_MODEL="sonnet"  # opus, sonnet, haiku
 
    # フルモデルIDを使用
-   export CLAUDE_MODEL="claude-sonnet-4-5"
+   export CLAUDE_MODEL="claude-sonnet-4-6"
    ```
 
 **モデルエイリアス**:
@@ -93,7 +93,7 @@
 | エイリアス | 実際のモデル ID | 説明 |
 |-----------|----------------|------|
 | `opus` | `claude-opus-4-6` | **デフォルト**。最高性能、複雑なタスク向け |
-| `sonnet` | `claude-sonnet-4-5` | バランス型、コスト効率良好 |
+| `sonnet` | `claude-sonnet-4-6` | バランス型、コスト効率良好 |
 | `haiku` | `claude-haiku-4-5` | 高速・低コスト、シンプルなタスク向け |
 
 ### Codex モデル指定（Issue #302）
@@ -219,7 +219,7 @@ export OPENAI_API_KEY="sk-..."
 
 # Claude を使用
 export FOLLOWUP_LLM_MODE="claude"
-export FOLLOWUP_LLM_MODEL="claude-sonnet-4-5"
+export FOLLOWUP_LLM_MODEL="claude-sonnet-4-6"
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
@@ -349,6 +349,31 @@ env:
 
 **共通処理モジュール**:
 - `jenkins/shared/common.groovy` … 認証情報準備、環境セットアップ、Node.js環境、成果物アーカイブ
+
+**Docker エージェント方式（Issue #828 で統一）**:
+
+`ecr-build` / `ecr-verify` を除く上記 13 個の Jenkinsfile と `all-phases/Jenkinsfile` は、`ecr-build` が定期ビルドする ECR 上の事前ビルド済み Docker image をエージェントとして使用する方式に統一されています。
+
+- **image**: `621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest`
+- **label**: `ec2-fleet-micro`（軽量ジョブ向け。`all-phases` のみ `ec2-fleet-small`）
+- **args**: `-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1`
+
+```groovy
+agent {
+    docker {
+        image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'
+        label 'ec2-fleet-micro'
+        args "-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+    }
+}
+```
+
+この方式により、ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と `ecr-build` が供給する image との整合性が担保されます。image の更新は `ecr-build` ジョブの定期実行に一元化されるため、Jenkinsfile 側の変更なしに最新ランタイムへ追随できます。
+
+**前提条件**:
+- `ec2-fleet-micro` / `ec2-fleet-small` の EC2 インスタンスロールに ECR (`ap-northeast-1`) からの pull 権限（`ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`）が付与されていること
+- `ecr-build/Jenkinsfile` と `ecr-verify/Jenkinsfile` は本統一対象外（image ビルド側のジョブのため、従来通り node agent を使用）
+- リポジトリルートの `Dockerfile` は `ecr-build` がビルド入力として継続使用するため、削除せず保持されます
 
 **旧Jenkinsfile（非推奨）**:
 - `Jenkinsfile` - 汎用Jenkinsfile（Issue #211により非推奨、2025年3月以降削除予定）

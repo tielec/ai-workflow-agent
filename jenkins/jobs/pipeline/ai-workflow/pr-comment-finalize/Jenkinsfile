@@ -15,11 +15,10 @@ def common
 
 pipeline {
     agent {
-        dockerfile {
+        docker {
+            image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'
             label 'ec2-fleet-micro'
-            dir '.'
-            filename 'Dockerfile'
-            args "-v \${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+            args "-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
         }
     }
 
