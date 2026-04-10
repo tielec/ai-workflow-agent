@@ -237,8 +237,7 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('node -e');
-    expect(setupNodeBlock).toContain("require('./dist/index.js')");
+    expect(setupNodeBlock).toContain('node dist/index.js check');
   });
 
   it('IT-833-007: セーフティネット検証成功メッセージが含まれている', () => {
@@ -248,11 +247,11 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     expect(setupNodeBlock).toContain('ECR image artifacts verified successfully');
   });
 
-  it('IT-833-008: セーフティネット検証の標準エラー抑制が含まれている', () => {
+  it('IT-833-008: セーフティネット検証の stdout/stderr 抑制が含まれている', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('2>/dev/null');
+    expect(setupNodeBlock).toContain('>/dev/null 2>&1');
   });
 
   it('IT-833-009: node_modules と dist の両方存在チェックが含まれている', () => {
