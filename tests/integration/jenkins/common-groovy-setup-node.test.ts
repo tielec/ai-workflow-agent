@@ -237,7 +237,7 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('node dist/index.js --help');
+    expect(setupNodeBlock).toContain('node dist/index.js check');
   });
 
   it('IT-833-007: セーフティネット検証成功メッセージが含まれている', () => {

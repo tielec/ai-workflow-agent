@@ -644,6 +644,14 @@ export async function runCli(): Promise<void> {
       }
     });
 
+  // check コマンド — ビルド成果物の簡易ヘルスチェック（CI セットアップ検証用）
+  program
+    .command('check')
+    .description('Verify that build artifacts are loadable (used by CI setup)')
+    .action(() => {
+      process.stdout.write('ok\n');
+    });
+
   await program.parseAsync(process.argv);
 }
 
