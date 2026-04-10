@@ -288,21 +288,19 @@ def setupEnvironment() {
 }
 
 /**
- * Node.js環境セットアップ — ECR イメージ成果物の symlink 再利用方式
+ * Node.js環境セットアップ — ECR イメージの node_modules を symlink 再利用 + dist は毎回ビルド
  *
  * 処理内容:
  * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
- * 2. ECR イメージ内の事前ビルド済み成果物（/workspace/node_modules、/workspace/dist）を
- *    symlink で Jenkins ワークスペースから参照
- * 3. セーフティネット検証（node dist/index.js check）で成果物の整合性を確認
- * 4. 検証失敗時はフォールバック: symlink 削除 → npm ci --include=dev → npm run build
- * 5. ECR 成果物が存在しない場合: npm install（dev含む）→ npm run build
+ * 2. ECR イメージ内の /workspace/node_modules を symlink で再利用（npm install スキップ）
+ *    - package.json の dependencies 差分を検出し、乖離があればフォールバック
+ * 3. dist は常に npm run build で生成（ソースコードとの整合性を保証）
  *
  * 前提条件:
  * - WORKFLOW_DIR が設定済み（既定: '.'）
- * - ECR イメージ内の /workspace/node_modules と /workspace/dist が利用可能であること
+ * - ECR イメージ内の /workspace/node_modules が利用可能であること
  *   （利用不可の場合はフォールバック）
- * - package.json が存在する（フォールバック時に使用）
+ * - package.json が存在する
  */
 def setupNodeEnvironment() {
     echo "========================================="
@@ -323,31 +321,39 @@ def setupNodeEnvironment() {
             echo "HOME directory: $HOME"
 
             echo ""
-            # ECR イメージに焼かれた node_modules/dist を symlink で再利用
+            # ECR イメージの node_modules を symlink で再利用（npm install スキップ）
             if [ -d /workspace/node_modules ] && [ ! -e node_modules ]; then
-                echo "Linking pre-built node_modules from ECR image..."
-                ln -s /workspace/node_modules node_modules
-            fi
-            if [ -d /workspace/dist ] && [ ! -e dist ]; then
-                echo "Linking pre-built dist from ECR image..."
-                ln -s /workspace/dist dist
+                # package.json の dependencies が ECR イメージと一致するか検証
+                if [ -f /workspace/package.json ] && command -v node >/dev/null 2>&1; then
+                    DEPS_MATCH=$(node -e "
+                        const fs = require('fs');
+                        const a = JSON.parse(fs.readFileSync('/workspace/package.json', 'utf8'));
+                        const b = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+                        const same = JSON.stringify(a.dependencies) === JSON.stringify(b.dependencies)
+                            && JSON.stringify(a.devDependencies) === JSON.stringify(b.devDependencies);
+                        process.stdout.write(same ? 'yes' : 'no');
+                    " 2>/dev/null || echo "no")
+                else
+                    DEPS_MATCH="no"
+                fi
+
+                if [ "$DEPS_MATCH" = "yes" ]; then
+                    echo "Linking pre-built node_modules from ECR image (dependencies match)..."
+                    ln -s /workspace/node_modules node_modules
+                else
+                    echo "WARNING: package.json dependencies differ from ECR image. Running npm install..."
+                    npm install --include=dev
+                fi
+            elif [ ! -e node_modules ]; then
+                echo "WARNING: ECR image node_modules not found. Running npm install..."
+                npm install --include=dev
+            else
+                echo "node_modules already exists. Skipping."
             fi
 
-            # セーフティネット: 成果物の整合性を検証
-            if [ -e node_modules ] && [ -e dist ]; then
-                if node dist/index.js check >/dev/null 2>&1; then
-                    echo "ECR image artifacts verified successfully. Skipping npm install & build."
-                else
-                    echo "WARNING: ECR image artifacts verification failed. Falling back to full install & build..."
-                    rm -f node_modules dist
-                    npm ci --include=dev
-                    npm run build
-                fi
-            else
-                echo "WARNING: ECR image artifacts not found. Running full install & build..."
-                npm install --include=dev
-                npm run build
-            fi
+            echo ""
+            echo "Building TypeScript sources..."
+            npm run build
         '''
     }
 }
