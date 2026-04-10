@@ -292,14 +292,14 @@ def setupEnvironment() {
  *
  * 処理内容:
  * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
- * 2. ECR イメージ内の /workspace/node_modules を symlink で再利用（npm install スキップ）
- *    - package.json の dependencies 差分を検出し、乖離があればフォールバック
+ * 2. ECR イメージ内の node_modules（/workspace/node_modules）を symlink で再利用
+ *    → package.json の dependencies 差分を検出し、乖離時は npm ci でフォールバック
+ *    → ECR 成果物が存在しない場合は npm install でフォールバック
  * 3. dist は常に npm run build で生成（ソースコードとの整合性を保証）
  *
  * 前提条件:
  * - WORKFLOW_DIR が設定済み（既定: '.'）
- * - ECR イメージ内の /workspace/node_modules が利用可能であること
- *   （利用不可の場合はフォールバック）
+ * - ECR イメージ内の /workspace/node_modules が利用可能であること（利用不可の場合はフォールバック）
  * - package.json が存在する
  */
 def setupNodeEnvironment() {
@@ -321,34 +321,26 @@ def setupNodeEnvironment() {
             echo "HOME directory: $HOME"
 
             echo ""
-            # ECR イメージの node_modules を symlink で再利用（npm install スキップ）
+            # node_modules: ECR イメージの成果物を symlink で再利用
             if [ -d /workspace/node_modules ] && [ ! -e node_modules ]; then
-                # package.json の dependencies が ECR イメージと一致するか検証
-                if [ -f /workspace/package.json ] && command -v node >/dev/null 2>&1; then
-                    DEPS_MATCH=$(node -e "
-                        const fs = require('fs');
-                        const a = JSON.parse(fs.readFileSync('/workspace/package.json', 'utf8'));
-                        const b = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
-                        const same = JSON.stringify(a.dependencies) === JSON.stringify(b.dependencies)
-                            && JSON.stringify(a.devDependencies) === JSON.stringify(b.devDependencies);
-                        process.stdout.write(same ? 'yes' : 'no');
-                    " 2>/dev/null || echo "no")
-                else
-                    DEPS_MATCH="no"
-                fi
-
-                if [ "$DEPS_MATCH" = "yes" ]; then
-                    echo "Linking pre-built node_modules from ECR image (dependencies match)..."
+                # package.json の dependencies が一致するか検証
+                if [ -f /workspace/package.json ] && \
+                   node -e "
+                     const a = require('/workspace/package.json');
+                     const b = require('./package.json');
+                     const eq = JSON.stringify(a.dependencies) === JSON.stringify(b.dependencies) &&
+                                JSON.stringify(a.devDependencies) === JSON.stringify(b.devDependencies);
+                     process.exit(eq ? 0 : 1);
+                   " 2>/dev/null; then
+                    echo "Linking pre-built node_modules from ECR image..."
                     ln -s /workspace/node_modules node_modules
                 else
-                    echo "WARNING: package.json dependencies differ from ECR image. Running npm install..."
-                    npm install --include=dev
+                    echo "WARNING: package.json dependencies mismatch. Running npm ci..."
+                    npm ci --include=dev
                 fi
             elif [ ! -e node_modules ]; then
                 echo "WARNING: ECR image node_modules not found. Running npm install..."
                 npm install --include=dev
-            else
-                echo "node_modules already exists. Skipping."
             fi
 
             echo ""

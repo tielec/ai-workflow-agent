@@ -370,7 +370,7 @@ agent {
 
 この方式により、ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と `ecr-build` が供給する image との整合性が担保されます。image の更新は `ecr-build` ジョブの定期実行に一元化されるため、Jenkinsfile 側の変更なしに最新ランタイムへ追随できます。
 
-また、`setupNodeEnvironment()` は ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`package.json` の dependencies/devDependencies が ECR イメージと一致する場合に `npm install` をスキップします。`dist` は常に `npm run build` で生成するため、ソースコードとの整合性が保証されます。dependencies が乖離している場合や ECR 成果物が存在しない場合は、従来通り `npm install --include=dev` と `npm run build` にフォールバックします。
+また、`setupNodeEnvironment()` は ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`package.json` の dependencies/devDependencies の差分を検出して乖離時は `npm ci` でフォールバックします。`dist` は常に `npm run build` で生成し、ソースコードとの整合性を保証します。
 
 **前提条件**:
 - `ec2-fleet-micro` / `ec2-fleet-small` の EC2 インスタンスロールに ECR (`ap-northeast-1`) からの pull 権限（`ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`）が付与されていること
