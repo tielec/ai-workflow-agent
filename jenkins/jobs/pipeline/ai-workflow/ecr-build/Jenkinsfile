@@ -32,17 +32,17 @@
 
 pipeline {
     agent {
-        label 'ec2-fleet-medium'
+        label 'ec2-fleet-micro'
     }
 
     triggers {
-        cron('H 2 * * 0')
+        cron('H 2 * * *')
     }
 
     options {
         timestamps()
         ansiColor('xterm')
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
@@ -159,40 +159,27 @@ pipeline {
             }
         }
 
-        stage('Verify ECR Credential Helper') {
+        stage('ECR Login') {
             steps {
                 script {
                     echo "========================================="
-                    echo "Stage: Verify ECR Credential Helper"
+                    echo "Stage: ECR Login"
                     echo "========================================="
-                    echo "amazon-ecr-credential-helper による自動認証を使用（Issue #815 と統一）"
+                    echo "ECRログインを実行します"
 
-                    def helperResult = sh(
-                        script: "docker-credential-ecr-login version",
-                        returnStatus: true
-                    )
-
-                    if (helperResult != 0) {
-                        error("docker-credential-ecr-login が見つかりません。ノードに amazon-ecr-credential-helper をインストールしてください。")
-                    }
-
-                    // リポジトリへの到達性も併せて確認
-                    def verifyResult = sh(
+                    def loginResult = sh(
                         script: """
-                            aws ecr describe-repositories \
-                                --repository-names ${env.ECR_REPOSITORY_NAME_VALUE} \
-                                --region ${env.AWS_REGION_VALUE} \
-                                --query 'repositories[0].repositoryUri' \
-                                --output text
+                            aws ecr get-login-password --region ${env.AWS_REGION_VALUE} \
+                            | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}
                         """,
                         returnStatus: true
                     )
 
-                    if (verifyResult != 0) {
-                        error("ECRリポジトリへのアクセスに失敗しました。IAM設定を確認してください。リージョン: ${env.AWS_REGION_VALUE}, リポジトリ: ${env.ECR_REPOSITORY_NAME_VALUE}")
+                    if (loginResult != 0) {
+                        error("ECRログインに失敗しました。IAM設定とECRの到達性を確認してください。リージョン: ${env.AWS_REGION_VALUE}, リポジトリ: ${env.ECR_REPOSITORY_NAME_VALUE}")
                     }
 
-                    echo "ECR credential helper 検出済み（buildx push 時に自動認証されます）"
+                    echo "ECRログインに成功しました"
                 }
             }
         }

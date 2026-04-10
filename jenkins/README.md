@@ -96,6 +96,29 @@ jenkins/
 | **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応、developフォルダのみ） | 3 |
 | **ecr_verify** | ECRイメージ動作確認（ecr-build後の定期検証、developフォルダのみ） | 3 |
 
+### Docker エージェント方式（Issue #828 で統一）
+
+`ecr-build` / `ecr-verify` を除くすべての Jenkinsfile（`all-phases` + 13 個のジョブ）は、`ecr-build` が定期ビルドする ECR 上の Docker image をエージェントとして使用する方式に統一されています。ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と image の整合性が担保されます。
+
+**統一された agent ブロック**:
+
+```groovy
+agent {
+    docker {
+        image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'
+        label 'ec2-fleet-micro'
+        args "-u root:root -v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+    }
+}
+```
+
+- **label**: `ec2-fleet-micro`（軽量ジョブ向け）。`all-phases` のみ `ec2-fleet-small` を使用
+- **image**: `ecr-build` ジョブによって定期的に更新される `:latest` タグを参照
+- **対象外**: `ecr-build/Jenkinsfile` と `ecr-verify/Jenkinsfile` は image のビルド/検証側ジョブのため、従来通り node agent を使用
+- **前提条件**: `ec2-fleet-micro` / `ec2-fleet-small` のインスタンスロールに ECR pull 権限が付与されていること
+
+新規に Jenkinsfile を追加する際は、このテンプレートを雛形として利用してください。
+
 ### 言語設定
 
 すべてのジョブで**ワークフロー言語**を選択できます：
