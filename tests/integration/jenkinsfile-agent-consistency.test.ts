@@ -36,9 +36,6 @@ const EXPECTED_ECR_IMAGE =
   "image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'";
 const EXPECTED_LABEL = "label 'ec2-fleet-micro'";
 const EXPECTED_ARG_SUBSTRINGS = [
-  '-u root:root',
-  '-v ${WORKSPACE}:/workspace',
-  '-w /workspace',
   '-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1',
 ] as const;
 

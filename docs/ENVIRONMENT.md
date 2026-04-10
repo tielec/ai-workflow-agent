@@ -356,14 +356,14 @@ env:
 
 - **image**: `621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest`
 - **label**: `ec2-fleet-micro`（軽量ジョブ向け。`all-phases` のみ `ec2-fleet-small`）
-- **args**: `-u root:root -v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1`
+- **args**: `-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1`
 
 ```groovy
 agent {
     docker {
         image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'
         label 'ec2-fleet-micro'
-        args "-u root:root -v ${WORKSPACE}:/workspace -w /workspace -e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        args "-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
     }
 }
 ```
