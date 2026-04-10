@@ -288,16 +288,21 @@ def setupEnvironment() {
 }
 
 /**
- * Node.js環境確認とnpm install & build実行
+ * Node.js環境セットアップ — ECR イメージ成果物の symlink 再利用方式
  *
  * 処理内容:
- * 1. Node.js環境確認（node --version、npm --version）
- * 2. npm install実行（開発依存含む）
- * 3. npm run build実行（TypeScriptビルド）
+ * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
+ * 2. ECR イメージ内の事前ビルド済み成果物（/workspace/node_modules、/workspace/dist）を
+ *    symlink で Jenkins ワークスペースから参照
+ * 3. セーフティネット検証（node -e "require('./dist/index.js')"）で成果物の整合性を確認
+ * 4. 検証失敗時はフォールバック: symlink 削除 → npm ci --include=dev → npm run build
+ * 5. ECR 成果物が存在しない場合: npm install（dev含む）→ npm run build
  *
  * 前提条件:
- * - WORKFLOW_DIRが設定済み（既定: '.'）
- * - package.jsonが存在する
+ * - WORKFLOW_DIR が設定済み（既定: '.'）
+ * - ECR イメージ内の /workspace/node_modules と /workspace/dist が利用可能であること
+ *   （利用不可の場合はフォールバック）
+ * - package.json が存在する（フォールバック時に使用）
  */
 def setupNodeEnvironment() {
     echo "========================================="
@@ -305,7 +310,7 @@ def setupNodeEnvironment() {
     echo "========================================="
 
     dir(env.WORKFLOW_DIR ?: '.') {
-        sh """
+        sh '''
             echo "Node version:"
             node --version
 
@@ -314,17 +319,36 @@ def setupNodeEnvironment() {
             npm --version
 
             echo ""
-            echo "Current user: \$(whoami)"
-            echo "HOME directory: \$HOME"
+            echo "Current user: $(whoami)"
+            echo "HOME directory: $HOME"
 
             echo ""
-            echo "Installing dependencies (including dev)..."
-            npm install --include=dev
+            # ECR イメージに焼かれた node_modules/dist を symlink で再利用
+            if [ -d /workspace/node_modules ] && [ ! -e node_modules ]; then
+                echo "Linking pre-built node_modules from ECR image..."
+                ln -s /workspace/node_modules node_modules
+            fi
+            if [ -d /workspace/dist ] && [ ! -e dist ]; then
+                echo "Linking pre-built dist from ECR image..."
+                ln -s /workspace/dist dist
+            fi
 
-            echo ""
-            echo "Building TypeScript sources..."
-            npm run build
-        """
+            # セーフティネット: 成果物の整合性を検証
+            if [ -e node_modules ] && [ -e dist ]; then
+                if node -e "require('./dist/index.js')" 2>/dev/null; then
+                    echo "ECR image artifacts verified successfully. Skipping npm install & build."
+                else
+                    echo "WARNING: ECR image artifacts verification failed. Falling back to full install & build..."
+                    rm -f node_modules dist
+                    npm ci --include=dev
+                    npm run build
+                fi
+            else
+                echo "WARNING: ECR image artifacts not found. Running full install & build..."
+                npm install --include=dev
+                npm run build
+            fi
+        '''
     }
 }
 
