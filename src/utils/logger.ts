@@ -110,17 +110,9 @@ function log(level: LogLevel, ...args: unknown[]): void {
   const message = formatMessage(level, ...args);
   const coloredMessage = applyColor(level, message);
 
-  // 出力先の選択
-  const consoleMethod =
-    level === 'error'
-      ? console.error
-      : level === 'warn'
-      ? console.warn
-      : level === 'info'
-      ? console.info
-      : console.debug;
-
-  consoleMethod.call(console, coloredMessage);
+  // 出力先の選択: すべてのログレベルで stderr に統一
+  // UNIX 慣例に従い、ログは stderr、データは stdout に分離する (Issue #829)
+  console.error.call(console, coloredMessage);
 }
 
 /**

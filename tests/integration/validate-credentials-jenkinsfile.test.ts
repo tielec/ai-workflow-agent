@@ -55,4 +55,23 @@ describe('validate-credentials Jenkinsfile (統合)', () => {
     expect(content).toContain('statuses.any');
     expect(content).toContain('validate-credentials command failed (exit-on-error enabled)');
   });
+
+  it('readJSON 前の防御処理とフォールバックが実装されていること (IT-006/IT-007/IT-008/IT-009)', () => {
+    // Given
+    const content = loadJenkinsfile();
+
+    // Then: ファイル存在・空ファイルチェックが実装されている
+    expect(content).toContain('fileExists(outputFile)');
+    expect(content).toContain('readFile(file: outputFile).trim()');
+    expect(content).toContain('fileContent.isEmpty()');
+
+    // Then: JSON フォーマット時のみ readJSON を実行する
+    expect(content).toContain("requestedFormat == 'json'");
+    expect(content).toContain('readJSON(file: outputFile)');
+
+    // Then: パース失敗時のフォールバック表示が実装されている
+    expect(content).toContain('Failed to parse');
+    expect(content).toContain('--- File content (for debugging) ---');
+    expect(content).toContain('readJSON failed for');
+  });
 });

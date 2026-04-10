@@ -157,7 +157,7 @@ describe('CommentClient', () => {
       const createdComment = { id: 555, html_url: 'https://example.com/comment/555' };
       mockOctokit.issues.createComment.mockResolvedValue({ data: createdComment } as any);
 
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       const result = await commentClient.createOrUpdateProgressComment(
         45,
@@ -175,7 +175,7 @@ describe('CommentClient', () => {
         comment_id: 555,
         comment_url: 'https://example.com/comment/555',
       });
-      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
     it('throws when create also fails', async () => {

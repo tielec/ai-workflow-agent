@@ -235,20 +235,20 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
         'Validate Parameters',
         'Setup QEMU',
         'Setup Buildx',
-        'ECR Login',
+        'Verify ECR Credential Helper',
         'Docker Buildx Build & Push',
         'Cleanup Old Images',
       ]);
     });
 
-    it("agentが 'ec2-fleet-micro' ラベルで定義される", () => {
+    it("agentが 'ec2-fleet-medium' ラベルで定義される", () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toContain("label 'ec2-fleet-micro'");
+      expect(jenkinsfileContent).toContain("label 'ec2-fleet-medium'");
     });
 
-    it("triggersにcron 'H 2 * * *' が定義される", () => {
+    it("triggersにcron 'H 2 * * 0' が定義される", () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toContain("cron('H 2 * * *')");
+      expect(jenkinsfileContent).toContain("cron('H 2 * * 0')");
     });
 
     it('optionsにtimestamps/ansiColor/timeout/disableConcurrentBuildsが含まれる', () => {
@@ -256,7 +256,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
       expect(jenkinsfileContent).toContain('timestamps()');
       expect(jenkinsfileContent).toContain("ansiColor('xterm')");
       expect(jenkinsfileContent).toContain('disableConcurrentBuilds()');
-      expect(jenkinsfileContent).toMatch(/timeout\(time:\s*30,\s*unit:\s*'MINUTES'\)/);
+      expect(jenkinsfileContent).toMatch(/timeout\(time:\s*60,\s*unit:\s*'MINUTES'\)/);
     });
 
     it('environmentにAWS/ECRの必要な環境変数のみが定義される', () => {
@@ -305,11 +305,11 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
       expect(jenkinsfileContent).toMatch(/docker buildx inspect --bootstrap/);
     });
 
-    it('ECR Loginステージにget-login-passwordとpassword-stdinが含まれる', () => {
+    it('Verify ECR Credential Helperステージにcredential helper検証とECR疎通が含まれる', () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toMatch(/aws ecr get-login-password/);
-      expect(jenkinsfileContent).toMatch(/--password-stdin/);
-      expect(jenkinsfileContent).toMatch(/docker login/);
+      expect(jenkinsfileContent).toMatch(/docker-credential-ecr-login/);
+      expect(jenkinsfileContent).toMatch(/aws ecr describe-repositories/);
+      expect(jenkinsfileContent).toMatch(/ECR credential helper/);
     });
 
     it('Docker Buildx Build & Pushステージでmulti-archビルドと2タグ付与を行う', () => {
@@ -408,15 +408,14 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
       expect(jenkinsfileContent).toMatch(/env\.ECR_IMAGE_NAME\s*=.*ECR_REGISTRY/);
       expect(jenkinsfileContent).not.toMatch(/ECR_REGISTRY\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
       expect(jenkinsfileContent).not.toMatch(/ECR_IMAGE_NAME\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
-      expect(jenkinsfileContent).toMatch(/--password-stdin\s+\$\{env\.ECR_REGISTRY\}/);
       expect(jenkinsfileContent).toMatch(/-t \$\{env\.ECR_IMAGE_NAME\}:latest/);
       expect(jenkinsfileContent).toMatch(/docker buildx build/);
       expect(jenkinsfileContent).not.toMatch(/docker push \$\{env\.ECR_IMAGE_NAME\}:latest/);
     });
 
-    it("cronトリガー 'H 2 * * *' が維持されている", () => {
+    it("cronトリガー 'H 2 * * 0' が維持されている", () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toContain("cron('H 2 * * *')");
+      expect(jenkinsfileContent).toContain("cron('H 2 * * 0')");
     });
 
     it('IMAGE_RETENTION_COUNTのバリデーションが維持されている', () => {
@@ -488,7 +487,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
         'Validate Parameters': 'SUCCESS',
         'Setup QEMU': 'SUCCESS',
         'Setup Buildx': 'SUCCESS',
-        'ECR Login': 'SUCCESS',
+        'Verify ECR Credential Helper': 'SUCCESS',
         'Docker Buildx Build & Push': 'SUCCESS',
         'Cleanup Old Images': 'SUCCESS',
       });
@@ -496,7 +495,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
         expect.arrayContaining([
           'Stage: Setup QEMU (binfmt)',
           'Stage: Setup Buildx',
-          'Stage: ECR Login',
+          'Stage: Verify ECR Credential Helper',
           'Stage: Docker Buildx Build & Push',
           'Stage: Cleanup Old Images',
         ])
@@ -650,7 +649,7 @@ describe('Integration: ECR build Jenkins pipeline (Issue #821)', () => {
       // Then: Setup Buildx が FAILED、後続は SKIPPED
       expect(simulation.result).toBe('FAILURE');
       expect(simulation.stageResults['Setup Buildx']).toBe('FAILED');
-      expect(simulation.stageResults['ECR Login']).toBe('SKIPPED');
+      expect(simulation.stageResults['Verify ECR Credential Helper']).toBe('SKIPPED');
       expect(simulation.logs).toEqual(
         expect.arrayContaining([
           'docker buildx が利用できません。Docker 19.03 以降がインストールされているか確認してください。',
@@ -1025,9 +1024,12 @@ function simulateEcrBuildPipeline(options: PipelineSimulationOptions): PipelineS
         }
         break;
       }
-      case 'ECR Login': {
+      case 'Verify ECR Credential Helper': {
         if (options.ecrLoginExitCode && options.ecrLoginExitCode !== 0) {
-          fail(stageName, 'ECRログインに失敗しました。AWSリージョンを確認してください。');
+          fail(
+            stageName,
+            'docker-credential-ecr-login が見つかりません。ノードに amazon-ecr-credential-helper をインストールしてください。'
+          );
         }
         break;
       }

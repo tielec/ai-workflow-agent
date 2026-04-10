@@ -264,8 +264,8 @@ describe('PullRequestClient', () => {
       const mockError = new Error('API error');
       mockOctokit.pulls.list.mockRejectedValue(mockError);
 
-      // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      // Spy on console.error (logger outputs to stderr)
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Check for existing PR
       const result = await pullRequestClient.checkExistingPr('feature/test', 'main');
@@ -274,11 +274,11 @@ describe('PullRequestClient', () => {
       expect(result).toBeNull();
 
       // And: Warning should be logged
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('[WARNING] Failed to check existing PR')
       );
 
-      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -346,8 +346,8 @@ describe('PullRequestClient', () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: {} } as any);
       mockOctokit.pulls.update.mockResolvedValue({ data: {} } as any);
 
-      // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+      // Spy on console.error (logger outputs to stderr)
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Close PR with reason
       const result: GenericResult = await pullRequestClient.closePullRequest(
@@ -375,9 +375,9 @@ describe('PullRequestClient', () => {
       expect(result).toEqual({ success: true, error: null });
 
       // And: Info log should be written
-      expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Closed pull request #10'));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Closed pull request #10'));
 
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
     it('should close PR without reason comment', async () => {
@@ -461,8 +461,8 @@ describe('PullRequestClient', () => {
       const mockError = new Error('Search failed');
       mockOctokit.search.issuesAndPullRequests.mockRejectedValue(mockError);
 
-      // Spy on console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      // Spy on console.error (logger outputs to stderr)
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Attempt to search
       const result = await pullRequestClient.getPullRequestNumber(24);
@@ -471,11 +471,11 @@ describe('PullRequestClient', () => {
       expect(result).toBeNull();
 
       // And: Warning should be logged
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('[WARNING] Failed to lookup PR number')
       );
 
-      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 

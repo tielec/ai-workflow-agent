@@ -60,8 +60,8 @@ describe('metadata-io', () => {
       const copyFileSyncSpy = jest
         .spyOn(fs, 'copyFileSync')
         .mockImplementation(() => undefined);
-      const consoleInfoSpy = jest
-        .spyOn(console, 'info')
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
       // When: backupMetadataFile関数を呼び出す
@@ -72,11 +72,11 @@ describe('metadata-io', () => {
       // バックアップファイルパスが返される
       expect(result).toMatch(/metadata\.json\.backup_\d{8}_\d{6}$/);
       // コンソールログ出力がある（タイムスタンプとログレベルを含む）
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Metadata backup created:')
       );
 
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
     it('正常系: 元のファイル名を維持したバックアップが作成される', () => {
@@ -116,8 +116,8 @@ describe('metadata-io', () => {
       const removeSyncSpy = jest
         .spyOn(fs, 'removeSync')
         .mockImplementation(() => undefined);
-      const consoleInfoSpy = jest
-        .spyOn(console, 'info')
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
       // When: removeWorkflowDirectory関数を呼び出す
@@ -128,11 +128,11 @@ describe('metadata-io', () => {
       // fs.removeSync()が呼ばれる
       expect(removeSyncSpy).toHaveBeenCalledWith(workflowDir);
       // コンソールログ出力がある（タイムスタンプとログレベルを含む）
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Removing workflow directory:')
       );
 
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
     it('正常系: ディレクトリが存在しない場合、削除処理がスキップされる', () => {
