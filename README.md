@@ -208,7 +208,7 @@ export REPOS_ROOT="$HOME/projects"
 
 ## Jenkins統合
 
-実行モード別に分割されたJenkinsfileがDocker コンテナ内でワークフローを実行します（v0.4.0、Issue #211）。
+実行モード別に分割されたJenkinsfileがDocker コンテナ内でワークフローを実行します（v0.4.0、Issue #211）。`ecr-build` / `ecr-verify` を除くすべての Jenkinsfile は、`ecr-build` ジョブが定期ビルドする ECR 上の Docker image (`ai-workflow-agent:latest`) をエージェントとして使用する方式に統一されています（Issue #828）。これによりジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と image の整合性が担保されます。
 
 **実行モード専用Jenkinsfile**:
 - `jenkins/jobs/pipeline/ai-workflow/all-phases/Jenkinsfile` - 全フェーズ実行（Phase 0-9）
