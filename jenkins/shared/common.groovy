@@ -294,7 +294,7 @@ def setupEnvironment() {
  * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
  * 2. ECR イメージ内の事前ビルド済み成果物（/workspace/node_modules、/workspace/dist）を
  *    symlink で Jenkins ワークスペースから参照
- * 3. セーフティネット検証（node -e "require('./dist/index.js')"）で成果物の整合性を確認
+ * 3. セーフティネット検証（node dist/index.js --help）で成果物の整合性を確認
  * 4. 検証失敗時はフォールバック: symlink 削除 → npm ci --include=dev → npm run build
  * 5. ECR 成果物が存在しない場合: npm install（dev含む）→ npm run build
  *
@@ -335,7 +335,7 @@ def setupNodeEnvironment() {
 
             # セーフティネット: 成果物の整合性を検証
             if [ -e node_modules ] && [ -e dist ]; then
-                if node -e "require('./dist/index.js')" 2>/dev/null; then
+                if node dist/index.js --help >/dev/null 2>&1; then
                     echo "ECR image artifacts verified successfully. Skipping npm install & build."
                 else
                     echo "WARNING: ECR image artifacts verification failed. Falling back to full install & build..."

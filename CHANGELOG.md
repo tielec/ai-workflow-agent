@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Issue #833**: `setupNodeEnvironment()` の冗長な npm install/build を ECR イメージ成果物の symlink 再利用方式に置換
   - `jenkins/shared/common.groovy` の `setupNodeEnvironment()` 関数を symlink 再利用 + セーフティネット検証 + フォールバック方式にリファクタリング
   - ECR イメージ内の `/workspace/node_modules` と `/workspace/dist` を Jenkins ワークスペースから symlink で参照し、`npm install` + `npm run build` をスキップ（Setup Node.js Environment ステージが数分 → 数秒に短縮）
-  - `node -e "require('./dist/index.js')"` によるセーフティネット検証を追加。検証失敗時（ECR イメージとソースコードのバージョン乖離）は symlink を削除して `npm ci --include=dev` + `npm run build` にフォールバック
+  - `node dist/index.js --help` によるセーフティネット検証を追加。検証失敗時（ECR イメージとソースコードのバージョン乖離）は symlink を削除して `npm ci --include=dev` + `npm run build` にフォールバック
   - ECR 成果物が存在しない場合（旧 `Jenkinsfile` の `dockerfile` 方式等）は `npm install --include=dev` + `npm run build` にフォールバック
   - シェルスクリプト部分をシングルクォート `'''` に統一し、Groovy 文字列補間による意図しない展開を防止
   - 修正ファイル: `jenkins/shared/common.groovy`、`docs/DEVELOPMENT.md`、`docs/ENVIRONMENT.md`
