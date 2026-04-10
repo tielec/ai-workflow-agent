@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Issue #833**: `setupNodeEnvironment()` の冗長な npm install を ECR イメージの node_modules symlink 再利用方式に置換
-  - `jenkins/shared/common.groovy` の `setupNodeEnvironment()` 関数をリファクタリング
-  - ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`npm install` をスキップ（`package.json` の dependencies 差分を検出し、乖離時はフォールバック）
-  - `dist` は常に `npm run build` で生成し、ソースコードとの整合性を保証
-  - ECR 成果物が存在しない場合は `npm install --include=dev` にフォールバック
+  - `jenkins/shared/common.groovy` の `setupNodeEnvironment()` を node_modules symlink + 毎回ビルド方式にリファクタリング
+  - ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`npm install` をスキップ（`package.json` の dependencies 差分検出でフォールバック）
+  - `dist` は常に `npm run build` で生成し、ソースコードとの整合性を保証（ECR イメージの鮮度に依存しない）
+  - ECR node_modules が存在しない場合は `npm install --include=dev` にフォールバック
   - シェルスクリプト部分をシングルクォート `'''` に統一し、Groovy 文字列補間による意図しない展開を防止
+  - 修正ファイル: `jenkins/shared/common.groovy`、`docs/DEVELOPMENT.md`、`docs/ENVIRONMENT.md`
+  - テストカバレッジ: 統合テスト追加（`tests/integration/jenkins/common-groovy-setup-node.test.ts`）
 
 ### Fixed
 
