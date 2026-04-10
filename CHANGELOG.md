@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #829**: `validate-credentials` コマンドで `--output json` 実行時に `readJSON` が `net.sf.json.JSONException: Invalid JSON String` で失敗する問題を修正
+  - `src/utils/logger.ts` の全ログレベル（debug/info/warn/error）の出力先を `console.error`（stderr）に統一し、stdout へのログ混入を根本的に解消
+  - UNIX の慣例（ログは stderr、データは stdout）に従った出力チャネル設計を実現。これにより将来のコマンド追加時に同様の stdout 汚染問題が発生しない
+  - `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` に防御処理を追加：`fileExists` チェック、空ファイルチェック、`readJSON` の `try-catch` エラーハンドリング、パース失敗時のファイル内容表示フォールバック
+  - 修正ファイル: `src/utils/logger.ts`、`jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile`
+  - テストカバレッジ: ユニットテスト6件（logger stderr 統一出力検証）、インテグレーションテスト2件（JSON 純粋性・Jenkinsfile 防御処理）を追加。全体 `npm run validate` PASS（243 test suites / 3,651 tests）
+
 - **Issue #832**: Codex Agent の正常完了後に認証失敗が誤検知され、Claude Agent へ不要なフォールバックが発動する問題を修正
   - `AgentExecutor` の `authFailed` 判定ロジックを、生文字列の `includes` による判定から JSON 構造化イベントのみを対象とする `detectAuthFailure()` プライベートメソッドへ置き換え
   - `messages` に exec stdout 経由でソースコード文字列（例: `export const x = 'authentication_error';`）が混入しても誤検知しないことを保証

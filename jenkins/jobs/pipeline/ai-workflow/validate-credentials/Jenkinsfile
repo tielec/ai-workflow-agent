@@ -136,9 +136,33 @@ pipeline {
                     int status = sh(script: cmd, returnStatus: true)
                     def statuses = []
 
-                    if (fileExists('credentials-validation-result.json')) {
-                        def parsed = readJSON(file: 'credentials-validation-result.json')
-                        statuses = (parsed?.results?.values()?.collect { it.status } ?: []).findAll { it }
+                    if (!fileExists(outputFile)) {
+                        echo "WARNING: Output file '${outputFile}' was not created."
+                        echo "CLI exit status: ${status}"
+                        if (params.EXIT_ON_ERROR) {
+                            error("Output file '${outputFile}' does not exist. CLI may have failed before producing output.")
+                        }
+                    } else {
+                        def fileContent = readFile(file: outputFile).trim()
+                        if (fileContent.isEmpty()) {
+                            echo "WARNING: Output file '${outputFile}' is empty (0 bytes)."
+                            echo "CLI exit status: ${status}"
+                            if (params.EXIT_ON_ERROR) {
+                                error("Output file '${outputFile}' is empty. CLI may have failed or produced no output.")
+                            }
+                        } else if (requestedFormat == 'json') {
+                            try {
+                                def parsed = readJSON(file: outputFile)
+                                statuses = (parsed?.results?.values()?.collect { it.status } ?: []).findAll { it }
+                            } catch (Exception e) {
+                                echo "ERROR: Failed to parse '${outputFile}' as JSON."
+                                echo "Exception: ${e.getMessage()}"
+                                echo "--- File content (for debugging) ---"
+                                echo fileContent
+                                echo "--- End of file content ---"
+                                error("readJSON failed for '${outputFile}'. See file content above for debugging.")
+                            }
+                        }
                     }
 
                     if (params.EXIT_ON_ERROR && status != 0) {

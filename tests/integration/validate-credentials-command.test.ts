@@ -163,6 +163,17 @@ describe('validate-credentials コマンド (統合)', () => {
     expect(parsed.summary.passed).toBeGreaterThan(0);
   });
 
+  it('JSON 出力時に stdout へ純粋な JSON のみを出力する (TC-INT-010)', async () => {
+    await handleValidateCredentialsCommand({ output: 'json' });
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+
+    const output = consoleSpy.mock.calls[0]?.[0] as string;
+    expect(() => JSON.parse(output)).not.toThrow();
+    expect(output.trim().startsWith('{')).toBe(true);
+    expect(output.trim().endsWith('}')).toBe(true);
+  });
+
   it('exit-on-error 指定時に失敗があれば exitCode=1 を設定する (TC-INT-004)', async () => {
     // Anthropic キーをあえて未設定にして失敗を誘発
     mockGetAnthropicApiKey.mockReturnValue(null);
