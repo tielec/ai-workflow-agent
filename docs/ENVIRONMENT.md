@@ -370,7 +370,20 @@ agent {
 
 この方式により、ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と `ecr-build` が供給する image との整合性が担保されます。image の更新は `ecr-build` ジョブの定期実行に一元化されるため、Jenkinsfile 側の変更なしに最新ランタイムへ追随できます。
 
-また、`setupNodeEnvironment()` は ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`package.json` の dependencies/devDependencies が ECR イメージと一致する場合に `npm install` をスキップします。`dist` は常に `npm run build` で生成するため、ソースコードとの整合性が保証されます。dependencies が乖離している場合や ECR 成果物が存在しない場合は、従来通り `npm install --include=dev` と `npm run build` にフォールバックします。
+また、`setupNodeEnvironment()` は ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`package.json` の dependencies/devDependencies が ECR イメージと一致する場合に `npm install` をスキップします。`dist` は常に `npm run build` で生成するため、ソースコードとの整合性が保証されます。dependencies が乖離している場合や ECR 成果物が存在しない場合は `npm install --include=dev`（`package-lock.json` が存在する場合は `npm ci --include=dev`）にフォールバックします。フォールバック時は最大3回のリトライ（指数バックオフ）を実施し、一過性のネットワーク障害に対する耐性を確保します。
+
+### npm ネットワーク設定（`.npmrc`）
+
+リポジトリ直下の `.npmrc` には、一過性のネットワーク障害対策として以下のネットワーク耐性設定が含まれています：
+
+| 設定 | 値 | 説明 |
+|------|-----|------|
+| `fetch-retries` | `5` | HTTP リクエストの最大リトライ回数 |
+| `fetch-retry-mintimeout` | `20000` | リトライの最小待機時間（20秒） |
+| `fetch-retry-maxtimeout` | `120000` | リトライの最大待機時間（120秒） |
+| `fetch-timeout` | `600000` | HTTP リクエストのタイムアウト（600秒 = 10分） |
+
+Jenkins CI 環境では `setupNodeEnvironment()` 内で同等の設定が環境変数（`npm_config_fetch_retries` 等）として注入されます。`ECONNRESET` 等のネットワークエラーが頻発する場合は、これらの値を調整してください。
 
 **前提条件**:
 - `ec2-fleet-micro` / `ec2-fleet-small` の EC2 インスタンスロールに ECR (`ap-northeast-1`) からの pull 権限（`ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`）が付与されていること

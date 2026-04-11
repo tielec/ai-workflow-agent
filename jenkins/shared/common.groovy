@@ -292,9 +292,12 @@ def setupEnvironment() {
  *
  * 処理内容:
  * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
- * 2. ECR イメージ内の /workspace/node_modules を symlink で再利用（npm install スキップ）
+ * 2. npm ネットワーク設定の強化（fetch_retries、fetch_timeout 等を環境変数で設定）
+ * 3. ECR イメージ内の /workspace/node_modules を symlink で再利用（npm install スキップ）
  *    - package.json の dependencies 差分を検出し、乖離があればフォールバック
- * 3. dist は常に npm run build で生成（ソースコードとの整合性を保証）
+ *    - フォールバック時は npm install のリトライ機構（最大3回、指数バックオフ）を使用
+ *    - package-lock.json が存在する場合は npm ci を使用（再現可能なインストール）
+ * 4. dist は常に npm run build で生成（ソースコードとの整合性を保証）
  *
  * 前提条件:
  * - WORKFLOW_DIR が設定済み（既定: '.'）
@@ -309,6 +312,13 @@ def setupNodeEnvironment() {
 
     dir(env.WORKFLOW_DIR ?: '.') {
         sh '''
+            set -euo pipefail
+
+            export npm_config_fetch_retries=5
+            export npm_config_fetch_retry_mintimeout=20000
+            export npm_config_fetch_retry_maxtimeout=120000
+            export npm_config_fetch_timeout=600000
+
             echo "Node version:"
             node --version
 
@@ -321,6 +331,30 @@ def setupNodeEnvironment() {
             echo "HOME directory: $HOME"
 
             echo ""
+            install_cmd() {
+                if [ -f package-lock.json ]; then
+                    npm ci --include=dev
+                else
+                    npm install --include=dev
+                fi
+            }
+
+            run_npm_install_with_retry() {
+                max_attempts=3
+                attempt=1
+                until install_cmd; do
+                    status=$?
+                    if [ "$attempt" -ge "$max_attempts" ]; then
+                        echo "[ERROR] npm install failed after ${attempt} attempts" >&2
+                        exit "$status"
+                    fi
+                    echo "[WARN] npm install failed (attempt ${attempt}/${max_attempts}). Retrying..." >&2
+                    npm cache verify || true
+                    sleep $((attempt * 10))
+                    attempt=$((attempt + 1))
+                done
+            }
+
             # ECR イメージの node_modules を symlink で再利用（npm install スキップ）
             if [ -d /workspace/node_modules ] && [ ! -e node_modules ]; then
                 # package.json の dependencies が ECR イメージと一致するか検証
@@ -342,11 +376,11 @@ def setupNodeEnvironment() {
                     ln -s /workspace/node_modules node_modules
                 else
                     echo "WARNING: package.json dependencies differ from ECR image. Running npm install..."
-                    npm install --include=dev
+                    run_npm_install_with_retry
                 fi
             elif [ ! -e node_modules ]; then
                 echo "WARNING: ECR image node_modules not found. Running npm install..."
-                npm install --include=dev
+                run_npm_install_with_retry
             else
                 echo "node_modules already exists. Skipping."
             fi

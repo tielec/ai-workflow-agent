@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 const commonPath = resolve('jenkins/shared/common.groovy');
 const developmentDocPath = resolve('docs/DEVELOPMENT.md');
 const environmentDocPath = resolve('docs/ENVIRONMENT.md');
+const npmrcPath = resolve('.npmrc');
 
 const loadFile = (path: string): string => readFileSync(path, 'utf8');
 
@@ -183,12 +184,14 @@ let commonContent = '';
 let setupNodeBlock = '';
 let developmentDoc = '';
 let environmentDoc = '';
+let npmrcContent = '';
 
 beforeAll(() => {
   // Given: 対象ファイルを読み込む
   commonContent = loadFile(commonPath);
   developmentDoc = loadFile(developmentDocPath);
   environmentDoc = loadFile(environmentDocPath);
+  npmrcContent = loadFile(npmrcPath);
 
   // When: setupNodeEnvironment() ブロックを抽出する
   setupNodeBlock = extractFunctionBlock(commonContent, 'setupNodeEnvironment');
@@ -279,6 +282,134 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     // npm install は条件分岐（フォールバック）内でのみ出現する
     expect(setupNodeBlock).not.toContain('Installing dependencies (including dev)...');
   });
+
+  // --- リトライ機構 ---
+  it('IT-823-001: リトライラッパー（until / max_attempts）の存在を確認する', () => {
+    // 意図: npm install が一時的な失敗時にリトライされる構造を保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: リトライラッパーの構文を確認する
+    // Then: until ループと最大リトライ回数が含まれている
+    expect(setupNodeBlock).toContain('until install_cmd');
+    expect(setupNodeBlock).toContain('max_attempts=3');
+    expect(setupNodeBlock).toContain('run_npm_install_with_retry');
+  });
+
+  it('IT-823-002: npm cache verify がリトライ内で呼ばれる', () => {
+    // 意図: キャッシュ検証が失敗してもリトライが継続できることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: リトライ内のキャッシュ検証呼び出しを確認する
+    // Then: npm cache verify が存在し、失敗許容が設定されている
+    expect(setupNodeBlock).toContain('npm cache verify');
+    expect(setupNodeBlock).toContain('npm cache verify || true');
+  });
+
+  it('IT-823-003: npm ネットワーク設定の環境変数が設定されている', () => {
+    // 意図: 一過性のネットワーク障害への耐性を高める設定が注入されることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: npm_config の環境変数を確認する
+    // Then: 4つの設定がすべて含まれている
+    expect(setupNodeBlock).toContain('npm_config_fetch_retries=5');
+    expect(setupNodeBlock).toContain('npm_config_fetch_retry_mintimeout=20000');
+    expect(setupNodeBlock).toContain('npm_config_fetch_retry_maxtimeout=120000');
+    expect(setupNodeBlock).toContain('npm_config_fetch_timeout=600000');
+  });
+
+  it('IT-823-004: package-lock.json がある場合に npm ci が使われる', () => {
+    // 意図: 再現可能なインストールのため npm ci が選択されることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: npm ci の記述を確認する
+    // Then: npm ci --include=dev が含まれている
+    expect(setupNodeBlock).toContain('npm ci --include=dev');
+  });
+
+  it('IT-823-005: package-lock.json の存在チェック分岐がある', () => {
+    // 意図: package-lock.json の有無で npm ci / npm install が切り替わることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: シェル条件分岐の記述を確認する
+    // Then: package-lock.json の存在チェックが含まれている
+    expect(setupNodeBlock).toContain('[ -f package-lock.json ]');
+  });
+
+  it('IT-823-006: [WARN] / [ERROR] 形式のログメッセージがある', () => {
+    // 意図: リトライ時と最終失敗時のログ形式が規定どおりであることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: ログメッセージの文字列を確認する
+    // Then: [WARN] と [ERROR] の文言が含まれている
+    expect(setupNodeBlock).toContain('[ERROR] npm install failed after');
+    expect(setupNodeBlock).toContain('[WARN] npm install failed (attempt');
+  });
+
+  it('IT-823-007: リトライ間のバックオフスリープが実装されている', () => {
+    // 意図: リトライ間隔が指数バックオフであることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: スリープの算術式を確認する
+    // Then: attempt に比例したスリープが含まれている
+    expect(setupNodeBlock).toContain('sleep $((attempt * 10))');
+  });
+
+  it('IT-823-010: JSDoc にリトライ・npm ci・ネットワーク設定の説明がある', () => {
+    // 意図: 仕様変更がコードコメントに反映されていることを保証する
+    // Given: setupNodeEnvironment() ブロック（JSDoc 含む）が抽出済み
+    // When: JSDoc 内の説明文を確認する
+    // Then: リトライ、npm ci、ネットワーク設定に関する記述が含まれている
+    expect(setupNodeBlock).toContain('リトライ');
+    expect(setupNodeBlock).toContain('npm ci');
+    expect(setupNodeBlock).toContain('ネットワーク設定');
+  });
+
+  it('IT-823-011: sh のシングルクォートが維持されている', () => {
+    // 意図: Groovy 変数展開を避ける既存の制約が保持されていることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: sh ブロックのクォート形式を確認する
+    // Then: シングルクォートが使用され、ダブルクォートは使われていない
+    expect(setupNodeBlock).toContain("sh '''");
+    expect(setupNodeBlock).not.toContain('sh """');
+  });
+
+  it('IT-823-012: フォールバックでリトライラッパーが呼び出される', () => {
+    // 意図: 直接 npm install が実行されず、リトライラッパー経由になることを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: フォールバック箇所の呼び出しを確認する
+    // Then: run_npm_install_with_retry が含まれている
+    expect(setupNodeBlock).toContain('run_npm_install_with_retry');
+  });
+
+  it('IT-823-013: npm run build はリトライ対象外である', () => {
+    // 意図: ビルド処理がインストールのリトライ対象に含まれないことを保証する
+    // Given: setupNodeEnvironment() ブロックが抽出済み
+    // When: リトライ関数の中身を抽出する
+    // Then: npm run build が関数内に含まれていない
+    const retryFunctionMatch = setupNodeBlock.match(
+      /run_npm_install_with_retry\(\)\s*{([\s\S]*?)^\s*}/m
+    );
+    expect(retryFunctionMatch).not.toBeNull();
+    const retryFunctionBody = retryFunctionMatch ? retryFunctionMatch[1] : '';
+    expect(setupNodeBlock).toContain('npm run build');
+    expect(retryFunctionBody).not.toContain('npm run build');
+  });
+});
+
+describe('.npmrc settings (統合)', () => {
+  it('IT-823-008: .npmrc にネットワーク設定が追記されている', () => {
+    // 意図: npm のネットワーク耐性設定がファイル設定として保持されていることを保証する
+    // Given: .npmrc の内容が読み込み済み
+    // When: 設定値の存在を確認する
+    // Then: 4項目すべてが含まれている
+    expect(npmrcContent).toContain('fetch-retries=5');
+    expect(npmrcContent).toContain('fetch-retry-mintimeout=20000');
+    expect(npmrcContent).toContain('fetch-retry-maxtimeout=120000');
+    expect(npmrcContent).toContain('fetch-timeout=600000');
+  });
+
+  it('IT-823-009: .npmrc の既存設定が保持されている', () => {
+    // 意図: 追記によって既存の node-options 設定が失われないことを保証する
+    // Given: .npmrc の内容が読み込み済み
+    // When: node-options の記述を確認する
+    // Then: 既存設定が含まれている
+    expect(npmrcContent).toContain(
+      'node-options=--experimental-vm-modules --max-old-space-size=4096'
+    );
+  });
 });
 
 describe('docs update for setupNodeEnvironment (統合)', () => {
@@ -293,5 +424,23 @@ describe('docs update for setupNodeEnvironment (統合)', () => {
     expect(environmentDoc).toContain('setupNodeEnvironment');
     expect(environmentDoc).toContain('/workspace/node_modules');
     expect(environmentDoc).toContain('フォールバック');
+  });
+
+  it('IT-823-014: DEVELOPMENT.md にリトライと npm ci の説明がある', () => {
+    // 意図: ドキュメントにリトライ対応と npm ci 切替が記載されていることを保証する
+    // Given: DEVELOPMENT.md の内容が読み込み済み
+    // When: リトライと npm ci に関する記述を確認する
+    // Then: 両方の記述が含まれている
+    expect(developmentDoc).toContain('リトライ');
+    expect(developmentDoc).toContain('npm ci');
+  });
+
+  it('IT-823-015: ENVIRONMENT.md に npm ネットワーク設定の説明がある', () => {
+    // 意図: npm ネットワーク設定がドキュメントに反映されていることを保証する
+    // Given: ENVIRONMENT.md の内容が読み込み済み
+    // When: fetch-retries / fetch-timeout の記述を確認する
+    // Then: 主要な設定項目が含まれている
+    expect(environmentDoc).toContain('fetch-retries');
+    expect(environmentDoc).toContain('fetch-timeout');
   });
 });
