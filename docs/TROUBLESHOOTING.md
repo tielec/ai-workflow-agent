@@ -1253,6 +1253,30 @@ error: Unexpected console statement (no-console)
 
 **参考**: ロギング規約の詳細は `CLAUDE.md` の「重要な制約事項」セクションを参照してください。
 
+### validate-credentials: readJSON が 'Invalid JSON String' で失敗する（Issue #829）
+
+Jenkins パイプラインで `validate-credentials` コマンドを `--output json` で実行した際に `readJSON` が `net.sf.json.JSONException: Invalid JSON String` で失敗する場合：
+
+**症状**:
+```
+net.sf.json.JSONException: Invalid JSON String
+```
+
+**原因**:
+- v0.x.x 以前の logger（`src/utils/logger.ts`）では `info`/`debug` レベルの出力が `console.info`/`console.debug`（stdout）に出力されていた
+- `node dist/index.js validate-credentials --output json > result.json` のようにシェルリダイレクトを使うと、JSON データの前後にログ行が混入し、`readJSON` がパースに失敗する
+
+**対処法**:
+- Issue #829 の修正適用済みバージョン（logger が全ログレベルを stderr に出力するバージョン）を使用してください
+- 修正済みの場合は stdout に純粋な JSON のみが出力されるため、`readJSON` は正常に動作します
+
+**Jenkinsfile 側のフォールバック確認**:
+- `fileExists(outputFile)` によるファイル存在チェックが含まれているか
+- `readFile` で空ファイルチェックが含まれているか
+- `readJSON` が `try-catch` で囲まれ、失敗時にファイル内容を表示するフォールバックが含まれているか
+
+**参考**: `CLAUDE.md` の「統一ロギング規約」セクション、`jenkins/jobs/pipeline/ai-workflow/validate-credentials/README.md`
+
 ## 15. コミットスカッシュ関連（v0.5.0、Issue #194）
 
 ### スカッシュが実行されない

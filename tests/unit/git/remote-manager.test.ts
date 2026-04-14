@@ -335,7 +335,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
       // Spy on console BEFORE creating RemoteManager
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       mockGit.remote.mockImplementation((args: any) => {
         if (Array.isArray(args) && args[0] === 'get-url') {
@@ -358,7 +358,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       ]);
 
       // Cleanup
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
       delete process.env.GITHUB_TOKEN;
     });
 
@@ -367,7 +367,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
       // Spy on console.info BEFORE creating RemoteManager
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       mockGit.remote.mockImplementation((args: any) => {
         if (Array.isArray(args) && args[0] === 'get-url') {
@@ -386,11 +386,11 @@ describe('RemoteManager - GitHub Credentials', () => {
       expect(mockGit.remote).not.toHaveBeenCalledWith(
         expect.arrayContaining(['set-url'])
       );
-      expect(consoleInfoSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Git remote URL is not HTTPS')
       );
 
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
       delete process.env.GITHUB_TOKEN;
     });
 
@@ -413,7 +413,7 @@ describe('RemoteManager - GitHub Credentials', () => {
       process.env.GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx';
 
       // Spy on console.warn BEFORE creating RemoteManager
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       mockGit.remote.mockRejectedValue(new Error('Git command failed'));
 
@@ -424,11 +424,11 @@ describe('RemoteManager - GitHub Credentials', () => {
       await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: 警告ログが出力される（例外はthrowされない）
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('[WARNING] Failed to setup GitHub credentials')
       );
 
-      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
       delete process.env.GITHUB_TOKEN;
     });
   });

@@ -202,11 +202,12 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     expect(setupNodeBlock).toContain('ln -s /workspace/node_modules node_modules');
   });
 
-  it('IT-833-002: dist の symlink コマンドが含まれている', () => {
+  it('IT-833-002: dist は毎回ビルドされる（symlink しない）', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('ln -s /workspace/dist dist');
+    expect(setupNodeBlock).not.toContain('ln -s /workspace/dist dist');
+    expect(setupNodeBlock).toContain('npm run build');
   });
 
   it('IT-833-003: node_modules の symlink ガード条件が含まれている', () => {
@@ -217,100 +218,60 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     expect(setupNodeBlock).toContain('[ ! -e node_modules ]');
   });
 
-  it('IT-833-004: dist の symlink ガード条件が含まれている', () => {
+  it('IT-833-004: dist の symlink は作成しない（毎回ビルド方式）', () => {
     // Given
     // When
-    // Then
-    expect(setupNodeBlock).toContain('[ -d /workspace/dist ]');
-    expect(setupNodeBlock).toContain('[ ! -e dist ]');
+    // Then: dist の symlink 関連コマンドが含まれないこと
+    expect(setupNodeBlock).not.toContain('ln -s /workspace/dist');
   });
 
-  it('IT-833-005: symlink 成功メッセージが含まれている', () => {
+  it('IT-833-005: node_modules の symlink 成功メッセージが含まれている', () => {
     // Given
     // When
     // Then
     expect(setupNodeBlock).toContain('Linking pre-built node_modules from ECR image');
-    expect(setupNodeBlock).toContain('Linking pre-built dist from ECR image');
   });
 
-  it('IT-833-006: セーフティネット検証コマンドが含まれている', () => {
+  it('IT-833-006: package.json の dependencies 差分検出が含まれている', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('node dist/index.js check');
+    expect(setupNodeBlock).toContain('/workspace/package.json');
+    expect(setupNodeBlock).toContain('dependencies');
+    expect(setupNodeBlock).toContain('devDependencies');
   });
 
-  it('IT-833-007: セーフティネット検証成功メッセージが含まれている', () => {
+  it('IT-833-007: dependencies 不一致時のフォールバック (npm ci) が含まれている', () => {
     // Given
     // When
     // Then
-    expect(setupNodeBlock).toContain('ECR image artifacts verified successfully');
-  });
-
-  it('IT-833-008: セーフティネット検証の stdout/stderr 抑制が含まれている', () => {
-    // Given
-    // When
-    // Then
-    expect(setupNodeBlock).toContain('>/dev/null 2>&1');
-  });
-
-  it('IT-833-009: node_modules と dist の両方存在チェックが含まれている', () => {
-    // Given
-    // When
-    // Then
-    expect(setupNodeBlock).toContain('[ -e node_modules ]');
-    expect(setupNodeBlock).toContain('[ -e dist ]');
-  });
-
-  it('IT-833-010: 検証失敗時の警告メッセージが含まれている', () => {
-    // Given
-    // When
-    // Then
-    expect(setupNodeBlock).toContain('WARNING: ECR image artifacts verification failed');
-  });
-
-  it('IT-833-011: フォールバック時の symlink 削除が含まれている', () => {
-    // Given
-    // When
-    // Then
-    expect(setupNodeBlock).toContain('rm -f node_modules dist');
-    expect(setupNodeBlock).not.toMatch(/rm\s+-rf\s+node_modules\s+dist/);
-  });
-
-  it('IT-833-012: フォールバック A に npm ci --include=dev が含まれている', () => {
-    // Given
-    // When
-    // Then
+    expect(setupNodeBlock).toContain('dependencies mismatch');
     expect(setupNodeBlock).toContain('npm ci --include=dev');
   });
 
-  it('IT-833-013: フォールバック A に npm run build が含まれている', () => {
+  it('IT-833-008: ECR node_modules 未検出時のフォールバック (npm install) が含まれている', () => {
+    // Given
+    // When
+    // Then
+    expect(setupNodeBlock).toContain('ECR image node_modules not found');
+    expect(setupNodeBlock).toContain('npm install --include=dev');
+  });
+
+  it('IT-833-009: npm run build が常に実行される', () => {
     // Given
     // When
     // Then
     expect(setupNodeBlock).toContain('npm run build');
   });
 
-  it('IT-833-014: 成果物未検出時の警告メッセージが含まれている', () => {
+  it('IT-833-010: npm run build は条件分岐の外にある', () => {
     // Given
-    // When
-    // Then
-    expect(setupNodeBlock).toContain('WARNING: ECR image artifacts not found');
-  });
+    // When: npm run build の位置が最後の fi の後にあること
+    const lastFiIndex = setupNodeBlock.lastIndexOf('fi');
+    const buildIndex = setupNodeBlock.lastIndexOf('npm run build');
 
-  it('IT-833-015: フォールバック B に npm install --include=dev が含まれている', () => {
-    // Given
-    // When
     // Then
-    expect(setupNodeBlock).toContain('npm install --include=dev');
-  });
-
-  it('IT-833-016: フォールバック B にも npm run build が含まれている', () => {
-    // Given
-    // When
-    // Then
-    const matches = setupNodeBlock.match(/npm run build/g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(buildIndex).toBeGreaterThan(lastFiIndex);
   });
 
   it('IT-833-017: node --version の出力が維持されている', () => {
@@ -366,14 +327,13 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
   it('IT-833-024: npm install --include=dev が無条件に実行されない', () => {
     // Given
     // When: npm install の出現位置を確認する
-    const warningIndex = setupNodeBlock.indexOf('WARNING: ECR image artifacts not found');
+    const warningIndex = setupNodeBlock.indexOf('WARNING: ECR image node_modules not found');
     const installIndex = setupNodeBlock.indexOf('npm install --include=dev');
 
     // Then: フォールバック警告の後でのみ実行され、旧メッセージは存在しない
     expect(warningIndex).toBeGreaterThanOrEqual(0);
     expect(installIndex).toBeGreaterThan(warningIndex);
     expect(setupNodeBlock).not.toContain('Installing dependencies (including dev)...');
-    expect(setupNodeBlock).not.toContain('Building TypeScript sources...');
   });
 
   it('IT-833-025: WORKFLOW_DIR との整合性が維持されている', () => {
@@ -392,7 +352,6 @@ describe('docs update for setupNodeEnvironment (統合)', () => {
     expect(developmentDoc).toContain('symlink');
     expect(developmentDoc).toContain('ECR');
     expect(developmentDoc).toContain('/workspace/node_modules');
-    expect(developmentDoc).toContain('/workspace/dist');
     expect(developmentDoc).toContain('npm run build');
   });
 
@@ -402,7 +361,6 @@ describe('docs update for setupNodeEnvironment (統合)', () => {
     // Then
     expect(environmentDoc).toContain('setupNodeEnvironment');
     expect(environmentDoc).toContain('/workspace/node_modules');
-    expect(environmentDoc).toContain('/workspace/dist');
     expect(environmentDoc).toContain('フォールバック');
   });
 });

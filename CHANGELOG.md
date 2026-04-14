@@ -9,16 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Issue #833**: `setupNodeEnvironment()` の冗長な npm install/build を ECR イメージ成果物の symlink 再利用方式に置換
-  - `jenkins/shared/common.groovy` の `setupNodeEnvironment()` 関数を symlink 再利用 + セーフティネット検証 + フォールバック方式にリファクタリング
-  - ECR イメージ内の `/workspace/node_modules` と `/workspace/dist` を Jenkins ワークスペースから symlink で参照し、`npm install` + `npm run build` をスキップ（Setup Node.js Environment ステージが数分 → 数秒に短縮）
-  - `node dist/index.js check` によるセーフティネット検証を追加。検証失敗時（ECR イメージとソースコードのバージョン乖離）は symlink を削除して `npm ci --include=dev` + `npm run build` にフォールバック
-  - ECR 成果物が存在しない場合（旧 `Jenkinsfile` の `dockerfile` 方式等）は `npm install --include=dev` + `npm run build` にフォールバック
+- **Issue #833**: `setupNodeEnvironment()` の冗長な npm install を ECR イメージの node_modules symlink 再利用方式に置換
+  - `jenkins/shared/common.groovy` の `setupNodeEnvironment()` を node_modules symlink + 毎回ビルド方式にリファクタリング
+  - ECR イメージ内の `/workspace/node_modules` を symlink で再利用し、`npm install` をスキップ（`package.json` の dependencies 差分検出でフォールバック）
+  - `dist` は常に `npm run build` で生成し、ソースコードとの整合性を保証（ECR イメージの鮮度に依存しない）
+  - ECR node_modules が存在しない場合は `npm install --include=dev` にフォールバック
   - シェルスクリプト部分をシングルクォート `'''` に統一し、Groovy 文字列補間による意図しない展開を防止
   - 修正ファイル: `jenkins/shared/common.groovy`、`docs/DEVELOPMENT.md`、`docs/ENVIRONMENT.md`
-  - テストカバレッジ: 統合テスト 27 件を新規追加（`tests/integration/jenkins/common-groovy-setup-node.test.ts`）、全体 `npm run validate` PASS（246 test suites / 3670 tests）
+  - テストカバレッジ: 統合テスト追加（`tests/integration/jenkins/common-groovy-setup-node.test.ts`）
 
 ### Fixed
+
+- **Issue #829**: `validate-credentials` コマンドで `--output json` 実行時に `readJSON` が `net.sf.json.JSONException: Invalid JSON String` で失敗する問題を修正
+  - `src/utils/logger.ts` の全ログレベル（debug/info/warn/error）の出力先を `console.error`（stderr）に統一し、stdout へのログ混入を根本的に解消
+  - UNIX の慣例（ログは stderr、データは stdout）に従った出力チャネル設計を実現。これにより将来のコマンド追加時に同様の stdout 汚染問題が発生しない
+  - `jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile` に防御処理を追加：`fileExists` チェック、空ファイルチェック、`readJSON` の `try-catch` エラーハンドリング、パース失敗時のファイル内容表示フォールバック
+  - 修正ファイル: `src/utils/logger.ts`、`jenkins/jobs/pipeline/ai-workflow/validate-credentials/Jenkinsfile`
+  - テストカバレッジ: ユニットテスト6件（logger stderr 統一出力検証）、インテグレーションテスト2件（JSON 純粋性・Jenkinsfile 防御処理）を追加。全体 `npm run validate` PASS（243 test suites / 3,651 tests）
 
 - **Issue #832**: Codex Agent の正常完了後に認証失敗が誤検知され、Claude Agent へ不要なフォールバックが発動する問題を修正
   - `AgentExecutor` の `authFailed` 判定ロジックを、生文字列の `includes` による判定から JSON 構造化イベントのみを対象とする `detectAuthFailure()` プライベートメソッドへ置き換え

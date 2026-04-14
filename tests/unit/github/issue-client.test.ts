@@ -355,8 +355,8 @@ describe('IssueClient', () => {
       mockOctokit.issues.createComment.mockResolvedValue({ data: mockComment } as any);
       mockOctokit.issues.update.mockResolvedValue(mockUpdate as any);
 
-      // Spy on console.info
-      const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+      // Spy on console.error (logger outputs to stderr)
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
       // When: Close issue with reason
       const result: GenericResult = await issueClient.closeIssueWithReason(24, '実装完了');
@@ -381,9 +381,9 @@ describe('IssueClient', () => {
       expect(result).toEqual({ success: true, error: null });
 
       // And: Info log should be written (logger includes timestamp)
-      expect(consoleInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Closed issue #24'));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Closed issue #24'));
 
-      consoleInfoSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
 
     it('should handle RequestError appropriately', async () => {

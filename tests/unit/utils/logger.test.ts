@@ -52,6 +52,86 @@ describe('Logger Module', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  describe('stderr Unified Output (Issue #829)', () => {
+    it('should route all log levels to console.error only', () => {
+      // Given: LOG_LEVEL=debug to enable all levels
+      process.env.LOG_LEVEL = 'debug';
+
+      // When: logging at all levels
+      logger.debug('debug');
+      logger.info('info');
+      logger.warn('warn');
+      logger.error('error');
+
+      // Then: all go to console.error only
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(4);
+      expect(consoleInfoSpy).not.toHaveBeenCalled();
+      expect(consoleDebugSpy).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not write any logs to stdout (console.log)', () => {
+      // Given: LOG_LEVEL=debug
+      process.env.LOG_LEVEL = 'debug';
+
+      // When: logging at all levels
+      logger.debug('debug');
+      logger.info('info');
+      logger.warn('warn');
+      logger.error('error');
+
+      // Then: stdout is not used
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should output info logs via console.error, not console.info', () => {
+      // Given: default settings
+
+      // When: logging info
+      logger.info('test info message');
+
+      // Then: console.error called, console.info not called
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleInfoSpy).not.toHaveBeenCalled();
+    });
+
+    it('should output debug logs via console.error, not console.debug', () => {
+      // Given: LOG_LEVEL=debug
+      process.env.LOG_LEVEL = 'debug';
+
+      // When: logging debug
+      logger.debug('test debug message');
+
+      // Then: console.error called, console.debug not called
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleDebugSpy).not.toHaveBeenCalled();
+    });
+
+    it('should output warn logs via console.error, not console.warn', () => {
+      // Given: LOG_LEVEL=warn
+      process.env.LOG_LEVEL = 'warn';
+
+      // When: logging warn
+      logger.warn('test warn message');
+
+      // Then: console.error called, console.warn not called
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it('should keep error logs on console.error only', () => {
+      // Given: default settings
+
+      // When: logging error
+      logger.error('test error message');
+
+      // Then: console.error called, console.log not called
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Log Level Control', () => {
     it('should output only info and above when LOG_LEVEL is not set (default: info)', () => {
       // Given: LOG_LEVEL is not set (default: info)
@@ -63,9 +143,9 @@ describe('Logger Module', () => {
       logger.warn('warn message');
       logger.error('error message');
 
-      // Then: debug is not output, info/warn go to console.log, error goes to console.error
-      expect(consoleLogSpy).toHaveBeenCalledTimes(2); // info, warn
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1); // error
+      // Then: debug is not output, info/warn/error go to console.error
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(3); // info, warn, error
     });
 
     it('should output all levels when LOG_LEVEL=debug', () => {
@@ -79,8 +159,8 @@ describe('Logger Module', () => {
       logger.error('error message');
 
       // Then: all levels are output
-      expect(consoleLogSpy).toHaveBeenCalledTimes(3); // debug, info, warn
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1); // error
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(4); // debug, info, warn, error
     });
 
     it('should output only warn and above when LOG_LEVEL=warn', () => {
@@ -94,8 +174,8 @@ describe('Logger Module', () => {
       logger.error('error message');
 
       // Then: only warn and error are output
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1); // warn
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1); // error
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(2); // warn, error
     });
 
     it('should output only error when LOG_LEVEL=error', () => {
@@ -122,7 +202,8 @@ describe('Logger Module', () => {
       logger.info('info message');
 
       // Then: debug is not output (default: info level), info is output
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1); // info only
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1); // info only
     });
   });
 
@@ -135,7 +216,7 @@ describe('Logger Module', () => {
       logger.info('test message');
 
       // Then: ANSI escape sequences are present (coloring applied)
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toMatch(/\x1b\[/); // ANSI escape sequence
     });
 
@@ -147,7 +228,7 @@ describe('Logger Module', () => {
       logger.info('test message');
 
       // Then: no ANSI escape sequences (coloring disabled)
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).not.toMatch(/\x1b\[/);
     });
 
@@ -159,7 +240,7 @@ describe('Logger Module', () => {
       logger.info('test message');
 
       // Then: no ANSI escape sequences (coloring disabled)
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).not.toMatch(/\x1b\[/);
     });
 
@@ -175,10 +256,10 @@ describe('Logger Module', () => {
       logger.error('error message');
 
       // Then: each level has ANSI escape sequences (colors applied)
-      const debugCall = consoleLogSpy.mock.calls[0]?.[0] as string;
-      const infoCall = consoleLogSpy.mock.calls[1]?.[0] as string;
-      const warnCall = consoleLogSpy.mock.calls[2]?.[0] as string;
-      const errorCall = consoleErrorSpy.mock.calls[0]?.[0] as string;
+      const debugCall = consoleErrorSpy.mock.calls[0]?.[0] as string;
+      const infoCall = consoleErrorSpy.mock.calls[1]?.[0] as string;
+      const warnCall = consoleErrorSpy.mock.calls[2]?.[0] as string;
+      const errorCall = consoleErrorSpy.mock.calls[3]?.[0] as string;
 
       expect(debugCall).toMatch(/\x1b\[/);
       expect(infoCall).toMatch(/\x1b\[/);
@@ -196,7 +277,7 @@ describe('Logger Module', () => {
       logger.info('test message');
 
       // Then: timestamp is present in correct format
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       // Remove ANSI color codes for regex matching
       const plainText = call.replace(/\x1b\[\d+m/g, '');
       expect(plainText).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
@@ -210,8 +291,8 @@ describe('Logger Module', () => {
       logger.info('message 2');
 
       // Then: timestamps are either identical or within 1 second
-      const call1 = consoleLogSpy.mock.calls[0]?.[0] as string;
-      const call2 = consoleLogSpy.mock.calls[1]?.[0] as string;
+      const call1 = consoleErrorSpy.mock.calls[0]?.[0] as string;
+      const call2 = consoleErrorSpy.mock.calls[1]?.[0] as string;
 
       const plainText1 = call1.replace(/\x1b\[\d+m/g, '');
       const plainText2 = call2.replace(/\x1b\[\d+m/g, '');
@@ -235,7 +316,7 @@ describe('Logger Module', () => {
       logger.info('simple string message');
 
       // Then: output format is "YYYY-MM-DD HH:mm:ss [INFO ] simple string message"
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO \] simple string message$/);
     });
 
@@ -247,7 +328,7 @@ describe('Logger Module', () => {
       logger.info({ key: 'value', number: 123 });
 
       // Then: object is stringified as JSON
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain('{"key":"value","number":123}');
     });
 
@@ -259,7 +340,7 @@ describe('Logger Module', () => {
       logger.info('User', 'John', 'logged in');
 
       // Then: arguments are space-separated
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain('User John logged in');
     });
 
@@ -271,13 +352,13 @@ describe('Logger Module', () => {
       logger.info('Count:', 42, { status: 'ok' });
 
       // Then: all arguments are properly formatted
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain('Count: 42 {"status":"ok"}');
     });
   });
 
   describe('Output Destination', () => {
-    it('should output debug/info/warn to console.log', () => {
+    it('should output debug/info/warn to console.error', () => {
       // Given: LOG_LEVEL=debug
       process.env.LOG_LEVEL = 'debug';
 
@@ -286,9 +367,9 @@ describe('Logger Module', () => {
       logger.info('info message');
       logger.warn('warn message');
 
-      // Then: all go to console.log, none to console.error
-      expect(consoleLogSpy).toHaveBeenCalledTimes(3);
-      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      // Then: all go to console.error, none to console.log
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(3);
+      expect(consoleLogSpy).not.toHaveBeenCalled();
     });
 
     it('should output error to console.error', () => {
@@ -312,8 +393,8 @@ describe('Logger Module', () => {
       logger.info('');
 
       // Then: timestamp and level are output
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[INFO \] $/);
     });
 
@@ -325,8 +406,8 @@ describe('Logger Module', () => {
       logger.info(null);
 
       // Then: null is stringified as "null"
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain('null');
     });
 
@@ -338,8 +419,8 @@ describe('Logger Module', () => {
       logger.info(undefined);
 
       // Then: undefined is stringified as "undefined"
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain('undefined');
     });
 
@@ -352,8 +433,8 @@ describe('Logger Module', () => {
       logger.info(longMessage);
 
       // Then: entire message is output without truncation
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-      const call = consoleLogSpy.mock.calls[0]?.[0] as string;
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      const call = consoleErrorSpy.mock.calls[0]?.[0] as string;
       expect(call).toContain(longMessage);
     });
 
@@ -367,7 +448,7 @@ describe('Logger Module', () => {
 
       // Then: should not throw error (may use fallback mechanism)
       expect(() => logger.info(obj)).not.toThrow();
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     });
   });
 });
