@@ -292,11 +292,15 @@ def setupEnvironment() {
  *
  * 処理内容:
  * 1. Node.js 環境情報の出力（node --version、npm --version、whoami、HOME）
- * 2. ECR イメージ内の事前ビルド済み成果物（/workspace/node_modules、/workspace/dist）を
+ * 2. npm ネットワーク設定の強化（fetch-retries=5、fetch-timeout=600000 等を環境変数で注入）
+ * 3. npm_install_with_retry() リトライラッパー関数の定義
+ *    - 最大 3 回リトライ、線形バックオフ（10/20/30 秒）、リトライ間に npm cache verify 実行
+ *    - 失敗時は [WARN]、最終失敗時は [ERROR] プレフィックスで stderr に出力
+ * 4. ECR イメージ内の事前ビルド済み成果物（/workspace/node_modules、/workspace/dist）を
  *    symlink で Jenkins ワークスペースから参照
- * 3. セーフティネット検証（node dist/index.js check）で成果物の整合性を確認
- * 4. 検証失敗時はフォールバック: symlink 削除 → npm ci --include=dev → npm run build
- * 5. ECR 成果物が存在しない場合: npm install（dev含む）→ npm run build
+ * 5. セーフティネット検証（node dist/index.js check）で成果物の整合性を確認
+ * 6. 検証失敗時はフォールバック: symlink 削除 → npm_install_with_retry("npm ci --include=dev") → npm run build
+ * 7. ECR 成果物が存在しない場合: npm_install_with_retry("npm install --include=dev") → npm run build
  *
  * 前提条件:
  * - WORKFLOW_DIR が設定済み（既定: '.'）
@@ -322,6 +326,32 @@ def setupNodeEnvironment() {
             echo "Current user: $(whoami)"
             echo "HOME directory: $HOME"
 
+            # npm ネットワーク設定を強化
+            export npm_config_fetch_retries=5
+            export npm_config_fetch_retry_mintimeout=20000
+            export npm_config_fetch_retry_maxtimeout=120000
+            export npm_config_fetch_timeout=600000
+
+            # リトライラッパー関数
+            npm_install_with_retry() {
+                local install_cmd="$1"
+                local max_attempts=3
+                local attempt=1
+                until eval "$install_cmd"; do
+                    local status=$?
+                    if [ "$attempt" -ge "$max_attempts" ]; then
+                        printf '[ERROR] npm install failed after %s attempts (status=%s, cmd=%s)\n' \
+                            "$max_attempts" "$status" "$install_cmd" >&2
+                        return "$status"
+                    fi
+                    printf '[WARN] npm install failed (attempt %s/%s, status=%s, cmd=%s). Retrying...\n' \
+                        "$attempt" "$max_attempts" "$status" "$install_cmd" >&2
+                    npm cache verify || true
+                    sleep $((attempt * 10))
+                    attempt=$((attempt + 1))
+                done
+            }
+
             echo ""
             # ECR イメージに焼かれた node_modules/dist を symlink で再利用
             if [ -d /workspace/node_modules ] && [ ! -e node_modules ]; then
@@ -340,12 +370,12 @@ def setupNodeEnvironment() {
                 else
                     echo "WARNING: ECR image artifacts verification failed. Falling back to full install & build..."
                     rm -f node_modules dist
-                    npm ci --include=dev
+                    npm_install_with_retry "npm ci --include=dev"
                     npm run build
                 fi
             else
                 echo "WARNING: ECR image artifacts not found. Running full install & build..."
-                npm install --include=dev
+                npm_install_with_retry "npm install --include=dev"
                 npm run build
             fi
         '''

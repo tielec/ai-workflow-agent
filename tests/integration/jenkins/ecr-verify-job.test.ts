@@ -239,7 +239,7 @@ describe('Integration: ECR verify Jenkins pipeline (Issue #815)', () => {
       // Then: ステージ構成が一致する
       expect(stages).toEqual([
         'Validate Parameters',
-        'ECR Login',
+        'Verify ECR Credential Helper',
         'Pull Image',
         'Verify Container',
         'Report Results',
@@ -298,11 +298,13 @@ describe('Integration: ECR verify Jenkins pipeline (Issue #815)', () => {
       expect(jenkinsfileContent).toMatch(/AWS STS.*取得に失敗|インスタンスプロファイル/);
     });
 
-    it('ECR Loginステージにget-login-passwordとpassword-stdinが含まれる', () => {
+    it('Verify ECR Credential Helperステージにcredential helper検証が含まれる', () => {
       // Given: Jenkinsfile内容
-      expect(jenkinsfileContent).toMatch(/aws ecr get-login-password/);
-      expect(jenkinsfileContent).toMatch(/--password-stdin/);
-      expect(jenkinsfileContent).toMatch(/docker login/);
+      expect(jenkinsfileContent).toContain("stage('Verify ECR Credential Helper')");
+      expect(jenkinsfileContent).toMatch(/docker-credential-ecr-login version/);
+      expect(jenkinsfileContent).not.toMatch(/aws ecr get-login-password/);
+      expect(jenkinsfileContent).not.toMatch(/--password-stdin/);
+      expect(jenkinsfileContent).not.toMatch(/docker login/);
     });
 
     it('Pull Imageステージでdocker pullとreturnStatus判定がある', () => {
@@ -424,7 +426,9 @@ describe('Integration: ECR verify Jenkins pipeline (Issue #815)', () => {
       expect(jenkinsfileContent).toMatch(/env\.ECR_IMAGE_NAME\s*=.*ECR_REGISTRY/);
       expect(jenkinsfileContent).not.toMatch(/ECR_REGISTRY\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
       expect(jenkinsfileContent).not.toMatch(/ECR_IMAGE_NAME\s*=\s*"\$\{params\.AWS_ACCOUNT_ID/);
-      expect(jenkinsfileContent).toMatch(/--password-stdin\s+\$\{env\.ECR_REGISTRY\}/);
+      expect(jenkinsfileContent).not.toMatch(/aws ecr get-login-password/);
+      expect(jenkinsfileContent).not.toMatch(/--password-stdin/);
+      expect(jenkinsfileContent).not.toMatch(/docker login/);
       expect(jenkinsfileContent).toMatch(/docker rmi \$\{env\.ECR_IMAGE_NAME\}/);
     });
 
@@ -445,10 +449,12 @@ describe('Integration: ECR verify Jenkins pipeline (Issue #815)', () => {
       // Given: ecr-verify / ecr-build のJenkinsfile
       expect(jenkinsfileContent).toContain('aws sts get-caller-identity --query Account --output text');
       expect(ecrBuildJenkinsfileContent).toContain('aws sts get-caller-identity --query Account --output text');
-      expect(jenkinsfileContent).toContain('aws ecr get-login-password');
-      expect(ecrBuildJenkinsfileContent).toContain('aws ecr get-login-password');
+      expect(jenkinsfileContent).toContain("stage('Verify ECR Credential Helper')");
+      expect(ecrBuildJenkinsfileContent).toContain("stage('Verify ECR Credential Helper')");
+      expect(jenkinsfileContent).toContain('docker-credential-ecr-login version');
+      expect(ecrBuildJenkinsfileContent).toContain('docker-credential-ecr-login version');
       expect(jenkinsfileContent).toContain("label 'ec2-fleet-micro'");
-      expect(ecrBuildJenkinsfileContent).toContain("label 'ec2-fleet-micro'");
+      expect(ecrBuildJenkinsfileContent).toContain("label 'ec2-fleet-medium'");
       expect(jenkinsfileContent).toContain('timestamps()');
       expect(ecrBuildJenkinsfileContent).toContain('timestamps()');
       expect(jenkinsfileContent).toContain("ansiColor('xterm')");

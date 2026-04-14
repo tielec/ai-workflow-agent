@@ -372,6 +372,19 @@ agent {
 
 また、`setupNodeEnvironment()` は ECR イメージ内の `/workspace/node_modules` と `/workspace/dist` を symlink で再利用し、成果物の整合性を `node dist/index.js check` で検証します。検証に失敗した場合や成果物が存在しない場合は、従来通り `npm ci --include=dev` / `npm install --include=dev` と `npm run build` でフルビルドにフォールバックします。
 
+#### npm ネットワーク設定（Issue #847 で追加）
+
+`setupNodeEnvironment()` は npm クライアントのネットワーク耐性を強化するため、以下の設定を環境変数として sh ブロック内で注入します。同じ設定はリポジトリルートの `.npmrc` にも永続化されており、二重防御として機能します。
+
+| 設定 | 値 | デフォルト | 説明 |
+|------|-----|----------|------|
+| `fetch-retries` | `5` | `2` | npm レジストリへの HTTP リクエストの最大リトライ回数 |
+| `fetch-retry-mintimeout` | `20000`（20 秒） | `10000` | リトライ間の最小待機時間（ミリ秒） |
+| `fetch-retry-maxtimeout` | `120000`（120 秒） | `60000` | リトライ間の最大待機時間（ミリ秒） |
+| `fetch-timeout` | `600000`（600 秒） | `300000` | 単一の HTTP リクエストのタイムアウト（ミリ秒） |
+
+さらに、シェルレベルのリトライラッパー（`npm_install_with_retry()`）がフォールバックパスの `npm ci` / `npm install` を最大 3 回までリトライし、リトライ間に `npm cache verify` を実行します。
+
 **前提条件**:
 - `ec2-fleet-micro` / `ec2-fleet-small` の EC2 インスタンスロールに ECR (`ap-northeast-1`) からの pull 権限（`ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`）が付与されていること
 - `ecr-build/Jenkinsfile` と `ecr-verify/Jenkinsfile` は本統一対象外（image ビルド側のジョブのため、従来通り node agent を使用）

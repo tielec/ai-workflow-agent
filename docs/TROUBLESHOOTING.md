@@ -472,6 +472,40 @@ apt-get update && apt-get install -y default-jdk
 
 **関連Issue**: Issue #706 - ARM64 環境での Codex CLI 依存エラーとテスト環境未セットアップによるワークフロー失敗の修正
 
+### npm install が ECONNRESET で失敗する（Issue #847）
+
+**症状**:
+```
+npm warn tarball tarball data for ... seems to be corrupted
+npm error code ECONNRESET
+npm error network socket hang up
+```
+または Jenkins の `Setup Node.js Environment` ステージで npm インストールが失敗し、ビルド全体が中断する。
+
+**原因**:
+- Jenkins エージェント（EC2 インスタンス）から npm レジストリへの接続が一過性のネットワーク障害（`ECONNRESET`）により切断される。
+
+**Issue #847 以降の自動対応**:
+- `setupNodeEnvironment()` はフォールバックパスの `npm ci` / `npm install` を `npm_install_with_retry()` により最大 3 回自動リトライします。
+- リトライ間には線形バックオフ（10 → 20 → 30 秒）と `npm cache verify` によるキャッシュ整合性確認が実行されます。
+- リトライ中は `[WARN]` プレフィックス、最終失敗時は `[ERROR]` プレフィックスのログが Jenkins コンソールに出力されます。
+
+**ログで確認すべき内容**:
+```bash
+# リトライが発生した場合（自動回復）
+[WARN] npm install failed (attempt 1/3). Retrying...
+
+# 3 回すべて失敗した場合（手動対応が必要）
+[ERROR] npm install failed after 3 attempts
+```
+
+**3 回リトライしても失敗する場合の対処法**:
+1. Jenkins エージェントのネットワーク接続状況を確認する（EC2 インスタンスのネットワーク帯域制限の可能性）
+2. `NETWORK_HEALTH_CHECK` パラメータを有効にして、フェーズ実行前にネットワーク状態を自動検知する
+3. Jenkins ジョブを再実行する（`ECONNRESET` は一時的なエラーであることが多いため、再実行で解決する場合がある）
+
+**関連Issue**: Issue #847 - finalize ジョブの npm install で ECONNRESET により処理が失敗する（リトライ/キャッシュ戦略の導入）
+
 ### ecr-verifyジョブで AGENT_CAN_INSTALL_PACKAGES を確認
 
 - `jenkins/jobs/pipeline/ai-workflow/ecr-verify/Jenkinsfile` の Verify Container ステージでは `docker run --rm <image> sh -c 'echo \$AGENT_CAN_INSTALL_PACKAGES'` を実行してコンテナ内の値を取得し、`PASS: AGENT_CAN_INSTALL_PACKAGES` / `FAIL: AGENT_CAN_INSTALL_PACKAGES` をログに残します。Groovy が `$` を展開しないよう `\$` でエスケープしている点にも留意してください。

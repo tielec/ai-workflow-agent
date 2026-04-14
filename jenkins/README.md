@@ -258,7 +258,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 | `prepareAgentCredentials()` | エージェント実行に必要な認証情報準備（GitHub、OpenAI、Codex、Claude、AWS） |
 | `prepareCodexAuthFile()` | `CODEX_AUTH_JSON` から `WORKSPACE_TMP` 配下に `auth.json` を生成し、`~/.codex/auth.json` にコピー（`chmod 600`、`sh` で書き込み） |
 | `setupEnvironment()` | REPOS_ROOT準備と対象リポジトリのクローン |
-| `setupNodeEnvironment()` | Node.js環境確認。ECR イメージ内の `/workspace/node_modules` と `/workspace/dist` を symlink で再利用し、整合性検証後に npm install & build をスキップ（検証失敗・成果物未検出時はフルビルドにフォールバック） |
+| `setupNodeEnvironment()` | Node.js環境確認。ECR イメージ内の `/workspace/node_modules` と `/workspace/dist` を symlink で再利用し、整合性検証後に npm install & build をスキップ（検証失敗・成果物未検出時はフルビルドにフォールバック）。フォールバック時の `npm ci` / `npm install` は `npm_install_with_retry()` により最大 3 回リトライ（Issue #847） |
 | `archiveArtifacts(issueNumber)` | ワークフローメタデータ、ログ、成果物のアーカイブ |
 | `sendWebhook(Map config)` | Lavableにジョブステータスを通知（HTTP POST, タイムアウト30秒、build_url / branch_name / pr_url / finished_at / logs_urlをオプション送信） |
 

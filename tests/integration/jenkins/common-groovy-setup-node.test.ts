@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 const commonPath = resolve('jenkins/shared/common.groovy');
 const developmentDocPath = resolve('docs/DEVELOPMENT.md');
 const environmentDocPath = resolve('docs/ENVIRONMENT.md');
+const npmrcPath = resolve('.npmrc');
 
 const loadFile = (path: string): string => readFileSync(path, 'utf8');
 
@@ -183,12 +184,14 @@ let commonContent = '';
 let setupNodeBlock = '';
 let developmentDoc = '';
 let environmentDoc = '';
+let npmrcContent = '';
 
 beforeAll(() => {
   // Given: 対象ファイルを読み込む
   commonContent = loadFile(commonPath);
   developmentDoc = loadFile(developmentDocPath);
   environmentDoc = loadFile(environmentDocPath);
+  npmrcContent = loadFile(npmrcPath);
 
   // When: setupNodeEnvironment() ブロックを抽出する
   setupNodeBlock = extractFunctionBlock(commonContent, 'setupNodeEnvironment');
@@ -367,7 +370,7 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     // Given
     // When: npm install の出現位置を確認する
     const warningIndex = setupNodeBlock.indexOf('WARNING: ECR image artifacts not found');
-    const installIndex = setupNodeBlock.indexOf('npm install --include=dev');
+    const installIndex = setupNodeBlock.indexOf('npm_install_with_retry "npm install --include=dev"');
 
     // Then: フォールバック警告の後でのみ実行され、旧メッセージは存在しない
     expect(warningIndex).toBeGreaterThanOrEqual(0);
@@ -381,6 +384,109 @@ describe('common.groovy setupNodeEnvironment (統合)', () => {
     // When
     // Then
     expect(setupNodeBlock).toContain('dir(env.WORKFLOW_DIR');
+  });
+
+  it('IT-847-001: リトライラッパー関数が定義されている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: リトライラッパー関数を検索する
+    // Then: npm_install_with_retry 関数定義が含まれる
+    expect(setupNodeBlock).toContain('npm_install_with_retry');
+  });
+
+  it('IT-847-002: 最大リトライ回数が 3 回に設定されている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: 最大試行回数の設定を検査する
+    // Then: max_attempts=3 が設定されている
+    expect(setupNodeBlock).toContain('max_attempts=3');
+  });
+
+  it('IT-847-003: リトライ間に npm cache verify が実行される', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: リトライ間の処理を検査する
+    // Then: npm cache verify コマンドが含まれている
+    expect(setupNodeBlock).toContain('npm cache verify');
+  });
+
+  it('IT-847-004: 最終失敗時のエラーメッセージが [ERROR] フォーマットである', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: 最終失敗時のメッセージを検査する
+    // Then: [ERROR] プレフィックスのエラーメッセージが含まれている
+    expect(setupNodeBlock).toContain('[ERROR] npm install failed after');
+  });
+
+  it('IT-847-005: リトライ中の警告メッセージが [WARN] フォーマットである', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: 試行失敗時のメッセージを検査する
+    // Then: [WARN] プレフィックスの警告メッセージが含まれている
+    expect(setupNodeBlock).toContain('[WARN] npm install failed (attempt');
+  });
+
+  it('IT-847-006: npm ネットワーク設定環境変数が含まれている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: npm ネットワーク設定の環境変数を検査する
+    // Then: 4 つの環境変数設定が含まれている
+    expect(setupNodeBlock).toContain('npm_config_fetch_retries=5');
+    expect(setupNodeBlock).toContain('npm_config_fetch_retry_mintimeout=20000');
+    expect(setupNodeBlock).toContain('npm_config_fetch_retry_maxtimeout=120000');
+    expect(setupNodeBlock).toContain('npm_config_fetch_timeout=600000');
+  });
+
+  it('IT-847-007: フォールバック A が npm_install_with_retry 経由で呼び出されている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: フォールバック A の npm ci 呼び出しを検査する
+    // Then: npm_install_with_retry 経由で呼び出されている
+    expect(setupNodeBlock).toContain('npm_install_with_retry "npm ci --include=dev"');
+  });
+
+  it('IT-847-008: フォールバック B が npm_install_with_retry 経由で呼び出されている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: フォールバック B の npm install 呼び出しを検査する
+    // Then: npm_install_with_retry 経由で呼び出されている
+    expect(setupNodeBlock).toContain('npm_install_with_retry "npm install --include=dev"');
+  });
+
+  it('IT-847-009: リトライ間のスリープ（バックオフ）が含まれている', () => {
+    // Given: 抽出済みの関数ブロック
+    // When: バックオフ処理を検査する
+    // Then: sleep コマンドが含まれている
+    expect(setupNodeBlock).toContain('sleep $((attempt * 10))');
+  });
+});
+
+describe('.npmrc network settings for setupNodeEnvironment (統合)', () => {
+  it('IT-847-010: .npmrc に fetch-retries=5 が含まれている', () => {
+    // Given: .npmrc ファイルの内容
+    // When: ファイル内容を検査する
+    // Then: fetch-retries=5 が含まれている
+    expect(npmrcContent).toContain('fetch-retries=5');
+  });
+
+  it('IT-847-011: .npmrc に fetch-retry-mintimeout=20000 が含まれている', () => {
+    // Given: .npmrc ファイルの内容
+    // When: ファイル内容を検査する
+    // Then: fetch-retry-mintimeout=20000 が含まれている
+    expect(npmrcContent).toContain('fetch-retry-mintimeout=20000');
+  });
+
+  it('IT-847-012: .npmrc に fetch-retry-maxtimeout=120000 が含まれている', () => {
+    // Given: .npmrc ファイルの内容
+    // When: ファイル内容を検査する
+    // Then: fetch-retry-maxtimeout=120000 が含まれている
+    expect(npmrcContent).toContain('fetch-retry-maxtimeout=120000');
+  });
+
+  it('IT-847-013: .npmrc に fetch-timeout=600000 が含まれている', () => {
+    // Given: .npmrc ファイルの内容
+    // When: ファイル内容を検査する
+    // Then: fetch-timeout=600000 が含まれている
+    expect(npmrcContent).toContain('fetch-timeout=600000');
+  });
+
+  it('IT-847-014: 既存の node-options 設定が維持されている', () => {
+    // Given: .npmrc ファイルの内容
+    // When: ファイル内容を検査する
+    // Then: 既存の node-options 設定が維持されている
+    expect(npmrcContent).toContain('node-options=--experimental-vm-modules --max-old-space-size=4096');
   });
 });
 
@@ -404,5 +510,21 @@ describe('docs update for setupNodeEnvironment (統合)', () => {
     expect(environmentDoc).toContain('/workspace/node_modules');
     expect(environmentDoc).toContain('/workspace/dist');
     expect(environmentDoc).toContain('フォールバック');
+  });
+
+  it('IT-847-015: DEVELOPMENT.md にリトライ機構の説明が追記されている', () => {
+    // Given: DEVELOPMENT.md の内容
+    // When: リトライ機構の説明を検査する
+    // Then: リトライラッパーとキャッシュ検証の説明が含まれている
+    expect(developmentDoc).toContain('npm_install_with_retry');
+    expect(developmentDoc).toContain('npm cache verify');
+  });
+
+  it('IT-847-016: ENVIRONMENT.md に npm ネットワーク設定の説明が追記されている', () => {
+    // Given: ENVIRONMENT.md の内容
+    // When: npm ネットワーク設定の説明を検査する
+    // Then: fetch-retries と fetch-timeout の説明が含まれている
+    expect(environmentDoc).toContain('fetch-retries');
+    expect(environmentDoc).toContain('fetch-timeout');
   });
 });
