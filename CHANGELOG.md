@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #852**: PR影響範囲調査エージェント `impact-analysis` コマンドの新規実装
+  - 3ステージ Pure Pipeline（Scoper → Investigator → Reporter）で、PRのdiffを入力にLLMエージェントが自律的に影響範囲を調査し、発見した事実をPRコメントとして投稿
+  - 内蔵プレイブック（6パターン）: 新旧テーブル同期漏れ、マイグレーション波及、共有リソース変更、削除操作の残存参照、インフラ定義変更、依存パッケージ破壊的変更
+  - ガードレール機構: トークン上限（100kトークン）、タイムアウト（5分）、ツール呼び出し回数上限（30回/PR）
+  - CLIオプション: `--pr`, `--pr-url`, `--custom-instruction`, `--agent`, `--dry-run`, `--language`
+  - `pull-request-client.ts` に `getPullRequestDiff()` と `postPRComment()` メソッドを追加
+  - `github-client.ts` に `getPullRequestDiff()`、`postPRComment()` ファサードメソッドを追加
+  - `PromptLoader` に `impact-analysis` カテゴリを追加（日本語/英語プロンプト対応）
+  - 新規ファイル: `src/commands/impact-analysis.ts`、`src/commands/impact-analysis/types.ts`、`scoper.ts`、`investigator.ts`、`reporter.ts`、`guardrails.ts`、`log-manager.ts`、`src/types/impact-analysis.ts`、プロンプト8ファイル（ja/en × scoper/investigator/reporter/playbook）
+  - 修正ファイル: `src/main.ts`、`src/core/prompt-loader.ts`、`src/core/github/pull-request-client.ts`、`src/core/github-client.ts`
+  - テストカバレッジ: ユニットテスト75件、統合テスト7件を新規追加、全体 `npm run validate` PASS（252 test suites / 3,753 tests）
+
 ### Changed
 
 - **Issue #833**: `setupNodeEnvironment()` の冗長な npm install を ECR イメージの node_modules symlink 再利用方式に置換

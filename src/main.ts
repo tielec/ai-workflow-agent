@@ -20,6 +20,7 @@ import { handleResolveConflictInitCommand } from './commands/resolve-conflict/in
 import { handleResolveConflictAnalyzeCommand } from './commands/resolve-conflict/analyze.js';
 import { handleResolveConflictExecuteCommand } from './commands/resolve-conflict/execute.js';
 import { handleResolveConflictFinalizeCommand } from './commands/resolve-conflict/finalize.js';
+import { handleImpactAnalysisCommand } from './commands/impact-analysis.js';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './types.js';
 import { handleValidateCredentialsCommand } from './commands/validate-credentials.js';
 import { handleRewriteIssueCommand } from './commands/rewrite-issue.js';
@@ -191,6 +192,32 @@ export async function runCli(): Promise<void> {
       try {
         applyLanguageOption(options.language);
         await handleReviewCommand(options);
+      } catch (error) {
+        reportFatalError(error);
+      }
+    });
+
+  // impact-analysis コマンド
+  program
+    .command('impact-analysis')
+    .description('PRの影響範囲を調査し、発見した事実をPRコメントとして投稿')
+    .addOption(new Option('--pr <number>', 'PR番号を直接指定'))
+    .addOption(new Option('--pr-url <url>', 'PR URLからPR番号とリポジトリを自動判定'))
+    .addOption(new Option('--custom-instruction <text>', 'リポジトリ固有の追加調査観点'))
+    .addOption(
+      new Option('--agent <mode>', '使用するエージェントモード')
+        .choices(['auto', 'codex', 'claude'])
+        .default('auto'),
+    )
+    .addOption(
+      new Option('--dry-run', 'PRコメント投稿をスキップし、ローカルにレポートを出力')
+        .default(false),
+    )
+    .addOption(createLanguageOption())
+    .action(async (options) => {
+      try {
+        applyLanguageOption(options.language);
+        await handleImpactAnalysisCommand(options);
       } catch (error) {
         reportFatalError(error);
       }

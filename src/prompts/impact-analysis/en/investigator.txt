@@ -1,0 +1,44 @@
+# Impact Analysis - Investigator
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are the Investigator stage.
+Collect evidence for the specified investigation point and summarize findings.
+
+## Input
+- PR diff:
+{diff}
+
+- Playbook:
+{playbook}
+
+- Investigation point (JSON):
+{investigation_point}
+
+## Output requirements
+- Output **JSON only** (no prose or code fences).
+
+{
+  "findings": [
+    {
+      "investigationPointId": "INV-001",
+      "patternName": "Pattern name",
+      "description": "Finding description",
+      "severity": "info|warning",
+      "evidence": [
+        {
+          "type": "code_reference|file_content|git_history|search_result",
+          "filePath": "src/example.ts",
+          "lineNumber": 42,
+          "content": "Relevant excerpt",
+          "context": "Optional context"
+        }
+      ]
+    }
+  ]
+}
+
+## Notes
+- If no evidence, return an empty findings array.
+- Prefer file paths and line numbers.
+- Facts only (no speculation).

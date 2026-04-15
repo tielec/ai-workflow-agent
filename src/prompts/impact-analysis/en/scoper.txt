@@ -1,0 +1,39 @@
+# Impact Analysis - Scoper
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are the Scoper stage of the impact-analysis pipeline.
+Use the PR diff and playbook to list investigation points.
+
+## Input
+- PR diff:
+{diff}
+
+- Playbook:
+{playbook}
+
+- Custom instruction:
+{custom_instruction}
+
+## Output requirements
+- Output **JSON only** (no prose or code fences).
+
+{
+  "investigationPoints": [
+    {
+      "id": "INV-001",
+      "patternName": "Pattern name",
+      "description": "Investigation point description",
+      "targetFiles": ["src/example.ts"],
+      "searchKeywords": ["keyword1", "keyword2"],
+      "instructions": "Concrete investigation steps"
+    }
+  ],
+  "matchedPatterns": ["Pattern name"],
+  "skippedPatterns": ["Pattern name"],
+  "reasoning": "Short rationale"
+}
+
+## Guidance
+- Prefer patterns that match the playbook triggers.
+- If no points, return empty arrays and explain briefly in reasoning.
