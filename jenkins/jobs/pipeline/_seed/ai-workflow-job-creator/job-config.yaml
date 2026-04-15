@@ -124,3 +124,10 @@ jenkins-jobs:
     dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_create_sub_issue_job.groovy
     jenkinsfile: jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile
     skipJenkinsfileValidation: true
+
+  ai_workflow_impact_analysis_job:
+    name: 'impact_analysis'
+    displayName: 'Impact Analysis'
+    dslfile: jenkins/jobs/dsl/ai-workflow/ai_workflow_impact_analysis_job.groovy
+    jenkinsfile: jenkins/jobs/pipeline/ai-workflow/impact-analysis/Jenkinsfile
+    skipJenkinsfileValidation: true
