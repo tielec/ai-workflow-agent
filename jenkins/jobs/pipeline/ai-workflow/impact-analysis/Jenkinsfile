@@ -1,0 +1,310 @@
+/**
+ * AI Workflow - Impact Analysis Mode
+ *
+ * PRの影響範囲をLLMエージェントで自動調査し、結果をPRコメントとして投稿するJenkinsfile。
+ *
+ * パラメータ（Job DSLで定義）:
+ * - PR_NUMBER: PR番号を直接指定（PR_URLと排他）
+ * - PR_URL: Pull Request URL（PR_NUMBERと排他、例: https://github.com/owner/repo/pull/123）
+ * - GITHUB_REPOSITORY: owner/repo形式（必須）
+ * - AGENT_MODE: エージェントモード（auto/codex/claude、デフォルト: auto）
+ * - LANGUAGE: 出力言語（ja/en、デフォルト: ja）
+ * - DRY_RUN: ドライランモード（true/false、デフォルト: false）
+ * - CUSTOM_INSTRUCTION: カスタム指示（オプション、最大500文字）
+ * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
+ * - 認証情報（Codex/Claude系、既存ジョブと同様）
+ *
+ * 注意:
+ * - EXECUTION_MODE は内部的に 'impact_analysis' に固定
+ * - PR_NUMBER と PR_URL はどちらか一方のみ指定可能
+ */
+
+def common
+
+pipeline {
+    agent {
+        docker {
+            image '621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest'
+            label 'ec2-fleet-micro'
+            args "-e CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=1"
+        }
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    environment {
+        // Claude Agent SDK設定
+        CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS = '1'
+
+        // AI Workflow設定
+        WORKFLOW_DIR = '.'
+        WORKFLOW_VERSION = '0.2.0'
+        // ワークフロー言語設定
+        AI_WORKFLOW_LANGUAGE = "${params.LANGUAGE ?: 'ja'}"
+        EXECUTION_MODE = 'impact_analysis'
+        CODEX_HOME = ''
+
+        // ログ設定
+        LOG_LEVEL = "${(params.LOG_LEVEL ?: 'INFO').toLowerCase()}"
+        LOG_NO_COLOR = 'true'
+
+        // GitHub認証情報
+        GITHUB_TOKEN = "${params.GITHUB_TOKEN}"
+        GITHUB_REPOSITORY = "${params.GITHUB_REPOSITORY ?: ''}"
+
+        // OpenAI系認証情報
+        CODEX_API_KEY = "${params.CODEX_API_KEY ?: ''}"
+        OPENAI_API_KEY = "${params.OPENAI_API_KEY ?: ''}"
+
+        // Claude系認証情報
+        CLAUDE_CODE_OAUTH_TOKEN = "${params.CLAUDE_CODE_OAUTH_TOKEN ?: ''}"
+        CLAUDE_CODE_API_KEY = "${params.CLAUDE_CODE_API_KEY ?: ''}"
+        ANTHROPIC_API_KEY = "${params.ANTHROPIC_API_KEY ?: ''}"
+    }
+
+    stages {
+        stage('Load Common Library') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "AI Workflow Orchestrator v${env.WORKFLOW_VERSION}"
+                    echo "Mode: Impact Analysis"
+                    echo "========================================="
+
+                    common = load 'jenkins/shared/common.groovy'
+                    echo "Common library loaded successfully"
+
+                    common.sendWebhook([
+                        webhookUrl: params.WEBHOOK_URL,
+                        webhookToken: params.WEBHOOK_TOKEN,
+                        jobId: params.JOB_ID,
+                        status: 'running',
+                        buildUrl: env.BUILD_URL,
+                        branchName: env.BRANCH_NAME ?: ''
+                    ])
+                }
+            }
+        }
+
+        stage('Prepare Codex auth.json') {
+            steps {
+                script {
+                    common.prepareCodexAuthFile()
+                }
+            }
+        }
+
+        stage('Prepare Agent Credentials') {
+            steps {
+                script {
+                    common.prepareAgentCredentials()
+                }
+            }
+        }
+
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Validate Parameters"
+                    echo "========================================="
+
+                    // PR_NUMBER と PR_URL の排他バリデーション
+                    def hasPrNumber = params.PR_NUMBER?.trim()
+                    def hasPrUrl = params.PR_URL?.trim()
+
+                    if (!hasPrNumber && !hasPrUrl) {
+                        error("PR_NUMBER または PR_URL のいずれかを指定してください")
+                    }
+
+                    if (hasPrNumber && hasPrUrl) {
+                        error("PR_NUMBER と PR_URL は同時に指定できません。いずれか一方を指定してください")
+                    }
+
+                    if (hasPrUrl) {
+                        // PR_URL 指定時: 正規表現でパース
+                        def prUrlPattern = ~/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)$/
+                        def matcher = (params.PR_URL =~ prUrlPattern)
+
+                        if (!matcher.matches()) {
+                            error("PR_URL must be in the format 'https://github.com/owner/repo/pull/number': ${params.PR_URL}")
+                        }
+
+                        env.REPO_OWNER = matcher[0][1]
+                        env.REPO_NAME = matcher[0][2]
+                        env.PR_NUMBER = matcher[0][3]
+                        env.GITHUB_REPOSITORY = "${env.REPO_OWNER}/${env.REPO_NAME}"
+                    } else {
+                        // PR_NUMBER 指定時: GITHUB_REPOSITORY からowner/repoを取得
+                        if (!params.GITHUB_REPOSITORY?.trim()) {
+                            error("PR_NUMBER 指定時は GITHUB_REPOSITORY パラメータ（owner/repo形式）が必須です")
+                        }
+
+                        def repoParts = params.GITHUB_REPOSITORY.split('/')
+                        if (repoParts.length != 2) {
+                            error("GITHUB_REPOSITORY must be in 'owner/repo' format: ${params.GITHUB_REPOSITORY}")
+                        }
+
+                        env.REPO_OWNER = repoParts[0]
+                        env.REPO_NAME = repoParts[1]
+                        env.PR_NUMBER = params.PR_NUMBER.trim()
+                    }
+
+                    // ビルドディスクリプション設定
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Impact Analysis PR #${env.PR_NUMBER}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    // デバッグ出力
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Repository Owner: ${env.REPO_OWNER}"
+                    echo "Repository Name: ${env.REPO_NAME}"
+                    echo "GitHub Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Language: ${params.LANGUAGE ?: 'ja'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            steps {
+                script {
+                    common.setupEnvironment()
+                }
+            }
+        }
+
+        stage('Setup Node.js Environment') {
+            steps {
+                script {
+                    common.setupNodeEnvironment()
+                }
+            }
+        }
+
+        stage('Execute Impact Analysis') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "Stage: Execute Impact Analysis"
+                    echo "========================================="
+                    echo "PR Number: ${env.PR_NUMBER}"
+                    echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "Dry Run: ${params.DRY_RUN ?: false}"
+                    echo "Custom Instruction: ${params.CUSTOM_INSTRUCTION ?: '(none)'}"
+
+                    // ビルドディスクリプション更新
+                    def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                    currentBuild.description = "Impact Analysis | Executing PR #${env.PR_NUMBER}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                    dir(env.WORKFLOW_DIR) {
+                        // CLI オプション組み立て
+                        def prOption = ''
+                        if (params.PR_URL?.trim()) {
+                            prOption = "--pr-url ${params.PR_URL}"
+                        } else {
+                            prOption = "--pr ${env.PR_NUMBER}"
+                        }
+
+                        def dryRunFlag = params.DRY_RUN ? '--dry-run' : ''
+                        def customInstructionFlag = params.CUSTOM_INSTRUCTION ?
+                            "--custom-instruction \"${params.CUSTOM_INSTRUCTION}\"" : ''
+                        def languageOption = params.LANGUAGE ?
+                            "--language ${params.LANGUAGE}" : ''
+
+                        sh """
+                            node dist/index.js impact-analysis \
+                                ${prOption} \
+                                --agent ${params.AGENT_MODE ?: 'auto'} \
+                                ${customInstructionFlag} \
+                                ${dryRunFlag} \
+                                ${languageOption}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "========================================="
+                echo "Post Processing"
+                echo "========================================="
+
+                def dryRunLabel = params.DRY_RUN ? ' [DRY RUN]' : ''
+                currentBuild.description = "Impact Analysis PR #${env.PR_NUMBER}${dryRunLabel} | ${env.REPO_OWNER}/${env.REPO_NAME}"
+
+                // ログアーティファクトのアーカイブ
+                archiveArtifacts artifacts: "logs/pr-${env.PR_NUMBER}/**/*", allowEmptyArchive: true
+
+                // REPOS_ROOTクリーンアップ
+                if (env.REPOS_ROOT) {
+                    sh "rm -rf ${env.REPOS_ROOT}"
+                    echo "REPOS_ROOT cleaned up: ${env.REPOS_ROOT}"
+                }
+
+                // CODEX_HOMEクリーンアップ
+                if (env.CODEX_HOME?.trim()) {
+                    sh "rm -rf ${env.CODEX_HOME}"
+                    echo "CODEX_HOME cleaned up: ${env.CODEX_HOME}"
+                }
+
+                // ワークスペースのクリーンアップ
+                cleanWs()
+                echo "Workspace cleaned up"
+            }
+        }
+
+        success {
+            script {
+                echo "========================================="
+                echo "AI Workflow - Impact Analysis Success"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                def dryRunNote = params.DRY_RUN ? ' (dry run mode)' : ''
+                echo "Result: Impact analysis completed${dryRunNote}"
+
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'success',
+                    buildUrl: env.BUILD_URL,
+                    branchName: env.BRANCH_NAME ?: '',
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+
+        failure {
+            script {
+                echo "========================================="
+                echo "AI Workflow - Impact Analysis Failure"
+                echo "========================================="
+                echo "PR: #${env.PR_NUMBER}"
+                echo "Repository: ${env.REPO_OWNER}/${env.REPO_NAME}"
+                echo "Please check the logs"
+
+                def errorMessage = currentBuild.result ?: 'Build failed'
+                common.sendWebhook([
+                    webhookUrl: params.WEBHOOK_URL,
+                    webhookToken: params.WEBHOOK_TOKEN,
+                    jobId: params.JOB_ID,
+                    status: 'failed',
+                    errorMessage: errorMessage,
+                    buildUrl: env.BUILD_URL,
+                    finishedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", TimeZone.getTimeZone('UTC')),
+                    logsUrl: "${env.BUILD_URL}console"
+                ])
+            }
+        }
+    }
+}

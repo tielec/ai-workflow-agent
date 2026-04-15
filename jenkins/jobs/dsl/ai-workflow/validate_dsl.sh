@@ -77,6 +77,7 @@ expected_paths=(
     "jenkins/jobs/pipeline/ai-workflow/split-issue/Jenkinsfile"
     "jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile"
     "jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile"
+    "jenkins/jobs/pipeline/ai-workflow/impact-analysis/Jenkinsfile"
 )
 
 for path in "${expected_paths[@]}"; do
@@ -165,6 +166,14 @@ if grep -q "scriptPath('jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenki
     echo "✓ ai_workflow_create_sub_issue_job.groovy has correct scriptPath"
 else
     echo "✗ ai_workflow_create_sub_issue_job.groovy has incorrect scriptPath"
+    validation_failed=1
+fi
+
+# Check ai_workflow_impact_analysis_job.groovy
+if grep -q "scriptPath('jenkins/jobs/pipeline/ai-workflow/impact-analysis/Jenkinsfile')" "$DSL_DIR/ai_workflow_impact_analysis_job.groovy"; then
+    echo "✓ ai_workflow_impact_analysis_job.groovy has correct scriptPath"
+else
+    echo "✗ ai_workflow_impact_analysis_job.groovy has incorrect scriptPath"
     validation_failed=1
 fi
 
