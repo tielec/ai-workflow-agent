@@ -223,7 +223,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       const options: IssueGenerationOptions = {
         enabled: true,
         provider: 'agent',
-        model: 'gpt-5.1-codex-mini',
+        model: 'gpt-5.4-mini',
       };
 
       // When: Create follow-up issue with a specific model
@@ -237,7 +237,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
 
       // Then: Codex receives the provided model
       expect(codexClient.executeTask).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+        expect.objectContaining({ model: 'gpt-5.4-mini' }),
       );
       expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
     });
@@ -273,7 +273,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       );
 
       expect(codexClient.executeTask).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-5.2-codex' }),
+        expect.objectContaining({ model: 'gpt-5.4' }),
       );
       expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
     });
@@ -310,7 +310,7 @@ describe('Integration: Agent-based FOLLOW-UP Issue generation (Issue #174)', () 
       );
 
       expect(codexClient.executeTask).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+        expect.objectContaining({ model: 'gpt-5.4-mini' }),
       );
       expect(mockOctokit.issues.create).toHaveBeenCalledTimes(1);
     });
