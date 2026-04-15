@@ -49,6 +49,42 @@ export const CODEX_MODEL_ALIASES: Record<string, string> = {
  * resolveCodexModel('gpt-5.1-codex') // → 'gpt-5.1-codex' (passthrough)
  * resolveCodexModel(undefined)       // → 'gpt-5.2-codex' (default)
  */
+/**
+ * Codex CLI の JSON イベント配列から人間可読なエラーメッセージを抽出する。
+ * stdout に流れる `type=error` / `type=turn.failed` イベントの error.message を取り出す。
+ */
+function extractCodexErrorMessage(messages: string[]): string {
+  for (const raw of messages) {
+    try {
+      const parsed = JSON.parse(raw) as {
+        type?: string;
+        error?: { message?: unknown };
+        message?: unknown;
+      };
+      if (parsed.type !== 'error' && parsed.type !== 'turn.failed') {
+        continue;
+      }
+      const rawMessage = parsed.error?.message ?? parsed.message;
+      if (typeof rawMessage !== 'string' || !rawMessage.trim()) {
+        continue;
+      }
+      // message 自体が JSON 文字列のこともあるので、ネストを剥がして error.message まで掘る
+      try {
+        const nested = JSON.parse(rawMessage) as { error?: { message?: string } };
+        if (nested.error?.message) {
+          return nested.error.message;
+        }
+      } catch {
+        /* ネストが JSON でなければそのまま使用 */
+      }
+      return rawMessage;
+    } catch {
+      /* JSON でない行は無視 */
+    }
+  }
+  return '';
+}
+
 export function resolveCodexModel(modelOrAlias: string | undefined | null): string {
   if (!modelOrAlias || !modelOrAlias.trim()) {
     return DEFAULT_CODEX_MODEL;
@@ -69,6 +105,37 @@ export class CodexAgentClient {
   private readonly workingDir: string;
   private readonly binaryPath: string;
   private readonly defaultModel?: string;
+  private disabled = false;
+  private disabledReason = '';
+
+  // セッション全体（プロセス単位）で共有する無効化フラグ。
+  // 例: ChatGPT アカウントでモデル非対応など、アカウント起因の恒久的な失敗を
+  // 1 回検出したら、別インスタンスでも同じ Codex CLI を再試行しないようにする。
+  private static sessionDisabled = false;
+  private static sessionDisabledReason = '';
+
+  /** セッション全体で Codex を無効化する（任意のインスタンスから呼び出し可能） */
+  public static markSessionDisabled(reason: string): void {
+    if (!CodexAgentClient.sessionDisabled) {
+      CodexAgentClient.sessionDisabled = true;
+      CodexAgentClient.sessionDisabledReason = reason;
+      logger.warn(`Codex agent disabled for this session (all instances): ${reason}`);
+    }
+  }
+
+  public static isSessionDisabled(): boolean {
+    return CodexAgentClient.sessionDisabled;
+  }
+
+  public static getSessionDisabledReason(): string {
+    return CodexAgentClient.sessionDisabledReason;
+  }
+
+  /** テスト用: セッションフラグのリセット */
+  public static resetSessionDisabled(): void {
+    CodexAgentClient.sessionDisabled = false;
+    CodexAgentClient.sessionDisabledReason = '';
+  }
 
   constructor(options: { workingDir?: string; binaryPath?: string; model?: string } = {}) {
     this.workingDir = options.workingDir ?? process.cwd();
@@ -84,7 +151,33 @@ export class CodexAgentClient {
     return this.binaryPath;
   }
 
+  /**
+   * このインスタンスをセッション終了まで無効化する（例: ChatGPT アカウントでモデル非対応）。
+   * 無効化後は `executeTask` が即座にエラーを投げ、上位で Claude へのフォールバックが働く。
+   * アカウント起因の失敗はセッション全体にも伝播させるため static フラグも立てる。
+   */
+  public markDisabled(reason: string): void {
+    if (!this.disabled) {
+      this.disabled = true;
+      this.disabledReason = reason;
+      logger.warn(`Codex agent disabled for this session: ${reason}`);
+    }
+    CodexAgentClient.markSessionDisabled(reason);
+  }
+
+  public isDisabled(): boolean {
+    return this.disabled || CodexAgentClient.sessionDisabled;
+  }
+
+  public getDisabledReason(): string {
+    return this.disabledReason || CodexAgentClient.sessionDisabledReason;
+  }
+
   public async executeTask(options: ExecuteTaskOptions): Promise<string[]> {
+    if (this.isDisabled()) {
+      throw new Error(`Codex agent disabled: ${this.getDisabledReason()}`);
+    }
+
     let cwd = options.workingDirectory ?? this.workingDir;
 
     logger.debug(`[CodexAgent] Original working directory: ${cwd}`);
@@ -239,8 +332,10 @@ export class CodexAgentClient {
           resolve(messages);
         } else {
           const stderr = stderrBuffer.trim();
+          const extractedError = extractCodexErrorMessage(messages);
           const message = [
             `Codex CLI exited with code ${code ?? 'unknown'}.`,
+            extractedError ? `error: ${extractedError}` : null,
             stderr ? `stderr: ${stderr}` : null,
           ]
             .filter(Boolean)
