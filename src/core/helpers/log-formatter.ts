@@ -176,9 +176,11 @@ export function formatClaudeLog(message: SDKMessage): string {
         num_turns?: number;
         duration_ms?: number;
         result?: string;
+        is_error?: boolean;
       };
+      const isErrorSuffix = resultMessage.is_error === true ? ', is_error=true' : '';
       logs.push(
-        `[AGENT RESULT] status=${resultMessage.subtype ?? 'success'}, turns=${resultMessage.num_turns ?? 'N/A'}, duration_ms=${resultMessage.duration_ms ?? 'N/A'}`,
+        `[AGENT RESULT] status=${resultMessage.subtype ?? 'success'}, turns=${resultMessage.num_turns ?? 'N/A'}, duration_ms=${resultMessage.duration_ms ?? 'N/A'}${isErrorSuffix}`,
       );
       if (typeof resultMessage.result === 'string' && resultMessage.result.trim().length > 0) {
         logs.push(`[AGENT RESULT] ${resultMessage.result}`);
