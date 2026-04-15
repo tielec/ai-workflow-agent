@@ -139,10 +139,11 @@ export class ClaudeAgentClient {
         const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
         messages.push(JSON.stringify(sanitizedMessage));
 
-        // type=result, subtype=success を受信した時点で本処理は完了している。
-        // この後に SDK が exit code 1 で落ちても本来の成果物には影響しない。
-        const m = message as { type?: string; subtype?: string };
-        if (m.type === 'result' && m.subtype === 'success') {
+        // type=result, subtype=success かつ is_error=false の場合のみ「真の成功」と判定する。
+        // Claude CLI は認証エラー(401)等でも subtype=success を返すケースがあるため、
+        // is_error フィールドで本当の成功/失敗を判別する必要がある。
+        const m = message as { type?: string; subtype?: string; is_error?: boolean };
+        if (m.type === 'result' && m.subtype === 'success' && m.is_error !== true) {
           sawSuccessResult = true;
         }
 
