@@ -42,6 +42,8 @@ jenkins/
 │   │       │   └── Jenkinsfile
 │   │       ├── create-sub-issue/
 │   │       │   └── Jenkinsfile
+│   │       ├── impact-analysis/
+│   │       │   └── Jenkinsfile
 │   │       ├── validate-credentials/
 │   │       │   ├── Jenkinsfile
 │   │       │   └── README.md
@@ -65,6 +67,7 @@ jenkins/
 │           ├── ai_workflow_pr_comment_finalize_job.groovy
 │           ├── ai_workflow_resolve_conflict_job.groovy
 │           ├── ai_workflow_create_sub_issue_job.groovy
+│           ├── ai_workflow_impact_analysis_job.groovy
 │           ├── ai_workflow_validate_credentials_job.groovy
 │           ├── ai_workflow_ecr_build_job.groovy
 │           ├── ai_workflow_ecr_verify_job.groovy
@@ -92,13 +95,14 @@ jenkins/
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 18 |
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
 | **create_sub_issue** | サブIssue作成（親Issueに紐づくサブIssueをAIで自動生成） | 18 |
+| **impact_analysis** | PR影響範囲調査（PRのdiffをLLMエージェントが3ステージPure Pipelineで自律調査し、結果をPRコメントとして投稿） | 19 |
 | **validate_credentials** | 認証情報バリデーション（Git/GitHub/Codex/Claude/OpenAI/Anthropic） | 17 |
 | **ecr_build** | DockerイメージのECRビルド・プッシュ（cronトリガーによる定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応、developフォルダのみ） | 3 |
 | **ecr_verify** | ECRイメージ動作確認（ecr-build後の定期検証、developフォルダのみ） | 3 |
 
 ### Docker エージェント方式（Issue #828 で統一）
 
-`ecr-build` / `ecr-verify` を除くすべての Jenkinsfile（`all-phases` + 13 個のジョブ）は、`ecr-build` が定期ビルドする ECR 上の Docker image をエージェントとして使用する方式に統一されています。ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と image の整合性が担保されます。
+`ecr-build` / `ecr-verify` を除くすべての Jenkinsfile（`all-phases` + 14 個のジョブ）は、`ecr-build` が定期ビルドする ECR 上の Docker image をエージェントとして使用する方式に統一されています。ジョブ起動時のローカル `docker build` が不要となり、起動時間の短縮と image の整合性が担保されます。
 
 **統一された agent ブロック**:
 
@@ -212,6 +216,7 @@ AI_Workflow/
 │   ├── pr_comment_finalize
 │   ├── resolve_conflict
 │   ├── create_sub_issue
+│   ├── impact_analysis
 │   ├── validate_credentials
 │   ├── ecr_build
 │   └── ecr_verify
@@ -224,6 +229,62 @@ AI_Workflow/
 
 - **develop**: ai-workflow-agentのdevelopブランチを使用（新機能テスト用）
 - **stable-1〜9**: ai-workflow-agentのmainブランチを使用（本番環境用、並行実行可能）
+
+## impact-analysis パイプライン詳細
+
+### 概要と利用場面
+
+**impact-analysis** パイプラインは、PRのdiffを入力としてLLMエージェントが3ステージ Pure Pipeline（Scoper → Investigator → Reporter）で自律的に影響範囲を調査し、発見した事実をPRコメントとして投稿するジョブです。エージェントの役割は**証拠収集**であり、問題かどうかの判断は開発者が行います。
+
+**主な利用場面**:
+- PRレビュー前の影響範囲の事前調査
+- データベースマイグレーション・共有リソース変更の波及確認
+- 依存パッケージの破壊的変更検出
+- インフラ定義変更の影響分析
+
+### 主要パラメータ
+
+| パラメータ | 説明 | デフォルト値 | 備考 |
+|-----------|------|------------|------|
+| **PR_NUMBER** | PR番号を直接指定 | - | `PR_URL` と排他 |
+| **PR_URL** | Pull Request URL | - | `PR_NUMBER` と排他、URLからリポジトリとPR番号を自動判定 |
+| **GITHUB_REPOSITORY** | `owner/repo` 形式のリポジトリ指定（必須） | - | `PR_NUMBER` 指定時は必須 |
+| **AGENT_MODE** | エージェントの実行モード（auto/codex/claude） | auto | claude-first で自動フォールバック |
+| **LANGUAGE** | 出力言語（ja/en） | ja | レポートの言語を指定 |
+| **DRY_RUN** | ドライランモード | false | true の場合、PRコメント投稿をスキップしローカルにレポートを出力 |
+| **CUSTOM_INSTRUCTION** | カスタム調査観点（任意、最大500文字程度） | - | リポジトリ固有の追加調査観点を指定 |
+
+### 内蔵プレイブック（6パターン）
+
+| パターン | 説明 |
+|---------|------|
+| 新旧テーブル同期漏れ | 旧テーブルへの変更が新テーブルに反映されていない |
+| マイグレーション波及 | データベースマイグレーションによる既存データへの影響 |
+| 共有リソース変更 | 複数サービスが参照する設定ファイルや共有リソースの変更 |
+| 削除操作の残存参照 | 削除されたコードや設定への残存参照 |
+| インフラ定義変更 | Terraform・CloudFormationなどのインフラ定義変更の影響 |
+| 依存パッケージ破壊的変更 | npmパッケージ等のバージョン変更による後方互換性破壊 |
+
+### ガードレール機構
+
+- **トークン上限**: 100kトークン（エージェント実行全体）
+- **タイムアウト**: 5分（ステージ単位）
+- **ツール呼び出し回数上限**: 30回/PR（暴走防止）
+
+### 実行フロー
+
+1. **パラメータ検証**: `PR_NUMBER` と `PR_URL` の排他チェック、リポジトリ情報の確認
+2. **環境セットアップ**: Node.js環境の準備
+3. **Scoper ステージ**: PRのdiffを分析し、調査すべき観点を抽出
+4. **Investigator ステージ**: 各観点についてコードベースを調査し、証拠を収集
+5. **Reporter ステージ**: 調査結果をまとめてレポートを生成し、PRコメントとして投稿
+
+### 注意事項
+
+- `PR_NUMBER` と `PR_URL` はどちらか一方のみ指定してください
+- `PR_NUMBER` 指定時は `GITHUB_REPOSITORY`（`owner/repo` 形式）も必須です
+- `DRY_RUN=true` の場合、PRコメント投稿をスキップしローカルにレポートを出力します
+- エージェントの出力は「証拠収集」であり、最終判断は開発者が行う設計思想です
 
 ## セットアップ
 
@@ -243,7 +304,7 @@ Jenkinsに以下のパイプラインジョブを作成してください：
 作成したシードジョブを実行すると、以下が自動生成されます：
 
 - AI_Workflowフォルダ構造
-- 各実行モード用のジョブ（13種類 × 10フォルダ + ecr_build × 1フォルダ + ecr_verify × 1フォルダ = 132ジョブ）
+- 各実行モード用のジョブ（14種類 × 10フォルダ + ecr_build × 1フォルダ + ecr_verify × 1フォルダ = 142ジョブ）
 
 ## 共通処理モジュール
 

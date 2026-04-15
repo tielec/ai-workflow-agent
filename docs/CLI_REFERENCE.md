@@ -560,6 +560,45 @@ Run without --dry-run to post this report as a PR comment.
 - エージェントの出力は「証拠収集」であり、最終判断は開発者が行う設計思想に留意
 - `GITHUB_TOKEN` にはPR読み取り・コメント投稿権限が必要
 
+**Jenkins統合**:
+
+Jenkins環境では、`AI_Workflow/{develop,stable-1〜9}/impact_analysis` ジョブとして実行できます。Jenkins UIパラメータとCLIオプションの対応：
+
+| Jenkins パラメータ | CLI オプション | デフォルト値 |
+|------------------|--------------|-------------|
+| PR_NUMBER | --pr | - (PR_URL と排他) |
+| PR_URL | --pr-url | - (PR_NUMBER と排他) |
+| GITHUB_REPOSITORY | - | - (必須、PR_NUMBER 指定時) |
+| AGENT_MODE | --agent | auto |
+| LANGUAGE | --language | ja |
+| DRY_RUN | --dry-run | false |
+| CUSTOM_INSTRUCTION | --custom-instruction | - (任意) |
+
+**パイプライン実行例**:
+```
+# Jenkins でパラメータ設定（PR URL 指定）
+PR_URL: https://github.com/tielec/ai-workflow-agent/pull/123
+AGENT_MODE: auto
+LANGUAGE: ja
+DRY_RUN: false
+
+# 上記は以下の CLI 実行と等価
+node dist/index.js impact-analysis --pr-url https://github.com/tielec/ai-workflow-agent/pull/123 --agent auto --language ja
+
+# Jenkins でパラメータ設定（PR 番号直接指定）
+PR_NUMBER: 123
+GITHUB_REPOSITORY: tielec/ai-workflow-agent
+DRY_RUN: true
+
+# 上記は以下の CLI 実行と等価
+node dist/index.js impact-analysis --pr 123 --dry-run
+```
+
+**安全運用のヒント**:
+- まず `DRY_RUN=true` でレポート内容を確認し、問題がなければ `DRY_RUN=false` で PRコメント投稿を実行する
+- `CUSTOM_INSTRUCTION` でリポジトリ固有の調査観点（例: 「決済関連テーブルに注意してください」）を追加できる
+- Jenkins実行時は、Docker エージェント内でリポジトリが自動クローンされます
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。

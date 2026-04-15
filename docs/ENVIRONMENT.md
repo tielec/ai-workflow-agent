@@ -345,6 +345,7 @@ env:
 | `jenkins/jobs/pipeline/ai-workflow/pr-comment-finalize/Jenkinsfile` | PRコメント自動対応（最終化） |
 | `jenkins/jobs/pipeline/ai-workflow/resolve-conflict/Jenkinsfile` | PRマージコンフリクト自動解消 |
 | `jenkins/jobs/pipeline/ai-workflow/create-sub-issue/Jenkinsfile` | サブIssue作成 |
+| `jenkins/jobs/pipeline/ai-workflow/impact-analysis/Jenkinsfile` | PR影響範囲調査（PRのdiffをLLMエージェントが3ステージで自律調査し、結果をPRコメントとして投稿） |
 | `jenkins/jobs/pipeline/ai-workflow/ecr-build/Jenkinsfile` | ECRイメージビルド・プッシュ（1日1回の定期実行、古いイメージの自動削除、linux/amd64 + linux/arm64 マルチアーキ対応） |
 
 **共通処理モジュール**:
@@ -352,7 +353,7 @@ env:
 
 **Docker エージェント方式（Issue #828 で統一）**:
 
-`ecr-build` / `ecr-verify` を除く上記 13 個の Jenkinsfile と `all-phases/Jenkinsfile` は、`ecr-build` が定期ビルドする ECR 上の事前ビルド済み Docker image をエージェントとして使用する方式に統一されています。
+`ecr-build` / `ecr-verify` を除く上記 14 個の Jenkinsfile と `all-phases/Jenkinsfile` は、`ecr-build` が定期ビルドする ECR 上の事前ビルド済み Docker image をエージェントとして使用する方式に統一されています。
 
 - **image**: `621593801728.dkr.ecr.ap-northeast-1.amazonaws.com/ai-workflow-agent:latest`
 - **label**: `ec2-fleet-micro`（軽量ジョブ向け。`all-phases` のみ `ec2-fleet-small`）

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue #858**: `impact-analysis` コマンド実行用 Jenkins ジョブの整備
+  - 新規 Jenkinsfile: `jenkins/jobs/pipeline/ai-workflow/impact-analysis/Jenkinsfile`（7ステージ構成: Load Common Library → Prepare Codex auth.json → Prepare Agent Credentials → Validate Parameters → Setup Environment → Setup Node.js Environment → Execute Impact Analysis）
+  - 新規 Job DSL: `jenkins/jobs/dsl/ai-workflow/ai_workflow_impact_analysis_job.groovy`（develop + stable-1〜9 の10フォルダ対応、パラメータ数19個）
+  - `jenkins/jobs/pipeline/_seed/ai-workflow-job-creator/job-config.yaml` に `ai_workflow_impact_analysis_job` エントリを追加
+  - `jenkins/jobs/dsl/ai-workflow/validate_dsl.sh` に `ai_workflow_impact_analysis_job.groovy` のパスを追加
+  - `PR_NUMBER` と `PR_URL` の排他バリデーション実装（`Validate Parameters` ステージ）
+  - Webhook通知（Lavable連携）対応（`JOB_ID`、`WEBHOOK_URL`、`WEBHOOK_TOKEN` パラメータ）
+  - `nonStoredPasswordParam` による機密情報（`GITHUB_TOKEN`、各APIキー、Webhookパラメータ）のセキュリティ保護
+  - テストカバレッジ: ユニットテスト（`tests/unit/jenkins/impact-analysis-job.test.ts`）、統合テスト（`tests/integration/jenkins/impact-analysis-job.test.ts`）を新規追加。`non-stored-password-params.test.ts` の対象ジョブに `impact-analysis-job.test.ts` を追加
+
 - **Issue #852**: PR影響範囲調査エージェント `impact-analysis` コマンドの新規実装
   - 3ステージ Pure Pipeline（Scoper → Investigator → Reporter）で、PRのdiffを入力にLLMエージェントが自律的に影響範囲を調査し、発見した事実をPRコメントとして投稿
   - 内蔵プレイブック（6パターン）: 新旧テーブル同期漏れ、マイグレーション波及、共有リソース変更、削除操作の残存参照、インフラ定義変更、依存パッケージ破壊的変更
