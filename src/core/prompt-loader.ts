@@ -23,7 +23,8 @@ export type PromptCategory =
   | 'rewrite-issue'
   | 'create-sub-issue'
   | 'split-issue'
-  | 'conflict';
+  | 'conflict'
+  | 'impact-analysis';
 
 export class PromptLoader {
   static loadPrompt(

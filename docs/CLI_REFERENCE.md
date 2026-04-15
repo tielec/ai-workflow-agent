@@ -484,6 +484,82 @@ Run with --apply to create this sub-issue on GitHub.
 - Sub-Issue API が利用できない環境でも、フォールバックにより親子関係の参照情報が保持される
 - `GITHUB_TOKEN` にはIssue作成権限（`repo` スコープ）が必要
 
+### PR影響範囲調査（impact-analysis コマンド、Issue #852で追加）
+
+PRのdiffを入力として、LLMエージェントが3ステージ Pure Pipeline（Scoper → Investigator → Reporter）で自律的に影響範囲を調査し、発見した事実をPRコメントとして投稿するコマンドです。エージェントの役割は **証拠収集** であり、問題かどうかの判断は開発者が行います。
+
+```bash
+# PR番号を指定して影響範囲調査（デフォルト: PRコメント投稿）
+node dist/index.js impact-analysis --pr 123
+
+# PR URLから番号とリポジトリを自動判定
+node dist/index.js impact-analysis --pr-url https://github.com/owner/repo/pull/123
+
+# dry-runモード（PRコメント投稿をスキップし、ローカルにレポート出力）
+node dist/index.js impact-analysis --pr 123 --dry-run
+
+# カスタム調査観点を追加
+node dist/index.js impact-analysis --pr 123 --custom-instruction "決済関連のテーブルに注意してください"
+
+# 英語出力・Claude指定
+node dist/index.js impact-analysis --pr 123 --language en --agent claude
+```
+
+**オプション**:
+- `--pr <number>`: PR番号を直接指定（`--pr` または `--pr-url` のいずれか**必須**）
+- `--pr-url <url>`: PR URLから番号とリポジトリを自動判定（`https://github.com/owner/repo/pull/123` 形式）
+- `--custom-instruction <text>`: リポジトリ固有の追加調査観点
+- `--agent <auto|codex|claude>`: 使用するエージェントモード（デフォルト: `auto`、claude-first）
+- `--dry-run`: PRコメント投稿をスキップし、ローカルにレポートを出力（デフォルト: `false`）
+- `--language <ja|en>`: レポートの出力言語（デフォルト: `ja`）
+
+**主な機能**:
+- **3ステージ Pure Pipeline**: Scoper（調査観点の抽出）→ Investigator（証拠収集）→ Reporter（レポート生成）の3ステージで処理
+- **内蔵プレイブック（6パターン）**: 新旧テーブル同期漏れ、マイグレーション波及、共有リソース変更、削除操作の残存参照、インフラ定義変更、依存パッケージ破壊的変更
+- **ガードレール機構**: トークン上限（100kトークン）、タイムアウト（5分）、ツール呼び出し回数上限（30回/PR）で暴走を防止
+- **ステージ間ログ管理**: 各ステージの推論過程と出力をログとして保存
+- **エージェントフォールバック**: claude-first 優先順位で、失敗時に他のエージェントへ自動フォールバック
+
+**出力例（dry-runモード）**:
+```
+========================================
+  [Dry-Run] Impact Analysis Report for PR #123
+========================================
+
+## 調査結果サマリー
+
+### 1. 新旧テーブル同期漏れ
+- `old_users` テーブルに対応する変更が `new_users` に反映されていない
+  - 参照箇所: src/models/user.ts:42, src/api/users.ts:15
+
+### 2. 共有リソースへの変更
+- `config/database.yml` が3つのサービスから参照されている
+  - 参照箇所: src/service-a/db.ts, src/service-b/db.ts, src/service-c/db.ts
+
+Run without --dry-run to post this report as a PR comment.
+```
+
+**環境変数**:
+- `GITHUB_TOKEN`: GitHub Personal Access Token（PR diff取得・コメント投稿権限が必要）
+- `GITHUB_REPOSITORY`: `owner/repo` 形式でリポジトリを指定
+
+**技術詳細**:
+- **実装モジュール**: `src/commands/impact-analysis.ts`（メインハンドラ）
+- **パイプラインモジュール**: `src/commands/impact-analysis/scoper.ts`、`src/commands/impact-analysis/investigator.ts`、`src/commands/impact-analysis/reporter.ts`
+- **型定義**: `src/commands/impact-analysis/types.ts`、`src/types/impact-analysis.ts`
+- **ガードレール**: `src/commands/impact-analysis/guardrails.ts`
+- **ログ管理**: `src/commands/impact-analysis/log-manager.ts`
+- **プロンプトテンプレート**: `src/prompts/impact-analysis/{ja|en}/scoper.txt`、`investigator.txt`、`reporter.txt`、`playbook.txt`
+- **GitHub API拡張**: `pull-request-client.ts` に `getPullRequestDiff()`、`postPRComment()` メソッドを追加
+- **GitHubClientファサード**: `postPRComment()` ファサードメソッドを追加
+
+**安全運用のヒント**:
+- まず `--dry-run` でレポート内容を確認し、問題がなければ dry-run なしで実行する
+- `--custom-instruction` オプションでリポジトリ固有の調査観点を追加できる
+- ガードレール機構により、トークン消費・実行時間・ツール呼び出し回数が自動的に制限される
+- エージェントの出力は「証拠収集」であり、最終判断は開発者が行う設計思想に留意
+- `GITHUB_TOKEN` にはPR読み取り・コメント投稿権限が必要
+
 ### 認証情報の検証（validate-credentials コマンド）
 
 ワークフロー実行前に、すべての認証情報とAPIの疎通を確認するコマンドです。
@@ -577,7 +653,7 @@ node dist/index.js validate-credentials --check all --exit-on-error
 
 ### プロンプト/テンプレートの配置（多言語化）
 
-- プロンプトはフェーズ/コマンド別に `src/prompts/{phase|category}/{lang}/*.txt`（`ja`/`en`）へ配置。auto-issue, pr-comment, rollback, difficulty, followup, squash, content_parser, validation も同パターンで揃えています。
+- プロンプトはフェーズ/コマンド別に `src/prompts/{phase|category}/{lang}/*.txt`（`ja`/`en`）へ配置。auto-issue, pr-comment, impact-analysis, rollback, difficulty, followup, squash, content_parser, validation も同パターンで揃えています。
 - PR 本文テンプレートは `src/templates/{lang}/pr_body*_template.md` に分割。`PromptLoader` が `config.getLanguage()` を参照し、指定言語が無い場合はデフォルト（`ja`）へフォールバックします。
 - すべてのプロンプトには言語別の明示的な出力指示を含めます（英語: `**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**` / 日本語: `**重要: すべてのドキュメント内容を日本語で記述してください。すべてのセクション、説明、解説は日本語で書いてください。**`）。タイトルがあるプロンプトはタイトル直下（空行を挟んで）に、タイトルが無いプロンプトはファイル先頭に配置します。
 

@@ -30,6 +30,8 @@ export type {
   PullRequestSummary,
   PullRequestResult,
   GenericResult as PullRequestGenericResult,
+  DiffResult,
+  CommentResult,
 } from './github/pull-request-client.js';
 export type { ProgressCommentResult } from './github/comment-client.js';
 
@@ -275,6 +277,14 @@ export class GitHubClient {
 
   public async getPullRequestNumber(issueNumber: number): Promise<number | null> {
     return this.pullRequestClient.getPullRequestNumber(issueNumber);
+  }
+
+  public async getPullRequestDiff(prNumber: number) {
+    return this.pullRequestClient.getPullRequestDiff(prNumber);
+  }
+
+  public async postPRComment(prNumber: number, body: string) {
+    return this.pullRequestClient.postPRComment(prNumber, body);
   }
 
   public async getMergeableStatus(prNumber: number): Promise<{

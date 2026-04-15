@@ -26,6 +26,19 @@ export interface MergeableStatusResult {
   mergeableState?: string | null;
 }
 
+export interface DiffResult {
+  diff: string;
+  truncated: boolean;
+  filesChanged: number;
+}
+
+export interface CommentResult {
+  success: boolean;
+  commentId: number | null;
+  commentUrl: string | null;
+  error?: string | null;
+}
+
 /**
  * PullRequestClient handles all Pull Request operations with GitHub API.
  * Responsibilities:
@@ -238,6 +251,122 @@ export class PullRequestClient {
       const message = getErrorMessage(error);
       logger.warn(`Failed to lookup PR number: ${this.encodeWarning(message)}`);
       return null;
+    }
+  }
+
+  /**
+   * PR差分をdiff形式で取得する。
+   */
+  public async getPullRequestDiff(prNumber: number): Promise<DiffResult> {
+    try {
+      const response = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+        mediaType: {
+          format: 'diff',
+        },
+      });
+
+      const diff = response.data as unknown as string;
+
+      const { data: prData } = await this.octokit.pulls.get({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+      });
+
+      const filesChanged = prData.changed_files ?? 0;
+      const truncated = filesChanged > 300;
+
+      return {
+        diff,
+        truncated,
+        filesChanged,
+      };
+    } catch (error) {
+      if (error instanceof RequestError) {
+        if (error.status === 404) {
+          throw new Error(`PR #${prNumber} が見つかりません`);
+        }
+        if (error.status === 401 || error.status === 403) {
+          throw new Error('認証エラー: GITHUB_TOKEN の権限を確認してください');
+        }
+        if (error.status === 422) {
+          throw new Error(`バリデーションエラー: ${error.message}`);
+        }
+        throw new Error(`GitHub API エラー: ${error.status} - ${error.message}`);
+      }
+      throw new Error(`予期しないエラー: ${getErrorMessage(error)}`);
+    }
+  }
+
+  /**
+   * PRにコメントを投稿する。
+   */
+  public async postPRComment(prNumber: number, body: string): Promise<CommentResult> {
+    try {
+      if (!body || body.trim().length === 0) {
+        return {
+          success: false,
+          commentId: null,
+          commentUrl: null,
+          error: 'コメント本文が空です',
+        };
+      }
+
+      const { data } = await this.octokit.issues.createComment({
+        owner: this.owner,
+        repo: this.repo,
+        issue_number: prNumber,
+        body,
+      });
+
+      return {
+        success: true,
+        commentId: data.id ?? null,
+        commentUrl: data.html_url ?? null,
+        error: null,
+      };
+    } catch (error) {
+      if (error instanceof RequestError) {
+        if (error.status === 404) {
+          return {
+            success: false,
+            commentId: null,
+            commentUrl: null,
+            error: `PR #${prNumber} が見つかりません`,
+          };
+        }
+        if (error.status === 401 || error.status === 403) {
+          return {
+            success: false,
+            commentId: null,
+            commentUrl: null,
+            error: '認証エラー: GITHUB_TOKEN の権限を確認してください',
+          };
+        }
+        if (error.status === 422) {
+          return {
+            success: false,
+            commentId: null,
+            commentUrl: null,
+            error: `コメント投稿のバリデーションエラー: ${error.message}`,
+          };
+        }
+        return {
+          success: false,
+          commentId: null,
+          commentUrl: null,
+          error: `GitHub API エラー: ${error.status} - ${error.message}`,
+        };
+      }
+      return {
+        success: false,
+        commentId: null,
+        commentUrl: null,
+        error: `予期しないエラー: ${getErrorMessage(error)}`,
+      };
     }
   }
 

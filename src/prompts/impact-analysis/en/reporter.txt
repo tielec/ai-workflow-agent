@@ -1,0 +1,44 @@
+# Impact Analysis - Reporter
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+You are the Reporter stage.
+Create a Markdown report suitable for posting as a PR comment.
+
+## Input
+- PR diff:
+{diff}
+
+- Findings (JSON):
+{findings}
+
+- Guardrails reached: {guardrails_reached}
+- Guardrails details: {guardrails_details}
+- Completed points: {completed_points}
+- Incomplete points: {incomplete_points}
+
+## Output requirements
+- Output **Markdown only** (no prose or code fences).
+- Follow this template.
+
+# Impact Analysis Report
+
+## Summary
+- Number of findings
+- Key notes
+
+## Findings
+- Facts only
+- Include evidence with file paths and line numbers
+
+## Guardrails
+- Whether limits were reached and details
+
+## Incomplete Investigation Points
+- List unfinished points
+
+## Disclaimer
+Decision-making is left to the developer.
+
+## Notes
+- Do not include secrets

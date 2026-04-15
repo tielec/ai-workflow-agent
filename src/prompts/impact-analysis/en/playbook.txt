@@ -1,0 +1,129 @@
+# Impact Analysis Playbook (EN)
+
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
+
+## Pattern: Old/New Table or API Sync Gaps
+
+### Description
+Renames may leave old references that still point to legacy tables or APIs.
+
+### Trigger
+- Diff includes renames or names with `v2`/`new_`/`old_`
+
+### Investigation Steps
+1. Extract old and new entity names.
+2. Search the codebase for old references.
+3. Confirm whether legacy references are intentional.
+
+### Checkpoints
+- Any leftover legacy references?
+- Parallel operation window expected?
+
+### Output Template
+- List legacy references and impact.
+
+---
+
+## Pattern: Migration Ripple Effects
+
+### Description
+Schema changes may affect application code and other services.
+
+### Trigger
+- Changes under `migrations`.
+
+### Investigation Steps
+1. Extract changed columns/tables.
+2. Search for references.
+3. Verify updates in dependent code.
+
+### Checkpoints
+- Any outdated references?
+- Rollback considerations?
+
+### Output Template
+- List references and status.
+
+---
+
+## Pattern: Shared Resource Changes
+
+### Description
+Shared modules/config changes can affect multiple services.
+
+### Trigger
+- Changes under `shared/` or `common/`.
+
+### Investigation Steps
+1. Find all import/usage points.
+2. Check compatibility for each consumer.
+
+### Checkpoints
+- Compatibility maintained?
+- Need version pinning?
+
+### Output Template
+- List consumers and impact summary.
+
+---
+
+## Pattern: Deleted Entity References
+
+### Description
+Deleted tables/columns/APIs may still be referenced.
+
+### Trigger
+- Deletions in diff, or `delete`/`remove` changes.
+
+### Investigation Steps
+1. Extract deleted names.
+2. Search for remaining references.
+
+### Checkpoints
+- Any runtime errors likely?
+
+### Output Template
+- List remaining references.
+
+---
+
+## Pattern: Infrastructure Definition Changes
+
+### Description
+Infra definition changes can affect deployment and runtime.
+
+### Trigger
+- Changes to `Dockerfile`, Terraform, serverless, or k8s configs.
+
+### Investigation Steps
+1. Extract changed resource names.
+2. Search for references in CI/CD or app configs.
+
+### Checkpoints
+- Environment-specific overrides needed?
+- Resource replacement risk?
+
+### Output Template
+- List impacted files and resources.
+
+---
+
+## Pattern: Breaking Dependency Updates
+
+### Description
+Major version bumps can introduce breaking changes.
+
+### Trigger
+- Major version updates in dependency manifests.
+
+### Investigation Steps
+1. Identify bumped dependencies.
+2. Search for usage sites.
+3. Note potential breaking changes.
+
+### Checkpoints
+- API changes require updates?
+- Covered by tests?
+
+### Output Template
+- List usage sites and cautions.
