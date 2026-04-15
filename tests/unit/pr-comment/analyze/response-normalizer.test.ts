@@ -50,9 +50,10 @@ describe('response-normalizer', () => {
     const { applyPlanDefaults } = await importModule();
     const plan: ResponsePlan = { pr_number: 123, comments: [] } as ResponsePlan;
 
-    const result = applyPlanDefaults(plan, { agent: 'claude' } as any);
+    const result = applyPlanDefaults(plan, { agent: 'claude' } as any, 'codex', 'gpt-5.2-codex');
 
     expect(result.analyzed_at).toBeDefined();
-    expect(result.analyzer_agent).toBe('claude');
+    expect(result.analyzer_agent).toBe('codex');
+    expect(result.analyzer_model).toBe('gpt-5.2-codex');
   });
 });

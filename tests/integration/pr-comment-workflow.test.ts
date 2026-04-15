@@ -28,7 +28,15 @@ async function cleanupTmpWorkspace(): Promise<void> {
 async function writeResponsePlan(root: string, comments: ResponsePlanEntry[]): Promise<void> {
   const planPath = path.join(root, RESPONSE_PLAN_RELATIVE_PATH);
   await fsp.mkdir(path.dirname(planPath), { recursive: true });
-  await fsp.writeFile(planPath, JSON.stringify({ comments }), 'utf-8');
+  await fsp.writeFile(
+    planPath,
+    JSON.stringify({
+      analyzer_agent: 'codex',
+      analyzer_model: 'gpt-5.2-codex',
+      comments,
+    }),
+    'utf-8',
+  );
 }
 
 // Define mock objects first
@@ -259,7 +267,13 @@ describe('Integration: pr-comment workflow', () => {
       'Resolved',
     );
     expect(metadataManagerMock.setReplyCommentId).toHaveBeenCalledWith('100', 900);
-    expect(metadataManagerMock.updateCostTracking).toHaveBeenCalledWith(100, 50, expect.any(Number));
+    expect(metadataManagerMock.updateCostTracking).toHaveBeenCalledWith(
+      100,
+      50,
+      expect.any(Number),
+      'codex',
+      'gpt-5.2-codex',
+    );
     expect(metadataManagerMock.updateCommentStatus).toHaveBeenCalledWith(
       '100',
       'completed',

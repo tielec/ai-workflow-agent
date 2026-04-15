@@ -68,6 +68,7 @@ export class PRCommentMetadataManager {
         total_input_tokens: 0,
         total_output_tokens: 0,
         total_cost_usd: 0,
+        model_usage: {},
       },
       created_at: now,
       updated_at: now,
@@ -258,12 +259,35 @@ export class PRCommentMetadataManager {
     inputTokens: number,
     outputTokens: number,
     costUsd: number,
+    agent?: 'claude' | 'codex',
+    model?: string,
   ): Promise<void> {
     await this.ensureLoaded();
 
     this.metadata!.cost_tracking.total_input_tokens += inputTokens;
     this.metadata!.cost_tracking.total_output_tokens += outputTokens;
     this.metadata!.cost_tracking.total_cost_usd += costUsd;
+
+    if (agent && model) {
+      this.metadata!.cost_tracking.model_usage ??= {};
+      const key = `${agent}:${model}`;
+      const current = this.metadata!.cost_tracking.model_usage[key];
+
+      this.metadata!.cost_tracking.model_usage[key] = current
+        ? {
+            ...current,
+            input_tokens: current.input_tokens + inputTokens,
+            output_tokens: current.output_tokens + outputTokens,
+            cost_usd: current.cost_usd + costUsd,
+          }
+        : {
+            agent,
+            model,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            cost_usd: costUsd,
+          };
+    }
 
     await this.save();
   }

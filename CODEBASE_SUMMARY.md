@@ -173,7 +173,7 @@ interface CommentResolutionMetadata {
   repository: RepositoryInfo
   comments: Record<string, CommentMetadata>
   summary: ResolutionSummary    // Auto-calculated
-  cost_tracking: CostTracking   // Token tracking
+  cost_tracking: CostTracking   // Token tracking (model_usage でモデル別集計対応、Issue #854)
   analyze_completed_at?: string | null
   execute_completed_at?: string | null
   response_plan_path?: string | null
@@ -210,8 +210,8 @@ class PRCommentMetadataManager {
   async setReplyCommentId(commentId, replyId)
   async setResolved(commentId)
 
-  // Cost tracking
-  async updateCostTracking(inputTokens, outputTokens, costUsd)
+  // Cost tracking (Issue #854: モデル別集計対応)
+  async updateCostTracking(inputTokens, outputTokens, costUsd, agent?, model?)
 
   // Query methods
   async getPendingComments(): CommentMetadata[]

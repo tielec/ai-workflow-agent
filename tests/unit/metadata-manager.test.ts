@@ -69,17 +69,185 @@ describe('MetadataManager', () => {
   });
 
   describe('addCost', () => {
-    it('正常系: コストが集計される', () => {
-      // Given: コスト情報（3引数: inputTokens, outputTokens, costUsd）
+    it('正常系: モデル情報なしでも合計コストが集計される', () => {
+      // Given: 旧フォーマット互換のコスト情報
       const inputTokens = 1000;
       const outputTokens = 500;
       const costUsd = 0.05;
 
-      // When: addCost関数を呼び出す
+      // When: addCost関数を3引数で呼び出す
       metadataManager.addCost(inputTokens, outputTokens, costUsd);
 
-      // Then: コストが集計される（内部状態の確認は困難）
-      expect(true).toBe(true);
+      // Then: 合計値のみが更新され、model_usageは空のまま維持される
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(1000);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(500);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(0.05);
+      expect(metadataManager.data.cost_tracking.model_usage).toEqual({});
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it('正常系: モデル情報ありで合計値とmodel_usageの両方を更新する', () => {
+      // Given: モデル別集計対象のコスト情報
+      const inputTokens = 1000;
+      const outputTokens = 500;
+      const costUsd = 0.05;
+
+      // When: モデル情報付きでaddCostを呼び出す
+      metadataManager.addCost(inputTokens, outputTokens, costUsd, 'claude', 'claude-opus-4-6');
+
+      // Then: 合計値とモデル別エントリが同時に更新される
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(1000);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(500);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(0.05);
+      expect(metadataManager.data.cost_tracking.model_usage).toEqual({
+        'claude:claude-opus-4-6': {
+          agent: 'claude',
+          model: 'claude-opus-4-6',
+          input_tokens: 1000,
+          output_tokens: 500,
+          cost_usd: 0.05,
+        },
+      });
+    });
+
+    it('正常系: 同一モデルの複数回呼び出しでmodel_usageが加算される', () => {
+      // Given: 同一モデルへの2回の課金記録
+      metadataManager.addCost(1000, 500, 0.05, 'claude', 'claude-opus-4-6');
+
+      // When: 同じagent:modelキーへ再度加算する
+      metadataManager.addCost(2000, 1000, 0.10, 'claude', 'claude-opus-4-6');
+
+      // Then: 既存エントリが上書きではなく加算更新される
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(3000);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(1500);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(0.15);
+      expect(metadataManager.data.cost_tracking.model_usage?.['claude:claude-opus-4-6']).toEqual(
+        expect.objectContaining({
+          agent: 'claude',
+          model: 'claude-opus-4-6',
+          input_tokens: 3000,
+          output_tokens: 1500,
+        }),
+      );
+      expect(
+        metadataManager.data.cost_tracking.model_usage?.['claude:claude-opus-4-6']?.cost_usd,
+      ).toBeCloseTo(0.15);
+    });
+
+    it('正常系: 異なるモデルが独立したキーで記録される', () => {
+      // Given: 複数モデルのコスト情報
+      metadataManager.addCost(1000, 500, 0.05, 'claude', 'claude-opus-4-6');
+      metadataManager.addCost(200, 100, 0.01, 'codex', 'gpt-5.2-codex');
+
+      // When: 別のClaudeモデルも追加する
+      metadataManager.addCost(500, 250, 0.02, 'claude', 'claude-sonnet-4-6');
+
+      // Then: モデルごとのキーで独立して保持される
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(1700);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(850);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(0.08);
+      expect(metadataManager.data.cost_tracking.model_usage).toEqual({
+        'claude:claude-opus-4-6': {
+          agent: 'claude',
+          model: 'claude-opus-4-6',
+          input_tokens: 1000,
+          output_tokens: 500,
+          cost_usd: 0.05,
+        },
+        'codex:gpt-5.2-codex': {
+          agent: 'codex',
+          model: 'gpt-5.2-codex',
+          input_tokens: 200,
+          output_tokens: 100,
+          cost_usd: 0.01,
+        },
+        'claude:claude-sonnet-4-6': {
+          agent: 'claude',
+          model: 'claude-sonnet-4-6',
+          input_tokens: 500,
+          output_tokens: 250,
+          cost_usd: 0.02,
+        },
+      });
+    });
+
+    it('エッジケース: model_usage未初期化でも自動初期化して記録できる', () => {
+      // Given: マイグレーション前データ相当でmodel_usageが存在しない
+      delete metadataManager.data.cost_tracking.model_usage;
+
+      // When: モデル情報付きでaddCostを呼び出す
+      metadataManager.addCost(1000, 500, 0.05, 'claude', 'claude-opus-4-6');
+
+      // Then: model_usageが自動初期化されてエントリが作成される
+      expect(metadataManager.data.cost_tracking.model_usage).toEqual({
+        'claude:claude-opus-4-6': {
+          agent: 'claude',
+          model: 'claude-opus-4-6',
+          input_tokens: 1000,
+          output_tokens: 500,
+          cost_usd: 0.05,
+        },
+      });
+    });
+
+    it('エッジケース: agentまたはmodelが欠けている場合はmodel_usageを更新しない', () => {
+      // Given: 片方だけ不足したコスト情報
+      delete metadataManager.data.cost_tracking.model_usage;
+
+      // When: agentのみ、またはmodelのみ指定してaddCostを呼び出す
+      metadataManager.addCost(1000, 500, 0.05, 'claude', undefined);
+      metadataManager.addCost(200, 100, 0.01, undefined, 'claude-opus-4-6');
+
+      // Then: 合計値だけ更新し、model_usageは初期化されない
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(1200);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(600);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(0.06);
+      expect(metadataManager.data.cost_tracking.model_usage).toBeUndefined();
+    });
+
+    it('境界値: ゼロ値でもモデル別エントリを保持する', () => {
+      // Given: ゼロトークン・ゼロコストの記録
+
+      // When: モデル情報付きでaddCostを呼び出す
+      metadataManager.addCost(0, 0, 0, 'codex', 'gpt-5.2-codex');
+
+      // Then: 合計値はゼロのまま、model_usageにはエントリが作成される
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(0);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(0);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBe(0);
+      expect(metadataManager.data.cost_tracking.model_usage).toEqual({
+        'codex:gpt-5.2-codex': {
+          agent: 'codex',
+          model: 'gpt-5.2-codex',
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: 0,
+        },
+      });
+    });
+
+    it('正常系: total_* と model_usage 合計値の整合性を維持する', () => {
+      // Given: 複数モデルにまたがる複数回の課金記録
+      metadataManager.addCost(1000, 500, 0.05, 'claude', 'claude-opus-4-6');
+      metadataManager.addCost(200, 100, 0.01, 'codex', 'gpt-5.2-codex');
+      metadataManager.addCost(500, 250, 0.02, 'claude', 'claude-opus-4-6');
+      metadataManager.addCost(300, 150, 0.015, 'claude', 'claude-sonnet-4-6');
+
+      // When: model_usage内の合計を集計する
+      const usageEntries = Object.values(metadataManager.data.cost_tracking.model_usage ?? {});
+      const totalsFromUsage = usageEntries.reduce(
+        (acc, entry) => ({
+          input: acc.input + entry.input_tokens,
+          output: acc.output + entry.output_tokens,
+          cost: acc.cost + entry.cost_usd,
+        }),
+        { input: 0, output: 0, cost: 0 },
+      );
+
+      // Then: total_*とmodel_usage集計値が一致する
+      expect(metadataManager.data.cost_tracking.total_input_tokens).toBe(totalsFromUsage.input);
+      expect(metadataManager.data.cost_tracking.total_output_tokens).toBe(totalsFromUsage.output);
+      expect(metadataManager.data.cost_tracking.total_cost_usd).toBeCloseTo(totalsFromUsage.cost);
     });
   });
 

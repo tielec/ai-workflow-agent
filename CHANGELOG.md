@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 修正ファイル: `src/main.ts`、`src/core/prompt-loader.ts`、`src/core/github/pull-request-client.ts`、`src/core/github-client.ts`
   - テストカバレッジ: ユニットテスト75件、統合テスト7件を新規追加、全体 `npm run validate` PASS（252 test suites / 3,753 tests）
 
+- **Issue #854**: `cost_tracking` をモデル別に分割し、エージェント種別（Claude / Codex）およびモデル単位でトークン使用量とコストを記録する仕組みを導入
+  - `src/types.ts` に `ModelUsageEntry` インターフェースを新規定義し、`CostTracking` に `model_usage?: Record<string, ModelUsageEntry>` フィールドを追加
+  - `src/types/pr-comment.ts` の `CostTracking` にも同様の `model_usage` フィールドを追加
+  - `MetadataManager.addCost()` にオプショナル引数 `agent?`（`'claude' | 'codex'`）/ `model?`（解決済みモデルID）を追加し、`model_usage` へモデル別集計を記録
+  - `AgentExecutor` の `UsageMetrics` 型に `agent`/`model` フィールドを追加し、`runAgentTask()` → `extractUsageMetrics()` → `recordUsageMetrics()` → `addCost()` のデータフローでモデル情報を伝播
+  - `PRCommentMetadataManager.updateCostTracking()` にモデル情報引数を追加し、PR コメント経路でもモデル別集計に対応
+  - `metadata.json.template` に `"model_usage": {}` を追加、`WorkflowState.migrate()` に既存データの自動マイグレーションロジックを追加
+  - `model_usage` のキー形式: `"${agent}:${model}"`（例: `"claude:claude-opus-4-6"`、`"codex:gpt-5.2-codex"`）
+  - 後方互換性: `model_usage` はオプショナルフィールドのため、既存データでも正常動作。`agent`/`model` 未指定時は合計値のみ更新
+  - 修正ファイル: `src/types.ts`、`src/types/pr-comment.ts`、`src/phases/core/agent-executor.ts`、`src/core/metadata-manager.ts`、`src/core/pr-comment/metadata-manager.ts`、`src/core/workflow-state.ts`、`metadata.json.template`、`src/commands/pr-comment/analyze/analyze-runner.ts`、`src/commands/pr-comment/analyze/response-normalizer.ts`、`src/commands/pr-comment/execute.ts`
+  - テストカバレッジ: ユニットテスト18件、統合テスト2件を追加。全体 `npm run validate` PASS（254 test suites / 3,767 tests）
+
 ### Changed
 
 - **Issue #833**: `setupNodeEnvironment()` の冗長な npm install を ECR イメージの node_modules symlink 再利用方式に置換
