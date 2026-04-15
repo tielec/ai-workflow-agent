@@ -7,6 +7,7 @@ import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-even
 import { formatClaudeLog } from './helpers/log-formatter.js';
 import { validateWorkingDirectoryPath } from './helpers/working-directory-resolver.js';
 import { sanitizeObjectStrings } from '../utils/encoding-utils.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -120,16 +121,44 @@ export class ClaudeAgentClient {
         maxTurns,
         model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
+        // Claude CLI 子プロセスの stderr を取り込み、SDK が握り潰す例外の手掛かりを残す
+        stderr: (data: string) => {
+          const trimmed = data.trim();
+          if (trimmed) {
+            logger.warn(`[Claude CLI stderr] ${trimmed}`);
+          }
+        },
       },
     });
 
     const messages: string[] = [];
+    let sawSuccessResult = false;
 
-    for await (const message of stream) {
-      const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
-      messages.push(JSON.stringify(sanitizedMessage));
-      if (verbose) {
-        this.logMessage(message);
+    try {
+      for await (const message of stream) {
+        const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
+        messages.push(JSON.stringify(sanitizedMessage));
+
+        // type=result, subtype=success を受信した時点で本処理は完了している。
+        // この後に SDK が exit code 1 で落ちても本来の成果物には影響しない。
+        const m = message as { type?: string; subtype?: string };
+        if (m.type === 'result' && m.subtype === 'success') {
+          sawSuccessResult = true;
+        }
+
+        if (verbose) {
+          this.logMessage(message);
+        }
+      }
+    } catch (err) {
+      // 成功結果を受信済みなら、SDK の後処理失敗（"Claude Code process exited with code 1" など）は
+      // フェーズ失敗に昇格させず警告に留める。
+      if (sawSuccessResult) {
+        logger.warn(
+          `Claude SDK stream error after successful result (downgraded to warning): ${getErrorMessage(err)}`,
+        );
+      } else {
+        throw err;
       }
     }
 
