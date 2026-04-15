@@ -7,6 +7,7 @@ import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-even
 import { formatClaudeLog } from './helpers/log-formatter.js';
 import { validateWorkingDirectoryPath } from './helpers/working-directory-resolver.js';
 import { sanitizeObjectStrings } from '../utils/encoding-utils.js';
+import { getErrorMessage } from '../utils/error-utils.js';
 
 interface ExecuteTaskOptions {
   prompt: string;
@@ -120,16 +121,45 @@ export class ClaudeAgentClient {
         maxTurns,
         model: options.model ?? this.model,
         systemPrompt: systemPrompt ?? undefined,
+        // Claude CLI 子プロセスの stderr を取り込み、SDK が握り潰す例外の手掛かりを残す
+        stderr: (data: string) => {
+          const trimmed = data.trim();
+          if (trimmed) {
+            logger.warn(`[Claude CLI stderr] ${trimmed}`);
+          }
+        },
       },
     });
 
     const messages: string[] = [];
+    let sawSuccessResult = false;
 
-    for await (const message of stream) {
-      const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
-      messages.push(JSON.stringify(sanitizedMessage));
-      if (verbose) {
-        this.logMessage(message);
+    try {
+      for await (const message of stream) {
+        const sanitizedMessage = sanitizeObjectStrings(message) as SDKMessage;
+        messages.push(JSON.stringify(sanitizedMessage));
+
+        // type=result, subtype=success かつ is_error=false の場合のみ「真の成功」と判定する。
+        // Claude CLI は認証エラー(401)等でも subtype=success を返すケースがあるため、
+        // is_error フィールドで本当の成功/失敗を判別する必要がある。
+        const m = message as { type?: string; subtype?: string; is_error?: boolean };
+        if (m.type === 'result' && m.subtype === 'success' && m.is_error !== true) {
+          sawSuccessResult = true;
+        }
+
+        if (verbose) {
+          this.logMessage(message);
+        }
+      }
+    } catch (err) {
+      // 成功結果を受信済みなら、SDK の後処理失敗（"Claude Code process exited with code 1" など）は
+      // フェーズ失敗に昇格させず警告に留める。
+      if (sawSuccessResult) {
+        logger.warn(
+          `Claude SDK stream error after successful result (downgraded to warning): ${getErrorMessage(err)}`,
+        );
+      } else {
+        throw err;
       }
     }
 

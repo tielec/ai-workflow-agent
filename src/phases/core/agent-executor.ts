@@ -143,6 +143,17 @@ export class AgentExecutor {
           } else {
             logger.warn(`Codex agent failed: ${message}`);
           }
+
+          // ChatGPT アカウントで対象モデルが使えないケースは次フェーズ以降も確実に失敗するので、
+          // 共有 Codex クライアントに disabled フラグを立てて以降は即フォールバックさせる。
+          if (
+            this.codex?.markDisabled &&
+            /not supported when using Codex with a ChatGPT account/i.test(message)
+          ) {
+            this.codex.markDisabled(
+              'ChatGPT account: configured Codex model is not supported',
+            );
+          }
         } else {
           logger.warn(`Claude agent failed: ${message}`);
         }
@@ -199,6 +210,15 @@ export class AgentExecutor {
 
   private isCodexCliAvailable(): boolean {
     if (!this.codex) {
+      return false;
+    }
+
+    // 過去フェーズで markDisabled 済みならバイナリチェックもスキップして即 false を返す
+    if (this.codex.isDisabled?.()) {
+      this.codexCliAvailability = {
+        available: false,
+        reason: this.codex.getDisabledReason?.() || 'Codex client was disabled',
+      };
       return false;
     }
 

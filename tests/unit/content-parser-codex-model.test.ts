@@ -126,12 +126,12 @@ async function importContentParserWithMocks(options: { codexAuthPath?: string | 
 
   await jest.unstable_mockModule('../../src/core/codex-agent-client.js', async () => {
     const CODEX_MODEL_ALIASES = {
-      max: 'gpt-5.2-codex',
-      mini: 'gpt-5.1-codex-mini',
+      max: 'gpt-5.4',
+      mini: 'gpt-5.4-mini',
       '5.1': 'gpt-5.1',
       legacy: 'gpt-5-codex',
     };
-    const DEFAULT_CODEX_MODEL = 'gpt-5.2-codex';
+    const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 
     const resolveCodexModel = (modelOrAlias: string | null | undefined) => {
       if (!modelOrAlias || !modelOrAlias.trim()) {
@@ -215,7 +215,7 @@ describe('ContentParser - Codexモデル選択', () => {
   });
 
   test('CODEX_MODELにフルIDを指定した場合、そのモデルで初期化される', async () => {
-    process.env.CODEX_MODEL = 'gpt-5.1-codex-mini';
+    process.env.CODEX_MODEL = 'gpt-5.4-mini';
     const { ContentParser } = await importContentParserWithMocks();
 
     // Given: フルIDのモデル名を環境変数で指定
@@ -225,10 +225,10 @@ describe('ContentParser - Codexモデル選択', () => {
 
     expect(CodexAgentClientMock).toHaveBeenCalledTimes(1);
     const args = CodexAgentClientMock.mock.calls[0]?.[0] as { model?: string };
-    expect(args?.model).toBe('gpt-5.1-codex-mini');
+    expect(args?.model).toBe('gpt-5.4-mini');
   });
 
-  test('CODEX_MODELにエイリアスminiを指定した場合、gpt-5.1-codex-miniへ解決される', async () => {
+  test('CODEX_MODELにエイリアスminiを指定した場合、gpt-5.4-miniへ解決される', async () => {
     process.env.CODEX_MODEL = 'mini';
     const { ContentParser } = await importContentParserWithMocks();
 
@@ -239,7 +239,7 @@ describe('ContentParser - Codexモデル選択', () => {
 
     expect(CodexAgentClientMock).toHaveBeenCalledTimes(1);
     const args = CodexAgentClientMock.mock.calls[0]?.[0] as { model?: string };
-    expect(args?.model).toBe('gpt-5.1-codex-mini');
+    expect(args?.model).toBe('gpt-5.4-mini');
   });
 
   test('CODEX_MODELに未知のモデル名を指定した場合、そのまま渡される', async () => {
@@ -276,7 +276,7 @@ describe('ContentParser - Codexモデル選択', () => {
 
     expect(codexClientInstance.executeTask).toHaveBeenCalledTimes(1);
     const args = CodexAgentClientMock.mock.calls[0]?.[0] as { model?: string };
-    expect(args?.model).toBe('gpt-5.1-codex-mini');
+    expect(args?.model).toBe('gpt-5.4-mini');
     expect(content).toContain('判定: PASS');
   });
 

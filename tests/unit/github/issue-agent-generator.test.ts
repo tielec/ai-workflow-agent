@@ -344,11 +344,11 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
   it('IssueAgentGenerator_generate_正常系_model指定時にCodexへ伝播', async () => {
     codexClient.executeTask.mockResolvedValue([]);
 
-    const result = await generator.generate(context, 'codex', 'gpt-5.1-codex-mini');
+    const result = await generator.generate(context, 'codex', 'gpt-5.4-mini');
 
     expect(result.success).toBe(true);
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+      expect.objectContaining({ model: 'gpt-5.4-mini' }),
     );
   });
 
@@ -358,7 +358,7 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     await generator.generate(context, 'codex', 'mini');
 
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+      expect.objectContaining({ model: 'gpt-5.4-mini' }),
     );
   });
 
@@ -368,7 +368,7 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     await generator.generate(context, 'codex', 'max');
 
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.2-codex' }),
+      expect.objectContaining({ model: 'gpt-5.4' }),
     );
   });
 
@@ -378,18 +378,18 @@ describe('IssueAgentGenerator.generate - model propagation', () => {
     await generator.generate(context, 'codex');
 
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.2-codex' }),
+      expect.objectContaining({ model: 'gpt-5.4' }),
     );
   });
 
   it('IssueAgentGenerator_generate_正常系_autoモードでもmodelを優先', async () => {
     codexClient.executeTask.mockResolvedValue([]);
 
-    await generator.generate(context, 'auto', 'gpt-5.1-codex-mini');
+    await generator.generate(context, 'auto', 'gpt-5.4-mini');
 
     expect(codexClient.executeTask).toHaveBeenCalledTimes(1);
     expect(codexClient.executeTask).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-5.1-codex-mini' }),
+      expect.objectContaining({ model: 'gpt-5.4-mini' }),
     );
     expect(claudeClient.executeTask).not.toHaveBeenCalled();
   });
