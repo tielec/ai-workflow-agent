@@ -275,7 +275,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       const options: IssueGenerationOptions = {
         enabled: true,
         provider: 'agent',
-        model: 'gpt-5.1-codex-mini',
+        model: 'gpt-5.4-mini',
       };
 
       const result = await issueClient.createIssueFromEvaluation(
@@ -290,7 +290,7 @@ describe('IssueClient - Agent-based FOLLOW-UP Issue generation (Issue #174)', ()
       expect(mockAgentGenerator.generate).toHaveBeenCalledTimes(1);
       const [, agentArg, modelArg] = mockAgentGenerator.generate.mock.calls[0];
       expect(agentArg).toBe('auto');
-      expect(modelArg).toBe('gpt-5.1-codex-mini');
+      expect(modelArg).toBe('gpt-5.4-mini');
     });
 
     it('IssueClient_createIssueFromEvaluation_正常系_agentモード_model未指定時はundefinedを引き渡し', async () => {

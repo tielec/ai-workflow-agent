@@ -20,17 +20,17 @@ const DEFAULT_MAX_TURNS = 50;
 
 /**
  * Default Codex model for agent execution.
- * gpt-5.2-codex is optimized for long-running agent tasks.
+ * gpt-5.4 is OpenAI's current mainline recommendation for most coding/reasoning tasks.
  */
-export const DEFAULT_CODEX_MODEL = 'gpt-5.2-codex';
+export const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 
 /**
  * Codex model aliases for user-friendly model selection.
  */
 export const CODEX_MODEL_ALIASES: Record<string, string> = {
-  max: 'gpt-5.2-codex', // Default, for complex multi-step projects
-  mini: 'gpt-5.1-codex-mini', // Lightweight, cost-effective
-  '5.1': 'gpt-5.1', // General-purpose
+  max: 'gpt-5.4', // Default, flagship for complex multi-step projects
+  mini: 'gpt-5.4-mini', // Lightweight, cost-effective
+  '5.1': 'gpt-5.1', // General-purpose (legacy)
   legacy: 'gpt-5-codex', // Legacy (backward compatibility)
 };
 
@@ -44,10 +44,10 @@ export const CODEX_MODEL_ALIASES: Record<string, string> = {
  * @returns Resolved model ID
  *
  * @example
- * resolveCodexModel('max')           // → 'gpt-5.2-codex'
- * resolveCodexModel('MINI')          // → 'gpt-5.1-codex-mini' (case-insensitive)
- * resolveCodexModel('gpt-5.1-codex') // → 'gpt-5.1-codex' (passthrough)
- * resolveCodexModel(undefined)       // → 'gpt-5.2-codex' (default)
+ * resolveCodexModel('max')           // → 'gpt-5.4'
+ * resolveCodexModel('MINI')          // → 'gpt-5.4-mini' (case-insensitive)
+ * resolveCodexModel('gpt-5.3-codex') // → 'gpt-5.3-codex' (passthrough)
+ * resolveCodexModel(undefined)       // → 'gpt-5.4' (default)
  */
 /**
  * Codex CLI の JSON イベント配列から人間可読なエラーメッセージを抽出する。

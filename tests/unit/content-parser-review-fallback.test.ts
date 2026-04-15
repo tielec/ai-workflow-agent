@@ -113,12 +113,12 @@ async function importContentParserWithMocks(options: {
 
   await jest.unstable_mockModule('../../src/core/codex-agent-client.js', async () => {
     const CODEX_MODEL_ALIASES = {
-      max: 'gpt-5.2-codex',
-      mini: 'gpt-5.1-codex-mini',
+      max: 'gpt-5.4',
+      mini: 'gpt-5.4-mini',
       '5.1': 'gpt-5.1',
       legacy: 'gpt-5-codex',
     };
-    const DEFAULT_CODEX_MODEL = 'gpt-5.2-codex';
+    const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 
     const resolveCodexModel = (modelOrAlias: string | null | undefined) => {
       if (!modelOrAlias || !modelOrAlias.trim()) {

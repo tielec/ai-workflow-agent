@@ -70,20 +70,20 @@ describe('resolveCodexModel', () => {
   // =============================================================================
 
   describe('alias resolution', () => {
-    test('resolves "max" alias to gpt-5.2-codex', () => {
+    test('resolves "max" alias to gpt-5.4', () => {
       // Given: 'max' エイリアスが入力される
       // When: resolveCodexModel('max') を呼び出す
       const result = resolveCodexModel('max');
-      // Then: 'gpt-5.2-codex' が返される
-      expect(result).toBe('gpt-5.2-codex');
+      // Then: 'gpt-5.4' が返される
+      expect(result).toBe('gpt-5.4');
     });
 
-    test('resolves "mini" alias to gpt-5.1-codex-mini', () => {
+    test('resolves "mini" alias to gpt-5.4-mini', () => {
       // Given: 'mini' エイリアスが入力される
       // When: resolveCodexModel('mini') を呼び出す
       const result = resolveCodexModel('mini');
-      // Then: 'gpt-5.1-codex-mini' が返される
-      expect(result).toBe('gpt-5.1-codex-mini');
+      // Then: 'gpt-5.4-mini' が返される
+      expect(result).toBe('gpt-5.4-mini');
     });
 
     test('resolves "5.1" alias to gpt-5.1', () => {
@@ -106,8 +106,8 @@ describe('resolveCodexModel', () => {
       // Given: 大文字のエイリアス 'MAX', 'MINI', 'LEGACY' が入力される
       // When: resolveCodexModel を呼び出す
       // Then: それぞれのフルモデルIDが返される（大文字小文字非区別）
-      expect(resolveCodexModel('MAX')).toBe('gpt-5.2-codex');
-      expect(resolveCodexModel('MINI')).toBe('gpt-5.1-codex-mini');
+      expect(resolveCodexModel('MAX')).toBe('gpt-5.4');
+      expect(resolveCodexModel('MINI')).toBe('gpt-5.4-mini');
       expect(resolveCodexModel('LEGACY')).toBe('gpt-5-codex');
     });
 
@@ -115,8 +115,8 @@ describe('resolveCodexModel', () => {
       // Given: 混合ケースのエイリアス 'Max', 'Mini', 'Legacy' が入力される
       // When: resolveCodexModel を呼び出す
       // Then: それぞれのフルモデルIDが返される
-      expect(resolveCodexModel('Max')).toBe('gpt-5.2-codex');
-      expect(resolveCodexModel('Mini')).toBe('gpt-5.1-codex-mini');
+      expect(resolveCodexModel('Max')).toBe('gpt-5.4');
+      expect(resolveCodexModel('Mini')).toBe('gpt-5.4-mini');
       expect(resolveCodexModel('Legacy')).toBe('gpt-5-codex');
     });
 
@@ -124,37 +124,37 @@ describe('resolveCodexModel', () => {
       // Given: さまざまな大文字小文字の組み合わせ
       // When: resolveCodexModel を呼び出す
       // Then: 正しく解決される
-      expect(resolveCodexModel('MaX')).toBe('gpt-5.2-codex');
-      expect(resolveCodexModel('mINI')).toBe('gpt-5.1-codex-mini');
+      expect(resolveCodexModel('MaX')).toBe('gpt-5.4');
+      expect(resolveCodexModel('mINI')).toBe('gpt-5.4-mini');
       expect(resolveCodexModel('LeGaCy')).toBe('gpt-5-codex');
     });
 
     test('trims leading whitespace from aliases', () => {
       // Given: 前に空白があるエイリアス '  max' が入力される
       // When: resolveCodexModel('  max') を呼び出す
-      // Then: 'gpt-5.2-codex' が返される（空白がトリムされる）
-      expect(resolveCodexModel('  max')).toBe('gpt-5.2-codex');
+      // Then: 'gpt-5.4' が返される（空白がトリムされる）
+      expect(resolveCodexModel('  max')).toBe('gpt-5.4');
     });
 
     test('trims trailing whitespace from aliases', () => {
       // Given: 後ろに空白があるエイリアス 'mini  ' が入力される
       // When: resolveCodexModel('mini  ') を呼び出す
-      // Then: 'gpt-5.1-codex-mini' が返される（空白がトリムされる）
-      expect(resolveCodexModel('mini  ')).toBe('gpt-5.1-codex-mini');
+      // Then: 'gpt-5.4-mini' が返される（空白がトリムされる）
+      expect(resolveCodexModel('mini  ')).toBe('gpt-5.4-mini');
     });
 
     test('trims both leading and trailing whitespace from aliases', () => {
       // Given: 前後に空白があるエイリアス '  max  ' が入力される
       // When: resolveCodexModel('  max  ') を呼び出す
-      // Then: 'gpt-5.2-codex' が返される（空白がトリムされる）
-      expect(resolveCodexModel('  max  ')).toBe('gpt-5.2-codex');
+      // Then: 'gpt-5.4' が返される（空白がトリムされる）
+      expect(resolveCodexModel('  max  ')).toBe('gpt-5.4');
     });
 
     test('trims tab characters from aliases', () => {
       // Given: タブ文字を含むエイリアス '\\tmax\\t' が入力される
       // When: resolveCodexModel('\\tmax\\t') を呼び出す
-      // Then: 'gpt-5.2-codex' が返される（タブがトリムされる）
-      expect(resolveCodexModel('\tmax\t')).toBe('gpt-5.2-codex');
+      // Then: 'gpt-5.4' が返される（タブがトリムされる）
+      expect(resolveCodexModel('\tmax\t')).toBe('gpt-5.4');
     });
   });
 
@@ -190,12 +190,12 @@ describe('resolveCodexModel', () => {
       expect(result).toBe(modelId);
     });
 
-    test('returns gpt-5.1-codex-mini model ID as-is', () => {
-      // Given: フルモデルID 'gpt-5.1-codex-mini' が入力される
-      const modelId = 'gpt-5.1-codex-mini';
+    test('returns gpt-5.4-mini model ID as-is', () => {
+      // Given: フルモデルID 'gpt-5.4-mini' が入力される
+      const modelId = 'gpt-5.4-mini';
       // When: resolveCodexModel を呼び出す
       const result = resolveCodexModel(modelId);
-      // Then: そのまま 'gpt-5.1-codex-mini' が返される
+      // Then: そのまま 'gpt-5.4-mini' が返される
       expect(result).toBe(modelId);
     });
 
@@ -224,18 +224,18 @@ describe('CODEX_MODEL_ALIASES', () => {
     expect(CODEX_MODEL_ALIASES).toHaveProperty('legacy');
   });
 
-  test('max alias maps to gpt-5.2-codex', () => {
+  test('max alias maps to gpt-5.4', () => {
     // Given: CODEX_MODEL_ALIASES 定数
     // When: 'max' キーを参照する
-    // Then: 'gpt-5.2-codex' が設定されている
-    expect(CODEX_MODEL_ALIASES.max).toBe('gpt-5.2-codex');
+    // Then: 'gpt-5.4' が設定されている
+    expect(CODEX_MODEL_ALIASES.max).toBe('gpt-5.4');
   });
 
-  test('mini alias maps to gpt-5.1-codex-mini', () => {
+  test('mini alias maps to gpt-5.4-mini', () => {
     // Given: CODEX_MODEL_ALIASES 定数
     // When: 'mini' キーを参照する
-    // Then: 'gpt-5.1-codex-mini' が設定されている
-    expect(CODEX_MODEL_ALIASES.mini).toBe('gpt-5.1-codex-mini');
+    // Then: 'gpt-5.4-mini' が設定されている
+    expect(CODEX_MODEL_ALIASES.mini).toBe('gpt-5.4-mini');
   });
 
   test('5.1 alias maps to gpt-5.1', () => {
@@ -265,11 +265,11 @@ describe('CODEX_MODEL_ALIASES', () => {
 // =============================================================================
 
 describe('DEFAULT_CODEX_MODEL', () => {
-  test('is set to gpt-5.2-codex', () => {
+  test('is set to gpt-5.4', () => {
     // Given: DEFAULT_CODEX_MODEL 定数
     // When: 値を参照する
-    // Then: 'gpt-5.2-codex' が設定されている
-    expect(DEFAULT_CODEX_MODEL).toBe('gpt-5.2-codex');
+    // Then: 'gpt-5.4' が設定されている
+    expect(DEFAULT_CODEX_MODEL).toBe('gpt-5.4');
   });
 
   test('matches the value of max alias', () => {

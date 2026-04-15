@@ -43,7 +43,7 @@ beforeAll(async () => {
   await jest.unstable_mockModule('../../../../src/core/codex-agent-client.js', async () => {
     const CODEX_MODEL_ALIASES = {
       max: 'gpt-5.1-codex-max',
-      mini: 'gpt-5.1-codex-mini',
+      mini: 'gpt-5.4-mini',
       '5.1': 'gpt-5.1',
       legacy: 'gpt-5-codex',
     };
@@ -650,8 +650,8 @@ describe('setupAgentClients - codexModel オプション（Issue #302）', () =>
       codexModel: 'mini',
     });
 
-    // Then: CodexAgentClient が model: 'gpt-5.1-codex-mini' で初期化される
-    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.1-codex-mini' });
+    // Then: CodexAgentClient が model: 'gpt-5.4-mini' で初期化される
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.4-mini' });
     expect(result.codexClient).toBeDefined();
   });
 
@@ -730,8 +730,8 @@ describe('setupAgentClients - codexModel オプション（Issue #302）', () =>
       codexModel: 'mini',
     });
 
-    // Then: CodexAgentClient が model: 'gpt-5.1-codex-mini' で初期化される
-    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.1-codex-mini' });
+    // Then: CodexAgentClient が model: 'gpt-5.4-mini' で初期化される
+    expect(CodexAgentClientMock).toHaveBeenCalledWith({ workingDir, model: 'gpt-5.4-mini' });
     expect(result.codexClient).toBeDefined();
   });
 

@@ -77,8 +77,8 @@ await jest.unstable_mockModule('../../src/core/codex-agent-client.js', () => ({
     codexClientConstructor(options);
     return { __type: 'codex', options };
   }),
-  resolveCodexModel: jest.fn().mockImplementation((model) => model ?? 'gpt-5.2-codex'),
-  DEFAULT_CODEX_MODEL: 'gpt-5.2-codex',
+  resolveCodexModel: jest.fn().mockImplementation((model) => model ?? 'gpt-5.4'),
+  DEFAULT_CODEX_MODEL: 'gpt-5.4',
 }));
 
 await jest.unstable_mockModule('../../src/core/claude-agent-client.js', () => ({

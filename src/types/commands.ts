@@ -284,7 +284,7 @@ export interface ExecuteCommandOptions {
    * Codex モデル指定（Issue #302）
    *
    * エイリアス（max, mini, 5.1, legacy）またはフルモデルIDで指定
-   * デフォルト: max（gpt-5.2-codex）
+   * デフォルト: max（gpt-5.4）
    */
   codexModel?: string;
 }
