@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #866**: `impact-analysis` Reporter をファイル出力方式にリファクタリング
+  - `reporter.ts` を、エージェントのストリームメッセージからJSONをパースしてMarkdownを抽出する方式から、エージェントが指定パス（`context.logDir/report.md`）にMarkdownファイルを書き込み、ホスト側がそのファイルを読み込む方式（ファイル出力方式）に変更
+  - PR #861 で発生した「SDK の生ストリームJSONがそのままPRコメントとして投稿される」事象を根本解消
+  - 不要になった `extractReportMarkdown()`, `extractJsonBlock()`, `fillTemplate()` の3関数を削除し、コードを簡素化
+  - ファイル未生成時にはエージェントのテキスト出力からフォールバックする安全網を実装
+  - `validateReport()` に多言語対応を追加（日本語・英語の免責文言を両方チェック）
+  - `rewrite-issue` / `auto-issue` と同じファイル出力パターンに統一し、コードベース全体の一貫性を向上
+  - 修正ファイル: `src/commands/impact-analysis/reporter.ts`、`src/prompts/impact-analysis/ja/reporter.txt`、`src/prompts/impact-analysis/en/reporter.txt`
+  - テストカバレッジ: ユニットテスト25件（TC-RPT-001〜009 + 新規16件）が全件パス。`npm run validate` PASS（3805件中3770件成功・35件スキップ・0件失敗）
+
 ### Added
 
 - **Issue #858**: `impact-analysis` コマンド実行用 Jenkins ジョブの整備
