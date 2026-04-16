@@ -16,7 +16,9 @@ Collect evidence for the specified investigation point and summarize findings.
 {investigation_point}
 
 ## Output requirements
-- Output **JSON only** (no prose or code fences).
+- Do **not** print JSON or prose to stdout.
+- You must use the Write tool to save the JSON to this absolute path: `{output_file_path}`
+- The file content must be JSON only with no code fences or extra commentary.
 
 {
   "findings": [

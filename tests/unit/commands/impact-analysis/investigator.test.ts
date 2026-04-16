@@ -2,14 +2,41 @@
  * ユニットテスト: impact-analysis Investigatorステージ
  *
  * テスト対象: src/commands/impact-analysis/investigator.ts
- * テストシナリオ: test-scenario.md の TC-INV-001 〜 TC-INV-008
+ * テストシナリオ: test-scenario.md の TC-INV-001〜008, TC-INV-F01〜F03, S01, P01, D01, DEL01
  */
 
 import { jest } from '@jest/globals';
-import type { PipelineContext, ScopeResult } from '../../../../src/commands/impact-analysis/types.js';
-import { createDefaultGuardrailsConfig, createInitialGuardrailsState } from '../../../../src/commands/impact-analysis/guardrails.js';
+import type {
+  PipelineContext,
+  ScopeResult,
+  InvestigationPoint,
+} from '../../../../src/commands/impact-analysis/types.js';
+import {
+  createDefaultGuardrailsConfig,
+  createInitialGuardrailsState,
+} from '../../../../src/commands/impact-analysis/guardrails.js';
 
+const mockExistsSync = jest.fn();
+const mockReadFileSync = jest.fn();
+const mockMkdirSync = jest.fn();
 const mockLoadPrompt = jest.fn();
+const mockExecuteAgentForStage = jest.fn();
+const mockLoggerDebug = jest.fn();
+const mockLoggerWarn = jest.fn();
+const mockLoggerInfo = jest.fn();
+const mockLoggerError = jest.fn();
+
+await jest.unstable_mockModule('node:fs', () => ({
+  __esModule: true,
+  default: {
+    existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync,
+    mkdirSync: mockMkdirSync,
+  },
+  existsSync: mockExistsSync,
+  readFileSync: mockReadFileSync,
+  mkdirSync: mockMkdirSync,
+}));
 
 await jest.unstable_mockModule('../../../../src/core/prompt-loader.js', () => ({
   __esModule: true,
@@ -18,7 +45,23 @@ await jest.unstable_mockModule('../../../../src/core/prompt-loader.js', () => ({
   },
 }));
 
-const { executeInvestigator } = await import('../../../../src/commands/impact-analysis/investigator.js');
+await jest.unstable_mockModule('../../../../src/commands/impact-analysis/scoper.js', () => ({
+  __esModule: true,
+  executeAgentForStage: mockExecuteAgentForStage,
+}));
+
+await jest.unstable_mockModule('../../../../src/utils/logger.js', () => ({
+  __esModule: true,
+  logger: {
+    debug: mockLoggerDebug,
+    warn: mockLoggerWarn,
+    info: mockLoggerInfo,
+    error: mockLoggerError,
+  },
+}));
+
+const investigatorModule = await import('../../../../src/commands/impact-analysis/investigator.js');
+const { executeInvestigator } = investigatorModule;
 
 function createContext(): PipelineContext {
   return {
@@ -31,212 +74,335 @@ function createContext(): PipelineContext {
       language: 'ja',
     },
     diff: {
-      diff: 'diff --git a/db/migrations/001.sql b/db/migrations/001.sql',
+      diff: 'diff --git a/src/db/schema.prisma b/src/db/schema.prisma\n+ model User { email String }',
       truncated: false,
       filesChanged: 1,
     },
     playbook: 'playbook',
     guardrails: createDefaultGuardrailsConfig(),
     guardrailsState: createInitialGuardrailsState(),
-    logDir: '/tmp/logs',
+    logDir: '/tmp/logs/pr-123',
   };
 }
 
-function createScopeResult(points: ScopeResult['investigationPoints']): ScopeResult {
+function createPoint(id: string, patternName = 'DBスキーマ変更'): InvestigationPoint {
+  return {
+    id,
+    patternName,
+    description: `${id} の影響調査`,
+    targetFiles: ['src/db/schema.prisma'],
+    searchKeywords: ['UserModel'],
+    instructions: `${id} の利用箇所を調査する`,
+  };
+}
+
+function createScopeResult(points: InvestigationPoint[]): ScopeResult {
   return {
     investigationPoints: points,
-    matchedPatterns: points.map((p) => p.patternName),
+    matchedPatterns: points.map((point) => point.patternName),
     skippedPatterns: [],
     reasoning: 'ok',
   };
 }
 
+function findingsJson(pointId: string, overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    findings: [
+      {
+        investigationPointId: pointId,
+        patternName: 'DBスキーマ変更',
+        description: `${pointId} の発見事項`,
+        evidence: [
+          {
+            type: 'code_reference',
+            filePath: 'src/services/UserService.ts',
+            lineNumber: 42,
+            content: 'SELECT email FROM users',
+          },
+        ],
+        severity: 'warning',
+        ...overrides,
+      },
+    ],
+  });
+}
+
 describe('Investigator', () => {
   beforeEach(() => {
+    mockExistsSync.mockReset();
+    mockReadFileSync.mockReset();
+    mockMkdirSync.mockReset();
     mockLoadPrompt.mockReset();
-    mockLoadPrompt.mockReturnValue('DIFF:{diff}\nPOINT:{investigation_point}');
+    mockExecuteAgentForStage.mockReset();
+    mockLoggerDebug.mockReset();
+    mockLoggerWarn.mockReset();
+    mockLoggerInfo.mockReset();
+    mockLoggerError.mockReset();
+
+    mockLoadPrompt.mockReturnValue([
+      'DIFF:{diff}',
+      'POINT:{investigation_point}',
+      'OUTPUT:{output_file_path}',
+    ].join('\n'));
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation((path: string) => {
+      if (path.includes('INV-001')) {
+        return findingsJson('INV-001');
+      }
+      if (path.includes('INV-002')) {
+        return findingsJson('INV-002');
+      }
+      if (path.includes('INV-003')) {
+        return findingsJson('INV-003');
+      }
+      return findingsJson('INV-000');
+    });
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/services User', 'grep email src']);
   });
 
-  it('TC-INV-001: 単一観点で証拠を発見する', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      {
-        id: 'INV-001',
-        patternName: 'マイグレーション波及',
-        description: 'users テーブルへの影響',
-        targetFiles: ['db/migrations/001.sql'],
-        searchKeywords: ['users', 'email'],
-        instructions: 'rg users',
-      },
-    ]);
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-    const codexClient = {
-      executeTask: jest.fn().mockResolvedValue([
-        JSON.stringify({
-          findings: [
-            {
-              investigationPointId: 'INV-001',
-              patternName: 'マイグレーション波及',
-              description: 'users テーブル参照が残存',
-              evidence: [{
-                type: 'code_reference',
-                filePath: 'src/services/UserService.ts',
-                lineNumber: 42,
-                content: 'SELECT email FROM users',
-              }],
-              severity: 'warning',
-            },
-          ],
-        }),
-      ]),
-    } as any;
+  it('TC-INV-001/F01: 出力ファイルから単一観点の findings を読み込む', async () => {
+    const point = createPoint('INV-001');
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([point]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
-    expect(result.findings.length).toBeGreaterThanOrEqual(1);
-    expect(result.completedPoints).toContain('INV-001');
+    // Given: 観点別出力ファイルに有効な JSON がある
+    // When: Investigator を実行する
+    // Then: ファイル由来の findings が返る
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      investigationPointId: 'INV-001',
+      severity: 'warning',
+    });
+    expect(result.completedPoints).toEqual(['INV-001']);
     expect(result.incompletePoints).toEqual([]);
-    expect(result.guardrailsReached).toBe(false);
+    expect(mockReadFileSync).toHaveBeenCalledWith(
+      '/tmp/logs/pr-123/investigator-INV-001.json',
+      'utf-8',
+    );
   });
 
   it('TC-INV-002: 複数観点を順次処理する', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-003', patternName: 'C', description: 'c', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002'), createPoint('INV-003')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const codexClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })]),
-    } as any;
-
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
-    expect(result.completedPoints.length).toBe(3);
-    expect(codexClient.executeTask).toHaveBeenCalledTimes(3);
+    // Given: 調査観点が複数ある
+    // When: Investigator を実行する
+    // Then: すべての観点を処理する
+    expect(result.completedPoints).toEqual(['INV-001', 'INV-002', 'INV-003']);
+    expect(mockExecuteAgentForStage).toHaveBeenCalledTimes(3);
   });
 
-  it('TC-INV-003: ガードレール到達で調査中断', async () => {
+  it('TC-INV-003: ガードレール到達時は残り観点を未完了扱いにする', async () => {
     const context = createContext();
     context.guardrails.maxToolCalls = 1;
 
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const codexClient = {
-      executeTask: jest.fn().mockResolvedValue(['rg src/ foo']),
-    } as any;
-
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
+    // Given: 1件目の処理でガードレール上限に達する設定
+    // When: Investigator を実行する
+    // Then: 後続観点は incompletePoints に入る
     expect(result.guardrailsReached).toBe(true);
-    expect(result.incompletePoints.length).toBeGreaterThanOrEqual(1);
-    expect(result.completedPoints.length).toBeLessThan(scopeResult.investigationPoints.length);
-  });
-
-  it('TC-INV-004: Evidenceにファイルパスと行番号を含む', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
-
-    const codexClient = {
-      executeTask: jest.fn().mockResolvedValue([
-        JSON.stringify({
-          findings: [
-            {
-              investigationPointId: 'INV-001',
-              patternName: 'A',
-              description: 'desc',
-              evidence: [{
-                type: 'code_reference',
-                filePath: 'src/services/UserService.ts',
-                lineNumber: 10,
-                content: 'SELECT * FROM users',
-              }],
-              severity: 'info',
-            },
-          ],
-        }),
-      ]),
-    } as any;
-
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
-    const evidence = result.findings[0].evidence[0];
-    expect(evidence.filePath).toBeTruthy();
-    expect(evidence.lineNumber).toBeDefined();
-  });
-
-  it('TC-INV-005: 個別観点のエラーでも継続する', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-003', patternName: 'C', description: 'c', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
-
-    const codexClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockRejectedValueOnce(new Error('Agent error'))
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })]),
-    } as any;
-
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
-    expect(result.completedPoints).toEqual(['INV-001', 'INV-003']);
+    expect(result.completedPoints).toEqual(['INV-001']);
     expect(result.incompletePoints).toEqual(['INV-002']);
   });
 
-  it('TC-INV-006: 調査観点が0件の場合は空結果', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([]);
+  it('TC-INV-004: Evidence にファイルパスと行番号を保持する', async () => {
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const codexClient = {
-      executeTask: jest.fn(),
-    } as any;
+    // Given: evidence を含む findings JSON
+    // When: Investigator を実行する
+    // Then: code_reference の情報が保持される
+    expect(result.findings[0].evidence[0]).toMatchObject({
+      filePath: 'src/services/UserService.ts',
+      lineNumber: 42,
+    });
+  });
 
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
+  it('TC-INV-005: 個別観点でエラーが起きても後続処理を継続する', async () => {
+    mockExecuteAgentForStage
+      .mockResolvedValueOnce(['rg first'])
+      .mockRejectedValueOnce(new Error('Agent error'))
+      .mockResolvedValueOnce(['rg third']);
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002'), createPoint('INV-003')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 2件目だけエージェント実行が失敗する
+    // When: Investigator を実行する
+    // Then: 失敗観点だけ未完了となり処理は継続する
+    expect(result.completedPoints).toEqual(['INV-001', 'INV-003']);
+    expect(result.incompletePoints).toEqual(['INV-002']);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('調査観点 INV-002 の調査中にエラー'),
+    );
+  });
+
+  it('TC-INV-006: 調査観点が 0 件なら空結果を返す', async () => {
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 調査観点が空
+    // When: Investigator を実行する
+    // Then: findings も completedPoints も空のまま返る
     expect(result.findings).toEqual([]);
     expect(result.completedPoints).toEqual([]);
-    expect(result.guardrailsReached).toBe(false);
+    expect(result.incompletePoints).toEqual([]);
+    expect(mockExecuteAgentForStage).not.toHaveBeenCalled();
   });
 
-  it('TC-INV-007: フォールバックエージェントが使用される', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
+  it('TC-INV-007/F02: ファイル未作成時はエージェント出力へフォールバックする', async () => {
+    mockExistsSync.mockReturnValue(false);
+    mockExecuteAgentForStage.mockResolvedValue([findingsJson('INV-001')]);
 
-    const claudeClient = {
-      executeTask: jest.fn().mockRejectedValue(new Error('Primary failed')),
-    } as any;
-    const codexClient = {
-      executeTask: jest.fn().mockResolvedValue([JSON.stringify({ findings: [] })]),
-    } as any;
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const result = await executeInvestigator(context, scopeResult, codexClient, claudeClient, Date.now());
-    expect(result.completedPoints).toContain('INV-001');
-    expect(codexClient.executeTask).toHaveBeenCalled();
+    // Given: 出力ファイルが存在しない
+    // When: Investigator を実行する
+    // Then: agentMessages の JSON を使って findings を返す
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].investigationPointId).toBe('INV-001');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Investigator出力ファイルが見つかりません。エージェント出力からフォールバックします: INV-001 (/tmp/logs/pr-123/investigator-INV-001.json)',
+    );
   });
 
-  it('TC-INV-008: toolCallCountとtokenUsageが累計される', async () => {
-    const context = createContext();
-    const scopeResult = createScopeResult([
-      { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-      { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-    ]);
+  it('TC-INV-008: toolCallCount と tokenUsage を累計する', async () => {
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
 
-    const codexClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce(['rg src/ foo'])
-        .mockResolvedValueOnce(['grep -n bar']),
-    } as any;
-
-    const result = await executeInvestigator(context, scopeResult, codexClient, null, Date.now());
-    expect(result.toolCallCount).toBeGreaterThanOrEqual(2);
+    // Given: 各観点の agentMessages にツール呼び出しが含まれる
+    // When: Investigator を実行する
+    // Then: 集計値が結果へ反映される
+    expect(result.toolCallCount).toBeGreaterThanOrEqual(4);
     expect(result.tokenUsage).toBeGreaterThan(0);
+  });
+
+  it('TC-INV-F03: 空ファイル時はエージェント出力へフォールバックする', async () => {
+    mockReadFileSync.mockReturnValue('   ');
+    mockExecuteAgentForStage.mockResolvedValue([findingsJson('INV-001')]);
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 出力ファイルは存在するが空
+    // When: Investigator を実行する
+    // Then: 空ファイル警告後に agentMessages を使う
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].investigationPointId).toBe('INV-001');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Investigator出力ファイルが空です。エージェント出力からフォールバックします: INV-001 (/tmp/logs/pr-123/investigator-INV-001.json)',
+    );
+  });
+
+  it('TC-INV-S01: SDK 生 JSON があってもファイル内容を優先する', async () => {
+    mockExecuteAgentForStage.mockResolvedValue([
+      '{"type":"system","subtype":"init"}',
+      '{"type":"result","subtype":"success"}',
+    ]);
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: agentMessages に SDK 生 JSON が含まれる
+    // When: 出力ファイルが正常に存在する状態で Investigator を実行する
+    // Then: ファイル由来の findings のみが返る
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].investigationPointId).toBe('INV-001');
+    expect(result.findings[0].description).toBe('INV-001 の発見事項');
+  });
+
+  it('TC-INV-P01/D01: 観点ごとに異なる出力ファイルパスを使いディレクトリを作成する', async () => {
+    await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 複数の調査観点
+    // When: Investigator を実行する
+    // Then: 各 prompt に一意な output path が入り、mkdirSync が呼ばれる
+    expect(mockExecuteAgentForStage).toHaveBeenNthCalledWith(
+      1,
+      {} as any,
+      null,
+      expect.stringContaining('OUTPUT:/tmp/logs/pr-123/investigator-INV-001.json'),
+      { maxTurns: 10, preferLightweight: false },
+    );
+    expect(mockExecuteAgentForStage).toHaveBeenNthCalledWith(
+      2,
+      {} as any,
+      null,
+      expect.stringContaining('OUTPUT:/tmp/logs/pr-123/investigator-INV-002.json'),
+      { maxTurns: 10, preferLightweight: false },
+    );
+    expect(mockMkdirSync).toHaveBeenCalledWith('/tmp/logs/pr-123', { recursive: true });
+  });
+
+  it('TC-INV-DEL01: 内部ヘルパーは公開エクスポートされていない', () => {
+    // Given: Investigator モジュールの公開 API
+    // When: エクスポート一覧を確認する
+    // Then: 内部ヘルパーは公開されていない
+    expect(investigatorModule).not.toHaveProperty('extractJsonBlock');
+    expect(investigatorModule).not.toHaveProperty('buildInvestigatorPrompt');
+    expect(investigatorModule).not.toHaveProperty('readInvestigatorOutput');
   });
 });

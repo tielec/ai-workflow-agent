@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../../core/prompt-loader.js';
@@ -38,7 +40,9 @@ export async function executeInvestigator(
       continue;
     }
 
-    const prompt = buildInvestigatorPrompt(context, point);
+    const outputPath = getInvestigatorOutputPath(context.logDir, point.id);
+    ensureDirectoryExists(path.dirname(outputPath));
+    const prompt = buildInvestigatorPrompt(context, point, outputPath);
     const beforeTokens = context.guardrailsState.tokenUsage;
     const beforeToolCalls = context.guardrailsState.toolCallCount;
 
@@ -48,7 +52,10 @@ export async function executeInvestigator(
         preferLightweight: false,
       });
 
-      const pointFindings = parseInvestigatorResult(agentResult, point);
+      const pointFindings = parseInvestigatorResult(
+        readInvestigatorOutput(outputPath, agentResult, point),
+        point,
+      );
       findings.push(...pointFindings);
       completedPoints.push(point.id);
 
@@ -74,26 +81,69 @@ export async function executeInvestigator(
   };
 }
 
-function buildInvestigatorPrompt(context: PipelineContext, point: InvestigationPoint): string {
+function buildInvestigatorPrompt(
+  context: PipelineContext,
+  point: InvestigationPoint,
+  outputPath: string,
+): string {
   const template = PromptLoader.loadPrompt(
     'impact-analysis',
     'investigator',
     context.options.language,
   );
 
-  return fillTemplate(template, {
-    diff: context.diff.diff,
-    playbook: context.playbook,
-    investigation_point: JSON.stringify(point, null, 2),
-  });
+  return template
+    .replaceAll('{diff}', context.diff.diff)
+    .replaceAll('{playbook}', context.playbook)
+    .replaceAll('{investigation_point}', JSON.stringify(point, null, 2))
+    .replaceAll('{output_file_path}', outputPath);
 }
 
-function parseInvestigatorResult(agentMessages: string[], point: InvestigationPoint): Finding[] {
-  const rawText = agentMessages.join('\n');
-  const jsonText = extractJsonBlock(rawText);
-  if (jsonText) {
+function getInvestigatorOutputPath(logDir: string, pointId: string): string {
+  return path.join(logDir, `investigator-${pointId}.json`);
+}
+
+function ensureDirectoryExists(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readInvestigatorOutput(
+  outputPath: string,
+  agentMessages: string[],
+  point: InvestigationPoint,
+): string {
+  if (fs.existsSync(outputPath)) {
+    const fileContent = fs.readFileSync(outputPath, 'utf-8').trim();
+    logger.debug(`Investigator出力ファイルを読み込みました: ${outputPath}`);
+    if (fileContent) {
+      return fileContent;
+    }
+    logger.warn(
+      `Investigator出力ファイルが空です。エージェント出力からフォールバックします: ${point.id} (${outputPath})`,
+    );
+  } else {
+    logger.warn(
+      `Investigator出力ファイルが見つかりません。エージェント出力からフォールバックします: ${point.id} (${outputPath})`,
+    );
+  }
+
+  return agentMessages.join('\n').trim();
+}
+
+function parseInvestigatorResult(rawText: string, point: InvestigationPoint): Finding[] {
+  const candidates = [rawText];
+  const extractedJson = extractJsonBlock(rawText);
+  if (extractedJson && extractedJson !== rawText) {
+    candidates.push(extractedJson);
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
     try {
-      const parsed = JSON.parse(jsonText) as { findings?: Finding[] };
+      const parsed = JSON.parse(candidate) as { findings?: Finding[] };
       if (Array.isArray(parsed.findings)) {
         return normalizeFindings(parsed.findings, point);
       }
@@ -160,12 +210,4 @@ function extractJsonBlock(text: string): string | null {
   }
 
   return null;
-}
-
-function fillTemplate(template: string, variables: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replaceAll(`{${key}}`, value);
-  }
-  return result;
 }
