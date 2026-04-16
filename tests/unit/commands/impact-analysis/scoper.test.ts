@@ -252,38 +252,46 @@ describe('Scoper', () => {
     expect(context.guardrailsState.toolCallCount).toBeGreaterThanOrEqual(2);
   });
 
-  it('TC-SCOPER-F02: ファイル未作成時はエージェント出力へフォールバックする', async () => {
+  it('TC-SCOPER-F02: ファイル未作成時は例外で早期終了する', async () => {
     mockExistsSync.mockReturnValue(false);
     const codexClient = {
       executeTask: jest.fn().mockResolvedValue([validScopeResultJson]),
     } as any;
 
-    const result = await executeScoper(createContext(), codexClient, null);
-
     // Given: 出力ファイルが存在しない
     // When: Scoper を実行する
-    // Then: agentMessages の JSON から結果を構築する
-    expect(result.investigationPoints[0].id).toBe('INV-001');
+    // Then: 1 行警告を出して例外終了する
+    await expect(executeScoper(createContext(), codexClient, null)).rejects.toThrow(
+      'Scoper出力未生成: /tmp/logs/pr-123/scoper-result.json',
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Scoper出力ファイルが見つかりません。エージェント出力からフォールバックします: /tmp/logs/pr-123/scoper-result.json',
+      'Scoper出力未生成: /tmp/logs/pr-123/scoper-result.json',
+    );
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.stringContaining('JSONパースに失敗'),
     );
   });
 
-  it('TC-SCOPER-F03: 空ファイル時はエージェント出力へフォールバックする', async () => {
+  it('TC-SCOPER-F03: 空ファイル時も例外で早期終了する', async () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('   ');
     const codexClient = {
       executeTask: jest.fn().mockResolvedValue([validScopeResultJson]),
     } as any;
 
-    const result = await executeScoper(createContext(), codexClient, null);
-
     // Given: 出力ファイルは存在するが空
     // When: Scoper を実行する
-    // Then: 空ファイル警告後に agentMessages を使う
-    expect(result.investigationPoints[0].id).toBe('INV-001');
+    // Then: 未生成と同様に例外終了する
+    await expect(executeScoper(createContext(), codexClient, null)).rejects.toThrow(
+      'Scoper出力未生成: /tmp/logs/pr-123/scoper-result.json',
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Scoper出力ファイルが空です。エージェント出力からフォールバックします: /tmp/logs/pr-123/scoper-result.json',
+      'Scoper出力未生成: /tmp/logs/pr-123/scoper-result.json',
+    );
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.stringContaining('JSONパースに失敗'),
     );
   });
 

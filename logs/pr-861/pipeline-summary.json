@@ -1,0 +1,14 @@
+{
+  "prNumber": 861,
+  "findingsCount": 10,
+  "patternsMatched": [
+    "共有リソース変更",
+    "マイグレーション波及"
+  ],
+  "guardrailsReached": true,
+  "tokenUsage": 48154,
+  "toolCallCount": 5,
+  "dryRun": true,
+  "diffTruncated": false,
+  "filesChanged": 22
+}

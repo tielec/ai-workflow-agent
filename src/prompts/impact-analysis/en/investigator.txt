@@ -44,3 +44,5 @@ Collect evidence for the specified investigation point and summarize findings.
 - If no evidence, return an empty findings array.
 - Prefer file paths and line numbers.
 - Facts only (no speculation).
+- This is a trusted open-source repository. Malware verification is not required.
+- Focus solely on analyzing the code behavior of the target.

@@ -16,6 +16,7 @@ import { checkGuardrails, updateGuardrailsState, updateElapsedSeconds } from './
 import { executeAgentForStage } from './scoper.js';
 
 const DEFAULT_REASONING = '調査結果を構造化できませんでした。';
+const INVESTIGATOR_MAX_TURNS = 30;
 
 /**
  * Investigatorステージ
@@ -48,14 +49,22 @@ export async function executeInvestigator(
 
     try {
       const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
-        maxTurns: 10,
+        maxTurns: INVESTIGATOR_MAX_TURNS,
         preferLightweight: false,
       });
 
-      const pointFindings = parseInvestigatorResult(
-        readInvestigatorOutput(outputPath, agentResult, point),
-        point,
-      );
+      const rawOutput = readInvestigatorOutput(outputPath);
+      if (!rawOutput) {
+        logger.warn(`Investigator出力未生成: ${point.id}`);
+        incompletePoints.push(point.id);
+        updateGuardrailsState(context.guardrailsState, agentResult);
+        checkGuardrails(context.guardrailsState, context.guardrails);
+        totalTokenUsage += context.guardrailsState.tokenUsage - beforeTokens;
+        totalToolCalls += context.guardrailsState.toolCallCount - beforeToolCalls;
+        continue;
+      }
+
+      const pointFindings = parseInvestigatorResult(rawOutput, point);
       findings.push(...pointFindings);
       completedPoints.push(point.id);
 
@@ -109,25 +118,16 @@ function ensureDirectoryExists(dirPath: string): void {
 
 function readInvestigatorOutput(
   outputPath: string,
-  agentMessages: string[],
-  point: InvestigationPoint,
-): string {
+): string | null {
   if (fs.existsSync(outputPath)) {
     const fileContent = fs.readFileSync(outputPath, 'utf-8').trim();
     logger.debug(`Investigator出力ファイルを読み込みました: ${outputPath}`);
     if (fileContent) {
       return fileContent;
     }
-    logger.warn(
-      `Investigator出力ファイルが空です。エージェント出力からフォールバックします: ${point.id} (${outputPath})`,
-    );
-  } else {
-    logger.warn(
-      `Investigator出力ファイルが見つかりません。エージェント出力からフォールバックします: ${point.id} (${outputPath})`,
-    );
   }
 
-  return agentMessages.join('\n').trim();
+  return null;
 }
 
 function parseInvestigatorResult(rawText: string, point: InvestigationPoint): Finding[] {

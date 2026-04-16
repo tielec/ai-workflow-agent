@@ -43,6 +43,38 @@ const { handleImpactAnalysisCommand } = await import('../../../src/commands/impa
 const { config } = await import('../../../src/core/config.js');
 const { logger } = await import('../../../src/utils/logger.js');
 
+function extractOutputPath(prompt: string): string {
+  const prefix = `${process.cwd()}/logs/`;
+  const outputLine = prompt.split('\n').find((line) => line.includes(prefix));
+  if (!outputLine) {
+    throw new Error(`出力パスをプロンプトから抽出できません: ${prompt}`);
+  }
+
+  const startIndex = outputLine.indexOf(prefix);
+  return outputLine.slice(startIndex).trim().replace(/[`"']+$/g, '');
+}
+
+function createAgentClientWithOutputs(
+  steps: Array<{ fileContent?: string; messages?: string[] }>,
+) {
+  return {
+    executeTask: jest.fn().mockImplementation(async ({ prompt }: { prompt: string }) => {
+      const step = steps.shift();
+      if (!step) {
+        throw new Error('モックエージェントのレスポンスが不足しています');
+      }
+
+      if (typeof step.fileContent === 'string') {
+        const outputPath = extractOutputPath(prompt);
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        fs.writeFileSync(outputPath, step.fileContent);
+      }
+
+      return step.messages ?? ['ok'];
+    }),
+  };
+}
+
 function cleanupLogs(prNumber: number) {
   const logDir = path.resolve(process.cwd(), 'logs', `pr-${prNumber}`);
   if (fs.existsSync(logDir)) {
@@ -87,51 +119,48 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-001: Scoper→Investigator→Reporter のE2Eフロー', async () => {
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [
-              { id: 'INV-001', patternName: 'マイグレーション波及', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-              { id: 'INV-002', patternName: '依存パッケージ更新', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-            ],
-            matchedPatterns: ['マイグレーション波及', '依存パッケージ更新'],
-            skippedPatterns: [],
-            reasoning: 'scoper reasoning',
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            findings: [
-              {
-                investigationPointId: 'INV-001',
-                patternName: 'マイグレーション波及',
-                description: 'desc',
-                evidence: [{ type: 'code_reference', filePath: 'src/a.ts', lineNumber: 1, content: 'x' }],
-                severity: 'info',
-              },
-            ],
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            findings: [
-              {
-                investigationPointId: 'INV-002',
-                patternName: '依存パッケージ更新',
-                description: 'desc',
-                evidence: [{ type: 'code_reference', filePath: 'package.json', lineNumber: 2, content: 'dep' }],
-                severity: 'info',
-              },
-            ],
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: '## 影響範囲調査\n- マイグレーション波及\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [
+            { id: 'INV-001', patternName: 'マイグレーション波及', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
+            { id: 'INV-002', patternName: '依存パッケージ更新', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
+          ],
+          matchedPatterns: ['マイグレーション波及', '依存パッケージ更新'],
+          skippedPatterns: [],
+          reasoning: 'scoper reasoning',
+        }),
+      },
+      {
+        fileContent: JSON.stringify({
+          findings: [
+            {
+              investigationPointId: 'INV-001',
+              patternName: 'マイグレーション波及',
+              description: 'desc',
+              evidence: [{ type: 'code_reference', filePath: 'src/a.ts', lineNumber: 1, content: 'x' }],
+              severity: 'info',
+            },
+          ],
+        }),
+      },
+      {
+        fileContent: JSON.stringify({
+          findings: [
+            {
+              investigationPointId: 'INV-002',
+              patternName: '依存パッケージ更新',
+              description: 'desc',
+              evidence: [{ type: 'code_reference', filePath: 'package.json', lineNumber: 2, content: 'dep' }],
+              severity: 'info',
+            },
+          ],
+        }),
+      },
+      {
+        fileContent: '## 影響範囲調査\n- マイグレーション波及\n判断は開発者が行ってください',
+      },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
 
@@ -147,22 +176,19 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-002: dry-run モードのE2Eフロー', async () => {
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [],
-            matchedPatterns: [],
-            skippedPatterns: [],
-            reasoning: 'none',
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: '該当する発見事項はありませんでした。\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [],
+          matchedPatterns: [],
+          skippedPatterns: [],
+          reasoning: 'none',
+        }),
+      },
+      {
+        fileContent: '該当する発見事項はありませんでした。\n判断は開発者が行ってください',
+      },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
 
@@ -176,27 +202,27 @@ describe('impact-analysis integration', () => {
 
   it('IT-003: ガードレール到達時のE2Eフロー', async () => {
     const toolHeavyMessage = 'rg '.repeat(31);
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [
-              { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-              { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
-              { id: 'INV-003', patternName: 'C', description: 'c', targetFiles: [], searchKeywords: [], instructions: '' },
-            ],
-            matchedPatterns: ['A', 'B', 'C'],
-            skippedPatterns: [],
-            reasoning: 'scoper reasoning',
-          }),
-        ])
-        .mockResolvedValueOnce([toolHeavyMessage])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: 'ガードレール到達により調査途中で終了\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [
+            { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
+            { id: 'INV-002', patternName: 'B', description: 'b', targetFiles: [], searchKeywords: [], instructions: '' },
+            { id: 'INV-003', patternName: 'C', description: 'c', targetFiles: [], searchKeywords: [], instructions: '' },
+          ],
+          matchedPatterns: ['A', 'B', 'C'],
+          skippedPatterns: [],
+          reasoning: 'scoper reasoning',
+        }),
+      },
+      {
+        fileContent: JSON.stringify({ findings: [] }),
+        messages: [toolHeavyMessage],
+      },
+      {
+        fileContent: 'ガードレール到達により調査途中で終了\n判断は開発者が行ってください',
+      },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
 
@@ -209,22 +235,19 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-004: Scoper結果が空の場合のE2Eフロー', async () => {
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [],
-            matchedPatterns: [],
-            skippedPatterns: [],
-            reasoning: 'none',
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: '該当する調査パターンはありませんでした。\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [],
+          matchedPatterns: [],
+          skippedPatterns: [],
+          reasoning: 'none',
+        }),
+      },
+      {
+        fileContent: '該当する調査パターンはありませんでした。\n判断は開発者が行ってください',
+      },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
 
@@ -236,26 +259,21 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-005: custom-instructionが反映される', async () => {
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [
-              { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-            ],
-            matchedPatterns: ['A'],
-            skippedPatterns: [],
-            reasoning: 'scoper reasoning',
-          }),
-        ])
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: 'カスタム観点を含むレポート\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [
+            { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
+          ],
+          matchedPatterns: ['A'],
+          skippedPatterns: [],
+          reasoning: 'scoper reasoning',
+        }),
+      },
+      { fileContent: JSON.stringify({ findings: [] }) },
+      { fileContent: JSON.stringify({ findings: [] }) },
+      { fileContent: 'カスタム観点を含むレポート\n判断は開発者が行ってください' },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
 
@@ -266,25 +284,20 @@ describe('impact-analysis integration', () => {
 
   it('IT-006: エージェントフォールバックで完了する', async () => {
     const primaryClient = { executeTask: jest.fn().mockRejectedValue(new Error('primary failed')) };
-    const fallbackClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [
-              { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
-            ],
-            matchedPatterns: ['A'],
-            skippedPatterns: [],
-            reasoning: 'scoper reasoning',
-          }),
-        ])
-        .mockResolvedValueOnce([JSON.stringify({ findings: [] })])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: 'フォールバック完了\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const fallbackClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [
+            { id: 'INV-001', patternName: 'A', description: 'a', targetFiles: [], searchKeywords: [], instructions: '' },
+          ],
+          matchedPatterns: ['A'],
+          skippedPatterns: [],
+          reasoning: 'scoper reasoning',
+        }),
+      },
+      { fileContent: JSON.stringify({ findings: [] }) },
+      { fileContent: 'フォールバック完了\n判断は開発者が行ってください' },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: fallbackClient, claudeClient: primaryClient });
 
@@ -295,22 +308,19 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-007: PRコメント投稿失敗時にフォールバック保存される', async () => {
-    const agentClient = {
-      executeTask: jest.fn()
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            investigationPoints: [],
-            matchedPatterns: [],
-            skippedPatterns: [],
-            reasoning: 'none',
-          }),
-        ])
-        .mockResolvedValueOnce([
-          JSON.stringify({
-            markdown: 'フォールバック保存\n判断は開発者が行ってください',
-          }),
-        ]),
-    };
+    const agentClient = createAgentClientWithOutputs([
+      {
+        fileContent: JSON.stringify({
+          investigationPoints: [],
+          matchedPatterns: [],
+          skippedPatterns: [],
+          reasoning: 'none',
+        }),
+      },
+      {
+        fileContent: 'フォールバック保存\n判断は開発者が行ってください',
+      },
+    ]);
 
     mockSetupAgentClients.mockReturnValue({ codexClient: agentClient, claudeClient: agentClient });
     mockGitHubPostPRComment.mockResolvedValue({ success: false, commentId: null, commentUrl: null, error: '認証エラー' });
