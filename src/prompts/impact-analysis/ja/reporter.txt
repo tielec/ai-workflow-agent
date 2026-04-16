@@ -20,7 +20,9 @@ Investigator の結果をもとに、PR コメント用の Markdown レポート
 - Incomplete points: {incomplete_points}
 
 ## 出力要件
-- **必ず Markdown のみ**を出力してください（説明文やコードブロックは禁止）。
+- **必ず次の絶対パスに Markdown ファイルを Write ツールで書き込んでください**: `{output_file_path}`
+- 標準出力に Markdown 本文や JSON を出力しないでください。
+- 相対パスや `/workspace` プレフィックスは使用しないでください。必ず上記の絶対パスをそのまま使用してください。
 - 次のテンプレートに準拠してください。
 
 # 影響範囲調査レポート
@@ -45,3 +47,4 @@ Investigator の結果をもとに、PR コメント用の Markdown レポート
 ## 注意事項
 - 推測ではなく事実のみを書く
 - 機密情報を含めない
+- Markdown ファイルを書き込んだ後は、簡潔な完了メッセージのみを返してよい

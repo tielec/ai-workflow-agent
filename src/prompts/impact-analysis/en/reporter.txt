@@ -18,7 +18,9 @@ Create a Markdown report suitable for posting as a PR comment.
 - Incomplete points: {incomplete_points}
 
 ## Output requirements
-- Output **Markdown only** (no prose or code fences).
+- You must write the Markdown report to this exact absolute path using the Write tool: `{output_file_path}`
+- Do not print the Markdown body or JSON to stdout.
+- Do not use relative paths or `/workspace` prefixes. Use the absolute path above exactly as provided.
 - Follow this template.
 
 # Impact Analysis Report
@@ -42,3 +44,4 @@ Decision-making is left to the developer.
 
 ## Notes
 - Do not include secrets
+- After writing the Markdown file, you may return only a brief completion message
