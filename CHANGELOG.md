@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Issue #868**: `impact-analysis` Scoper / Investigator をファイル出力方式にリファクタリング
+  - `scoper.ts` を、エージェントのストリームメッセージから生JSONをパースしてスコープを取得する方式から、エージェントが指定パス（`context.logDir/scoper-result.json`）にJSONファイルを書き込み、ホスト側がそのファイルを読み込む方式（ファイル出力方式）に変更
+  - `investigator.ts` を、同様にストリームJSONパース方式から観点別ファイル出力方式（`context.logDir/investigator-{pointId}.json`）に変更。観点ごとに個別ファイルを使うことでループ内での出力パス衝突を回避
+  - Reporter（Issue #866）に続いて Scoper・Investigator も同一ファイル出力パターンに統一し、SDK生ストリームJSONがそのまま出力される事象を根本解消
+  - 両ステージとも、ファイル未生成・空・JSONパース失敗時はエージェントのテキスト出力（`agentMessages`）へフォールバックする安全網を実装し後方互換性を維持
+  - プロンプトテンプレートに `{output_file_path}` プレースホルダーを追加し、Writeツールで絶対パスへJSON保存する指示に統一
+  - 外部インターフェース（`executeScoper()`・`executeInvestigator()` の返り値型）は変更なし
+  - 修正ファイル: `src/commands/impact-analysis/scoper.ts`、`src/commands/impact-analysis/investigator.ts`、`src/prompts/impact-analysis/ja/scoper.txt`、`src/prompts/impact-analysis/en/scoper.txt`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`
+  - テストカバレッジ: ユニットテスト25件が全件パス（`tests/unit/commands/impact-analysis/scoper.test.ts`、`tests/unit/commands/impact-analysis/investigator.test.ts`）
+
 - **Issue #866**: `impact-analysis` Reporter をファイル出力方式にリファクタリング
   - `reporter.ts` を、エージェントのストリームメッセージからJSONをパースしてMarkdownを抽出する方式から、エージェントが指定パス（`context.logDir/report.md`）にMarkdownファイルを書き込み、ホスト側がそのファイルを読み込む方式（ファイル出力方式）に変更
   - PR #861 で発生した「SDK の生ストリームJSONがそのままPRコメントとして投稿される」事象を根本解消
