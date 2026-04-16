@@ -300,11 +300,14 @@ describe('Investigator', () => {
 
     // Given: 出力ファイルが存在しない
     // When: Investigator を実行する
-    // Then: agentMessages の JSON を使って findings を返す
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0].investigationPointId).toBe('INV-001');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Investigator出力ファイルが見つかりません。エージェント出力からフォールバックします: INV-001 (/tmp/logs/pr-123/investigator-INV-001.json)',
+    // Then: フォールバックせず未完了として記録し 1 行警告だけを出す
+    expect(result.findings).toEqual([]);
+    expect(result.completedPoints).toEqual([]);
+    expect(result.incompletePoints).toEqual(['INV-001']);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Investigator出力未生成: INV-001');
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.stringContaining('JSONパースに失敗'),
     );
   });
 
@@ -324,7 +327,7 @@ describe('Investigator', () => {
     expect(result.tokenUsage).toBeGreaterThan(0);
   });
 
-  it('TC-INV-F03: 空ファイル時はエージェント出力へフォールバックする', async () => {
+  it('TC-INV-F03: 空ファイル時も未完了として記録し 1 行 WARN のみを出す', async () => {
     mockReadFileSync.mockReturnValue('   ');
     mockExecuteAgentForStage.mockResolvedValue([findingsJson('INV-001')]);
 
@@ -338,11 +341,64 @@ describe('Investigator', () => {
 
     // Given: 出力ファイルは存在するが空
     // When: Investigator を実行する
-    // Then: 空ファイル警告後に agentMessages を使う
-    expect(result.findings).toHaveLength(1);
-    expect(result.findings[0].investigationPointId).toBe('INV-001');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Investigator出力ファイルが空です。エージェント出力からフォールバックします: INV-001 (/tmp/logs/pr-123/investigator-INV-001.json)',
+    // Then: 空ファイルも未生成と同様に扱う
+    expect(result.findings).toEqual([]);
+    expect(result.completedPoints).toEqual([]);
+    expect(result.incompletePoints).toEqual(['INV-001']);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Investigator出力未生成: INV-001');
+    expect(mockLoggerWarn).not.toHaveBeenCalledWith(
+      expect.stringContaining('JSONパースに失敗'),
+    );
+  });
+
+  it('TC-INV-MULTI01: 一部観点の出力未生成時も残り観点の処理を継続する', async () => {
+    mockExistsSync.mockImplementation((filePath: string) => !filePath.includes('INV-002'));
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (filePath.includes('INV-001')) {
+        return findingsJson('INV-001');
+      }
+      if (filePath.includes('INV-003')) {
+        return findingsJson('INV-003');
+      }
+      return '';
+    });
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002'), createPoint('INV-003')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 2件目の出力ファイルだけが未生成
+    // When: Investigator を実行する
+    // Then: 失敗観点だけ未完了とし残りの観点は完了する
+    expect(result.findings).toHaveLength(2);
+    expect(result.completedPoints).toEqual(['INV-001', 'INV-003']);
+    expect(result.incompletePoints).toEqual(['INV-002']);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Investigator出力未生成: INV-002');
+  });
+
+  it('TC-INV-MAX01: executeAgentForStage に maxTurns 30 を渡す', async () => {
+    await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: Investigator 実行時のエージェント呼び出し
+    // When: 単一観点で Investigator を実行する
+    // Then: maxTurns は 30 に固定される
+    expect(mockExecuteAgentForStage).toHaveBeenCalledWith(
+      {} as any,
+      null,
+      expect.stringContaining('OUTPUT:/tmp/logs/pr-123/investigator-INV-001.json'),
+      { maxTurns: 30, preferLightweight: false },
     );
   });
 
@@ -385,14 +441,14 @@ describe('Investigator', () => {
       {} as any,
       null,
       expect.stringContaining('OUTPUT:/tmp/logs/pr-123/investigator-INV-001.json'),
-      { maxTurns: 10, preferLightweight: false },
+      { maxTurns: 30, preferLightweight: false },
     );
     expect(mockExecuteAgentForStage).toHaveBeenNthCalledWith(
       2,
       {} as any,
       null,
       expect.stringContaining('OUTPUT:/tmp/logs/pr-123/investigator-INV-002.json'),
-      { maxTurns: 10, preferLightweight: false },
+      { maxTurns: 30, preferLightweight: false },
     );
     expect(mockMkdirSync).toHaveBeenCalledWith('/tmp/logs/pr-123', { recursive: true });
   });

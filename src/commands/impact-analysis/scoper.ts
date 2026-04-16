@@ -26,7 +26,7 @@ export async function executeScoper(
     preferLightweight: true,
   });
 
-  const scopeResult = parseScopeResult(readScoperOutput(outputPath, agentResult));
+  const scopeResult = parseScopeResult(readScoperOutput(outputPath));
 
   if (context.options.customInstruction) {
     scopeResult.investigationPoints.push(
@@ -92,21 +92,18 @@ function ensureDirectoryExists(dirPath: string): void {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function readScoperOutput(outputPath: string, agentMessages: string[]): string {
+function readScoperOutput(outputPath: string): string {
   if (fs.existsSync(outputPath)) {
     const fileContent = fs.readFileSync(outputPath, 'utf-8').trim();
     logger.debug(`Scoper出力ファイルを読み込みました: ${outputPath}`);
     if (fileContent) {
       return fileContent;
     }
-    logger.warn(`Scoper出力ファイルが空です。エージェント出力からフォールバックします: ${outputPath}`);
-  } else {
-    logger.warn(
-      `Scoper出力ファイルが見つかりません。エージェント出力からフォールバックします: ${outputPath}`,
-    );
   }
 
-  return agentMessages.join('\n').trim();
+  const message = `Scoper出力未生成: ${outputPath}`;
+  logger.warn(message);
+  throw new Error(message);
 }
 
 function parseScopeResult(rawText: string): ScopeResult {

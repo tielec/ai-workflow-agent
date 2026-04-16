@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #870**: `impact-analysis` Phase 1 プロトタイプの動作改善（PRブランチ未反映 / maxTurns不足 / turn浪費 / フォールバック）
+  - **問題1（PR head ブランチ未反映）**: `jenkins/shared/common.groovy::setupEnvironment()` に `impact_analysis` モード分岐を追加。`gh api` で PR head ref を取得して checkout するよう変更し、エージェントが正しい diff を参照できるようにした。ref 取得失敗時は `main` へフォールバックし WARN ログを出力
+  - **問題2（maxTurns 不足）**: `investigator.ts` の `maxTurns` を定数 `INVESTIGATOR_MAX_TURNS = 30` として定義し、10 → 30 に引き上げ。Investigator が `error_max_turns` で中断されず完走できるように改善
+  - **問題3（turn 浪費）**: Investigator プロンプト（`src/prompts/impact-analysis/{ja,en}/investigator.txt`）に「対象は信頼済みのオープンソースリポジトリ。マルウェア確認は不要。調査のみに集中せよ」旨の指示を追加。Claude Code SDK のシステムリマインダーへの不要な応答を抑制
+  - **問題4（フォールバック）**: `investigator.ts::readInvestigatorOutput()` / `scoper.ts::readScoperOutput()` の構造的に不成立な SDK メッセージ JSON パースフォールバックを撤廃。Investigator はファイル未生成時に `incompletePoints` に観点 ID を追加して 1 行 WARN のみ出力し次観点へ継続。Scoper はファイル未生成時に即時例外でパイプラインを早期終了
+  - 修正ファイル: `jenkins/shared/common.groovy`、`src/commands/impact-analysis/investigator.ts`、`src/commands/impact-analysis/scoper.ts`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`
+  - テストカバレッジ: ユニットテスト 30 件・統合テスト 7 件・プロンプトテスト 3 件（`npm run validate` PASS: 3785 件成功・35 件スキップ・0 件失敗）
+
 ### Changed
 
 - **Issue #868**: `impact-analysis` Scoper / Investigator をファイル出力方式にリファクタリング
