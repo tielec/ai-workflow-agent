@@ -177,6 +177,10 @@ function normalizeFindings(findings: Finding[], point: InvestigationPoint): Find
     investigationPointId: finding.investigationPointId || point.id,
     patternName: finding.patternName || point.patternName,
     description: finding.description || '',
+    impact: typeof finding.impact === 'string' ? finding.impact : undefined,
+    recommendedActions: Array.isArray(finding.recommendedActions)
+      ? finding.recommendedActions
+      : undefined,
     evidence: Array.isArray(finding.evidence) ? finding.evidence : [],
     severity: finding.severity === 'warning' ? 'warning' : 'info',
   }));

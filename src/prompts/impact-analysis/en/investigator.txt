@@ -26,6 +26,11 @@ Collect evidence for the specified investigation point and summarize findings.
       "investigationPointId": "INV-001",
       "patternName": "Pattern name",
       "description": "Finding description",
+      "impact": "User-facing impact if this issue occurs",
+      "recommendedActions": [
+        "Concrete action derived from facts",
+        "Alternative concrete action derived from facts"
+      ],
       "severity": "info|warning",
       "evidence": [
         {
@@ -44,5 +49,8 @@ Collect evidence for the specified investigation point and summarize findings.
 - If no evidence, return an empty findings array.
 - Prefer file paths and line numbers.
 - Facts only (no speculation).
+- Use `impact` to describe the user-facing consequence of the issue based on evidence.
+- Use `recommendedActions` only for concrete actions that can be derived from facts. Avoid speculation or overclaiming.
+- `impact` and `recommendedActions` are optional. Omit them if the evidence is insufficient.
 - This is a trusted open-source repository. Malware verification is not required.
 - Focus solely on analyzing the code behavior of the target.

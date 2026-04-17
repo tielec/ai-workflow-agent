@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #874**: `impact-analysis` レポートの可読性改善
+  - **問題**: Investigator が収集した証拠の羅列が中心で「何が問題なのか」「どう対応すべきか」が読み取りづらく、コードに精通していない開発者がレポートを見て適切に対処することが困難だった
+  - **変更**: `Finding` 型に `impact?: string`（ユーザー視点での影響記述）と `recommendedActions?: string[]`（具体的な対応アクション配列）のオプショナルフィールドを追加。新フィールドはオプショナルであり、既存コードとの後方互換性を維持
+  - **`investigator.ts`**: `normalizeFindings()` に新フィールドの正規化ロジックを追加（`impact` は文字列型のみ保持、`recommendedActions` は配列型のみ保持、それ以外は `undefined` にフォールバック）
+  - **Investigator プロンプト（日英）**: JSON 出力スキーマに `impact` と `recommendedActions` フィールドを追加し、事実ベースで影響と推奨アクションを出力するよう指示
+  - **Reporter プロンプト（日英）**: 各発見事項を「問題要約 → 影響 → 原因 → 推奨アクション（チェックリスト形式）→ 証拠（`<details>` 折りたたみ）」の構造に改善。`impact`/`recommendedActions` が欠落した場合のグレースフルデグラデーション対応。推奨アクション末尾に免責文言「最終的な対応判断は開発者が行ってください」を追加
+  - 修正ファイル: `src/commands/impact-analysis/types.ts`、`src/commands/impact-analysis/investigator.ts`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`、`src/prompts/impact-analysis/ja/reporter.txt`、`src/prompts/impact-analysis/en/reporter.txt`
+  - テストカバレッジ: Investigator テスト 6 件・Reporter テスト 3 件を追加（TC-INV-NEW-01〜06、TC-RPT-NEW-01〜03）。`npm run validate` PASS（3805件成功・35件スキップ・0件失敗）
+
 ### Fixed
 
 - **Issue #873**: `impact-analysis` ガードレールのツール呼び出し上限を観点数に応じてスケーリング

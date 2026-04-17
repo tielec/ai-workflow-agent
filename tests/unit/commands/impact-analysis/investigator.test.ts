@@ -327,6 +327,163 @@ describe('Investigator', () => {
     expect(result.tokenUsage).toBeGreaterThan(0);
   });
 
+  it('TC-INV-NEW-01: impact と recommendedActions を正しく正規化する', async () => {
+    mockReadFileSync.mockReturnValue(
+      findingsJson('INV-001', {
+        impact: 'モデル別コスト集計が欠落する',
+        recommendedActions: ['再保存条件を追加する', 'フォールバックを追加する'],
+      }),
+    );
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 新フィールドを含む findings JSON
+    // When: Investigator を実行する
+    // Then: 新旧フィールドが意図どおり正規化される
+    expect(result.findings[0]).toMatchObject({
+      investigationPointId: 'INV-001',
+      patternName: 'DBスキーマ変更',
+      description: 'INV-001 の発見事項',
+      impact: 'モデル別コスト集計が欠落する',
+      recommendedActions: ['再保存条件を追加する', 'フォールバックを追加する'],
+      severity: 'warning',
+    });
+    expect(result.findings[0].evidence).toHaveLength(1);
+  });
+
+  it('TC-INV-NEW-02: 新フィールド未指定時は undefined にフォールバックする', async () => {
+    mockReadFileSync.mockReturnValue(findingsJson('INV-001'));
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: impact / recommendedActions を含まない旧形式 JSON
+    // When: Investigator を実行する
+    // Then: 後方互換のため undefined へ正規化される
+    expect(result.findings[0].impact).toBeUndefined();
+    expect(result.findings[0].recommendedActions).toBeUndefined();
+    expect(result.findings[0]).toMatchObject({
+      investigationPointId: 'INV-001',
+      severity: 'warning',
+    });
+  });
+
+  it('TC-INV-NEW-03: 新フィールドが不正型なら undefined に正規化する', async () => {
+    mockReadFileSync.mockReturnValue(
+      findingsJson('INV-001', {
+        impact: 123,
+        recommendedActions: '単一の文字列',
+      }),
+    );
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 新フィールドが不正な型で出力される
+    // When: Investigator を実行する
+    // Then: 既存フィールドを保ったまま不正値だけを落とす
+    expect(result.findings[0].impact).toBeUndefined();
+    expect(result.findings[0].recommendedActions).toBeUndefined();
+    expect(result.findings[0]).toMatchObject({
+      investigationPointId: 'INV-001',
+      patternName: 'DBスキーマ変更',
+      severity: 'warning',
+    });
+  });
+
+  it('TC-INV-NEW-04: 新フィールド追加後も既存フィールドのフォールバックは不変', async () => {
+    mockReadFileSync.mockReturnValue(
+      findingsJson('INV-001', {
+        investigationPointId: '',
+        evidence: 'not-an-array',
+        severity: 'critical',
+        impact: '影響の記述',
+        recommendedActions: ['アクション1'],
+      }),
+    );
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 既存フィールドに欠損や不正値がある JSON
+    // When: Investigator を実行する
+    // Then: 従来のフォールバック動作は維持される
+    expect(result.findings[0]).toMatchObject({
+      investigationPointId: 'INV-001',
+      severity: 'info',
+      impact: '影響の記述',
+      recommendedActions: ['アクション1'],
+    });
+    expect(result.findings[0].evidence).toEqual([]);
+  });
+
+  it('TC-INV-NEW-05: recommendedActions が空配列でも保持する', async () => {
+    mockReadFileSync.mockReturnValue(
+      findingsJson('INV-001', {
+        impact: '',
+        recommendedActions: [],
+      }),
+    );
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: impact が空文字で recommendedActions が空配列
+    // When: Investigator を実行する
+    // Then: 型が正しければ空値でもそのまま保持する
+    expect(result.findings[0].impact).toBe('');
+    expect(result.findings[0].recommendedActions).toEqual([]);
+  });
+
+  it('TC-INV-NEW-06: null の新フィールドは undefined に正規化する', async () => {
+    mockReadFileSync.mockReturnValue(
+      findingsJson('INV-001', {
+        impact: null,
+        recommendedActions: null,
+      }),
+    );
+
+    const result = await executeInvestigator(
+      createContext(),
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 新フィールドに null が含まれる
+    // When: Investigator を実行する
+    // Then: null は未指定と同様に undefined へ正規化される
+    expect(result.findings[0].impact).toBeUndefined();
+    expect(result.findings[0].recommendedActions).toBeUndefined();
+  });
+
   it('TC-INV-SCALE01: 観点別上限超過時に logger.warn が呼ばれる', async () => {
     const context = createContext();
     context.guardrails.maxToolCallsPerPoint = 1;
