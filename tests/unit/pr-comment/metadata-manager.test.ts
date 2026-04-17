@@ -250,6 +250,24 @@ describe('PRCommentMetadataManager', () => {
     expect(writeFileSpy).toHaveBeenCalled();
   });
 
+  it('records model-specific cost tracking when agent and model are provided', async () => {
+    (manager as any).metadata = buildBaseMetadata();
+
+    await manager.updateCostTracking(1000, 500, 0.05, 'codex', 'gpt-5.2-codex');
+    await manager.updateCostTracking(200, 100, 0.01, 'codex', 'gpt-5.2-codex');
+
+    const metadata = (manager as any).metadata as CommentResolutionMetadata;
+    expect(metadata.cost_tracking.model_usage).toEqual({
+      'codex:gpt-5.2-codex': {
+        agent: 'codex',
+        model: 'gpt-5.2-codex',
+        input_tokens: 1200,
+        output_tokens: 600,
+        cost_usd: 0.060000000000000005,
+      },
+    });
+  });
+
   it('sets resolved_at timestamp when marking as resolved', async () => {
     (manager as any).metadata = buildBaseMetadata();
 

@@ -488,7 +488,9 @@ describe('AgentExecutor - 利用量メトリクス抽出', () => {
     expect(metrics?.inputTokens).toBe(1000);
     expect(metrics?.outputTokens).toBe(500);
     expect(metrics?.totalCostUsd).toBe(0.05);
-    expect(mockMetadata.addCost).toHaveBeenCalledWith(1000, 500, 0.05);
+    expect(metrics?.agent).toBe('codex');
+    expect(metrics?.model).toBe('gpt-5.2-codex');
+    expect(mockMetadata.addCost).toHaveBeenCalledWith(1000, 500, 0.05, 'codex', 'gpt-5.2-codex');
   });
 
   test('4-2: 正規表現フォールバックで利用量メトリクスが抽出される', async () => {
@@ -508,6 +510,9 @@ describe('AgentExecutor - 利用量メトリクス抽出', () => {
     expect(metrics?.inputTokens).toBe(1200);
     expect(metrics?.outputTokens).toBe(600);
     expect(metrics?.totalCostUsd).toBe(0.06);
+    expect(metrics?.agent).toBe('claude');
+    expect(metrics?.model).toBe('claude-opus-4-6');
+    expect(mockMetadata.addCost).toHaveBeenCalledWith(1200, 600, 0.06, 'claude', 'claude-opus-4-6');
   });
 
   test('4-3: 利用量メトリクスが含まれない場合、null が返される', async () => {
@@ -540,6 +545,48 @@ describe('AgentExecutor - 利用量メトリクス抽出', () => {
 
     // Then: 記録されない
     expect(mockMetadata.addCost).not.toHaveBeenCalled();
+  });
+
+  test('4-5: CodexのmodelOverrideが指定されている場合は解決済みモデルIDで記録される', async () => {
+    // Given: Codexモデル別名miniを指定した実行設定
+    const mockCodex = createMockAgentClient([
+      JSON.stringify({ type: 'response.completed', usage: { input_tokens: 1500, output_tokens: 750 }, total_cost_usd: 0.08 }),
+    ]);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(mockCodex, null, mockMetadata, 'planning', process.cwd());
+    executor.updateModelConfig({ codexModel: 'mini' });
+
+    // When: executeWithAgentを呼び出す
+    await executor.executeWithAgent('Test prompt', { logDir: path.join(testWorkflowDir, 'planning-override-execute') });
+
+    // Then: エイリアスではなく解決済みモデルIDで記録される
+    const metrics = executor.getLastExecutionMetrics();
+    expect(metrics?.agent).toBe('codex');
+    expect(metrics?.model).toBe('gpt-5.1-codex-mini');
+    expect(mockMetadata.addCost).toHaveBeenCalledWith(1500, 750, 0.08, 'codex', 'gpt-5.1-codex-mini');
+    expect(mockCodex.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'gpt-5.1-codex-mini',
+      }),
+    );
+  });
+
+  test('4-6: Claudeはデフォルトモデルを利用量メトリクスへ含める', async () => {
+    // Given: Claudeエージェントが利用量メトリクスを返す
+    const mockClaude = createMockAgentClient([
+      JSON.stringify({ type: 'result', usage: { input_tokens: 800, output_tokens: 400 }, total_cost_usd: 0.03 }),
+    ]);
+    const mockMetadata = createMockMetadataManager(testWorkflowDir);
+    const executor = new AgentExecutor(null, mockClaude, mockMetadata, 'requirements', process.cwd());
+
+    // When: executeWithAgentを呼び出す
+    await executor.executeWithAgent('Test prompt', { logDir: path.join(testWorkflowDir, 'requirements-default-model-execute') });
+
+    // Then: Claudeのデフォルトモデル名が使用される
+    const metrics = executor.getLastExecutionMetrics();
+    expect(metrics?.agent).toBe('claude');
+    expect(metrics?.model).toBe('claude-opus-4-6');
+    expect(mockMetadata.addCost).toHaveBeenCalledWith(800, 400, 0.03, 'claude', 'claude-opus-4-6');
   });
 });
 

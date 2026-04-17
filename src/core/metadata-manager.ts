@@ -190,11 +190,39 @@ export class MetadataManager {
     }
   }
 
-  public addCost(inputTokens: number, outputTokens: number, costUsd: number): void {
+  public addCost(
+    inputTokens: number,
+    outputTokens: number,
+    costUsd: number,
+    agent?: 'claude' | 'codex',
+    model?: string,
+  ): void {
     const tracking = this.state.data.cost_tracking;
     tracking.total_input_tokens += inputTokens;
     tracking.total_output_tokens += outputTokens;
     tracking.total_cost_usd += costUsd;
+
+    if (agent && model) {
+      tracking.model_usage ??= {};
+      const key = `${agent}:${model}`;
+      const current = tracking.model_usage[key];
+
+      tracking.model_usage[key] = current
+        ? {
+            ...current,
+            input_tokens: current.input_tokens + inputTokens,
+            output_tokens: current.output_tokens + outputTokens,
+            cost_usd: current.cost_usd + costUsd,
+          }
+        : {
+            agent,
+            model,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            cost_usd: costUsd,
+          };
+    }
+
     this.state.save();
   }
 

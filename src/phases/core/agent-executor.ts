@@ -13,8 +13,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { logger } from '../../utils/logger.js';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import { CodexAgentClient, resolveCodexModel } from '../../core/codex-agent-client.js';
-import { ClaudeAgentClient, resolveClaudeModel } from '../../core/claude-agent-client.js';
+import { CodexAgentClient, DEFAULT_CODEX_MODEL, resolveCodexModel } from '../../core/codex-agent-client.js';
+import { ClaudeAgentClient, DEFAULT_CLAUDE_MODEL, resolveClaudeModel } from '../../core/claude-agent-client.js';
 import { MetadataManager } from '../../core/metadata-manager.js';
 import { LogFormatter } from '../formatters/log-formatter.js';
 import { DEFAULT_LANGUAGE, PhaseName, StepModelConfig } from '../../types.js';
@@ -27,6 +27,8 @@ type UsageMetrics = {
   inputTokens: number;
   outputTokens: number;
   totalCostUsd: number;
+  agent: 'claude' | 'codex';
+  model: string;
 };
 
 export class AgentExecutor {
@@ -301,6 +303,14 @@ export class AgentExecutor {
     const startTime = Date.now();
     let messages: string[] = [];
     let error: Error | null = null;
+    const modelOverride =
+      agent === this.codex
+        ? this.stepModelConfig?.codexModel
+          ? resolveCodexModel(this.stepModelConfig.codexModel)
+          : undefined
+        : this.stepModelConfig?.claudeModel
+          ? resolveClaudeModel(this.stepModelConfig.claudeModel)
+          : undefined;
 
     let agentWorkingDir: string;
     try {
@@ -318,15 +328,6 @@ export class AgentExecutor {
     }
 
     try {
-      const modelOverride =
-        agent === this.codex
-          ? this.stepModelConfig?.codexModel
-            ? resolveCodexModel(this.stepModelConfig.codexModel)
-            : undefined
-          : this.stepModelConfig?.claudeModel
-            ? resolveClaudeModel(this.stepModelConfig.claudeModel)
-            : undefined;
-
       if (modelOverride) {
         logger.info(
           `Using model override for ${agentName}: ${modelOverride} (phase=${this.phaseName})`
@@ -375,7 +376,10 @@ export class AgentExecutor {
     }
 
     // 利用量メトリクスの抽出・記録
-    const usage = this.extractUsageMetrics(messages);
+    const agentType: 'claude' | 'codex' = agent === this.codex ? 'codex' : 'claude';
+    const resolvedModel =
+      modelOverride ?? (agentType === 'codex' ? DEFAULT_CODEX_MODEL : DEFAULT_CLAUDE_MODEL);
+    const usage = this.extractUsageMetrics(messages, agentType, resolvedModel);
     this.recordUsageMetrics(usage);
 
     // 認証失敗検出
@@ -406,7 +410,11 @@ export class AgentExecutor {
    * @param messages - エージェントが生成したメッセージ配列
    * @returns 利用量メトリクス（存在しない場合は null）
    */
-  private extractUsageMetrics(messages: string[]): UsageMetrics | null {
+  private extractUsageMetrics(
+    messages: string[],
+    agent: 'claude' | 'codex',
+    model: string,
+  ): UsageMetrics | null {
     let inputTokens = 0;
     let outputTokens = 0;
     let totalCostUsd = 0;
@@ -471,6 +479,8 @@ export class AgentExecutor {
       inputTokens,
       outputTokens,
       totalCostUsd,
+      agent,
+      model,
     };
   }
 
@@ -540,7 +550,13 @@ export class AgentExecutor {
     }
 
     if (metrics.inputTokens > 0 || metrics.outputTokens > 0 || metrics.totalCostUsd > 0) {
-      this.metadata.addCost(metrics.inputTokens, metrics.outputTokens, metrics.totalCostUsd);
+      this.metadata.addCost(
+        metrics.inputTokens,
+        metrics.outputTokens,
+        metrics.totalCostUsd,
+        metrics.agent,
+        metrics.model,
+      );
     }
   }
 

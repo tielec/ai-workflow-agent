@@ -2,8 +2,17 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { logger } from '../../../utils/logger.js';
 import { getErrorMessage } from '../../../utils/error-utils.js';
-import { CodexAgentClient } from '../../../core/codex-agent-client.js';
-import { ClaudeAgentClient } from '../../../core/claude-agent-client.js';
+import { config } from '../../../core/config.js';
+import {
+  CodexAgentClient,
+  DEFAULT_CODEX_MODEL,
+  resolveCodexModel,
+} from '../../../core/codex-agent-client.js';
+import {
+  ClaudeAgentClient,
+  DEFAULT_CLAUDE_MODEL,
+  resolveClaudeModel,
+} from '../../../core/claude-agent-client.js';
 import { LogFormatter } from '../../../phases/formatters/log-formatter.js';
 import type { PRCommentMetadataManager } from '../../../core/pr-comment/metadata-manager.js';
 import type { PRCommentAnalyzeOptions } from '../../../types/commands.js';
@@ -21,6 +30,30 @@ import { applyPlanDefaults } from './response-normalizer.js';
 import { resolveResponsePlan } from './response-plan-loader.js';
 import { sanitizeForJson } from '../../../utils/encoding-utils.js';
 
+function resolveAnalyzerMetadata(agent: CodexAgentClient | ClaudeAgentClient | null): {
+  analyzerAgent: 'codex' | 'claude' | 'fallback';
+  analyzerModel: string | null;
+} {
+  if (agent instanceof CodexAgentClient) {
+    return {
+      analyzerAgent: 'codex',
+      analyzerModel: resolveCodexModel(config.getCodexModel() ?? DEFAULT_CODEX_MODEL),
+    };
+  }
+
+  if (agent instanceof ClaudeAgentClient) {
+    return {
+      analyzerAgent: 'claude',
+      analyzerModel: resolveClaudeModel(config.getClaudeModel() ?? DEFAULT_CLAUDE_MODEL),
+    };
+  }
+
+  return {
+    analyzerAgent: 'fallback',
+    analyzerModel: null,
+  };
+}
+
 export async function analyzeComments(
   prNumber: number,
   repoRoot: string,
@@ -30,6 +63,7 @@ export async function analyzeComments(
 ): Promise<ResponsePlan> {
   const persistMetadata = !options.dryRun;
   const agent = await setupAgent(options.agent ?? 'auto', repoRoot);
+  const { analyzerAgent, analyzerModel } = resolveAnalyzerMetadata(agent);
   const analyzeDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'analyze');
   const outputDir = path.join(repoRoot, '.ai-workflow', `pr-${prNumber}`, 'output');
   const outputFilePath = path.join(outputDir, 'response-plan.json');
@@ -58,7 +92,7 @@ export async function analyzeComments(
     );
 
     if (fallbackPlan) {
-      return applyPlanDefaults(fallbackPlan, options);
+      return applyPlanDefaults(fallbackPlan, options, analyzerAgent, analyzerModel);
     }
 
     throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
@@ -124,7 +158,7 @@ export async function analyzeComments(
     );
 
     if (fallbackPlan) {
-      return applyPlanDefaults(fallbackPlan, options);
+      return applyPlanDefaults(fallbackPlan, options, analyzerAgent, analyzerModel);
     }
 
     throw new Error('Unexpected state: agent error handler did not exit or return fallback plan');
@@ -139,7 +173,7 @@ export async function analyzeComments(
     );
 
     if (fallbackPlan) {
-      return applyPlanDefaults(fallbackPlan, options);
+      return applyPlanDefaults(fallbackPlan, options, analyzerAgent, analyzerModel);
     }
 
     throw new Error('Unexpected state: empty output handler did not exit or return fallback plan');
@@ -153,5 +187,5 @@ export async function analyzeComments(
     comments,
     persistMetadata,
   });
-  return applyPlanDefaults(plan, options);
+  return applyPlanDefaults(plan, options, analyzerAgent, analyzerModel);
 }

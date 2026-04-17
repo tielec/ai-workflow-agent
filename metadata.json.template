@@ -15,7 +15,8 @@
   "cost_tracking": {
     "total_input_tokens": 0,
     "total_output_tokens": 0,
-    "total_cost_usd": 0.0
+    "total_cost_usd": 0.0,
+    "model_usage": {}
   },
   "difficulty_analysis": null,
   "model_config": null,
