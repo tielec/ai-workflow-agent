@@ -305,6 +305,88 @@ describe('Reporter', () => {
     expect(mockMkdirSync).toHaveBeenCalledWith('/tmp/logs', { recursive: true });
   });
 
+  it('TC-RPT-NEW-01: 新フィールドを含む findings をプロンプトへ埋め込む', async () => {
+    const context = createContext();
+    const investigationResult: InvestigationResult = {
+      ...baseResult,
+      findings: [
+        {
+          investigationPointId: 'INV-001',
+          patternName: 'テストパターン',
+          description: 'テスト説明',
+          evidence: [],
+          severity: 'warning',
+          impact: 'ユーザーに影響がある',
+          recommendedActions: ['対応案1', '対応案2'],
+        },
+      ],
+      completedPoints: ['INV-001'],
+    };
+
+    await executeReporter(context, investigationResult, null, null);
+
+    const prompt = mockExecuteAgentForStage.mock.calls[0][2] as string;
+
+    // Given: 新フィールドを含む findings
+    // When: Reporter がプロンプトを構築する
+    // Then: impact と recommendedActions が JSON のまま渡される
+    expect(prompt).toContain('"impact": "ユーザーに影響がある"');
+    expect(prompt).toContain('"recommendedActions": [');
+    expect(prompt).toContain('対応案1');
+    expect(prompt).toContain('対応案2');
+  });
+
+  it('TC-RPT-NEW-02: undefined の新フィールドはプロンプト JSON から省略される', async () => {
+    const context = createContext();
+    const investigationResult: InvestigationResult = {
+      ...baseResult,
+      findings: [
+        {
+          investigationPointId: 'INV-001',
+          patternName: 'テストパターン',
+          description: 'テスト説明',
+          evidence: [],
+          severity: 'warning',
+        },
+      ],
+      completedPoints: ['INV-001'],
+    };
+
+    await executeReporter(context, investigationResult, null, null);
+
+    const prompt = mockExecuteAgentForStage.mock.calls[0][2] as string;
+
+    // Given: 新フィールド未指定の旧形式 findings
+    // When: Reporter が JSON.stringify でプロンプトを構築する
+    // Then: undefined のプロパティは出力から省略される
+    expect(prompt).not.toContain('"impact"');
+    expect(prompt).not.toContain('"recommendedActions"');
+    expect(prompt).toContain('"investigationPointId": "INV-001"');
+    expect(prompt).toContain('"patternName": "テストパターン"');
+  });
+
+  it('TC-RPT-NEW-03: 推奨アクション免責文言を含むレポートを警告なく受け入れる', async () => {
+    const context = createContext();
+    mockReadFileSync.mockReturnValue(
+      '# 影響範囲調査レポート\n\n' +
+      '## 発見事項\n\n' +
+      '### 1. テスト問題\n\n' +
+      '**推奨アクション**:\n- [ ] テスト修正\n\n' +
+      '> 最終的な対応判断は開発者が行ってください。\n\n' +
+      '## 免責\n' +
+      '判断は開発者が行ってください。',
+    );
+
+    const report = await executeReporter(context, baseResult, null, null);
+
+    // Given: 新テンプレートの推奨アクション免責と既存免責を両方含むレポート
+    // When: Reporter が検証を行う
+    // Then: 追加の警告を出さずそのまま受け入れる
+    expect(report.markdown).toContain('最終的な対応判断は開発者が行ってください');
+    expect(report.markdown).toContain('判断は開発者が行ってください');
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+  });
+
   it('TC-RPT-P01: プロンプトに出力ファイルパスが含まれる', async () => {
     const context = createContext();
 
