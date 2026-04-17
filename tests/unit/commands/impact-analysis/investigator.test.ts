@@ -327,6 +327,137 @@ describe('Investigator', () => {
     expect(result.tokenUsage).toBeGreaterThan(0);
   });
 
+  it('TC-INV-SCALE01: 観点別上限超過時に logger.warn が呼ばれる', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCallsPerPoint = 1;
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/a foo', 'grep bar baz']);
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    expect(result.completedPoints).toEqual(['INV-001']);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '観点 INV-001 で観点別ツール呼び出し上限到達: 2/1回',
+    );
+  });
+
+  it('TC-INV-SCALE02: maxToolCallsPerPoint 未設定時は観点別警告を出さない', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCallsPerPoint = undefined;
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/a foo', 'grep bar baz']);
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    expect(result.completedPoints).toEqual(['INV-001']);
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
+  });
+
+  it('TC-INV-SCALE03: 全体上限到達時は残り観点がスキップされる', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCalls = 1;
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 1件目で全体ツール呼び出し上限に到達する
+    // When: 複数観点で Investigator を実行する
+    // Then: 後続観点はスキップされ未完了として記録される
+    expect(result.guardrailsReached).toBe(true);
+    expect(result.completedPoints).toEqual(['INV-001']);
+    expect(result.incompletePoints).toEqual(['INV-002']);
+  });
+
+  it('TC-INV-SCALE04: 出力未生成パスでも観点別上限超過のログが出力される', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCallsPerPoint = 1;
+    mockExistsSync.mockReturnValue(false);
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/a foo', 'grep bar baz']);
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 出力ファイルが未生成で観点別上限だけを超過する
+    // When: Investigator を実行する
+    // Then: 未完了扱いと観点別上限警告の両方が残る
+    expect(result.incompletePoints).toEqual(['INV-001']);
+    expect(mockLoggerWarn).toHaveBeenCalledWith('Investigator出力未生成: INV-001');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '観点 INV-001 で観点別ツール呼び出し上限到達: 2/1回',
+    );
+  });
+
+  it('TC-INV-SCALE05: 観点別上限以内の場合は警告ログが出力されない', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCallsPerPoint = 100;
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/a foo', 'grep bar baz']);
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 観点別上限に十分な余裕がある
+    // When: Investigator を実行する
+    // Then: 観点は完了し上限超過警告は出ない
+    expect(result.completedPoints).toEqual(['INV-001']);
+    const warnCalls = mockLoggerWarn.mock.calls.map((call: unknown[]) => call[0]);
+    const perPointWarns = warnCalls.filter(
+      (message): message is string =>
+        typeof message === 'string' && message.includes('観点別ツール呼び出し上限到達'),
+    );
+    expect(perPointWarns).toHaveLength(0);
+  });
+
+  it('TC-INV-SCALE06: 複数観点で各観点の上限超過が個別にチェックされる', async () => {
+    const context = createContext();
+    context.guardrails.maxToolCallsPerPoint = 1;
+    context.guardrails.maxToolCalls = 200;
+    mockExecuteAgentForStage.mockResolvedValue(['rg src/a foo', 'grep bar baz']);
+
+    const result = await executeInvestigator(
+      context,
+      createScopeResult([createPoint('INV-001'), createPoint('INV-002')]),
+      {} as any,
+      null,
+      Date.now(),
+    );
+
+    // Given: 複数観点がそれぞれ観点別上限を超過する
+    // When: Investigator を実行する
+    // Then: 各観点ごとに独立して警告が記録される
+    expect(result.completedPoints).toEqual(['INV-001', 'INV-002']);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '観点 INV-001 で観点別ツール呼び出し上限到達: 2/1回',
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '観点 INV-002 で観点別ツール呼び出し上限到達: 2/1回',
+    );
+  });
+
   it('TC-INV-F03: 空ファイル時も未完了として記録し 1 行 WARN のみを出す', async () => {
     mockReadFileSync.mockReturnValue('   ');
     mockExecuteAgentForStage.mockResolvedValue([findingsJson('INV-001')]);

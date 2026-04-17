@@ -2,7 +2,7 @@
  * ユニットテスト: impact-analysis ガードレール
  *
  * テスト対象: src/commands/impact-analysis/guardrails.ts
- * テストシナリオ: test-scenario.md の TC-GR-001 〜 TC-GR-014
+ * テストシナリオ: test-scenario.md の TC-GR-001 〜 TC-GR-019
  */
 
 import { describe, expect, it, beforeEach } from '@jest/globals';
@@ -10,6 +10,7 @@ import {
   createDefaultGuardrailsConfig,
   createInitialGuardrailsState,
   checkGuardrails,
+  checkPerPointToolCalls,
   updateGuardrailsState,
   updateElapsedSeconds,
 } from '../../../../src/commands/impact-analysis/guardrails.js';
@@ -17,7 +18,8 @@ import {
 const baseConfig = {
   maxTokens: 100000,
   timeoutSeconds: 300,
-  maxToolCalls: 30,
+  maxToolCalls: 100,
+  maxToolCallsPerPoint: 40,
 };
 
 describe('guardrails', () => {
@@ -75,7 +77,7 @@ describe('guardrails', () => {
     });
 
     it('TC-GR-007: ツール呼び出し上限到達を検知する', () => {
-      const state = { tokenUsage: 50000, elapsedSeconds: 100, toolCallCount: 30, reached: false };
+      const state = { tokenUsage: 50000, elapsedSeconds: 100, toolCallCount: 100, reached: false };
       const result = checkGuardrails(state, baseConfig);
       expect(result).toBe(true);
       expect(state.reachedType).toBe('tool_calls');
@@ -100,12 +102,12 @@ describe('guardrails', () => {
     });
 
     it('TC-GR-011: ツール呼び出し上限1つ手前はfalse', () => {
-      const state = { tokenUsage: 0, elapsedSeconds: 0, toolCallCount: 29, reached: false };
+      const state = { tokenUsage: 0, elapsedSeconds: 0, toolCallCount: 99, reached: false };
       expect(checkGuardrails(state, baseConfig)).toBe(false);
     });
 
     it('TC-GR-012: 同時到達時はトークン優先', () => {
-      const state = { tokenUsage: 100000, elapsedSeconds: 300, toolCallCount: 30, reached: false };
+      const state = { tokenUsage: 100000, elapsedSeconds: 300, toolCallCount: 100, reached: false };
       const result = checkGuardrails(state, baseConfig);
       expect(result).toBe(true);
       expect(state.reachedType).toBe('token');
@@ -123,6 +125,47 @@ describe('guardrails', () => {
       const state = { tokenUsage: 0, elapsedSeconds: 0, toolCallCount: 5, reached: false };
       updateGuardrailsState(state, ['rg src/ foo', 'grep -n bar', 'git log']);
       expect(state.toolCallCount).toBeGreaterThanOrEqual(6);
+    });
+  });
+
+  describe('checkPerPointToolCalls', () => {
+    it('TC-GR-015: デフォルト設定に maxToolCallsPerPoint が含まれる', () => {
+      const config = createDefaultGuardrailsConfig();
+      expect(config.maxToolCallsPerPoint).toBe(40);
+    });
+
+    it('TC-GR-016: maxToolCalls のデフォルト値が 100 である', () => {
+      const config = createDefaultGuardrailsConfig();
+      expect(config.maxToolCalls).toBe(100);
+    });
+
+    it('TC-GR-017: checkGuardrails は maxToolCallsPerPoint を考慮しない', () => {
+      const config = {
+        maxTokens: 100000,
+        timeoutSeconds: 300,
+        maxToolCalls: 100,
+        maxToolCallsPerPoint: 5,
+      };
+      const state = { tokenUsage: 0, elapsedSeconds: 0, toolCallCount: 10, reached: false };
+
+      const result = checkGuardrails(state, config);
+
+      expect(result).toBe(false);
+      expect(state.reached).toBe(false);
+    });
+
+    it('TC-GR-018: 観点別上限超過を検知する', () => {
+      const result = checkPerPointToolCalls(41, baseConfig);
+      expect(result).toEqual({
+        reached: true,
+        details: '観点別ツール呼び出し上限到達: 41/40回',
+      });
+    });
+
+    it('TC-GR-019: maxToolCallsPerPoint 未設定時は未到達と判定する', () => {
+      const config = { ...baseConfig, maxToolCallsPerPoint: undefined };
+      const result = checkPerPointToolCalls(999, config);
+      expect(result).toEqual({ reached: false });
     });
   });
 
