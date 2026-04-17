@@ -96,6 +96,8 @@ export interface GuardrailsConfig {
   maxTokens: number;
   timeoutSeconds: number;
   maxToolCalls: number;
+  /** 観点ごとのツール呼び出し上限（未設定時は制限なし） */
+  maxToolCallsPerPoint?: number;
 }
 
 /**

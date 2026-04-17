@@ -2,11 +2,15 @@ import type { GuardrailsConfig, GuardrailsState } from './types.js';
 
 /**
  * ガードレール設定のデフォルト値
+ *
+ * - maxToolCalls: 全観点合計のツール呼び出し上限
+ * - maxToolCallsPerPoint: 1観点あたりのツール呼び出し上限
  */
 export const DEFAULT_GUARDRAILS: GuardrailsConfig = {
   maxTokens: 100_000,
   timeoutSeconds: 300,
-  maxToolCalls: 30,
+  maxToolCalls: 100,
+  maxToolCallsPerPoint: 40,
 };
 
 /**
@@ -58,6 +62,24 @@ export function checkGuardrails(state: GuardrailsState, config: GuardrailsConfig
   }
 
   return false;
+}
+
+/**
+ * 1観点あたりのツール呼び出し上限到達チェック。
+ */
+export function checkPerPointToolCalls(
+  pointToolCalls: number,
+  config: GuardrailsConfig,
+): { reached: boolean; details?: string } {
+  const maxToolCallsPerPoint = config.maxToolCallsPerPoint;
+  if (!maxToolCallsPerPoint || pointToolCalls <= maxToolCallsPerPoint) {
+    return { reached: false };
+  }
+
+  return {
+    reached: true,
+    details: `観点別ツール呼び出し上限到達: ${pointToolCalls}/${maxToolCallsPerPoint}回`,
+  };
 }
 
 /**

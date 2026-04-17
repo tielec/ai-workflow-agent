@@ -12,7 +12,12 @@ import type {
   InvestigationPoint,
   Finding,
 } from './types.js';
-import { checkGuardrails, updateGuardrailsState, updateElapsedSeconds } from './guardrails.js';
+import {
+  checkGuardrails,
+  checkPerPointToolCalls,
+  updateGuardrailsState,
+  updateElapsedSeconds,
+} from './guardrails.js';
 import { executeAgentForStage } from './scoper.js';
 
 const DEFAULT_REASONING = '調査結果を構造化できませんでした。';
@@ -54,24 +59,24 @@ export async function executeInvestigator(
       });
 
       const rawOutput = readInvestigatorOutput(outputPath);
+      updateGuardrailsState(context.guardrailsState, agentResult);
+
+      const pointToolCalls = context.guardrailsState.toolCallCount - beforeToolCalls;
+      warnIfPointToolCallsExceeded(context, point, pointToolCalls);
+
+      checkGuardrails(context.guardrailsState, context.guardrails);
+      totalTokenUsage += context.guardrailsState.tokenUsage - beforeTokens;
+      totalToolCalls += pointToolCalls;
+
       if (!rawOutput) {
         logger.warn(`Investigator出力未生成: ${point.id}`);
         incompletePoints.push(point.id);
-        updateGuardrailsState(context.guardrailsState, agentResult);
-        checkGuardrails(context.guardrailsState, context.guardrails);
-        totalTokenUsage += context.guardrailsState.tokenUsage - beforeTokens;
-        totalToolCalls += context.guardrailsState.toolCallCount - beforeToolCalls;
         continue;
       }
 
       const pointFindings = parseInvestigatorResult(rawOutput, point);
       findings.push(...pointFindings);
       completedPoints.push(point.id);
-
-      updateGuardrailsState(context.guardrailsState, agentResult);
-      checkGuardrails(context.guardrailsState, context.guardrails);
-      totalTokenUsage += context.guardrailsState.tokenUsage - beforeTokens;
-      totalToolCalls += context.guardrailsState.toolCallCount - beforeToolCalls;
     } catch (error) {
       logger.warn(`調査観点 ${point.id} の調査中にエラー: ${getErrorMessage(error)}`);
       incompletePoints.push(point.id);
@@ -191,6 +196,19 @@ function buildInvestigatorReasoning(
     `調査未完了: ${incompletePoints.length}件`,
     `発見事項: ${findings.length}件`,
   ].join('\n');
+}
+
+function warnIfPointToolCallsExceeded(
+  context: PipelineContext,
+  point: InvestigationPoint,
+  pointToolCalls: number,
+): void {
+  const result = checkPerPointToolCalls(pointToolCalls, context.guardrails);
+  if (!result.reached || !result.details) {
+    return;
+  }
+
+  logger.warn(`観点 ${point.id} で${result.details}`);
 }
 
 function extractJsonBlock(text: string): string | null {

@@ -201,7 +201,7 @@ describe('impact-analysis integration', () => {
   });
 
   it('IT-003: ガードレール到達時のE2Eフロー', async () => {
-    const toolHeavyMessage = 'rg '.repeat(31);
+    const toolHeavyMessage = 'rg '.repeat(101);
     const agentClient = createAgentClientWithOutputs([
       {
         fileContent: JSON.stringify({

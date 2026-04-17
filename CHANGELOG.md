@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #873**: `impact-analysis` ガードレールのツール呼び出し上限を観点数に応じてスケーリング
+  - **問題**: `maxToolCalls: 30` が全観点共通の固定上限のため、最初の観点（INV-001）がツール呼び出し 117 回で完走した時点で残り観点（INV-002、INV-CUSTOM）が即座にスキップされていた
+  - **対応（案C）**: 全体上限を 30 → 100 に引き上げつつ、観点別上限 `maxToolCallsPerPoint: 40` を新設することで 1 観点の予算独占を防止する二重制御メカニズムを導入
+  - **`types.ts`**: `GuardrailsConfig` インターフェースに `maxToolCallsPerPoint?: number` を追加（オプショナルフィールドで後方互換性を維持）
+  - **`guardrails.ts`**: `DEFAULT_GUARDRAILS.maxToolCalls` を 30 → 100 に変更、`maxToolCallsPerPoint: 40` を追加。観点別ツール呼び出し判定関数 `checkPerPointToolCalls()` を追加
+  - **`investigator.ts`**: 各観点ループ内で観点別のツール呼び出し数を計測し、`maxToolCallsPerPoint` 超過時に `logger.warn` で警告ログを出力（事後チェック方式）
+  - 修正ファイル: `src/commands/impact-analysis/types.ts`、`src/commands/impact-analysis/guardrails.ts`、`src/commands/impact-analysis/investigator.ts`
+  - テストカバレッジ: ユニットテスト・統合テスト計 42 件追加・更新（TC-GR-015/016/017、TC-INV-SCALE01〜06、IT-003 閾値更新）。`npm run validate` PASS（3831 件成功・35 件スキップ・0 件失敗）
+
 - **Issue #870**: `impact-analysis` Phase 1 プロトタイプの動作改善（PRブランチ未反映 / maxTurns不足 / turn浪費 / フォールバック）
   - **問題1（PR head ブランチ未反映）**: `jenkins/shared/common.groovy::setupEnvironment()` に `impact_analysis` モード分岐を追加。`gh api` で PR head ref を取得して checkout するよう変更し、エージェントが正しい diff を参照できるようにした。ref 取得失敗時は `main` へフォールバックし WARN ログを出力
   - **問題2（maxTurns 不足）**: `investigator.ts` の `maxTurns` を定数 `INVESTIGATOR_MAX_TURNS = 30` として定義し、10 → 30 に引き上げ。Investigator が `error_max_turns` で中断されず完走できるように改善
