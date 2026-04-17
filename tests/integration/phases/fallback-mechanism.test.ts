@@ -36,8 +36,9 @@ describeOrSkip('Fallback Mechanism Integration Tests (Issue #113)', () => {
 
   beforeEach(() => {
     // Setup test working directory
-    testWorkingDir = path.join(process.cwd(), '.test-tmp', 'fallback-integration');
-    fs.ensureDirSync(testWorkingDir);
+    const tempRoot = path.join(process.cwd(), '.test-tmp');
+    fs.ensureDirSync(tempRoot);
+    testWorkingDir = fs.mkdtempSync(path.join(tempRoot, 'fallback-integration-'));
 
     // TypeScript 5.x strict type checking compatibility:
     // Explicitly specify the type parameter for jest.fn() to avoid type inference issues.

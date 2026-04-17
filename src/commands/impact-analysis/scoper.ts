@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../../core/prompt-loader.js';
@@ -16,13 +18,15 @@ export async function executeScoper(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
 ): Promise<ScopeResult> {
-  const prompt = buildScoperPrompt(context);
+  const outputPath = getScoperOutputPath(context.logDir);
+  ensureDirectoryExists(path.dirname(outputPath));
+  const prompt = buildScoperPrompt(context, outputPath);
   const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
     maxTurns: 3,
     preferLightweight: true,
   });
 
-  const scopeResult = parseScopeResult(agentResult);
+  const scopeResult = parseScopeResult(readScoperOutput(outputPath));
 
   if (context.options.customInstruction) {
     scopeResult.investigationPoints.push(
@@ -66,26 +70,56 @@ export async function executeAgentForStage(
   }
 }
 
-function buildScoperPrompt(context: PipelineContext): string {
+function buildScoperPrompt(context: PipelineContext, outputPath: string): string {
   const template = PromptLoader.loadPrompt(
     'impact-analysis',
     'scoper',
     context.options.language,
   );
 
-  return fillTemplate(template, {
-    diff: context.diff.diff,
-    playbook: context.playbook,
-    custom_instruction: context.options.customInstruction ?? 'なし',
-  });
+  return template
+    .replaceAll('{diff}', context.diff.diff)
+    .replaceAll('{playbook}', context.playbook)
+    .replaceAll('{custom_instruction}', context.options.customInstruction ?? 'なし')
+    .replaceAll('{output_file_path}', outputPath);
 }
 
-function parseScopeResult(agentMessages: string[]): ScopeResult {
-  const rawText = agentMessages.join('\n');
-  const jsonText = extractJsonBlock(rawText);
-  if (jsonText) {
+function getScoperOutputPath(logDir: string): string {
+  return path.join(logDir, 'scoper-result.json');
+}
+
+function ensureDirectoryExists(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readScoperOutput(outputPath: string): string {
+  if (fs.existsSync(outputPath)) {
+    const fileContent = fs.readFileSync(outputPath, 'utf-8').trim();
+    logger.debug(`Scoper出力ファイルを読み込みました: ${outputPath}`);
+    if (fileContent) {
+      return fileContent;
+    }
+  }
+
+  const message = `Scoper出力未生成: ${outputPath}`;
+  logger.warn(message);
+  throw new Error(message);
+}
+
+function parseScopeResult(rawText: string): ScopeResult {
+  const candidates = [rawText];
+  const extractedJson = extractJsonBlock(rawText);
+  if (extractedJson && extractedJson !== rawText) {
+    candidates.push(extractedJson);
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
     try {
-      const parsed = JSON.parse(jsonText) as Partial<ScopeResult>;
+      const parsed = JSON.parse(candidate) as Partial<ScopeResult>;
       return {
         investigationPoints: normalizeInvestigationPoints(parsed.investigationPoints),
         matchedPatterns: Array.isArray(parsed.matchedPatterns) ? parsed.matchedPatterns : [],
@@ -150,12 +184,4 @@ function extractJsonBlock(text: string): string | null {
   }
 
   return null;
-}
-
-function fillTemplate(template: string, variables: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replaceAll(`{${key}}`, value);
-  }
-  return result;
 }

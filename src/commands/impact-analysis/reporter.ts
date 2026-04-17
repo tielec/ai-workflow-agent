@@ -1,5 +1,6 @@
+import * as fs from 'node:fs';
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
-import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../../core/prompt-loader.js';
 import type { CodexAgentClient } from '../../core/codex-agent-client.js';
 import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
@@ -15,15 +16,17 @@ export async function executeReporter(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
 ): Promise<ImpactReport> {
-  const prompt = buildReporterPrompt(context, investigationResult);
+  const outputPath = getReportOutputPath(context.logDir);
+  ensureDirectoryExists(path.dirname(outputPath));
+  const prompt = buildReporterPrompt(context, investigationResult, outputPath);
 
   const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
     maxTurns: 3,
     preferLightweight: true,
   });
 
-  const markdown = extractReportMarkdown(agentResult);
-  validateReport(markdown);
+  const markdown = readReportOutput(outputPath, agentResult);
+  validateReport(markdown, context.options.language);
 
   return {
     markdown,
@@ -36,6 +39,7 @@ export async function executeReporter(
 function buildReporterPrompt(
   context: PipelineContext,
   investigationResult: InvestigationResult,
+  outputPath: string,
 ): string {
   const template = PromptLoader.loadPrompt(
     'impact-analysis',
@@ -43,67 +47,64 @@ function buildReporterPrompt(
     context.options.language,
   );
 
-  return fillTemplate(template, {
-    diff: context.diff.diff,
-    findings: JSON.stringify(investigationResult.findings, null, 2),
-    guardrails_reached: investigationResult.guardrailsReached ? 'true' : 'false',
-    guardrails_details: investigationResult.guardrailDetails ?? 'なし',
-    completed_points: investigationResult.completedPoints.join(', '),
-    incomplete_points: investigationResult.incompletePoints.join(', '),
-  });
+  return template
+    .replaceAll('{diff}', context.diff.diff)
+    .replaceAll('{findings}', JSON.stringify(investigationResult.findings, null, 2))
+    .replaceAll('{guardrails_reached}', investigationResult.guardrailsReached ? 'true' : 'false')
+    .replaceAll(
+      '{guardrails_details}',
+      investigationResult.guardrailDetails ?? (context.options.language === 'en' ? 'none' : 'なし'),
+    )
+    .replaceAll('{completed_points}', investigationResult.completedPoints.join(', '))
+    .replaceAll('{incomplete_points}', investigationResult.incompletePoints.join(', '))
+    .replaceAll('{output_file_path}', outputPath);
 }
 
-function extractReportMarkdown(agentMessages: string[]): string {
-  const rawText = agentMessages.join('\n').trim();
-  const jsonText = extractJsonBlock(rawText);
+function getReportOutputPath(logDir: string): string {
+  return path.join(logDir, 'report.md');
+}
 
-  if (jsonText) {
-    try {
-      const parsed = JSON.parse(jsonText) as { markdown?: string };
-      if (typeof parsed.markdown === 'string' && parsed.markdown.trim()) {
-        return parsed.markdown.trim();
-      }
-    } catch (error) {
-      logger.warn(`Reporter出力のJSONパースに失敗: ${getErrorMessage(error)}`);
+function ensureDirectoryExists(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readReportOutput(outputPath: string, agentMessages: string[]): string {
+  if (fs.existsSync(outputPath)) {
+    const markdown = fs.readFileSync(outputPath, 'utf-8').trim();
+    logger.debug(`Reporter出力ファイルを読み込みました: ${outputPath}`);
+    if (markdown) {
+      return markdown;
     }
+    logger.warn(`レポートファイルが空です。エージェント出力テキストからフォールバックします: ${outputPath}`);
+  }
+  if (!fs.existsSync(outputPath)) {
+    logger.warn(
+      `出力ファイルが見つかりません。エージェント出力テキストからレポートを抽出します: ${outputPath}`,
+    );
+  }
+  const fallbackMarkdown = agentMessages.join('\n').trim();
+  if (fallbackMarkdown) {
+    return fallbackMarkdown;
   }
 
-  return rawText;
+  throw new Error('レポート生成に失敗しました: 空の出力が返されました');
 }
 
-function validateReport(markdown: string): void {
+function validateReport(markdown: string, language: 'ja' | 'en'): void {
   if (!markdown || !markdown.trim()) {
     throw new Error('レポート生成に失敗しました: 空の出力が返されました');
   }
 
-  if (!markdown.includes('判断は開発者が行ってください')) {
-    logger.warn('レポートに「判断は開発者が行ってください」の注意書きが含まれていません');
-  }
-}
+  const primaryDisclaimer =
+    language === 'en'
+      ? 'Decision-making is left to the developer.'
+      : '判断は開発者が行ってください';
+  const alternateDisclaimer =
+    language === 'en'
+      ? '判断は開発者が行ってください'
+      : 'Decision-making is left to the developer.';
 
-function extractJsonBlock(text: string): string | null {
-  const fencedStart = text.indexOf('```json');
-  if (fencedStart !== -1) {
-    const fencedBodyStart = text.indexOf('\n', fencedStart);
-    const fencedEnd = text.indexOf('```', fencedBodyStart + 1);
-    if (fencedBodyStart !== -1 && fencedEnd !== -1) {
-      return text.slice(fencedBodyStart + 1, fencedEnd).trim();
-    }
+  if (!markdown.includes(primaryDisclaimer) && !markdown.includes(alternateDisclaimer)) {
+    logger.warn(`レポートに注意書きが含まれていません: ${primaryDisclaimer}`);
   }
-
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    return text.slice(firstBrace, lastBrace + 1);
-  }
-
-  return null;
-}
-
-function fillTemplate(template: string, variables: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replaceAll(`{${key}}`, value);
-  }
-  return result;
 }

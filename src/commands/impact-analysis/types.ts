@@ -43,6 +43,10 @@ export interface Finding {
   investigationPointId: string;
   patternName: string;
   description: string;
+  /** この問題が発生した場合のユーザー視点の影響 */
+  impact?: string;
+  /** 事実から導出可能な具体的対応案 */
+  recommendedActions?: string[];
   evidence: Evidence[];
   severity: 'info' | 'warning';
 }
@@ -96,6 +100,8 @@ export interface GuardrailsConfig {
   maxTokens: number;
   timeoutSeconds: number;
   maxToolCalls: number;
+  /** 観点ごとのツール呼び出し上限（未設定時は制限なし） */
+  maxToolCallsPerPoint?: number;
 }
 
 /**

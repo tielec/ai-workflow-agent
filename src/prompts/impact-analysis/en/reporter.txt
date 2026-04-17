@@ -18,7 +18,9 @@ Create a Markdown report suitable for posting as a PR comment.
 - Incomplete points: {incomplete_points}
 
 ## Output requirements
-- Output **Markdown only** (no prose or code fences).
+- You must write the Markdown report to this exact absolute path using the Write tool: `{output_file_path}`
+- Do not print the Markdown body or JSON to stdout.
+- Do not use relative paths or `/workspace` prefixes. Use the absolute path above exactly as provided.
 - Follow this template.
 
 # Impact Analysis Report
@@ -26,10 +28,34 @@ Create a Markdown report suitable for posting as a PR comment.
 ## Summary
 - Number of findings
 - Key notes
+- Primary risks related to the changed diff
 
 ## Findings
-- Facts only
-- Include evidence with file paths and line numbers
+- Format each finding using the following structure.
+
+### 1. [One-line issue summary]
+
+**Impact**: [Include only when `impact` exists. Summarize the user-facing consequence.]
+
+**Cause**: [Explain why this happens in 2-3 lines using `description` and evidence.]
+
+**Recommended actions**:
+- [ ] [Include only when `recommendedActions` exists. Keep actions concrete and implementation-oriented.]
+
+Final implementation decisions must be made by the developer.
+
+<details>
+<summary>Evidence (details)</summary>
+
+- `path/to/file.ts:123` - Evidence summary
+- Add more evidence bullets as needed
+
+</details>
+
+- Omit the **Impact** section when `impact` is missing.
+- Omit the **Recommended actions** section when `recommendedActions` is missing.
+- Present evidence in `filePath:lineNumber` form whenever possible.
+- If there are no findings, explicitly state that no additional actionable impact was confirmed at this time.
 
 ## Guardrails
 - Whether limits were reached and details
@@ -42,3 +68,4 @@ Decision-making is left to the developer.
 
 ## Notes
 - Do not include secrets
+- After writing the Markdown file, you may return only a brief completion message

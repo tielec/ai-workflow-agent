@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import path from 'node:path';
 import { logger } from '../../utils/logger.js';
 import { getErrorMessage } from '../../utils/error-utils.js';
 import { PromptLoader } from '../../core/prompt-loader.js';
@@ -10,10 +12,16 @@ import type {
   InvestigationPoint,
   Finding,
 } from './types.js';
-import { checkGuardrails, updateGuardrailsState, updateElapsedSeconds } from './guardrails.js';
+import {
+  checkGuardrails,
+  checkPerPointToolCalls,
+  updateGuardrailsState,
+  updateElapsedSeconds,
+} from './guardrails.js';
 import { executeAgentForStage } from './scoper.js';
 
 const DEFAULT_REASONING = '調査結果を構造化できませんでした。';
+const INVESTIGATOR_MAX_TURNS = 30;
 
 /**
  * Investigatorステージ
@@ -38,24 +46,37 @@ export async function executeInvestigator(
       continue;
     }
 
-    const prompt = buildInvestigatorPrompt(context, point);
+    const outputPath = getInvestigatorOutputPath(context.logDir, point.id);
+    ensureDirectoryExists(path.dirname(outputPath));
+    const prompt = buildInvestigatorPrompt(context, point, outputPath);
     const beforeTokens = context.guardrailsState.tokenUsage;
     const beforeToolCalls = context.guardrailsState.toolCallCount;
 
     try {
       const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
-        maxTurns: 10,
+        maxTurns: INVESTIGATOR_MAX_TURNS,
         preferLightweight: false,
       });
 
-      const pointFindings = parseInvestigatorResult(agentResult, point);
-      findings.push(...pointFindings);
-      completedPoints.push(point.id);
-
+      const rawOutput = readInvestigatorOutput(outputPath);
       updateGuardrailsState(context.guardrailsState, agentResult);
+
+      const pointToolCalls = context.guardrailsState.toolCallCount - beforeToolCalls;
+      warnIfPointToolCallsExceeded(context, point, pointToolCalls);
+
       checkGuardrails(context.guardrailsState, context.guardrails);
       totalTokenUsage += context.guardrailsState.tokenUsage - beforeTokens;
-      totalToolCalls += context.guardrailsState.toolCallCount - beforeToolCalls;
+      totalToolCalls += pointToolCalls;
+
+      if (!rawOutput) {
+        logger.warn(`Investigator出力未生成: ${point.id}`);
+        incompletePoints.push(point.id);
+        continue;
+      }
+
+      const pointFindings = parseInvestigatorResult(rawOutput, point);
+      findings.push(...pointFindings);
+      completedPoints.push(point.id);
     } catch (error) {
       logger.warn(`調査観点 ${point.id} の調査中にエラー: ${getErrorMessage(error)}`);
       incompletePoints.push(point.id);
@@ -74,26 +95,60 @@ export async function executeInvestigator(
   };
 }
 
-function buildInvestigatorPrompt(context: PipelineContext, point: InvestigationPoint): string {
+function buildInvestigatorPrompt(
+  context: PipelineContext,
+  point: InvestigationPoint,
+  outputPath: string,
+): string {
   const template = PromptLoader.loadPrompt(
     'impact-analysis',
     'investigator',
     context.options.language,
   );
 
-  return fillTemplate(template, {
-    diff: context.diff.diff,
-    playbook: context.playbook,
-    investigation_point: JSON.stringify(point, null, 2),
-  });
+  return template
+    .replaceAll('{diff}', context.diff.diff)
+    .replaceAll('{playbook}', context.playbook)
+    .replaceAll('{investigation_point}', JSON.stringify(point, null, 2))
+    .replaceAll('{output_file_path}', outputPath);
 }
 
-function parseInvestigatorResult(agentMessages: string[], point: InvestigationPoint): Finding[] {
-  const rawText = agentMessages.join('\n');
-  const jsonText = extractJsonBlock(rawText);
-  if (jsonText) {
+function getInvestigatorOutputPath(logDir: string, pointId: string): string {
+  return path.join(logDir, `investigator-${pointId}.json`);
+}
+
+function ensureDirectoryExists(dirPath: string): void {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function readInvestigatorOutput(
+  outputPath: string,
+): string | null {
+  if (fs.existsSync(outputPath)) {
+    const fileContent = fs.readFileSync(outputPath, 'utf-8').trim();
+    logger.debug(`Investigator出力ファイルを読み込みました: ${outputPath}`);
+    if (fileContent) {
+      return fileContent;
+    }
+  }
+
+  return null;
+}
+
+function parseInvestigatorResult(rawText: string, point: InvestigationPoint): Finding[] {
+  const candidates = [rawText];
+  const extractedJson = extractJsonBlock(rawText);
+  if (extractedJson && extractedJson !== rawText) {
+    candidates.push(extractedJson);
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
     try {
-      const parsed = JSON.parse(jsonText) as { findings?: Finding[] };
+      const parsed = JSON.parse(candidate) as { findings?: Finding[] };
       if (Array.isArray(parsed.findings)) {
         return normalizeFindings(parsed.findings, point);
       }
@@ -122,6 +177,10 @@ function normalizeFindings(findings: Finding[], point: InvestigationPoint): Find
     investigationPointId: finding.investigationPointId || point.id,
     patternName: finding.patternName || point.patternName,
     description: finding.description || '',
+    impact: typeof finding.impact === 'string' ? finding.impact : undefined,
+    recommendedActions: Array.isArray(finding.recommendedActions)
+      ? finding.recommendedActions
+      : undefined,
     evidence: Array.isArray(finding.evidence) ? finding.evidence : [],
     severity: finding.severity === 'warning' ? 'warning' : 'info',
   }));
@@ -143,6 +202,19 @@ function buildInvestigatorReasoning(
   ].join('\n');
 }
 
+function warnIfPointToolCallsExceeded(
+  context: PipelineContext,
+  point: InvestigationPoint,
+  pointToolCalls: number,
+): void {
+  const result = checkPerPointToolCalls(pointToolCalls, context.guardrails);
+  if (!result.reached || !result.details) {
+    return;
+  }
+
+  logger.warn(`観点 ${point.id} で${result.details}`);
+}
+
 function extractJsonBlock(text: string): string | null {
   const fencedStart = text.indexOf('```json');
   if (fencedStart !== -1) {
@@ -160,12 +232,4 @@ function extractJsonBlock(text: string): string | null {
   }
 
   return null;
-}
-
-function fillTemplate(template: string, variables: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replaceAll(`{${key}}`, value);
-  }
-  return result;
 }

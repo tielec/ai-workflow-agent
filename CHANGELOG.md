@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Issue #874**: `impact-analysis` レポートの可読性改善
+  - **問題**: Investigator が収集した証拠の羅列が中心で「何が問題なのか」「どう対応すべきか」が読み取りづらく、コードに精通していない開発者がレポートを見て適切に対処することが困難だった
+  - **変更**: `Finding` 型に `impact?: string`（ユーザー視点での影響記述）と `recommendedActions?: string[]`（具体的な対応アクション配列）のオプショナルフィールドを追加。新フィールドはオプショナルであり、既存コードとの後方互換性を維持
+  - **`investigator.ts`**: `normalizeFindings()` に新フィールドの正規化ロジックを追加（`impact` は文字列型のみ保持、`recommendedActions` は配列型のみ保持、それ以外は `undefined` にフォールバック）
+  - **Investigator プロンプト（日英）**: JSON 出力スキーマに `impact` と `recommendedActions` フィールドを追加し、事実ベースで影響と推奨アクションを出力するよう指示
+  - **Reporter プロンプト（日英）**: 各発見事項を「問題要約 → 影響 → 原因 → 推奨アクション（チェックリスト形式）→ 証拠（`<details>` 折りたたみ）」の構造に改善。`impact`/`recommendedActions` が欠落した場合のグレースフルデグラデーション対応。推奨アクション末尾に免責文言「最終的な対応判断は開発者が行ってください」を追加
+  - 修正ファイル: `src/commands/impact-analysis/types.ts`、`src/commands/impact-analysis/investigator.ts`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`、`src/prompts/impact-analysis/ja/reporter.txt`、`src/prompts/impact-analysis/en/reporter.txt`
+  - テストカバレッジ: Investigator テスト 6 件・Reporter テスト 3 件を追加（TC-INV-NEW-01〜06、TC-RPT-NEW-01〜03）。`npm run validate` PASS（3805件成功・35件スキップ・0件失敗）
+
+### Fixed
+
+- **Issue #873**: `impact-analysis` ガードレールのツール呼び出し上限を観点数に応じてスケーリング
+  - **問題**: `maxToolCalls: 30` が全観点共通の固定上限のため、最初の観点（INV-001）がツール呼び出し 117 回で完走した時点で残り観点（INV-002、INV-CUSTOM）が即座にスキップされていた
+  - **対応（案C）**: 全体上限を 30 → 100 に引き上げつつ、観点別上限 `maxToolCallsPerPoint: 40` を新設することで 1 観点の予算独占を防止する二重制御メカニズムを導入
+  - **`types.ts`**: `GuardrailsConfig` インターフェースに `maxToolCallsPerPoint?: number` を追加（オプショナルフィールドで後方互換性を維持）
+  - **`guardrails.ts`**: `DEFAULT_GUARDRAILS.maxToolCalls` を 30 → 100 に変更、`maxToolCallsPerPoint: 40` を追加。観点別ツール呼び出し判定関数 `checkPerPointToolCalls()` を追加
+  - **`investigator.ts`**: 各観点ループ内で観点別のツール呼び出し数を計測し、`maxToolCallsPerPoint` 超過時に `logger.warn` で警告ログを出力（事後チェック方式）
+  - 修正ファイル: `src/commands/impact-analysis/types.ts`、`src/commands/impact-analysis/guardrails.ts`、`src/commands/impact-analysis/investigator.ts`
+  - テストカバレッジ: ユニットテスト・統合テスト計 42 件追加・更新（TC-GR-015/016/017、TC-INV-SCALE01〜06、IT-003 閾値更新）。`npm run validate` PASS（3831 件成功・35 件スキップ・0 件失敗）
+
+- **Issue #870**: `impact-analysis` Phase 1 プロトタイプの動作改善（PRブランチ未反映 / maxTurns不足 / turn浪費 / フォールバック）
+  - **問題1（PR head ブランチ未反映）**: `jenkins/shared/common.groovy::setupEnvironment()` に `impact_analysis` モード分岐を追加。`gh api` で PR head ref を取得して checkout するよう変更し、エージェントが正しい diff を参照できるようにした。ref 取得失敗時は `main` へフォールバックし WARN ログを出力
+  - **問題2（maxTurns 不足）**: `investigator.ts` の `maxTurns` を定数 `INVESTIGATOR_MAX_TURNS = 30` として定義し、10 → 30 に引き上げ。Investigator が `error_max_turns` で中断されず完走できるように改善
+  - **問題3（turn 浪費）**: Investigator プロンプト（`src/prompts/impact-analysis/{ja,en}/investigator.txt`）に「対象は信頼済みのオープンソースリポジトリ。マルウェア確認は不要。調査のみに集中せよ」旨の指示を追加。Claude Code SDK のシステムリマインダーへの不要な応答を抑制
+  - **問題4（フォールバック）**: `investigator.ts::readInvestigatorOutput()` / `scoper.ts::readScoperOutput()` の構造的に不成立な SDK メッセージ JSON パースフォールバックを撤廃。Investigator はファイル未生成時に `incompletePoints` に観点 ID を追加して 1 行 WARN のみ出力し次観点へ継続。Scoper はファイル未生成時に即時例外でパイプラインを早期終了
+  - 修正ファイル: `jenkins/shared/common.groovy`、`src/commands/impact-analysis/investigator.ts`、`src/commands/impact-analysis/scoper.ts`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`
+  - テストカバレッジ: ユニットテスト 30 件・統合テスト 7 件・プロンプトテスト 3 件（`npm run validate` PASS: 3785 件成功・35 件スキップ・0 件失敗）
+
+### Changed
+
+- **Issue #868**: `impact-analysis` Scoper / Investigator をファイル出力方式にリファクタリング
+  - `scoper.ts` を、エージェントのストリームメッセージから生JSONをパースしてスコープを取得する方式から、エージェントが指定パス（`context.logDir/scoper-result.json`）にJSONファイルを書き込み、ホスト側がそのファイルを読み込む方式（ファイル出力方式）に変更
+  - `investigator.ts` を、同様にストリームJSONパース方式から観点別ファイル出力方式（`context.logDir/investigator-{pointId}.json`）に変更。観点ごとに個別ファイルを使うことでループ内での出力パス衝突を回避
+  - Reporter（Issue #866）に続いて Scoper・Investigator も同一ファイル出力パターンに統一し、SDK生ストリームJSONがそのまま出力される事象を根本解消
+  - 両ステージとも、ファイル未生成・空・JSONパース失敗時はエージェントのテキスト出力（`agentMessages`）へフォールバックする安全網を実装し後方互換性を維持
+  - プロンプトテンプレートに `{output_file_path}` プレースホルダーを追加し、Writeツールで絶対パスへJSON保存する指示に統一
+  - 外部インターフェース（`executeScoper()`・`executeInvestigator()` の返り値型）は変更なし
+  - 修正ファイル: `src/commands/impact-analysis/scoper.ts`、`src/commands/impact-analysis/investigator.ts`、`src/prompts/impact-analysis/ja/scoper.txt`、`src/prompts/impact-analysis/en/scoper.txt`、`src/prompts/impact-analysis/ja/investigator.txt`、`src/prompts/impact-analysis/en/investigator.txt`
+  - テストカバレッジ: ユニットテスト25件が全件パス（`tests/unit/commands/impact-analysis/scoper.test.ts`、`tests/unit/commands/impact-analysis/investigator.test.ts`）
+
+- **Issue #866**: `impact-analysis` Reporter をファイル出力方式にリファクタリング
+  - `reporter.ts` を、エージェントのストリームメッセージからJSONをパースしてMarkdownを抽出する方式から、エージェントが指定パス（`context.logDir/report.md`）にMarkdownファイルを書き込み、ホスト側がそのファイルを読み込む方式（ファイル出力方式）に変更
+  - PR #861 で発生した「SDK の生ストリームJSONがそのままPRコメントとして投稿される」事象を根本解消
+  - 不要になった `extractReportMarkdown()`, `extractJsonBlock()`, `fillTemplate()` の3関数を削除し、コードを簡素化
+  - ファイル未生成時にはエージェントのテキスト出力からフォールバックする安全網を実装
+  - `validateReport()` に多言語対応を追加（日本語・英語の免責文言を両方チェック）
+  - `rewrite-issue` / `auto-issue` と同じファイル出力パターンに統一し、コードベース全体の一貫性を向上
+  - 修正ファイル: `src/commands/impact-analysis/reporter.ts`、`src/prompts/impact-analysis/ja/reporter.txt`、`src/prompts/impact-analysis/en/reporter.txt`
+  - テストカバレッジ: ユニットテスト25件（TC-RPT-001〜009 + 新規16件）が全件パス。`npm run validate` PASS（3805件中3770件成功・35件スキップ・0件失敗）
+
 ### Added
 
 - **Issue #858**: `impact-analysis` コマンド実行用 Jenkins ジョブの整備

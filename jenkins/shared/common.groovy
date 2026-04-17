@@ -201,9 +201,11 @@ def setupEnvironment() {
 
     echo "DEBUG: executionMode=${executionMode}, prNumber=${prNumber}, repoOwner=${repoOwner}, repoName=${repoName}"
 
-    // PR comment jobs の場合、GitHub API で PR のブランチ名を取得
-    def targetBranch = params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}"
-    if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize'] && prNumber) {
+    // PR 起点ジョブでは GitHub API で PR の head ブランチ名を取得
+    def targetBranch = executionMode == 'impact_analysis'
+        ? (params.BRANCH_NAME ?: 'main')
+        : (params.BRANCH_NAME ?: "ai-workflow/issue-${issueNumber}")
+    if (executionMode in ['pr_comment_init', 'pr_comment_execute', 'pr_comment_finalize', 'impact_analysis'] && prNumber) {
         echo "Fetching PR branch name from GitHub API..."
         echo "Running: gh api repos/${repoOwner}/${repoName}/pulls/${prNumber} --jq .head.ref"
         def prBranch = sh(
@@ -215,7 +217,7 @@ def setupEnvironment() {
             targetBranch = prBranch
             echo "PR branch detected: ${targetBranch}"
         } else {
-            echo "Warning: Failed to fetch PR branch. Using default: ${targetBranch}"
+            echo "Warning: Failed to fetch PR branch. Using fallback: ${targetBranch}"
         }
     }
 
