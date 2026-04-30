@@ -9,6 +9,8 @@ import type { PipelineContext, ScopeResult, InvestigationPoint } from './types.j
 import { updateGuardrailsState } from './guardrails.js';
 
 const DEFAULT_REASONING = '調査観点を抽出できませんでした。';
+const SCOPER_MAX_TURNS = 10;
+const SCOPER_ALLOWED_TOOLS = ['Write'];
 
 /**
  * Scoperステージ
@@ -22,8 +24,9 @@ export async function executeScoper(
   ensureDirectoryExists(path.dirname(outputPath));
   const prompt = buildScoperPrompt(context, outputPath);
   const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
-    maxTurns: 3,
+    maxTurns: SCOPER_MAX_TURNS,
     preferLightweight: true,
+    allowedTools: SCOPER_ALLOWED_TOOLS,
   });
 
   const scopeResult = parseScopeResult(readScoperOutput(outputPath));
@@ -43,7 +46,11 @@ export async function executeAgentForStage(
   codexClient: CodexAgentClient | null,
   claudeClient: ClaudeAgentClient | null,
   prompt: string,
-  options: { maxTurns?: number; preferLightweight?: boolean } = {},
+  options: {
+    maxTurns?: number;
+    preferLightweight?: boolean;
+    allowedTools?: string[];
+  } = {},
 ): Promise<string[]> {
   const primaryClient = claudeClient ?? codexClient;
   const fallbackClient = claudeClient ? codexClient : null;
@@ -56,6 +63,7 @@ export async function executeAgentForStage(
     return await primaryClient.executeTask({
       prompt,
       maxTurns: options.maxTurns ?? 5,
+      allowedTools: options.allowedTools,
     });
   } catch (error) {
     logger.warn(`プライマリエージェント失敗: ${getErrorMessage(error)}`);
@@ -64,6 +72,7 @@ export async function executeAgentForStage(
       return await fallbackClient.executeTask({
         prompt,
         maxTurns: options.maxTurns ?? 5,
+        allowedTools: options.allowedTools,
       });
     }
     throw error;

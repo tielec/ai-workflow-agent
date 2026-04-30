@@ -11,7 +11,7 @@ import { resolveLocalRepoPath, parsePullRequestUrl } from '../core/repository-ut
 import { PromptLoader } from '../core/prompt-loader.js';
 import { GitHubClient } from '../core/github-client.js';
 import type { RawImpactAnalysisOptions, ImpactAnalysisOptions } from '../types/impact-analysis.js';
-import type { InvestigationResult, PipelineContext } from './impact-analysis/types.js';
+import type { ImpactReport, InvestigationResult, PipelineContext } from './impact-analysis/types.js';
 import { executeScoper } from './impact-analysis/scoper.js';
 import { executeInvestigator } from './impact-analysis/investigator.js';
 import { executeReporter } from './impact-analysis/reporter.js';
@@ -102,7 +102,27 @@ export async function handleImpactAnalysisCommand(
     investigationResult = createEmptyInvestigationResult(context.guardrailsState.reached);
   }
 
-  const report = await executeReporter(context, investigationResult, codexClient, claudeClient);
+  let report: ImpactReport;
+  try {
+    report = await executeReporter(context, investigationResult, codexClient, claudeClient);
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    logger.warn(`Reporterステージが失敗しました: ${message}`);
+    logManager.savePipelineSummary({
+      prNumber: options.prNumber,
+      findingsCount: investigationResult.findings.length,
+      patternsMatched: Array.from(new Set(investigationResult.findings.map((f) => f.patternName))),
+      guardrailsReached: investigationResult.guardrailsReached,
+      tokenUsage: investigationResult.tokenUsage,
+      toolCallCount: investigationResult.toolCallCount,
+      dryRun: options.dryRun,
+      diffTruncated: diff.truncated,
+      filesChanged: diff.filesChanged,
+      error: message,
+    });
+    throw error;
+  }
+
   logManager.saveReporterOutput(report.markdown);
 
   if (!options.dryRun) {

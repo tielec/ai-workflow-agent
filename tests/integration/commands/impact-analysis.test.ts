@@ -167,6 +167,13 @@ describe('impact-analysis integration', () => {
     await handleImpactAnalysisCommand({ pr: '123' });
 
     expect(mockGitHubPostPRComment).toHaveBeenCalledWith(123, expect.any(String));
+    expect(agentClient.executeTask).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        maxTurns: 10,
+        allowedTools: ['Write'],
+      }),
+    );
 
     const logDir = path.resolve(process.cwd(), 'logs', 'pr-123');
     expect(fs.existsSync(path.join(logDir, 'scoper-reasoning.md'))).toBe(true);

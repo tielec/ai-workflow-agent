@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs-extra';
 import os from 'node:os';
 import path from 'node:path';
+import { logger } from '../../src/utils/logger.js';
 
 describe('CodexAgentClient', () => {
   let client: CodexAgentClient;
@@ -25,6 +26,75 @@ describe('CodexAgentClient', () => {
     if (workingDir && fs.existsSync(workingDir)) {
       fs.removeSync(workingDir);
     }
+  });
+
+  describe('allowedTools fallback injection', () => {
+    let loggerWarnSpy: jest.SpiedFunction<typeof logger.warn>;
+
+    beforeEach(() => {
+      loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      loggerWarnSpy.mockRestore();
+    });
+
+    it('TC-CODEX-AT02: executeTask は allowedTools 指定時に systemPrompt 制約を stdinPayload へ注入する', async () => {
+      // Given: stdinPayload と警告ログを観測できる runCodexProcess モック
+      const runSpy = spyOnRunCodexProcess().mockResolvedValue([
+        JSON.stringify({ type: 'result', result: 'success' }),
+      ]);
+
+      // When: allowedTools を指定して executeTask を呼び出す
+      await client.executeTask({
+        prompt: 'test prompt',
+        allowedTools: ['Write'],
+        workingDirectory: workingDir,
+        verbose: false,
+      });
+
+      // Then: stdinPayload にツール制約が注入され、フォールバック警告が出る
+      expect(runSpy).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          stdinPayload: expect.stringContaining('You may only use the following tools: Write.'),
+        }),
+      );
+      expect(runSpy).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          stdinPayload: expect.stringContaining('Do not use any other tools.'),
+        }),
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Codex CLI は allowedTools のネイティブ制限に未対応のため、systemPrompt で制約を注入します'
+      );
+    });
+
+    it('TC-CODEX-AT03: executeTask は allowedTools 未指定時に systemPrompt 制約を注入しない', async () => {
+      // Given: stdinPayload と警告ログを観測できる runCodexProcess モック
+      const runSpy = spyOnRunCodexProcess().mockResolvedValue([
+        JSON.stringify({ type: 'result', result: 'success' }),
+      ]);
+
+      // When: allowedTools を指定せず executeTask を呼び出す
+      await client.executeTask({
+        prompt: 'test prompt',
+        workingDirectory: workingDir,
+        verbose: false,
+      });
+
+      // Then: stdinPayload にツール制約は含まれず、フォールバック警告も出ない
+      expect(runSpy).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          stdinPayload: 'test prompt',
+        }),
+      );
+      expect(loggerWarnSpy).not.toHaveBeenCalledWith(
+        'Codex CLI は allowedTools のネイティブ制限に未対応のため、systemPrompt で制約を注入します'
+      );
+    });
   });
 
   describe('executeTask', () => {

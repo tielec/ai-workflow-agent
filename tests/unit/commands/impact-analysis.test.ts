@@ -300,5 +300,36 @@ describe('impact-analysis command handler', () => {
         expect.objectContaining({ agentPriority: 'claude-first' }),
       );
     });
+
+    it('TC-MAIN-009: Reporter 失敗時はPRコメント投稿をスキップしてサマリーへエラーを記録する', async () => {
+      mockExecuteReporter.mockRejectedValue(new Error('レポート出力ファイルが見つかりません: /tmp/logs/report.md'));
+
+      await expect(handleImpactAnalysisCommand({ pr: '123' })).rejects.toThrow(
+        'レポート出力ファイルが見つかりません: /tmp/logs/report.md',
+      );
+
+      // Given: Reporter ステージが失敗する
+      // When: コマンドハンドラを実行する
+      // Then: PR 投稿は行わず、警告とエラー付きサマリーを残して失敗終了する
+      expect(mockGitHubPostPRComment).not.toHaveBeenCalled();
+      expect(mockSaveReporterOutput).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Reporterステージが失敗しました: レポート出力ファイルが見つかりません: /tmp/logs/report.md',
+      );
+      expect(mockSavePipelineSummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prNumber: 123,
+          findingsCount: 0,
+          patternsMatched: [],
+          guardrailsReached: false,
+          tokenUsage: 10,
+          toolCallCount: 1,
+          dryRun: false,
+          diffTruncated: false,
+          filesChanged: 1,
+          error: 'レポート出力ファイルが見つかりません: /tmp/logs/report.md',
+        }),
+      );
+    });
   });
 });
