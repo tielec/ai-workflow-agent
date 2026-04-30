@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { config } from './config.js';
-import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query, type SDKMessage, type Options } from '@anthropic-ai/claude-agent-sdk';
 import { parseClaudeEvent, determineClaudeEventType } from './helpers/agent-event-parser.js';
 import { formatClaudeLog } from './helpers/log-formatter.js';
 import { validateWorkingDirectoryPath } from './helpers/working-directory-resolver.js';
@@ -16,6 +16,7 @@ interface ExecuteTaskOptions {
   workingDirectory?: string;
   verbose?: boolean;
   model?: string | null;
+  allowedTools?: string[];
 }
 
 const DEFAULT_MAX_TURNS = 50;
@@ -113,22 +114,28 @@ export class ClaudeAgentClient {
       process.env.PATH = `${nodeDir}${path.delimiter}${currentPath}`;
     }
 
+    const queryOptions: Options = {
+      cwd,
+      permissionMode,
+      maxTurns,
+      model: options.model ?? this.model,
+      systemPrompt: systemPrompt ?? undefined,
+      // Claude CLI 子プロセスの stderr を取り込み、SDK が握り潰す例外の手掛かりを残す
+      stderr: (data: string) => {
+        const trimmed = data.trim();
+        if (trimmed) {
+          logger.warn(`[Claude CLI stderr] ${trimmed}`);
+        }
+      },
+    };
+
+    if (options.allowedTools) {
+      queryOptions.allowedTools = options.allowedTools;
+    }
+
     const stream = query({
       prompt,
-      options: {
-        cwd,
-        permissionMode,
-        maxTurns,
-        model: options.model ?? this.model,
-        systemPrompt: systemPrompt ?? undefined,
-        // Claude CLI 子プロセスの stderr を取り込み、SDK が握り潰す例外の手掛かりを残す
-        stderr: (data: string) => {
-          const trimmed = data.trim();
-          if (trimmed) {
-            logger.warn(`[Claude CLI stderr] ${trimmed}`);
-          }
-        },
-      },
+      options: queryOptions,
     });
 
     const messages: string[] = [];

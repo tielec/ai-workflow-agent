@@ -14,9 +14,18 @@ interface ExecuteTaskOptions {
   workingDirectory?: string;
   verbose?: boolean;
   model?: string | null;
+  allowedTools?: string[];
 }
 
 const DEFAULT_MAX_TURNS = 50;
+
+function buildAllowedToolsSystemPrompt(allowedTools: string[]): string {
+  return [
+    'Tool constraint:',
+    `You may only use the following tools: ${allowedTools.join(', ') || '(none)'}.`,
+    'Do not use any other tools.',
+  ].join('\n');
+}
 
 /**
  * Default Codex model for agent execution.
@@ -215,9 +224,18 @@ export class CodexAgentClient {
 
     args.push('-');
 
+    const systemPromptParts: string[] = [];
+    if (options.systemPrompt && options.systemPrompt.trim().length > 0) {
+      systemPromptParts.push(options.systemPrompt.trim());
+    }
+    if (options.allowedTools) {
+      logger.warn('Codex CLI は allowedTools のネイティブ制限に未対応のため、systemPrompt で制約を注入します');
+      systemPromptParts.push(buildAllowedToolsSystemPrompt(options.allowedTools));
+    }
+
     const finalPrompt =
-      options.systemPrompt && options.systemPrompt.trim().length > 0
-        ? `${options.systemPrompt.trim()}\n\n${options.prompt}`
+      systemPromptParts.length > 0
+        ? `${systemPromptParts.join('\n\n')}\n\n${options.prompt}`
         : options.prompt;
 
     try {

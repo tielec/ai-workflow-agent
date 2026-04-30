@@ -51,7 +51,7 @@ await jest.unstable_mockModule('../../../../src/utils/logger.js', () => ({
 }));
 
 const scoperModule = await import('../../../../src/commands/impact-analysis/scoper.js');
-const { executeScoper } = scoperModule;
+const { executeScoper, executeAgentForStage } = scoperModule;
 
 function createContext(customInstruction?: string): PipelineContext {
   return {
@@ -323,9 +323,92 @@ describe('Scoper', () => {
     expect(codexClient.executeTask).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining('OUTPUT:/tmp/logs/pr-123/scoper-result.json'),
-        maxTurns: 3,
+        maxTurns: 10,
+        allowedTools: ['Write'],
       }),
     );
+  });
+
+  it('TC-SCOPER-AT01: Scoper は Write のみを許可して実行する', async () => {
+    const codexClient = {
+      executeTask: jest.fn().mockResolvedValue(['ok']),
+    } as any;
+
+    await executeScoper(createContext(), codexClient, null);
+
+    // Given: Scoper がステージ実行オプションを組み立てる
+    // When: Scoper を実行する
+    // Then: allowedTools に Write のみが渡る
+    expect(codexClient.executeTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedTools: ['Write'],
+      }),
+    );
+  });
+
+  it('TC-STAGE-AT01: executeAgentForStage は allowedTools を primary client に伝播する', async () => {
+    const codexClient = {
+      executeTask: jest.fn().mockResolvedValue(['ok']),
+    } as any;
+
+    await executeAgentForStage(codexClient, null, 'test prompt', {
+      maxTurns: 5,
+      allowedTools: ['Write', 'Read'],
+    });
+
+    // Given: allowedTools を含む stage オプション
+    // When: executeAgentForStage を実行する
+    // Then: primary client の executeTask にそのまま渡る
+    expect(codexClient.executeTask).toHaveBeenCalledWith({
+      prompt: 'test prompt',
+      maxTurns: 5,
+      allowedTools: ['Write', 'Read'],
+    });
+  });
+
+  it('TC-STAGE-AT02: allowedTools 未指定時は undefined のまま伝播する', async () => {
+    const codexClient = {
+      executeTask: jest.fn().mockResolvedValue(['ok']),
+    } as any;
+
+    await executeAgentForStage(codexClient, null, 'test prompt');
+
+    // Given: allowedTools を指定しない stage オプション
+    // When: executeAgentForStage を実行する
+    // Then: executeTask には undefined のまま渡る
+    expect(codexClient.executeTask).toHaveBeenCalledWith({
+      prompt: 'test prompt',
+      maxTurns: 5,
+      allowedTools: undefined,
+    });
+  });
+
+  it('TC-STAGE-AT03: フォールバック先にも allowedTools を維持して再試行する', async () => {
+    const claudeClient = {
+      executeTask: jest.fn().mockRejectedValue(new Error('Claude failed')),
+    } as any;
+    const codexClient = {
+      executeTask: jest.fn().mockResolvedValue(['ok']),
+    } as any;
+
+    await executeAgentForStage(codexClient, claudeClient, 'test prompt', {
+      maxTurns: 7,
+      allowedTools: ['Write'],
+    });
+
+    // Given: プライマリエージェントが失敗する
+    // When: executeAgentForStage がフォールバックする
+    // Then: fallback client にも同じ allowedTools が渡る
+    expect(claudeClient.executeTask).toHaveBeenCalledWith({
+      prompt: 'test prompt',
+      maxTurns: 7,
+      allowedTools: ['Write'],
+    });
+    expect(codexClient.executeTask).toHaveBeenCalledWith({
+      prompt: 'test prompt',
+      maxTurns: 7,
+      allowedTools: ['Write'],
+    });
   });
 
   it('TC-SCOPER-D01: 出力先ディレクトリを事前作成する', async () => {

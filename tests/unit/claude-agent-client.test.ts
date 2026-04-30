@@ -1,6 +1,13 @@
-import { ClaudeAgentClient } from '../../src/core/claude-agent-client.js';
 import fs from 'fs-extra';
 import { jest } from '@jest/globals';
+
+const mockQuery = jest.fn();
+
+jest.unstable_mockModule('@anthropic-ai/claude-agent-sdk', () => ({
+  query: mockQuery,
+}));
+
+const { ClaudeAgentClient } = await import('../../src/core/claude-agent-client.js');
 
 describe('ClaudeAgentClient', () => {
   let client: ClaudeAgentClient;
@@ -9,6 +16,7 @@ describe('ClaudeAgentClient', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuery.mockReset();
     process.env.CLAUDE_CODE_OAUTH_TOKEN = 'test-token';
     existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
     readFileSyncMock = jest
@@ -21,6 +29,58 @@ describe('ClaudeAgentClient', () => {
   afterEach(() => {
     existsSyncMock.mockRestore();
     readFileSyncMock.mockRestore();
+  });
+
+  describe('allowedTools propagation', () => {
+    const createMockStream = async function* () {
+      yield {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+      };
+    };
+
+    it('TC-CLAUDE-AT02: executeTask は allowedTools を query() に伝播する', async () => {
+      // Given: allowedTools を受け取る Claude Agent SDK の query モック
+      mockQuery.mockReturnValue(createMockStream() as never);
+
+      // When: allowedTools を指定して executeTask を呼び出す
+      await client.executeTask({
+        prompt: 'test prompt',
+        allowedTools: ['Write'],
+        verbose: false,
+      });
+
+      // Then: query() に allowedTools がそのまま渡される
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'test prompt',
+          options: expect.objectContaining({
+            allowedTools: ['Write'],
+          }),
+        }),
+      );
+    });
+
+    it('TC-CLAUDE-AT03: executeTask は allowedTools 未指定時に query() へ含めない', async () => {
+      // Given: allowedTools を観測できる Claude Agent SDK の query モック
+      mockQuery.mockReturnValue(createMockStream() as never);
+
+      // When: allowedTools を指定せず executeTask を呼び出す
+      await client.executeTask({
+        prompt: 'test prompt',
+        verbose: false,
+      });
+
+      // Then: query() の options に allowedTools は含まれない
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.not.objectContaining({
+            allowedTools: expect.anything(),
+          }),
+        }),
+      );
+    });
   });
 
   describe('executeTask', () => {
