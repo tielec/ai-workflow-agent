@@ -36,6 +36,11 @@ Use the PR diff and playbook to list investigation points.
   "reasoning": "Short rationale"
 }
 
+## Constraints
+- Do not explore the codebase with tools such as Grep, Read, Bash, or Task. Derive investigation points only from the diff and the playbook text.
+- Once you have determined the result, your first action must be to use the Write tool to save the JSON to `{output_file_path}`.
+- The playbook's "investigation steps" are for the downstream Investigator stage to execute later. Scoper must not execute them and should only enumerate investigation points.
+
 ## Guidance
 - Prefer patterns that match the playbook triggers.
 - If no points, return empty arrays and explain briefly in reasoning.

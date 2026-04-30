@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Issue #878**: `impact-analysis` Scoper の maxTurns 不足・プレイブック誤読・ツール制限欠如を修正
+  - **問題1（maxTurns 不足）**: Scoper の `maxTurns: 3` が低すぎ、Write ツールに到達する前にエージェントが `error_max_turns` で打ち切られていた
+  - **問題2（プレイブック誤読）**: プレイブック内の「調査手順」をエージェントが即時実行すべき手順と誤解し、Grep/Read/Bash/Task を 50 回以上連打してコードベース探索を開始してしまっていた
+  - **問題3（ツール制限の欠如）**: プロンプト指示だけでは再発防止が困難だった
+  - **`scoper.ts`**: `maxTurns` を定数 `SCOPER_MAX_TURNS = 10` として定義し、3 → 10 に引き上げ。`executeAgentForStage()` オプション型に `allowedTools?: string[]` を追加し Scoper 呼び出し時に `SCOPER_ALLOWED_TOOLS = ['Write']` を指定（Write ツールのみに制限）
+  - **`claude-agent-client.ts`**: `ExecuteTaskOptions` に `allowedTools?: string[]` を追加し、Claude Agent SDK の `query()` の `options.allowedTools` に透過的に渡すよう変更（SDK が `allowedTools` をネイティブサポートしていることを確認済み）
+  - **`codex-agent-client.ts`**: `ExecuteTaskOptions` に `allowedTools?: string[]` を追加し、Codex CLI 非対応分は `systemPrompt` へのツール制約注入でフォールバック対応（`logger.warn` でフォールバック発生をログ記録）
+  - **Scoper プロンプト（日英）**: 「コードベース探索禁止（Grep/Read/Bash/Task 等）」「最初のアクションとして Write で JSON 保存」「プレイブック内調査手順は Investigator の責務であり Scoper は実行しない」の 3 制約を明記した「## 制約事項 / ## Constraints」セクションを追加
+  - 修正ファイル: `src/commands/impact-analysis/scoper.ts`、`src/core/claude-agent-client.ts`、`src/core/codex-agent-client.ts`、`src/prompts/impact-analysis/ja/scoper.txt`、`src/prompts/impact-analysis/en/scoper.txt`
+  - テストカバレッジ: `scoper.test.ts`（maxTurns 値・allowedTools 伝播検証テスト更新）、`claude-agent-client.test.ts`（TC-CLAUDE-AT02/03 追加）、`codex-agent-client.test.ts`（TC-CODEX-AT02/03 追加）、`impact-analysis.test.ts`（Scoper プロンプト制約テスト追加）。`npm run validate` PASS（3815件成功・35件スキップ・0件失敗）
+
 ### Changed
 
 - **Issue #874**: `impact-analysis` レポートの可読性改善
