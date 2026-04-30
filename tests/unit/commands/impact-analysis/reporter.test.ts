@@ -424,40 +424,31 @@ describe('Reporter', () => {
   it('TC-RPT-F02: 出力ファイルがない場合はエージェント出力へフォールバックする', async () => {
     const context = createContext();
     mockExistsSync.mockReturnValue(false);
-    mockExecuteAgentForStage.mockResolvedValue([
-      '# フォールバックレポート',
-      '',
-      '判断は開発者が行ってください',
-    ]);
-
-    const report = await executeReporter(context, baseResult, null, null);
+    mockExecuteAgentForStage.mockResolvedValue(['unused output']);
 
     // Given: レポートファイルが生成されない
     // When: Reporter を実行する
-    // Then: エージェント出力テキストからレポートを返す
-    expect(report.markdown).toBe('# フォールバックレポート\n\n判断は開発者が行ってください');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      '出力ファイルが見つかりません。エージェント出力テキストからレポートを抽出します: /tmp/logs/report.md',
+    // Then: フォールバックせずファイル未生成エラーを送出する
+    await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow(
+      'レポート出力ファイルが見つかりません: /tmp/logs/report.md',
     );
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
   it('TC-RPT-F03: 空ファイル時にエージェント出力からフォールバックする', async () => {
     const context = createContext();
     mockReadFileSync.mockReturnValue('   \n  ');
-    mockExecuteAgentForStage.mockResolvedValue(['# フォールバック内容', '判断は開発者が行ってください']);
-
-    const report = await executeReporter(context, baseResult, null, null);
 
     // Given: 出力ファイルは存在するが内容が空白のみ
     // When: Reporter を実行する
-    // Then: 警告を出しつつエージェント出力へフォールバックする
-    expect(report.markdown).toBe('# フォールバック内容\n判断は開発者が行ってください');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'レポートファイルが空です。エージェント出力テキストからフォールバックします: /tmp/logs/report.md',
+    // Then: フォールバックせず空ファイルエラーを送出する
+    await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow(
+      'レポートファイルが空です: /tmp/logs/report.md',
     );
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
-  it('TC-RPT-F05: 複数エージェントメッセージが結合されてフォールバックする', async () => {
+  it('TC-RPT-F05: 複数エージェントメッセージがあってもフォールバックに使わない', async () => {
     const context = createContext();
     mockExistsSync.mockReturnValue(false);
     mockExecuteAgentForStage.mockResolvedValue([
@@ -465,13 +456,12 @@ describe('Reporter', () => {
       'メッセージ2\n判断は開発者が行ってください',
     ]);
 
-    const report = await executeReporter(context, baseResult, null, null);
-
     // Given: ファイル未生成でエージェント出力が複数メッセージ
     // When: Reporter を実行する
-    // Then: メッセージが改行結合された Markdown を返す
-    expect(report.markdown).toContain('メッセージ1\nメッセージ2');
-    expect(report.markdown).toContain('判断は開発者が行ってください');
+    // Then: メッセージ結合は行わずファイル未生成エラーを返す
+    await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow(
+      'レポート出力ファイルが見つかりません: /tmp/logs/report.md',
+    );
   });
 
   it('TC-RPT-008: エージェントエラーは上位に伝播する', async () => {
@@ -493,9 +483,9 @@ describe('Reporter', () => {
 
     // Given: ファイルもフォールバックも空
     // When: Reporter を実行する
-    // Then: 空出力エラーを送出する
+    // Then: フォールバックを見ずにファイル未生成エラーを送出する
     await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow(
-      '空の出力',
+      'レポート出力ファイルが見つかりません: /tmp/logs/report.md',
     );
   });
 
@@ -506,11 +496,11 @@ describe('Reporter', () => {
 
     // Given: trim 後に空文字列になる出力ファイル
     // When: Reporter を実行する
-    // Then: ファイル空警告後に空出力エラーを送出する
-    await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow('空の出力');
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'レポートファイルが空です。エージェント出力テキストからフォールバックします: /tmp/logs/report.md',
+    // Then: フォールバックせず空ファイルエラーを送出する
+    await expect(executeReporter(context, baseResult, null, null)).rejects.toThrow(
+      'レポートファイルが空です: /tmp/logs/report.md',
     );
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
   it('TC-RPT-V01: 英語レポートでは英語の注意書きを検証する', async () => {
@@ -593,13 +583,28 @@ describe('Reporter', () => {
 
     // Given: 通常の Reporter 実行
     // When: エージェント実行関数が呼ばれる
-    // Then: maxTurns と preferLightweight のオプションが固定される
+    // Then: maxTurns と preferLightweight と allowedTools のオプションが固定される
     expect(mockExecuteAgentForStage).toHaveBeenCalledWith(
       null,
       null,
       expect.any(String),
-      { maxTurns: 3, preferLightweight: true },
+      { maxTurns: 10, preferLightweight: true, allowedTools: ['Write'] },
     );
+  });
+
+  it('TC-RPT-A02: allowedTools が Write のみに制限される', async () => {
+    const context = createContext();
+
+    await executeReporter(context, baseResult, null, null);
+
+    // Given: 通常の Reporter 実行
+    // When: オプション引数を確認する
+    // Then: 許可ツールは Write のみである
+    expect(mockExecuteAgentForStage.mock.calls[0]?.[3]).toEqual({
+      maxTurns: 10,
+      preferLightweight: true,
+      allowedTools: ['Write'],
+    });
   });
 
   it('TC-RPT-C01: ImpactReport の構造が従来と同一である', async () => {
@@ -641,11 +646,12 @@ describe('Reporter', () => {
     expect(report.patternsMatched).toEqual(['パターンA', 'パターンB']);
   });
 
-  it('TC-RPT-S01: ファイル読み込み方式により SDK 生 JSON がレポートに混入しない', async () => {
+  it('TC-RPT-S01: フォールバック経路が存在しないため SDK 生 JSON がレポートに混入しない', async () => {
     const context = createContext();
     mockExecuteAgentForStage.mockResolvedValue([
-      '{"type":"system","subtype":"init"}',
-      '{"type":"result","result":"..."}',
+      '{"type":"system","subtype":"init","session_id":"abc"}',
+      '{"type":"assistant","message":{"model":"claude-opus-4-6"}}',
+      '{"type":"result","subtype":"error_max_turns","duration_ms":1234}',
     ]);
 
     const report = await executeReporter(context, baseResult, null, null);
@@ -656,6 +662,9 @@ describe('Reporter', () => {
     expect(report.markdown).toBe(sampleReportJa);
     expect(report.markdown).not.toContain('"type":"system"');
     expect(report.markdown).not.toContain('"type":"result"');
+    expect(report.markdown).not.toContain('"type":"assistant"');
+    expect(report.markdown).not.toContain('session_id');
+    expect(report.markdown).not.toContain('error_max_turns');
   });
 
   it('TC-RPT-DEL01: 削除対象の内部ヘルパーは公開エクスポートされていない', () => {

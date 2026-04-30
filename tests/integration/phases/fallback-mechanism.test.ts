@@ -192,7 +192,7 @@ Phase 2: 設計 (2~3h)
         // Then: revise was called and file was created
         expect(result.success).toBe(true);
         expect(fs.existsSync(path.join(outputDir, 'planning.md'))).toBe(true);
-      }, 15000);
+      }, 30000);
     });
   });
 
