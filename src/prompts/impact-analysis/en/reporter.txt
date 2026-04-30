@@ -21,6 +21,10 @@ Create a Markdown report suitable for posting as a PR comment.
 - You must write the Markdown report to this exact absolute path using the Write tool: `{output_file_path}`
 - Do not print the Markdown body or JSON to stdout.
 - Do not use relative paths or `/workspace` prefixes. Use the absolute path above exactly as provided.
+- Build the report from the Findings JSON only. Do not explore or verify the PR diff or codebase again.
+- Do not use exploration tools such as `Read`, `Grep`, `Bash`, or `Task`.
+- Your first action must be to use the `Write` tool to write `{output_file_path}`.
+- Even if any `evidence` or finding looks suspicious, do not validate or correct it in Reporter. Validation belongs to Investigator.
 - Follow this template.
 
 # Impact Analysis Report

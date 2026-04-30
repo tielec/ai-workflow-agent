@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #880**: `impact-analysis` Reporter の maxTurns 不足・危険なフォールバック（生 SDK JSON の PR 投稿）を修正
+  - **問題1（maxTurns 不足）**: Reporter の `maxTurns` がデフォルト値（3）のまま低すぎ、Write ツールに到達する前に `error_max_turns` で打ち切られていた
+  - **問題2（危険なフォールバック）**: `readReportOutput()` がファイル未生成時に `agentMessages.join('\n')` で SDK 生ストリーム JSON をそのままフォールバックとして使用しており、生 JSON が PR コメントとして投稿される事象が発生していた
+  - **`reporter.ts`**: `maxTurns` を定数 `REPORTER_MAX_TURNS = 10` として定義し引き上げ。`REPORTER_ALLOWED_TOOLS = ['Write']` 定数を追加し、Write ツールのみに制限（Scoper と同様のプロンプト＋API 多層防御を適用）。`readReportOutput()` から `agentMessages.join('\n')` フォールバックを完全撤廃し、ファイル未生成時・空ファイル時はエラーをスロー
+  - **`impact-analysis.ts`**: Reporter の `executeReporter()` 呼び出しを `try-catch` で囲み、エラー時は PR への投稿をスキップして警告ログを出力し、パイプラインサマリーにエラー情報を記録した後に例外を再スロー（呼び出し元で適切に処理）
+  - **Reporter プロンプト（日英）**: 「コードベース探索禁止（Grep/Read/Bash/Task 等）」「最初のアクションとして Write でレポートを保存」の制約を Scoper プロンプトと同様の形式で追加
+  - 修正ファイル: `src/commands/impact-analysis/reporter.ts`、`src/commands/impact-analysis.ts`、`src/prompts/impact-analysis/ja/reporter.txt`、`src/prompts/impact-analysis/en/reporter.txt`
+  - テストカバレッジ: `reporter.test.ts`（maxTurns・allowedTools・フォールバック撤廃の検証テスト更新）、`impact-analysis.test.ts`（Reporter エラー時のハンドリングテスト追加）。`npm run validate` PASS（3854件中3819件成功・35件スキップ・0件失敗）
+
 - **Issue #878**: `impact-analysis` Scoper の maxTurns 不足・プレイブック誤読・ツール制限欠如を修正
   - **問題1（maxTurns 不足）**: Scoper の `maxTurns: 3` が低すぎ、Write ツールに到達する前にエージェントが `error_max_turns` で打ち切られていた
   - **問題2（プレイブック誤読）**: プレイブック内の「調査手順」をエージェントが即時実行すべき手順と誤解し、Grep/Read/Bash/Task を 50 回以上連打してコードベース探索を開始してしまっていた

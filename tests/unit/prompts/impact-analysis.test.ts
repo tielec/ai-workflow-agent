@@ -13,6 +13,8 @@ describe('impact-analysis prompts', () => {
   const enPromptPath = path.resolve(process.cwd(), 'src/prompts/impact-analysis/en/investigator.txt');
   const jaScoperPromptPath = path.resolve(process.cwd(), 'src/prompts/impact-analysis/ja/scoper.txt');
   const enScoperPromptPath = path.resolve(process.cwd(), 'src/prompts/impact-analysis/en/scoper.txt');
+  const jaReporterPromptPath = path.resolve(process.cwd(), 'src/prompts/impact-analysis/ja/reporter.txt');
+  const enReporterPromptPath = path.resolve(process.cwd(), 'src/prompts/impact-analysis/en/reporter.txt');
 
   it('TC-PROMPT-JA01: 日本語プロンプトにマルウェア確認不要と調査専念の指示が含まれる', () => {
     const prompt = fs.readFileSync(jaPromptPath, 'utf-8');
@@ -69,5 +71,29 @@ describe('impact-analysis prompts', () => {
     expect(prompt).toContain('Do not explore the codebase with tools such as Grep, Read, Bash, or Task');
     expect(prompt).toContain('your first action must be to use the Write tool');
     expect(prompt).toContain('The playbook\'s "investigation steps" are for the downstream Investigator stage');
+  });
+
+  it('TC-RPT-P04-JA: 日本語 Reporter プロンプトに探索禁止と Write 優先が含まれる', () => {
+    const prompt = fs.readFileSync(jaReporterPromptPath, 'utf-8');
+
+    // Given: 日本語 Reporter プロンプト
+    // When: 出力要件を確認する
+    // Then: Findings のみを根拠にし、探索禁止、Write 優先、Investigator との責務分離が含まれる
+    expect(prompt).toContain('Findings JSON だけを根拠にレポートを作成してください');
+    expect(prompt).toContain('`Read` / `Grep` / `Bash` / `Task` などの探索系ツールは使用禁止です');
+    expect(prompt).toContain('最初のアクションとして、必ず `Write` ツール');
+    expect(prompt).toContain('検証は Investigator の責務です');
+  });
+
+  it('TC-RPT-P04-EN: 英語 Reporter プロンプトに対応する制約が含まれる', () => {
+    const prompt = fs.readFileSync(enReporterPromptPath, 'utf-8');
+
+    // Given: 英語 Reporter プロンプト
+    // When: Output requirements を確認する
+    // Then: Findings only、exploration prohibition、Write first、Investigator responsibility が含まれる
+    expect(prompt).toContain('Build the report from the Findings JSON only');
+    expect(prompt).toContain('Do not use exploration tools such as `Read`, `Grep`, `Bash`, or `Task`');
+    expect(prompt).toContain('Your first action must be to use the `Write` tool');
+    expect(prompt).toContain('Validation belongs to Investigator');
   });
 });

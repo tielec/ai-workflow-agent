@@ -7,6 +7,9 @@ import type { ClaudeAgentClient } from '../../core/claude-agent-client.js';
 import type { PipelineContext, InvestigationResult, ImpactReport } from './types.js';
 import { executeAgentForStage } from './scoper.js';
 
+const REPORTER_MAX_TURNS = 10;
+const REPORTER_ALLOWED_TOOLS = ['Write'];
+
 /**
  * Reporterステージ
  */
@@ -20,12 +23,13 @@ export async function executeReporter(
   ensureDirectoryExists(path.dirname(outputPath));
   const prompt = buildReporterPrompt(context, investigationResult, outputPath);
 
-  const agentResult = await executeAgentForStage(codexClient, claudeClient, prompt, {
-    maxTurns: 3,
+  await executeAgentForStage(codexClient, claudeClient, prompt, {
+    maxTurns: REPORTER_MAX_TURNS,
     preferLightweight: true,
+    allowedTools: REPORTER_ALLOWED_TOOLS,
   });
 
-  const markdown = readReportOutput(outputPath, agentResult);
+  const markdown = readReportOutput(outputPath);
   validateReport(markdown, context.options.language);
 
   return {
@@ -68,26 +72,18 @@ function ensureDirectoryExists(dirPath: string): void {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function readReportOutput(outputPath: string, agentMessages: string[]): string {
-  if (fs.existsSync(outputPath)) {
-    const markdown = fs.readFileSync(outputPath, 'utf-8').trim();
-    logger.debug(`Reporter出力ファイルを読み込みました: ${outputPath}`);
-    if (markdown) {
-      return markdown;
-    }
-    logger.warn(`レポートファイルが空です。エージェント出力テキストからフォールバックします: ${outputPath}`);
-  }
+function readReportOutput(outputPath: string): string {
   if (!fs.existsSync(outputPath)) {
-    logger.warn(
-      `出力ファイルが見つかりません。エージェント出力テキストからレポートを抽出します: ${outputPath}`,
-    );
-  }
-  const fallbackMarkdown = agentMessages.join('\n').trim();
-  if (fallbackMarkdown) {
-    return fallbackMarkdown;
+    throw new Error(`レポート出力ファイルが見つかりません: ${outputPath}`);
   }
 
-  throw new Error('レポート生成に失敗しました: 空の出力が返されました');
+  const markdown = fs.readFileSync(outputPath, 'utf-8').trim();
+  if (!markdown) {
+    throw new Error(`レポートファイルが空です: ${outputPath}`);
+  }
+
+  logger.debug(`Reporter出力ファイルを読み込みました: ${outputPath}`);
+  return markdown;
 }
 
 function validateReport(markdown: string, language: 'ja' | 'en'): void {
