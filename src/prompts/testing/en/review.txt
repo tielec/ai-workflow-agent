@@ -21,6 +21,18 @@ Test execution must pass the following quality gates:
 - [ ] **Key test cases are passing**
 - [ ] **Failing tests are being analyzed**
 
+### Special rule for untestable items (physical constraints)
+
+If `test-result.md` contains a `## Untestable Items (Physical Constraints)` section, treat "Key test cases are passing" as satisfied only when all of the following are true:
+
+- Each untestable item includes the required three elements: **Reason for Being Untestable / Required Environment / Alternative Verification Method**
+- The key test cases that were actually testable have passed
+- Untestable items do not make up the majority of the acceptance criteria (rule of thumb: more than 50% should lean to FAIL)
+
+Recommended outcomes:
+- `PASS_WITH_SUGGESTIONS` when the quality gates are met but production-side verification is still required
+- `FAIL` when required elements are missing, the reason is vague, no alternative verification exists, or key testable cases are still failing
+
 ## ⚠️ Important: Check against Planning Phase checklist (required)
 
 ### 1. Load Planning.md
@@ -48,9 +60,9 @@ Check whether each task has been completed by checking against the test results 
 Please update the checkboxes in planning.md based on the verification results:
 
 - Completed tasks: `- [ ]` → `- [x]`
-- Unfinished tasks: `- [ ]` Please use the
+- Unfinished tasks: keep `- [ ]` as-is
 
-**Edit tool** to update the section for that phase.
+Use the **Edit tool** to update the section for that phase.
 
 ### 5. Reflection in review judgment
 
@@ -66,8 +78,9 @@ Please update the checkboxes in planning.md based on the verification results:
 The following tasks are incomplete:
 
 - [ ] Task 6-2: Executing integration tests
-- Missing: Integration tests have not been executed- [ ] Task 6-3: Perform Performance Tests
-- Missing: No performance test results recorded
+  - Missing: Integration tests have not been executed
+- [ ] Task 6-3: Perform performance tests
+  - Missing: No performance test results recorded
 
 Please complete these tasks and resubmit.
 ```
@@ -128,12 +141,14 @@ This review should be conducted according to the "80 points is good enough" prin
 
 - Is the scope covered by the test scenario tested?
 - Are the main functions included in the test?
+- If untestable items exist, are their reasons and alternative verification methods valid?
 
 ## ⚠️ Most important: Quality gates are an absolute requirement
 
-**Quality gates (3 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL. **
+**Quality gates (3 items) are mandatory requirements. If even one of the criteria is not met, the judgment will automatically be FAIL.**
 
-- Quality gate is a "minimum standard that must be cleared" and is non-negotiable- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate
+- A quality gate is a "minimum standard that must be cleared" and is non-negotiable
+- The principle of "80 points is enough" applies to improvement proposals after meeting the quality gate
 - It is not allowed to proceed to the next phase without meeting the quality gate
 
 ## Distinction between BLOCKER and improvement suggestion (SUGGESTION)
@@ -145,6 +160,8 @@ This review should be conducted according to the "80 points is good enough" prin
 - All tests have failed
 - Tests for critical functions have failed
 - The causes of test failures have not been analyzed at all
+- Reasons for untestable items are vague, or the required three elements are missing
+- Untestable items make up the majority of the acceptance criteria
 
 ### SUGGESTION: Proceed to the next phase, but what should be improved
 
@@ -153,6 +170,7 @@ This review should be conducted according to the "80 points is good enough" prin
 - Tests for some non-critical functions have failed
 - Expanding test coverage
 - Additional investigation for test failures
+- Clarifying the production acceptance plan for untestable items
 
 ### Decision rule
 
@@ -172,11 +190,11 @@ PASS_WITH_SUGGESTIONS only if all of the following are met:
 
 #### FAIL (FAIL)
 
-If any of the following** apply: FAIL:
+FAIL if **any** of the following apply:
 - ❌ **One or more of the quality gates (3 items) are not met**
 - ❌ One or more blockers exist
 
-** Important: Quality gates are absolute requirements, and if even one is not met, it is an automatic FAIL. **
+**Important: Quality gates are absolute requirements, and if even one is not met, it is an automatic FAIL.**
 
 ## Output format
 
@@ -185,7 +203,7 @@ Please output in the following format:
 ```markdown
 ## Quality gate evaluation
 
-**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL. **
+**⚠️ Important: Please explicitly judge PASS/FAIL for each item. If there is even one FAIL, the final judgment is automatically FAIL.**
 
 - [x/ ] **Tests are being executed**: **PASS / FAIL** - (Decision reason)
 - [x/ ] **Key test cases are passing**: **PASS / FAIL** - (Decision reason)
@@ -194,7 +212,8 @@ Please output in the following format:
 **Quality gate overall verdict: PASS / FAIL**
 - PASS: All 3 items above are PASS
 - FAIL: Any one of the 3 items above is FAIL
-**If the quality gate judgment is FAIL, the final judgment will automatically be FAIL. **
+
+**If the quality gate judgment is FAIL, the final judgment will automatically be FAIL.**
 
 ## Detailed review
 
@@ -249,6 +268,8 @@ Please output in the following format:
 - Current status: (Current status)
 - Suggestions: (Better this way)
 - Effects: (Effects of improvement)
+
+If untestable items exist, include a **production acceptance plan or next verification timing** in at least one suggestion.
 
 ## Overall evaluation
 

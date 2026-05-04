@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #882**: `testing` フェーズで物理制約により検証不能な受け入れ基準が3回失敗で停止する仕様を緩和（案B: 検証不能項目の正規出口）
+  - **問題**: 実機ハードウェア・SaaS 本番環境・特定 OS・ライセンス制約のあるツール等の物理的制約により検証不能な受け入れ基準が含まれていると、`testing.review()` の品質ゲートを満たせず、`revise()` が最大3回リトライした後にワークフロー全体が例外で停止していた
+  - **対応**: testing フェーズのプロンプト（execute/review/revise）と report フェーズのプロンプトに「検証不能項目（物理制約）」の正規化された出口を追加。TypeScript コードの変更はなし（プロンプトのみの改修）
+  - **`testing/ja/execute.txt`・`testing/en/execute.txt`**: `test-result.md` の出力テンプレートに「## 検証不能項目（物理制約）」セクションのフォーマットを追加。必須3要素（検証不能の理由・必要な環境・代替検証手段）と推奨2要素（代替検証の実施結果・本番検証の推奨タイミング）のテンプレートを定義。正当な物理制約の例・不正な理由の例を明示し、スキップ判定（Issue #411）との違いを明確化
+  - **`testing/ja/review.txt`・`testing/en/review.txt`**: 品質ゲート「主要なテストケースが成功している」の評価規準を拡張。必須3要素が記載された検証不能項目がある場合は「検証可能だった範囲で成功していれば PASS」と判定。FAIL 条件（曖昧な理由・検証可能範囲の失敗・50%超が検証不能）を追加。`PASS_WITH_SUGGESTIONS` 推奨時に「未検証項目の本番受け入れ計画」セクションを改善提案に含めるルールを追加
+  - **`testing/ja/revise.txt`・`testing/en/revise.txt`**: 既存の2選択肢（Phase 4 に戻る / 環境を直す）に「選択肢3: 物理制約による検証不能項目として記録」を追加。適用条件（コード修正・環境修正で解決しない物理制約のみ）・手順（5ステップ）・Phase 4 に戻すべきではない理由を明記
+  - **`report/ja/execute.txt`・`report/en/execute.txt`**: エグゼクティブサマリーテンプレートに「未検証項目（物理制約）」集約セクションを追加。`test-result.md` の検証不能項目を PR 本文に転記し、人間レビュアーによる本番検証を担保する仕組みを実装。セクションが存在しない場合は出力しない（後方互換性維持）
+  - 変更ファイル: `src/prompts/testing/ja/execute.txt`、`src/prompts/testing/ja/review.txt`、`src/prompts/testing/ja/revise.txt`、`src/prompts/testing/en/execute.txt`、`src/prompts/testing/en/review.txt`、`src/prompts/testing/en/revise.txt`、`src/prompts/report/ja/execute.txt`、`src/prompts/report/en/execute.txt`
+  - テストカバレッジ: `tests/unit/prompts/issue-882-physical-constraints-prompts.test.ts`（12件新規追加）。`npm run validate` PASS（3831件成功・35件スキップ・0件失敗）
+
 - **Issue #880**: `impact-analysis` Reporter の maxTurns 不足・危険なフォールバック（生 SDK JSON の PR 投稿）を修正
   - **問題1（maxTurns 不足）**: Reporter の `maxTurns` がデフォルト値（3）のまま低すぎ、Write ツールに到達する前に `error_max_turns` で打ち切られていた
   - **問題2（危険なフォールバック）**: `readReportOutput()` がファイル未生成時に `agentMessages.join('\n')` で SDK 生ストリーム JSON をそのままフォールバックとして使用しており、生 JSON が PR コメントとして投稿される事象が発生していた

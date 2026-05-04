@@ -3,8 +3,8 @@
 **IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
 
 ## ⚠️ Required task
-**Make sure to update test-result.md. Use the **
-Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.
+**Make sure to update test-result.md.**
+Use the Write tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`, completely replacing the old content and recording only the latest test results.
 Omitting this update will result in an error in the workflow.
 
 ## Task Summary
@@ -29,7 +29,7 @@ Correct the issues identified in the review and rerun the test.
 ## Correction instructions
 
 ### ⚠️ Most important: Required file update
-**Please overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool as a top priority. Please only include the latest test results and do not keep old records.
+**Please overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool as a top priority.** Please only include the latest test results and do not keep old records.
 
 ### Resolving BLOCKER
 
@@ -53,7 +53,7 @@ Issues listed in the "Blocker" section of the review results are **serious issue
 
 Confirm the review results and select one of the following:
 
-#### Choice 1: Phase Go back to 4 and fix your implementation
+#### Choice 1: Go back to Phase 4 and fix your implementation
 
 If you have problems with your implementation, this prompt won't help.
 **Phase 4 revision() must be performed**.
@@ -63,7 +63,8 @@ In this case, please record the following:
 ```markdown
 # Need for implementation modification due to test failure
 
-## Reason for modification.(Why you need to go back to Phase 4)
+## Reason for modification
+(Why you need to go back to Phase 4)
 
 ## Failed tests
 (Which test failed)
@@ -84,10 +85,32 @@ If there is a problem with the test environment, modify the environment and reru
 3. Rerun the tests
 4. Record test results
 
+#### Choice 3: Record as untestable due to physical constraints
+
+Use this choice only when **all** of the following are true:
+- The issue cannot be solved by implementation changes
+- The issue cannot be solved by environment fixes or dependency installation
+- The cause is a physical constraint such as real hardware, production SaaS, a specific OS, or licensing restrictions
+
+Steps for this choice:
+1. Still execute every testable test to completion
+2. Add a `## Untestable Items (Physical Constraints)` section to `test-result.md`
+3. Record the required three elements for each item:
+   - **Reason for Being Untestable**
+   - **Required Environment**
+   - **Alternative Verification Method**
+4. Add these when possible:
+   - **Alternative Verification Results**
+   - **Recommended Production Verification Timing**
+5. Do not return to Phase 4 casually just because a physical constraint exists
+
+If any required element is missing, review should mark the result as FAIL.
+
 ## Correct steps (checklist)
 - [ ] 1. Check review results and organize blockers/improvement suggestions
-- [ ] 2. Phase 4 as necessary Clarify the decision to return to
+- [ ] 2. Clarify whether it is necessary to return to Phase 4
 - [ ] 3. Prepare the test environment and prepare for re-execution
+- [ ] 3.5 If the issue cannot be solved because of physical constraints, decide whether to record it as an untestable item
 - [ ] 4. **Overwrite and save `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md` with the Write tool** (required)
 - [ ] 5. Check the quality gates after modification (blockers removed, major tests passed, preparation for next phase)
 
@@ -107,7 +130,7 @@ After the modification is completed, please check the following:
 
 ## Update test results
 
-If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Be sure to completely replace the old content and record only the latest test-result.md. The following template is an example of the content structure (must be overwritten, not appended):
+If you have re-run the tests, use the `Write` tool to **overwrite** `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. Be sure to completely replace the old content and record only the latest test results. The following template is an example of the content structure (must be overwritten, not appended):
 
 ```markdown
 ## Re-execution result
@@ -119,12 +142,25 @@ If you have re-run the tests, use the `Write` tool to Please **overwrite** `.ai-
 - **Changes**: (Change from last time)
 ```
 
+If you record untestable items caused by physical constraints, also include the following section:
+
+```markdown
+## Untestable Items (Physical Constraints)
+
+### Untestable Item 1: <Acceptance Criterion / Scenario Name>
+- **Reason for Being Untestable**: (Specific physical constraint)
+- **Required Environment**: (Required hardware, OS, or service)
+- **Alternative Verification Method**: (Alternative verification that was performed)
+- **Alternative Verification Results**: (Optional)
+- **Recommended Production Verification Timing**: (Optional)
+```
+
 ## Output format
 **Important**: Be sure to **overwrite** the modified test results as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`. If you have an existing file, completely replace the old contents and record only the latest test results.
 
 ## ⚠️ Important: Don'ts of running test processes (Issue #267)
 
-** Never use KillShell. **
+**Never use KillShell.**
 
 Tests can take a long time to run (from a few minutes to more than 10 minutes). Please strictly adhere to the following rules:
 
@@ -137,7 +173,7 @@ Tests can take a long time to run (from a few minutes to more than 10 minutes). 
 - **Set a sufficient timeout**: Set a sufficient timeout (10 minutes or more) for the test run command
 - **Leverage background execution**: Use the `run_in_background: true` option for long-running tests and check the results in `BashOutput`
 
-** Always wait until the test completes. ** Killing the test process will result in incomplete test results and workflow failures.
+**Always wait until the test completes.** Killing the test process will result in incomplete test results and workflow failures.
 
 ## Start correction
 

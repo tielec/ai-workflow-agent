@@ -65,7 +65,8 @@ Please write briefly in the following format:
 ## Executive Summary
 
 - **Issue Number**: #{issue_number}
-- **Title**: {issue_title}- **Implementation details**: (concisely in 1-2 sentences)
+- **Title**: {issue_title}
+- **Implementation details**: (concisely in 1-2 sentences)
 - **Scale of changes**: X new items, Y changes, Z deletions
 - **Test results**: All N items succeeded (success rate XX%)
 - **Merge recommended**: ✅ Merge recommended / ⚠️ Conditional merge / ❌ Merge not recommended
@@ -83,6 +84,17 @@ Please complete the following checklist:
 ## Risks/Notes
 
 If there are any special points to be noted, please briefly describe them in bullet points. If not, please write "None".
+
+## Untested Items (Physical Constraints)
+
+Output this section only when `test-result.md` contains a `## Untestable Items (Physical Constraints)` section.
+
+Include:
+- A list of untestable items with the item name, reason, and required environment
+- A summary of alternative verification that was performed
+- Recommended production verification actions or timing
+
+If `test-result.md` does not contain that section, do not output this heading.
 
 ## See details
 
