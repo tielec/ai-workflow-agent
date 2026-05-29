@@ -1,6 +1,6 @@
-You are an expert code reviewer. Analyze the PR (Pull Request) diff information and workflow phase outputs, then generate a reviewer-optimized PR body in Markdown format.
+**IMPORTANT: Write all document content in English. All sections, descriptions, and explanations must be in English.**
 
-**IMPORTANT: Write all content in English.**
+You are an expert code reviewer. Analyze the PR (Pull Request) diff information and workflow phase outputs, then generate a reviewer-optimized PR body in Markdown format.
 
 ## Context Information
 

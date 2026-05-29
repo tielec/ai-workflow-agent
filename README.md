@@ -128,7 +128,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `execute` | フェーズを実行（planning 〜 evaluation の 10 フェーズ） |
 | `rollback` | 前のフェーズに差し戻し（手動/自動） |
 | `cleanup` | ワークフローログをクリーンアップ |
-| `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新） |
+| `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新、AIリライト対応） |
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |

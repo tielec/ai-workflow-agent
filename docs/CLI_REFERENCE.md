@@ -943,6 +943,43 @@ node dist/index.js finalize --issue <NUM> --base-branch develop
 - `--skip-squash`: Step 3（コミットスカッシュ）をスキップ
 - `--skip-pr-update`: Step 4-5（PR更新・ドラフト解除）をスキップ
 - `--base-branch <branch>`: PRのマージ先ブランチ（デフォルト: `main`）
+- `--ai-rewrite`: AIエージェントによるPRボディリライトを有効化（デフォルト: `false`、Issue #888）。有効時、diff情報とフェーズ成果物を分析してレビュアー向けPRボディを自動生成する
+- `--agent <mode>`: AIリライト時のエージェントモード（`auto` | `codex` | `claude`、デフォルト: `auto`）。`--ai-rewrite` 有効時のみ機能する
+
+#### AIリライト機能（Issue #888）
+
+`--ai-rewrite` オプションを指定すると、AIエージェント（Claude / Codex）を活用して、レビュアー向けに最適化されたPRボディを自動生成します。
+
+```bash
+# AIリライト付きでfinalize
+node dist/index.js finalize --issue 123 --ai-rewrite
+
+# エージェントを指定してAIリライト
+node dist/index.js finalize --issue 123 --ai-rewrite --agent claude
+
+# ドライランでAIリライト設定を確認
+node dist/index.js finalize --issue 123 --ai-rewrite --dry-run
+```
+
+**AIリライトの動作**:
+1. フェーズ成果物（planning.md、design.md等）を `.ai-workflow/` 削除前に事前収集
+2. PRのdiff情報を GitHub API 経由で取得（大規模diffは自動的にファイルサマリーに切り詰め）
+3. 収集した情報をもとにAIエージェント用プロンプトを構築
+4. エージェントを実行してレビュアー向けPRボディを生成
+5. 生成されたPRボディに必須セクション（変更概要/主要な変更点）が含まれているか検証
+
+**フォールバック動作**:
+AIリライトが失敗した場合（エージェント認証情報なし、エージェント実行エラー、必須セクション検証失敗）、従来の `generateFinalPrBody` によるPRボディが自動的に使用されます。finalize コマンド全体がエラー終了することはありません。
+
+**エージェント優先順位**（`--agent auto` の場合）:
+1. Claude エージェントを優先して試行
+2. Claude が失敗した場合、Codex にフォールバック
+3. 両方失敗した場合、従来のPRボディにフォールバック
+
+**リソース制約**:
+- diff テキスト: 最大 50,000 文字（超過時はファイル変更サマリーのみ）
+- フェーズ成果物: 各ファイル最大 10,000 文字（超過時は切り詰め）
+- 変更ファイル数: 300 ファイル超の場合はサマリーのみ
 
 **主な機能**:
 - **通常クリーンアップ**: Phase 0-8のワークフローログを削除（`execute/`, `review/`, `revise/` ディレクトリ）
