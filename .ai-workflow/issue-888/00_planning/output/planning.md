@@ -179,16 +179,16 @@ Issue #888 は、`finalize` コマンドに `--ai-rewrite` オプションを追
 
 ### Phase 4: 実装 (見積もり: 2〜3h)
 
-- [ ] Task 4-1: 実装コードの品質確認と微調整 (1〜1.5h)
+- [x] Task 4-1: 実装コードの品質確認と微調整 (1〜1.5h)
   - `finalize.ts` のAIリライト関数群のコードレビュー
   - ロギング規約（`logger` モジュール使用）の遵守確認
   - エラーハンドリング規約（`getErrorMessage()` 使用）の遵守確認
   - 環境変数アクセス規約（`config` クラス使用）の遵守確認
-- [ ] Task 4-2: プロンプト品質チューニング (1〜1.5h)
+- [x] Task 4-2: プロンプト品質チューニング (1〜1.5h)
   - `rewrite_pr_body.txt`（日本語・英語）のプロンプト指示の明確化
   - 出力例の充実（レビュアーが価値を感じるPRボディの具体例）
   - テンプレートのセクション構成の最適化（実用性の観点）
-- [ ] Task 4-3: Jenkins パラメータ対応の確認 (0.5h)
+- [x] Task 4-3: Jenkins パラメータ対応の確認 (0.5h)
   - `jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile` に `--ai-rewrite` パラメータが含まれているか確認
   - Jenkins から `--ai-rewrite` オプションを指定して実行できることの確認
 
