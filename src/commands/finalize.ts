@@ -1,12 +1,14 @@
 /**
- * Finalize コマンドハンドラ（Issue #261）
+ * Finalize コマンドハンドラ（Issue #261, #888）
  *
  * ワークフロー完了時の最終処理を統合したコマンドとして実装。
- * - CLI引数解析（--issue, --dry-run, --skip-squash, --skip-pr-update, --base-branch）
+ * - CLI引数解析（--issue, --dry-run, --skip-squash, --skip-pr-update, --base-branch, --ai-rewrite, --agent）
  * - 5ステップの順次実行（base_commit取得、クリーンアップ、スカッシュ、PR更新、ドラフト解除）
  * - エラーハンドリング（各ステップで明確なエラーメッセージ）
+ * - AIリライト機能（--ai-rewrite 指定時、レビュアー向けPRボディを自動生成）
  */
 
+import * as fs from 'node:fs';
 import path from 'node:path';
 import simpleGit from 'simple-git';
 import { logger } from '../utils/logger.js';
@@ -16,6 +18,11 @@ import { ArtifactCleaner } from '../phases/cleanup/artifact-cleaner.js';
 import { GitHubClient } from '../core/github-client.js';
 import { findWorkflowMetadata } from '../core/repository-utils.js';
 import { getErrorMessage } from '../utils/error-utils.js';
+import { config } from '../core/config.js';
+import { PromptLoader } from '../core/prompt-loader.js';
+import { resolveAgentCredentials, setupAgentClients, type AgentPriority } from './execute/agent-setup.js';
+import type { ClaudeAgentClient } from '../core/claude-agent-client.js';
+import type { CodexAgentClient } from '../core/codex-agent-client.js';
 import type { FinalizeContext } from '../core/git/squash-manager.js';
 import type { PhaseName, SupportedLanguage } from '../types.js';
 
@@ -90,7 +97,66 @@ export interface FinalizeCommandOptions {
 
   /** PRのマージ先ブランチ（オプション、デフォルト: main） */
   baseBranch?: string;
+
+  /** AIリライト有効化フラグ（オプション、デフォルト: false）
+   *  FR-001: --ai-rewrite オプション（Issue #888） */
+  aiRewrite?: boolean;
+
+  /** エージェントモード（オプション、デフォルト: 'auto'）
+   *  FR-002: --agent オプション（Issue #888）
+   *  --ai-rewrite が有効な場合のみ使用される */
+  agent?: 'auto' | 'codex' | 'claude';
 }
+
+// =========================================================================
+// AI Rewrite 関連の型定義（Issue #888）
+// =========================================================================
+
+/**
+ * 収集されたフェーズ成果物のコンテキスト情報
+ */
+interface CollectedPhaseOutputs {
+  /** フェーズ名をキー、成果物テキストを値とするマップ
+   *  ファイル不在の場合はフォールバックテキストが設定される */
+  outputs: Record<string, string>;
+
+  /** 収集されたフェーズの数（ファイルが実在したもの） */
+  collectedCount: number;
+
+  /** 全フェーズ数 */
+  totalCount: number;
+}
+
+/**
+ * プロンプト用に整形されたdiff情報
+ */
+interface DiffContext {
+  /** プロンプトに含めるdiffテキスト */
+  content: string;
+
+  /** トランケーションが行われたかどうか */
+  wasTruncated: boolean;
+
+  /** 変更ファイル数 */
+  filesChanged: number;
+}
+
+// =========================================================================
+// AI Rewrite 定数（Issue #888）
+// =========================================================================
+
+/** 成果物ファイルの最大文字数（FR-004） */
+const MAX_PHASE_OUTPUT_LENGTH = 10_000;
+
+/** diff テキストの最大文字数（FR-003） */
+const MAX_DIFF_LENGTH = 50_000;
+
+/** diff ファイル数の上限閾値 */
+const MAX_DIFF_FILES_THRESHOLD = 300;
+
+// =========================================================================
+// メインフロー
+// =========================================================================
 
 /**
  * handleFinalizeCommand - finalize コマンドのエントリーポイント
@@ -110,6 +176,13 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
     return;
   }
 
+  // ★ 新規（Issue #888）: Step 2 実行前にフェーズ成果物を収集
+  // TC-007: .ai-workflow/ 削除前に成果物を保持する必要がある
+  let collectedOutputs: CollectedPhaseOutputs | null = null;
+  if (options.aiRewrite) {
+    collectedOutputs = collectPhaseOutputs(metadataManager);
+  }
+
   // 4. Step 1: base_commit 取得・一時保存
   const { baseCommit, headBeforeCleanup } = await executeStep1(metadataManager, repoDir);
 
@@ -125,7 +198,7 @@ export async function handleFinalizeCommand(options: FinalizeCommandOptions): Pr
 
   // 7. Step 4-5: PR 更新とドラフト解除（--skip-pr-update でスキップ可能）
   if (!options.skipPrUpdate) {
-    await executeStep4And5(metadataManager, options);
+    await executeStep4And5(metadataManager, options, collectedOutputs);
   } else {
     logger.info('Skipping PR update and draft conversion (--skip-pr-update option)');
   }
@@ -286,14 +359,19 @@ async function executeStep3(
 }
 
 /**
- * executeStep4And5 - PR 本文更新とドラフト解除
+ * executeStep4And5 - PR 本文更新とドラフト解除（拡張版 Issue #888）
+ *
+ * FR-001, FR-008, FR-009 に基づき、--ai-rewrite フラグに応じて
+ * AIリライトまたは従来のPRボディ生成を選択する。
  *
  * @param metadataManager - メタデータマネージャー
  * @param options - CLI オプション
+ * @param collectedOutputs - 事前収集されたフェーズ成果物（--ai-rewrite 時のみ非null）
  */
 async function executeStep4And5(
   metadataManager: MetadataManager,
-  options: FinalizeCommandOptions
+  options: FinalizeCommandOptions,
+  collectedOutputs: CollectedPhaseOutputs | null = null,
 ): Promise<void> {
   logger.info('Step 4-5: Updating PR and marking as ready for review...');
 
@@ -323,8 +401,27 @@ async function executeStep4And5(
 
   logger.info(`Found PR #${prNumber} for repository ${targetRepo?.owner}/${targetRepo?.repo}`);
 
+  // ★ 変更（Issue #888）: PRボディ生成の分岐
+  let prBody: string;
+
+  // FR-009: --ai-rewrite 未指定時は従来動作を100%保持
+  const fallbackBody = generateFinalPrBody(metadataManager, issueNumber);
+
+  if (options.aiRewrite && collectedOutputs) {
+    // FR-001: --ai-rewrite 指定時のAIリライトフロー
+    prBody = await generateAiRewrittenPrBody(
+      metadataManager,
+      options,
+      prNumber,
+      prClient,
+      collectedOutputs,
+      fallbackBody,
+    );
+  } else {
+    prBody = fallbackBody;
+  }
+
   // Step 4a: PR 本文更新
-  const prBody = generateFinalPrBody(metadataManager, issueNumber);
   const updateResult = await prClient.updatePullRequest(prNumber, prBody);
   if (!updateResult.success) {
     throw new Error(`Failed to update PR: ${updateResult.error}`);
@@ -445,7 +542,9 @@ ${testStatus}
 }
 
 /**
- * previewFinalize - ドライランモードでプレビュー表示
+ * previewFinalize - ドライランモードでプレビュー表示（拡張版 Issue #888）
+ *
+ * FR-011 に基づき、--ai-rewrite の状態をプレビューに含める。
  *
  * @param options - CLI オプション
  * @param metadataManager - メタデータマネージャー
@@ -468,7 +567,17 @@ async function previewFinalize(
   }
 
   if (!options.skipPrUpdate) {
-    logger.info('  4. Update PR body with final content');
+    // FR-011: --ai-rewrite の状態を表示（Issue #888）
+    if (options.aiRewrite) {
+      const agentMode = options.agent ?? 'auto';
+      const language = metadataManager.getLanguage() || 'ja';
+      const text = language === 'ja'
+        ? `  4. PR更新: AI リライトが有効（エージェント: ${agentMode}）`
+        : `  4. PR Update: AI rewrite enabled (agent: ${agentMode})`;
+      logger.info(text);
+    } else {
+      logger.info('  4. Update PR body with final content');
+    }
     if (options.baseBranch) {
       logger.info(`  5. Change PR base branch to '${options.baseBranch}'`);
     }
@@ -479,4 +588,379 @@ async function previewFinalize(
 
   logger.info('');
   logger.info('[DRY RUN] No changes were made. Remove --dry-run to execute.');
+}
+
+// =========================================================================
+// AI Rewrite 関連関数（Issue #888）
+// =========================================================================
+
+/**
+ * collectPhaseOutputs - フェーズ成果物を収集する
+ *
+ * FR-004 に基づき、各フェーズの output ファイルを読み込んで
+ * CollectedPhaseOutputs として返す。
+ *
+ * @param metadataManager - メタデータマネージャー
+ * @returns 収集されたフェーズ成果物
+ */
+function collectPhaseOutputs(
+  metadataManager: MetadataManager,
+): CollectedPhaseOutputs {
+  logger.info('Collecting phase outputs for AI rewrite...');
+
+  const baseDir = metadataManager.workflowDir;
+
+  // FR-004: 収集対象フェーズ成果物の定義
+  const phaseFiles: Record<string, string> = {
+    planning: path.join(baseDir, '00_planning', 'output', 'planning.md'),
+    requirements: path.join(baseDir, '01_requirements', 'output', 'requirements.md'),
+    design: path.join(baseDir, '02_design', 'output', 'design.md'),
+    test_scenario: path.join(baseDir, '03_test_scenario', 'output', 'test-scenario.md'),
+    implementation: path.join(baseDir, '04_implementation', 'output', 'implementation.md'),
+    test_result: path.join(baseDir, '06_testing', 'output', 'test-result.md'),
+    documentation: path.join(baseDir, '07_documentation', 'output', 'documentation-update-log.md'),
+  };
+
+  const outputs: Record<string, string> = {};
+  let collectedCount = 0;
+  const totalCount = Object.keys(phaseFiles).length;
+
+  for (const [phaseName, filePath] of Object.entries(phaseFiles)) {
+    try {
+      if (fs.existsSync(filePath)) {
+        let content = fs.readFileSync(filePath, 'utf-8');
+        // FR-004: 各成果物ファイルの内容は最大 10,000 文字に制限
+        if (content.length > MAX_PHASE_OUTPUT_LENGTH) {
+          content = content.substring(0, MAX_PHASE_OUTPUT_LENGTH)
+            + '\n\n... (以降省略)';
+          logger.debug(`Phase output '${phaseName}' truncated to ${MAX_PHASE_OUTPUT_LENGTH} chars`);
+        }
+        outputs[phaseName] = content;
+        collectedCount++;
+        logger.debug(`Collected phase output: ${phaseName} (${content.length} chars)`);
+      } else {
+        outputs[phaseName] = '（このフェーズの成果物は利用できません）';
+        logger.debug(`Phase output not found: ${phaseName} (${filePath})`);
+      }
+    } catch (error: unknown) {
+      outputs[phaseName] = '（このフェーズの成果物の読み込みに失敗しました）';
+      logger.warn(`Failed to read phase output '${phaseName}': ${getErrorMessage(error)}`);
+    }
+  }
+
+  logger.info(`Phase outputs collected: ${collectedCount}/${totalCount}`);
+  return { outputs, collectedCount, totalCount };
+}
+
+/**
+ * getDiffForPrompt - プロンプト用のdiff情報を取得・整形する
+ *
+ * FR-003 に基づき、PullRequestClient から diff を取得し、
+ * 必要に応じてトランケーションを行う。
+ *
+ * @param prClient - PullRequestClient インスタンス
+ * @param prNumber - PR番号
+ * @returns プロンプト用に整形されたdiffコンテキスト
+ */
+async function getDiffForPrompt(
+  prClient: ReturnType<GitHubClient['getPullRequestClient']>,
+  prNumber: number,
+): Promise<DiffContext> {
+  try {
+    const diffResult = await prClient.getPullRequestDiff(prNumber);
+
+    // FR-003: トランケーション戦略
+    if (diffResult.filesChanged > MAX_DIFF_FILES_THRESHOLD || diffResult.diff.length > MAX_DIFF_LENGTH) {
+      // 大規模diffの場合: ファイル変更リストのサマリーのみ
+      const summary = extractDiffFileSummary(diffResult.diff);
+      const truncationNote = diffResult.filesChanged > MAX_DIFF_FILES_THRESHOLD
+        ? `このPRは ${diffResult.filesChanged} ファイルを変更しています（${MAX_DIFF_FILES_THRESHOLD}ファイル超）。diff全文は省略し、ファイル変更リストのサマリーのみを提供しています。`
+        : `diffが大規模（${diffResult.diff.length.toLocaleString()} 文字）なためサマリーのみ提供しています。`;
+
+      return {
+        content: `${truncationNote}\n\n${summary}`,
+        wasTruncated: true,
+        filesChanged: diffResult.filesChanged,
+      };
+    }
+
+    // 通常サイズの場合: diff全文を返却
+    return {
+      content: diffResult.diff,
+      wasTruncated: false,
+      filesChanged: diffResult.filesChanged,
+    };
+  } catch (error: unknown) {
+    // FR-003: diff取得失敗時はdiffなしでプロンプトを構築
+    logger.warn(`Failed to get PR diff: ${getErrorMessage(error)}`);
+    return {
+      content: '（diff情報の取得に失敗しました。フェーズ成果物のみでPRボディを生成します。）',
+      wasTruncated: false,
+      filesChanged: 0,
+    };
+  }
+}
+
+/**
+ * extractDiffFileSummary - diff テキストからファイル変更リストのサマリーを抽出する
+ *
+ * diff のヘッダー行（'diff --git a/... b/...'）を解析し、
+ * 各ファイルの変更概要（追加/削除行数）を生成する。
+ *
+ * @param diffText - 生のdiffテキスト
+ * @returns ファイル変更リストのMarkdownサマリー
+ */
+function extractDiffFileSummary(diffText: string): string {
+  const lines = diffText.split('\n');
+  const fileSummaries: string[] = [];
+
+  let currentFile = '';
+  let additions = 0;
+  let deletions = 0;
+
+  for (const line of lines) {
+    if (line.startsWith('diff --git')) {
+      // 前のファイルの集計を保存
+      if (currentFile) {
+        fileSummaries.push(`- ${currentFile}: +${additions} -${deletions}`);
+      }
+      // 新しいファイル名を抽出
+      const match = line.match(/diff --git a\/.+ b\/(.+)/);
+      currentFile = match ? match[1] : line;
+      additions = 0;
+      deletions = 0;
+    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      additions++;
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+      deletions++;
+    }
+  }
+
+  // 最後のファイル
+  if (currentFile) {
+    fileSummaries.push(`- ${currentFile}: +${additions} -${deletions}`);
+  }
+
+  return `### 変更ファイル一覧（${fileSummaries.length} ファイル）\n\n${fileSummaries.join('\n')}`;
+}
+
+/**
+ * buildPromptContext - AIリライト用のプロンプトを構築する
+ *
+ * FR-005 に基づき、プロンプトテンプレートにコンテキスト変数を埋め込む。
+ * NFR-002（ReDoS防止）に準拠し、replaceAll() を使用する。
+ *
+ * @param issueNumber - Issue番号
+ * @param issueTitle - Issueタイトル
+ * @param diffContext - diff情報
+ * @param phaseOutputs - フェーズ成果物
+ * @param language - 言語設定
+ * @returns 構築されたプロンプト文字列
+ */
+function buildPromptContext(
+  issueNumber: number,
+  issueTitle: string,
+  diffContext: DiffContext,
+  phaseOutputs: CollectedPhaseOutputs,
+  language: SupportedLanguage,
+): string {
+  // プロンプトテンプレートの読み込み
+  const promptTemplate = PromptLoader.loadPrompt(
+    'finalize',
+    'rewrite_pr_body',
+    language,
+  );
+
+  // PRボディテンプレートの読み込み（出力構造の指示用）
+  const bodyTemplate = PromptLoader.loadTemplate(
+    'pr_body_finalize_template.md',
+    language,
+  );
+
+  // フェーズ成果物を結合テキストに変換
+  const phaseOutputsText = Object.entries(phaseOutputs.outputs)
+    .map(([phase, content]) => `### ${phase}\n\n${content}`)
+    .join('\n\n---\n\n');
+
+  // PC-004 準拠: replaceAll() を使用してReDoS防止
+  let prompt = promptTemplate;
+  prompt = prompt.replaceAll('{issue_number}', String(issueNumber));
+  prompt = prompt.replaceAll('{issue_title}', issueTitle);
+  prompt = prompt.replaceAll('{diff_content}', diffContext.content);
+  prompt = prompt.replaceAll('{phase_outputs}', phaseOutputsText);
+  prompt = prompt.replaceAll('{template_structure}', bodyTemplate);
+
+  return prompt;
+}
+
+/**
+ * validateRequiredSections - AI生成PRボディに必須セクションが含まれているか検証する
+ *
+ * FR-008 に基づき、生成されたPRボディに必須のMarkdownヘッダーが
+ * 含まれているかを検証する。
+ *
+ * @param body - AI生成されたPRボディ
+ * @param language - 言語設定
+ * @returns 必須セクションが含まれていればtrue
+ */
+function validateRequiredSections(body: string, language: SupportedLanguage): boolean {
+  // 言語別の必須セクション見出し（部分一致で検証）
+  const requiredHeaders: Record<SupportedLanguage, string[]> = {
+    ja: ['変更概要', '主要な変更点'],
+    en: ['Summary', 'Key Changes'],
+  };
+
+  const headers = requiredHeaders[language] ?? requiredHeaders.ja;
+
+  // 少なくとも1つの必須ヘッダーが見つかればOK
+  // （AIの出力は完全一致しない場合があるため、厳密すぎる検証は避ける）
+  const foundCount = headers.filter(header =>
+    body.includes(header)
+  ).length;
+
+  return foundCount >= 1;
+}
+
+/**
+ * executeAgentTask - エージェントにタスクを実行させる（プライマリ→セカンダリフォールバック）
+ *
+ * FR-008 のフォールバックチェーンに従い、
+ * プライマリエージェントが失敗した場合はセカンダリにフォールバックする。
+ *
+ * @param prompt - 実行するプロンプト
+ * @param claudeClient - Claude エージェントクライアント（nullable）
+ * @param codexClient - Codex エージェントクライアント（nullable）
+ * @returns エージェントの出力メッセージ配列
+ * @throws Error - 両方のエージェントが失敗した場合
+ */
+async function executeAgentTask(
+  prompt: string,
+  claudeClient: ClaudeAgentClient | null,
+  codexClient: CodexAgentClient | null,
+): Promise<string[]> {
+  // claude-first 優先順位に基づくフォールバック
+  // Step 1: Claude で試行
+  if (claudeClient) {
+    try {
+      logger.info('Executing AI rewrite with Claude agent...');
+      const messages = await claudeClient.executeTask({
+        prompt,
+        maxTurns: 30,
+      });
+      if (messages.length > 0) {
+        return messages;
+      }
+      logger.warn('Claude agent returned empty result. Trying Codex...');
+    } catch (error: unknown) {
+      logger.warn(`Claude agent failed: ${getErrorMessage(error)}. Trying Codex...`);
+    }
+  }
+
+  // Step 2: Codex で試行
+  if (codexClient) {
+    try {
+      logger.info('Executing AI rewrite with Codex agent...');
+      const messages = await codexClient.executeTask({
+        prompt,
+        maxTurns: 30,
+      });
+      if (messages.length > 0) {
+        return messages;
+      }
+      logger.warn('Codex agent returned empty result.');
+    } catch (error: unknown) {
+      logger.warn(`Codex agent failed: ${getErrorMessage(error)}`);
+    }
+  }
+
+  throw new Error('Both Claude and Codex agents failed to generate PR body');
+}
+
+/**
+ * generateAiRewrittenPrBody - AIエージェントを使ってレビュアー向けPRボディを生成する
+ *
+ * FR-005, FR-008 に基づき、エージェントを呼び出してPRボディを生成し、
+ * 失敗時はフォールバックチェーンに従って安全にリカバリーする。
+ *
+ * @param metadataManager - メタデータマネージャー
+ * @param options - CLIオプション
+ * @param prNumber - PR番号
+ * @param prClient - PullRequestClient インスタンス
+ * @param collectedOutputs - 事前収集されたフェーズ成果物
+ * @param fallbackBody - フォールバック用PRボディ（既存generateFinalPrBody出力）
+ * @returns 生成されたPRボディ文字列
+ */
+async function generateAiRewrittenPrBody(
+  metadataManager: MetadataManager,
+  options: FinalizeCommandOptions,
+  prNumber: number,
+  prClient: ReturnType<GitHubClient['getPullRequestClient']>,
+  collectedOutputs: CollectedPhaseOutputs,
+  fallbackBody: string,
+): Promise<string> {
+  logger.info('Starting AI rewrite of PR body...');
+
+  const issueNumber = parseInt(options.issue, 10);
+  const language = metadataManager.getLanguage() || 'ja';
+  const issueTitle = metadataManager.data.issue_title ?? 'Unknown';
+  const repoDir = path.dirname(path.dirname(metadataManager.workflowDir));
+
+  try {
+    // Step 1: diff取得
+    const diffContext = await getDiffForPrompt(prClient, prNumber);
+
+    // Step 2: プロンプト構築
+    const prompt = buildPromptContext(
+      issueNumber,
+      issueTitle,
+      diffContext,
+      collectedOutputs,
+      language,
+    );
+
+    // Step 3: エージェント初期化
+    const homeDir = config.getHomeDir();
+    const credentials = resolveAgentCredentials(homeDir, repoDir);
+    const agentMode = options.agent ?? 'auto';
+    const agentPriority: AgentPriority = 'claude-first';
+
+    const { codexClient, claudeClient } = setupAgentClients(
+      agentMode,
+      repoDir,
+      credentials,
+      { agentPriority },
+    );
+
+    if (!codexClient && !claudeClient) {
+      logger.warn('No agent credentials available. Falling back to default PR body.');
+      return fallbackBody;
+    }
+
+    // Step 4: エージェント実行（フォールバック付き）
+    const messages = await executeAgentTask(
+      prompt,
+      claudeClient,
+      codexClient,
+    );
+
+    // Step 5: 出力テキスト抽出
+    const generatedBody = messages.join('\n').trim();
+
+    if (!generatedBody) {
+      logger.warn('AI agent returned empty output. Falling back to default PR body.');
+      return fallbackBody;
+    }
+
+    // Step 6: 必須セクション検証
+    if (!validateRequiredSections(generatedBody, language)) {
+      logger.warn('AI-generated PR body missing required sections. Falling back to default PR body.');
+      return fallbackBody;
+    }
+
+    logger.info('AI rewrite of PR body completed successfully.');
+    return generatedBody;
+  } catch (error: unknown) {
+    logger.warn(`AI rewrite failed: ${getErrorMessage(error)}. Falling back to default PR body.`);
+    return fallbackBody;
+  }
 }

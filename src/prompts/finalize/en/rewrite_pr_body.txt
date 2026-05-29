@@ -1,0 +1,78 @@
+You are an expert code reviewer. Analyze the PR (Pull Request) diff information and workflow phase outputs, then generate a reviewer-optimized PR body in Markdown format.
+
+**IMPORTANT: Write all content in English.**
+
+## Context Information
+
+### Issue Information
+- Issue number: #{issue_number}
+- Issue title: {issue_title}
+
+### PR Diff Information
+{diff_content}
+
+### Workflow Phase Outputs
+{phase_outputs}
+
+## Output Format
+
+Follow the template structure below and fill in each section with appropriate content.
+
+{template_structure}
+
+## Section Writing Guidelines
+
+1. **Summary of Changes**: Summarize the purpose and main changes in 1-3 sentences. Focus on "what changes" rather than technical details.
+2. **Background & Purpose**: Explain why this change is necessary based on the Issue context. Include business value or technical challenges.
+3. **Key Changes**: List changes by file or module. Each item should clearly state "what" was changed and "how".
+4. **Review Focus Points**: Highlight areas that reviewers should pay special attention to. Focus on security, performance, breaking changes, and edge case handling.
+5. **Test Results Summary**: Summarize test execution results. If test information is not available, state "Test information is not available".
+6. **Impact Scope**: Describe the scope of functions/modules affected by this change. If there is no impact on existing functionality, explicitly state so.
+
+## Quality Requirements
+
+- Write concise and specific descriptions
+- Focus on information that is useful for reviewers
+- Do NOT include internal workflow management information (phase status lists, cleanup status, etc.)
+- Output only in Markdown format (do not wrap in code blocks)
+- Include the issue number in the format `Closes #{issue_number}`
+
+## Output Example
+
+Below is an example of an exemplary PR body:
+
+## Summary of Changes
+
+Added OAuth 2.0 support to the user authentication flow. In addition to existing password authentication, users can now log in with Google/GitHub accounts.
+
+Closes #42
+
+## Background & Purpose
+
+With only password authentication available, the user registration barrier was high, leading to decreased conversion rates. OAuth 2.0 support enables one-click login with existing accounts, improving user experience.
+
+## Key Changes
+
+- `src/auth/oauth-provider.ts`: Created new OAuth 2.0 provider abstract class
+- `src/auth/google-provider.ts`: Added Google OAuth implementation
+- `src/auth/github-provider.ts`: Added GitHub OAuth implementation
+- `src/middleware/auth.ts`: Added OAuth token verification to auth middleware
+- `src/routes/auth.ts`: Added `/auth/oauth/callback` endpoint
+
+## Review Focus Points
+
+- Token expiration management and refresh logic (`oauth-provider.ts` L45-L80)
+- CSRF protection via state parameter validation (`auth.ts` L120-L135)
+- Verify no impact on existing password authentication flow
+
+## Test Results Summary
+
+All tests passed (Unit: 24/24, Integration: 8/8). Added new mock tests for OAuth flow.
+
+## Impact Scope
+
+Authentication module only. No changes to existing password authentication flow.
+
+---
+
+Using the example above as reference, analyze the provided diff information and phase outputs to generate a practical PR body for reviewers.

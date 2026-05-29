@@ -512,6 +512,8 @@ export async function runCli(): Promise<void> {
     .option('--skip-squash', 'Skip commit squash step', false)
     .option('--skip-pr-update', 'Skip PR update and draft conversion steps', false)
     .option('--base-branch <branch>', 'PR base branch (default: main)', 'main')
+    .option('--ai-rewrite', 'Rewrite PR body using AI agent for reviewer-optimized content', false)
+    .option('--agent <mode>', 'Agent mode for AI rewrite (auto|codex|claude)', 'auto')
     .addOption(createLanguageOption())
     .action(async (options) => {
       try {
