@@ -122,20 +122,20 @@ PR Finalize 実行後に、AI エージェント（Codex / Claude）を活用し
 
 ### Phase 2: 設計 (見積もり: 2〜3h)
 
-- [ ] Task 2-1: finalize.ts の拡張設計 (1.5h)
+- [x] Task 2-1: finalize.ts の拡張設計 (1.5h)
   - `FinalizeCommandOptions` への `aiRewrite` プロパティ追加設計
   - `executeStep4And5` 内の分岐ロジック設計
   - AI リライト関数 `generateAiRewrittenPrBody()` のインターフェース設計
   - エージェントクライアント初期化パターンの設計（`auto-issue`コマンドや`impact-analysis`コマンドの実装パターンを参考）
-- [ ] Task 2-2: フェーズ成果物収集ロジックの設計 (0.5h)
+- [x] Task 2-2: フェーズ成果物収集ロジックの設計 (0.5h)
   - `ReportPhase.getPhaseOutputs()` のパターンを再利用
   - 各成果物ファイルの読み込みとコンテキスト構築
   - ファイル不在時のフォールバックテキスト
-- [ ] Task 2-3: diff 取得・トランケーション戦略の設計 (0.5h)
+- [x] Task 2-3: diff 取得・トランケーション戦略の設計 (0.5h)
   - `PullRequestClient.getPullRequestDiff()` の `truncated` フラグ活用
   - 大規模 diff の場合のサマリー生成戦略
   - トークン制限を考慮した diff の切り詰め方針（ファイル変更リストのみ提供等）
-- [ ] Task 2-4: テンプレート・プロンプト構造設計 (0.5h)
+- [x] Task 2-4: テンプレート・プロンプト構造設計 (0.5h)
   - PRボディテンプレートのセクション構成確定
   - AIプロンプトの入出力仕様設計
   - テンプレート変数の一覧定義
