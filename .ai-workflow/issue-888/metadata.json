@@ -209,7 +209,8 @@
       "retry_count": 0,
       "started_at": "2026-05-29T02:39:05.962Z",
       "completed_at": null,
-      "review_result": null
+      "review_result": null,
+      "current_step": "execute"
     },
     "test_scenario": {
       "status": "pending",
@@ -267,7 +268,7 @@
     }
   },
   "created_at": "2026-05-29T02:25:49.159Z",
-  "updated_at": "2026-05-29T02:39:05.962Z",
+  "updated_at": "2026-05-29T02:39:08.161Z",
   "branch_name": "ai-workflow/issue-888",
   "base_commit": "4616b34d4dc70b60634d2aad540bd402977da39a",
   "pr_number": 889,
