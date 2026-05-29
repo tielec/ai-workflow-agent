@@ -161,18 +161,18 @@ PR Finalize 実行後に、AI エージェント（Codex / Claude）を活用し
 
 ### Phase 4: 実装 (見積もり: 5〜7h)
 
-- [ ] Task 4-1: PromptCategory の拡張 (0.5h)
+- [x] Task 4-1: PromptCategory の拡張 (0.5h)
   - `src/core/prompt-loader.ts` の `PromptCategory` 型に `'finalize'` を追加
-- [ ] Task 4-2: テンプレートファイルの作成 (1h)
+- [x] Task 4-2: テンプレートファイルの作成 (1h)
   - `src/templates/ja/pr_body_finalize_template.md` の作成
   - `src/templates/en/pr_body_finalize_template.md` の作成
   - セクション構成: 変更概要、変更の背景・目的、主要な変更点、レビュー時の注目ポイント、テスト結果サマリー、影響範囲
-- [ ] Task 4-3: AIプロンプトの作成 (1.5h)
+- [x] Task 4-3: AIプロンプトの作成 (1.5h)
   - `src/prompts/finalize/ja/rewrite_pr_body.txt` の作成
   - `src/prompts/finalize/en/rewrite_pr_body.txt` の作成
   - プロンプトには diff 情報、フェーズ成果物、Issue 情報をコンテキストとして含める
   - テンプレートのセクション構成に沿った出力を指示する
-- [ ] Task 4-4: finalize.ts の拡張実装 (2.5〜3h)
+- [x] Task 4-4: finalize.ts の拡張実装 (2.5〜3h)
   - `FinalizeCommandOptions` に `aiRewrite?: boolean` を追加
   - `executeStep4And5` 内に `--ai-rewrite` 判定分岐を追加
   - `generateAiRewrittenPrBody()` 非同期関数の実装
@@ -183,7 +183,7 @@ PR Finalize 実行後に、AI エージェント（Codex / Claude）を活用し
     - 出力からPRボディテキスト抽出
     - フォールバック処理（失敗時に `generateFinalPrBody()` を使用）
   - diff トランケーション処理の実装
-- [ ] Task 4-5: main.ts の CLI オプション追加 (0.5h)
+- [x] Task 4-5: main.ts の CLI オプション追加 (0.5h)
   - finalize コマンド定義に `--ai-rewrite` オプションを追加
   - `--agent` オプションも追加（エージェントモード選択用）
   - オプション値を `handleFinalizeCommand` に渡すロジック追加
