@@ -38,6 +38,32 @@ Proceed to Phase 7 (Documentation).
 
 **Note**: If a skip judgment is written in test-implementation.md in Phase 5, it is recommended to skip this phase as well.
 
+## ⚠️ Important: Handling untestable items caused by physical constraints
+
+This phase allows cases where **testing is required, but a subset of acceptance criteria cannot be verified because of physical constraints**.
+
+### Difference from skip judgment
+
+- **Skip judgment**: testing itself is unnecessary
+- **Untestable items**: testing is necessary, but part of it cannot be executed because of physical constraints such as real hardware, production SaaS, or a specific OS
+
+### Valid examples of physical constraints
+
+- Real hardware dependency (for example, temperature sensor, GPS, dedicated device)
+- Production SaaS dependency (for example, production API endpoint, billing system)
+- Specific OS dependency (for example, macOS-only API, Windows-only driver)
+- Licensed tool dependency (for example, commercial database, paid SDK)
+- Network restriction (for example, production connectivity only reachable from an internal network)
+
+### Invalid examples
+
+The following are not physical constraints and may lead to FAIL in review:
+- Vague reasons such as "environment is missing" or "it does not work"
+- Misconfigured environment
+- Missing dependency installation
+- Broken test code or incorrect commands
+- Issues that can be solved by timeout adjustment
+
 ## Input Information
 
 ### Planning Phase Deliverables
@@ -202,14 +228,37 @@ Please only write the details of the failed test in the following format:
 **Note**: Do not include a detailed list of successful tests.
 ```
 
+If some acceptance criteria were untestable because of physical constraints, add the following section after the summary above:
+
+```markdown
+## Untestable Items (Physical Constraints)
+
+### Untestable Item 1: <Acceptance Criterion / Scenario Name>
+- **Reason for Being Untestable**: (Specific physical constraint)
+- **Required Environment**: (Hardware, OS, external service, or other conditions required)
+- **Alternative Verification Method**: (Code review, design review, mocks, unit tests, dry-run, and so on)
+- **Alternative Verification Results**: (Result of the alternative verification, optional)
+- **Recommended Production Verification Timing**: (Acceptance test, staging, production confirmation, optional)
+```
+
+**Required three elements**:
+1. Reason for Being Untestable
+2. Required Environment
+3. Alternative Verification Method
+
+If any of these three elements are missing, review should mark the result as FAIL.
+
 Please save this log as `.ai-workflow/issue-{issue_number}/06_testing/output/test-result.md`.
 
 ## Quality Gates (Phase 6)
 
 Test execution must meet the following quality gates:
 
-- [ ] **Test is being executed**- [ ] **Key test cases are passing**
+- [ ] **Test is being executed**
+- [ ] **Key test cases are passing**
 - [ ] **Failing tests are being analyzed**
+
+Even when untestable items exist because of physical constraints, they can still be evaluated against the quality gates **only if the key test cases that were actually testable passed and every untestable item includes the required three elements**.
 
 These quality gates are **mandatory requirements**. After the test run, a critical thinking review will be conducted.
 

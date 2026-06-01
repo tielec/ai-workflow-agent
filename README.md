@@ -128,7 +128,7 @@ node dist/index.js execute --issue 123 --phase all --language en
 | `execute` | フェーズを実行（planning 〜 evaluation の 10 フェーズ） |
 | `rollback` | 前のフェーズに差し戻し（手動/自動） |
 | `cleanup` | ワークフローログをクリーンアップ |
-| `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新） |
+| `finalize` | ワークフロー完了後の最終処理（コミットスカッシュ、PR更新、AIリライト対応） |
 | `auto-issue` | 自動バグ・リファクタリング・機能拡張Issue生成 |
 | `auto-close-issue` | 条件を満たすIssueを安全にクローズ |
 | `rewrite-issue` | リポジトリ文脈を参照してIssue本文を再設計 |
@@ -174,6 +174,36 @@ node dist/index.js execute \
 - `finalize`: Planning + Documentation + Report + Evaluation
 
 完全なコマンドリファレンスは [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) を参照してください。
+
+### finalize コマンド
+
+```bash
+node dist/index.js finalize \
+  --issue <number> \
+  [--dry-run] \
+  [--skip-squash] \
+  [--skip-pr-update] \
+  [--base-branch <branch>] \
+  [--ai-rewrite] \
+  [--agent auto|codex|claude]
+```
+
+**AI リライト機能**（Issue #888）:
+
+`--ai-rewrite` オプションを指定すると、ワークフローのフェーズ成果物と PR の diff を基に、AI エージェントがレビュアー向けの PR ボディを自動生成します。Claude → Codex のデュアルエージェントフォールバックに対応し、AI 生成に失敗した場合は従来の PR ボディにフォールバックします。
+
+```bash
+# AI リライトを有効にして finalize を実行
+node dist/index.js finalize --issue 123 --ai-rewrite
+
+# エージェントを指定して AI リライトを実行
+node dist/index.js finalize --issue 123 --ai-rewrite --agent claude
+
+# ドライランで AI リライトの動作をプレビュー
+node dist/index.js finalize --issue 123 --ai-rewrite --dry-run
+```
+
+`--ai-rewrite` 未指定時は従来の finalize 動作（フェーズステータス一覧のPRボディ生成）が100%保持されます。
 
 ## 10フェーズワークフロー
 

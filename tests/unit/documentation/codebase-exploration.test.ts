@@ -137,6 +137,7 @@ describe('CODEBASE_EXPLORATION.md の品質検証', () => {
       'src/commands/pr-comment/analyze/comment-formatter.ts',
       'src/phases/base-phase.ts',
       'src/phases/testing.ts',
+      'src/commands/finalize.ts',
     ]);
 
     const unexpected = statusOutput

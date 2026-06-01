@@ -16,6 +16,7 @@
  * - BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
+ * - AI_REWRITE: AIエージェントによるPRボディリライトを有効化（デフォルト: false、Issue #888）
  * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）
@@ -157,6 +158,7 @@ pipeline {
                     echo "Skip PR Update: ${params.SKIP_PR_UPDATE ?: false}"
                     echo "Base Branch: ${params.BASE_BRANCH ?: 'main'}"
                     echo "Agent Mode: ${params.AGENT_MODE ?: 'auto'}"
+                    echo "AI Rewrite: ${params.AI_REWRITE ?: false}"
                     echo "Auto Model Selection: ${params.AUTO_MODEL_SELECTION ?: true}"
                     echo "Dry Run: ${params.DRY_RUN ?: false}"
                 }
@@ -238,6 +240,9 @@ pipeline {
                         // BASE_BRANCH が指定されている場合のみフラグを渡す（デフォルトブランチは変更しない）
                         def baseBranchFlag = params.BASE_BRANCH ? "--base-branch ${params.BASE_BRANCH}" : ''
                         def languageOption = params.LANGUAGE ? "--language ${params.LANGUAGE}" : ''
+                        // AI Rewrite オプション（Issue #888）
+                        def aiRewriteFlag = params.AI_REWRITE ? '--ai-rewrite' : ''
+                        def agentModeOption = (params.AI_REWRITE && params.AGENT_MODE) ? "--agent ${params.AGENT_MODE}" : ''
 
                         sh """
                             node dist/index.js finalize \
@@ -246,7 +251,9 @@ pipeline {
                                 ${skipSquashFlag} \
                                 ${skipPrUpdateFlag} \
                                 ${baseBranchFlag} \
-                                ${languageOption}
+                                ${languageOption} \
+                                ${aiRewriteFlag} \
+                                ${agentModeOption}
                         """
                     }
                 }
@@ -305,6 +312,9 @@ pipeline {
 
                 if (!params.SKIP_PR_UPDATE) {
                     summary += "\n  - ✅ PR updated and marked as ready"
+                    if (params.AI_REWRITE) {
+                        summary += "\n  - ✅ PR body rewritten by AI agent (mode: ${params.AGENT_MODE ?: 'auto'})"
+                    }
                     if (params.BASE_BRANCH && params.BASE_BRANCH != 'main') {
                         summary += "\n  - ✅ Base branch changed to '${params.BASE_BRANCH}'"
                     }
