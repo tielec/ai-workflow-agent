@@ -175,6 +175,36 @@ node dist/index.js execute \
 
 完全なコマンドリファレンスは [docs/CLI_REFERENCE.md](./docs/CLI_REFERENCE.md) を参照してください。
 
+### finalize コマンド
+
+```bash
+node dist/index.js finalize \
+  --issue <number> \
+  [--dry-run] \
+  [--skip-squash] \
+  [--skip-pr-update] \
+  [--base-branch <branch>] \
+  [--ai-rewrite] \
+  [--agent auto|codex|claude]
+```
+
+**AI リライト機能**（Issue #888）:
+
+`--ai-rewrite` オプションを指定すると、ワークフローのフェーズ成果物と PR の diff を基に、AI エージェントがレビュアー向けの PR ボディを自動生成します。Claude → Codex のデュアルエージェントフォールバックに対応し、AI 生成に失敗した場合は従来の PR ボディにフォールバックします。
+
+```bash
+# AI リライトを有効にして finalize を実行
+node dist/index.js finalize --issue 123 --ai-rewrite
+
+# エージェントを指定して AI リライトを実行
+node dist/index.js finalize --issue 123 --ai-rewrite --agent claude
+
+# ドライランで AI リライトの動作をプレビュー
+node dist/index.js finalize --issue 123 --ai-rewrite --dry-run
+```
+
+`--ai-rewrite` 未指定時は従来の finalize 動作（フェーズステータス一覧のPRボディ生成）が100%保持されます。
+
 ## 10フェーズワークフロー
 
 | フェーズ | 説明 | 成果物 |

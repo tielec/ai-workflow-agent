@@ -115,7 +115,7 @@ export interface FinalizeCommandOptions {
 /**
  * 収集されたフェーズ成果物のコンテキスト情報
  */
-interface CollectedPhaseOutputs {
+export interface CollectedPhaseOutputs {
   /** フェーズ名をキー、成果物テキストを値とするマップ
    *  ファイル不在の場合はフォールバックテキストが設定される */
   outputs: Record<string, string>;
@@ -130,7 +130,7 @@ interface CollectedPhaseOutputs {
 /**
  * プロンプト用に整形されたdiff情報
  */
-interface DiffContext {
+export interface DiffContext {
   /** プロンプトに含めるdiffテキスト */
   content: string;
 
@@ -146,13 +146,13 @@ interface DiffContext {
 // =========================================================================
 
 /** 成果物ファイルの最大文字数（FR-004） */
-const MAX_PHASE_OUTPUT_LENGTH = 10_000;
+export const MAX_PHASE_OUTPUT_LENGTH = 10_000;
 
 /** diff テキストの最大文字数（FR-003） */
-const MAX_DIFF_LENGTH = 50_000;
+export const MAX_DIFF_LENGTH = 50_000;
 
 /** diff ファイル数の上限閾値 */
-const MAX_DIFF_FILES_THRESHOLD = 300;
+export const MAX_DIFF_FILES_THRESHOLD = 300;
 
 // =========================================================================
 // メインフロー
@@ -477,7 +477,7 @@ async function createGitHubClient(metadataManager: MetadataManager): Promise<Git
  * @param issueNumber - Issue番号
  * @returns PR 本文（Markdown形式）
  */
-function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: number): string {
+export function generateFinalPrBody(metadataManager: MetadataManager, issueNumber: number): string {
   const metadata = metadataManager.data;
 
   // 言語取得（Issue #587）
@@ -603,7 +603,7 @@ async function previewFinalize(
  * @param metadataManager - メタデータマネージャー
  * @returns 収集されたフェーズ成果物
  */
-function collectPhaseOutputs(
+export function collectPhaseOutputs(
   metadataManager: MetadataManager,
 ): CollectedPhaseOutputs {
   logger.info('Collecting phase outputs for AI rewrite...');
@@ -662,7 +662,7 @@ function collectPhaseOutputs(
  * @param prNumber - PR番号
  * @returns プロンプト用に整形されたdiffコンテキスト
  */
-async function getDiffForPrompt(
+export async function getDiffForPrompt(
   prClient: ReturnType<GitHubClient['getPullRequestClient']>,
   prNumber: number,
 ): Promise<DiffContext> {
@@ -710,7 +710,7 @@ async function getDiffForPrompt(
  * @param diffText - 生のdiffテキスト
  * @returns ファイル変更リストのMarkdownサマリー
  */
-function extractDiffFileSummary(diffText: string): string {
+export function extractDiffFileSummary(diffText: string): string {
   const lines = diffText.split('\n');
   const fileSummaries: string[] = [];
 
@@ -757,7 +757,7 @@ function extractDiffFileSummary(diffText: string): string {
  * @param language - 言語設定
  * @returns 構築されたプロンプト文字列
  */
-function buildPromptContext(
+export function buildPromptContext(
   issueNumber: number,
   issueTitle: string,
   diffContext: DiffContext,
@@ -803,7 +803,7 @@ function buildPromptContext(
  * @param language - 言語設定
  * @returns 必須セクションが含まれていればtrue
  */
-function validateRequiredSections(body: string, language: SupportedLanguage): boolean {
+export function validateRequiredSections(body: string, language: SupportedLanguage): boolean {
   // 言語別の必須セクション見出し（部分一致で検証）
   const requiredHeaders: Record<SupportedLanguage, string[]> = {
     ja: ['変更概要', '主要な変更点'],
@@ -833,7 +833,7 @@ function validateRequiredSections(body: string, language: SupportedLanguage): bo
  * @returns エージェントの出力メッセージ配列
  * @throws Error - 両方のエージェントが失敗した場合
  */
-async function executeAgentTask(
+export async function executeAgentTask(
   prompt: string,
   claudeClient: ClaudeAgentClient | null,
   codexClient: CodexAgentClient | null,
