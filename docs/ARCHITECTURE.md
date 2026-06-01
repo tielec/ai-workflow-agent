@@ -104,22 +104,32 @@ src/commands/cleanup.ts (ワークフローログの手動クリーンアップ�
     └─ ArtifactCleaner.cleanupWorkflowLogs() を利用
         └─ phaseRange パラメータでクリーンアップ対象フェーズを指定
 
-src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド処理、v0.5.0、Issue #261で追加)
+src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド処理、v0.5.0、Issue #261で追加、Issue #888でAI Rewrite機能追加)
  ├─ handleFinalizeCommand() … finalize コマンドハンドラ（5ステップのオーケストレーション）
  ├─ validateFinalizeOptions() … finalize オプションのバリデーション（exported for testing）
  ├─ executeStep1() … Step 1: base_commit 取得・一時保存
  ├─ executeStep2() … Step 2: .ai-workflow 削除 + コミット＆プッシュ
  ├─ executeStep3() … Step 3: コミットスカッシュ
  ├─ executeStep4And5() … Step 4-5: PR 本文更新 + ドラフト解除
- ├─ generateFinalPrBody() … PR 最終本文生成（Markdown形式）
- ├─ previewFinalize() … ドライランモードでプレビュー表示
+ ├─ generateFinalPrBody() … PR 最終本文生成（Markdown形式、従来の静的生成）
+ ├─ previewFinalize() … ドライランモードでプレビュー表示（--ai-rewrite 状態のプレビュー対応）
+ ├─ collectPhaseOutputs() … フェーズ成果物収集（7フェーズ、MAX_PHASE_OUTPUT_LENGTH=10,000文字でトランケーション）（Issue #888）
+ ├─ getDiffForPrompt() … diff取得・トランケーション（MAX_DIFF_LENGTH=50,000、MAX_DIFF_FILES_THRESHOLD=300）（Issue #888）
+ ├─ extractDiffFileSummary() … 大規模diff時のファイル変更サマリー抽出（純粋関数）（Issue #888）
+ ├─ buildPromptContext() … AIリライト用プロンプト構築（replaceAll使用、ReDoS防止）（Issue #888）
+ ├─ validateRequiredSections() … AI生成PRボディの必須セクション検証（純粋関数）（Issue #888）
+ ├─ executeAgentTask() … エージェントタスク実行（Claude→Codexフォールバックチェーン）（Issue #888）
+ ├─ generateAiRewrittenPrBody() … AI駆動PRボディ生成（6箇所のフォールバックポイント）（Issue #888）
  └─ 既存モジュールを利用
      ├─ MetadataManager.getBaseCommit() … base_commit 取得
      ├─ ArtifactCleaner.cleanupWorkflowArtifacts() … ワークフローディレクトリ削除
      ├─ SquashManager.squashCommitsForFinalize() … コミットスカッシュ（FinalizeContext 使用）
      ├─ PullRequestClient.updatePullRequest() … PR 本文更新
      ├─ PullRequestClient.updateBaseBranch() … マージ先ブランチ変更（NEW）
-     └─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
+     ├─ PullRequestClient.markPRReady() … ドラフト解除（NEW）
+     ├─ PromptLoader.loadPrompt() / loadTemplate() … プロンプト・テンプレート読み込み（Issue #888）
+     ├─ ClaudeAgentClient.executeTask() … Claude エージェント実行（Issue #888）
+     └─ CodexAgentClient.executeTask() … Codex エージェント実行（Issue #888）
 
 src/commands/rewrite-issue.ts (Issue本文再設計コマンド処理、Issue #669で追加、Issue #712で拡張)
  ├─ handleRewriteIssueCommand() … rewrite-issue コマンドハンドラ
@@ -382,7 +392,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/commands/rewrite-issue.ts` | Issue本文再設計コマンド処理（Issue #669で追加、Issue #712で拡張）。`handleRewriteIssueCommand()` でリポジトリコンテキストを参照して既存Issue本文を再設計。`parseOptions()`, `validateEnvironment()`, `getRepositoryContext()`, `executeRewriteWithAgent()`, `parseAgentResponse()`, `generateUnifiedDiff()`, `calculateDefaultMetrics()`, `displayDiffPreview()`, `assessIssueDifficulty()` を提供。dry-runモード（デフォルト）で差分プレビューを表示、`--apply` で実際にIssueを更新。完全性スコア・具体性スコアの採点指標も表示。**Issue #712で追加**: エージェント実行後にStep 8.5として5段階難易度判定→YAML frontmatter挿入を実行。判定失敗時はfrontmatterなしで続行（グレースフルデグラデーション）。 |
 | `src/commands/rollback.ts` | フェーズ差し戻しコマンド処理（約930行、v0.4.0、Issue #90/#271で追加）。**手動rollback**（Issue #90）と**自動rollback**（Issue #271）の2つのモードを提供。手動rollbackは `handleRollbackCommand()`, `validateRollbackOptions()`, `loadRollbackReason()`, `generateRollbackReasonMarkdown()`, `getPhaseNumber()` を提供し、差し戻し理由の3つの入力方法（--reason, --reason-file, --interactive）、メタデータ自動更新、差し戻し履歴記録、プロンプト自動注入をサポート。自動rollbackは `handleRollbackAutoCommand()` を提供し、AIエージェント（Codex/Claude）による自動差し戻し判定機能を実現。コンテキスト収集（`collectAnalysisContext()`, `findLatestReviewResult()`, `findLatestTestResult()`）、プロンプト構築（`buildAgentPrompt()`）、JSON パース（`parseRollbackDecision()`, 3つのフォールバックパターン）、バリデーション（`validateRollbackDecision()`）、信頼度ベース確認（`confirmRollbackAuto()`）を含む。エージェントは metadata.json, review results, test results を分析し、needs_rollback, to_phase, to_step, confidence, reason, analysis を含む RollbackDecision を返す。 |
 | `src/commands/cleanup.ts` | ワークフローログの手動クリーンアップコマンド処理（約480行、v0.4.0、Issue #212で追加）。Report Phase（Phase 8）の自動クリーンアップとは独立して、任意のタイミングでワークフローログを削除する機能を提供。`handleCleanupCommand()`, `validateCleanupOptions()`, `parsePhaseRange()`, `executeCleanup()`, `previewCleanup()` を提供。3つのクリーンアップモード（通常、部分、完全）、プレビューモード（`--dry-run`）、Git自動コミット＆プッシュをサポート。 |
-| `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約385行、v0.5.0、Issue #261で追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch` オプションで柔軟な実行制御が可能。 |
+| `src/commands/finalize.ts` | ワークフロー完了後の最終処理コマンド処理（約750行、v0.5.0、Issue #261で追加、Issue #888でAI Rewrite機能追加）。5ステップを統合した finalize コマンドを提供。`handleFinalizeCommand()`, `validateFinalizeOptions()`, `executeStep1()`, `executeStep2()`, `executeStep3()`, `executeStep4And5()`, `generateFinalPrBody()`, `previewFinalize()` を提供。クリーンアップ、コミットスカッシュ、PR更新、ドラフト解除を1コマンドで実行。`--dry-run`, `--skip-squash`, `--skip-pr-update`, `--base-branch`, `--ai-rewrite`, `--agent` オプションで柔軟な実行制御が可能。**Issue #888で追加**: AI Rewrite パイプライン（`collectPhaseOutputs()`, `getDiffForPrompt()`, `extractDiffFileSummary()`, `buildPromptContext()`, `validateRequiredSections()`, `executeAgentTask()`, `generateAiRewrittenPrBody()`）により、レビュアー向けPRボディをAIエージェント（Claude→Codexフォールバック）で自動生成。6箇所のフォールバックポイントで安全に従来PRボディへ切り替え。 |
 | `src/commands/pr-comment/init.ts` | PRコメント自動対応: 初期化コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentInitCommand()` でPRから未解決レビューコメントを収集し、メタデータを初期化。`--pr`, `--pr-url`, `--dry-run` オプションをサポート。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下のリポジトリパスを使用し、マルチリポジトリ対応を実現。`buildRepositoryInfo()` で条件分岐によりパス解決方法を切り替え。 |
 | `src/commands/pr-comment/execute.ts` | PRコメント自動対応: 実行コマンド処理（Issue #383で追加、Issue #407で拡張、Issue #444でリファクタリング）。`handlePRCommentExecuteCommand()` でresponse-plan.jsonを読み込み、コード修正適用、返信投稿を実行。`--pr`, `--pr-url`, `--dry-run`, `--batch-size` オプションをサポート。レジューム機能により中断からの再開が可能。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下で処理を実行。**Issue #444で変更**: エージェント実行を廃止しresponse-plan.jsonを直接使用、`--agent` オプション削除、analyze/execute責務分離によりコスト50%削減。 |
 | `src/commands/pr-comment/finalize.ts` | PRコメント自動対応: 完了コマンド処理（Issue #383で追加、Issue #407で拡張）。`handlePRCommentFinalizeCommand()` で完了したコメントスレッドをGraphQL mutationで解決し、メタデータをクリーンアップ。`--pr`, `--pr-url`, `--dry-run` オプションをサポート。**Issue #407で追加**: `--pr-url` 指定時にREPOS_ROOT配下のリポジトリを使用してfinalize処理を実行。 |
@@ -480,7 +490,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/phases/formatters/log-formatter.ts` | ログフォーマット（約400行、Issue #23で追加、Issue #597で多言語対応）。Codex/Claude エージェントの生ログを Markdown 形式に変換。言語設定（`ja`/`en`）に応じてヘッダー、ラベル、タイムスタンプ形式を動的に切り替え。 |
 | `src/phases/*.ts` | 各フェーズの具象クラス。`execute()`, `review()`, `revise()` を実装。 |
 | `src/prompts/{phase}/{lang}/*.txt` | フェーズ別・言語別のプロンプトテンプレート（Issue #573で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`BasePhase.loadPrompt()` が `MetadataManager.getLanguage()` を参照し、指定言語のプロンプトを読み込む。指定言語のファイルが存在しない場合は `DEFAULT_LANGUAGE`（`ja`）にフォールバック。 |
-| `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`auto-close`（2ファイル）、`pr-comment`（2ファイル）、`conflict`（2ファイル、Issue #719で追加）、`impact-analysis`（4ファイル×2言語、Issue #852で追加: `scoper.txt`、`investigator.txt`、`reporter.txt`、`playbook.txt`）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）、`split-issue`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。**Issue #874で変更**: `impact-analysis` の `investigator.txt`（日英）に `impact` と `recommendedActions` フィールドを JSON 出力スキーマへ追加。`reporter.txt`（日英）のレポート構造を「問題要約 → 影響 → 原因 → 推奨アクション → 証拠折りたたみ」に改善し、免責文言とグレースフルデグラデーション指示を追加。 |
+| `src/prompts/{category}/{lang}/*.txt` | コマンド・ユーティリティ別・言語別のプロンプトテンプレート（Issue #575で多言語対応を完了）。対応カテゴリ: `auto-issue`（6ファイル）、`auto-close`（2ファイル）、`pr-comment`（2ファイル）、`conflict`（2ファイル、Issue #719で追加）、`impact-analysis`（4ファイル×2言語、Issue #852で追加: `scoper.txt`、`investigator.txt`、`reporter.txt`、`playbook.txt`）、`finalize`（1ファイル×2言語、Issue #888で追加: `rewrite_pr_body.txt`）、`rollback`（1ファイル）、`difficulty`（1ファイル）、`followup`（1ファイル）、`squash`（1ファイル）、`content_parser`（3ファイル）、`validation`（1ファイル）、`split-issue`（1ファイル）。`PromptLoader.loadPrompt()` が `config.getLanguage()` を参照し、指定言語のプロンプトを読み込む。フォールバック動作はフェーズプロンプトと同一。**Issue #874で変更**: `impact-analysis` の `investigator.txt`（日英）に `impact` と `recommendedActions` フィールドを JSON 出力スキーマへ追加。`reporter.txt`（日英）のレポート構造を「問題要約 → 影響 → 原因 → 推奨アクション → 証拠折りたたみ」に改善し、免責文言とグレースフルデグラデーション指示を追加。 |
 | `src/prompts/difficulty/{lang}/analyze.txt` | Issue難易度分析プロンプトテンプレート（Issue #363で追加、Issue #575で多言語対応）。Issue情報（タイトル、本文、ラベル）から難易度（simple/moderate/complex）を判定するためのプロンプト。JSON形式で `level`, `confidence`, `reasoning` を返すよう指示。 |
 | `src/prompts/difficulty/{lang}/analyze-grade.txt` | 5段階難易度評価＋バグリスク予測プロンプトテンプレート（Issue #712で追加）。Issue情報から5段階グレード（A〜E）とバグリスク予測をJSON形式で返すためのプロンプト。既存の`analyze.txt`（3段階用）とは独立して使用される。`DifficultyAnalyzer.analyzeWithGrade()` が利用。 |
 | `src/commands/auto-issue.ts` | 自動Issue生成コマンド処理（Issue #121で追加、Issue #422でLLMベース検証追加）。リポジトリを分析してバグ・リファクタリング候補・機能拡張提案を自動検出。`handleAutoIssueCommand()` を提供。`--custom-instruction` オプションでユーザーがカスタム指示を追加可能。`InstructionValidator` による安全性検証を実施。 |
@@ -497,7 +507,7 @@ src/types/commands.ts (コマンド関連の型定義)
 | `src/types/auto-close-issue.ts` | auto-close-issue関連の型定義（Issue #645で追加）。オプション（カテゴリ/閾値/除外ラベル/エージェント/require-approval）、候補Issue、検品結果、クローズ結果、コメント情報、親Issue情報の型を提供し、CLIとIssueInspectorの型安全性を担保。 |
 | `src/types/rewrite-issue.ts` | rewrite-issue関連の型定義（Issue #669で追加、Issue #712で拡張）。`RewriteIssueOptions`（Issue番号、言語、エージェント、dry-run/apply）、`RewriteResult`（新タイトル/ボディ、完全性スコア、具体性スコア、改善理由）、`RewriteMetrics`（完全性/具体性スコア）、`DiffLine`（差分行情報）の型を提供し、CLIとエージェント処理の型安全性を担保。**Issue #712で追加**: `RewriteAgentResponse`に`difficultyAssessment?: IssueDifficultyAssessment`オプショナルフィールドを追加。 |
 | `src/types/validation.ts` | 認証情報バリデーション関連の型定義（Issue #598で追加）。`CheckStatus`（passed/failed/warning/skipped）、`CategoryStatus`、`CheckCategory`（git/github/codex/claude/openai/anthropic）、`ValidationCheck`、`CategoryResult`、`ValidationResult`、`ValidationSummary`、`RawValidateCredentialsOptions`、`ValidateCredentialsOptions`、`Checker` インターフェースを定義。 |
-| `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md` を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
+| `src/templates/{lang}/*.md` | 言語別のPRボディ等のMarkdownテンプレート（Issue #575で多言語対応）。`{lang}` は `ja`（日本語）または `en`（英語）。`pr_body_template.md`, `pr_body_detailed_template.md`, `pr_body_finalize_template.md`（Issue #888で追加）を含む。`PromptLoader.loadTemplate()` が `config.getLanguage()` を参照し、指定言語のテンプレートを読み込む。フォールバック動作はプロンプトと同一。 |
 | `scripts/copy-static-assets.mjs` | ビルド後に prompts / templates を `dist/` へコピー。 |
 
 ## BasePhase のライフサイクル

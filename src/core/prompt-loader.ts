@@ -24,7 +24,8 @@ export type PromptCategory =
   | 'create-sub-issue'
   | 'split-issue'
   | 'conflict'
-  | 'impact-analysis';
+  | 'impact-analysis'
+  | 'finalize';
 
 export class PromptLoader {
   static loadPrompt(
