@@ -90,7 +90,7 @@ jenkins/
 | **rewrite_issue** | Issue本文再設計（リポジトリ文脈を参照した既存Issue改善） | 18 |
 | **split_issue** | 複雑なIssueを機能単位で分割（split-issueコマンドのJenkins実行） | 19 |
 | **auto_close_issue** | 既存Issue自動クローズ（AIによる安全なIssue整理） | 20 |
-| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 24 |
+| **finalize** | ワークフロー完了後の最終処理（cleanup/squash/PR更新） | 25 |
 | **pr_comment_execute** | PRコメント自動対応（init + execute） | 19 |
 | **pr_comment_finalize** | PRコメント解決処理（finalize） | 18 |
 | **resolve_conflict** | PRマージコンフリクト自動解消（init/analyze/execute/finalizeの4フェーズ） | 19 |
