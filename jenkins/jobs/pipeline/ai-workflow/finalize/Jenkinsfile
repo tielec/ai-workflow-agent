@@ -16,7 +16,7 @@
  * - BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
  * - DRY_RUN: ドライランモード（デフォルト: false）
  * - AGENT_MODE: エージェントモード（デフォルト: auto）
- * - AI_REWRITE: AIエージェントによるPRボディリライトを有効化（デフォルト: false、Issue #888）
+ * - AI_REWRITE: AIエージェントによるPRボディリライトを有効化（デフォルト: true、Issue #888, #891）
  * - AUTO_MODEL_SELECTION: 自動モデル選択を有効化（デフォルト: true）
  * - GITHUB_TOKEN: GitHub Personal Access Token（必須）
  * - CODEX_AUTH_JSON: Codex ~/.codex/auth.json の内容（オプション）

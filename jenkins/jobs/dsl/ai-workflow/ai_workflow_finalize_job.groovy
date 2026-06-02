@@ -10,7 +10,7 @@
  * 5. PR ドラフト解除
  *
  * EXECUTION_MODE: finalize（固定値、パラメータとして表示しない）
- * パラメータ数: 16個（10個 + APIキー6個）
+ * パラメータ数: 17個（11個 + APIキー6個）
  */
 
 // 汎用フォルダ定義（Develop 1 + Stable 9）
@@ -49,6 +49,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |- ISSUE_URL（必須）: GitHub Issue URL
             |- SKIP_SQUASH: コミットスカッシュをスキップ
             |- SKIP_PR_UPDATE: PR更新・ドラフト解除をスキップ
+            |- AI_REWRITE: AIエージェントによるPRボディリライトを有効化（デフォルト: true）
             |- BASE_BRANCH: PRのマージ先ブランチ（デフォルト: main）
             |- DRY_RUN: ドライランモード
             |- その他: Git設定、AWS認証情報、APIキー等
@@ -60,7 +61,7 @@ def createJob = { String jobName, String descriptionHeader, String gitBranch ->
             |- SKIP_PR_UPDATE を true にすると、PR は更新されず、ドラフト状態のままです
             """.stripMargin())
 
-        // パラメータ定義（16個）
+        // パラメータ定義（17個）
         parameters {
             // ========================================
             // 実行モード（固定値）
@@ -112,6 +113,13 @@ PR更新・ドラフト解除をスキップ
 
 true の場合、PR本文の更新とドラフト解除を行いません
 デフォルト: false（PR更新を実行）
+            '''.stripIndent().trim())
+
+            booleanParam('AI_REWRITE', true, '''
+AIエージェントによるPRボディリライトを有効化
+
+true の場合、finalizeコマンドが --ai-rewrite オプション付きで実行され、AIがPRボディを自動生成します
+デフォルト: true（AIリライトを実行）
             '''.stripIndent().trim())
 
             nonStoredPasswordParam('BASE_BRANCH', '''
