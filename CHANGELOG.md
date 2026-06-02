@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #891**: JobDSL（`ai_workflow_finalize_job.groovy`）に `AI_REWRITE` パラメータをデフォルト `true` で追加
+  - **背景**: Jenkinsfile は既に `params.AI_REWRITE` を参照する実装が完成していたが、JobDSL 側にパラメータ定義が存在しないため Jenkins UI から設定できず、常に `null`（`false` と同等）として扱われていた
+  - **対応**: `ai_workflow_finalize_job.groovy` の `parameters {}` ブロックに `booleanParam('AI_REWRITE', true, ...)` を `SKIP_PR_UPDATE` 定義直後に追加し、JobDSL と Jenkinsfile のパラメータ定義の不整合を解消
+  - **影響**: Seed Job 実行後の次回ビルドから `AI_REWRITE` がデフォルト `true` で動作するため、既存ジョブの動作が変更される（AIエージェントによる PRボディリライトが自動実行）。無効化が必要な場合は Jenkins UI から `AI_REWRITE=false` に設定すること
+  - 変更ファイル: `jenkins/jobs/dsl/ai-workflow/ai_workflow_finalize_job.groovy`（`booleanParam('AI_REWRITE', true, ...)` 追加・パラメータ数コメント「16個」→「17個」更新・description セクションに `AI_REWRITE` 説明追記）、`jenkins/jobs/pipeline/ai-workflow/finalize/Jenkinsfile`（ヘッダーコメントのデフォルト値を「false」→「true」に更新）
+  - テストカバレッジ: `tests/integration/jenkins/ai-workflow-finalize-job-dsl.test.ts`（21件新規追加）。`npm run validate` PASS（3893件成功・35件スキップ・0件失敗）
+
 ### Fixed
 
 - **Issue #882**: `testing` フェーズで物理制約により検証不能な受け入れ基準が3回失敗で停止する仕様を緩和（案B: 検証不能項目の正規出口）
