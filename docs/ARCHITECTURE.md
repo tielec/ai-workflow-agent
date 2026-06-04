@@ -104,7 +104,7 @@ src/commands/cleanup.ts (ワークフローログの手動クリーンアップ�
     └─ ArtifactCleaner.cleanupWorkflowLogs() を利用
         └─ phaseRange パラメータでクリーンアップ対象フェーズを指定
 
-src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド処理、v0.5.0、Issue #261で追加、Issue #888でAI Rewrite機能追加)
+src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド処理、v0.5.0、Issue #261で追加、Issue #888でAI Rewrite機能追加、Issue #894でファイルベース出力方式に変更)
  ├─ handleFinalizeCommand() … finalize コマンドハンドラ（5ステップのオーケストレーション）
  ├─ validateFinalizeOptions() … finalize オプションのバリデーション（exported for testing）
  ├─ executeStep1() … Step 1: base_commit 取得・一時保存
@@ -116,10 +116,11 @@ src/commands/finalize.ts (ワークフロー完了後の最終処理コマンド
  ├─ collectPhaseOutputs() … フェーズ成果物収集（7フェーズ、MAX_PHASE_OUTPUT_LENGTH=10,000文字でトランケーション）（Issue #888）
  ├─ getDiffForPrompt() … diff取得・トランケーション（MAX_DIFF_LENGTH=50,000、MAX_DIFF_FILES_THRESHOLD=300）（Issue #888）
  ├─ extractDiffFileSummary() … 大規模diff時のファイル変更サマリー抽出（純粋関数）（Issue #888）
- ├─ buildPromptContext() … AIリライト用プロンプト構築（replaceAll使用、ReDoS防止）（Issue #888）
+ ├─ generatePrBodyOutputFilePath() … AIリライト用一時ファイルパス生成（os.tmpdir() + タイムスタンプ + ランダム文字列）（Issue #894）
+ ├─ buildPromptContext() … AIリライト用プロンプト構築（outputFilePath引数追加、replaceAll使用、ReDoS防止）（Issue #888、Issue #894で拡張）
  ├─ validateRequiredSections() … AI生成PRボディの必須セクション検証（純粋関数）（Issue #888）
  ├─ executeAgentTask() … エージェントタスク実行（Claude→Codexフォールバックチェーン）（Issue #888）
- ├─ generateAiRewrittenPrBody() … AI駆動PRボディ生成（6箇所のフォールバックポイント）（Issue #888）
+ ├─ generateAiRewrittenPrBody() … AI駆動PRボディ生成（ファイルベース出力方式、try-finallyクリーンアップ）（Issue #888、Issue #894でファイルベース出力に変更）
  └─ 既存モジュールを利用
      ├─ MetadataManager.getBaseCommit() … base_commit 取得
      ├─ ArtifactCleaner.cleanupWorkflowArtifacts() … ワークフローディレクトリ削除

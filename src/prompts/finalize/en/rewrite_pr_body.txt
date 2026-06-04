@@ -29,6 +29,17 @@ Follow the template structure below and fill in each section with appropriate co
 5. **Test Results Summary**: Summarize test execution results. If test information is not available, state "Test information is not available".
 6. **Impact Scope**: Describe the scope of functions/modules affected by this change. If there is no impact on existing functionality, explicitly state so.
 
+## Output Method
+
+**IMPORTANT**: Write the PR body content as a Markdown file to the following absolute path.
+
+**Output file path**: `{output_file_path}`
+
+- You MUST write the file to the specified path using the Write tool
+- The output must be saved as a file, not printed to console
+- Do NOT use relative paths or `/workspace` prefixes. Use the absolute path above as-is
+- Output only in Markdown format (do NOT wrap in code blocks or JSON)
+
 ## Quality Requirements
 
 - Write concise and specific descriptions
