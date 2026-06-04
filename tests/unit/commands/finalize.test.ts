@@ -15,6 +15,7 @@ import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globa
 import type { FinalizeCommandOptions } from '../../../src/commands/finalize.js';
 import { MetadataManager } from '../../../src/core/metadata-manager.js';
 import * as path from 'node:path';
+import os from 'node:os';
 import fs from 'fs-extra';
 
 describe('Finalize コマンド - バリデーション（validateFinalizeOptions）', () => {
@@ -1065,13 +1066,13 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
     jest.restoreAllMocks();
   });
 
-  // TC-BPC-01: プロンプトテンプレートへの変数埋め込み
+  // TC-BPC-01: プロンプトテンプレートへの変数埋め込み（{output_file_path} 追加: Issue #894）
   describe('TC-BPC-01: プロンプトテンプレートへの変数埋め込み', () => {
-    test('すべてのテンプレート変数が正しく埋め込まれる', async () => {
-      // Given: PromptLoader をモック
+    test('すべてのテンプレート変数（{output_file_path} 含む）が正しく埋め込まれる', async () => {
+      // Given: PromptLoader をモック（{output_file_path} を含むテンプレート）
       const { PromptLoader } = await import('../../../src/core/prompt-loader.js');
       jest.spyOn(PromptLoader, 'loadPrompt').mockReturnValue(
-        'Issue #{issue_number}: {issue_title}\nDiff:\n{diff_content}\nOutputs:\n{phase_outputs}\nTemplate:\n{template_structure}'
+        'Issue #{issue_number}: {issue_title}\nDiff:\n{diff_content}\nOutputs:\n{phase_outputs}\nTemplate:\n{template_structure}\nOutput: {output_file_path}'
       );
       jest.spyOn(PromptLoader, 'loadTemplate').mockReturnValue('## テンプレート構造');
 
@@ -1082,8 +1083,8 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
         totalCount: 7,
       };
 
-      // When: buildPromptContext を呼び出す
-      const result = buildPromptContext(123, 'テスト機能の追加', diffContext, phaseOutputs, 'ja');
+      // When: buildPromptContext を呼び出す（outputFilePath 引数追加: Issue #894）
+      const result = buildPromptContext(123, 'テスト機能の追加', diffContext, phaseOutputs, 'ja', '/tmp/test-output.md');
 
       // Then: すべての変数が置換されている
       expect(result).not.toContain('{issue_number}');
@@ -1091,9 +1092,12 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
       expect(result).not.toContain('{diff_content}');
       expect(result).not.toContain('{phase_outputs}');
       expect(result).not.toContain('{template_structure}');
+      // Issue #894: {output_file_path} も置換されている
+      expect(result).not.toContain('{output_file_path}');
       expect(result).toContain('123');
       expect(result).toContain('テスト機能の追加');
       expect(result).toContain('diff content here');
+      expect(result).toContain('/tmp/test-output.md');
     });
   });
 
@@ -1112,8 +1116,8 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
         totalCount: 7,
       };
 
-      // When: buildPromptContext を呼び出す
-      const result = buildPromptContext(1, 'test', diffContext, phaseOutputs, 'ja');
+      // When: buildPromptContext を呼び出す（outputFilePath 引数追加: Issue #894）
+      const result = buildPromptContext(1, 'test', diffContext, phaseOutputs, 'ja', '/tmp/test-output.md');
 
       // Then: 各フェーズが正しい形式で含まれる
       expect(result).toContain('### planning\n\n計画');
@@ -1135,8 +1139,8 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
       const diffContext = { content: '', wasTruncated: false, filesChanged: 0 };
       const phaseOutputs = { outputs: {}, collectedCount: 0, totalCount: 7 };
 
-      // When: buildPromptContext を呼び出す
-      buildPromptContext(1, 'test', diffContext, phaseOutputs, 'ja');
+      // When: buildPromptContext を呼び出す（outputFilePath 引数追加: Issue #894）
+      buildPromptContext(1, 'test', diffContext, phaseOutputs, 'ja', '/tmp/test-output.md');
 
       // Then: 日本語パラメータで呼び出される
       expect(loadPromptSpy).toHaveBeenCalledWith('finalize', 'rewrite_pr_body', 'ja');
@@ -1155,8 +1159,8 @@ describe('Finalize コマンド - AI Rewrite: buildPromptContext', () => {
       const diffContext = { content: '', wasTruncated: false, filesChanged: 0 };
       const phaseOutputs = { outputs: {}, collectedCount: 0, totalCount: 7 };
 
-      // When: buildPromptContext を呼び出す
-      buildPromptContext(1, 'test', diffContext, phaseOutputs, 'en');
+      // When: buildPromptContext を呼び出す（outputFilePath 引数追加: Issue #894）
+      buildPromptContext(1, 'test', diffContext, phaseOutputs, 'en', '/tmp/test-output.md');
 
       // Then: 英語パラメータで呼び出される
       expect(loadPromptSpy).toHaveBeenCalledWith('finalize', 'rewrite_pr_body', 'en');
@@ -1203,5 +1207,52 @@ describe('Finalize コマンド - AI Rewrite: 定数エクスポート', () => {
   test('MAX_DIFF_FILES_THRESHOLD が 300 である', async () => {
     const { MAX_DIFF_FILES_THRESHOLD } = await import('../../../src/commands/finalize.js');
     expect(MAX_DIFF_FILES_THRESHOLD).toBe(300);
+  });
+});
+
+// =========================================================================
+// Issue #894: generatePrBodyOutputFilePath テスト（TC-OFP-01〜03）
+// =========================================================================
+describe('Finalize コマンド - AI Rewrite: generatePrBodyOutputFilePath（Issue #894）', () => {
+  let generatePrBodyOutputFilePath: typeof import('../../../src/commands/finalize.js').generatePrBodyOutputFilePath;
+
+  beforeEach(async () => {
+    const mod = await import('../../../src/commands/finalize.js');
+    generatePrBodyOutputFilePath = mod.generatePrBodyOutputFilePath;
+  });
+
+  // TC-OFP-01: 一意なファイルパスの生成
+  describe('TC-OFP-01: 一意なファイルパスの生成', () => {
+    test('generatePrBodyOutputFilePath() を複数回呼び出した場合に異なるパスが生成される', () => {
+      // When: 2回呼び出す
+      const path1 = generatePrBodyOutputFilePath();
+      const path2 = generatePrBodyOutputFilePath();
+
+      // Then: 異なるパスが生成される
+      expect(path1).not.toBe(path2);
+    });
+  });
+
+  // TC-OFP-02: パスフォーマットの検証
+  describe('TC-OFP-02: パスフォーマットの検証', () => {
+    test('生成されるパスが pr-body-rewrite-{digits}-{alphanumeric}.md パターンに一致する', () => {
+      // When: generatePrBodyOutputFilePath を呼び出す
+      const filePath = generatePrBodyOutputFilePath();
+      const fileName = path.basename(filePath);
+
+      // Then: 正しいフォーマットである
+      expect(fileName).toMatch(/^pr-body-rewrite-\d+-[a-z0-9]+\.md$/);
+    });
+  });
+
+  // TC-OFP-03: os.tmpdir() 配下であることの検証
+  describe('TC-OFP-03: os.tmpdir() 配下であることの検証', () => {
+    test('生成されるパスが os.tmpdir() ディレクトリ配下である', () => {
+      // When: generatePrBodyOutputFilePath を呼び出す
+      const filePath = generatePrBodyOutputFilePath();
+
+      // Then: os.tmpdir() 配下である
+      expect(filePath.startsWith(os.tmpdir())).toBe(true);
+    });
   });
 });

@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Issue #894**: `finalize --ai-rewrite` 実行時にPRボディがJSON文字列として埋め込まれる不具合を修正（ファイルベース出力方式への変更）
+  - **問題**: `claude-agent-client.ts` の `JSON.stringify(sanitizedMessage)` によって各エージェントメッセージがJSON文字列に変換され、`messages.join('\n').trim()` で結合されることで、PRボディが `{"type":"message","content":"..."}` のようなJSON文字列の羅列となりMarkdownとして正しくレンダリングされなかった
+  - **対応**: `issue-generator.ts` 等で確立済みのファイルベース出力パターンを `finalize.ts` に適用。エージェントにMarkdownファイルを `os.tmpdir()` 配下に直接書き込ませ、そのファイルを読み込んでPRボディとして使用する方式に変更
+  - **`generatePrBodyOutputFilePath()`**: `os.tmpdir()` + タイムスタンプ + ランダム文字列による一意なファイルパス（`pr-body-rewrite-{timestamp}-{random}.md`）を生成する関数を新規追加
+  - **`buildPromptContext()`**: `outputFilePath: string` 引数を追加し、プロンプトテンプレートに `{output_file_path}` 変数として埋め込む（`replaceAll()` 使用、ReDoS防止規約準拠）
+  - **`generateAiRewrittenPrBody()`**: エージェント実行後に `messages.join('\n').trim()` でPRボディを抽出する処理を廃止し、ファイル読み込み（`fs.readFileSync`）に変更。ファイル未出力・空ファイル時は `fallbackBody` にフォールバック。`try-finally` パターンで一時ファイルを確実にクリーンアップ（クリーンアップ失敗は非ブロッキング）
+  - **プロンプト（日英）**: `src/prompts/finalize/ja/rewrite_pr_body.txt` と `src/prompts/finalize/en/rewrite_pr_body.txt` に「出力方法 / Output Method」セクションを追加し、指定された絶対パスへのWriteツールによるファイル出力を指示
+  - 変更ファイル: `src/commands/finalize.ts`、`src/prompts/finalize/ja/rewrite_pr_body.txt`、`src/prompts/finalize/en/rewrite_pr_body.txt`
+  - テストカバレッジ: `tests/unit/commands/finalize.test.ts`（44テスト: TC-OFP-01〜03新規追加、TC-BPC-01〜05更新）、`tests/integration/finalize-ai-rewrite.test.ts`（14テスト: IT-AIR-01〜12更新、IT-AIR-13〜14新規追加）。`npm run validate` PASS（3,898件成功・35件スキップ・0件失敗）
+
 - **Issue #882**: `testing` フェーズで物理制約により検証不能な受け入れ基準が3回失敗で停止する仕様を緩和（案B: 検証不能項目の正規出口）
   - **問題**: 実機ハードウェア・SaaS 本番環境・特定 OS・ライセンス制約のあるツール等の物理的制約により検証不能な受け入れ基準が含まれていると、`testing.review()` の品質ゲートを満たせず、`revise()` が最大3回リトライした後にワークフロー全体が例外で停止していた
   - **対応**: testing フェーズのプロンプト（execute/review/revise）と report フェーズのプロンプトに「検証不能項目（物理制約）」の正規化された出口を追加。TypeScript コードの変更はなし（プロンプトのみの改修）
