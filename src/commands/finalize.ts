@@ -9,6 +9,7 @@
  */
 
 import * as fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import simpleGit from 'simple-git';
 import { logger } from '../utils/logger.js';
@@ -153,6 +154,24 @@ export const MAX_DIFF_LENGTH = 50_000;
 
 /** diff ファイル数の上限閾値 */
 export const MAX_DIFF_FILES_THRESHOLD = 300;
+
+// =========================================================================
+// AI Rewrite ファイルベース出力（Issue #894）
+// =========================================================================
+
+/**
+ * generatePrBodyOutputFilePath - AIリライト用の一時出力ファイルパスを生成する
+ *
+ * FR-001 に基づき、os.tmpdir() 配下に一意なファイルパスを生成する。
+ * issue-generator.ts の generateOutputFilePath() と同一パターンを採用。
+ *
+ * @returns 一時ディレクトリ内のユニークなファイルパス（絶対パス）
+ */
+export function generatePrBodyOutputFilePath(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return path.join(os.tmpdir(), `pr-body-rewrite-${timestamp}-${random}.md`);
+}
 
 // =========================================================================
 // メインフロー
@@ -755,6 +774,7 @@ export function extractDiffFileSummary(diffText: string): string {
  * @param diffContext - diff情報
  * @param phaseOutputs - フェーズ成果物
  * @param language - 言語設定
+ * @param outputFilePath - エージェント出力先ファイルパス（FR-002追加、Issue #894）
  * @returns 構築されたプロンプト文字列
  */
 export function buildPromptContext(
@@ -763,6 +783,7 @@ export function buildPromptContext(
   diffContext: DiffContext,
   phaseOutputs: CollectedPhaseOutputs,
   language: SupportedLanguage,
+  outputFilePath: string,
 ): string {
   // プロンプトテンプレートの読み込み
   const promptTemplate = PromptLoader.loadPrompt(
@@ -789,6 +810,8 @@ export function buildPromptContext(
   prompt = prompt.replaceAll('{diff_content}', diffContext.content);
   prompt = prompt.replaceAll('{phase_outputs}', phaseOutputsText);
   prompt = prompt.replaceAll('{template_structure}', bodyTemplate);
+  // Issue #894: ファイルベース出力パス変数の埋め込み
+  prompt = prompt.replaceAll('{output_file_path}', outputFilePath);
 
   return prompt;
 }
@@ -879,8 +902,13 @@ export async function executeAgentTask(
 /**
  * generateAiRewrittenPrBody - AIエージェントを使ってレビュアー向けPRボディを生成する
  *
- * FR-005, FR-008 に基づき、エージェントを呼び出してPRボディを生成し、
+ * FR-003, FR-004, FR-005 に基づき、エージェントを呼び出してPRボディをファイルベースで生成し、
  * 失敗時はフォールバックチェーンに従って安全にリカバリーする。
+ *
+ * Issue #894: ファイルベース出力パターンへの変更
+ * - エージェントにMarkdownファイルを直接出力させる
+ * - ファイルから読み込んでPRボディとして使用する
+ * - try-finally パターンで一時ファイルのクリーンアップを保証する
  *
  * @param metadataManager - メタデータマネージャー
  * @param options - CLIオプション
@@ -905,20 +933,24 @@ async function generateAiRewrittenPrBody(
   const issueTitle = metadataManager.data.issue_title ?? 'Unknown';
   const repoDir = path.dirname(path.dirname(metadataManager.workflowDir));
 
+  // Issue #894 Step 2: 出力ファイルパス生成
+  const outputFilePath = generatePrBodyOutputFilePath();
+
   try {
     // Step 1: diff取得
     const diffContext = await getDiffForPrompt(prClient, prNumber);
 
-    // Step 2: プロンプト構築
+    // Step 3: プロンプト構築（outputFilePath を渡す）
     const prompt = buildPromptContext(
       issueNumber,
       issueTitle,
       diffContext,
       collectedOutputs,
       language,
+      outputFilePath,
     );
 
-    // Step 3: エージェント初期化
+    // Step 4: エージェント初期化
     const homeDir = config.getHomeDir();
     const credentials = resolveAgentCredentials(homeDir, repoDir);
     const agentMode = options.agent ?? 'auto';
@@ -936,22 +968,31 @@ async function generateAiRewrittenPrBody(
       return fallbackBody;
     }
 
-    // Step 4: エージェント実行（フォールバック付き）
-    const messages = await executeAgentTask(
+    // Step 5: エージェント実行（フォールバック付き）
+    // Issue #894: 戻り値の messages は使用しない（ファイルから読み込む）
+    await executeAgentTask(
       prompt,
       claudeClient,
       codexClient,
     );
 
-    // Step 5: 出力テキスト抽出
-    const generatedBody = messages.join('\n').trim();
-
-    if (!generatedBody) {
-      logger.warn('AI agent returned empty output. Falling back to default PR body.');
+    // Issue #894 Step 6: ファイルからPRボディを読み込む
+    let generatedBody = '';
+    if (fs.existsSync(outputFilePath)) {
+      generatedBody = fs.readFileSync(outputFilePath, 'utf-8').trim();
+      logger.info(`Read AI-generated PR body from file: ${outputFilePath}`);
+    } else {
+      logger.warn(`AI agent output file not found: ${outputFilePath}. Falling back to default PR body.`);
       return fallbackBody;
     }
 
-    // Step 6: 必須セクション検証
+    // Issue #894 Step 7: 空ファイルチェック
+    if (!generatedBody) {
+      logger.warn('AI agent output file is empty. Falling back to default PR body.');
+      return fallbackBody;
+    }
+
+    // Step 8: 必須セクション検証（変更なし）
     if (!validateRequiredSections(generatedBody, language)) {
       logger.warn('AI-generated PR body missing required sections. Falling back to default PR body.');
       return fallbackBody;
@@ -962,5 +1003,15 @@ async function generateAiRewrittenPrBody(
   } catch (error: unknown) {
     logger.warn(`AI rewrite failed: ${getErrorMessage(error)}. Falling back to default PR body.`);
     return fallbackBody;
+  } finally {
+    // Issue #894 Step 9: 一時ファイルのクリーンアップ
+    try {
+      if (fs.existsSync(outputFilePath)) {
+        fs.unlinkSync(outputFilePath);
+        logger.debug(`Cleaned up output file: ${outputFilePath}`);
+      }
+    } catch (cleanupError: unknown) {
+      logger.debug(`Failed to cleanup output file: ${getErrorMessage(cleanupError)}`);
+    }
   }
 }

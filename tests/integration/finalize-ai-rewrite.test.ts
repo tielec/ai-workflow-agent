@@ -12,7 +12,9 @@
  */
 import { jest } from '@jest/globals';
 import fs from 'fs-extra';
+import * as nodeFs from 'node:fs';
 import * as path from 'node:path';
+import os from 'node:os';
 
 // =========================================================================
 // Mock function declarations（top-level hoisting for ESM）
@@ -358,16 +360,17 @@ describe('Integration: Finalize AI Rewrite', () => {
     mockGetGitHubRepository.mockReturnValue('owner/repo');
     mockGetReposRoot.mockReturnValue(null);
 
-    // Prompt & Template
+    // Prompt & Template（Issue #894: {output_file_path} 変数を追加）
     const promptTemplate = language === 'ja'
-      ? 'あなたはPRリライトの専門家です。\n\n## Issue情報\n- Issue番号: {issue_number}\n- タイトル: {issue_title}\n\n## Diff\n{diff_content}\n\n## フェーズ成果物\n{phase_outputs}\n\n## テンプレート\n{template_structure}'
-      : 'You are a PR rewrite expert.\n\n## Issue Info\n- Issue: {issue_number}\n- Title: {issue_title}\n\n## Diff\n{diff_content}\n\n## Phase Outputs\n{phase_outputs}\n\n## Template\n{template_structure}';
+      ? 'あなたはPRリライトの専門家です。\n\n## Issue情報\n- Issue番号: {issue_number}\n- タイトル: {issue_title}\n\n## Diff\n{diff_content}\n\n## フェーズ成果物\n{phase_outputs}\n\n## 出力方法\n出力先ファイルパス: `{output_file_path}`\n\n## テンプレート\n{template_structure}'
+      : 'You are a PR rewrite expert.\n\n## Issue Info\n- Issue: {issue_number}\n- Title: {issue_title}\n\n## Diff\n{diff_content}\n\n## Phase Outputs\n{phase_outputs}\n\n## Output Method\nOutput file path: `{output_file_path}`\n\n## Template\n{template_structure}';
     mockLoadPrompt.mockReturnValue(promptTemplate);
     mockLoadTemplate.mockReturnValue(language === 'ja' ? '## テンプレート構造' : '## Template Structure');
   }
 
   /**
    * Setup agent mocks for successful Claude execution
+   * Issue #894: ファイル書き込みシミュレーションに変更
    */
   function setupClaudeSuccess(body: string = VALID_PR_BODY_JA): void {
     mockResolveAgentCredentials.mockReturnValue({
@@ -379,11 +382,20 @@ describe('Integration: Finalize AI Rewrite', () => {
       claudeClient: { executeTask: mockClaudeExecuteTask },
       codexClient: null,
     });
-    mockClaudeExecuteTask.mockResolvedValue([body]);
+    // Issue #894: ファイル書き込みシミュレーション
+    // プロンプトから出力ファイルパスを抽出し、そのパスにPRボディを書き込む
+    mockClaudeExecuteTask.mockImplementation(async (options: { prompt: string }) => {
+      const match = options.prompt.match(/`(\/[^`]+pr-body-rewrite-[^`]+\.md)`/);
+      if (match) {
+        nodeFs.writeFileSync(match[1], body, 'utf-8');
+      }
+      return ['agent executed successfully'];
+    });
   }
 
   /**
    * Setup agent mocks for Claude + Codex fallback
+   * Issue #894: Codex もファイル書き込みシミュレーションに変更
    */
   function setupClaudeFailCodexSuccess(codexBody: string = VALID_PR_BODY_JA): void {
     mockResolveAgentCredentials.mockReturnValue({
@@ -396,7 +408,14 @@ describe('Integration: Finalize AI Rewrite', () => {
       codexClient: { executeTask: mockCodexExecuteTask },
     });
     mockClaudeExecuteTask.mockRejectedValue(new Error('Claude API error'));
-    mockCodexExecuteTask.mockResolvedValue([codexBody]);
+    // Issue #894: Codex もファイル書き込みシミュレーション
+    mockCodexExecuteTask.mockImplementation(async (options: { prompt: string }) => {
+      const match = options.prompt.match(/`(\/[^`]+pr-body-rewrite-[^`]+\.md)`/);
+      if (match) {
+        nodeFs.writeFileSync(match[1], codexBody, 'utf-8');
+      }
+      return ['codex agent executed successfully'];
+    });
   }
 
   /**
@@ -469,6 +488,12 @@ describe('Integration: Finalize AI Rewrite', () => {
       // Success log was output
       const infoMessages = mockLoggerInfo.mock.calls.map((c: unknown[]) => c[0]);
       expect(infoMessages.some((m: string) => m.includes('AI rewrite of PR body completed successfully'))).toBe(true);
+
+      // Issue #894: ファイル読み込みログの確認
+      expect(infoMessages.some((m: string) => m.includes('Read AI-generated PR body from file:'))).toBe(true);
+
+      // Issue #894: PRボディにJSON文字列が含まれないことを確認
+      expect(updateArgs[1]).not.toContain('{"type":"message"');
     });
   });
 
@@ -510,6 +535,9 @@ describe('Integration: Finalize AI Rewrite', () => {
       expect(mockUpdatePullRequest).toHaveBeenCalledTimes(1);
       const updateArgs = mockUpdatePullRequest.mock.calls[0];
       expect(updateArgs[1]).toContain('Summary'); // English required section
+
+      // Issue #894: PRボディにJSON文字列が含まれないことを確認
+      expect(updateArgs[1]).not.toContain('{"type":"message"');
     });
   });
 
@@ -640,10 +668,10 @@ describe('Integration: Finalize AI Rewrite', () => {
   });
 
   // =============================================================================
-  // IT-AIR-06: AI生成結果が空→フォールバック
+  // IT-AIR-06: AI生成結果が空→フォールバック（Issue #894: ファイル未出力シナリオに変更）
   // =============================================================================
-  describe('IT-AIR-06: generateAiRewrittenPrBody フォールバック系 - AI生成結果が空', () => {
-    test('エージェントが空配列を返した場合にフォールバックする', async () => {
+  describe('IT-AIR-06: generateAiRewrittenPrBody フォールバック系 - ファイル未出力', () => {
+    test('エージェントがファイルを出力しなかった場合にフォールバックする', async () => {
       // Given
       createPhaseOutputFiles('ja');
       setupStandardMocks('ja');
@@ -653,7 +681,7 @@ describe('Integration: Finalize AI Rewrite', () => {
         filesChanged: 1,
       });
 
-      // Claude returns empty array (no Codex available)
+      // Issue #894: エージェントは成功するがファイル書き込みを行わないモック設定
       mockResolveAgentCredentials.mockReturnValue({
         claudeCodeToken: 'test-token',
         codexApiKey: null,
@@ -663,7 +691,8 @@ describe('Integration: Finalize AI Rewrite', () => {
         claudeClient: { executeTask: mockClaudeExecuteTask },
         codexClient: null,
       });
-      mockClaudeExecuteTask.mockResolvedValue([]);
+      // ファイル書き込みなしで成功を返す
+      mockClaudeExecuteTask.mockResolvedValue(['agent ran but did not write file']);
 
       const options: FinalizeCommandOptions = {
         issue: '123',
@@ -678,16 +707,15 @@ describe('Integration: Finalize AI Rewrite', () => {
       const updateArgs = mockUpdatePullRequest.mock.calls[0];
       expect(updateArgs[1]).toContain('変更サマリー');
 
-      // Warning about empty result
+      // Issue #894: ファイル未出力警告の確認
       const warnMessages = mockLoggerWarn.mock.calls.map((c: unknown[]) => c[0]);
-      const hasEmptyWarning = warnMessages.some((m: string) =>
+      const hasFileNotFoundWarning = warnMessages.some((m: string) =>
         typeof m === 'string' && (
-          m.includes('empty result') ||
-          m.includes('empty output') ||
+          m.includes('AI agent output file not found') ||
           m.includes('AI rewrite failed')
         ),
       );
-      expect(hasEmptyWarning).toBe(true);
+      expect(hasFileNotFoundWarning).toBe(true);
     });
   });
 
@@ -937,6 +965,98 @@ describe('Integration: Finalize AI Rewrite', () => {
       const infoMessages = mockLoggerInfo.mock.calls.map((c: unknown[]) => c[0]);
       expect(infoMessages.some((m: string) =>
         typeof m === 'string' && m.includes('AI rewrite of PR body completed successfully'),
+      )).toBe(true);
+    });
+  });
+
+  // =============================================================================
+  // IT-AIR-13: ファイル未出力時のフォールバック（統合）（Issue #894 新規）
+  // =============================================================================
+  describe('IT-AIR-13: ファイル未出力時のフォールバック（統合）', () => {
+    test('エージェントがファイルを書き込まなかった場合に fallbackBody がPR更新に使用される', async () => {
+      // Given
+      createPhaseOutputFiles('ja');
+      setupStandardMocks('ja');
+      mockGetPullRequestDiff.mockResolvedValue({
+        diff: MOCK_SMALL_DIFF,
+        truncated: false,
+        filesChanged: 1,
+      });
+
+      // Claude が正常終了するがファイル書き込みをしないモック設定
+      mockResolveAgentCredentials.mockReturnValue({
+        claudeCodeToken: 'test-claude-token',
+        codexApiKey: null,
+        claudeCredentialsPath: null,
+      });
+      mockSetupAgentClients.mockReturnValue({
+        claudeClient: { executeTask: mockClaudeExecuteTask },
+        codexClient: null,
+      });
+      // ファイル書き込みなしで成功を返す
+      mockClaudeExecuteTask.mockResolvedValue(['agent executed but no file written']);
+
+      const options: FinalizeCommandOptions = {
+        issue: '123',
+        aiRewrite: true,
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: fallbackBody（変更サマリーを含む）でPRが更新される
+      expect(mockUpdatePullRequest).toHaveBeenCalledTimes(1);
+      const updateArgs = mockUpdatePullRequest.mock.calls[0];
+      expect(updateArgs[1]).toContain('変更サマリー');
+
+      // ファイル未出力の警告ログが出力される
+      const warnMessages = mockLoggerWarn.mock.calls.map((c: unknown[]) => c[0]);
+      expect(warnMessages.some((m: string) =>
+        typeof m === 'string' && m.includes('AI agent output file not found'),
+      )).toBe(true);
+
+      // finalize処理が正常に完了する（例外なし）
+      expect(mockMarkPRReady).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // =============================================================================
+  // IT-AIR-14: 一時ファイルのクリーンアップ確認（統合）（Issue #894 新規）
+  // =============================================================================
+  describe('IT-AIR-14: 一時ファイルのクリーンアップ確認（統合）', () => {
+    test('エージェント実行後に一時ファイルが確実に削除されている', async () => {
+      // Given
+      createPhaseOutputFiles('ja');
+      setupStandardMocks('ja');
+      setupClaudeSuccess(VALID_PR_BODY_JA);
+      mockGetPullRequestDiff.mockResolvedValue({
+        diff: MOCK_SMALL_DIFF,
+        truncated: false,
+        filesChanged: 1,
+      });
+
+      const options: FinalizeCommandOptions = {
+        issue: '123',
+        aiRewrite: true,
+      };
+
+      // When
+      await handleFinalizeCommand(options);
+
+      // Then: finalize処理が正常に完了する
+      expect(mockUpdatePullRequest).toHaveBeenCalledTimes(1);
+      const updateArgs = mockUpdatePullRequest.mock.calls[0];
+      expect(updateArgs[1]).toContain('変更概要');
+
+      // os.tmpdir() 内に pr-body-rewrite-*.md パターンのファイルが残っていないことを確認
+      const tmpFiles = nodeFs.readdirSync(os.tmpdir());
+      const leftoverFiles = tmpFiles.filter((f: string) => f.startsWith('pr-body-rewrite-') && f.endsWith('.md'));
+      expect(leftoverFiles).toHaveLength(0);
+
+      // クリーンアップ成功ログの出力確認
+      const debugMessages = mockLoggerDebug.mock.calls.map((c: unknown[]) => c[0]);
+      expect(debugMessages.some((m: string) =>
+        typeof m === 'string' && m.includes('Cleaned up output file:'),
       )).toBe(true);
     });
   });
