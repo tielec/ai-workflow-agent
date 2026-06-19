@@ -365,7 +365,7 @@ node dist/index.js execute --issue <NUM> --phase <PHASE_NAME>
 - `src/core/github-client.ts`: GitHub Octokit ラッパー（402行）
 
 **メタデータ管理**:
-- `src/core/metadata-manager.ts`: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作（347行）
+- `src/core/metadata-manager.ts`: `.ai-workflow/issue-*/metadata.json` に対する CRUD 操作（347行）。`addCost()` はオプショナル引数 `agent?`/`model?` でモデル別コスト集計に対応（Issue #854）
 
 **詳細なアーキテクチャ情報は [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) を参照してください。**
 

@@ -195,6 +195,10 @@ export class WorkflowState {
       logger.info('Migrating metadata.json: Adding cost_tracking');
       this.data.cost_tracking = { ...template.cost_tracking };
       migrated = true;
+    } else if (!('model_usage' in this.data.cost_tracking) || !this.data.cost_tracking.model_usage) {
+      logger.info('Migrating metadata.json: Adding cost_tracking.model_usage');
+      this.data.cost_tracking.model_usage = {};
+      migrated = true;
     }
 
     // Workflow version

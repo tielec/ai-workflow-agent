@@ -93,10 +93,13 @@ export function validateProposedChanges(comment: ResponsePlanComment): void {
 export function applyPlanDefaults(
   plan: ResponsePlan,
   options: PRCommentAnalyzeOptions,
+  analyzerAgent?: 'auto' | 'codex' | 'claude' | 'fallback',
+  analyzerModel?: string | null,
 ): ResponsePlan {
   return {
     ...plan,
     analyzed_at: plan.analyzed_at ?? new Date().toISOString(),
-    analyzer_agent: plan.analyzer_agent ?? (options.agent ?? 'auto'),
+    analyzer_agent: plan.analyzer_agent ?? analyzerAgent ?? (options.agent ?? 'auto'),
+    analyzer_model: plan.analyzer_model ?? analyzerModel ?? null,
   };
 }

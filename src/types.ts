@@ -234,10 +234,19 @@ export interface DesignDecisions {
   [key: string]: string | null;
 }
 
+export interface ModelUsageEntry {
+  agent: 'claude' | 'codex';
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
 export interface CostTracking {
   total_input_tokens: number;
   total_output_tokens: number;
   total_cost_usd: number;
+  model_usage?: Record<string, ModelUsageEntry>;
 }
 
 /**

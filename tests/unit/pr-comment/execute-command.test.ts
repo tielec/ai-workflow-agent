@@ -245,4 +245,35 @@ describe('handlePRCommentExecuteCommand', () => {
     expect(codeChangeApplyMock).not.toHaveBeenCalled();
     expect(githubReplyMock).toHaveBeenCalledTimes(1);
   });
+
+  it('response-plan の analyzer 情報を使ってモデル別コストを記録する', async () => {
+    pendingComments = [buildComment(300, 'reply')];
+    responsePlan = {
+      pr_number: 123,
+      analyzer_agent: 'codex',
+      analyzer_model: 'gpt-5.2-codex',
+      comments: [
+        {
+          comment_id: '300',
+          type: 'reply',
+          confidence: 'high',
+          reply_message: 'handled',
+          proposed_changes: [],
+          input_tokens: 120,
+          output_tokens: 45,
+          cost_usd: 0.0123,
+        },
+      ],
+    };
+
+    await handlePRCommentExecuteCommand({ pr: '123', agent: 'auto' });
+
+    expect(currentMetadataManager.updateCostTracking).toHaveBeenCalledWith(
+      120,
+      45,
+      0.0123,
+      'codex',
+      'gpt-5.2-codex',
+    );
+  });
 });

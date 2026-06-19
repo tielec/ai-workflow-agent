@@ -3,6 +3,8 @@
  * Issue #383
  */
 
+import type { ModelUsageEntry } from '../types.js';
+
 /**
  * コメント対応ステータス
  */
@@ -214,6 +216,9 @@ export interface CostTracking {
 
   /** 概算コスト（USD） */
   total_cost_usd: number;
+
+  /** モデル別の使用量とコスト */
+  model_usage?: Record<string, ModelUsageEntry>;
 }
 
 /**
@@ -337,6 +342,7 @@ export interface ResponsePlan {
   pr_number: number;
   analyzed_at: string;
   analyzer_agent: string;
+  analyzer_model?: string | null;
   comments: ResponsePlanComment[];
 }
 

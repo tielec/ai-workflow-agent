@@ -35,6 +35,23 @@ interface ProcessResult {
   reply_comment_id?: number | null;
 }
 
+function resolvePlanCostTrackingMetadata(plan: ResponsePlan): {
+  agent?: 'claude' | 'codex';
+  model?: string;
+} {
+  if (
+    (plan.analyzer_agent === 'claude' || plan.analyzer_agent === 'codex') &&
+    plan.analyzer_model
+  ) {
+    return {
+      agent: plan.analyzer_agent,
+      model: plan.analyzer_model,
+    };
+  }
+
+  return {};
+}
+
 /**
  * pr-comment execute コマンドハンドラ
  */
@@ -230,6 +247,7 @@ async function processComment(
 
     logger.debug(`Processing comment #${commentId} (type: ${planComment.type})`);
     validateProposedChanges(planComment);
+    const costTrackingMetadata = resolvePlanCostTrackingMetadata(responsePlan);
 
     const costTracking = {
       inputTokens: planComment.input_tokens ?? 0,
@@ -285,6 +303,8 @@ async function processComment(
         costTracking.inputTokens,
         costTracking.outputTokens,
         costTracking.costUsd,
+        costTrackingMetadata.agent,
+        costTrackingMetadata.model,
       );
     }
     await metadataManager.setReplyCommentId(commentId, reply.id);
